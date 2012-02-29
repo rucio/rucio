@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+
+"""
+    Rucio CLI.
+"""
+
+import functools
+import gettext
+import optparse
+import os
+import sys
+import time
+
+from urlparse import urlparse
+
+
+if __name__ == '__main__':
+    usage = """
+%prog <command> [options] [args]
+
+Commands:
+
+    help <command>  Output help for one of the commands below
+
+"""
