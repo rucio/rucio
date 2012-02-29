@@ -1,0 +1,30 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig (CERN PH-ADP),    <mario.lassnig@cern.ch>,   2011
+# - Vincent Garonne (CERN, PH-ADP), <vincent.garonne@cern.ch>, 2011
+
+# build directories
+doc/build/
+build/
+lib/rucio.egg-info/
+dist/
+examples/whip/results/
+
+# Backup and temp files
+*.swp
+*~
+*.pyc
+*.swp
+*.log
+.rucio-venv
+.venv
+rucio.egg-info
+rucio/lib/vcsversion.py
+
+# Mac OS X Finder
+.DS_Store

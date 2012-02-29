@@ -1,0 +1,43 @@
+#+TITLE:   2012/02/23 Rucio Meeting on Rucio Storage Elements
+#+PRESENT: Armin, Vincent, Angelos, Martin, Thomas, Luis, Mario
+
+* What is an Rucio Storage Element (RSE)?
+** Two opinions:
+*** A) RSE is what now is a Space-Token (Endpoint) in ToA
+*** B) RSE is a real, physical storage system (like CERN EOS, or CERN CASTOR)
+
+* Option B)
+** Typical CERN RSE's would be:   
+   CERN_EOS
+   CERN_CASTOR_DISK
+   CERN_CASTOR_TAPE
+** Problem with the logical partition of the space (a.k.a.) Spacetokens
+   Currently a storage system is logically partitioned into sub-spaces
+   /mcdisk
+   /datadisk
+   /userdisk
+   /scratchdisk
+** Do we need a separation like this in Rucio? e.g. for each RSE there exists a set of prefixes
+   The current logical partioning of the space was done because of a lack of proper accounting
+   So maybe we do not need this anymore?
+*** Problem with prefixes = the actual identifier of storage-space would consists of RSE+prefix
+** Each RSE consists of a set of services as well (SRM, FTS, HTTP, ...)
+   |----------+-----------------+------+-------+-------------|
+   | Protocol | hostname        | port | async | localaccess |
+   |----------+-----------------+------+-------+-------------|
+   | SRM      | srm.eos.cern.ch |      | No    |             |
+   | FTS      |                 |      |       |             |
+   | HTTP     |                 |      |       |             |
+   | HTTP     |                 |      |       |             |
+   | file     |                 |      |       |             |
+*** Problem: For FTS there is actually a distinction of using specific servers for src/dst combinations
+**** Should this be represented in the information system or handled as a special case?
+
+* RSE-TAGS
+** Typical RSE Tags:
+   CERN = [ CERN_EOS, CERN_CASTOR_DISK, CERN_CASTOR_TAPE ]
+   CERN_DISK = [ CERN_EOS, CERN_CASTOR_DISK ]
+   CH_CLOUD = [ CERN, ... ]
+   etc.
+** Do we actually need a K/V approach here
+   e.g. to store contact adresses of CLOUD representatives etc.?

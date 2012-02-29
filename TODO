@@ -1,0 +1,17 @@
+Rucio TODO
+==========
+
+* Design an emulator/load injector/whiper
+* Use case: try to write the code
+* Architecture: 
+* Logging: 
+* Usage/accounting/quota
+* Date placement policies / Subscription / Grouping of file per datasets at a site
+* Dataset replicas
+* Transfer primitives
+* State machines for file transfer/deletion request 
+* Mapping between services/protocols and sites
+* Sequence/flow diagram for the use cases
+* REST interface&implementation: 
+* Token: Auth.: 
+* Migration

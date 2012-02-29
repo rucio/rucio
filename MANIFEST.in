@@ -1,0 +1,18 @@
+include AUTHORS
+include LICENSE
+include ChangeLog
+include README
+include TODO
+include setup.py
+include setup.cfg
+include etc/*
+graft bin
+graft doc
+graft tests
+graft tools
+graft examples
+prune dist 
+prune examples/whip/results/
+recursive-include doc lib *.json *.xml *.cfg README
+global-exclude *.pyc *.log *.db *.swp
+
