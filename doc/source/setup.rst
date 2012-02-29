@@ -52,8 +52,12 @@ extension, PyPi) cannot satisfy. These dependencies should be installed
 prior to using `pip`, and the installation method may vary depending on
 your platform.
 
-Submitting a patch set
+Code Review and Submitting a patch set
 ======================
+
+The code review tool is Gerrit and can be found at::
+
+    https://atlas-gerrit.cern.ch:8443/
 
 In principle, you should always work on a local feature branch until a feature is complete, and then submit the feature as a patch set for review::
 
@@ -87,6 +91,11 @@ In case you need to fix an older commit, stash away your current changes, rebase
     $ git apply                                      # get our changes back
 
 Of course, this is potentionally dangerous if someone has already changed files from any of these commits and pushed them to the official master, so some synchronisation with colleagues might be needed.
+
+If the patch set was reviewed and approved, don't forget to fetch the repository metadata, and, optionally, pull the changes from the origin master again::
+
+    $ git fetch
+    $ git pull
 
 Should you get confused in any way, don't forget that you can always clone the official master branch afresh, pull the necessary commits, and copy the new files over.
 
