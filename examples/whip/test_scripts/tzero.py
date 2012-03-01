@@ -7,12 +7,13 @@
 #
 # Authors:
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2012
+
 '''
 tzero use case:
 #(1)every 600 seconds do :
 #(2)        for each dataset that has new files to upload into DQ2 do :
-#(3)             dq2-register -a -x -C -L … -m <file with data of new files> <DSN> [#calls = O(1500/day), on av. ~ 30 files per call O(40K/day)]
-#(4)             if there will be no more files arriving for this dataset do :
+#(3)             dq2-register -a -x -C -L ... -m <file with data of new files> <DSN> [#calls = O(1500/day), on avg. 30 files per call O(40K/day)]
+#(4)             if there will be no more files arriving for this dataset do:
 #(5)                    dq2-freeze-dataset -x <DSN> [#calls = O(200/day)]
 '''
 
