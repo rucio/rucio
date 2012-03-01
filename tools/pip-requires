@@ -12,11 +12,5 @@ docutils>=0.7
 # Testing
 #pylint                 # static code analysis
 pep8==0.6.1             # checks for PEP8 code style compliance
-multi-mechanize==1.2.0  # Performance Test Framework
 numpy==1.6.1            # Numerical Python libs
-Matplotlib==1.1.0       # Python plotting libs
-#nose                   # for test discovery and console feedback
-#unittest2              # backport of unittest lib in python 2.7
-#webtest                # test wsgi apps without starting an http server
-#mox                    # mock object framework
 
