@@ -197,5 +197,6 @@ To avoid this, you need to create a :file:`~/.pip/pip.conf` with::
 Generating documentation
 ========================
 
+Build the Sphinx documentation with::
 
 	$ python setup.py build_sphinx

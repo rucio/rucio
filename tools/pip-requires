@@ -1,5 +1,4 @@
 cx_Oracle==5.1.1
-pysqlite==2.6.3
 SQLAlchemy==0.7.5  # db backend
 sphinx==1.1.2      # required to build documentation
 Pygments>=1.2
