@@ -99,6 +99,9 @@ def install_dependencies(venv=VENV):
     
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES],
                 redirect_output=False)
+
+    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_TEST],
+                redirect_output=False)
     
     # Tell the virtual env how to "import rucio"
     py_ver  = _detect_python_version(venv)
