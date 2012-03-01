@@ -32,6 +32,7 @@ Make sure that you get the commit-msg hook::
 
     $ cd rucio/.git
     $ scp -p -P 29418 <gerrit_username>@atlas-gerrit.cern.ch:hooks/commit-msg hooks/
+    $ chmod +x hooks/commit-msg
     $ cd ..
 
 When that is complete, you are ready to play.
