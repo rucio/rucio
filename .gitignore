@@ -24,7 +24,7 @@ examples/whip/results/
 .rucio-venv
 .venv
 rucio.egg-info
-rucio/lib/vcsversion.py
+lib/rucio/lib/vcsversion.py
 
 # Mac OS X Finder
 .DS_Store
