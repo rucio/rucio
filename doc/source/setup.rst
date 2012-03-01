@@ -28,9 +28,13 @@ Make a clone of the code from our git repository::
 
     $ git clone ssh://<gerrit_username>@atlas-gerrit.cern.ch:29418/rucio
 
-When that is complete, you can::
+Make sure that you get the commit-msg hook::
 
-    $ cd rucio
+    $ cd rucio/.git
+    $ scp -p -P 29418 <gerrit_username>@atlas-gerrit.cern.ch:hooks/commit-msg hooks/
+    $ cd ..
+
+When that is complete, you are ready to play.
 
 Installing dependencies
 =======================
