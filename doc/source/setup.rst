@@ -16,7 +16,7 @@ This document assumes you have the following tools available on your system:
 - git_
 - setuptools_
 - pip_
-
+- virtualenv_
 
 .. _git: http://git-scm.com/
 .. _setuptools: http://pypi.python.org/pypi/setuptools
@@ -57,7 +57,7 @@ prior to using `pip`, and the installation method may vary depending on
 your platform.
 
 Code Review and Submitting a patch set
-======================
+======================================
 
 The code review tool is Gerrit and can be found at::
 
@@ -106,7 +106,7 @@ Should you get confused in any way, don't forget that you can always clone the o
 TL;DR If something is weird, ask Mario.
 
 PyPi Packages and VirtualEnv
-----------------------------
+============================
 
 We recommend establishing a virtualenv to run rucio within. Virtualenv limits the python environment
 to just what you're installing as depdendencies, useful to keep a clean environment for working on
@@ -192,3 +192,10 @@ To avoid this, you need to create a :file:`~/.pip/pip.conf` with::
 - *username*, which is the registered username on the PyPI server.
 - *password*, that will be used to authenticate. If omitted the user
     will be prompt to type it when needed.
+
+
+Generating documentation
+========================
+
+
+	$ python setup.py build_sphinx
