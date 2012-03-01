@@ -43,22 +43,36 @@ def run_command(cmd, redirect_output=True, check_exit_code=True):
 
 HAS_EASY_INSTALL = bool(run_command(['which', 'easy_install'],
                                     check_exit_code=False).strip())
-HAS_VIRTUALENV = bool(run_command(['which', 'virtualenv'],
+HAS_VIRTUALENV   = bool(run_command(['which', 'virtualenv'],
                                     check_exit_code=False).strip())
-
+HAS_PIP          = bool(run_command(['which', 'easy_install'],
+                                    check_exit_code=False).strip())
 
 def check_dependencies():
     """Make sure virtualenv is in the path."""
 
     if not HAS_VIRTUALENV:
-        print 'not found.'
-        # Try installing it via easy_install...
-        if HAS_EASY_INSTALL:
+        print 'virtualenv not found.'
+        # Try installing it via pip/easy_install...
+        if HAS_PIP:
+            print 'Installing virtualenv via pip...',
+            if not run_command(['which', 'pip']):
+                die('ERROR: virtualenv not found.\n\n'
+                    'Rucio development requires virtualenv, please install'
+                    ' it using your favorite package management tool')
+            else:
+                if not run_command(['pip', 'install', 'virtualenv']).strip():
+                    die("Failed to install virtualenv.")            
+            print 'done.'        
+        elif HAS_EASY_INSTALL:
             print 'Installing virtualenv via easy_install...',
             if not run_command(['which', 'easy_install']):
                 die('ERROR: virtualenv not found.\n\n'
                     'Rucio development requires virtualenv, please install'
-                    ' it using your favorite package management tool')
+                    ' it using your favorite package management tool')                    
+            else:
+                if not run_command(['easy_install', 'virtualenv']).strip():
+                    die("Failed to install virtualenv.")            
             print 'done.'
     print 'done.'
 
@@ -80,14 +94,12 @@ def create_virtualenv(venv=VENV):
 
 def install_dependencies(venv=VENV):
     print 'Installing dependencies with pip (this can take a while)...'
-
+    
     venv_tool = 'tools/with_venv.sh'
-    run_command([venv_tool, 'pip', 'install', '-E', venv, '-r', PIP_REQUIRES],
+    
+    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES],
                 redirect_output=False)
-
-    #run_command([venv_tool, 'pip', 'install', '-E', venv, '-r', PIP_REQUIRES_TEST],
-    #            redirect_output=False)
-
+    
     # Tell the virtual env how to "import rucio"
     py_ver  = _detect_python_version(venv)
     pthfile = os.path.join(venv, "lib", py_ver, "site-packages", "rucio.pth")
