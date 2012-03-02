@@ -14,7 +14,7 @@ def add_identity(identity, type):
 
         :param identity: The identity key name.
         :param type: The type of the authentication,e.g. x509, gss.
-                
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
@@ -22,10 +22,10 @@ def add_identity(identity, type):
 def delete_identity(identity, type):
         """
         Deletes an user identity.
-  
+
         :param identity: The identity key name.
         :param type: The type of the authentication,e.g. x509, gss.
-                
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
@@ -33,12 +33,12 @@ def delete_identity(identity, type):
 def add_account_member(self, identity, type, account, default=False):
         """
         Adds a membership association between identity and account.
-        
+
         :param identity: The identity key name.
         :param type:     The type of the authentication,e.g. x509, gss.
         :param account: The account name.
         :parm  default: If True, the account should be used by default with the provided identity.
-                        
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
 
         """
@@ -53,7 +53,7 @@ def list_identities(**kwargs):
         :param limit: maximum number of items to return
         :param sort_key: results will be ordered by this rse attribute
         :param sort_dir: direction in which to to order results (asc, desc)
-                
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
-        pass 
+        pass
