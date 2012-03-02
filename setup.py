@@ -11,8 +11,9 @@ You may obtain a copy of the License at U{http://www.apache.org/licenses/LICENSE
 import gettext
 import glob
 import shutil
-import os, sys
+import os
 import subprocess
+import sys
 
 if sys.version_info < (2, 4):
     print('ERROR: Rucio requires at least Python 2.5 to run.')
@@ -44,15 +45,15 @@ except ImportError:
 #    print "  https://launchpad.net/python-distutils-extra >= 2.18"
 
 
-name        = 'rucio'
-packages    = find_packages('lib/')
+name = 'rucio'
+packages = find_packages('lib/')
 description = "Rucio Package"
 
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
 if '--client' in copy_args:
-    name        = 'rucio-client'
-    packages    = ['rucio.client', ]
+    name = 'rucio-client'
+    packages = ['rucio.client', ]
     description = "Rucio Client Lite Package"
     shutil.rmtree('build/')
     copy_args.remove('--client')
@@ -80,7 +81,7 @@ version_info = {
     'revno': %s
 }
 """ % (branch_nick, revid, revno))
-    version_file.close ()
+    version_file.close()
 
 # If Sphinx is installed on the box running setup.py,
 # enable setup.py to build the documentation, otherwise,
@@ -102,25 +103,25 @@ except:
 
 
 setup(
-      name                 = name,
-      version              = version.canonical_version_string(),
+      name=name,
+      version=version.canonical_version_string(),
 #      version              = version.version_string(),
-#      version              = version.vcs_version_string(),
-#      version              = version.version_string_with_vcs(),
-      packages             = packages,
-      package_dir          = {'': 'lib'},
-      script_args          = copy_args,
-      cmdclass             = cmdclass,
-      include_package_data = True,
-      data_files           = [('doc/',),] ,
-      scripts              =['bin/rucio',
-                             'bin/rucio-admin'],
-      #doc                 = cmdclass,
-      author               = "Vincent Garonne",
-      author_email         = "vincent.garonne@cern.ch",
-      description          = description,
-      license              = "Apache License, Version 2.0",
-      url                  = "http://rucio.cern.ch/",
+#      version = version.vcs_version_string(),
+#      version = version.version_string_with_vcs(),
+      packages=packages,
+      package_dir={'': 'lib'},
+      script_args=copy_args,
+      cmdclass=cmdclass,
+      include_package_data=True,
+      data_files=[('doc/',), ],
+      scripts=['bin/rucio',
+               'bin/rucio-admin'],
+      #doc=cmdclass,
+      author="Vincent Garonne",
+      author_email="vincent.garonne@cern.ch",
+      description=description,
+      license="Apache License, Version 2.0",
+      url="http://rucio.cern.ch/",
       classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',

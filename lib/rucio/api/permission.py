@@ -11,7 +11,6 @@
 
 
 def has_permission(account, action, **kwargs):
-
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
@@ -23,5 +22,6 @@ def has_permission(account, action, **kwargs):
     """
     permissions = {'get_token': get_token}
 
-def get_token ():
+
+def get_token():
     pass
