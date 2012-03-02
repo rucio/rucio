@@ -30,29 +30,29 @@ class Transaction(object):
         pass
 
     def run(self):
-        factor  = 100
-        delay   = 24 * 60 * 60 / 1500 * factor  # O(1500/day)
-        cycles  = (24 * 60 * 60 / 200) / delay * factor  # O(200/day)
+        factor = 100
+        delay = 24 * 60 * 60 / 1500 * factor  # O(1500/day)
+        cycles = (24 * 60 * 60 / 200) / delay * factor  # O(200/day)
         nbfiles = 30
-        scope   = 'tzero'
-        rse     = 'CERN-PROD_TZERO'
+        scope = 'tzero'
+        rse = 'CERN-PROD_TZERO'
         dataset_meta = {'project': 'data12_7TeV',
-                         'run_number' :  str(uuid.uuid4()),
+                         'run_number':  str(uuid.uuid4()),
                          'stream_name': 'physics_CosmicCalo',
-                         'prod_step'  : 'merge',
-                         'datatype'   : 'NTUP_TRIG',
-                         'version'    : 'f392_m927',
+                         'prod_step': 'merge',
+                         'datatype': 'NTUP_TRIG',
+                         'version': 'f392_m927',
                        }
         dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % dataset_meta
         for cycle in xrange(1, cycles):
             content = {'rse': rse, 'files': [dsn + '.' + str(uuid.uuid4()) for i in xrange(nbfiles)]}
-            start   = time.time()
-            add_dataset   (scope=scope, dsn=dsn, content=content, dataset_meta=dataset_meta)
+            # start = time.time()
+            add_dataset(scope=scope, dsn=dsn, content=content, dataset_meta=dataset_meta)
             #self.custom_timers['add_dataset']= time.time() - start
             time.sleep(delay)
-        start = time.time()
-        close_dataset (scope=scope, dsn=dsn)
-        #self.custom_timers['close_dataset'] = time.time() - start
+        # start = time.time()
+        close_dataset(scope=scope, dsn=dsn)
+        # self.custom_timers['close_dataset'] = time.time() - start
 
 
 if __name__ == '__main__':

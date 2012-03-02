@@ -8,7 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 
-def add_replication_rule (scope, lfn, rse_tag, replication_factor=1, locked=False, lifetime=None):
+def add_replication_rule(scope, lfn, rse_tag, replication_factor=1, locked=False, lifetime=None):
     """
 
 
@@ -20,7 +20,8 @@ def add_replication_rule (scope, lfn, rse_tag, replication_factor=1, locked=Fals
     """
     pass
 
-def delete_replication_rule (scope, lfn, rse_tag):
+
+def delete_replication_rule(scope, lfn, rse_tag):
     """
 
 
@@ -33,7 +34,8 @@ def delete_replication_rule (scope, lfn, rse_tag):
 
     pass
 
-def set_replication_rule (scope, lfn, rse_tag):
+
+def set_replication_rule(scope, lfn, rse_tag):
     """
 
 

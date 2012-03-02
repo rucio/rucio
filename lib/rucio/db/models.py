@@ -36,7 +36,7 @@ class ModelBase(object):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow,
                         nullable=False, onupdate=datetime.datetime.utcnow)
     deleted_at = Column(DateTime)
-    deleted    = Column(Boolean, nullable=False, default=False)
+    deleted = Column(Boolean, nullable=False, default=False)
 
     def save(self, session=None):
         """Save this object"""
@@ -81,17 +81,20 @@ class ModelBase(object):
     def to_dict(self):
         return self.__dict__.copy()
 
+
 class Identity(BASE, ModelBase):
     """Represents an identity in the datastore"""
     __tablename__ = 'identities'
     id   = Column(String(255), primary_key=True)
-    type = Column(Enum('x509','gss'))
+    type = Column(Enum('x509', 'gss'))
+
 
 class Account(BASE, ModelBase):
     """Represents an account in the datastore"""
     __tablename__ = 'accounts'
     account = Column(String(255), primary_key=True)
-    type    = Column(Enum('user','group','atlas'))
+    type    = Column(Enum('user', 'group', 'atlas'))
+
 
 class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity in the datastore"""
@@ -99,6 +102,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
     identity_id = Column(String(255), ForeignKey('identities.id'),    primary_key=True)
     account     = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     default     = Column(Boolean, nullable=False, default=False)
+
 
 class Scope(BASE, ModelBase):
     """Represents a scope in the datastore"""
@@ -178,6 +182,7 @@ class FileProperty(BASE, ModelBase):
     ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],
     use_alter=True, name='fk_file_properties')
 
+
 class DatasetFileAssociation(BASE, ModelBase):
     __tablename__ = 'dataset_contents'
     scope_dsn     = Column(String(255), primary_key=True)
@@ -197,17 +202,20 @@ class RSE(BASE, ModelBase):
     storage  = Column(String(255))
     path     = Column(Text)
 
+
 class RSETag(BASE, ModelBase):
     """Represents a RSE tag"""
     __tablename__ = 'rse_tags'
     tag    = Column(String(255), primary_key=True)
     scope  = Column(String(255), nullable=True)
 
+
 class RSETagAssociation(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'rse_tag_association'
     rse      = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
     tag      = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)
+
 
 class RSEFileAssociation(BASE, ModelBase):
     """Represents a scope in the datastore"""
@@ -216,6 +224,7 @@ class RSEFileAssociation(BASE, ModelBase):
     scope    = Column(String(255), primary_key=True)
     lfn      = Column(String(255),   primary_key=True)
     ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])
+
 
 class ReplicationRule(BASE, ModelBase):
     """Represents a scope in the datastore"""
@@ -238,6 +247,7 @@ def register_models(engine):
     models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty)
     for model in models:
         model.metadata.create_all(engine)
+
 
 def unregister_models(engine):
     """
