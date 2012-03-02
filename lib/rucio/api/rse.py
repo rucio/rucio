@@ -18,6 +18,7 @@ def add_rse(rse):
         """
         pass
 
+
 def add_rse_tag(rse, tag, scope=None):
         """
         Creates a dataset and register its constituents.
