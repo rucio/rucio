@@ -47,11 +47,11 @@ class Transaction(object):
         for cycle in xrange(1, cycles):
             content = {'rse': rse, 'files': [dsn + '.' + str(uuid.uuid4()) for i in xrange(nbfiles)]}
             # start = time.time()
-            add_dataset(scope=scope, dsn=dsn, content=content, dataset_meta=dataset_meta)
-            #self.custom_timers['add_dataset']= time.time() - start
+            add_dataset(scope =scope, dsn=dsn, content=content, dataset_meta=dataset_meta)
+            #self.custom_timers['add_dataset'] = time.time() - start
             time.sleep(delay)
         # start = time.time()
-        close_dataset(scope=scope, dsn=dsn)
+        close_dataset(scope =scope, dsn=dsn)
         # self.custom_timers['close_dataset'] = time.time() - start
 
 

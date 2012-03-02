@@ -42,7 +42,7 @@ except ImportError:
 #    from setuptools import setup
 #    print "Warning: DistUtilsExtra required to use i18n builders. "
 #    print "To build rucio with support for message catalogs, you need "
-#    print "  https://launchpad.net/python-distutils-extra >= 2.18"
+#    print "  https://launchpad.net/python-distutils-extra > = 2.18"
 
 
 name = 'rucio'
@@ -105,7 +105,7 @@ except:
 setup(
       name=name,
       version=version.canonical_version_string(),
-#      version              = version.version_string(),
+#      version = version.version_string(),
 #      version = version.vcs_version_string(),
 #      version = version.version_string_with_vcs(),
       packages=packages,
