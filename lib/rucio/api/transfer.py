@@ -10,5 +10,3 @@
 
 def add_transfer (scope, lfn, dst):
     pass
-        
-            

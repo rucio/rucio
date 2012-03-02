@@ -52,7 +52,7 @@ def obsolete_dataset(dsn):
 def set_hidden_dataset(dsn, state = True):
         """
         Changes dataset hidden state. Hidden dataset will not be listed by user commands unless explicitly asked for or "--hidden" option is specified.
-        
+
         :param dsn: The dataset to be hidden
         :parm state: Hidden state, True/False
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.

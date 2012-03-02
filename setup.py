@@ -4,7 +4,7 @@
 @license: Licensed under the Apache License, Version 2.0 (the "License");
 You may not use this file except in compliance with the License.
 You may obtain a copy of the License at U{http://www.apache.org/licenses/LICENSE-2.0}
-@author: 
+@author:
 - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
 
 """
@@ -54,7 +54,7 @@ if '--client' in copy_args:
   name        = 'rucio-client'
   packages    = ['rucio.client',]
   description = "Rucio Client Lite Package"
-  shutil.rmtree('build/') 
+  shutil.rmtree('build/')
   copy_args.remove('--client')
 
 
@@ -105,13 +105,13 @@ setup(
       name                 = name,
       version              = version.canonical_version_string(),
 #      version              = version.version_string(),
-#      version              = version.vcs_version_string(),      
-#      version              = version.version_string_with_vcs(),      
+#      version              = version.vcs_version_string(),
+#      version              = version.version_string_with_vcs(),
       packages             = packages,
       package_dir          = {'': 'lib'},
-      script_args          = copy_args, 
+      script_args          = copy_args,
       cmdclass             = cmdclass,
-      include_package_data = True, 
+      include_package_data = True,
       data_files           = [('doc/',),] ,
       scripts              =['bin/rucio',
                              'bin/rucio-admin'],
@@ -120,12 +120,12 @@ setup(
       author_email         = "vincent.garonne@cern.ch",
       description          = description,
       license              = "Apache License, Version 2.0",
-      url                  = "http://rucio.cern.ch/", 
+      url                  = "http://rucio.cern.ch/",
       classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2.6',
         'Environment :: No Input/Output (Daemon)',
-    ],      
+    ],
 )
