@@ -28,12 +28,24 @@ Make a clone of the code from our git repository::
 
     $ git clone ssh://<gerrit_username>@atlas-gerrit.cern.ch:29418/rucio
 
-Make sure that you get the commit-msg hook::
+Make sure that you get the commit-msg hook, this is mandatory::
 
-    $ cd rucio/.git
-    $ scp -p -P 29418 <gerrit_username>@atlas-gerrit.cern.ch:hooks/commit-msg hooks/
-    $ chmod +x hooks/commit-msg
-    $ cd ..
+    $ cd rucio
+    $ scp -p -P 29418 <gerrit_username>@atlas-gerrit.cern.ch:hooks/commit-msg .git/hooks/
+    $ chmod +x .git/hooks/commit-msg
+
+Now, copy the pep8 verification commit hook::
+
+    $ cp tools/pre-commit .git/hooks/pre-commit
+    $ chmod +x .git/hooks/pre-commit
+
+You should keep it enabled all the time, but if you want to disable it temporarily, then just remove the executable rights::
+
+    $ chmod -x .git/hooks/pre-commit
+
+and afterwards enable it again::
+
+    $ chmod +x .git/hooks/pre-commit
 
 When that is complete, you are ready to play.
 
