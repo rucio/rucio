@@ -11,8 +11,9 @@ You may obtain a copy of the License at U{http://www.apache.org/licenses/LICENSE
 import gettext
 import glob
 import shutil
-import os, sys
+import os
 import subprocess
+import sys
 
 if sys.version_info < (2, 4):
     print('ERROR: Rucio requires at least Python 2.5 to run.')
