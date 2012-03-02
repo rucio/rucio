@@ -24,5 +24,4 @@ Commands:
 
 """
 
-
     oparser = optparse.OptionParser(version='0.01', usage=usage.strip())

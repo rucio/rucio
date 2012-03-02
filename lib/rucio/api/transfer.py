@@ -8,5 +8,5 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 
-def add_transfer (scope, lfn, dst):
+def add_transfer(scope, lfn, dst):
     pass
