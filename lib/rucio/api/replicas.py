@@ -21,6 +21,7 @@ def add_replica(scope, lfn, rse, lfn_meta=None):
     """
     pass
 
+
 def delete_replica(self, scope, lfn, rse):
     """
     Deletes rucio's information about a file replica.
