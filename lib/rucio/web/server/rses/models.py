@@ -15,4 +15,3 @@ class RSE(models.Model):
     end_point = models.CharField(max_length=200)
     tag       = models.ManyToManyField(Tag)
     reg_date  = models.DateTimeField('date published')
-

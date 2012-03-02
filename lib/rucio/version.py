@@ -5,7 +5,7 @@
 @license: Licensed under the Apache License, Version 2.0 (the "License");
 You may not use this file except in compliance with the License.
 You may obtain a copy of the License at U{http://www.apache.org/licenses/LICENSE-2.0}
-@author: 
+@author:
 - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 """
 
@@ -22,7 +22,7 @@ FINAL                  = False   # This becomes true at Release Candidate time
 
 
 def canonical_version_string():
-    return '.'.join(filter(None, RUCIO_VERSION))   
+    return '.'.join(filter(None, RUCIO_VERSION))
 
 def version_string():
     if FINAL:

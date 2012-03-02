@@ -13,8 +13,8 @@ def add_scope(scope, account):
         Creates a scope for an account.
 
         :param account: The account name.
-        :param scope: The scope identifier.        
-                
+        :param scope: The scope identifier.
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
