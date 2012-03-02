@@ -16,7 +16,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENV = os.path.join(ROOT, '.venv')
-PIP_REQUIRES      = os.path.join(ROOT, 'tools', 'pip-requires')
+PIP_REQUIRES = os.path.join(ROOT, 'tools', 'pip-requires')
 PIP_REQUIRES_TEST = os.path.join(ROOT, 'tools', 'pip-requires-test')
 
 def die(message, *args):
@@ -24,7 +24,7 @@ def die(message, *args):
     sys.exit(1)
 
 
-def run_command(cmd, redirect_output=True, check_exit_code=True):
+def run_command(cmd, redirect_output =True, check_exit_code=True):
     """
     Runs a command in an out-of-process shell, returning the
     output of that command.  Working directory is ROOT.
@@ -36,17 +36,17 @@ def run_command(cmd, redirect_output=True, check_exit_code=True):
 
     proc = subprocess.Popen(cmd, cwd=ROOT, stdout=stdout)
     output = proc.communicate()[0]
-    if check_exit_code and proc.returncode != 0:
+    if check_exit_code and proc.returncode ! = 0:
         die('Command "%s" failed.\n%s', ' '.join(cmd), output)
     return output
 
 
 HAS_EASY_INSTALL = bool(run_command(['which', 'easy_install'],
-                                    check_exit_code=False).strip())
-HAS_VIRTUALENV   = bool(run_command(['which', 'virtualenv'],
-                                    check_exit_code=False).strip())
-HAS_PIP          = bool(run_command(['which', 'easy_install'],
-                                    check_exit_code=False).strip())
+                                    check_exit_code =False).strip())
+HAS_VIRTUALENV = bool(run_command(['which', 'virtualenv'],
+                                    check_exit_code =False).strip())
+HAS_PIP = bool(run_command(['which', 'easy_install'],
+                                    check_exit_code =False).strip())
 
 def check_dependencies():
     """Make sure virtualenv is in the path."""
@@ -77,7 +77,7 @@ def check_dependencies():
     print 'done.'
 
 
-def create_virtualenv(venv=VENV):
+def create_virtualenv(venv =VENV):
     """
     Creates the virtual environment and installs PIP only into the
     virtual environment
@@ -92,21 +92,21 @@ def create_virtualenv(venv=VENV):
     print 'done.'
 
 
-def install_dependencies(venv=VENV):
+def install_dependencies(venv =VENV):
     print 'Installing dependencies with pip (this can take a while)...'
 
     venv_tool = 'tools/with_venv.sh'
 
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES],
-                redirect_output=False)
+                redirect_output =False)
 
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_TEST],
-                redirect_output=False)
+                redirect_output =False)
 
     # Tell the virtual env how to "import rucio"
-    py_ver  = _detect_python_version(venv)
+    py_ver = _detect_python_version(venv)
     pthfile = os.path.join(venv, "lib", py_ver, "site-packages", "rucio.pth")
-    f       = open(pthfile, 'w')
+    f = open(pthfile, 'w')
     f.write("%s/lib/\n" % ROOT)
     f.close()
 
