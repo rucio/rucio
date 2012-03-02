@@ -29,6 +29,7 @@ def del_account(accountName):
         """
         pass
 
+
 def get_account_info(accountName):
         """
         Returns the info like the statistics information associated to an account.
@@ -52,6 +53,7 @@ def set_account_limits(accountName, limitationName, limitationValue):
         """
         pass
 
+
 def get_account_limits(accountName):
         """
         Lists the limitation names/values for the specified account name.
@@ -63,6 +65,7 @@ def get_account_limits(accountName):
         :returns: A Response code is returned and if successful is a "0". If an error occurs, the error message text is also returned.
         """
         pass
+
 
 def list_accounts():
         """

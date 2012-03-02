@@ -19,6 +19,7 @@ def add_identity(identity, type):
         """
         pass
 
+
 def delete_identity(identity, type):
         """
         Deletes an user identity.
@@ -29,6 +30,7 @@ def delete_identity(identity, type):
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
+
 
 def add_account_member(self, identity, type, account, default=False):
         """
@@ -43,6 +45,7 @@ def add_account_member(self, identity, type, account, default=False):
 
         """
         pass
+
 
 def list_identities(**kwargs):
         """
