@@ -8,7 +8,8 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 
-def add_dataset(scope, dsn, content = None, dataset_meta = None):
+
+def add_dataset(scope, dsn, content=None, dataset_meta=None):
         """
         Creates a dataset and register its constituents.
 
@@ -20,6 +21,7 @@ def add_dataset(scope, dsn, content = None, dataset_meta = None):
         """
         pass
 
+
 def add_to_dataset(dsn, contents):
         """
         Addes files or other datasets to the specified "dsn" dataset. This specified dataset must be open.
@@ -29,6 +31,7 @@ def add_to_dataset(dsn, contents):
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
+
 
 def close_dataset(scope, dsn):
         """
@@ -40,6 +43,7 @@ def close_dataset(scope, dsn):
         """
         pass
 
+
 def obsolete_dataset(dsn):
         """
         Sets dataset as obsolete. Dataset name is hidden by default. All replicas and data on the grid referenced by this dataset is deleted if not referenced by other datasets. An obsolete's dataset's name cannot be used in the future.
@@ -49,7 +53,8 @@ def obsolete_dataset(dsn):
         """
         pass
 
-def set_hidden_dataset(dsn, state = True):
+
+def set_hidden_dataset(dsn, state=True):
         """
         Changes dataset hidden state. Hidden dataset will not be listed by user commands unless explicitly asked for or "--hidden" option is specified.
 
