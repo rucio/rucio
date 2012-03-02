@@ -21,7 +21,7 @@ sys.path = [os.path.abspath('../../lib'),
             os.path.abspath('../..'),
             os.path.abspath('../../bin')
            ] + sys.path
-           
+
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.

@@ -83,28 +83,28 @@ class ModelBase(object):
 
 class Identity(BASE, ModelBase):
     """Represents an identity in the datastore"""
-    __tablename__ = 'identities'    
+    __tablename__ = 'identities'
     id   = Column(String(255), primary_key=True)
     type = Column(Enum('x509','gss'))
-            
+
 class Account(BASE, ModelBase):
     """Represents an account in the datastore"""
-    __tablename__ = 'accounts'    
+    __tablename__ = 'accounts'
     account = Column(String(255), primary_key=True)
     type    = Column(Enum('user','group','atlas'))
 
 class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity in the datastore"""
-    __tablename__ = 'account_map'    
+    __tablename__ = 'account_map'
     identity_id = Column(String(255), ForeignKey('identities.id'),    primary_key=True)
     account     = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     default     = Column(Boolean, nullable=False, default=False)
 
 class Scope(BASE, ModelBase):
     """Represents a scope in the datastore"""
-    __tablename__ = 'scopes'    
+    __tablename__ = 'scopes'
     scope   = Column(String(255), primary_key=True)
-    account = Column(String(255), ForeignKey('accounts.account'))        
+    account = Column(String(255), ForeignKey('accounts.account'))
     default = Column(Boolean, nullable=False, default=False)
 
 
@@ -112,24 +112,24 @@ class DatasetProperty(BASE, ModelBase):
     """Represents a dataset properties"""
     __tablename__ = 'dataset_properties'
     scope         = Column(String(255), primary_key=True)
-    dsn           = Column(String(255), primary_key=True)    
+    dsn           = Column(String(255), primary_key=True)
     key           = Column(String(255), index=True, primary_key=True)
-    value         = Column(Text)    
+    value         = Column(Text)
     dataset       = relationship('Dataset', foreign_keys=(scope, dsn))
     ForeignKeyConstraint(['scope', 'dsn'], ['datasets.scope',  'datasets.dsn'])
 
 
 #class Node(BASE, ModelBase):
 #    """Represents a node in the datastore"""
-#    __tablename__ = 'nodes'    
+#    __tablename__ = 'nodes'
 #    scope         = Column(String(255), ForeignKey('scopes.scope'),  primary_key=True)
-#    name          = Column(String(255), primary_key=True)    
-#    type          = Column(Enum('file', 'dataset'))    
+#    name          = Column(String(255), primary_key=True)
+#    type          = Column(Enum('file', 'dataset'))
 #    open          = Column(Boolean)
 #    monotonic     = Column(Boolean)
 #    hidden        = Column(Boolean)
 #    obsolete      = Column(Boolean)
-#    complete      = Column(Boolean)    
+#    complete      = Column(Boolean)
 #    obsolete      = Column(Boolean)
 #    lost          = Column(Boolean)
 #    size          = Column(BigInteger)
@@ -139,29 +139,29 @@ class DatasetProperty(BASE, ModelBase):
 #    """Represents a node in the datastore"""
 #    __tablename__ = 'aggregations'
 #    scope_dsn     = Column(String(255), ForeignKey('nodes.scope'),  primary_key=True)
-#    dsn           = Column(String(255), ForeignKey('nodes.name'),  primary_key=True)    
+#    dsn           = Column(String(255), ForeignKey('nodes.name'),  primary_key=True)
 #    scope_lfn     = Column(String(255), ForeignKey('nodes.scope'),  primary_key=True)
 #    lfn           = Column(String(255), ForeignKey('nodes.name'),  primary_key=True)
-            
-    
+
+
 class Dataset(BASE, ModelBase):
     """Represents a scope in the datastore"""
-    __tablename__ = 'datasets'    
+    __tablename__ = 'datasets'
     scope      = Column(String(255), ForeignKey('scopes.scope'),  primary_key=True)
-    dsn        = Column(String(255), primary_key=True)    
+    dsn        = Column(String(255), primary_key=True)
     open       = Column(Boolean)
     monotonic  = Column(Boolean)
     hidden     = Column(Boolean)
     obsolete   = Column(Boolean)
-    complete   = Column(Boolean)    
+    complete   = Column(Boolean)
     properties = relationship(DatasetProperty, cascade="all")
-        
+
 
 class File(BASE, ModelBase):
     """Represents a scope in the datastore"""
-    __tablename__ = 'files'    
+    __tablename__ = 'files'
     scope    = Column(String(255), ForeignKey('scopes.scope'),  primary_key=True)
-    lfn      = Column(String(255), primary_key=True)    
+    lfn      = Column(String(255), primary_key=True)
     obsolete = Column(Boolean)
     lost     = Column(Boolean)
     size     = Column(BigInteger)
@@ -172,69 +172,69 @@ class FileProperty(BASE, ModelBase):
     """Represents a dataset properties"""
     __tablename__ = 'file_properties'
     scope      = Column(String(255), primary_key=True)
-    lfn        = Column(String(255), primary_key=True)    
+    lfn        = Column(String(255), primary_key=True)
     key        = Column(String(255), index=True, primary_key=True)
     value      = Column(Text)
-    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], 
-    use_alter=True, name='fk_file_properties')    
+    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],
+    use_alter=True, name='fk_file_properties')
 
 class DatasetFileAssociation(BASE, ModelBase):
-    __tablename__ = 'dataset_contents'    
+    __tablename__ = 'dataset_contents'
     scope_dsn     = Column(String(255), primary_key=True)
-    dsn           = Column(String(255), primary_key=True)    
-    scope_lfn     = Column(String(255), primary_key=True)    
-    lfn           = Column(String(255), primary_key=True) 
+    dsn           = Column(String(255), primary_key=True)
+    scope_lfn     = Column(String(255), primary_key=True)
+    lfn           = Column(String(255), primary_key=True)
     parent_scope  = Column(String(255), nullable=True)
-    parent_dsn    = Column(String(255), nullable=True)    
-    ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope',  'datasets.dsn'])     
+    parent_dsn    = Column(String(255), nullable=True)
+    ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope',  'datasets.dsn'])
     ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope',     'files.lfn'])
 
 
 class RSE(BASE, ModelBase):
     """Represents a scope in the datastore"""
-    __tablename__ = 'rses'    
-    rse      = Column(String(255), primary_key=True)    
+    __tablename__ = 'rses'
+    rse      = Column(String(255), primary_key=True)
     storage  = Column(String(255))
     path     = Column(Text)
-    
+
 class RSETag(BASE, ModelBase):
     """Represents a RSE tag"""
-    __tablename__ = 'rse_tags'    
-    tag    = Column(String(255), primary_key=True)    
-    scope  = Column(String(255), nullable=True)    
+    __tablename__ = 'rse_tags'
+    tag    = Column(String(255), primary_key=True)
+    scope  = Column(String(255), nullable=True)
 
 class RSETagAssociation(BASE, ModelBase):
     """Represents a scope in the datastore"""
-    __tablename__ = 'rse_tag_association'    
-    rse      = Column(String(255), ForeignKey('rses.rse'), primary_key=True)    
-    tag      = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)    
+    __tablename__ = 'rse_tag_association'
+    rse      = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
+    tag      = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)
 
 class RSEFileAssociation(BASE, ModelBase):
     """Represents a scope in the datastore"""
-    __tablename__ = 'file_replicas'    
-    rse      = Column(String(255),  ForeignKey('rses.rse'), primary_key=True)    
+    __tablename__ = 'file_replicas'
+    rse      = Column(String(255),  ForeignKey('rses.rse'), primary_key=True)
     scope    = Column(String(255), primary_key=True)
-    lfn      = Column(String(255),   primary_key=True)    
-    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])    
+    lfn      = Column(String(255),   primary_key=True)
+    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])
 
 class ReplicationRule(BASE, ModelBase):
     """Represents a scope in the datastore"""
-    __tablename__ = 'replication_rules'    
-#    __table_args__ = (UniqueConstraint("account", "scope", "lfn", "tag"),)    
-    account            = Column(String(255), ForeignKey('accounts.account'),primary_key=True)        
+    __tablename__ = 'replication_rules'
+#    __table_args__ = (UniqueConstraint("account", "scope", "lfn", "tag"),)
+    account            = Column(String(255), ForeignKey('accounts.account'),primary_key=True)
     scope              = Column(String(255),primary_key=True)
-    lfn                = Column(String(255),primary_key=True)    
-    tag                = Column(String(255), ForeignKey('rse_tags.tag'),primary_key=True)        
+    lfn                = Column(String(255),primary_key=True)
+    tag                = Column(String(255), ForeignKey('rse_tags.tag'),primary_key=True)
     replication_factor = Column(Integer(), nullable=False, default=1)
-    expired_at         = Column(DateTime)    
+    expired_at         = Column(DateTime)
     locked             = Column(Boolean, nullable=False, default=False)
-    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])    
-    
-    
+    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
-    """    
+    """
     models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty)
     for model in models:
         model.metadata.create_all(engine)
@@ -246,5 +246,3 @@ def unregister_models(engine):
     models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty)
     for model in models:
         model.metadata.drop_all(engine)
-    
-    

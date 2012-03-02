@@ -13,11 +13,11 @@ def add_rse(rse):
         Creates a dataset and register its constituents.
 
         :param rse: The rse name.
-        
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
-        
+
 def add_rse_tag(rse, tag, scope=None):
         """
         Creates a dataset and register its constituents.
@@ -25,7 +25,7 @@ def add_rse_tag(rse, tag, scope=None):
         :param rse:   The rse name.
         :param tag:   The tag.
         :param scope: The tag name-space, e.g., site, federation, tier.
-        
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
@@ -40,10 +40,7 @@ def list_rses(**kwargs):
         :param limit: maximum number of items to return
         :param sort_key: results will be ordered by this rse attribute
         :param sort_dir: direction in which to to order results (asc, desc)
-                
+
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
-
-
-                        

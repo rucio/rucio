@@ -1,5 +1,5 @@
 #    copyright: European Organization for Nuclear Research (CERN)
-#    @author: 
+#    @author:
 #    - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
 #    @contact: U{ph-adp-ddm-lab@cern.ch<mailto:ph-adp-ddm-lab@cern.ch>}
 #    @license: Licensed under the Apache License, Version 2.0 (the "License");
@@ -62,17 +62,17 @@ def check_dependencies():
                     ' it using your favorite package management tool')
             else:
                 if not run_command(['pip', 'install', 'virtualenv']).strip():
-                    die("Failed to install virtualenv.")            
-            print 'done.'        
+                    die("Failed to install virtualenv.")
+            print 'done.'
         elif HAS_EASY_INSTALL:
             print 'Installing virtualenv via easy_install...',
             if not run_command(['which', 'easy_install']):
                 die('ERROR: virtualenv not found.\n\n'
                     'Rucio development requires virtualenv, please install'
-                    ' it using your favorite package management tool')                    
+                    ' it using your favorite package management tool')
             else:
                 if not run_command(['easy_install', 'virtualenv']).strip():
-                    die("Failed to install virtualenv.")            
+                    die("Failed to install virtualenv.")
             print 'done.'
     print 'done.'
 
@@ -94,15 +94,15 @@ def create_virtualenv(venv=VENV):
 
 def install_dependencies(venv=VENV):
     print 'Installing dependencies with pip (this can take a while)...'
-    
+
     venv_tool = 'tools/with_venv.sh'
-    
+
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES],
                 redirect_output=False)
 
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_TEST],
                 redirect_output=False)
-    
+
     # Tell the virtual env how to "import rucio"
     py_ver  = _detect_python_version(venv)
     pthfile = os.path.join(venv, "lib", py_ver, "site-packages", "rucio.pth")
