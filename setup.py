@@ -23,12 +23,12 @@ sys.path.insert(0, os.path.abspath('lib/'))
 from rucio import version
 
 try:
-  from setuptools               import setup, find_packages
-  from setuptools.command.sdist import sdist
+    from setuptools               import setup, find_packages
+    from setuptools.command.sdist import sdist
 except ImportError:
-  from ez_setup import use_setuptools
-  use_setuptools()
-  from setuptools import setup, find_packages
+    from ez_setup import use_setuptools
+    use_setuptools()
+    from setuptools import setup, find_packages
 
 # In order to run the i18n commands for compiling and
 # installing message catalogs, we use DistUtilsExtra.
