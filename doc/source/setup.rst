@@ -92,6 +92,7 @@ To submit a new patch set for review::
 
 Assuming that the review was not okay, and you have to make some changes, DO NOT COMMIT AGAIN as this will create a new review request! Instead amend the current bad patch set with::
 
+    $ git checkout new_feature                       # make sure we're on the right branch
     $ emacs                                          # as needed
     $ git add                                        # as needed
     $ git rm                                         # as needed
