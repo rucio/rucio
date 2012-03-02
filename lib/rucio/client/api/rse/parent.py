@@ -11,14 +11,16 @@ Authors:
 - Angelos Molfetas <angelos.molfetas@cern.ch> CERN PH/ADP, 2012-2012
 """
 
+
 class STATUS:
-    NOTFOUND = 0     # No such file or directory error
-    UNKNOWNERROR = 1 # Don't know what happened
-    DONE = 2         # No problem
+    NOTFOUND = 0      # No such file or directory error
+    UNKNOWNERROR = 1  # Don't know what happened
+    DONE = 2          # No problem
+
 
 class Store:
     """ Base class for storage interface"""
-    def __init__(self, server = None):
+    def __init__(self, server=None):
         if server:
             self.server = server
 

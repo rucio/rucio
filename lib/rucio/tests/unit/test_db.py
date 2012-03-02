@@ -17,12 +17,12 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from rucio.db.models import register_models, unregister_models
 
-engine  = create_engine('sqlite://', echo=True)
-Base    = declarative_base()
+engine = create_engine('sqlite://', echo=True)
+Base = declarative_base()
 Base.metadata.create_all(engine)
 session = sessionmaker(bind=engine)()
-unregister_models (engine)
-register_models   (engine)
+unregister_models(engine)
+register_models(engine)
 
 
 #ALTER TABLE dataset_properties drop CONSTRAINT fk_dataset_properties;
