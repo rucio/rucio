@@ -9,7 +9,7 @@
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
 
-def is_service_available (service_id):
+def is_service_available(service_id):
     """
     Checks If a service is available.
 
@@ -18,7 +18,8 @@ def is_service_available (service_id):
     """
     pass
 
-def add_service_downtime (service_id, start_date=None, end_date=None, author=None, comment=None):
+
+def add_service_downtime(service_id, start_date=None, end_date=None, author=None, comment=None):
     """
     Schedules downtime for a specified service.
 
@@ -31,7 +32,8 @@ def add_service_downtime (service_id, start_date=None, end_date=None, author=Non
     """
     pass
 
-def delete_service_downtime (service_id, downtime_id):
+
+def delete_service_downtime(service_id, downtime_id):
     """
     Deletes a service downtime.
 
@@ -42,7 +44,8 @@ def delete_service_downtime (service_id, downtime_id):
     """
     pass
 
-def get_service_downtimes (service_id):
+
+def get_service_downtimes(service_id):
     """
     Returns a list of service downtimes for a service.
 

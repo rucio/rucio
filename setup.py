@@ -51,11 +51,11 @@ description = "Rucio Package"
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
 if '--client' in copy_args:
-  name        = 'rucio-client'
-  packages    = ['rucio.client',]
-  description = "Rucio Client Lite Package"
-  shutil.rmtree('build/')
-  copy_args.remove('--client')
+    name        = 'rucio-client'
+    packages    = ['rucio.client', ]
+    description = "Rucio Client Lite Package"
+    shutil.rmtree('build/')
+    copy_args.remove('--client')
 
 
 def run_git_command(cmd):
