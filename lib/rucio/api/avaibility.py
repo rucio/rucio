@@ -26,7 +26,7 @@ def add_service_downtime (service_id, start_date=None, end_date=None, author=Non
     :param start_date: The downtime start time.
     :param end_date: The downtime end time.
     :param author: Author,e.g. external service/shifter, of the service downtime.
-    :param comment: Comment describing the reason of the service downtime.    
+    :param comment: Comment describing the reason of the service downtime.
     :returns: downtime_id
     """
     pass
@@ -51,5 +51,3 @@ def get_service_downtimes (service_id):
     :retval Tuple containing (downtime_id,  start_date, end_date, author, comment)
     """
     pass
-    
-    
