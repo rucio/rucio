@@ -102,7 +102,7 @@ function run_tests {
   return $RESULT
 }
 
-srcfiles=`find lib/rucio -type f -name "*.py"`
+srcfiles=`find lib  -type f -name "*.py"`
 srcfiles+=" `find bin -type f`" 
 srcfiles+=" setup.py"
 
