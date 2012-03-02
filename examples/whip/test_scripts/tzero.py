@@ -37,7 +37,7 @@ class Transaction(object):
         scope = 'tzero'
         rse = 'CERN-PROD_TZERO'
         dataset_meta = {'project': 'data12_7TeV',
-                         'run_number':  str(uuid.uuid4()),
+                         'run_number': str(uuid.uuid4()),
                          'stream_name': 'physics_CosmicCalo',
                          'prod_step': 'merge',
                          'datatype': 'NTUP_TRIG',
@@ -47,11 +47,11 @@ class Transaction(object):
         for cycle in xrange(1, cycles):
             content = {'rse': rse, 'files': [dsn + '.' + str(uuid.uuid4()) for i in xrange(nbfiles)]}
             # start = time.time()
-            add_dataset(scope =scope, dsn=dsn, content=content, dataset_meta=dataset_meta)
+            add_dataset(scope=scope, dsn=dsn, content=content, dataset_meta=dataset_meta)
             #self.custom_timers['add_dataset'] = time.time() - start
             time.sleep(delay)
         # start = time.time()
-        close_dataset(scope =scope, dsn=dsn)
+        close_dataset(scope=scope, dsn=dsn)
         # self.custom_timers['close_dataset'] = time.time() - start
 
 
