@@ -30,7 +30,6 @@ def main():
     modified = re.compile('^[AM]+\s+(?P<name>.*\.py)', re.MULTILINE)
     files = system('git', 'status', '--porcelain')
     files = modified.findall(files)
- 
     tempdir = tempfile.mkdtemp()
     for name in files:
         filename = os.path.join(tempdir, name)
@@ -39,7 +38,7 @@ def main():
             os.makedirs(filepath)
         with file(filename, 'w') as f:
             system('git', 'show', ':' + name, stdout=f)
-    output = system('pep8', '--repeat', '.', cwd=tempdir)
+    output = system('pep8', '--repeat', '--ignore=E501', '.', cwd=tempdir)
     shutil.rmtree(tempdir)
     if output:
         print output,
