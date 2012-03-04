@@ -31,7 +31,7 @@ Make a clone of the code from our git repository::
 Make sure that you get the commit-msg hook, this is mandatory::
 
     $ cd rucio
-    $ scp -p -P 29418 <gerrit_username>@atlas-gerrit.cern.ch:hooks/commit-msg .git/hooks/
+    $ cp tools/commit-msg .git/hooks/commit-msg    
     $ chmod +x .git/hooks/commit-msg
 
 Now, copy the pep8 verification commit hook::
@@ -123,7 +123,7 @@ PyPi Packages and VirtualEnv
 ============================
 
 We recommend establishing a virtualenv to run rucio within. Virtualenv limits the python environment
-to just what you're installing as depdendencies, useful to keep a clean environment for working on
+to just what you're installing as dependencies, useful to keep a clean environment for working on
 rucio. The tools directory in rucio has a script already created to make this very simple::
 
     $ python tools/install_venv.py
