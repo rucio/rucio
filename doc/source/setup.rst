@@ -28,6 +28,15 @@ Make a clone of the code from our git repository::
 
     $ git clone ssh://<gerrit_username>@atlas-gerrit.cern.ch:29418/rucio
 
+
+Or, if you need to do an an anonymous checkout::
+
+    $ export GIT_SSL_NO_VERIFY=1
+    $ git clone https://atlas-gerrit.cern.ch:8443/p/rucio    
+
+Configuring git
+===============
+
 Make sure that you get the commit-msg hook, this is mandatory::
 
     $ cd rucio
