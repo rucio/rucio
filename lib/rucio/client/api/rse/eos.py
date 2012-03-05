@@ -14,11 +14,13 @@ Authors:
 from subprocess import Popen, PIPE
 from parent import Store, STATUS
 
+
 class EosStorage(Store):
     """ EOS Store Interface Class """
-    def __init__(self, server = None):
+    def __init__(self, server=None):
         #super(EosStorage,self).__init__()
         pass
+
     def listFilesInDir(self, dir):
         """ Lists file in specified directory at remote storage system"""
         try:
