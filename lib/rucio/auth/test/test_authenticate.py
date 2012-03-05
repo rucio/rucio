@@ -9,16 +9,65 @@ U{http://www.apache.org/licenses/LICENSE-2.0}
 - Mario Lassnig, <mario.lassnig@cern.ch>, CERN PH-ADP-CO, 2012
 """
 
-from nose.tools import assert_equal
 from paste.fixture import TestApp
 
-from rucio.auth import authenticate
+from rucio.auth.authenticate import app
 
 
-class TestAuthenticate():
+class TestGET():
+    """Authentication unittests for GET requests"""
 
-    def test_authenticate(self):
-        middleware = []
-        testApp = TestApp(authenticate.wsgifunc(*middleware))
-        assert_equal(r.status, 200)
-        r.mustcontain('auth token')
+    def test_auth_exists(self):
+        """Authentication endpoint must exist"""
+
+        mw = []
+        headers = {}
+        r = TestApp(app.wsgifunc(*mw)).get('/authenticate', headers=headers, expect_errors=True)
+        assert r.status, 200
+
+    def test_validate_exists(self):
+        """Validation endpoint must exist"""
+
+        mw = []
+        headers = {}
+        r = TestApp(app.wsgifunc(*mw)).get('/validate', headers=headers, expect_errors=True)
+        assert r.status, 200
+
+    def test_auth_header_userpass_success(self):
+        """Authenticate account via header username/password"""
+
+        mw = []
+        headers = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'testuser', 'Rucio-Password': 'testpassword'}
+        r = TestApp(app.wsgifunc(*mw)).get('/authenticate', headers=headers, expect_errors=True)
+        assert r.status, 200
+
+    def test_auth_header_userpass_wrong_pass(self):
+        """Authenticate account via header username/password, wrong password"""
+
+        mw = []
+        headers = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'testuser', 'Rucio-Password': 'wrongpass'}
+        r = TestApp(app.wsgifunc(*mw)).get('/authenticate', headers=headers, expect_errors=True)
+        assert r.status, 401
+
+    def test_auth_header_userpass_no_account(self):
+        """Authenticate account via header username/password, missing account"""
+
+        mw = []
+        headers = {'Rucio-Username': 'testuser', 'Rucio-Password': 'testpassword'}
+        r = TestApp(app.wsgifunc(*mw)).get('/authenticate', headers=headers, expect_errors=True)
+        assert r.status, 400
+
+
+class TestPUT():
+
+    pass
+
+
+class TestPOST():
+
+    pass
+
+
+class TestDELETE():
+
+    pass
