@@ -40,6 +40,7 @@ Architecture
     :maxdepth: 1   
      
     overview_Architecture
+    overview_flow
     overview_Database_Schema
 
 Developer Documentation
@@ -68,6 +69,16 @@ Using Rucio: API
     replica
     rule
     transfer
+
+Rucio RESTful API
+=================
+
+.. toctree::
+    :maxdepth: 1
+    
+    rest
+    api_curl_examples
+    
 
 Man Pages
 ---------
