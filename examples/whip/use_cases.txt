@@ -1,0 +1,38 @@
+Tier-0
+Physic group (accounting) 
+AMI
+MCupload
+DDM dashboard 
+Site Status Board (SSB)
+Panda Dynamic Data Placement (PD2P) Monitoring (PD2PMonitor)
+FT/DATA monitoring
+ProdSys
+  AKTR
+  JobDefinition 
+DaTRI
+ADCOPS
+  mctape migration
+  AK47
+HAMMERCLOUD
+DA
+ GANGA
+ pAthena 
+Event-level selection, including TAG 
+Monitoring(BNL)
+PanDA
+  WMS 
+  Pilot
+Panda Monitor
+CVMFS
+lxatut dq2-get-auto
+DQ2
+ get/put/ls
+ Functional test
+ Sonar
+ Santa Claus
+ Site-Services
+ Consistency
+ Victor
+ Deletion
+ Popularity
+ Accounting
