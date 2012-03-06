@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011-2012
 
 
 def add_dataset(scope, dsn, content=None, dataset_meta=None):
@@ -64,19 +64,3 @@ def set_hidden_dataset(dsn, state=True):
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
         pass
-
-
-def return_random_datasets(num):
-        """
-        Returns a random dataset. This is used for testing.
-
-        :parm num: Number of datasets to return
-        :returns: Returns a random dataset name as a list of tuple [(scope1, dataset1),(scope2,dataset2),...]
-        """
-
-        if not isinstance(num, int) or not num:
-            raise TypeError
-
-        # Temporary dummy code, this should be replaced with database select, when schema is operational
-        from uuid import uuid4 as uuid
-        return [(str(uuid()), str(uuid())) for i in range(num)]
