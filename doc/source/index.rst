@@ -32,6 +32,7 @@ The following concepts define how data is organised, accessed, and catalogued by
     overview_Replica_management
     overview_Accounting_and_quota
     overview_Notifications
+    overview_Subscriptions
 
 Architecture
 ============
