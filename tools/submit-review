@@ -43,6 +43,10 @@ set_commit_msg() {
 
 push_commit() {
     if [[ "$@" == *-a* ]]; then
+        if [[ $BASH_ARGV == -a ]]; then
+            echo You are missing the amend message, e.g.: tools/submit-review -a \"now it is fixed\"
+            exit 2
+        fi
         cid=`git log -1 | grep Change-Id: | awk '{print $2;}'`
         echo Amending previous commit with Change-Id: $cid and Comment: $BASH_ARGV
         $dry git commit -a --amend -m "$BASH_ARGV
