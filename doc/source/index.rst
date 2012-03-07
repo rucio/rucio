@@ -78,7 +78,6 @@ Rucio RESTful API
     
     rest
     api_curl_examples
-    
 
 Man Pages
 ---------
