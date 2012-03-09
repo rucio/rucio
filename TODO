@@ -12,6 +12,7 @@ Rucio TODO
 * State machines for file transfer/deletion request 
 * Mapping between services/protocols and sites
 * Sequence/flow diagram for the use cases
-* REST interface&implementation: 
-* Token Authentication: Mario 
+* REST interface&implementation: Mario
+* Token Authentication: Mario
+* API Token: Mario
 * Migration
