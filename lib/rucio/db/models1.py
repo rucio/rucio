@@ -119,9 +119,10 @@ class DatasetProperty(BASE, ModelBase):
     dsn = Column(String(255), primary_key=True)
     key = Column(String(255), index=True, primary_key=True)
     value = Column(Text)
-    dataset = relationship('Dataset', foreign_keys=(scope, dsn))
     ForeignKeyConstraint(['scope', 'dsn'], ['datasets.scope', 'datasets.dsn'])
-
+    dataset = relationship('Dataset', foreign_keys=(scope, dsn), \
+            primaryjoin='and_(DatasetProperty.dsn==Dataset.dsn, \
+            DatasetProperty.scope==Dataset.scope)')
 
 #class Node(BASE, ModelBase):
 #    """Represents a node in the datastore"""
@@ -158,7 +159,7 @@ class Dataset(BASE, ModelBase):
     hidden = Column(Boolean)
     obsolete = Column(Boolean)
     complete = Column(Boolean)
-    properties = relationship(DatasetProperty, cascade="all")
+    #properties = relationship('DatasetProperty', cascade="all")
 
 
 class File(BASE, ModelBase):
