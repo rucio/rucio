@@ -70,6 +70,7 @@ Using Rucio: API
     replica
     rule
     transfer
+    subscription
 
 Rucio RESTful API
 =================

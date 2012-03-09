@@ -19,7 +19,7 @@ The following are the different ressources that can be accessed or modified usin
  * Rucio Storage Element
  * Permission model
  * Replication rule
- * Tranfer request
+ * Transfer request
 
 We use the standard HTTP methods:
 
