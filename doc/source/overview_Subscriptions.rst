@@ -2,6 +2,36 @@
 Subscriptions / Policies
 ------------------------
 
+Policies are system entities which generate rules or transfer requests based on matching
+particular dataset metadata at registration time. Polices are owned by an account and can
+only generate rules for that account. Policies may have a lifetime, after which they will expire.
+
+An example of a policy is given below:
+
+=========  ===================================================
+Attribute  Value
+=========  ===================================================
+Owner      tzero
+match      project=data11 7TeV, dataType=RAW, stream=physics*
+rule       1\@CERNTAPE, 1\@T1TAPE
+lifetime   2012-01-01 00:00
+=========  ===================================================
+
+Policies can also create transfer primitives, so generate extra copies of data as it is produced:
+
+=========  ========================================================================================
+Attribute  Value
+=========  ========================================================================================
+Owner      prod
+match      project=mc11 7TeV, dataType=merge.AOD, tag=*(p795|p796|p805)*, replicationPolicy=RPValue
+rule       1\@T1DISK, 1\@T2DISK,
+transfer   1\@T1DISK, 2\@T2DISK
+lifetime   2011-12-01 00:00
+=========  ========================================================================================
+
+In this case the transfer request is for extra copies, in addition to those set by rules.
+(This is different behaviour to that for rules themselves, which are always independent.)
+
 Rucio Subscriptions / Policies (name **TBD**) exist for the purpose of making data
 placement decisions before the actual data has been created. In the current
 DQ\ :sub:`2` \ system there are basically 3 applications which are responsible
