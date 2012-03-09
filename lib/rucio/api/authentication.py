@@ -1,0 +1,63 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+
+
+def get_auth_token_user_pass(account, username, password):
+    """Authenticate a Rucio account temporarily via username and password.
+
+    :param account: Account identifier.
+    :param username: Username as a string.
+    :param password: SHA1 hash of the password as a string.
+    :returns: Authentication token as an 32 character hex string."""
+    raise NotImplementedError
+
+
+def get_auth_token_kerberos(account, credential):
+    """Authenticate a Rucio account temporarily via kerberos tokens.
+
+    :param account: Account identifier.
+    :param credential: Kerberos GSSAPI token credential location."""
+    raise NotImplementedError
+
+
+def get_auth_token_x509(account, certificate):
+    """Authenticate a Rucio account temporarily via x509 certificates.
+
+    :param account: Account identifier.
+    :param credential: x509 certificate location."""
+    raise NotImplementedError
+
+
+def validate_auth_token(account, token):
+    """Validate an authentication token.
+
+    If the validation is successful, the token lifetime will be extended by <n> <timeunits>.
+
+    :param account: Account identifier.
+    :param token: Authentication token as a 32 character hex string."""
+    raise NotImplementedError
+
+
+def register_api_token(account, responsible, service_name):
+    """Register a new service with a unique, permanent API token.
+
+    :param account: Account identifier.
+    :param responsible: Email address of the service responsible as a string.
+    :param service_name: Name of the service as a string.
+    :returns: API token as an 32 character hex string."""
+    raise NotImplementedError
+
+
+def validate_api_token(account, token):
+    """Validate an API token.
+
+    :param account: Account identifier.
+    :param token: API token as a 32 character hex string."""
+    raise NotImplementedError
