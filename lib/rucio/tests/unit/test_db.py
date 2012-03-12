@@ -5,25 +5,21 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2012
-
+# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 import datetime
 import random
 
-from sqlalchemy     import (create_engine, Column, Integer, String, select, case, func)
-from sqlalchemy.orm import sessionmaker, MapperExtension, aliased
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-from rucio.db.models import register_models, unregister_models
+import rucio.db.models1 as models
 
-engine = create_engine('sqlite://', echo=True)
-Base = declarative_base()
-Base.metadata.create_all(engine)
+engine = create_engine('sqlite:///:memory:', echo=True)
 session = sessionmaker(bind=engine)()
-unregister_models(engine)
-register_models(engine)
-
+models.unregister_models(engine)
+models.register_models(engine)
 
 #ALTER TABLE dataset_properties drop CONSTRAINT fk_dataset_properties;
 #ALTER TABLE file_properties drop CONSTRAINT fk_file_properties;
