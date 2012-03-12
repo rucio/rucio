@@ -30,6 +30,19 @@ class UserPass:
     """Authenticate a Rucio account temporarily via username and password."""
 
     def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param Rucio-Account: Account identifier.
+        :param Rucio-Username: Username as a string.
+        :param Rucio-Password: SHA1 hash of the password as a string.
+        :returns: "Rucio-Auth-Token" as an 32 character hex string header.
+        """
+        
         web.header('Content-Type', 'application/octet-stream')
 
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
@@ -102,7 +115,30 @@ class Validate:
     """Validate a Rucio Auth Token"""
 
     def GET(self):
+
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param Rucio-Account: Account identifier.
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :returns: Expected current lifetime of the token.
+        """
+        
         web.header('Content-Type', 'application/octet-stream')
+
+        account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        result = validate_auth_token(account, token)
+        if result is None:
+            raise web.Unauthorized()
+        else:
+            return result
+
         raise web.BadRequest()
 
     def PUT(self):
@@ -144,4 +180,5 @@ class APITokens:
 app = web.application(urls, globals())
 
 if __name__ == "__main__":
+    web.wsgi.runwsgi = lambda func, addr=None: web.wsgi.runfcgi(func, addr)
     app.run()
