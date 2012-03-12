@@ -65,3 +65,38 @@ This is to make sure that the full call chain works:
     8. Run all testcases with "nosetests -v" from the rucio main dir
 
 You can selectively run test cases by giving directories or files as parameters to the nosetests executable.
+
+
+--------------------------------------------------------------------
+I have a conflict in my patch set and I need to merge. What do I do?
+--------------------------------------------------------------------
+
+If you get an error message from gerrit like "Please merge (or rebase) the change locally and upload the resolution for review.", then that means that someone got a change approved for a file while you were working on the same file. This means that you need to fix your commit:
+
+    1. Make sure you're on your master branch::
+
+        git checkout master
+
+    2. Get the newest changesets from origin/master::
+
+        git fetch; git pull
+
+    3. Switch to your feature branch and merge in the changes::
+
+        git checkout my_feature
+        git rebase master
+
+    4. This will break at some point at the problematic file(s). Edit them and mark them as resolved::
+
+        emacs file1
+        emacs file2
+        git add file1
+        git add file2
+
+    5. Finish the merge::
+
+        git rebase --continue
+
+    6. Submit for review::
+
+        tools/submit-review -a "merged conflicts"
