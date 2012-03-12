@@ -36,7 +36,7 @@ More specifically:
 License and Copyright
 ---------------------
 
-Every source file should have the following copyright and license statement at the top::    
+Every source file must have the following copyright and license statement at the top::    
 
     # Copyright European Organization for Nuclear Research (CERN)
     #
@@ -47,7 +47,7 @@ Every source file should have the following copyright and license statement at t
     # Authors:
     # - XXXX XXXXX, <xxxx.xxxx@cern.ch>, 2012
 
-All __init__.py files should have the same header, excluding the authors declaration. e.g.::
+All __init__.py files must have the same header, excluding the authors declaration. e.g.::
 
     # Copyright European Organization for Nuclear Research (CERN)
     #
