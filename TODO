@@ -6,7 +6,8 @@ Rucio TODO
 * Architecture: 
 * Logging: 
 * Usage/accounting/quota
-* Date placement policies / Subscription / Grouping of file per datasets at a site
+* Date placement policies/subscription : Martin
+* Grouping of file per datasets at a site
 * Dataset replicas
 * Transfer primitives
 * State machines for file transfer/deletion request 
