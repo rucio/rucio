@@ -10,7 +10,7 @@
 from paste.fixture import TestApp
 from nose.tools import *
 
-from rucio.web.server.authentication import app
+from rucio.web.rest.authentication import app
 
 
 class TestGET():
