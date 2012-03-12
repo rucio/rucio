@@ -53,7 +53,7 @@ def validate_auth_token(account, token):
     :param account: Account identifier.
     :param token: Authentication token as a 32 character hex string.
     :returns: true, if the token is valid and was extended, false otherwise"""
-    raise NotImplementedError
+    return rucio.core.authentication.validate_auth_token(account, token)
 
 
 def register_api_token(account, responsible, service_name):
