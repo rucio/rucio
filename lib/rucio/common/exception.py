@@ -7,6 +7,7 @@
 # Authors:
 # - Thomas Beermann,  <thomas.beermann@cern.ch> , 2012
 
+
 class RucioException(Exception):
     """
     To correctly use this class, inherit from it and define
