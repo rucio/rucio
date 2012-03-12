@@ -47,7 +47,14 @@ Every source file should have the following copyright and license statement at t
     # Authors:
     # - XXXX XXXXX, <xxxx.xxxx@cern.ch>, 2012
 
+All __init__.py files should have the same header, excluding the authors declaration. e.g.::
 
+    # Copyright European Organization for Nuclear Research (CERN)
+    #
+    # Licensed under the Apache License, Version 2.0 (the "License");
+    # You may not use this file except in compliance with the License.
+    # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+    
 -----------------------
 How to write test cases
 -----------------------
