@@ -8,7 +8,9 @@ Coding Guidelines
 
 For the most part we try to follow PEP 8 guidelines which can be viewed here: http://www.python.org/dev/peps/pep-0008/
 
-There is a useful pep8_ command line tool for checking files for pep8 compliance which can be installed with ``easy_install pep8``.
+There is a useful pep8_ command line tool for checking files for pep8 compliance
+which can be installed with ``easy_install pep8``. (It is also included in the
+virtual environment)
 
 .. _pep8: http://pypi.python.org/pypi/pep8
 
@@ -17,6 +19,10 @@ You can then run it manually with::
     pep8 --repeat --ignore=E501 lib
 
 (Yes, we ignore the "E501 - line too long" warning.)
+
+To run the unit/integrations tests including the test-coverage::
+
+    nosetests -v --with-coverage --cover-package=rucio
 
 ------------------------
 Documentation Guidelines
