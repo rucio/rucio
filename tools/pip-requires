@@ -1,15 +1,11 @@
-cx_Oracle==5.1.1
-SQLAlchemy==0.7.5  # db backend
-sphinx==1.1.2      # required to build documentation
-Pygments>=1.2
-Jinja2>=2.3
-docutils>=0.7
-web.py
-#Optional backend: Memcache
-#python-memcached 
+# All dependencies needed to run rucio should be defined here
 
-# Testing
-#pylint                 # static code analysis
-pep8==0.6.1             # checks for PEP8 code style compliance
+#cx_Oracle==5.1.1        # Oracle connector
+SQLAlchemy==0.7.5       # db backend
+#Jinja2>=2.3             # Template engine
+flup                    # Needed to deploy web.py in lighthttpd
+web.py                  # Python web framework
+#python-memcached        # Cache
+
+# This must be installed before matplotlib !!!
 numpy==1.6.1            # Numerical Python libs
-

@@ -1,11 +1,18 @@
-# Testing
+# All dependencies needed to develop/test rucio should be defined here
+
 multi-mechanize==1.2.0  # Performance Test Framework
 Matplotlib==1.1.0       # Python plotting libs
 nose                   # for test discovery and console feedback
-#unittest2              # backport of unittest lib in python 2.7
-#webtest                # test wsgi apps without starting an http server
-#mox                    # mock object framework
 carbon
 whisper
 graphite-web
-
+paste                   #
+#unittest2               # backport of unittest lib in python 2.7
+#webtest                 # test wsgi apps without starting an http server
+#mox                     # mock object framework
+coverage                # Nose module for test coverage
+sphinx==1.1.2           # required to build documentation
+Pygments>=1.2           # Python Syntax highlighter
+docutils>=0.7           # Needed for sphinx
+pep8==0.6.1             # checks for PEP8 code style compliance
+#pylint                  # static code analysis
