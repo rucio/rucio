@@ -16,7 +16,9 @@ def add_dataset(scope, dsn, content=None, dataset_meta=None):
 
         :param scope:   The scope name.
         :param dsn:     The dataset name.
-        :param content: A list of files or datasets. If "None" an empty dataset is generated which is deleted after 30 days if nothing is added to it.
+        :param content: A list of files or datasets. If "None"
+                        an empty dataset is generated which is
+                        deleted after 30 days if nothing is added to it.
         :param dataset_meta: A dictionnary with the meta-data information about the dataset.
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
