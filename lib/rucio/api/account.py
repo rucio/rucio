@@ -6,18 +6,22 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
-# - Angelos Molfetas, (angelos.molfetas@cern.ch>, 2011
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+
+from rucio.common import exception
+from rucio.core import account
 
 
-def add_account(accountName):
+def add_account(accountName, type):
         """
         Creates an account with the provided account name, contact information, etc.
 
         :param accountName: The account name.
+        :param type: The account type
         :returns: A Response code is returned and if successful is a "0". If an error occurs, the error message text is also returned.
-
         """
-        pass
+        return account.add_account(accountName, type)
 
 
 def del_account(accountName):
@@ -27,7 +31,7 @@ def del_account(accountName):
         :param accountName: The account name.
         :returns: A Response code is returned and if successful is a "0". If an error occurs, the error message text is also returned.
         """
-        pass
+        return account.del_account(accountName)
 
 
 def get_account_info(accountName):
@@ -38,7 +42,7 @@ def get_account_info(accountName):
                           timestamp will be removed.
         :returns: All account information.
         """
-        pass
+        return account.get_account(accountName)
 
 
 def set_account_limits(accountName, limitationName, limitationValue):
@@ -75,4 +79,4 @@ def list_accounts():
 
         :returns: List of all accounts
         """
-        pass
+        return account.list_accounts()
