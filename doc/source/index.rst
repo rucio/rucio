@@ -52,6 +52,7 @@ Developer Documentation
 
     development_guidelines
     setup
+    developing
 
 Using Rucio: API
 ================
