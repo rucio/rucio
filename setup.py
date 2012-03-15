@@ -112,7 +112,7 @@ setup(
       script_args=copy_args,
       cmdclass=cmdclass,
       include_package_data=True,
-      data_files=[('doc/',), ],
+#      data_files=[('doc/',), ],
       scripts=['bin/rucio',
                'bin/rucio-admin'],
       #doc=cmdclass,
