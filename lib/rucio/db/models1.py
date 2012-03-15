@@ -28,12 +28,11 @@ engine = create_engine('sqlite:////tmp/rucio.db', echo=True)
 BASE = declarative_base()
 
 
-class ModelBase(object):
-    """Base class for Rucio Models"""
-    __table_args__ = {'mysql_engine': 'InnoDB'}
-    __table_initialized__ = False
+class Timers(object):
+    """Necessary row update timers"""
+
     __protected_attributes__ = set([
-        "created_at", "updated_at", "deleted_at", "deleted"])
+            "created_at", "updated_at", "deleted_at", "deleted"])
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow(),
                         nullable=False)
@@ -41,6 +40,12 @@ class ModelBase(object):
                         nullable=False, onupdate=datetime.datetime.utcnow())
     deleted_at = Column(DateTime)
     deleted = Column(Boolean, nullable=False, default=False)
+
+
+class ModelBase(object):
+    """Base class for Rucio Models"""
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    __table_initialized__ = False
 
     def save(self, session=None):
         """Save this object"""
@@ -86,21 +91,21 @@ class ModelBase(object):
         return self.__dict__.copy()
 
 
-class Identity(BASE, ModelBase):
+class Identity(BASE, Timers, ModelBase):
     """Represents an identity in the datastore"""
     __tablename__ = 'identities'
     id = Column(String(255), primary_key=True)
     type = Column(Enum('x509', 'gss'))
 
 
-class Account(BASE, ModelBase):
+class Account(BASE, Timers, ModelBase):
     """Represents an account in the datastore"""
     __tablename__ = 'accounts'
     account = Column(String(255), primary_key=True)
     type = Column(Enum('user', 'group', 'atlas'))
 
 
-class IdentityAccountAssociation(BASE, ModelBase):
+class IdentityAccountAssociation(BASE, Timers, ModelBase):
     """Represents a map account-identity in the datastore"""
     __tablename__ = 'account_map'
     identity_id = Column(String(255), ForeignKey('identities.id'), primary_key=True)
@@ -108,7 +113,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
     default = Column(Boolean, nullable=False, default=False)
 
 
-class Scope(BASE, ModelBase):
+class Scope(BASE, Timers, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'scopes'
     scope = Column(String(255), primary_key=True)
@@ -116,7 +121,7 @@ class Scope(BASE, ModelBase):
     default = Column(Boolean, nullable=False, default=False)
 
 
-class DatasetProperty(BASE, ModelBase):
+class DatasetProperty(BASE, Timers, ModelBase):
     """Represents a dataset properties"""
     __tablename__ = 'dataset_properties'
     scope = Column(String(255), primary_key=True)
@@ -153,7 +158,7 @@ class DatasetProperty(BASE, ModelBase):
 #    lfn = Column(String(255), ForeignKey('nodes.name'),  primary_key=True)
 
 
-class Dataset(BASE, ModelBase):
+class Dataset(BASE, Timers, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'datasets'
     scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
@@ -166,7 +171,7 @@ class Dataset(BASE, ModelBase):
     #properties = relationship('DatasetProperty', cascade="all")
 
 
-class File(BASE, ModelBase):
+class File(BASE, Timers, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'files'
     scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
@@ -177,7 +182,7 @@ class File(BASE, ModelBase):
     checksum = Column(String(32))
 
 
-class FileProperty(BASE, ModelBase):
+class FileProperty(BASE, Timers, ModelBase):
     """Represents a dataset properties"""
     __tablename__ = 'file_properties'
     scope = Column(String(255), primary_key=True)
@@ -188,7 +193,7 @@ class FileProperty(BASE, ModelBase):
     use_alter=True, name='fk_file_properties')
 
 
-class DatasetFileAssociation(BASE, ModelBase):
+class DatasetFileAssociation(BASE, Timers, ModelBase):
     __tablename__ = 'dataset_contents'
     scope_dsn = Column(String(255), primary_key=True)
     dsn = Column(String(255), primary_key=True)
@@ -200,7 +205,7 @@ class DatasetFileAssociation(BASE, ModelBase):
     ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'])
 
 
-class RSE(BASE, ModelBase):
+class RSE(BASE, Timers, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'rses'
     rse = Column(String(255), primary_key=True)
@@ -208,21 +213,21 @@ class RSE(BASE, ModelBase):
     path = Column(Text)
 
 
-class RSETag(BASE, ModelBase):
+class RSETag(BASE, Timers, ModelBase):
     """Represents a RSE tag"""
     __tablename__ = 'rse_tags'
     tag = Column(String(255), primary_key=True)
     scope = Column(String(255), nullable=True)
 
 
-class RSETagAssociation(BASE, ModelBase):
+class RSETagAssociation(BASE, Timers, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'rse_tag_association'
     rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
     tag = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)
 
 
-class RSEFileAssociation(BASE, ModelBase):
+class RSEFileAssociation(BASE, Timers, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'file_replicas'
     rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
@@ -231,7 +236,7 @@ class RSEFileAssociation(BASE, ModelBase):
     ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])
 
 
-class ReplicationRule(BASE, ModelBase):
+class ReplicationRule(BASE, Timers, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'replication_rules'
 #    __table_args__ = (UniqueConstraint("account", "scope", "lfn", "tag"),)
@@ -245,7 +250,15 @@ class ReplicationRule(BASE, ModelBase):
     ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])
 
 
-class APIToken(BASE, ModelBase):
+class Authentication(BASE, ModelBase):
+    """Represents tokens for authenticated accounts"""
+    __tablename__ = 'authentication'
+    token = Column(String(32), primary_key=True)
+    account = Column(String(255), primary_key=True)
+    lifetime = Column(DateTime, nullable=False, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))
+
+
+class APIToken(BASE, Timers, ModelBase):
     """Represents valid API clients"""
     __tablename__ = 'api_tokens'
     token = Column(String(32), primary_key=True)
