@@ -9,8 +9,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 """
-Get the configuration file from RUCIO_HOME.
-If it is not there, try ~/.rucio/etc/rucio.cfg
+Get the configuration file from /opt/rucio/etc/rucio.cfg
+If it is not there, get it from $RUCIO_HOME
 If it is not there, except.
 """
 
@@ -41,11 +41,11 @@ def config_get_bool(section, option):
 
 __config = ConfigParser.ConfigParser()
 
-__configfile = '%s/etc/rucio.cfg' % os.environ['RUCIO_HOME']
+__configfile = '/opt/rucio/etc/rucio.cfg'
 __validate = __config.read(__configfile)
 
 if __validate != [__configfile]:
-    __configfile = os.path.expanduser('~/.rucio/etc/rucio.cfg')
+    __configfile = '%s/etc/rucio.cfg' % os.environ['RUCIO_HOME']
     __validate = __config.read(__configfile)
     if __validate != [__configfile]:
-        raise Exception('RUCIO_HOME is not set, and could not load configuration file from $HOME')
+        raise Exception('Could not load /opt/rucio/etc/rucio.cfg and RUCIO_HOME is not set.')
