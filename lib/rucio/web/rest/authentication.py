@@ -8,7 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import web
+import webb
 
 from rucio.api.authentication import get_auth_token_user_pass
 from rucio.api.authentication import get_auth_token_kerberos
@@ -42,7 +42,7 @@ class UserPass:
         :param Rucio-Password: SHA1 hash of the password as a string.
         :returns: "Rucio-Auth-Token" as an 32 character hex string header.
         """
-        
+
         web.header('Content-Type', 'application/octet-stream')
 
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
@@ -127,7 +127,7 @@ class Validate:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :returns: Expected current lifetime of the token.
         """
-        
+
         web.header('Content-Type', 'application/octet-stream')
 
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
