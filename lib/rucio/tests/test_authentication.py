@@ -7,13 +7,24 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-from paste.fixture import TestApp
 from nose.tools import *
+from paste.fixture import TestApp
+from sqlalchemy import create_engine
 
+from rucio.common.config import config_get
 from rucio.web.rest.authentication import app
+import rucio.db.models1 as models
 
 
 class TestGET():
+
+    def setUp(self):
+        engine = create_engine(config_get('database', 'default'))
+        models.register_models(engine)
+
+    def tearDown(self):
+        engine = create_engine(config_get('database', 'default'))
+        models.unregister_models(engine)
 
     def test_auth_header_userpass_fail(self):
         """Authenticate a Rucio account temporarily via username and password (wrong credentials)."""
