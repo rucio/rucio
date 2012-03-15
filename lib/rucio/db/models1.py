@@ -21,6 +21,7 @@ from sqlalchemy        import UniqueConstraint
 from sqlalchemy.schema import ForeignKeyConstraint
 from sqlalchemy.ext.declarative import declarative_base
 
+from rucio.common import utils
 
 BASE = declarative_base()
 
@@ -164,10 +165,9 @@ class DatasetFileAssociation(BASE, ModelBase):
     lfn = Column(String(255), primary_key=True)
     parent_scope = Column(String(255), nullable=True)
     parent_dsn = Column(String(255), nullable=True)
-    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'],), {})
-    #ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'])
-
-
+    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn']),
+                      ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'],), {})
+        
 class RSE(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'rses'
@@ -213,6 +213,15 @@ class ReplicationRule(BASE, ModelBase):
     __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],), {})
 
 
+class Subscription(BASE, ModelBase):
+    """Represents a subscription"""
+    __tablename__ = 'subscriptions'
+    id = Column(String(36), primary_key=True, default=utils.generate_uuid)
+    account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
+    retroactive = Column(Boolean, nullable=False, default=False)
+    expired_at = Column(DateTime)
+
+
 class Authentication(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'authentication'
@@ -235,7 +244,7 @@ def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken)
+    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken,Subscription)
     for model in models:
         model.metadata.create_all(engine)
 
@@ -244,6 +253,6 @@ def unregister_models(engine):
     """
     Drops database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken)
+    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken,Subscription)
     for model in models:
         model.metadata.drop_all(engine)
