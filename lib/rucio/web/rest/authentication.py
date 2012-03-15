@@ -8,7 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import webbbbb
+import webbbbbb
 
 from rucio.api.authentication import get_auth_token_user_pass
 from rucio.api.authentication import get_auth_token_kerberos
