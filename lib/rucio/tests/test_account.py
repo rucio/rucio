@@ -17,7 +17,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from rucio.db import models1 as models
-from rucio.web.server.account import app
+from rucio.web.rest.account import app
 
 
 class TestAccount():
