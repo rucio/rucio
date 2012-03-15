@@ -2,13 +2,11 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 """
 SQLAlchemy models for rucio data
 """
@@ -20,19 +18,19 @@ from sqlalchemy.orm    import relationship, backref, exc, object_mapper, validat
 from sqlalchemy        import Column, Integer, String, BigInteger, Enum
 from sqlalchemy        import ForeignKey, DateTime, Boolean, Text
 from sqlalchemy        import UniqueConstraint
-from sqlalchemy        import create_engine
 from sqlalchemy.schema import ForeignKeyConstraint
 from sqlalchemy.ext.declarative import declarative_base
 
-engine = create_engine('sqlite:////tmp/rucio.db', echo=True)
+
 BASE = declarative_base()
 
 
-class Timers(object):
-    """Necessary row update timers"""
-
+class ModelBase(object):
+    """Base class for Rucio Models"""
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    __table_initialized__ = False
     __protected_attributes__ = set([
-            "created_at", "updated_at", "deleted_at", "deleted"])
+        "created_at", "updated_at", "deleted_at", "deleted"])
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow(),
                         nullable=False)
@@ -40,12 +38,6 @@ class Timers(object):
                         nullable=False, onupdate=datetime.datetime.utcnow())
     deleted_at = Column(DateTime)
     deleted = Column(Boolean, nullable=False, default=False)
-
-
-class ModelBase(object):
-    """Base class for Rucio Models"""
-    __table_args__ = {'mysql_engine': 'InnoDB'}
-    __table_initialized__ = False
 
     def save(self, session=None):
         """Save this object"""
@@ -91,21 +83,21 @@ class ModelBase(object):
         return self.__dict__.copy()
 
 
-class Identity(BASE, Timers, ModelBase):
+class Identity(BASE, ModelBase):
     """Represents an identity in the datastore"""
     __tablename__ = 'identities'
     id = Column(String(255), primary_key=True)
     type = Column(Enum('x509', 'gss'))
 
 
-class Account(BASE, Timers, ModelBase):
+class Account(BASE, ModelBase):
     """Represents an account in the datastore"""
     __tablename__ = 'accounts'
     account = Column(String(255), primary_key=True)
     type = Column(Enum('user', 'group', 'atlas'))
 
 
-class IdentityAccountAssociation(BASE, Timers, ModelBase):
+class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity in the datastore"""
     __tablename__ = 'account_map'
     identity_id = Column(String(255), ForeignKey('identities.id'), primary_key=True)
@@ -113,7 +105,7 @@ class IdentityAccountAssociation(BASE, Timers, ModelBase):
     default = Column(Boolean, nullable=False, default=False)
 
 
-class Scope(BASE, Timers, ModelBase):
+class Scope(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'scopes'
     scope = Column(String(255), primary_key=True)
@@ -121,44 +113,17 @@ class Scope(BASE, Timers, ModelBase):
     default = Column(Boolean, nullable=False, default=False)
 
 
-class DatasetProperty(BASE, Timers, ModelBase):
+class DatasetProperty(BASE, ModelBase):
     """Represents a dataset properties"""
     __tablename__ = 'dataset_properties'
     scope = Column(String(255), primary_key=True)
     dsn = Column(String(255), primary_key=True)
     key = Column(String(255), index=True, primary_key=True)
     value = Column(Text)
-    ForeignKeyConstraint(['scope', 'dsn'], ['datasets.scope', 'datasets.dsn'])
-    dataset = relationship('Dataset', foreign_keys=(scope, dsn), \
-            primaryjoin='and_(DatasetProperty.dsn==Dataset.dsn, \
-            DatasetProperty.scope==Dataset.scope)')
-
-#class Node(BASE, ModelBase):
-#    """Represents a node in the datastore"""
-#    __tablename__ = 'nodes'
-#    scope = Column(String(255), ForeignKey('scopes.scope'),  primary_key=True)
-#    name = Column(String(255), primary_key=True)
-#    type = Column(Enum('file', 'dataset'))
-#    open = Column(Boolean)
-#    monotonic = Column(Boolean)
-#    hidden = Column(Boolean)
-#    obsolete = Column(Boolean)
-#    complete = Column(Boolean)
-#    obsolete = Column(Boolean)
-#    lost = Column(Boolean)
-#    size = Column(BigInteger)
-#    checksum = Column(String(32))
-#
-#class Aggregations(BASE, ModelBase):
-#    """Represents a node in the datastore"""
-#    __tablename__ = 'aggregations'
-#    scope_dsn = Column(String(255), ForeignKey('nodes.scope'),  primary_key=True)
-#    dsn = Column(String(255), ForeignKey('nodes.name'),  primary_key=True)
-#    scope_lfn = Column(String(255), ForeignKey('nodes.scope'),  primary_key=True)
-#    lfn = Column(String(255), ForeignKey('nodes.name'),  primary_key=True)
+    __table_args__ = (ForeignKeyConstraint(['scope', 'dsn'], ['datasets.scope', 'datasets.dsn']), {})
 
 
-class Dataset(BASE, Timers, ModelBase):
+class Dataset(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'datasets'
     scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
@@ -168,10 +133,9 @@ class Dataset(BASE, Timers, ModelBase):
     hidden = Column(Boolean)
     obsolete = Column(Boolean)
     complete = Column(Boolean)
-    #properties = relationship('DatasetProperty', cascade="all")
 
 
-class File(BASE, Timers, ModelBase):
+class File(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'files'
     scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
@@ -182,18 +146,17 @@ class File(BASE, Timers, ModelBase):
     checksum = Column(String(32))
 
 
-class FileProperty(BASE, Timers, ModelBase):
+class FileProperty(BASE, ModelBase):
     """Represents a dataset properties"""
     __tablename__ = 'file_properties'
     scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
     key = Column(String(255), index=True, primary_key=True)
     value = Column(Text)
-    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],
-    use_alter=True, name='fk_file_properties')
+    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn']), {})
 
 
-class DatasetFileAssociation(BASE, Timers, ModelBase):
+class DatasetFileAssociation(BASE, ModelBase):
     __tablename__ = 'dataset_contents'
     scope_dsn = Column(String(255), primary_key=True)
     dsn = Column(String(255), primary_key=True)
@@ -201,11 +164,11 @@ class DatasetFileAssociation(BASE, Timers, ModelBase):
     lfn = Column(String(255), primary_key=True)
     parent_scope = Column(String(255), nullable=True)
     parent_dsn = Column(String(255), nullable=True)
-    ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'])
-    ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'])
+    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'],), {})
+    #ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'])
 
 
-class RSE(BASE, Timers, ModelBase):
+class RSE(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'rses'
     rse = Column(String(255), primary_key=True)
@@ -213,30 +176,30 @@ class RSE(BASE, Timers, ModelBase):
     path = Column(Text)
 
 
-class RSETag(BASE, Timers, ModelBase):
+class RSETag(BASE, ModelBase):
     """Represents a RSE tag"""
     __tablename__ = 'rse_tags'
     tag = Column(String(255), primary_key=True)
     scope = Column(String(255), nullable=True)
 
 
-class RSETagAssociation(BASE, Timers, ModelBase):
+class RSETagAssociation(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'rse_tag_association'
     rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
     tag = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)
 
 
-class RSEFileAssociation(BASE, Timers, ModelBase):
+class RSEFileAssociation(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'file_replicas'
     rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
     scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
-    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])
+    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],), {})
 
 
-class ReplicationRule(BASE, Timers, ModelBase):
+class ReplicationRule(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'replication_rules'
 #    __table_args__ = (UniqueConstraint("account", "scope", "lfn", "tag"),)
@@ -247,18 +210,19 @@ class ReplicationRule(BASE, Timers, ModelBase):
     replication_factor = Column(Integer(), nullable=False, default=1)
     expired_at = Column(DateTime)
     locked = Column(Boolean, nullable=False, default=False)
-    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'])
+    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],), {})
 
 
 class Authentication(BASE, ModelBase):
-    """Represents tokens for authenticated accounts"""
+    """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'authentication'
     token = Column(String(32), primary_key=True)
+    #account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     account = Column(String(255), primary_key=True)
-    lifetime = Column(DateTime, nullable=False, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))
+    lifetime = Column(DateTime, nullable=False, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
 
 
-class APIToken(BASE, Timers, ModelBase):
+class APIToken(BASE, ModelBase):
     """Represents valid API clients"""
     __tablename__ = 'api_tokens'
     token = Column(String(32), primary_key=True)
@@ -271,7 +235,7 @@ def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, APIToken)
+    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken)
     for model in models:
         model.metadata.create_all(engine)
 
@@ -280,9 +244,6 @@ def unregister_models(engine):
     """
     Drops database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, APIToken)
+    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken)
     for model in models:
         model.metadata.drop_all(engine)
-
-if __name__ == '__main__':
-    register_models(engine)
