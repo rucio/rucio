@@ -22,7 +22,6 @@ examples/whip/results/
 *.pyc
 *.swp
 *.log
-.rucio-venv
 .venv
 rucio.egg-info
 lib/rucio/lib/vcsversion.py
