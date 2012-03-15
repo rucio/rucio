@@ -16,9 +16,11 @@ from sqlalchemy.exc import IntegrityError
 
 from rucio.db import models1 as models
 from rucio.common import exception
+from rucio.common.config import config_get
 
 """ Only for testing """
-engine = create_engine('sqlite:////tmp/rucio.db', echo=True)
+engine = create_engine(config_get('database', 'default'))
+models.register_models(engine)  # this only creates the necessary tables, should be done once somewhere else and then never again
 
 session = sessionmaker(bind=engine, autocommit=True, expire_on_commit=False)
 
