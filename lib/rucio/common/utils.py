@@ -16,3 +16,7 @@ import uuid
 
 def generate_uuid():
     return str(uuid.uuid4()).replace('-', '').lower()
+
+
+def generate_bytes_uuid():
+    return uuid.uuid4().bytes

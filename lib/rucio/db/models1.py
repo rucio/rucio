@@ -19,6 +19,7 @@ from sqlalchemy        import Column, Integer, String, BigInteger, Enum
 from sqlalchemy        import ForeignKey, DateTime, Boolean, Text
 from sqlalchemy        import UniqueConstraint
 from sqlalchemy.schema import ForeignKeyConstraint
+from sqlalchemy.types  import LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 
 from rucio.common import utils
@@ -217,7 +218,7 @@ class ReplicationRule(BASE, ModelBase):
 class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
-    id = Column(String(36), primary_key=True, default=utils.generate_uuid)
+    id = Column(LargeBinary(16), primary_key=True, default=utils.generate_bytes_uuid)
     account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     retroactive = Column(Boolean, nullable=False, default=False)
     expired_at = Column(DateTime)
