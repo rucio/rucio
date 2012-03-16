@@ -68,16 +68,23 @@ main() {
 
     dry=""
 
-    if [[ "$@" == *-d* ]]; then
-        dry='echo '
-    fi
-
-    if [[ "$@" == *-h* ]]; then
-        usage;
+    branch="$(git branch 2>/dev/null | sed -e "/^\s/d" -e "s/^\*\s//")"
+    if [[ "$branch" == "master" ]]; then
+        echo 'Create new local branch and switch to it. E.g.:'
+        echo 'git checkout -b new_feature'        
     else
-        set_commit_msg;
-        push_commit "$@";
-    fi
+
+        if [[ "$@" == *-d* ]]; then
+            dry='echo '
+        fi
+    
+        if [[ "$@" == *-h* ]]; then
+            usage;
+        else
+            set_commit_msg;
+            push_commit "$@";
+        fi
+    fi        
 }
 
 
