@@ -167,7 +167,8 @@ class DatasetFileAssociation(BASE, ModelBase):
     parent_dsn = Column(String(255), nullable=True)
     __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn']),
                       ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'],), {})
-        
+
+
 class RSE(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'rses'
@@ -244,7 +245,7 @@ def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken,Subscription)
+    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken, Subscription)
     for model in models:
         model.metadata.create_all(engine)
 
@@ -253,6 +254,6 @@ def unregister_models(engine):
     """
     Drops database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken,Subscription)
+    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken, Subscription)
     for model in models:
         model.metadata.drop_all(engine)
