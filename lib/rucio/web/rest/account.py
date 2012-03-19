@@ -14,6 +14,7 @@ import web
 import datetime
 
 from rucio.api import account
+from rucio.core.authentication import validate_auth_token
 from rucio.common import exception as r_exception
 
 logger = logging.getLogger("rucio.account")
@@ -29,17 +30,33 @@ urls = (
 
 
 class Account:
+    """ create, update, get and disable rucio accounts. """
 
     def GET(self, accountName):
         """ get account information for given account name
 
-        HTTP Body: json containing the account information
+        HTTP Success:
+            200 OK
 
-        HTTP Error Headers:
+        HTTP Error:
+            401 Unauthorized
             500 InternalError
 
+        :param Rucio-Account: Account identifier
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :returns: JSON dict containing informations about the requested user
         """
+
         web.header('Content-Type', 'application/json')
+
+        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_account, auth_token)
+
+        if auth is None:
+            raise web.Unauthorized()
+
         acc = None
         try:
             acc = account.get_account_info(accountName)
@@ -66,17 +83,27 @@ class Account:
     def POST(self, accountName):
         """ create account with given account name
 
-        HTTP Request Header:
-            Rucio-Type: the type of the new account
-
-        HTTP Success Header:
+        HTTP Success:
             201 Created
 
-        HTTP Error Headers:
+        HTTP Error:
             500 Internal Error
+
+        :param Rucio-Account: Account identifier
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :params Rucio-Type: the type of the new account
         """
 
         web.header('Content-Type', 'application/octet-stream')
+
+        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_account, auth_token)
+
+        if auth is None:
+            raise web.Unauthorized()
+
         type = web.ctx.env.get('HTTP_RUCIO_TYPE')
 
         if type is None:
@@ -94,13 +121,27 @@ class Account:
     def DELETE(self, accountName):
         """ disable account with given account name
 
-        HTTP Success Header:
+        HTTP Success:
             200 OK
 
-        HTTP Error Header:
+        HTTP Error:
+            401 Unauthorized
             500 InternalError
+
+        :param Rucio-Account: Account identifier
+        :param Rucio-Auth-Token: as an 32 character hex string.
         """
+
         web.header('Content-Type', 'application/octet-stream')
+
+        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_account, auth_token)
+
+        if auth is None:
+            raise web.Unauthorized()
+
         try:
             account.del_account(accountName)
         except r_exception.NotFound, e:
@@ -111,8 +152,29 @@ class Account:
 
 class AccountList:
     def GET(self):
-        """ list all rucio accounts """
+        """ list all rucio accounts
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param Rucio-Account: Account identifier
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :returns: A list containing all account names
+        """
         web.header('Content-Type', 'application/octet-stream')
+
+        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_account, auth_token)
+
+        if auth is None:
+            raise web.Unauthorized()
+
         return account.list_accounts()
 
     def PUT(self):
@@ -147,8 +209,12 @@ class AccountLimits:
         web.header('Content-Type', 'application/octet-stream')
         raise web.BadRequest()
 
+"""----------------------
+   Web service startup
+----------------------"""
 
 app = web.application(urls, globals())
 
 if __name__ == "__main__":
+    web.wsgi.runwsgi = lambda func, addr=None: web.wsgi.runfcgi(func, addr)
     app.run()
