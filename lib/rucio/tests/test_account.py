@@ -16,6 +16,7 @@ from nose.tools import *
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
+from rucio.common.config import config_get
 from rucio.db import models1 as models
 from rucio.web.rest.account import app
 
@@ -23,11 +24,11 @@ from rucio.web.rest.account import app
 class TestAccount():
 
     def setUp(self):
-        engine = create_engine('sqlite:////tmp/rucio.db', echo=True)
+        engine = create_engine(config_get('database', 'default'))
         models.register_models(engine)
 
     def tearDown(self):
-        engine = create_engine('sqlite:////tmp/rucio.db', echo=True)
+        engine = create_engine(config_get('database', 'default'))
         models.unregister_models(engine)
 
     def test_create_user_success(self):
