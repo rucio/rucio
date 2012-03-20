@@ -102,10 +102,6 @@ function run_tests {
   return $RESULT
 }
 
-srcfiles=`find lib  -type f -name "*.py"`
-srcfiles+=" `find bin -type f`" 
-srcfiles+=" setup.py"
-
 function run_pep8 {
   echo "Running pep8 ..."
   # Just run PEP8 in current environment
@@ -125,7 +121,7 @@ function run_pep8 {
   #     perhaps the mistake was thinking that the deprecation applied to Python 2
   #     as well.
   pep8_opts="--ignore=W602,E501  --repeat"
-  ${wrapper} pep8 ${pep8_opts} ${srcfiles}
+  ${wrapper} pep8 ${pep8_opts} lib
 }
 
 function run_hacking {
@@ -135,7 +131,7 @@ function run_hacking {
 }
 
 
-NOSETESTS="python rucio/tests/runner.py $noseopts $noseargs"
+NOSETESTS="nosetests -v $noseopts $noseargs"
 
 if [ $never_venv -eq 0 ]
 then
@@ -195,7 +191,7 @@ if [ -z "$noseargs" ]; then
   fi
 fi
 
-if [ $coverage -eq 1 ]; then
-    echo "Generating coverage report in covhtml/"
-    ${wrapper} coverage html -d covhtml -i
-fi
+#if [ $coverage -eq 1 ]; then
+    #echo "Generating coverage report in covhtml/"
+    #${wrapper} coverage html -d covhtml -i
+#fi

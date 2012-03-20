@@ -128,3 +128,24 @@ def get_account(account):
     if result is None:
         raise exception.NotFound('Account with ID %s cannot be found' % account)
     return result
+
+
+def create_subscription(account):
+    """
+    creates a new subscription
+
+    :param account: the account identifier
+    """
+    session = get_session()
+    with session.begin():
+
+        values = {}
+        values['account'] = account
+
+        new_subscription = models.Account()
+
+        new_subscription.update(values)
+
+        new_subscriptiont.save(session=session)
+
+    return 0
