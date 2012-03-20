@@ -218,7 +218,7 @@ class ReplicationRule(BASE, ModelBase):
 class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
-    id = Column(LargeBinary(16), primary_key=True, default=utils.generate_bytes_uuid)
+    id = Column(LargeBinary(16), primary_key=True, default=utils.generate_uuid_bytes)
     account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     retroactive = Column(Boolean, nullable=False, default=False)
     expired_at = Column(DateTime)
