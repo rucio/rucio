@@ -15,6 +15,7 @@ lib/rucio.egg-info/
 dist/
 examples/whip/results/
 .coverage
+covhtml
 
 # Backup and temp files
 *.swp
