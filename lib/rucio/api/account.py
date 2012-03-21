@@ -9,19 +9,17 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-from rucio.common import exception
 from rucio.core import account
 
 
-def add_account(accountName, type):
+def add_account(accountName, accountType):
         """
         Creates an account with the provided account name, contact information, etc.
 
         :param accountName: The account name.
-        :param type: The account type
-        :returns: A Response code is returned and if successful is a "0". If an error occurs, the error message text is also returned.
+        :param accountType: The account type
         """
-        return account.add_account(accountName, type)
+        account.add_account(accountName, accountType)
 
 
 def del_account(accountName):
@@ -29,9 +27,8 @@ def del_account(accountName):
         Disables an account with the provided account name.
 
         :param accountName: The account name.
-        :returns: A Response code is returned and if successful is a "0". If an error occurs, the error message text is also returned.
         """
-        return account.del_account(accountName)
+        account.del_account(accountName)
 
 
 def get_account_info(accountName):
@@ -40,7 +37,7 @@ def get_account_info(accountName):
 
         :param accountName: The account name.
                           timestamp will be removed.
-        :returns: All account information.
+        :returns: A list with all account information.
         """
         return account.get_account(accountName)
 
@@ -77,6 +74,6 @@ def list_accounts():
 
         REST API: http://<host>:<port>/rucio/accounts
 
-        :returns: List of all accounts
+        :returns: List of all accounts.
         """
         return account.list_accounts()

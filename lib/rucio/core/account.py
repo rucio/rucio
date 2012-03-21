@@ -29,15 +29,19 @@ def get_session():
     return scoped_session(session)
 
 
-def add_account(accountName, type):
-    """ add an account with the given account name and type """
+def add_account(accountName, accountType):
+    """ add an account with the given account name and type.
+
+    :param accountName: the name of the new account.
+    :param accountType: the type of the new account.
+    """
     session = get_session()
 
     with session.begin():
 
         values = {}
         values['account'] = accountName
-        values['type'] = type
+        values['type'] = accountType
 
         new_account = models.Account()
 
@@ -49,11 +53,14 @@ def add_account(accountName, type):
             raise exception.Duplicate('Account ID \'%s\' already exists!' % values['account'])
         finally:
             session.flush()
-    return 0
 
 
 def get_account(accountName):
-    """ returns an account for the given account name """
+    """ returns an account for the given account name.
+
+    :param accountName: the name of the account.
+    :returns: a dict with all information for the account.
+    """
     session = get_session()
 
     result = None
@@ -66,7 +73,10 @@ def get_account(accountName):
 
 
 def del_account(accountName):
-    """ disable an account with the given account name """
+    """ disable an account with the given account name.
+
+    :param accountName: the account name.
+    """
     session = get_session()
 
     account = None
@@ -78,11 +88,12 @@ def del_account(accountName):
 
         account.delete(session)
 
-    return 0
-
 
 def list_accounts():
-    """ returns a list of all account names """
+    """ returns a list of all account names.
+
+    returns: a list of all account names.
+    """
     session = get_session()
     account_list = []
 

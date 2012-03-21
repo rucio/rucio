@@ -33,7 +33,7 @@ class Account:
     """ create, update, get and disable rucio accounts. """
 
     def GET(self, accountName):
-        """ get account information for given account name
+        """ get account information for given account name.
 
         HTTP Success:
             200 OK
@@ -42,9 +42,9 @@ class Account:
             401 Unauthorized
             500 InternalError
 
-        :param Rucio-Account: Account identifier
+        :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
-        :returns: JSON dict containing informations about the requested user
+        :returns: JSON dict containing informations about the requested user.
         """
 
         web.header('Content-Type', 'application/json')
@@ -71,9 +71,7 @@ class Account:
 
         del dict['_sa_instance_state']
 
-        ret = json.dumps(dict)
-
-        return ret
+        return json.dumps(dict)
 
     def PUT(self, accountName):
         """ update account informations for given account name """
@@ -81,7 +79,7 @@ class Account:
         raise web.BadRequest()
 
     def POST(self, accountName):
-        """ create account with given account name
+        """ create account with given account name.
 
         HTTP Success:
             201 Created
@@ -89,9 +87,9 @@ class Account:
         HTTP Error:
             500 Internal Error
 
-        :param Rucio-Account: Account identifier
+        :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
-        :params Rucio-Type: the type of the new account
+        :params Rucio-Type: the type of the new account.
         """
 
         web.header('Content-Type', 'application/octet-stream')
@@ -119,7 +117,7 @@ class Account:
         raise web.Created()
 
     def DELETE(self, accountName):
-        """ disable account with given account name
+        """ disable account with given account name.
 
         HTTP Success:
             200 OK
@@ -128,7 +126,7 @@ class Account:
             401 Unauthorized
             500 InternalError
 
-        :param Rucio-Account: Account identifier
+        :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
         """
 
@@ -152,7 +150,7 @@ class Account:
 
 class AccountList:
     def GET(self):
-        """ list all rucio accounts
+        """ list all rucio accounts.
 
         HTTP Success:
             200 OK
@@ -161,11 +159,11 @@ class AccountList:
             401 Unauthorized
             500 InternalError
 
-        :param Rucio-Account: Account identifier
+        :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
-        :returns: A list containing all account names
+        :returns: A list containing all account names.
         """
-        web.header('Content-Type', 'application/octet-stream')
+        web.header('Content-Type', 'application/json')
 
         auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
@@ -175,7 +173,7 @@ class AccountList:
         if auth is None:
             raise web.Unauthorized()
 
-        return account.list_accounts()
+        return json.dumps(account.list_accounts())
 
     def PUT(self):
         web.header('Content-Type', 'application/octet-stream')
