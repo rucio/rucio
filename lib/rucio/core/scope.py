@@ -31,7 +31,7 @@ def get_session():
 
 def add_scope(scope, account):
     """ add a scope for the given account name.
-    
+
     :param scope: the name for the new scope.
     :param account: the account to add the scope to.
     """
@@ -61,7 +61,7 @@ def add_scope(scope, account):
 
 def get_scopes(account):
     """ get all scopes defined for an account.
-    
+
     :param account: the account name to list the scopes of.
     :returns: a list of all scope names for this account.
     """
