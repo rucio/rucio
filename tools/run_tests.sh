@@ -88,7 +88,7 @@ function run_tests {
   echo "cleaning *.pyc files"
   ${wrapper} find . -type f -name "*.pyc" -delete
   # Just run the test suites in current environment
-  ${wrapper} $NOSETESTS 2> run_tests.log
+  ${wrapper} $NOSETESTS #2> run_tests.log
   # If we get some short import error right away, print the error log directly
   RESULT=$?
   if [ "$RESULT" -ne "0" ];
