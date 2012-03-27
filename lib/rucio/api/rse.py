@@ -7,16 +7,18 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
+from rucio.core import rse
 
-def add_rse(rse):
+
+def add_rse(RSEName):
         """
-        Creates a dataset and register its constituents.
+        Creates a new Rucio Storage Element (RSE).
 
-        :param rse: The rse name.
+        :param RSEName: The rse name.
 
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
-        pass
+        rse.add_rse(RSEName)
 
 
 def add_rse_tag(rse, tag, scope=None):

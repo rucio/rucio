@@ -7,5 +7,13 @@ flup                     # Needed to deploy web.py in lighthttpd
 web.py                   # Python web framework
 #python-memcached        # Cache
 
+Celery==2.5.1            # Distributed Task Queue
+importlib==1.0.2         # An implementation of import
+anyjson==0.3.1           # Wraps the best available JSON implementation available in a common interface
+kombu==2.1.2             # AMQP Messaging Framework
+python-dateutil==1.5     # Extensions to the standard datetime module
+ordereddict==1.1         # Ordered Dictionary
+amqplib==1.0.2           # AMQP Client Library
+
 # This must be installed before matplotlib !!!
 numpy==1.6.1             # Numerical Python libs

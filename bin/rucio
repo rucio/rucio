@@ -8,6 +8,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 """
     Rucio CLI.
@@ -22,15 +23,115 @@ import time
 
 from urlparse import urlparse
 
+from rucio import version
+
+SUCCESS = 0
+FAILURE = 1
+
+
+def dataset_add(options, args):
+    """
+%(prog)s add [options] <field1=value1 field2=value2 ...> 
+
+Adds a new dataset. Specify metadata fields as arguments.
+
+    """
+
+    return SUCCESS
+    
+def create_options(parser):
+    """
+    Sets up the CLI and config-file options that may be
+    parsed and program commands.
+
+    :param parser: The option parser
+    """
+    parser.add_option('-v', '--verbose', default=False, action="store_true",
+                      help="Print more verbose output")
+
+
+def parse_options(parser, cli_args):
+    """
+    Returns the parsed CLI options, command to run and its arguments
+
+    :param parser: The option parser
+    """
+
+    # Show options in usage output
+    if not cli_args:
+        cli_args.append('-h')
+
+    (options, args) = parser.parse_args(cli_args)
+
+    options.__parser = parser
+
+    if not args:
+        parser.print_usage()
+        sys.exit(0)
+
+    command_name = args.pop(0)
+    command = lookup_command(parser, command_name)
+
+    return (options, command, args)
+
+def lookup_command(parser, command_name):
+
+    BASE_COMMANDS = {'help': print_help}
+
+    DATASET_COMMANDS = {
+                'add': dataset_add,
+                }
+
+    commands = {}
+    for command_set in (BASE_COMMANDS, DATASET_COMMANDS):
+        commands.update(command_set)
+
+    try:
+        command = commands[command_name]
+    except KeyError:
+        parser.print_usage()
+        sys.exit("Unknown command: %s" % command_name)
+
+    return command
+
+
+def print_help(options, args):
+    """
+    Print help specific to a command
+    """
+    if len(args) != 1:
+        sys.exit("Please specify a command")
+
+    parser = options.__parser
+    command_name = args.pop()
+    command = lookup_command(parser, command_name)
+
+    print command.__doc__ % {'prog': os.path.basename(sys.argv[0])}
+
 
 if __name__ == '__main__':
     usage = """
-%prog <command> [options] [args]
+usage: %prog <command> [options] [args]
 
 Commands:
 
     help <command>  Output help for one of the commands below
 
 """
-
-    oparser = optparse.OptionParser(version='0.01', usage=usage.strip())
+    oparser = optparse.OptionParser(version='%%prog %s'
+                                    % version.version_string(),
+                                    usage=usage.strip())
+    create_options(oparser)
+    (options, command, args) = parse_options(oparser, sys.argv[1:])
+    try:
+        start_time = time.time()
+        result = command(options, args)
+        end_time = time.time()
+        if options.verbose:
+            print "Completed in %-0.4f sec." % (end_time - start_time)
+        sys.exit(result)
+    except (RuntimeError,
+            NotImplementedError), e:
+        oparser.print_usage()
+        print >> sys.stderr, "ERROR: ", e
+        sys.exit(1)
