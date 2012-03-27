@@ -31,14 +31,15 @@ FAILURE = 1
 
 def dataset_add(options, args):
     """
-%(prog)s add [options] <field1=value1 field2=value2 ...> 
+%(prog)s add [options] <field1=value1 field2=value2 ...>
 
 Adds a new dataset. Specify metadata fields as arguments.
 
     """
 
     return SUCCESS
-    
+
+
 def create_options(parser):
     """
     Sets up the CLI and config-file options that may be
@@ -73,6 +74,7 @@ def parse_options(parser, cli_args):
     command = lookup_command(parser, command_name)
 
     return (options, command, args)
+
 
 def lookup_command(parser, command_name):
 
