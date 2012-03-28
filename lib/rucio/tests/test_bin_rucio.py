@@ -27,4 +27,4 @@ class TestBinRucio():
     def test_rucio_version(self):
         cmd = 'bin/rucio --version'
         exitcode, out, err = execute(cmd)
-        assert_equal(out, 'rucio %s\n' % version.version_string())
+        assert_equal(err, 'rucio %s\n' % version.version_string())
