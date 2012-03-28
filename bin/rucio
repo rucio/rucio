@@ -16,124 +16,88 @@
 
 import functools
 import gettext
-import optparse
+import argparse
 import os
 import sys
 import time
 
 from urlparse import urlparse
 
+from rucio import client as rucio_client
 from rucio import version
 
 SUCCESS = 0
 FAILURE = 1
 
 
-def dataset_add(options, args):
+def get_client(args):
+    """
+    Returns a new client object.
+    specified by the --host and --port options
+    supplied to the CLI
+    """
+    return rucio_client.Client(host="0.0.0.0")
+
+
+def dataset_add(args):
     """
 %(prog)s add [options] <field1=value1 field2=value2 ...>
 
 Adds a new dataset. Specify metadata fields as arguments.
 
     """
-
+    c = get_client(args)
+    #args.dataset
+    c.add_dataset()
     return SUCCESS
-
-
-def create_options(parser):
-    """
-    Sets up the CLI and config-file options that may be
-    parsed and program commands.
-
-    :param parser: The option parser
-    """
-    parser.add_option('-v', '--verbose', default=False, action="store_true",
-                      help="Print more verbose output")
-
-
-def parse_options(parser, cli_args):
-    """
-    Returns the parsed CLI options, command to run and its arguments
-
-    :param parser: The option parser
-    """
-
-    # Show options in usage output
-    if not cli_args:
-        cli_args.append('-h')
-
-    (options, args) = parser.parse_args(cli_args)
-
-    options.__parser = parser
-
-    if not args:
-        parser.print_usage()
-        sys.exit(0)
-
-    command_name = args.pop(0)
-    command = lookup_command(parser, command_name)
-
-    return (options, command, args)
-
-
-def lookup_command(parser, command_name):
-
-    BASE_COMMANDS = {'help': print_help}
-
-    DATASET_COMMANDS = {
-                'add': dataset_add,
-                }
-
-    commands = {}
-    for command_set in (BASE_COMMANDS, DATASET_COMMANDS):
-        commands.update(command_set)
-
-    try:
-        command = commands[command_name]
-    except KeyError:
-        parser.print_usage()
-        sys.exit("Unknown command: %s" % command_name)
-
-    return command
-
-
-def print_help(options, args):
-    """
-    Print help specific to a command
-    """
-    if len(args) != 1:
-        sys.exit("Please specify a command")
-
-    parser = options.__parser
-    command_name = args.pop()
-    command = lookup_command(parser, command_name)
-
-    print command.__doc__ % {'prog': os.path.basename(sys.argv[0])}
 
 
 if __name__ == '__main__':
     usage = """
-usage: %prog <command> [options] [args]
+usage: %(prog)s <command> [options] [args]
 
 Commands:
 
     help <command>  Output help for one of the commands below
 
 """
-    oparser = optparse.OptionParser(version='%%prog %s'
-                                    % version.version_string(),
-                                    usage=usage.strip())
-    create_options(oparser)
-    (options, command, args) = parse_options(oparser, sys.argv[1:])
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), usage=usage.strip())
+    subparsers = oparser.add_subparsers()
+
+    # Main arguments
+    oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
+    oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
+
+    # A list command
+    list_parser = subparsers.add_parser('list', help='List contents')
+    list_parser.set_defaults(which='list')
+    list_parser.add_argument('dataset', action='store', help='list')
+
+    # A create command
+    create_parser = subparsers.add_parser('create', help='Create a dataset')
+    create_parser.set_defaults(which='create')
+    create_parser.add_argument('dataset',  action='store', help='New dataset to create')
+
+    # A delete command
+    delete_parser = subparsers.add_parser('delete', help='Remove a dataset')
+    delete_parser.set_defaults(which='delete')
+    delete_parser.add_argument('dataset', action='store', help='The dataset to remove')
+
+    args = oparser.parse_args(sys.argv[1:])
+    print args
+
+    commands = {'create': dataset_add,
+               }
+
     try:
         start_time = time.time()
-        result = command(options, args)
+        command = commands.get(args.which)
+        result = command(args)
         end_time = time.time()
-        if options.verbose:
+        if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
     except (RuntimeError,
-            NotImplementedError), e:
-        oparser.print_usage()
+             NotImplementedError), e:
         print >> sys.stderr, "ERROR: ", e
-        sys.exit(1)
+        sys.exit(FAILURE)
