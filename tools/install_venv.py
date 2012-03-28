@@ -17,6 +17,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENV = os.path.join(ROOT, '.venv')
 PIP_REQUIRES = os.path.join(ROOT, 'tools', 'pip-requires')
+PIP_REQUIRES_CLIENT = os.path.join(ROOT, 'tools', 'pip-requires-client')
 PIP_REQUIRES_TEST = os.path.join(ROOT, 'tools', 'pip-requires-test')
 
 
@@ -98,6 +99,9 @@ def install_dependencies(venv=VENV):
     print 'Installing dependencies with pip (this can take a while)...'
 
     venv_tool = 'tools/with_venv.sh'
+
+    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_CLIENT],
+                redirect_output=False)
 
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES],
                 redirect_output=False)
