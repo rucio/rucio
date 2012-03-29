@@ -1,0 +1,27 @@
+-------------------
+Summary/Meeting log
+-------------------
+
+* **When:** 2012-03-29, 09:15 - 11:00
+* **People present:** Luc, Graeme, Armin, Angelos, Vincent, Martin, Thomas, Luis, Ralph
+
+Meeting summary
+---------------
+
+* Presentation of RSE concept by Ralph
+  Document will be distributed
+  - Structure: RSE : Protocol : SubType
+			  - Central repository for RSE information --> Rucio Information Service?
+  - http-error codes -> Mapping needed
+  - Authentication to storage
+* Scope and sub-scopes
+  Proposal: No real hierarchy, just multiple scopes
+    e.g. prod-repro14
+         prod-repro13 ...
+* Transfer-requests for subscriptions
+  Wasn't clear to everyone, will write it down and distribute by eMail
+* Migration
+  We should discuss (in the near future) how we want to migrate the data
+  Good preparation for this could even result in almost no migration effort at all
+* Hierarchical namespace
+  Add this functionality? At least keep it in mind
