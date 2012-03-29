@@ -13,7 +13,7 @@ Everyone is encouraged to attend.
 Agenda for next meeting
 -----------------------
 
-The next meeting will be Monday, 02.04.2012, 14:00 to 16:00,  Room: 1-1-025.
+The next meeting will be **Monday, 02.04.2012, 14:00 to 16:00**, Room: 1-1-025.
 
 * Actions from previous meeting
 * Rucio status
