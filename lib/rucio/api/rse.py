@@ -23,7 +23,7 @@ def add_rse(RSEName):
 
 def add_rse_tag(rse, tag, scope=None):
         """
-        Creates a dataset and register its constituents.
+        Tags a rse.
 
         :param rse:   The rse name.
         :param tag:   The tag.
