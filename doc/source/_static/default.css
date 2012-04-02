@@ -16,14 +16,14 @@
 body {
     font-family: sans-serif;
     font-size: 100%;
-    background-color: #11303d;
+    background-color: #323A3D;
     color: #000;
     margin: 0;
     padding: 0;
 }
 
 div.document {
-    background-color: #1c4e63;
+    background-color: #34454C;
 }
 
 div.documentwrapper {
@@ -55,7 +55,7 @@ div.footer a {
 }
 
 div.related {
-    background-color: #133f52;
+    background-color: #3E484D;
     line-height: 30px;
     color: #ffffff;
 }
@@ -104,7 +104,7 @@ div.sphinxsidebar ul {
 }
 
 div.sphinxsidebar a {
-    color: #98dbcc;
+    color: #CFDDDA;
 }
 
 div.sphinxsidebar input {
@@ -219,7 +219,7 @@ p.admonition-title:after {
 
 pre {
     padding: 5px;
-    background-color: #eeffcc;
+    background-color: #F9FFEA;
     color: #333333;
     line-height: 120%;
     border: 1px solid #ac9;
