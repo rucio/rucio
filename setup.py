@@ -11,6 +11,7 @@ import gettext
 import glob
 import shutil
 import os
+import re
 import subprocess
 import sys
 
@@ -101,6 +102,53 @@ except:
     pass
 
 
+def get_reqs_from_files(requirements_files):
+    reqs_in = []
+    for requirements_file in requirements_files:
+        if os.path.exists(requirements_file):
+            return open(requirements_file, 'r').read().split('\n')
+    return []
+
+
+def parse_requirements(requirements_files=['tools/pip-requires']):
+    requirements = []
+    for line in get_reqs_from_files(requirements_files):
+        if re.match(r'\s*-e\s+', line):
+            requirements.append(re.sub(r'\s*-e\s+.*#egg=(.*)$', r'\1',
+                                line))
+        elif re.match(r'\s*-f\s+', line):
+            pass
+        else:
+            requirements.append(line)
+
+    return requirements
+
+
+def parse_dependency_links(requirements_files=['tools/pip-requires']):
+    dependency_links = []
+    for line in get_reqs_from_files(requirements_files):
+        if re.match(r'(\s*#)|(\s*$)', line):
+            continue
+        if re.match(r'\s*-[ef]\s+', line):
+            dependency_links.append(re.sub(r'\s*-[ef]\s+', '', line))
+    return dependency_links
+
+
+def write_requirements():
+    venv = os.environ.get('VIRTUAL_ENV', None)
+    if venv is not None:
+        with open("requirements.txt", "w") as req_file:
+            output = subprocess.Popen(["pip", "freeze", "-l"],
+                                      stdout=subprocess.PIPE)
+            requirements = output.communicate()[0].strip()
+            req_file.write(requirements)
+
+
+requires = parse_requirements()
+depend_links = parse_dependency_links()
+
+#write_requirements()
+
 setup(
       name=name,
       version=version.canonical_version_string(),
@@ -128,4 +176,6 @@ setup(
         'Programming Language :: Python :: 2.6',
         'Environment :: No Input/Output (Daemon)',
     ],
+      install_requires=requires,
+      dependency_links=depend_links,
 )

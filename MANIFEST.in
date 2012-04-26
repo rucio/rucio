@@ -8,11 +8,10 @@ include setup.cfg
 include etc/*
 graft bin
 graft doc
-graft tests
 graft tools
 graft examples
 prune dist 
 prune examples/whip/results/
-recursive-include doc lib *.json *.xml *.cfg README
+recursive-include lib *.py
 global-exclude *.pyc *.log *.db *.swp
 
