@@ -161,7 +161,7 @@ To avoid this, you need to create a :file:`~/.pip/pip.conf` with::
         http://pypi.python.org/simple
 
     extra-index-url=
-        http://<username>:<password>@http://atlas-pip.cern.ch/simple
+        http://<username>:<password>@atlas-pip.cern.ch/simple
 
 - *username*, which is the registered username on the PyPI server.
 - *password*, that will be used to authenticate. If omitted the user
