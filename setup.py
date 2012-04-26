@@ -114,7 +114,7 @@ setup(
       include_package_data=True,
 #      data_files=[('doc/',), ],
       scripts=['bin/rucio',
-               'bin/rucio-admin'],
+               'bin/rucio-manage'],
       #doc=cmdclass,
       author="Vincent Garonne",
       author_email="vincent.garonne@cern.ch",
