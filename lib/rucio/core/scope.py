@@ -7,16 +7,17 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
 import logging
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import scoped_session, sessionmaker
 
-from rucio.db import models1 as models
 from rucio.common import exception as r_exception
 from rucio.common.config import config_get
+from rucio.db import models1 as models
 
 """ Only for testing """
 engine = create_engine(config_get('database', 'default'))
@@ -73,3 +74,17 @@ def get_scopes(account):
             scope_list.append(s.scope)
 
     return scope_list
+
+
+def check_scope(scope_to_check):
+    """ check to see if scope exists.
+
+    :param scope: the scope to check
+    :returns: True or false
+    """
+
+    session = get_session()
+    if session.query(models.Scope).filter_by(scope=scope_to_check).first():
+        return True
+    else:
+        return False

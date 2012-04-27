@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
 import logging
 
@@ -68,7 +69,7 @@ def get_account(accountName):
         result = session.query(models.Account).filter_by(account=accountName).first()
 
     if result is None:
-        raise exception.NotFound('Account with ID \'%s\' cannot be found' % accountName)
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
     return result
 
 
@@ -84,7 +85,7 @@ def del_account(accountName):
         account = session.query(models.Account).filter_by(account=accountName).first()
 
         if account is None:
-            raise exception.NotFound('Account with ID \'%s\' cannot be found' % account)
+            raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
         account.delete(session)
 
