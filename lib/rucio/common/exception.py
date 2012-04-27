@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann,  <thomas.beermann@cern.ch> , 2012
+# - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
 
 
 class RucioException(Exception):
@@ -17,27 +18,44 @@ class RucioException(Exception):
 
     def __init__(self, *args, **kwargs):
         self.message = "An unknown exception occurred"
+        self.args = args
+        self.kwargs = kwargs
+
+    def __str__(self):
         try:
-            self._error_string = self.message % kwargs
+            self._error_string = self.message % self.kwargs
         except Exception:
             # at least get the core message out if something happened
             self._error_string = self.message
-        if len(args) > 0:
+        if len(self.args) > 0:
             # If there is a non-kwarg parameter, assume it's the error
             # message or reason description and tack it on to the end
             # of the exception message
             # Convert all arguments into their string representations...
-            args = ["%s" % arg for arg in args]
-            self._error_string = (self._error_string +
-                                  "\nDetails: %s" % '\n'.join(args))
-
-    def __str__(self):
+            args = ["%s" % arg for arg in self.args]
+            self._error_string = (self._error_string + "\nDetails: %s" % '\n'.join(args))
         return self._error_string
 
 
-class NotFound(RucioException):
-    message = "An object with the specified identifier was not found."
+class AccountNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(AccountNotFound, self).__init__()
+        self.message = "Account does not exist."
+
+
+class ScopeNotFound(RucioException):
+    def __init__(self, msg):
+        super(ScopeNotFound, self).__init__()
+        self.message = "Scope does not exist."
+
+
+class DatasetAlreadyExists(RucioException):
+    def __init(self, msg):
+        super(Duplicate, self).__init__()
+        self.message = "Dataset name in specified scope already exists"
 
 
 class Duplicate(RucioException):
-    message = "An object with the same identifier already exists."
+    def __init__(self, msg):
+        super(Duplicate, self).__init__()
+        self.message = "An object with the same identifier already exists."
