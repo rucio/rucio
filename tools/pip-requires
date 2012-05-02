@@ -18,3 +18,4 @@ amqplib==1.0.2           # AMQP Client Library
 
 # This must be installed before matplotlib !!!
 numpy==1.6.1             # Numerical Python libs
+pysftp                   # forces installation of paramikoi and pycrypto
