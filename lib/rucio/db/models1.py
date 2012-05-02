@@ -97,6 +97,7 @@ class Account(BASE, ModelBase):
     __tablename__ = 'accounts'
     account = Column(String(255), primary_key=True)
     type = Column(Enum('user', 'group', 'atlas'))
+    state = Column(Enum('active', 'inactive', 'disabled'))
 
 
 class IdentityAccountAssociation(BASE, ModelBase):
@@ -130,6 +131,7 @@ class Dataset(BASE, ModelBase):
     __tablename__ = 'datasets'
     scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
     dsn = Column(String(255), primary_key=True)
+    owner = Column(String(255), ForeignKey('accounts.account'))
     open = Column(Boolean)
     monotonic = Column(Boolean)
     hidden = Column(Boolean)
