@@ -11,12 +11,14 @@ try:
     from rucio.vcsversion import version_info
 except ImportError:
     version_info = {'branch_nick': u'LOCALBRANCH',
-                    'revision_id': 'LOCALREVISION',
+                    'revision_id': u'LOCALREVISION',
+                    'version': u'VERSION',
+                    'final': False,
                     'revno': 0}
 
-RUCIO_VERSION = ['2012', '1', None]
-YEAR, COUNT, REVSISION = RUCIO_VERSION
-FINAL = False   # This becomes true at Release Candidate time
+#RUCIO_VERSION = ['2012', '1', version_info['version'] ]
+RUCIO_VERSION = [version_info['version'], ]
+FINAL = version_info['final']   # This becomes true at Release Candidate time
 
 
 def canonical_version_string():
@@ -24,10 +26,7 @@ def canonical_version_string():
 
 
 def version_string():
-    if FINAL:
         return canonical_version_string()
-    else:
-        return '%s-dev' % (canonical_version_string(),)
 
 
 def vcs_version_string():
