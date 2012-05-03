@@ -10,6 +10,7 @@ graft bin
 graft doc
 graft tools
 graft examples
+graft etc
 prune dist 
 prune examples/whip/results/
 recursive-include lib *.py
