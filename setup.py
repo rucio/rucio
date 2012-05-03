@@ -5,7 +5,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 import gettext
 import glob
@@ -174,7 +175,9 @@ setup(
       script_args=copy_args,
       cmdclass=cmdclass,
       include_package_data=True,
-#      data_files=[('doc/',), ],
+      data_files=[('etc/', glob.glob('etc/*.template')),
+                  ('etc/web', glob.glob('etc/web/*.template'))
+                 ],
       scripts=['bin/rucio',
                'bin/rucio-manage'],
       #doc=cmdclass,
@@ -189,7 +192,7 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2.6',
         'Environment :: No Input/Output (Daemon)',
-    ],
+      ],
       install_requires=requires,
       dependency_links=depend_links,
 )
