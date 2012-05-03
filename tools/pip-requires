@@ -1,5 +1,6 @@
 # All dependencies needed to run rucio should be defined here
 
+argparse
 #cx_Oracle==5.1.1        # Oracle connector
 SQLAlchemy==0.7.5        # db backend
 #Jinja2>=2.3             # Template engine
