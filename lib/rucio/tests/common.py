@@ -7,18 +7,32 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
+from uuid import uuid4 as uuid
+from rucio.common import exception
+from rucio.core.account import add_account
+from rucio.core.inode import register_dataset, register_file
 
-def return_random_datasets(num):
-        """
-        Returns one or more random datasets. This is used for testing.
 
-        :parm num: Number of datasets to return
-        :returns: Returns a random dataset name as a list of tuple [(scope1, dataset1),(scope2,dataset2),...]
-        """
+def create_tmp_dataset(scope, user, clean_list):
+    """ Registers a temporary dataset and puts it in a list to be cleaned """
+    dsn = str(uuid())
+    clean_list.append(dsn)
+    register_dataset(scope, dsn, user)
+    return dsn
 
-        if not isinstance(num, int) or not num:
-            raise TypeError
 
-        # Temporary dummy code, this should be replaced with database select, when schema is operational
-        from uuid import uuid4 as uuid
-        return [(str(uuid()), str(uuid())) for i in range(num)]
+def create_tmp_file(scope, user, clean_list):
+    """ Registers a temporary file and puts it in a list to be cleaned """
+    label = str(uuid())
+    clean_list.append(label)
+    register_file(scope, label, user)
+    return label
+
+
+def create_accounts(account_list, user_type):
+    """ Registers a set of accounts """
+    for account in account_list:
+        try:
+            add_account(account, user_type)
+        except exception.Duplicate:
+            pass  # Account already exists, no need to create it

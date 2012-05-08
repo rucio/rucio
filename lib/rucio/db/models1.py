@@ -7,6 +7,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+
 """
 SQLAlchemy models for rucio data
 """
@@ -25,6 +27,11 @@ from sqlalchemy.ext.declarative import declarative_base
 from rucio.common import utils
 
 BASE = declarative_base()
+
+
+class InodeType:
+    FILE = 0
+    DATASET = 1
 
 
 class ModelBase(object):
@@ -97,7 +104,7 @@ class Account(BASE, ModelBase):
     __tablename__ = 'accounts'
     account = Column(String(255), primary_key=True)
     type = Column(Enum('user', 'group', 'atlas'))
-    state = Column(Enum('active', 'inactive', 'disabled'))
+    status = Column(Enum('active', 'inactive', 'disabled'))
 
 
 class IdentityAccountAssociation(BASE, ModelBase):
@@ -126,28 +133,44 @@ class DatasetProperty(BASE, ModelBase):
     __table_args__ = (ForeignKeyConstraint(['scope', 'dsn'], ['datasets.scope', 'datasets.dsn']), {})
 
 
+class Inode(BASE, ModelBase):
+    """ A dataset or file name """
+    __tablename__ = 'inodes'
+    scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
+    label = Column(String(255), primary_key=True)
+    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
+    obsolete = Column(Boolean, nullable=False, server_default='0')
+    type = Column(Boolean, nullable=False)
+
+    def __repr__(self):
+        return "<Inode(%s, %s, %s, %s)" % (self.scope, self.label, self.type, self.obsolete)
+
+
 class Dataset(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'datasets'
-    scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
+    scope = Column(String(255), primary_key=True)
     dsn = Column(String(255), primary_key=True)
-    owner = Column(String(255), ForeignKey('accounts.account'))
+    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
     open = Column(Boolean)
     monotonic = Column(Boolean)
     hidden = Column(Boolean)
-    obsolete = Column(Boolean)
     complete = Column(Boolean)
+    __table_args__ = (ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'],
+                      deferrable=True, initially='DEFERRED', ondelete='CASCADE'), {})
 
 
 class File(BASE, ModelBase):
     """Represents a scope in the datastore"""
     __tablename__ = 'files'
-    scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
+    scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
-    obsolete = Column(Boolean)
+    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
     lost = Column(Boolean)
     size = Column(BigInteger)
     checksum = Column(String(32))
+    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['inodes.scope', 'inodes.label'],
+                      deferrable=True, initially='DEFERRED', ondelete="CASCADE"), {})
 
 
 class FileProperty(BASE, ModelBase):

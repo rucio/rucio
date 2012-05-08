@@ -42,7 +42,7 @@ def add_scope(scope, account):
         result = session.query(models.Account).filter_by(account=account).first()
 
         if result is None:
-            raise r_exception.NotFound('Account ID \'%s\' does not exist')
+            raise r_exception.AccountNotFound('Account ID \'%s\' does not exist')
 
         values = {}
         values['scope'] = scope
@@ -58,6 +58,23 @@ def add_scope(scope, account):
             raise r_exception.Duplicate('Scope \'%s\' already exists!' % values['scope'])
         finally:
             session.flush()
+
+
+def bulk_add_scopes(scopes, account, skipExisting=False):
+    """ add a group of scopes, this call should not be exposed to users.
+
+    :param scopes: a list of scopes to be added.
+    :param account: the account associated to the scopes.
+    """
+
+    for scope in scopes:
+        try:
+            add_scope(scope, account)
+        except r_exception.Duplicate, error:
+            if skipExisting:
+                pass
+            else:
+                raise
 
 
 def get_scopes(account):
@@ -84,7 +101,4 @@ def check_scope(scope_to_check):
     """
 
     session = get_session()
-    if session.query(models.Scope).filter_by(scope=scope_to_check).first():
-        return True
-    else:
-        return False
+    return True if session.query(models.Scope).filter_by(scope=scope_to_check).first() else False
