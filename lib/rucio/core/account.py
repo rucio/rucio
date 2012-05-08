@@ -11,7 +11,7 @@
 
 import logging
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
@@ -24,6 +24,15 @@ engine = create_engine(config_get('database', 'default'))
 models.register_models(engine)  # this only creates the necessary tables, should be done once somewhere else and then never again
 
 session = sessionmaker(bind=engine, autocommit=True, expire_on_commit=False)
+
+
+class account_status:
+    """ enumerated type for account status """
+    # As the corresponding column on the db is of type enum, no integers are used
+    active = 'active'
+    inactive = 'inactive'
+    disabled = 'disabled'
+    not_exist = 'not_exist'
 
 
 def get_session():
@@ -43,17 +52,26 @@ def add_account(accountName, accountType):
         values = {}
         values['account'] = accountName
         values['type'] = accountType
-
+        values['status'] = account_status.active
         new_account = models.Account()
-
         new_account.update(values)
-
         try:
             new_account.save(session=session)
         except IntegrityError, e:
             raise exception.Duplicate('Account ID \'%s\' already exists!' % values['account'])
         finally:
             session.flush()
+
+
+def check_account(accountName):
+    """ checks to see if account exists. This procedure does not check it's status.
+
+    :param accountName: Name of the account.
+    :returns: True if found, otherwise false.
+    """
+
+    session = get_session()
+    return True if session.query(models.Account).filter_by(account=accountName).first() else False
 
 
 def get_account(accountName):
@@ -88,6 +106,30 @@ def del_account(accountName):
             raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
         account.delete(session)
+
+
+def get_account_status(accountName):
+    """ returns the state of the account.
+
+    :param accountName: Name of the account.
+    """
+
+    session = get_session()
+    acc_details = session.query(models.Account).filter_by(account=accountName).one()
+    return acc_details.status
+
+
+def set_account_status(accountName, status):
+    """ set the status of an account.
+
+    :param accountName: Name of the account.
+    :param status: The status for the account.
+    """
+
+    session = get_session()
+    session.begin()
+    session.query(models.Account).filter_by(account=accountName).update({'status': status})
+    session.commit()
 
 
 def list_accounts():
