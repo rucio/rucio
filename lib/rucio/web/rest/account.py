@@ -85,6 +85,7 @@ class Account:
             201 Created
 
         HTTP Error:
+            401 Unauthorized
             500 Internal Error
 
         :param Rucio-Account: Account identifier.
