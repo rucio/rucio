@@ -6,12 +6,35 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 """
 Rucio utilities.
 """
 
+import urllib
 import uuid
+
+
+def build_url(host, port=None, path=None, params=None, use_ssl=False):
+    """
+    utitily function to build an url for requests to the rucio system.
+    """
+
+    if use_ssl:
+        url = "https://"
+    else:
+        url = "http://"
+    url += host
+    if port is not None:
+        url += ":" + port
+    url += "/"
+    if path is not None:
+        url += path
+    if params is not None:
+        url += "?"
+        url += urllib.urlencode(params)
+    return url
 
 
 def generate_uuid():
