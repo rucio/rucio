@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann,  <thomas.beermann@cern.ch> , 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch> , 2012
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
 
 
@@ -110,6 +110,17 @@ class ForbiddenSearch(RucioException):
 
 
 class Duplicate(RucioException):
-    def __init__(self, msg):
+    def __init__(self, *args, **kwargs):
         super(Duplicate, self).__init__()
         self.message = "An object with the same identifier already exists."
+
+
+class NoAuthInformation(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(NoAuthInformation, self).__init__()
+        self.message = "No authentication information passed."
+
+class CannotAuthenticate(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(CannotAuthenticate, self).__init__()
+        self.message = "Cannot authenticate."
