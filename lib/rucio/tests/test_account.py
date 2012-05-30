@@ -7,18 +7,53 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
 import json
 
-from paste.fixture import TestApp
 from nose.tools import *
+from paste.fixture import TestApp
+from uuid import uuid4 as uuid
 
 from sqlalchemy import create_engine
 
 from rucio.common.config import config_get
+from rucio.core.account import add_account, check_account, del_account
+from rucio.core.account import get_account_status, account_status, set_account_status
 from rucio.db import models1 as models
+from rucio.db.session import build_database
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
+
+
+class TestAccount_core_api():
+    def setUp(self):
+        build_database()
+
+    def testDown(self):
+        pass
+
+    def test_create_and_check_for_user(self):
+        """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
+        usr = str(uuid())
+        invalid_usr = str(uuid())
+        add_account(usr, 'user')
+        assert_equal(check_account(usr), True)  # Check that the account exists
+        assert_equal(check_account(invalid_usr), False)  # Check for a non existant account
+        del_account(usr)
+
+    def test_account_status(self):
+        """ ACCOUNT (CORE): Test changing and quering account status """
+        usr = str(uuid())
+        add_account(usr, 'user')
+        assert_equal(get_account_status(usr), account_status.active)  # Should be active by default
+        set_account_status(usr, account_status.inactive)
+        assert_equal(get_account_status(usr), account_status.inactive)
+        set_account_status(usr, account_status.disabled)
+        assert_equal(get_account_status(usr), account_status.disabled)
+        set_account_status(usr, account_status.active)
+        assert_equal(get_account_status(usr), account_status.active)
+        del_account(usr)
 
 
 class TestAccount():
@@ -32,7 +67,7 @@ class TestAccount():
         models.unregister_models(engine)
 
     def test_create_user_success(self):
-        """ send a POST to create a new user """
+        """ ACCOUNT (REST): send a POST to create a new user """
         mw = []
 
         headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
@@ -46,7 +81,7 @@ class TestAccount():
         assert_equal(r2.status, 201)
 
     def test_create_user_failure(self):
-        """ send a POST with an existing user to test the error case """
+        """ ACCOUNT (REST): send a POST with an existing user to test the error case """
         mw = []
 
         headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
@@ -61,7 +96,7 @@ class TestAccount():
         assert_equal(r2.status, 500)
 
     def test_get_user_success(self):
-        """ send a GET to retrieve the infos of the new user """
+        """ ACCOUNT (REST): send a GET to retrieve the infos of the new user """
         mw = []
 
         headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
@@ -80,7 +115,7 @@ class TestAccount():
         assert_equal(r3.status, 200)
 
     def test_get_user_failure(self):
-        """ send a GET with a wrong user test the error """
+        """ ACCOUNT (REST): send a GET with a wrong user test the error """
         mw = []
 
         headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
@@ -93,7 +128,7 @@ class TestAccount():
         assert_equal(r2.status, 500)
 
     def test_del_user_success(self):
-        """ send a DELETE to disable the new user """
+        """ ACCOUNT (REST): send a DELETE to disable the new user """
         mw = []
 
         headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
@@ -116,7 +151,7 @@ class TestAccount():
         assert_equal(r3.status, 200)
 
     def test_del_user_failure(self):
-        """ send a DELETE with a wrong user to test the error """
+        """ ACCOUNT (REST): send a DELETE with a wrong user to test the error """
         mw = []
 
         headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
