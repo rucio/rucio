@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
 import json
 
@@ -16,6 +17,9 @@ from nose.tools import *
 from sqlalchemy import create_engine
 
 from rucio.common.config import config_get
+from rucio.common import exception
+from rucio.core.scope import bulk_add_scopes
+from rucio.core.account import add_account
 from rucio.db import models1 as models
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
@@ -27,6 +31,13 @@ class TestScope():
     def setUp(self):
         engine = create_engine(config_get('database', 'default'))
         models.register_models(engine)
+        self.user = 'valid_user'
+        self.user_type = 'user'
+        self.scopes = ['test_scope_' + str(i) for i in range(5)]
+        try:
+            add_account(self.user, self.user_type)
+        except exception.Duplicate:
+            pass  # Account already exists, no need to create it
 
     def tearDown(self):
         engine = create_engine(config_get('database', 'default'))
@@ -65,3 +76,8 @@ class TestScope():
         r2 = TestApp(scope_app.wsgifunc(*mw)).post('/scope/testuser/testscope', headers=headers2, expect_errors=True)
 
         assert_equal(r2.status, 500)
+
+    def test_bulk_add_scopes(self):
+        """ SCOPE (CORE): bulk create multiple scopes """
+
+        bulk_add_scopes(self.scopes, self.user, skipExisting=True)
