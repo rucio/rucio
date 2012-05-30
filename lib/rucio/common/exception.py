@@ -39,20 +39,74 @@ class RucioException(Exception):
 
 class AccountNotFound(RucioException):
     def __init__(self, *args, **kwargs):
-        super(AccountNotFound, self).__init__()
+        super(AccountNotFound, self).__init__(args, kwargs)
         self.message = "Account does not exist."
 
 
 class ScopeNotFound(RucioException):
-    def __init__(self, msg):
-        super(ScopeNotFound, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(ScopeNotFound, self).__init__(args, kwargs)
         self.message = "Scope does not exist."
 
 
+class NoPermisions(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(NoPermisions, self).__init__(args, kwargs)
+        self.message = "User does not have necessary permissions to perform operation."
+
+
+class NotADataset(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(NotADataset, self).__init__(args, kwargs)
+        self.message = 'Specified inode is not a dataset'
+
+
+class NotAFile(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(NotAFile, self).__init__(args, kwargs)
+        self.message = 'Specified inode is not a file'
+
+
 class DatasetAlreadyExists(RucioException):
-    def __init(self, msg):
-        super(Duplicate, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(DatasetAlreadyExists, self).__init__(args, kwargs)
         self.message = "Dataset name in specified scope already exists"
+
+
+class FileAlreadyExists(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FileAlreadyExists, self).__init__(args, kwargs)
+        self.message = "File name in specified scope already exists"
+
+
+class DatasetNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DatasetNotFound, self).__init__(args, kwargs)
+        self.message = "Dataset not found in scope"
+
+
+class DatasetObsolete(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DatasetObsolete, self).__init__(args, kwargs)
+        self.message = "Dataset is obsolete"
+
+
+class FileNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FileNotFound, self).__init__(args, kwargs)
+        self.message = "File not found in scope"
+
+
+class InodeTypeError(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InodeTypeError, self).__init__(args, kwargs)
+        self.message = "Inode is of the wrong type"
+
+
+class ForbiddenSearch(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ForbiddenSearch, self).__init__(args, kwargs)
+        self.message = "Wildcard search too broad"
 
 
 class Duplicate(RucioException):
