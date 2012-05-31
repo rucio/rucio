@@ -86,3 +86,25 @@ If you get an error message from gerrit like "Please merge (or rebase) the chang
     6. Submit for review::
 
         tools/submit-review -a "merged conflicts"
+
+----------------
+Ticketing system
+----------------
+
+For Rucio we are using Jira to manage the development of the project:
+
+    https://its.cern.ch/jira/browse/RUCIO
+
+Tickets for new features should be submitted with a functional granularity, that is according to the API call being introduced and at which level it belongs. For example, "register_dataset API (CORE)", "register_dataset (REST)", and "register_dataset API (CLIENT)", instead of big and vague new feature definitions like "new dataset functionality". This level of granularity allows better tracking of the progress of the RUCIO project, informs developers when new interfaces become available, and leads to more meaningful changelogs when a release is made. 
+
+In order to avoid generating too many tickets and insuring the documentation of relevant work is placed in a single description, all minor schema changes and corresponding test cases should be included as part of the new feature ticket and seperate tickets should not be made. The exception to this is if additional functionality, a bug fix or a new test case is added to the task in a newer release of Rucio, this then should be documented as a new ticket, rather than modifying the existing ticket (as it is assigned to the previous Rucio release).
+
+The ticket workflow in Jira is summarised here:
+
+    https://confluence.atlassian.com/download/attachments/284367573/system-workflow.png
+
+When one is finished working on a new feature or bug fix and this has been commited and submitted to Gerrit for approval, the ticket status should be changed to 'resolved'. Once the new code has been approved and commited to the GIT master the ticket status should be changed to 'closed'.
+
+GIT commits should include the relevant JIRA ticket number(s) in the beginning of the commit message. This is because Jira is integrated with GIT and will associate the tickets to the corresponding GIT commits.  
+
+Jira ticket headers and descriptions will be included on release changelogs. For this reason the titles and descriptions should be meaningful.
