@@ -2,3 +2,4 @@
 
 argparse==1.2.1          # Command-line parsing library
 urllib3==1.3             # HTTP library with thread-safe connection pooling and file post support
+requests                 # Python HTTP for Humans.
