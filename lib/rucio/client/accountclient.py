@@ -46,6 +46,24 @@ class AccountClient(Client):
         else:
             raise RucioException(r.text)
 
+    def disable_account(self, accountName):
+        """
+        sends the request to disable an account.
+
+        :param accountName: the name of the account.
+        :return: True is account was disabled successfully. False otherwise.
+        """
+        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
+        path = 'account/' + accountName
+        url = build_url(self.host, path=path)
+
+        r = requests.delete(url, headers=headers)
+
+        if r.status_code == requests.codes.ok:
+            return True
+        else:
+            raise RucioException(r.text)
+
     def get_account(self, accountName):
         """
         sends the request to get information about a given account.
@@ -63,5 +81,22 @@ class AccountClient(Client):
             acc = json.loads(r.text)
             return acc
         else:
-            print self.auth_token
+            raise RucioException(r.text)
+
+    def list_accounts(self):
+        """
+        sends the request to list all rucio accounts.
+
+        :return: a list containing the names of all rucio accounts.
+        """
+
+        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
+        path = 'accounts'
+        url = build_url(self.host, path=path)
+        r = requests.get(url, headers=headers)
+
+        if r.status_code == requests.codes.ok:
+            accounts = json.loads(r.text)
+            return accounts
+        else:
             raise RucioException(r.text)
