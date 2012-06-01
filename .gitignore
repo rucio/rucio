@@ -8,6 +8,11 @@
 # - Mario Lassnig (CERN PH-ADP),    <mario.lassnig@cern.ch>,   2011
 # - Vincent Garonne (CERN, PH-ADP), <vincent.garonne@cern.ch>, 2011
 
+# do not accidentally commit config files
+etc/rse-accounts.cfg
+etc/rucio.cfg
+etc/web/lighttpd.conf
+
 # build directories
 doc/build/
 build/
