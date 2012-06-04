@@ -21,7 +21,7 @@ from rucio.rse.rseexception import RSEException
 
 class TestRseRepository():
     def test_storage_failure(self):
-        """ RSE Repository => Storage not defined Excpetion """
+        """ RSE (RSE): Repository => Storage not defined Exception """
         credentials = {}
         data = json.load(open('etc/rse-accounts.cfg'))
         credentials['username'] = str(data['cern.lxplus.ch']['username'])
@@ -37,7 +37,7 @@ class TestRseRepository():
         raise Exception('Should have raised a 404')
 
     def test_storage_success(self):
-        """ RSE Repository => Using a defined storage """
+        """ RSE (RSE) Repository => Using a defined storage """
         credentials = {}
         data = json.load(open('etc/rse-accounts.cfg'))
         credentials['username'] = str(data['cern.lxplus.ch']['username'])
