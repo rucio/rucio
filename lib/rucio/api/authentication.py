@@ -11,7 +11,7 @@
 import rucio.core.authentication
 
 
-def get_auth_token_user_pass(account, username, password):
+def get_auth_token_user_pass(account, username, password, ip=None):
     """Authenticate a Rucio account temporarily via username and password.
 
     The tokens initial lifetime is 1 hour.
@@ -19,8 +19,9 @@ def get_auth_token_user_pass(account, username, password):
     :param account: Account identifier.
     :param username: Username as a string.
     :param password: SHA1 hash of the password as a string.
-    :returns: Authentication token as an 32 character hex string."""
-    return rucio.core.authentication.get_auth_token_user_pass(account, username, password)
+    :param ip: IP address of the client
+    :returns: Authentication token as a 32 character hex string."""
+    return rucio.core.authentication.get_auth_token_user_pass(account, username, password, ip)
 
 
 def get_auth_token_kerberos(account, credential):
@@ -30,7 +31,7 @@ def get_auth_token_kerberos(account, credential):
 
     :param account: Account identifier.
     :param credential: Kerberos GSSAPI token credential location.
-    :returns: Authentication token as an 32 character hex string."""
+    :returns: Authentication token as a 32 character hex string."""
     raise NotImplementedError
 
 
@@ -41,7 +42,7 @@ def get_auth_token_x509(account, certificate):
 
     :param account: Account identifier.
     :param credential: x509 certificate location.
-    :returns: Authentication token as an 32 character hex string."""
+    :returns: Authentication token as a 32 character hex string."""
     raise NotImplementedError
 
 

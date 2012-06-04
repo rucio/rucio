@@ -7,13 +7,14 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.core.account import check_account, get_account
+from rucio.core.account import account_exists, get_account
 from rucio.core.scope import check_scope
 from rucio.db.models1 import Dataset as DATASET
 from rucio.db.models1 import Inode as INODE
@@ -47,7 +48,7 @@ def register_dataset(scope, datasetName, account):
         if error.args[0] == "(IntegrityError) foreign key constraint failed":
             if not check_scope(scope):  # Maybe a valid scope does not exist
                 raise exception.ScopeNotFound("Scope (%s) does not exist" % scope)
-            elif not check_account(account):  # or non existing account was provided
+            elif not account_exists(account):  # or non existing account was provided
                 raise exception.AccountNotFound("Account (%s) does not exist" % account)
             elif not session.query(INODE).filter_by(scope=datasetScope, label=datasetName).first():
                 raise exception.InodeNotFound("Inode not found (scope: %s, name: %s)" % (scope, name))
@@ -195,7 +196,7 @@ def change_dataset_owner(datasetScope, datasetName, oldAccount, newAccount):
         if error.args[0] == 'No row was found for one()':
             if not check_scope(datasetScope):  # check that scope exists
                 raise exception.ScopeNotFound("Scope (%s) does not exist" % datasetScope)
-            elif not check_account(oldAccount):  # check that account specified exists
+            elif not account_exists(oldAccount):  # check that account specified exists
                 raise exception.AccountNotFound("Account (%s) does not exist" % oldAccount)
             else:  # if account and scope exist then check to see if scope+name are registered as a dataset
                 inode_info = get_inode_metadata(datasetScope, datasetName, oldAccount)
@@ -214,7 +215,7 @@ def change_dataset_owner(datasetScope, datasetName, oldAccount, newAccount):
     except IntegrityError, error:
         session.rollback()
         if error.args[0] == "(IntegrityError) foreign key constraint failed":
-            if not check_account(newAccount):  # check if non existing account was provided
+            if not account_exists(newAccount):  # check if non existing account was provided
                 raise exception.AccountNotFound("Account (%s) does not exist" % newAccount)
             else:
                 raise exception.RucioException(error.args[0])
@@ -271,7 +272,7 @@ def register_file(scope, filename, account):
         if error.args[0] == "(IntegrityError) foreign key constraint failed":
             if not check_scope(scope):  # Maybe a valid scope does not exist
                 raise exception.ScopeNotFound("Scope (%s) does not exist" % scope)
-            elif not check_account(account):  # If not then maybe a non existing account was specified
+            elif not account_exists(account):  # If not then maybe a non existing account was specified
                 raise exception.AccountNotFound("Account (%s) does not exist" % account)
             else:
                 raise exception.RucioException(error.args[0])
@@ -417,7 +418,7 @@ def change_file_owner(fileScope, filename, oldAccount, newAccount):
         if error.args[0] == 'No row was found for one()':
             if not check_scope(fileScope):  # check that scope exists
                 raise exception.ScopeNotFound("Scope (%s) does not exist" % fileScope)
-            elif not check_account(oldAccount):  # check that account specified exists
+            elif not account_exists(oldAccount):  # check that account specified exists
                 raise exception.AccountNotFound("Account (%s) does not exist" % oldAccount)
             else:  # if account and scope exist then check to see if scope+name are registered as a file
                 inode_info = get_inode_metadata(fileScope, filename, oldAccount)
@@ -436,7 +437,7 @@ def change_file_owner(fileScope, filename, oldAccount, newAccount):
     except IntegrityError, error:
         session.rollback()
         if error.args[0] == "(IntegrityError) foreign key constraint failed":
-            if not check_account(newAccount):  # check if non existing account was provided
+            if not account_exists(newAccount):  # check if non existing account was provided
                 raise exception.AccountNotFound("Account (%s) does not exist" % newAccount)
             else:
                 raise exception.RucioException(error.args[0])
@@ -515,7 +516,7 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
         if error.args[0] == 'No row was found for one()':
             if not check_scope(inodeScope):  # check that scope exists
                 raise exception.ScopeNotFound("Scope (%s) does not exist" % inodeScope)
-            elif not check_account(oldAccount):  # check that account specified exists
+            elif not account_exists(oldAccount):  # check that account specified exists
                 raise exception.AccountNotFound("Account (%s) does not exist" % oldAccount)
             else:
                 inode_info = get_inode_metadata(inodeScope, inodeName, oldAccount)

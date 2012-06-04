@@ -8,16 +8,15 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-
-import logging
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from sqlalchemy import create_engine, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-from rucio.db import models1 as models
 from rucio.common import exception
 from rucio.common.config import config_get
+from rucio.db import models1 as models
 
 """ Only for testing """
 engine = create_engine(config_get('database', 'default'))
@@ -27,7 +26,7 @@ session = sessionmaker(bind=engine, autocommit=True, expire_on_commit=False)
 
 
 class account_status:
-    """ enumerated type for account status """
+    """ Enumerated type for account status """
     # As the corresponding column on the db is of type enum, no integers are used
     active = 'active'
     inactive = 'inactive'
@@ -40,7 +39,7 @@ def get_session():
 
 
 def add_account(accountName, accountType):
-    """ add an account with the given account name and type.
+    """ Add an account with the given account name and type.
 
     :param accountName: the name of the new account.
     :param accountType: the type of the new account.
@@ -63,8 +62,8 @@ def add_account(accountName, accountType):
             session.flush()
 
 
-def check_account(accountName):
-    """ checks to see if account exists. This procedure does not check it's status.
+def account_exists(accountName):
+    """ Checks to see if account exists. This procedure does not check it's status.
 
     :param accountName: Name of the account.
     :returns: True if found, otherwise false.
@@ -75,7 +74,7 @@ def check_account(accountName):
 
 
 def get_account(accountName):
-    """ returns an account for the given account name.
+    """ Returns an account for the given account name.
 
     :param accountName: the name of the account.
     :returns: a dict with all information for the account.
@@ -92,7 +91,7 @@ def get_account(accountName):
 
 
 def del_account(accountName):
-    """ disable an account with the given account name.
+    """ Disable an account with the given account name.
 
     :param accountName: the account name.
     """
@@ -109,7 +108,7 @@ def del_account(accountName):
 
 
 def get_account_status(accountName):
-    """ returns the state of the account.
+    """ Returns the state of the account.
 
     :param accountName: Name of the account.
     """
@@ -120,7 +119,7 @@ def get_account_status(accountName):
 
 
 def set_account_status(accountName, status):
-    """ set the status of an account.
+    """ Set the status of an account.
 
     :param accountName: Name of the account.
     :param status: The status for the account.
@@ -133,7 +132,7 @@ def set_account_status(accountName, status):
 
 
 def list_accounts():
-    """ returns a list of all account names.
+    """ Returns a list of all account names.
 
     returns: a list of all account names.
     """

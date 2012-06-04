@@ -6,57 +6,59 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+
+import rucio.core.identity
 
 
-def add_identity(identity, type):
-        """
-        Creates an user identity.
+def add_identity(identity, type, password=None):
+    """
+    Creates a user identity.
 
-        :param identity: The identity key name.
-        :param type: The type of the authentication,e.g. x509, gss.
-
-        :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
-        """
-        pass
-
-
-def delete_identity(identity, type):
-        """
-        Deletes an user identity.
-
-        :param identity: The identity key name.
-        :param type: The type of the authentication,e.g. x509, gss.
-
-        :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
-        """
-        pass
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass)
+    :param password: If type==userpass, this sets the password.
+    """
+    rucio.core.identity.add_identity(identity, type, password)
 
 
-def add_account_member(self, identity, type, account, default=False):
-        """
-        Adds a membership association between identity and account.
+def del_identity(identity, type):
+    """
+    Deletes a user identity.
 
-        :param identity: The identity key name.
-        :param type:     The type of the authentication,e.g. x509, gss.
-        :param account: The account name.
-        :parm  default: If True, the account should be used by default with the provided identity.
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass).
+    """
+    rucio.core.identity.del_identity(identity, type)
 
-        :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
 
-        """
-        pass
+def add_account_identity(identity, type, account, default=False):
+    """
+    Adds a membership association between identity and account.
+
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass).
+    :param account: The account name.
+    :param default: If True, the account should be used by default with the provided identity.
+    """
+    rucio.core.identity.add_account_member(identity, type, account, default)
+
+
+def del_account_identity(identity, type, account):
+    """
+    Removes a membership association between identity and account.
+
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass).
+    :param account: The account name.
+    """
+    rucio.core.identity.del_account_member(identity, type, account)
 
 
 def list_identities(**kwargs):
-        """
-        Returns a list of identities
+    """
+    Returns a list of all enabled identities.
 
-        :param filters: dictionary of attributes by which the resulting
-                        collection of identities should be filtered
-        :param limit: maximum number of items to return
-        :param sort_key: results will be ordered by this rse attribute
-        :param sort_dir: direction in which to to order results (asc, desc)
-
-        :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
-        """
-        pass
+    returns: A list of all enabled identities.
+    """
+    rucio.core.identity.list_identities(**kwargs)

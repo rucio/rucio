@@ -8,19 +8,19 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 import json
 
 from paste.fixture import TestApp
 from nose.tools import *
 
-from sqlalchemy import create_engine
-
-from rucio.common.config import config_get
 from rucio.common import exception
-from rucio.core.scope import bulk_add_scopes
 from rucio.core.account import add_account
+from rucio.core.identity import add_identity, add_account_identity
+from rucio.core.scope import bulk_add_scopes
 from rucio.db import models1 as models
+from rucio.db.session import build_database, destroy_database
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.scope import app as scope_app
@@ -29,36 +29,37 @@ from rucio.web.rest.scope import app as scope_app
 class TestScope():
 
     def setUp(self):
-        engine = create_engine(config_get('database', 'default'))
-        models.register_models(engine)
+        build_database()
         self.user = 'valid_user'
         self.user_type = 'user'
         self.scopes = ['test_scope_' + str(i) for i in range(5)]
         try:
             add_account(self.user, self.user_type)
+            add_identity('ddmlab', 'userpass', password='secret')
+            add_account_identity('ddmlab', 'userpass', self.user)
         except exception.Duplicate:
             pass  # Account already exists, no need to create it
 
     def tearDown(self):
-        engine = create_engine(config_get('database', 'default'))
-        models.unregister_models(engine)
+        destroy_database()
 
     def test_scope_success(self):
         """ send a POST to create a new account and scope """
         mw = []
 
-        headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
+        headers1 = {'Rucio-Account': 'valid_user', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/auth/userpass', headers=headers1, expect_errors=True)
-
+        print r1
         assert_equal(r1.status, 200)
+
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'ddmlab', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/account/testuser', headers=headers2, expect_errors=True)
+        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'valid_user', 'Rucio-Auth-Token': str(token)}
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/account/testaccount', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Account': 'ddmlab', 'Rucio-Auth-Token': str(token)}
-        r3 = TestApp(scope_app.wsgifunc(*mw)).post('/scope/testuser/testscope', headers=headers3, expect_errors=True)
+        headers3 = {'Rucio-Account': 'valid_user', 'Rucio-Auth-Token': str(token)}
+        r3 = TestApp(scope_app.wsgifunc(*mw)).post('/scope/testaccount/testscope', headers=headers3, expect_errors=True)
 
         assert_equal(r3.status, 201)
 
@@ -66,14 +67,14 @@ class TestScope():
         """ send a POST to create a new scope for a not existing account to test the error"""
         mw = []
 
-        headers1 = {'Rucio-Account': 'ddmlab', 'Rucio-Username': 'mlassnig', 'Rucio-Password': 'secret'}
+        headers1 = {'Rucio-Account': 'valid_user', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/auth/userpass', headers=headers1, expect_errors=True)
-
         assert_equal(r1.status, 200)
+
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Account': 'ddmlab', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(scope_app.wsgifunc(*mw)).post('/scope/testuser/testscope', headers=headers2, expect_errors=True)
+        headers2 = {'Rucio-Account': 'valid_user', 'Rucio-Auth-Token': str(token)}
+        r2 = TestApp(scope_app.wsgifunc(*mw)).post('/scope/testaccount/testscope', headers=headers2, expect_errors=True)
 
         assert_equal(r2.status, 500)
 
