@@ -7,28 +7,38 @@
 # Authors:
 # - Angelos Molfetas,  <angelos.molfetas@cern.ch>, 2012
 
+from uuid import uuid4 as uuid
+
 from nose.tools import *
 from sqlalchemy import create_engine
-from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.common.config import config_get
+from rucio.core.account import add_account
 from rucio.core.inode import bulk_register_datasets, check_dataset, get_dataset_metadata, list_datasets, register_dataset, unregister_dataset
 from rucio.core.inode import register_file, unregister_file
 from rucio.core.inode import change_inode_owner, check_inode, get_inode_metadata, list_inodes
 from rucio.core.scope import add_scope, bulk_add_scopes, check_scope
 from rucio.db import models1 as models
 from rucio.db.models1 import InodeType
-from rucio.db.session import build_database
+from rucio.db.session import build_database, destroy_database
 from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file
 
 
 class TestInode:
+
     def setUp(self):
         build_database()
+
         self.user = 'test_user'
+        add_account(self.user, 'user')
+
         self.user2 = 'another_usr'
+        add_account(self.user2, 'user')
+
         self.user3 = 'one_more_usr'
+        add_account(self.user3, 'user')
+
         self.user_type = 'user'
         self.scope_misc = 'misc'
         self.invalid_user = 'invalid_user'
@@ -37,6 +47,7 @@ class TestInode:
         self.invalid_file = 'invalid_file'
         self.to_clean_files = []  # files that eventually need to be cleaned
         self.to_clean_datasets = []  # datasetss that eventually need to be cleaned
+
         try:
             add_scope(self.scope_misc, self.user)
         except exception.Duplicate:
@@ -63,11 +74,7 @@ class TestInode:
         bulk_register_datasets(self.scopes_mc[0], self.test_mc_dsts, self.user, skipExisting=True)
 
     def tearDown(self):
-        self.clean_files_and_datasets()
-        for dst in self.test_mc_dsts:  # Clean mc datasets
-            unregister_dataset(self.scopes_mc[0], dst, self.user)
-        for dst in self.test_data_dsts:  # Clean data datasets
-            unregister_dataset(self.scopes_data[0], dst, self.user)
+        destroy_database()
 
     def clean_files_and_datasets(self):
         # Clean unwanted datasets from exceptions

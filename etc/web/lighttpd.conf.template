@@ -8,9 +8,13 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-# 1. Symlink your development ~/dev/rucio to /opt/rucio
+# 1. Symlink your development environment to the default installation path
+#    ln -sf ~/dev/rucio /opt/rucio
 #
-# 2. lighttpd must be run from within the venv
+# 2. Symlink your rucio sources into the .venv
+#    ln -sf ~/dev/rucio/lib/rucio ~/dev/rucio/.venv/lib/python2.7/site-packages/rucio
+#
+# 3. lighttpd must be run from within the venv
 #
 #      as a daemon:   sudo lighttpd -f /opt/rucio/etc/web/lighttpd.conf
 #      in foreground: sudo lighttpd -Df /opt/rucio/etc/web/lighttpd.conf

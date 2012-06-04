@@ -5,7 +5,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Angelos Molfetas,  <angelos.molfetas@cern.ch> , 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from sqlalchemy import create_engine
 from sqlalchemy.interfaces import PoolListener
@@ -21,9 +22,8 @@ class ForeignKeysListener(PoolListener):
 
 
 def get_session():
-    """ Creates a session to a specific database, assumes that schema already in place
-    :returns: session
-    """
+    """ Creates a session to a specific database, assumes that schema already in place.
+        :returns: session """
 
     database = config_get('database', 'default')
     engine = create_engine(database, echo=False, listeners=[ForeignKeysListener()])
@@ -32,9 +32,14 @@ def get_session():
 
 
 def build_database():
-    """ Applies the schema to the database. Run this command once to build the database
-    :returns: nothing
-    """
+    """ Applies the schema to the database. Run this command once to build the database. """
 
     engine = create_engine(config_get('database', 'default'), echo=True)
     models.register_models(engine)
+
+
+def destroy_database():
+    """ Removes the schema from the database. Only useful for test cases or malicious intents. """
+
+    engine = create_engine(config_get('database', 'default'), echo=True)
+    models.unregister_models(engine)

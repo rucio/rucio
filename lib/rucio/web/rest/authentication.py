@@ -48,13 +48,17 @@ class UserPass:
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         username = web.ctx.env.get('HTTP_RUCIO_USERNAME')
         password = web.ctx.env.get('HTTP_RUCIO_PASSWORD')
+        ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = web.ctx.ip
 
-        result = get_auth_token_user_pass(account, username, password)
+        result = get_auth_token_user_pass(account, username, password, ip)
+
         if result is None:
             raise web.Unauthorized()
         else:
             web.header('Rucio-Auth-Token', result)
-            return ""
+            return str()
 
         raise web.BadRequest()
 

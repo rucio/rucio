@@ -16,22 +16,23 @@ SQLAlchemy models for rucio data
 import datetime
 import sys
 
-from sqlalchemy.orm    import relationship, backref, exc, object_mapper, validates
-from sqlalchemy        import Column, Integer, String, BigInteger, Enum, Binary
-from sqlalchemy        import ForeignKey, DateTime, Boolean, Text
-from sqlalchemy        import UniqueConstraint
-from sqlalchemy.schema import ForeignKeyConstraint
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, BigInteger, Enum
+from sqlalchemy import ForeignKey, DateTime, Boolean, Text
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.types import BINARY
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, backref, exc, object_mapper, validates
+from sqlalchemy.schema import ForeignKeyConstraint
+from sqlalchemy.types import Binary, LargeBinary
 
 from rucio.common import utils
 
 
-@compiles(Binary, "oracle")
-def compile_binary_oracle(type_, compiler, **kw):
-    return "RAW(16)"
-    
+# FIXME: Breaks unit test
+#@compiles(Binary, "oracle")
+#def compile_binary_oracle(type_, compiler, **kw):
+#    return "RAW(16)"
+
 
 BASE = declarative_base()
 
@@ -99,31 +100,36 @@ class ModelBase(object):
         return self.__dict__.copy()
 
 
-class Identity(BASE, ModelBase):
-    """Represents an identity in the datastore"""
-    __tablename__ = 'identities'
-    id = Column(String(255), primary_key=True)
-    type = Column(Enum('x509', 'gss'))
-
-
 class Account(BASE, ModelBase):
-    """Represents an account in the datastore"""
+    """Represents an account"""
     __tablename__ = 'accounts'
     account = Column(String(255), primary_key=True)
     type = Column(Enum('user', 'group', 'atlas'))
     status = Column(Enum('active', 'inactive', 'disabled'))
 
 
+class Identity(BASE, ModelBase):
+    """Represents an identity"""
+    __tablename__ = 'identities'
+    identity = Column(String(255), primary_key=True)
+    type = Column(Enum('x509', 'gss', 'userpass'), primary_key=True)  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
+    username = Column(String(255), nullable=True)
+    password = Column(String(255), nullable=True)
+    salt = Column(Binary(255), nullable=True)
+    email = Column(String(255), nullable=True)
+
+
 class IdentityAccountAssociation(BASE, ModelBase):
-    """Represents a map account-identity in the datastore"""
+    """Represents a map account-identity"""
     __tablename__ = 'account_map'
-    identity_id = Column(String(255), ForeignKey('identities.id'), primary_key=True)
+    identity = Column(String(255), ForeignKey('identities.identity'), primary_key=True)
+    type = Column(Enum('x509', 'gss', 'userpass'), ForeignKey('identities.type'), primary_key=True)
     account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     default = Column(Boolean, nullable=False, default=False)
 
 
 class Scope(BASE, ModelBase):
-    """Represents a scope in the datastore"""
+    """Represents a scope"""
     __tablename__ = 'scopes'
     scope = Column(String(255), primary_key=True)
     account = Column(String(255), ForeignKey('accounts.account'))
@@ -131,7 +137,7 @@ class Scope(BASE, ModelBase):
 
 
 class DatasetProperty(BASE, ModelBase):
-    """Represents a dataset properties"""
+    """Represents dataset properties"""
     __tablename__ = 'dataset_properties'
     scope = Column(String(255), primary_key=True)
     dsn = Column(String(255), primary_key=True)
@@ -154,7 +160,7 @@ class Inode(BASE, ModelBase):
 
 
 class Dataset(BASE, ModelBase):
-    """Represents a scope in the datastore"""
+    """Represents a dataset"""
     __tablename__ = 'datasets'
     scope = Column(String(255), primary_key=True)
     dsn = Column(String(255), primary_key=True)
@@ -168,7 +174,7 @@ class Dataset(BASE, ModelBase):
 
 
 class File(BASE, ModelBase):
-    """Represents a scope in the datastore"""
+    """Represents a file"""
     __tablename__ = 'files'
     scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
@@ -181,7 +187,7 @@ class File(BASE, ModelBase):
 
 
 class FileProperty(BASE, ModelBase):
-    """Represents a dataset properties"""
+    """Represents file  properties"""
     __tablename__ = 'file_properties'
     scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
@@ -191,6 +197,7 @@ class FileProperty(BASE, ModelBase):
 
 
 class DatasetFileAssociation(BASE, ModelBase):
+    """Represents the map between datasets and files"""
     __tablename__ = 'dataset_contents'
     scope_dsn = Column(String(255), primary_key=True)
     dsn = Column(String(255), primary_key=True)
@@ -203,7 +210,7 @@ class DatasetFileAssociation(BASE, ModelBase):
 
 
 class RSE(BASE, ModelBase):
-    """Represents a scope in the datastore"""
+    """Represents a Rucio Storage Element (RSE)"""
     __tablename__ = 'rses'
     rse = Column(String(255), primary_key=True)
     storage = Column(String(255))
@@ -211,21 +218,21 @@ class RSE(BASE, ModelBase):
 
 
 class RSETag(BASE, ModelBase):
-    """Represents a RSE tag"""
+    """Represents RSE tags"""
     __tablename__ = 'rse_tags'
     tag = Column(String(255), primary_key=True)
     scope = Column(String(255), nullable=True)
 
 
 class RSETagAssociation(BASE, ModelBase):
-    """Represents a scope in the datastore"""
+    """Represents the map between RSEs and tags"""
     __tablename__ = 'rse_tag_association'
     rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
     tag = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)
 
 
 class RSEFileAssociation(BASE, ModelBase):
-    """Represents a scope in the datastore"""
+    """Represents the map between RSEs and files"""
     __tablename__ = 'file_replicas'
     rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
     scope = Column(String(255), primary_key=True)
@@ -234,7 +241,7 @@ class RSEFileAssociation(BASE, ModelBase):
 
 
 class ReplicationRule(BASE, ModelBase):
-    """Represents a scope in the datastore"""
+    """Represents replication rules"""
     __tablename__ = 'replication_rules'
 #    __table_args__ = (UniqueConstraint("account", "scope", "lfn", "tag"),)
     account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
@@ -260,9 +267,10 @@ class Authentication(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'authentication'
     token = Column(String(32), primary_key=True)
-    #account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
+    account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     account = Column(String(255), primary_key=True)
     lifetime = Column(DateTime, nullable=False, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
+    ip = Column(String(16), nullable=True)
 
 
 class APIToken(BASE, ModelBase):
@@ -278,7 +286,24 @@ def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken, Subscription)
+    models = (Account,
+              Identity,
+              IdentityAccountAssociation,
+              Scope,
+              DatasetProperty,
+              Inode,
+              Dataset,
+              File,
+              FileProperty,
+              DatasetFileAssociation,
+              RSE,
+              RSETag,
+              RSETagAssociation,
+              RSEFileAssociation,
+              ReplicationRule,
+              Subscription,
+              Authentication,
+              APIToken)
     for model in models:
         model.metadata.create_all(engine)
 
@@ -287,6 +312,23 @@ def unregister_models(engine):
     """
     Drops database tables for all models with the given engine
     """
-    models = (Account, Scope, Dataset, DatasetProperty, File, FileProperty, Authentication, APIToken, Subscription)
+    models = (Account,
+              Identity,
+              IdentityAccountAssociation,
+              Scope,
+              DatasetProperty,
+              Inode,
+              Dataset,
+              File,
+              FileProperty,
+              DatasetFileAssociation,
+              RSE,
+              RSETag,
+              RSETagAssociation,
+              RSEFileAssociation,
+              ReplicationRule,
+              Subscription,
+              Authentication,
+              APIToken)
     for model in models:
         model.metadata.drop_all(engine)
