@@ -7,6 +7,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch> , 2012
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 
 class RucioException(Exception):
@@ -125,3 +126,9 @@ class CannotAuthenticate(RucioException):
     def __init__(self, *args, **kwargs):
         super(CannotAuthenticate, self).__init__()
         self._message = "Cannot authenticate."
+
+
+class IdentityError(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(IdentityError, self).__init__()
+        self._message = "Identity error."

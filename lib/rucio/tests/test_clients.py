@@ -24,5 +24,6 @@ class TestRucioClient():
         pass
 
     def test_add_dataset(self):
+        """ CLIENTS (CLI): Test adding dataset """
         #self.client.add_dataset()
         pass

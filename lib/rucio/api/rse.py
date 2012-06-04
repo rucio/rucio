@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 
 def add_rse(RSEName):
@@ -16,7 +17,7 @@ def add_rse(RSEName):
 
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
-        rse.add_rse(RSEName)
+        raise NotImplementedError
 
 
 def add_rse_tag(rse, tag, scope=None):
@@ -29,7 +30,7 @@ def add_rse_tag(rse, tag, scope=None):
 
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
-        pass
+        raise NotImplementedError
 
 
 def list_rses(**kwargs):
@@ -44,4 +45,4 @@ def list_rses(**kwargs):
 
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
-        pass
+        raise NotImplementedError
