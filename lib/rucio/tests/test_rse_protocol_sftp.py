@@ -21,7 +21,7 @@ from rucio.rse.rseexception import RSEException
 
 class TestRseSFTP():
     def setUp(self):
-        """ Creating necessary directories and files """
+        """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
         subprocess.call(["mkdir", "/tmp/rucio"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
         subprocess.call(["mkdir", "/tmp/rucio/local"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
         subprocess.call(["mkdir", "/tmp/rucio/remote"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
@@ -42,7 +42,7 @@ class TestRseSFTP():
         self.storage.connect(credentials)
 
     def tearDown(self):
-        """ RSE: Protocol: SFTP => Removing created directories and files """
+        """SFTP (RSE/PROTOCOLS): Removing created directories and files """
         # Load local creditentials from file
         credentials = {}
         data = json.load(open('etc/rse-accounts.cfg'))
@@ -56,11 +56,11 @@ class TestRseSFTP():
         os.system('rm -rf /tmp/rucio')
 
     def test_get_success(self):
-        """ RSE Protocol SFTP => Requesting file from cern.lxplus """
+        """SFTP (RSE/PROTOCOLS): Requesting file from cern.lxplus """
         self.storage.get(['1_lxplus.raw', '2_lxplus.raw'], '/tmp/rucio/remote')
 
     def test_get_failure(self):
-        """ RSE Protocol SFTP => Request none-existing file from given storage """
+        """SFTP (RSE/PROTOCOLS): Request none-existing file from given storage """
         try:
             self.storage.get(['not_existing_data.raw'])
         except RSEException as e:
@@ -69,11 +69,11 @@ class TestRseSFTP():
         raise Exception('This should have thrown an error with ID 404')
 
     def test_put_success(self):
-        """ RSE Protocol SFTP => Put local file to server """
+        """SFTP (RSE/PROTOCOLS): Put local file to server """
         self.storage.put(['1_local_rse_1M.raw', '2_local_rse_1M.raw'], '/tmp/rucio/local')
 
     def test_put_failure(self):
-        """ RSE Protocol SFTP => Put none-existing local file to server """
+        """SFTP (RSE/PROTOCOLS): Put none-existing local file to server """
         try:
             self.storage.put(['not_existing_data.raw'], '/tmp/rucio/local')
         except RSEException as e:
@@ -82,11 +82,11 @@ class TestRseSFTP():
         raise Exception('This should have thrown an error with ID 404')
 
     def test_delete_success(self):
-        """ RSE Protocol SFTP => Delete file from server """
+        """SFTP (RSE/PROTOCOLS): Delete file from server """
         self.storage.delete(['1_lxplus.raw', '2_lxplus.raw'])
 
     def test_delete_failure(self):
-        """ RSE Protocol SFTP => Delete none-existing file from server """
+        """SFTP (RSE/PROTOCOLS): Delete none-existing file from server """
         try:
             self.storage.delete(['not_existing_data.raw'])
         except RSEException as e:
@@ -95,9 +95,9 @@ class TestRseSFTP():
         raise Exception('This should have thrown an error with ID 404')
 
     def test_exists_success(self):
-        """ RSE Protocol SFTP => Check if existing file is found by exists """
+        """SFTP (RSE/PROTOCOLS): Check if existing file is found by exists """
         assert self.storage.exists('1_lxplus.raw')
 
     def test_exists_failure(self):
-        """ RSE Protocol SFTP => Check if none-existing file is not found by exists """
+        """SFTP (RSE/PROTOCOLS): Check if none-existing file is not found by exists """
         assert not self.storage.exists('not_existing_data.raw')
