@@ -29,7 +29,7 @@ class AccountClient(Client):
 
     def create_account(self, accountName):
         """
-        sends the request to create a new account.
+        Sends the request to create a new account.
 
         :param accountName: the name of the account.
         :return: True if account was created successfully else False.
@@ -39,7 +39,7 @@ class AccountClient(Client):
         path = 'account/' + accountName
         url = build_url(self.host, path=path)
 
-        r = requests.post(url, headers=headers, data=" ")
+        r = self._send_request(url, headers, type='POST', data=" ")
 
         if r.status_code == requests.codes.created:
             return True
@@ -48,16 +48,17 @@ class AccountClient(Client):
 
     def disable_account(self, accountName):
         """
-        sends the request to disable an account.
+        Sends the request to disable an account.
 
         :param accountName: the name of the account.
         :return: True is account was disabled successfully. False otherwise.
         """
+
         headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
         path = 'account/' + accountName
         url = build_url(self.host, path=path)
 
-        r = requests.delete(url, headers=headers)
+        r = self._send_request(url, headers, type='DEL')
 
         if r.status_code == requests.codes.ok:
             return True
@@ -66,7 +67,7 @@ class AccountClient(Client):
 
     def get_account(self, accountName):
         """
-        sends the request to get information about a given account.
+        Sends the request to get information about a given account.
 
         :param accountName: the name of the account.
         :return: a list of attributes for the account. None if failure.
@@ -75,7 +76,7 @@ class AccountClient(Client):
         headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
         path = 'account/' + accountName
         url = build_url(self.host, path=path)
-        r = requests.get(url, headers=headers)
+        r = self._send_request(url, headers)
 
         if r.status_code == requests.codes.ok:
             acc = json.loads(r.text)
@@ -85,7 +86,7 @@ class AccountClient(Client):
 
     def list_accounts(self):
         """
-        sends the request to list all rucio accounts.
+        Sends the request to list all rucio accounts.
 
         :return: a list containing the names of all rucio accounts.
         """
@@ -93,8 +94,8 @@ class AccountClient(Client):
         headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
         path = 'accounts'
         url = build_url(self.host, path=path)
-        r = requests.get(url, headers=headers)
 
+        r = self._send_request(url, headers)
         if r.status_code == requests.codes.ok:
             accounts = json.loads(r.text)
             return accounts
