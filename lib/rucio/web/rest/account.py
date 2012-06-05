@@ -60,7 +60,7 @@ class Account:
         acc = None
         try:
             acc = account.get_account_info(accountName)
-        except r_exception.NotFound, e:
+        except r_exception.AccountNotFound, e:
             raise web.InternalError(e)
 
         dict = acc.to_dict()
@@ -143,7 +143,7 @@ class Account:
 
         try:
             account.del_account(accountName)
-        except r_exception.NotFound, e:
+        except r_exception.AccountNotFound, e:
             raise web.InternalError(e)
 
         raise web.OK()

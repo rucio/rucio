@@ -13,6 +13,7 @@
 Client class for callers of the Rucio system
 """
 
+import logging
 import os
 import requests
 
@@ -29,7 +30,7 @@ class Client(object):
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, host, port=None, account=None, use_ssl=False, auth_type=None, creds=None, debug=False):
+    def __init__(self, host, port=None, account=None, use_ssl=False, auth_type=None, creds=None):
         self.host = host
         self.port = port
         self.account = account
@@ -37,7 +38,6 @@ class Client(object):
         self.auth_type = auth_type
         self.creds = creds
         self.auth_token = None
-        self.debug = debug
 
         if auth_type is None or creds is None:
             raise NoAuthInformation('No auth type or credentials specified')
@@ -45,72 +45,103 @@ class Client(object):
         if account is None:
             raise NoAuthInformation('no account name specified')
 
-        if auth_type == 'userpass':
-            self.__auth_userpass(creds)
-        else:
-            raise CannotAuthenticate('auth type \'%s\' no supported' % auth_type)
+        self.__authenticate()
 
-    def __debug(self, message):
+    def _send_request(self, url, headers, type='GET', data=None, retries=3):
         """
-        helper method to print debug messages if self.debug is set to True.
+        Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
-        :param message: string message to print.
+        :param url: the http url to use.
+        :param headers: http headers to send.
+        :param type: the http request type to use.
+        :param data: post data.
+        :param retries: number of retries in case of unauthorized.
+        :return: the HTTP return body.
         """
 
-        if self.debug:
-            print('DEBUG: ' + message)
+        r = None
+        retry = 0
+        while retry < retries:
+            if type == 'GET':
+                r = requests.get(url, headers=headers)
+            elif type == 'POST':
+                r = requests.post(url, headers=headers, data=data)
+            elif type == 'DEL':
+                r = requests.delete(url, headers=headers)
+            else:
+                return
 
-    def __get_token_userpass(self, username, password):
+            if r.status_code == requests.codes.unauthorized:
+                self.__get_token()
+                headers['Rucio-Auth-Token'] = self.auth_token
+                retry += 1
+            else:
+                break
+
+        return r
+
+    def __get_token_userpass(self):
         """
-        sends a request to get an auth token from the server. Uses username/password. For testing only.
+        Sends a request to get an auth token from the server. Uses username/password.
 
         :param username: the username to authenticate with the system.
         :param password: the password to authenticate with the system.
         :return: the auth token as a string, None if not authorized or raises an exeption if some failure occurs.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Username': username, 'Rucio-Password': password}
+        headers = {'Rucio-Account': self.account, 'Rucio-Username': self.creds['username'], 'Rucio-Password': self.creds['password']}
         url = build_url(self.host, path='auth/userpass')
         r = requests.get(url, headers=headers)
 
         if r.status_code == requests.codes.unauthorized:
-            return None
+            raise CannotAuthenticate('wrong credentials')
         if r.status_code != requests.codes.ok:
             raise RucioException('unknown error')
 
-        auth_token = r.headers['rucio-auth-token']
-        return auth_token
+        self.auth_token = r.headers['rucio-auth-token']
+        logging.debug('got new token \'%s\'' % self.auth_token)
 
-    def __check_token(self):
+    def __get_token(self):
         """
-        sends a request to check if the given token is valid.
-
-        :return: True if token is valid. False otherwise.
+        Sends a request to get a new token and write it to file. To be used if a 401 - Unauthorized error is received.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
-        url = build_url(self.host, path='auth/validate')
-        r = requests.get(url, headers=headers)
+        logging.debug('get a new token')
+        if self.auth_type == 'userpass':
+            self.__get_token_userpass()
+        else:
+            raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
-        if r.status_code == requests.codes.unauthorized:
+        self.__write_token()
+
+    def __read_token(self):
+        """
+        Checks if a local token file exists and reads the token from it.
+
+        :return: True if a token could be read. False if no file exists.
+        """
+
+        self.token_file = self.TOKEN_PATH + '/' + self.TOKEN_PREFIX + self.account
+        self.token_file = '/tmp/rucio/auth_token_' + self.account
+
+        if not os.path.exists(self.token_file):
             return False
-        if r.status_code != requests.codes.ok:
-            raise RucioException("unknown error")
 
+        try:
+            token_file_handler = open(self.token_file, 'r')
+            self.auth_token = token_file_handler.readline()
+        except IOError as (errno, strerror):
+            print("I/O error({0}): {1}".format(errno, strerror))
+        except Exception, e:
+            raise e
+
+        logging.debug('read token \'%s\' from file' % self.auth_token)
         return True
 
-    def __auth_userpass(self, creds):
+    def __write_token(self):
         """
-        does the authentication with username / password. Either creates a new token file if none is already existing for the account or reads an existing token file, checks the token and gets a new one if not valid anymore.
-
-        :param creds: dictionary containing 'username' and 'password' credentials.
+        Write the current auth_token to the local token file.
         """
-
-        if creds['username'] is None or creds['password'] is None:
-            raise NoAuthInformation('No username or password passed')
-
-        username = creds['username']
-        password = creds['password']
 
         self.token_file = self.TOKEN_PATH + '/' + self.TOKEN_PREFIX + self.account
         self.token_file = '/tmp/rucio/auth_token_' + self.account
@@ -118,46 +149,32 @@ class Client(object):
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not os.path.isdir(self.TOKEN_PATH):
             try:
-                self.__debug('rucio token folder \'%s\' not found. Create it.' % self.TOKEN_PATH)
+                logging.debug('rucio token folder \'%s\' not found. Create it.' % self.TOKEN_PATH)
                 os.mkdir(self.TOKEN_PATH, 0700)
             except Exception, e:
                 raise e
 
-        # check if there is already a token file. If not get a new token from the server, create the file with permission only for the current user and save the token.
-        if not os.path.exists(self.token_file):
-            self.__debug('token file \'%s\' doesnt exist. Request token.' % self.token_file)
-            self.auth_token = self.__get_token_userpass(username, password)
-            if self.auth_token is None:
-                raise CannotAuthenticate('wrong credentials')
-            try:
-                self.__debug('Got token \'%s\'' % self.auth_token)
-                self.__debug('Create new token file \'%s\' and write token' % self.token_file)
-                token_file_handler = open(self.token_file, 'w')
-                token_file_handler.write(self.auth_token)
-                token_file_handler.close()
-                os.chmod(self.token_file, 0700)
-            except IOError as (errno, strerror):
-                print("I/O error({0}): {1}".format(errno, strerror))
-            except Exception, e:
-                raise e
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
+        try:
+            token_file_handler = open(self.token_file, 'w')
+            token_file_handler.write(self.auth_token)
+            token_file_handler.close()
+            os.chmod(self.token_file, 0700)
+        except IOError as (errno, strerror):
+            print("I/O error({0}): {1}".format(errno, strerror))
+        except Exception, e:
+            raise e
+
+    def __authenticate(self):
+        """
+        Main method for authentication. It first tries to read a locally saved token. If not available it requests a new one.
+        """
+
+        if self.auth_type == 'userpass':
+            if self.creds['username'] is None or self.creds['password'] is None:
+                raise NoAuthInformation('No username or password passed')
         else:
-            self.__debug('token file \'%s\' found' % self.token_file)
-            try:
-                token_file_handler = open(self.token_file, 'r+w')
-                self.auth_token = token_file_handler.readline()
-                self.__debug('check token \'%s\'' % self.auth_token)
-                if not self.__check_token():
-                    self.__debug('token \'%s\' not valid get a new one' % self.auth_token)
-                    self.auth_token = self.__get_token_userpass(username, password)
-                    if self.auth_token is None:
-                        raise CannotAuthenticate('wrong credentials')
-                    self.__debug('overwrite old token in file with new one \'%s\'' % self.auth_token)
-                    token_file_handler.seek(0)
-                    token_file_handler.write(self.auth_token)
-                self.__debug('token valid.')
-                token_file_handler.close()
-            except IOError as (errno, strerror):
-                print("I/O error({0}): {1}".format(errno, strerror))
-            except Exception, e:
-                raise
+            raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
+
+        if not self.__read_token():
+            self.__get_token()
