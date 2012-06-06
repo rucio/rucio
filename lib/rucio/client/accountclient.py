@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 
 """
@@ -24,8 +25,8 @@ class AccountClient(Client):
 
     """Account client class for working with rucio accounts"""
 
-    def __init__(self, host, port=None, account=None, use_ssl=False, auth_type=None, creds=None, debug=False):
-        super(AccountClient, self).__init__(host, port, account, use_ssl, auth_type, creds, debug)
+    def __init__(self, host, port=None, account=None, use_ssl=False, auth_type=None, creds=None):
+        super(AccountClient, self).__init__(host, port, account, use_ssl, auth_type, creds)
 
     def create_account(self, accountName):
         """
