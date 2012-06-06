@@ -15,9 +15,9 @@ from sqlalchemy import create_engine
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.core.account import add_account
-from rucio.core.inode import bulk_register_datasets, check_dataset, get_dataset_metadata, list_datasets, register_dataset, unregister_dataset
+from rucio.core.inode import bulk_register_datasets, does_dataset_exist, get_dataset_metadata, list_datasets, register_dataset, unregister_dataset
 from rucio.core.inode import register_file, unregister_file
-from rucio.core.inode import change_inode_owner, check_inode, get_inode_metadata, list_inodes
+from rucio.core.inode import change_inode_owner, does_inode_exist, get_inode_metadata, list_inodes
 from rucio.core.scope import add_scope, bulk_add_scopes, check_scope
 from rucio.db import models1 as models
 from rucio.db.models1 import InodeType
@@ -88,19 +88,19 @@ class TestInode:
         dsn = str(uuid())
         # Test registering and quering whether datasets exists
         register_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(check_inode(self.scope_misc, dsn, self.user), True)  # Dataset inode exists
-        assert_equal(check_inode(self.scope_misc, self.invalid_dsn, self.user), False)  # Invalid dataset inode does not exist
+        assert_equal(does_inode_exist(self.scope_misc, dsn, self.user), True)  # Dataset inode exists
+        assert_equal(does_inode_exist(self.scope_misc, self.invalid_dsn, self.user), False)  # Invalid dataset inode does not exist
         # Unregister dataset
         unregister_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(check_inode(self.user, self.scope_misc, dsn), False)  # Deleted dataset inode does not exist anymore
+        assert_equal(does_inode_exist(self.user, self.scope_misc, dsn), False)  # Deleted dataset inode does not exist anymore
         lfn = str(uuid())
         # Test registering and quering whether file exists
         register_file(self.scope_misc, lfn, self.user)
-        assert_equal(check_inode(self.scope_misc, lfn, self.user), True)  # File inode exists
-        assert_equal(check_inode(self.scope_misc, self.invalid_file, self.user), False)  # Invalid file inode does not exist
+        assert_equal(does_inode_exist(self.scope_misc, lfn, self.user), True)  # File inode exists
+        assert_equal(does_inode_exist(self.scope_misc, self.invalid_file, self.user), False)  # Invalid file inode does not exist
         # Unregister file
         unregister_file(self.scope_misc, lfn, self.user)
-        assert_equal(check_inode(self.user, self.scope_misc, lfn), False)  # Deleted file inode does not exist anymore
+        assert_equal(does_inode_exist(self.user, self.scope_misc, lfn), False)  # Deleted file inode does not exist anymore
 
     def test_api_list_inodes(self):
         """ INODE (CORE): List inodes in multple scopes """
@@ -118,26 +118,21 @@ class TestInode:
         # Test all scopes
         assert_equal(list_inodes(self.user, "*", self.test_mc_dsts[0]), [self.test_mc_dsts[0]])  # All scopes, single dataset
         assert_equal(list_inodes(self.user, "*", self.dataset_mc_pattern), self.test_mc_dsts)  # All scopes, wildcard dataset
-        assert_equal(list_inodes(self.user, '%', '%'), self.test_data_dsts + self.test_mc_dsts)  # List all datasets in all scopes
 
-    def test_api_change_check_inode_owner(self):
+    def test_api_change_does_inode_exist_owner(self):
         """ INODE (CORE): Change the owner of an inode, get metadata on inode """
-        dsn = str(uuid())
-        register_dataset(self.scope_misc, dsn, self.user)
-        dst_metadata = {'owner': self.user, 'obsolete': False, 'type': InodeType.DATASET}
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+        dst_metadata = {'owner': self.user, 'obsolete': False, 'type': InodeType.DATASET, 'monotonic': False}
         assert_equal(get_inode_metadata(self.scope_misc, dsn, self.user), dst_metadata)
         dst_metadata['owner'] = self.user2
         change_inode_owner(self.scope_misc, dsn, self.user, self.user2)
         assert_equal(get_inode_metadata(self.scope_misc, dsn, self.user2), dst_metadata)
-        unregister_dataset(self.scope_misc, dsn, self.user)
-        lfn = str(uuid())
-        register_file(self.scope_misc, lfn, self.user)
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         file_metadata = {'owner': self.user, 'obsolete': False, 'type': InodeType.FILE}
         assert_equal(get_inode_metadata(self.scope_misc, lfn, self.user), file_metadata)
         file_metadata['owner'] = self.user2
         change_inode_owner(self.scope_misc, lfn, self.user, self.user2)
         assert_equal(get_inode_metadata(self.scope_misc, lfn, self.user2), file_metadata)
-        unregister_dataset(self.scope_misc, lfn, self.user)
 
     def test_api_get_inode_dataset_metadata_invalid_scope(self):
         """ INODE (CORE): Get inode metadata on invalid scope """
@@ -179,13 +174,13 @@ class TestInode:
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         change_inode_owner(self.scope_misc, lfn, self.invalid_user, self.user2)
 
-    @raises(exception.NoPermisions)
+    @raises(exception.NoPermissions)
     def test_api_change_inode_dataset_owner_account_not_owner(self):
         """ INODE (CORE): Change inode (dataset) owner by providing as current owner a valid account that is not the current owner """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         change_inode_owner(self.scope_misc, dsn, self.user2, self.user3)
 
-    @raises(exception.NoPermisions)
+    @raises(exception.NoPermissions)
     def test_api_change_inode_file_owner_account_not_owner(self):
         """ INODE (CORE): Change inode (file) owner by providing as current owner a valid account that is not the current owner """
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
