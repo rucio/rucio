@@ -84,6 +84,7 @@ Disable account.
             return FAILURE
     return SUCCESS
 
+
 def list_accounts(args):
     """
 %(prog)s del [options] <field1=value1 field2=value2 ...>
@@ -133,26 +134,31 @@ Commands:
     oparser.add_argument('-u',  '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
 
-    # The add_account command
-    list_parser = subparsers.add_parser('add_account', help='Add Rucio account')
-    list_parser.set_defaults(which='add_account')
-    list_parser.add_argument('acnt', action='store', help='list')
-
-    # The delete_account command
-    list_parser = subparsers.add_parser('disable_account', help='Disable Rucio account')
-    list_parser.set_defaults(which='disable_account')
-    list_parser.add_argument('acnt', action='store', help='list')
+    # The account subparser
+    account_parser = subparsers.add_parser('account', help='Account methods')
+    account_subparser = account_parser.add_subparsers()
 
     # The list_accounts command
-    list_parser = subparsers.add_parser('list_accounts', help='List Rucio accounts')
-    list_parser.set_defaults(which='list_accounts')
+    list_account_parser = account_subparser.add_parser('list', help='List Rucio accounts')
+    list_account_parser.set_defaults(which='list_accounts')
+
+    # The add_account command
+    add_account_parser = account_subparser.add_parser('add', help='Add Rucio account')
+    add_account_parser.set_defaults(which='add_account')
+    add_account_parser.add_argument('acnt', action='store', help='Account name')
+
+    # The disable_account command
+    disable_account_parser = account_subparser.add_parser('disable', help='Disable Rucio account')
+    disable_account_parser.set_defaults(which='disable_account')
+    disable_account_parser.add_argument('acnt', action='store', help='Account name')
+
+    commands = {
+                'add_account': add_account,
+                'list_accounts': list_accounts,
+                'disable_account': disable_account,
+               }
 
     args = oparser.parse_args(sys.argv[1:])
-
-    commands = {'add_account': add_account,
-                'disable_account': disable_account,
-                'list_accounts': list_accounts,
-               }
 
     try:
         start_time = time.time()

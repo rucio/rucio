@@ -179,7 +179,7 @@ setup(
                   ('etc/web', glob.glob('etc/web/*.template'))
                  ],
       scripts=['bin/rucio',
-               'bin/rucio-manage'],
+               'bin/rucio-admin'],
       #doc=cmdclass,
       author="Vincent Garonne",
       author_email="vincent.garonne@cern.ch",
