@@ -7,8 +7,6 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from rucio.core import rse
-
 
 def add_rse(RSEName):
         """
