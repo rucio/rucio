@@ -31,19 +31,22 @@ class TestBinRucio():
     #    assert_equal(err, 'rucio %s\n' % version.version_string())
 
     def test_cli_add_account(self):
-        cmd = 'bin/rucio-manage --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  add_account vgaronne'
+        """ACCOUNT (CLI): Add account"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret account add jdoe'
         exitcode, out, err = execute(cmd)
         assert_equal(out, '')
         assert_equal(exitcode, 0)
 
     def test_cli_disable_account(self):
-        cmd = 'bin/rucio-manage --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  disable_account vgaronne'
+        """ACCOUNT (CLI): Disable account"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account disable jdoe'
         exitcode, out, err = execute(cmd)
         assert_equal(out, '')
         assert_equal(exitcode, 0)
 
     def test_cli_list_accounts(self):
-        cmd = 'bin/rucio-manage --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  list_accounts'
+        """ACCOUNT (CLI): List account"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account list'
         exitcode, out, err = execute(cmd)
-        assert_equal(out, 'vgaronne\n')
+        assert_equal(out, 'jdoe\n')
         assert_equal(exitcode, 0)
