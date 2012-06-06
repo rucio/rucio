@@ -8,27 +8,161 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 """
     Rucio CLI.
 """
 
+import argparse
 import functools
 import gettext
-import optparse
 import os
 import sys
 import time
-
 from urlparse import urlparse
+
+from rucio.client.accountclient import AccountClient
+from rucio import version
+
+# If ../lib/rucio/__init__.py exists, add ../ to Python search path, so that
+# it will override what happens to be installed in /usr/(local/)lib/python...
+possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                   os.pardir,
+                                   os.pardir))
+if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
+    sys.path.insert(0, possible_topdir)
+
+
+SUCCESS = 0
+FAILURE = 1
+DEFAULT_PORT = 80
+
+
+def add_account(args):
+    """
+%(prog)s add [options] <field1=value1 field2=value2 ...>
+
+Adds a new account. Specify metadata fields as arguments.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = {}
+
+    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    try:
+        accountClient.create_account(args.acnt)
+    except Exception, e:
+            print 'Failed to create account %s' % args.acnt
+            print e
+            return FAILURE
+    return SUCCESS
+
+
+def disable_account(args):
+    """
+%(prog)s del [options] <field1=value1 field2=value2 ...>
+
+Disable account.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = {}
+
+    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    try:
+        accountClient.disable_account(args.acnt)
+    except Exception, e:
+            print 'Failed to disable account %s' % args.acnt
+            print e
+            return FAILURE
+    return SUCCESS
+
+def list_accounts(args):
+    """
+%(prog)s del [options] <field1=value1 field2=value2 ...>
+
+List accounts.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = {}
+
+    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    try:
+        accounts = accountClient.list_accounts()
+    except Exception, e:
+            print 'Failed to list accounts'
+            print e
+            return FAILURE
+
+    for acnt in accounts:
+        print acnt
+
+    return SUCCESS
 
 
 if __name__ == '__main__':
     usage = """
-%prog <command> [options] [args]
+%(prog)s <command> [options] [args]
 
 Commands:
 
     help <command>  Output help for one of the commands below
 
 """
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), usage=usage.strip())
+    subparsers = oparser.add_subparsers()
+
+    # Main arguments
+    oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
+    oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
+    oparser.add_argument('-H', '--host', metavar="ADDRESS", default="127.0.0.1", help="Address of Rucio API host. " "Default: %default")
+    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_PORT, help="Port the Rucio API host listens on. " "Default: %default")
+    oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
+    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default='userpass', help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-u',  '--user', dest='username', default=None, help='username')
+    oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+
+    # The add_account command
+    list_parser = subparsers.add_parser('add_account', help='Add Rucio account')
+    list_parser.set_defaults(which='add_account')
+    list_parser.add_argument('acnt', action='store', help='list')
+
+    # The delete_account command
+    list_parser = subparsers.add_parser('disable_account', help='Disable Rucio account')
+    list_parser.set_defaults(which='disable_account')
+    list_parser.add_argument('acnt', action='store', help='list')
+
+    # The list_accounts command
+    list_parser = subparsers.add_parser('list_accounts', help='List Rucio accounts')
+    list_parser.set_defaults(which='list_accounts')
+
+    args = oparser.parse_args(sys.argv[1:])
+
+    commands = {'add_account': add_account,
+                'disable_account': disable_account,
+                'list_accounts': list_accounts,
+               }
+
+    try:
+        start_time = time.time()
+        command = commands.get(args.which)
+        result = command(args)
+        end_time = time.time()
+        if args.verbose:
+            print "Completed in %-0.4f sec." % (end_time - start_time)
+        sys.exit(result)
+    except (RuntimeError,
+             NotImplementedError), e:
+        print >> sys.stderr, "ERROR: ", e
+        sys.exit(FAILURE)
