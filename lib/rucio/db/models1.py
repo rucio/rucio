@@ -22,7 +22,7 @@ from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref, exc, object_mapper, validates
-from sqlalchemy.schema import ForeignKeyConstraint
+from sqlalchemy.schema import ForeignKeyConstraint, PrimaryKeyConstraint
 from sqlalchemy.types import Binary, LargeBinary
 
 from rucio.common import utils
@@ -154,6 +154,7 @@ class Inode(BASE, ModelBase):
     owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
     obsolete = Column(Boolean, nullable=False, server_default='0')
     type = Column(Boolean, nullable=False)
+    monotonic = Column(Boolean)
 
     def __repr__(self):
         return "<Inode(%s, %s, %s, %s)" % (self.scope, self.label, self.type, self.obsolete)
@@ -162,15 +163,17 @@ class Inode(BASE, ModelBase):
 class Dataset(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'datasets'
-    scope = Column(String(255), primary_key=True)
-    dsn = Column(String(255), primary_key=True)
-    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
+    scope = Column(String(255))
+    dsn = Column(String(255))
+    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='datasets_owner_FK'))
     open = Column(Boolean)
-    monotonic = Column(Boolean)
+    monotonic = Column(Boolean, nullable=False)
     hidden = Column(Boolean)
+    obsolete = Column(Boolean, nullable=False, server_default='0')
     complete = Column(Boolean)
-    __table_args__ = (ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'],
-                      deferrable=True, initially='DEFERRED', ondelete='CASCADE'), {})
+    __table_args__ = (PrimaryKeyConstraint('scope', 'dsn', name='datasets_PK'),
+                      ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'],
+                      deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='datasets_scope_dsn_FK'), {})
 
 
 class File(BASE, ModelBase):
@@ -181,6 +184,7 @@ class File(BASE, ModelBase):
     owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
     lost = Column(Boolean)
     size = Column(BigInteger)
+    obsolete = Column(Boolean, nullable=True, server_default='0')
     checksum = Column(String(32))
     __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['inodes.scope', 'inodes.label'],
                       deferrable=True, initially='DEFERRED', ondelete="CASCADE"), {})
@@ -199,14 +203,16 @@ class FileProperty(BASE, ModelBase):
 class DatasetFileAssociation(BASE, ModelBase):
     """Represents the map between datasets and files"""
     __tablename__ = 'dataset_contents'
-    scope_dsn = Column(String(255), primary_key=True)
-    dsn = Column(String(255), primary_key=True)
-    scope_lfn = Column(String(255), primary_key=True)
-    lfn = Column(String(255), primary_key=True)
-    parent_scope = Column(String(255), nullable=True)
-    parent_dsn = Column(String(255), nullable=True)
-    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn']),
-                      ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'],), {})
+    scope_dsn = Column(String(255), primary_key=True)         # Parent dataset scope
+    dsn = Column(String(255), primary_key=True)               # Parent dataset name
+    scope_lfn = Column(String(255), primary_key=True)         # File's scope
+    lfn = Column(String(255), primary_key=True)               # File's name
+    parent_inode_scope = Column(String(255), nullable=False)  # Provinance inode scope
+    parent_inode_name = Column(String(255), nullable=False)   # Provinance inode scope
+    obsolete = Column(Boolean, nullable=False, server_default='0')
+    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED', ondelete="NO ACTION"),
+                      ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"),
+                      ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"), {})
 
 
 class RSE(BASE, ModelBase):

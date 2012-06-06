@@ -50,9 +50,9 @@ class ScopeNotFound(RucioException):
         self._message = "Scope does not exist."
 
 
-class NoPermisions(RucioException):
+class NoPermissions(RucioException):
     def __init__(self, *args, **kwargs):
-        super(NoPermisions, self).__init__(args, kwargs)
+        super(NoPermissions, self).__init__(args, kwargs)
         self._message = "User does not have necessary permissions to perform operation."
 
 
@@ -92,10 +92,34 @@ class DatasetObsolete(RucioException):
         self._message = "Dataset is obsolete"
 
 
+class FileObsolete(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FileObsolete, self).__init__(args, kwargs)
+        self._message = "File is obsolete"
+
+
+class FileAssociationsRemain(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FileAssociationsRemain, self).__init__(args, kwargs)
+        self._message = "Dataset has file associations"
+
+
+class DatasetIsMonotonic(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DatasetIsMonotonic, self).__init__(args, kwargs)
+        self._message = "Dataset is monotonic"
+
+
 class FileNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(FileNotFound, self).__init__(args, kwargs)
         self._message = "File not found in scope"
+
+
+class InodeNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InodeNotFound, self).__init__(args, kwargs)
+        self._message = "Inode not found in scope"
 
 
 class InodeTypeError(RucioException):
@@ -132,3 +156,9 @@ class IdentityError(RucioException):
     def __init__(self, *args, **kwargs):
         super(IdentityError, self).__init__()
         self._message = "Identity error."
+
+
+class InputValidationError(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InputValidationError, self).__init__(args, kwargs)
+        self._message = "There is an error with one of the input parameters."

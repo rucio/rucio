@@ -13,11 +13,11 @@ from rucio.core.account import add_account
 from rucio.core.inode import register_dataset, register_file
 
 
-def create_tmp_dataset(scope, user, clean_list):
+def create_tmp_dataset(scope, user, clean_list, monotonic=False):
     """ Registers a temporary dataset and puts it in a list to be cleaned """
     dsn = str(uuid())
     clean_list.append(dsn)
-    register_dataset(scope, dsn, user)
+    register_dataset(scope, dsn, user, monotonic=monotonic)
     return dsn
 
 
