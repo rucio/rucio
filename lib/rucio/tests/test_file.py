@@ -13,8 +13,8 @@ from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.core.inode import bulk_register_files, change_file_owner, check_file, get_file_metadata, list_files, register_file, unregister_file
-from rucio.core.inode import register_dataset, unregister_dataset
+from rucio.core.inode import bulk_register_files, change_file_owner, does_file_exist, get_file_metadata, is_file_obsolete, list_files, obsolete_file
+from rucio.core.inode import register_dataset, register_file, unregister_dataset, unregister_file
 from rucio.core.scope import add_scope, bulk_add_scopes, check_scope
 from rucio.db import models1 as models
 from rucio.db.session import build_database
@@ -74,20 +74,38 @@ class TestFile:
         for dsn in self.to_clean_datasets:  # Clean left over datasets
             unregister_dataset(self.scope_misc, dsn, self.user)
 
+    # Registering and listing files
+
     def test_api_register_query_unregister_file(self):
         """ FILE (CORE): Create and query a file """
-        assert_equal(check_file(self.user, self.scope_misc, self.invalid_file), False)  # Invalid file does not exist
+        assert_equal(does_file_exist(self.user, self.scope_misc, self.invalid_file), False)  # Invalid file does not exist
         lfn = str(uuid())
         register_file(self.scope_misc, lfn, self.user)
-        assert_equal(check_file(self.scope_misc, lfn, self.user), True)  # File should exist
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user), True)  # File should exist
         register_file(self.scopes_data[1], lfn, self.user)  # Register duplicate lfn, but in a different scope
-        assert_equal(check_file(self.scopes_data[1], lfn, self.user), True)  # File should exist
+        assert_equal(does_file_exist(self.scopes_data[1], lfn, self.user), True)  # File should exist
         unregister_file(self.scope_misc, lfn, self.user)
         unregister_file(self.scopes_data[1], lfn, self.user)
-        assert_equal(check_file(self.scope_misc, lfn, self.user), False)  # Deleted file does not exist anymore
-        assert_equal(check_file(self.scopes_data[1], lfn, self.user), False)  # Deleted file does not exist anymore
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user), False)  # Deleted file does not exist anymore
+        assert_equal(does_file_exist(self.scopes_data[1], lfn, self.user), False)  # Deleted file does not exist anymore
 
-    def test_api_list_datasets(self):
+    def test_api_bulk_register_files(self):
+        """ FILE (CORE): Bulk register files """
+        tmp_scope = 'tmp_scope'
+        try:
+            add_scope(tmp_scope, self.user)
+        except exception.Duplicate:
+            pass  # Scope already exists, no need to create it
+        lfn = str(uuid())
+        lfn2 = str(uuid())
+        lfn3 = str(uuid())
+        bulk_register_files(tmp_scope, [lfn, lfn2], self.user, skipExisting=True)
+        assert_equal(set(list_files(self.user, tmp_scope, "%")), set([lfn, lfn2]))
+        bulk_register_files(tmp_scope, [lfn, lfn2, lfn3], self.user, skipExisting=True)
+        assert_equal(set(list_files(self.user, tmp_scope, "%")), set([lfn, lfn2, lfn3]))
+        self.to_clean_files.extend((lfn, lfn2, lfn3))
+
+    def test_api_list_files(self):
         """ FILE (CORE): List files in multple scopes """
 
         self.clean_files_and_datasets()
@@ -104,9 +122,8 @@ class TestFile:
         # Test all scopes
         assert_equal(list_files(self.user, "*", self.test_mc_files[0]), [self.test_mc_files[0]])  # All scopes, single file
         assert_equal(list_files(self.user, "*", self.file_mc_pattern), self.test_mc_files)  # All scopes, wildcard files
-        assert_equal(list_files(self.user, '%', '%'), self.test_data_files + self.test_mc_files)  # List all datasets in all scopes
 
-    def test_api_change_check_file_owner(self):
+    def test_api_change_does_file_exist_owner(self):
         """ FILE (CORE): Change the owner of a file, get metadata on file """
         lfn = str(uuid())
         register_file(self.scope_misc, lfn, self.user)
@@ -117,7 +134,36 @@ class TestFile:
         assert_equal(get_file_metadata(self.scope_misc, lfn, self.user2), file_metadata)
         unregister_file(self.scope_misc, lfn, self.user)
 
+    # Obsoleting files
+
+    def test_api_obsolete_file_and_list(self):
+        """ FILE (CORE): List obsolete file """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        assert_equal(list_files(self.user, self.scope_misc, lfn), [lfn])
+        obsolete_file(self.scope_misc, lfn, self.user)
+        assert_equal(list_files(self.user, self.scope_misc, lfn), [])
+
+    def test_api_obsolete_dataset_and_list(self):
+        """ FILE (CORE): Get obsolute status of a dataset """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        assert_equal(is_file_obsolete(self.scope_misc, lfn, self.user), False)
+        obsolete_file(self.scope_misc, lfn, self.user)
+        assert_equal(is_file_obsolete(self.scope_misc, lfn, self.user), True)
+
     # Error Handling: Dataset registration
+
+    @raises(exception.FileAlreadyExists)
+    def test_api_bulk_register_file_duplicate_exists(self):
+        """ FILE (CORE): Bulk register duplicate files without duplicate ignore option """
+        tmp_scope = 'tmp_scope2'
+        try:
+            add_scope(tmp_scope, self.user)
+        except exception.Duplicate:
+            pass  # Scope already exists, no need to create it
+        lfn = str(uuid())
+        lfn2 = str(uuid())
+        register_file(tmp_scope, lfn2, self.user)
+        bulk_register_files(tmp_scope, [lfn, lfn2], self.user, skipExisting=False)
 
     @raises(exception.AccountNotFound)
     def test_api_register_dataset_invalid_user(self):
@@ -168,7 +214,7 @@ class TestFile:
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         change_file_owner(self.scope_misc, lfn, self.invalid_user, self.user2)
 
-    @raises(exception.NoPermisions)
+    @raises(exception.NoPermissions)
     def test_api_change_file_owner_account_not_owner(self):
         """ FILE (CORE): Change file owner by providing as the current owner a valid account that is not the current owner """
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
@@ -185,3 +231,10 @@ class TestFile:
         """ FILE (CORE): Change the owner of a non existing file in a scope """
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         change_file_owner(self.scope_misc, self.invalid_file, self.user, self.user2)
+
+    @raises(exception.FileObsolete)
+    def test_api_change_owner_of_obsolete_file(self):
+        """ FILE (CORE): Change the owner of an obsolete file """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_datasets)
+        obsolete_file(self.scope_misc, lfn, self.user)
+        change_file_owner(self.scope_misc, lfn, self.user, self.user2)
