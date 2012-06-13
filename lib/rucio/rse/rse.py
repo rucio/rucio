@@ -14,9 +14,6 @@ import pprint
 
 from rucio.rse.rseexception import RSEException
 
-# making this a module variable allows experienced user to use custom repos in
-# their clients as they can change the path/URI at runtime
-
 path_to_repo = {'global': 'etc/rse.repository', 'local': []}
 
 
@@ -129,11 +126,23 @@ class RucioStorageElement(object):
         return s
 
     def __lfn2pfn(self, lfn):
-        """ Transform the logical file name into the physical file name """
+        """ Transform the logical file name into the physical file name.
+
+            :param lfn Logical file name
+            :returns: iPhysical file name
+        """
+        # do some voodoo e.g. pfn = md5.md5(lfn)
         pfn = lfn
-        # do some voodoo
-        #pfn = md5.md5(lfn)
         return pfn
+
+    def lfn2uri(self, lfn):
+        """ Derives the storage specific URI to the given physical file name.
+
+            :param lfn Logical file name
+            :returns: Storage specific URI of the specified file
+        """
+        tmp = self.__lfn2pfn(lfn)
+        return self.instance['protocol'].pfn2uri(tmp)
 
     def __register_file(self, lfn):
         """ Registers a new file at the central catalogue.
@@ -172,16 +181,15 @@ class RucioStorageElement(object):
             :param lfns Logical file names, can be either one string or an array of strings
         """
         lfns = [lfns] if type(lfns) is str else lfns
+        dest_file = ''
+        if dest != None:
+            dest_file = dest
         for lfn in lfns:
             # TODO: Must the central catalogue be check here?
             # TODO: create a thread for each file
-            dest_file = dest + '/' + lfn if dest else None
             pfn = self.__lfn2pfn(lfn)
             # TODO: Populate popularity stuff
-            if self.instance['protocol'].exists(pfn):
-                self.instance['protocol'].get(pfn, dest_file)
-            else:
-                raise RSEException(404, 'File not found at given storage system.', data={'lfn': lfn})
+            self.instance['protocol'].get(pfn, dest_file + lfn)
 
     def put(self, lfns, source_path=None):
         """ Uploads files from the local filesystem to the referred storage system.
