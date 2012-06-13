@@ -19,7 +19,7 @@ class RSEProtocol(object):
         """
         raise NotImplemented
 
-    def __pfn2uri(self, pfn):
+    def pfn2uri(self, pfn):
         """ Transforms the physical file name into the local URI in the storage system.
 
             :param pfn Physical file name
@@ -71,7 +71,7 @@ class RSEProtocol(object):
         """ Allows to store a file at the referred storage system.
 
             :param pfn         Physical file name
-            :param source_path Path where the to be transferred files are storaed on the client
+            :param source_path Path where the to be transferred files are stored on the client
         """
         raise NotImplemented
 

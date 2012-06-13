@@ -2,5 +2,13 @@
   "cern.lxplus.ch":{
     "username":"USERNAME",
     "password":"PASSWORD"
+  },
+  "swift.cern.ch": {
+    "access_key": "ACCESSKEY",
+    "secret_key": "PASSWORD",
+    "host_base": "swift.cern.ch",
+    "host_bucket": "swift.cern.ch",
+    "progress_meter": "False",
+    "skip_existing": "False"
   }
 }
