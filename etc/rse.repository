@@ -1,42 +1,4 @@
 {
-  "local.Client":{
-    "static":{
-      "name":"My Laptop",
-      "url":"localhost",
-      "location":{
-        "address":"1-R-024, CERN CH-1211, Geneve 23",
-        "country":"CH"
-      },
-      "overall_diskspace": {"value": 128, "unit":"GB"},
-      "overall_computing_power":{"value":1.4,"unit": "GHz"},
-      "protocols": {
-        "default":"local.Default",
-        "supported":["local.Default", "ssh.Default"]
-      },
-      "pfn_prefix":"/tmp/rucio/local/"
-    },
-    "dynamic":{
-    }
-  },
-  "local.MyServer":{
-    "static":{
-      "name":"My Server",
-      "url":"localhost",
-      "location":{
-        "address":"1-R-024, CERN CH-1211, Geneve 23",
-        "country":"CH"
-      },
-      "overall_diskspace":{"value": 128, "unit":"GB"},
-      "overall_computing_power":{"value":1.4,"unit": "GHz"},
-      "protocols":{
-        "default":"local.Default",
-        "supported":["sftp.Default", "local.Default"]
-      },
-      "pfn_prefix":"/tmp/rucio/remote/"
-    },
-    "dynamic":{
-    }
-  },
   "cern.lxplus.ch":{
     "static":{
       "name":"LxPlus",
@@ -52,6 +14,25 @@
         "supported":["sftp.Default"]
       },
       "pfn_prefix":"/afs/cern.ch/user/d/ddmlab/rse_test/"
+    },
+    "dynamic":{
+    }
+  },
+  "swift.cern.ch":{
+    "static":{
+      "name":"OpenStack S3 (swift)",
+      "url":"swift.cern.ch",
+      "location":{
+        "address":"1-R-024, CERN CH-1211, Geneve 23",
+        "country":"CH"
+      },
+      "overall_diskspace":{"value": 8.6, "unit":"GB"},
+      "overall_computing_power":{"value":2.27,"unit": "GHz"},
+      "protocols":{
+        "default":"s3.Default",
+        "supported":["s3.Default"]
+      },
+      "pfn_prefix":"RUCIO-TEST"
     },
     "dynamic":{
     }

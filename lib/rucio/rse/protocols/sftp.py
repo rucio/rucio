@@ -25,7 +25,7 @@ class Default(protocol.RSEProtocol):
         """ Initializes the object with information about the referred storage system."""
         self.rse = rse
 
-    def __pfn2uri(self, pfn):
+    def pfn2uri(self, pfn):
         """ Transforms the physical file name into the local URI in the referred storage system.
 
             :param pfn Physical file name
@@ -59,7 +59,7 @@ class Default(protocol.RSEProtocol):
         """
         status = ''
         try:
-            cmd = 'stat ' + self.__pfn2uri(pfn)
+            cmd = 'stat ' + self.pfn2uri(pfn)
             status = self.__connection.execute(cmd)
         except Exception:
             raise RSEException(500, 'Failed using storage system.', data={'exception': e, 'id': self.rse.static['url'], 'credentials': credentials})
@@ -93,7 +93,7 @@ class Default(protocol.RSEProtocol):
 
         status = ''
         try:
-            status = self.__connection.get(self.__pfn2uri(pfn), dest)
+            status = self.__connection.get(self.pfn2uri(pfn), dest)
         except IOError as e:
             raise RSEException(404, 'Error while requesting file', data={'exception': e, 'status': str(status)})
 
@@ -101,13 +101,22 @@ class Default(protocol.RSEProtocol):
         """ Allows to store files inside the referred storage system.
 
             :param pfn Physical file name
-            :param source_path Path where the to be transferred files are storaed in the local file system
+            :param source_path Path where the to be transferred files are stored in the local file system
         """
         status = ""
         try:
             source = source_path + '/' + pfn if source_path else pfn
-            status = self.__connection.put(source, self.__pfn2uri(pfn))
+            status = self.__connection.put(source, self.pfn2uri(pfn))
             self.__register_file(pfn)
+        except IOError as e:
+            if not self.exists(self.rse.static['pfn_prefix']):
+                cmd = 'mkdir '
+                for p in self.rse.static['pfn_prefix'].split('/'):
+                    cmd += p + '/'
+                    status = self.__connection.execute(cmd)
+                self.put(pfn, source_path)
+            else:
+                raise RSEException(404, 'Error while puting file', data={'exception': e, 'status': str(status)})
         except OSError as e:
             raise RSEException(404, 'Error while puting file', data={'exception': e, 'status': str(status)})
 
@@ -118,7 +127,7 @@ class Default(protocol.RSEProtocol):
         """
         status = ''
         try:
-            cmd = 'rm ' + self.__pfn2uri(pfn)
+            cmd = 'rm ' + self.pfn2uri(pfn)
             status = self.__connection.execute(cmd)
             self.__unregister_file(pfn)
         except Exception as e:
