@@ -144,11 +144,52 @@ class TestFile:
         assert_equal(list_files(self.user, self.scope_misc, lfn), [])
 
     def test_api_obsolete_dataset_and_list(self):
-        """ FILE (CORE): Get obsolute status of a dataset """
+        """ FILE (CORE): Get obsolete status of a dataset """
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         assert_equal(is_file_obsolete(self.scope_misc, lfn, self.user), False)
         obsolete_file(self.scope_misc, lfn, self.user)
         assert_equal(is_file_obsolete(self.scope_misc, lfn, self.user), True)
+
+    # Error Handling: Obsolete file and getting file obsolete state
+
+    @raises(exception.FileNotFound)
+    def test_api_check_if_file_is_obsolete(self):
+        """ FILE (CORE): Check obsolete state of invalid file """
+        is_file_obsolete(self.scope_misc, self.invalid_file, self.user)
+
+    @raises(exception.ScopeNotFound)
+    def test_api_check_if_file_is_obsolete_invalid_scope(self):
+        """ FILE (CORE): Check obsolete state of file with invalid scope """
+        is_file_obsolete(self.invalid_scope, self.invalid_file, self.user)
+
+    @raises(exception.NotAFile)
+    def test_api_check_if_file_is_obsolete_not_a_file(self):
+        """ FILE (CORE): Check obsolete state of dataset using file obsolete file query api """
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+        is_file_obsolete(self.scope_misc, dsn, self.user)
+
+    @raises(exception.FileNotFound)
+    def test_api_obsolete_invalid_file(self):
+        """ FILE (CORE): Obsolete invalid file """
+        obsolete_file(self.scope_misc, self.invalid_file, self.user)
+
+    @raises(exception.ScopeNotFound)
+    def test_api_obsolete_invalid_scope(self):
+        """ FILE (CORE): Obsolete file with invalid scope """
+        obsolete_file(self.invalid_scope, self.invalid_file, self.user)
+
+    @raises(exception.FileObsolete)
+    def test_api_obsolete_file_already_obsolete(self):
+        """ FILE (CORE): Obsoleting file which is already obsolete """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        obsolete_file(self.scope_misc, lfn, self.user)
+        obsolete_file(self.scope_misc, lfn, self.user)
+
+    @raises(exception.NotAFile)
+    def test_api_obsolete_dataset_specify_file(self):
+        """ FILE  (CORE): Obsoleting dataset using file obsoletion core api """
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_files)
+        obsolete_file(self.scope_misc, dsn, self.user)
 
     # Error Handling: Dataset registration
 
@@ -194,7 +235,21 @@ class TestFile:
         register_dataset(self.scope_misc, label, self.user)
         register_file(self.scope_misc, label, self.user)
 
-    # Error Handling: Change dataset owner
+    # Error Handling: Get dataset metadata
+
+    @raises(exception.FileNotFound)
+    def test_api_get_file_metadata_invalid_file(self):
+        """ FILE (CORE): Get metadata on invalid file """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        get_file_metadata(self.scope_misc, self.invalid_file, self.user)
+
+    @raises(exception.ScopeNotFound)
+    def test_api_get_dataset_metadata_invalid_scope(self):
+        """FILE (CORE): Get file metadata using invalid scope """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        get_file_metadata(self.invalid_scope, self.invalid_file, self.user)
+
+    # Error Handling: Change file owner
 
     @raises(exception.NotAFile)
     def test_api_change_file_owner_specify_file_instead(self):
@@ -227,7 +282,7 @@ class TestFile:
         change_file_owner(self.invalid_scope, lfn, self.user, self.user2)
 
     @raises(exception.FileNotFound)
-    def test_api_change_file_owner_invalid_lfn(self):
+    def test_api_change_file_owner_invalid_file(self):
         """ FILE (CORE): Change the owner of a non existing file in a scope """
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         change_file_owner(self.scope_misc, self.invalid_file, self.user, self.user2)
@@ -235,6 +290,6 @@ class TestFile:
     @raises(exception.FileObsolete)
     def test_api_change_owner_of_obsolete_file(self):
         """ FILE (CORE): Change the owner of an obsolete file """
-        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_datasets)
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         obsolete_file(self.scope_misc, lfn, self.user)
         change_file_owner(self.scope_misc, lfn, self.user, self.user2)

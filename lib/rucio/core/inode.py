@@ -445,11 +445,12 @@ def is_dataset_obsolete(datasetScope, datasetName, account):
     return info.obsolete
 
 
-def __evaluate_no_result_found(inodeScope, inodeName, accoutName, inode_type):
+def __evaluate_no_result_found(inodeScope, inodeName, account, inode_type=None):
     """ Checks to see why no result exception was raised
 
     :param inodeScope: The scope of the dataset
     :param inodeName: The name of the dataset
+    :param account: the account doing the operation
     :raise ScopeNotFound: The specified scope does not exist
     :raise NotADataset: Specified dataset is actually a file
     :raise DatasetNotFound: The specified dataset does not exist
@@ -461,15 +462,19 @@ def __evaluate_no_result_found(inodeScope, inodeName, accoutName, inode_type):
         raise exception.ScopeNotFound("Scope '%s' does not exist" % inodeScope)
 
     if inode_type == InodeType.DATASET:
-        if get_inode_type(inodeScope, inodeName, inodeName) == InodeType.FILE:
+        if get_inode_type(inodeScope, inodeName, account) == InodeType.FILE:
             raise exception.NotADataset("Specified dataset (%s, %s) is actually a file" % (inodeScope, inodeName))
         else:
             raise exception.DatasetNotFound('Target dataset (%s) in scope (%s) does not exist.' % (inodeScope, inodeName))
-    else:
-        if get_inode_type(datasetScope, datasetName, accountName) == InodeType.DATASET:
+    elif inode_type == InodeType.FILE:
+        if get_inode_type(inodeScope, inodeName, account) == InodeType.DATASET:
             raise exception.NotAFile("Specified file (%s, %s) is actually a dataset" % (inodeScope, inodeName))
         else:
             raise exception.FileNotFound('Target file (%s) in scope (%s) does not exist.' % (inodeScope, inodeName))
+    elif inode_type == None:
+        raise exception.InodeNotFound('Target inode (%s) in scope (%s) does not exist' % (inodeScope, inodeName))
+    else:
+        exception.InputValidationError('Unrecognised inode type')
 
 
 def get_dataset_owner(datasetScope, datasetName, account):
@@ -573,7 +578,7 @@ def is_file_obsolete(fileScope, filename, account):
     try:
         info = session.query(FILE).filter_by(scope=fileScope, lfn=filename).one()
     except NoResultFound, error:
-        __evaluate_no_result_found(fileScope, filename, account, InodeType.FILE)
+        __evaluate_no_result_found(fileScope, filename, account, inode_type=InodeType.FILE)
     return info.obsolete
 
 
@@ -654,7 +659,6 @@ def list_files(account, scope=None, filename=None, obsolete=False):
     #    raise exception.ForbidenSearch('File (%s) and scope (%s) wildcard search too broad' % (filename, scope))
 
     file_query = session.query(FILE)
-    files = []
     # No scope
     if scope is None:
         if filename is None:  # No dataset defined
@@ -748,7 +752,7 @@ def get_file_metadata(fileScope, filename, account):
         if error.args[0] == 'No row was found for one()':
             if not check_scope(fileScope):  # check if non existing account was provided
                 raise exception.ScopeNotFound("Scope (%s) does not exist" % fileScope)
-            elif not query_inode(fileScope, filename, account):
+            elif not does_file_exist(fileScope, filename, account):
                 raise exception.FileNotFound("File (%s) does not exist in scope (%s)" % (filename, fileScope))
             else:
                 raise exception.RucioException(error.args[0])
@@ -771,6 +775,23 @@ def does_inode_exist(scope, name, account):
     """
 
     return True if session.query(INODE).filter_by(scope=scope, label=name).first() else False
+
+
+def is_inode_obsolete(scope, name, account):
+    """ Check if file is obsolete
+
+    :param scope: The scope of the inode
+    :param name: The name of the file
+    :returns: True if file is obsolete, otherwise false
+    :raise ScopeNotFound: The specified scope does not exist
+    :raise InodeNotFound: The specified inode does not exist
+    """
+
+    try:
+        info = session.query(INODE).filter_by(scope=scope, label=name).one()
+    except NoResultFound, error:
+        __evaluate_no_result_found(scope, name, account)
+    return info.obsolete
 
 
 def get_inode_metadata(inodeScope, inodeName, account):
@@ -809,6 +830,25 @@ def get_inode_type(inodeScope, inodeName, account):
         return inode.type
 
 
+def obsolete_inode(inodeScope, inodeName, account):
+    """ obsoletes an inode
+
+    :param inodeScope: the scope of the inode. The parameter does not do wildcard searches.
+    :param inodeName: the name of the inode. The parameter does not do wildcard searches.
+    :param account: the account that is requesting this operation.
+    :raise DatasetObsolete: inode is a dataset which is already obsolete
+    :raise FileObsolete: inode is a file which is already obsolete
+    """
+
+    if get_inode_type(inodeScope, inodeName, account) == InodeType.FILE:
+        obsolete_file(inodeScope, inodeName, account)
+    else:
+        try:
+            obsolete_dataset(inodeScope, inodeName, account)
+        except exception.DatasetNotFound:  # As we don't know whether it was intended to be a dataset or a file
+            raise exception.InodeNotFound('Target inode (%s) in scope (%s) does not exist.' % (inodeScope, inodeName))
+
+
 def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
     """ Change a dataset's owner
 
@@ -816,6 +856,11 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
     :param inodeName: the name of the dataset
     :param oldAccount: the owner of the dataset
     :param newAccount: the new owner of the dataset
+    :raise ScopeNotFound: specified scope does not exist
+    :raise AccountNotFound: specified account does not exist
+    :raise InodeNotFound: specified inode does not exist
+    :raise DatasetObsolete: specified dataset does not exist
+    :raise FileObsolete: specified file does not exist
     """
 
     try:
@@ -829,9 +874,12 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
             else:
                 inode_info = get_inode_metadata(inodeScope, inodeName, oldAccount)
                 if inode_info is None:
-                    raise exception.DatasetNotFound("Inode (%s) does not exist" % inodeName)
+                    raise exception.InodeNotFound("Inode (%s) does not exist" % inodeName)
                 elif inode_info['obsolete'] == True:  # check that specified dataset is not obsolete
-                    raise exception.DatasetObsolete("Inode (%s) in scope (%s) is obsolete" % (inodeName, inodeScope))
+                    if get_inode_type(inodeScope, inodeName, oldAccount) == InodeType.DATASET:
+                        raise exception.DatasetObsolete("Dataset (%s) in scope (%s) is obsolete" % (inodeName, inodeScope))
+                    else:
+                        raise exception.FileObsolete("File (%s) in scope (%s) is obsolete" % (inodeName, inodeScope))
                 else:
                     raise exception.NoPermissions("Specified account (%s) is not the owner" % oldAccount)
         else:
@@ -842,7 +890,7 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
         change_file_owner(inodeScope, inodeName, oldAccount, newAccount)
 
 
-def list_inodes(accountName, inodeScope=None, inodeName=None):
+def list_inodes(accountName, inodeScope=None, inodeName=None, obsolete=False):
     """ lists inodes matching wildcard search.
 
     :param accountName: the account searching for the inodes.
@@ -861,41 +909,34 @@ def list_inodes(accountName, inodeScope=None, inodeName=None):
         inodeName = None
 
     inode_query = session.query(INODE)
-    inodes = []
     # No scope
     if inodeScope is None:
         if inodeName is None:  # No node defined
-            for ind in inode_query.all():
-                inodes.append(ind.label)
+            inodes = inode_query.all() if obsolete else inode_query.all(obsolete=False)
         elif '%' not in inodeName:  # No wildcards in inode name
-            for ind in inode_query.filter_by(label=inodeName):
-                inodes.append(ind.label)
+            inodes = inode_query.filter_by(label=inodeName) if obsolete else inode_query.filter_by(label=inodeName, obsolete=False)
         else:  # Dataset wild card search
-            for ind in inode_query.filter(INODE.label.like(inodeName)):
-                inodes.append(ind.label)
+            inodes = inode_query.filter(INODE.label.like(inodeName)) if obsolete else inode_query.filter(INODE.label.like(inodeName)).filter_by(obsolete=False)
     # Scope has wildcards
     elif '%' in inodeScope:
         if inodeName is None:  # No inode defined
-            for ind in inode_query.filter(INODE.scope.like(inodeScope)):
-                inodes.append(ind.label)
+            inodes = inode_query.filter(INODE.scope.like(inodeScope)) if obsolete else inode_query.filter(INODE.scope.like(inodeScope))
         elif '%' not in inodeName:  # No wildcards in inode name
-            for ind in inode_query.filter(INODE.scope.like(inodeScope)).filter_by(label=inodeName).all():
-                inodes.append(ind.label)
+            inodes = inode_query.filter(INODE.scope.like(inodeScope)).filter_by(label=inodeName).all() if obsolete else inode_query.filter(INODE.scope.like(inodeScope)).filter_by(label=inodeName).filter_by(obsolete=False)
         else:  # Inode wildcard card search
-            for ind in inode_query.filter(INODE.scope.like(inodeScope)).filter(INODE.label.like(inodeName)):
-                inodes.append(ind.label)
+            if obsolete:
+                inodes = inode_query.filter(INODE.scope.like(inodeScope)).filter(INODE.label.like(inodeName))
+            else:
+                inodes = inode_query.filter(INODE.scope.like(inodeScope)).filter(INODE.label.like(inodeName)).filter_by(obsolete=False)
     # Single scope search
     else:
         if inodeName is None:  # No inode defined
-            for ind in inode_query.filter_by(scope=inodeScope):
-                inodes.append(ind.label)
+            inodes = inode_query.filter_by(scope=inodeScope) if obsolete else inode_query.filter_by(scope=inodeScope, obsolete=False)
         elif '%' not in inodeName:  # No wildcards in inode name
-            for ind in inode_query.filter_by(scope=inodeScope, label=inodeName):
-                inodes.append(ind.label)
+            inodes = inode_query.filter_by(scope=inodeScope, label=inodeName) if obsolete else inode_query.filter_by(scope=inodeScope, label=inodeName, obsolete=False)
         else:  # Wildcards in inode name
-            for ind in inode_query.filter_by(scope=inodeScope).filter(INODE.label.like(inodeName)):
-                inodes.append(ind.label)
-    return inodes
+            inodes = inode_query.filter_by(scope=inodeScope).filter(INODE.label.like(inodeName)) if obsolete else inode_query.filter_by(scope=inodeScope).filter(INODE.label.like(inodeName)).filter_by(obsolete=False)
+    return [inode.label for inode in inodes]
 
 
 def inode_list_generator(scope, listOfNames):
