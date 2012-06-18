@@ -15,8 +15,9 @@ from sqlalchemy import create_engine
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.core.account import add_account
-from rucio.core.inode import bulk_register_datasets, does_dataset_exist, get_dataset_metadata, list_datasets, register_dataset, unregister_dataset
-from rucio.core.inode import register_file, unregister_file
+from rucio.core.inode import add_files_to_dataset, bulk_register_datasets, does_dataset_exist, get_dataset_metadata, is_inode_obsolete, list_datasets
+from rucio.core.inode import list_files_in_dataset, obsolete_dataset, obsolete_file, obsolete_inode
+from rucio.core.inode import register_dataset, register_file, unregister_dataset, unregister_file
 from rucio.core.inode import change_inode_owner, does_inode_exist, get_inode_metadata, list_inodes
 from rucio.core.scope import add_scope, bulk_add_scopes, check_scope
 from rucio.db import models1 as models
@@ -83,6 +84,8 @@ class TestInode:
         for lfn in self.to_clean_files:  # Clean left over files
             unregister_file(self.scope_misc, lfn, self.user)
 
+    # Register and query inodes
+
     def test_api_register_query_unregister_dataset(self):
         """ INODE (CORE): Create and query for inodes """
         dsn = str(uuid())
@@ -141,6 +144,104 @@ class TestInode:
         assert_equal(get_inode_metadata(self.invalid_scope, dsn, self.user), None)
         assert_equal(get_inode_metadata(self.invalid_scope, lfn, self.user), None)
 
+    # Obsoleting inodes
+
+    def test_api_obsolete_dataset_and_list(self):
+        """ INODE (CORE): List inodes which are not obsolete """
+        scope_tmp = 'some_scope'
+        add_scope(scope_tmp, self.user)
+        dsn = create_tmp_dataset(scope_tmp, self.user, self.to_clean_datasets)
+        assert_equal(list_inodes(self.user, scope_tmp, dsn), [dsn])
+        obsolete_inode(scope_tmp, dsn, self.user)
+        assert_equal(list_inodes(self.user, scope_tmp, dsn), [])
+        lfn = create_tmp_file(scope_tmp, self.user, self.to_clean_files)
+        assert_equal(list_inodes(self.user, scope_tmp, lfn), [lfn])
+        obsolete_inode(scope_tmp, lfn, self.user)
+        assert_equal(list_inodes(self.user, scope_tmp, lfn), [])
+
+    def test_api_obsoletes_dataset_and_files_and_check_obsolete_status(self):
+        """ INODE (CORE): Get obsolete status of an inodes """
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+        assert_equal(is_inode_obsolete(self.scope_misc, dsn, self.user), False)
+        obsolete_dataset(self.scope_misc, dsn, self.user)
+        assert_equal(is_inode_obsolete(self.scope_misc, dsn, self.user), True)
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        assert_equal(is_inode_obsolete(self.scope_misc, lfn, self.user), False)
+        obsolete_file(self.scope_misc, lfn, self.user)
+        assert_equal(is_inode_obsolete(self.scope_misc, lfn, self.user), True)
+        lfn2 = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        assert_equal(is_inode_obsolete(self.scope_misc, lfn2, self.user), False)
+        obsolete_inode(self.scope_misc, lfn2, self.user)
+        assert_equal(is_inode_obsolete(self.scope_misc, lfn2, self.user), True)
+
+    def test_api_obsoletes_dataset_and_files_and_check_obsolete_status(self):
+        """ INODE (CORE): List obsolete inodes """
+        tmp_scope = 'next scope'
+        add_scope(tmp_scope, self.user)
+        dsn = create_tmp_dataset(tmp_scope, self.user, self.to_clean_datasets)
+        obsolete_dataset(tmp_scope, dsn, self.user)
+        lfn = create_tmp_file(tmp_scope, self.user, self.to_clean_files)
+        obsolete_file(tmp_scope, lfn, self.user)
+        lfn2 = create_tmp_file(tmp_scope, self.user, self.to_clean_files)
+        obsolete_inode(tmp_scope, lfn2, self.user)
+        dsn2 = create_tmp_dataset(tmp_scope, self.user, self.to_clean_files)
+        assert_equal(list_inodes(inodeScope=tmp_scope, accountName=self.user, obsolete=False), [dsn2])
+        assert_equal(set(list_inodes(inodeScope=tmp_scope, accountName=self.user, obsolete=True)), set([dsn, lfn, lfn2, dsn2]))
+
+    def test_api_obsolete_dataset_and_list_files(self):
+        """ INODE (CORE): List files in dataset, which was obsoleted using the inode obsolete API """
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        add_files_to_dataset([lfn, ], self.scope_misc, dsn, self.user, self.scope_misc)
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+        obsolete_inode(self.scope_misc, dsn, self.user)
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [])
+
+    def test_api_obsolete_file_and_list_files_in_dataset(self):
+        """ DATASET (CORE): Obsolete one of the files in a dataset using inode obsolete API and list files in dataset """
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        lfn2 = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        add_files_to_dataset([lfn, lfn2], self.scope_misc, dsn, self.user, self.scope_misc)
+        obsolete_inode(self.scope_misc, lfn2, self.user)
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+
+   # Error Handling: Obsolete datasets and getting dataset obsolete state
+
+    @raises(exception.InodeNotFound)
+    def test_api_check_if_inode_is_obsolete(self):
+        """ INODE (CORE): Check obsolete state of invalid inode """
+        is_inode_obsolete(self.scope_misc, self.invalid_dsn, self.user)
+
+    @raises(exception.ScopeNotFound)
+    def test_api_check_if_dataset_is_obsolete_invalid_scope(self):
+        """ INODE (CORE): Check obsolete state of inode with invalid scope """
+        is_inode_obsolete(self.invalid_scope, self.invalid_dsn, self.user)
+
+    @raises(exception.InodeNotFound)
+    def test_api_obsolete_invalid_inode(self):
+        """ INODE (CORE): Obsolete invalid inode """
+        obsolete_inode(self.scope_misc, self.invalid_dsn, self.user)
+
+    @raises(exception.ScopeNotFound)
+    def test_api_obsolete_node_invalid_scope(self):
+        """ INODE (CORE): Obsolete dataset with invalid scope """
+        obsolete_inode(self.invalid_scope, self.invalid_dsn, self.user)
+
+    @raises(exception.DatasetObsolete)
+    def test_api_obsolete_inode_dataset_already_obsolete(self):
+        """ INODE (CORE): Obsoleting dataset which is already obsolete """
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+        obsolete_inode(self.scope_misc, dsn, self.user)
+        obsolete_inode(self.scope_misc, dsn, self.user)
+
+    @raises(exception.FileObsolete)
+    def test_api_obsolete_inode_file_already_obsolete(self):
+        """ INODE (CORE): Obsoleting file which is already obsolete """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        obsolete_inode(self.scope_misc, lfn, self.user)
+        obsolete_inode(self.scope_misc, lfn, self.user)
+
     # Error Handling: Get dataset metadata
 
     @raises(exception.DatasetNotFound)
@@ -198,7 +299,21 @@ class TestInode:
         lfn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_files)
         change_inode_owner(self.invalid_scope, lfn, self.user, self.user2)
 
-    @raises(exception.DatasetNotFound)
+    @raises(exception.InodeNotFound)
     def test_api_change_dataset_owner_invalid_dsn(self):
         """ INODE (CORE): Change the owner of a non existing inode in a scope """
         change_inode_owner(self.scope_misc, self.invalid_dsn, self.user, self.user2)
+
+    @raises(exception.FileObsolete)
+    def test_api_inode_change_owner_of_obsolete_file(self):
+        """ INODE (CORE): Change the owner of an obsolete file using inode change owner API"""
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        obsolete_file(self.scope_misc, lfn, self.user)
+        change_inode_owner(self.scope_misc, lfn, self.user, self.user2)
+
+    @raises(exception.DatasetObsolete)
+    def test_api_inode_change_owner_of_obsolete_dataset(self):
+        """ FILE (CORE): Change the owner of an obsolete dataset using inode change owner API"""
+        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+        obsolete_dataset(self.scope_misc, dsn, self.user)
+        change_inode_owner(self.scope_misc, dsn, self.user, self.user2)
