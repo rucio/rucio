@@ -23,7 +23,7 @@ sh.setLevel(logging.DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/rse/(.+)', 'RSE',
+    '/(.+)', 'RSE',
 )
 
 
@@ -68,7 +68,4 @@ class RSE:
 ----------------------"""
 
 app = web.application(urls, globals())
-
-if __name__ == "__main__":
-    web.wsgi.runwsgi = lambda func, addr=None: web.wsgi.runfcgi(func, addr)
-    app.run()
+application = app.wsgifunc()

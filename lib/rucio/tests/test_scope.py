@@ -48,18 +48,18 @@ class TestScope():
         mw = []
 
         headers1 = {'Rucio-Account': 'valid_user', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/auth/userpass', headers=headers1, expect_errors=True)
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         print r1
         assert_equal(r1.status, 200)
 
         token = str(r1.header('Rucio-Auth-Token'))
 
         headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'valid_user', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/account/testaccount', headers=headers2, expect_errors=True)
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Account': 'valid_user', 'Rucio-Auth-Token': str(token)}
-        r3 = TestApp(scope_app.wsgifunc(*mw)).post('/scope/testaccount/testscope', headers=headers3, expect_errors=True)
+        r3 = TestApp(scope_app.wsgifunc(*mw)).post('/testaccount/testscope', headers=headers3, expect_errors=True)
 
         assert_equal(r3.status, 201)
 
@@ -68,13 +68,13 @@ class TestScope():
         mw = []
 
         headers1 = {'Rucio-Account': 'valid_user', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/auth/userpass', headers=headers1, expect_errors=True)
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
 
         token = str(r1.header('Rucio-Auth-Token'))
 
         headers2 = {'Rucio-Account': 'valid_user', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(scope_app.wsgifunc(*mw)).post('/scope/testaccount/testscope', headers=headers2, expect_errors=True)
+        r2 = TestApp(scope_app.wsgifunc(*mw)).post('/testaccount/testscope', headers=headers2, expect_errors=True)
 
         assert_equal(r2.status, 500)
 
