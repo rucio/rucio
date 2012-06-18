@@ -36,7 +36,7 @@ class TestGET():
 
         mw = []
         headers = {'Rucio-Account': 'wrong', 'Rucio-Username': 'wrong', 'Rucio-Password': 'wrong'}
-        r = TestApp(app.wsgifunc(*mw)).get('/auth/userpass', headers=headers, expect_errors=True)
+        r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 401)
 
     def test_auth_header_userpass_success(self):
@@ -44,7 +44,7 @@ class TestGET():
 
         mw = []
         headers = {'Rucio-Account': self.account, 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
-        r = TestApp(app.wsgifunc(*mw)).get('/auth/userpass', headers=headers, expect_errors=True)
+        r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
         assert_equal(len(r.header('Rucio-Auth-Token')), 32)
 

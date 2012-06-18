@@ -12,7 +12,7 @@ from paste.fixture import TestApp
 from nose.tools import *
 
 from rucio import version
-from rucio.tests.utils import execute
+from rucio.tests.common import execute
 
 
 class TestBinRucio():
@@ -25,28 +25,32 @@ class TestBinRucio():
         # teardown http
         pass
 
-    #def test_rucio_version(self):
-    #    cmd = 'bin/rucio --version'
-    #    exitcode, out, err = execute(cmd)
-    #    assert_equal(err, 'rucio %s\n' % version.version_string())
+    # FIXME: Disabled for now
+    def xtest_rucio_version(self):
+        cmd = 'bin/rucio --version'
+        exitcode, out, err = execute(cmd)
+        assert_equal(err, 'rucio %s\n' % version.version_string())
 
-    #def test_cli_add_account(self):
-    #    """ACCOUNT (CLI): Add account"""
-    #    cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret account add jdoe'
-    #    exitcode, out, err = execute(cmd)
-    #    assert_equal(out, '')
-    #    assert_equal(exitcode, 0)
+    # FIXME: Disabled for now
+    def xtest_cli_add_account(self):
+        """ACCOUNT (CLI): Add account"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret account add jdoe'
+        exitcode, out, err = execute(cmd)
+        assert_equal(out, '')
+        assert_equal(exitcode, 0)
 
-    #def test_cli_disable_account(self):
-    #    """ACCOUNT (CLI): Disable account"""
-    #    cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account disable jdoe'
-    #    exitcode, out, err = execute(cmd)
-    #    assert_equal(out, '')
-    #    assert_equal(exitcode, 0)
+    # FIXME: Disabled for now
+    def xtest_cli_disable_account(self):
+        """ACCOUNT (CLI): Disable account"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account disable jdoe'
+        exitcode, out, err = execute(cmd)
+        assert_equal(out, '')
+        assert_equal(exitcode, 0)
 
-    #def test_cli_list_accounts(self):
-    #    """ACCOUNT (CLI): List account"""
-    #    cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account list'
-    #    exitcode, out, err = execute(cmd)
-    #    assert_equal(out, 'jdoe\n')
-    #    assert_equal(exitcode, 0)
+    # FIXME: Disabled for now
+    def xtest_cli_list_accounts(self):
+        """ACCOUNT (CLI): List account"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account list'
+        exitcode, out, err = execute(cmd)
+        assert_equal(out, 'jdoe\n')
+        assert_equal(exitcode, 0)

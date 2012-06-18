@@ -1,0 +1,82 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 2 (0x2)
+        Signature Algorithm: sha1WithRSAEncryption
+        Issuer: C=CH, ST=Geneva, L=Geneva, O=CERN, OU=PH-ADP-CO, CN=DDMLAB Certification Authority/emailAddress=ph-adp-ddm-lab@cern.ch
+        Validity
+            Not Before: Jun 18 14:22:27 2012 GMT
+            Not After : Nov  3 14:22:27 2039 GMT
+        Subject: C=CH, ST=Geneva, O=CERN, OU=PH-ADP-CO, CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+            RSA Public Key: (1024 bit)
+                Modulus (1024 bit):
+                    00:bc:4b:90:15:56:86:ff:dd:80:4b:4b:b0:7e:f3:
+                    53:5f:d8:0f:de:40:b1:9e:ad:fc:03:95:dc:b2:92:
+                    85:3f:be:d1:a2:d8:47:99:91:27:15:53:6c:ae:83:
+                    f8:48:14:c4:90:69:f9:ed:e0:b6:89:3a:3b:73:b9:
+                    51:5c:98:4a:92:1a:ba:b1:1f:65:95:96:56:f2:09:
+                    a8:b0:c7:71:6f:71:eb:d1:c2:48:39:5f:55:80:a3:
+                    3c:a3:7f:5c:91:89:b3:94:7d:6a:22:8f:83:c2:4c:
+                    fb:70:b9:41:78:67:ed:29:5b:48:6e:d9:d8:e3:99:
+                    f5:ab:3f:ef:ee:db:95:cc:39
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:FALSE
+            Netscape Comment:
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier:
+                E9:22:34:EB:7F:C9:41:D6:A0:7A:2C:D6:8A:BC:77:4A:23:00:3C:19
+            X509v3 Authority Key Identifier:
+                DirName:/C=CH/ST=Geneva/L=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Certification Authority/emailAddress=ph-adp-ddm-lab@cern.ch
+                serial:8E:A7:AA:48:9C:D3:FE:48
+
+    Signature Algorithm: sha1WithRSAEncryption
+        71:03:f7:87:9a:83:82:19:80:4d:b5:60:4e:1f:53:60:5e:c6:
+        5d:eb:a2:ab:32:35:d6:17:1f:43:17:4c:88:94:42:76:6b:9d:
+        18:55:91:21:04:ac:bf:a3:78:8c:0b:52:d3:d7:b8:0d:d2:f4:
+        e1:0d:21:6e:eb:a1:93:0e:d5:3a:00:43:f0:7e:33:0c:85:60:
+        a0:ee:5c:00:93:2c:fd:d2:65:de:59:05:67:3e:14:1c:5e:e8:
+        e1:5c:24:42:0e:3d:d5:7d:63:f0:89:16:05:45:14:97:b6:18:
+        0b:01:0c:73:2e:85:c6:c2:2d:f8:92:e1:39:ca:16:d5:68:fa:
+        58:96
+-----BEGIN CERTIFICATE-----
+MIIDyDCCAzGgAwIBAgIBAjANBgkqhkiG9w0BAQUFADCBojELMAkGA1UEBhMCQ0gx
+DzANBgNVBAgTBkdlbmV2YTEPMA0GA1UEBxMGR2VuZXZhMQ0wCwYDVQQKEwRDRVJO
+MRIwEAYDVQQLEwlQSC1BRFAtQ08xJzAlBgNVBAMTHkRETUxBQiBDZXJ0aWZpY2F0
+aW9uIEF1dGhvcml0eTElMCMGCSqGSIb3DQEJARYWcGgtYWRwLWRkbS1sYWJAY2Vy
+bi5jaDAeFw0xMjA2MTgxNDIyMjdaFw0zOTExMDMxNDIyMjdaMIGMMQswCQYDVQQG
+EwJDSDEPMA0GA1UECBMGR2VuZXZhMQ0wCwYDVQQKEwRDRVJOMRIwEAYDVQQLEwlQ
+SC1BRFAtQ08xIjAgBgNVBAMTGURETUxBQiBDbGllbnQgQ2VydGlmaWNhdGUxJTAj
+BgkqhkiG9w0BCQEWFnBoLWFkcC1kZG0tbGFiQGNlcm4uY2gwgZ8wDQYJKoZIhvcN
+AQEBBQADgY0AMIGJAoGBALxLkBVWhv/dgEtLsH7zU1/YD95AsZ6t/AOV3LKShT++
+0aLYR5mRJxVTbK6D+EgUxJBp+e3gtok6O3O5UVyYSpIaurEfZZWWVvIJqLDHcW9x
+69HCSDlfVYCjPKN/XJGJs5R9aiKPg8JM+3C5QXhn7SlbSG7Z2OOZ9as/7+7blcw5
+AgMBAAGjggEgMIIBHDAJBgNVHRMEAjAAMCwGCWCGSAGG+EIBDQQfFh1PcGVuU1NM
+IEdlbmVyYXRlZCBDZXJ0aWZpY2F0ZTAdBgNVHQ4EFgQU6SI063/JQdageizWirx3
+SiMAPBkwgcEGA1UdIwSBuTCBtqGBqKSBpTCBojELMAkGA1UEBhMCQ0gxDzANBgNV
+BAgTBkdlbmV2YTEPMA0GA1UEBxMGR2VuZXZhMQ0wCwYDVQQKEwRDRVJOMRIwEAYD
+VQQLEwlQSC1BRFAtQ08xJzAlBgNVBAMTHkRETUxBQiBDZXJ0aWZpY2F0aW9uIEF1
+dGhvcml0eTElMCMGCSqGSIb3DQEJARYWcGgtYWRwLWRkbS1sYWJAY2Vybi5jaIIJ
+AI6nqkic0/5IMA0GCSqGSIb3DQEBBQUAA4GBAHED94eag4IZgE21YE4fU2Bexl3r
+oqsyNdYXH0MXTIiUQnZrnRhVkSEErL+jeIwLUtPXuA3S9OENIW7roZMO1ToAQ/B+
+MwyFYKDuXACTLP3SZd5ZBWc+FBxe6OFcJEIOPdV9Y/CJFgVFFJe2GAsBDHMuhcbC
+LfiS4TnKFtVo+liW
+-----END CERTIFICATE-----
+-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQC8S5AVVob/3YBLS7B+81Nf2A/eQLGerfwDldyykoU/vtGi2EeZ
+kScVU2yug/hIFMSQafnt4LaJOjtzuVFcmEqSGrqxH2WVllbyCaiwx3FvcevRwkg5
+X1WAozyjf1yRibOUfWoij4PCTPtwuUF4Z+0pW0hu2djjmfWrP+/u25XMOQIDAQAB
+AoGBAI8cFyxAkWZSYTnZExHJuip0Oss+/ECQF6RZ+F04g1HJo+dS3khXTA8nUsjo
+wIF4V1UzVqN3UQTHX3w68x2fGbzX/0v3stinDsE3qiDi7QTw51SGqf9LmZIPq8cG
+vbn+PzAKPlbGWl+TdmRk1AyykHz+aVDydcZ+LgVQ4Z7zydwpAkEA4TM4fn29Aemr
++DhYn3Lmv+BfC25P82bl/7n1QHjci84eYMCgNFY/vmV+2gfLZSk5gWHYnCJXdlwK
+3hIqu732ZwJBANYMNxWJuAbI0U5dvyhDE08bfIKe4R5CTuVuUHJScIXpvwt5Pmhz
+0bJBFOWQsMUQeiF45FzyipjxdrIxO6G8RF8CQG7TQi4duvJCCLtzH0n4xc4PoTaC
+5x2lufKLlUJROFgk65Y5tZ2MBHqygCbURyhVjVM6z9qmm9xHl6GJ1zXlWmkCQQCq
+Ohy0rEoGWz7aLAQSaQW6LAnhd6lg/yrvm8Oup5GFblfZMBtJxpJGSSvtRhzPHEOE
+yzgSE3HWIHJdVHowLiHRAkAAhxSnoiTCprU6A3hXbGOUX8/gW5F+w33KiJEy+53m
+Z7oyI7YqJ73QD1Ar4QJzZLDkmQ7sEhNY3GVooFdYHopm
+-----END RSA PRIVATE KEY-----

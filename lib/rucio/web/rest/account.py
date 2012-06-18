@@ -23,9 +23,9 @@ sh.setLevel(logging.DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/account/(.+)/limits', 'AccountLimits',
-    '/account/(.+)', 'Account',
-    '/accounts', 'AccountList'
+    '/(.+)/limits', 'AccountLimits',
+    '/(.+)', 'Account',
+    '/', 'AccountList'
 )
 
 
@@ -164,6 +164,7 @@ class AccountList:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :returns: A list containing all account names.
         """
+
         web.header('Content-Type', 'application/json')
 
         auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
@@ -192,6 +193,7 @@ class AccountList:
 class AccountLimits:
     def GET(self, accountName):
         """ get the current limits for an account """
+
         raise web.BadRequest()
 
     def PUT(self):
@@ -213,7 +215,4 @@ class AccountLimits:
 ----------------------"""
 
 app = web.application(urls, globals())
-
-if __name__ == "__main__":
-    web.wsgi.runwsgi = lambda func, addr=None: web.wsgi.runfcgi(func, addr)
-    app.run()
+application = app.wsgifunc()

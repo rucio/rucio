@@ -18,11 +18,11 @@ from rucio.api.authentication import register_api_token
 from rucio.api.authentication import validate_api_token
 
 urls = (
-    '/auth/userpass', 'UserPass',
-    '/auth/kerberos', 'Kerberos',
-    '/auth/x509', 'x509',
-    '/auth/validate', 'Validate',
-    '/auth/register_api_token', 'APITokens'
+    '/userpass', 'UserPass',
+    '/kerberos', 'Kerberos',
+    '/x509', 'x509',
+    '/validate', 'Validate',
+    '/register_api_token', 'APITokens'
 )
 
 
@@ -119,7 +119,6 @@ class Validate:
     """Validate a Rucio Auth Token"""
 
     def GET(self):
-
         """
         HTTP Success:
             200 OK
@@ -182,7 +181,4 @@ class APITokens:
 ----------------------"""
 
 app = web.application(urls, globals())
-
-if __name__ == "__main__":
-    web.wsgi.runwsgi = lambda func, addr=None: web.wsgi.runfcgi(func, addr)
-    app.run()
+application = app.wsgifunc()

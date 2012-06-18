@@ -6,14 +6,44 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from uuid import uuid4 as uuid
+import subprocess
+
 from rucio.common import exception
 from rucio.core.account import add_account
 from rucio.core.inode import register_dataset, register_file
 
 
-def create_tmp_dataset(scope, user, clean_list, monotonic=False):
+def execute(cmd):
+    """
+    Executes a command in a subprocess. Returns a tuple
+    of (exitcode, out, err), where out is the string output
+    from stdout and err is the string output from stderr when
+    executing the command.
+
+    :param cmd: Command string to execute
+    """
+
+    process = subprocess.Popen(cmd,
+                               shell=True,
+                               stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    out = ''
+    err = ''
+    exitcode = 0
+
+    result = process.communicate()
+    (out, err) = result
+    exitcode = process.returncode
+
+    return exitcode, out, err
+
+
+def create_tmp_dataset(scope, user, clean_list):
     """ Registers a temporary dataset and puts it in a list to be cleaned """
     dsn = str(uuid())
     clean_list.append(dsn)
