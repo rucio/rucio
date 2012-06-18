@@ -22,8 +22,8 @@ sh.setLevel(logging.DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/scope/(.+)/(.+)', 'Scope',
-    '/scopes/(.+)', 'ScopeList',
+    '/(.+)/(.+)', 'Scope',
+    '/(.+)', 'ScopeList',
 )
 
 
@@ -130,7 +130,4 @@ class ScopeList:
 ----------------------"""
 
 app = web.application(urls, globals())
-
-if __name__ == "__main__":
-    web.wsgi.runwsgi = lambda func, addr=None: web.wsgi.runfcgi(func, addr)
-    app.run()
+application = app.wsgifunc()
