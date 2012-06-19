@@ -19,12 +19,9 @@ from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.core.account import account_exists
 from rucio.db import models1 as models
+from rucio.db.session import get_session
 
-""" Only for testing """
-engine = create_engine(config_get('database', 'default'))
-models.register_models(engine)  # this only creates the necessary tables, should be done once somewhere else and then never again
-
-session = sessionmaker(bind=engine, autocommit=True, expire_on_commit=False)
+session = get_session()
 
 
 class identity_type:
@@ -33,10 +30,6 @@ class identity_type:
     x509 = 'x509'
     gss = 'gss'
     userpass = 'userpass'
-
-
-def get_session():
-    return scoped_session(session)
 
 
 def add_identity(identity, type, password=None):
@@ -61,14 +54,13 @@ def add_identity(identity, type, password=None):
         new_id.update({'salt': salt,
                        'password': password})
 
-    session = get_session()
-    with session.begin():
-        try:
-            new_id.save(session=session)
-        except IntegrityError, e:
-            raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
-        finally:
-            session.flush()
+    try:
+        new_id.save(session=session)
+    except IntegrityError, e:
+        session.rollback()
+        raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
+
+    session.commit()
 
 
 def del_identity(identity, type):
@@ -79,16 +71,13 @@ def del_identity(identity, type):
     :param type: The type of the authentication (x509, gss, userpass).
     """
 
-    id = None
+    id = session.query(models.Identity).filter_by(identity=identity, type=type).first()
 
-    session = get_session()
-    with session.begin():
-        id = session.query(models.Identity).filter_by(identity=identity, type=type).first()
+    if id is None:
+        raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
 
-        if id is None:
-            raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
-
-        id.delete(session)
+    id.delete(session)
+    session.commit()
 
 
 def add_account_identity(identity, type, account, default=False):
@@ -109,14 +98,13 @@ def add_account_identity(identity, type, account, default=False):
     new_aid['type'] = type
     new_aid['account'] = account
 
-    session = get_session()
-    with session.begin():
-        try:
-            new_aid.save(session=session)
-        except IntegrityError, e:
-            raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
-        finally:
-            session.flush()
+    try:
+        new_aid.save(session=session)
+    except IntegrityError, e:
+        session.rollback()
+        raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
+
+    session.commit()
 
 
 def del_account_identity(identity, type, account):
@@ -128,16 +116,13 @@ def del_account_identity(identity, type, account):
     :param account: The account name.
     """
 
-    aid = None
+    aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account).first()
 
-    session = get_session()
-    with session.begin():
-        aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account).first()
+    if aid is None:
+        raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
 
-        if aid is None:
-            raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
-
-        aid.delete(session)
+    aid.delete(session)
+    session.commit()
 
 
 def list_identities(**kwargs):
@@ -149,9 +134,7 @@ def list_identities(**kwargs):
 
     id_list = []
 
-    session = get_session()
-    with session.begin():
-        for id in session.query(models.Identity).order_by(models.Identity.identity):
-            id_list.append((id.identity, id.type))
+    for id in session.query(models.Identity).order_by(models.Identity.identity):
+        id_list.append((id.identity, id.type))
 
     return id_list

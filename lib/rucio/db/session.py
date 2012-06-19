@@ -27,8 +27,7 @@ def get_session():
 
     database = config_get('database', 'default')
     engine = create_engine(database, echo=False, listeners=[ForeignKeysListener()])
-    session = scoped_session(sessionmaker(bind=engine, autocommit=False, expire_on_commit=False))
-    return session
+    return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
 
 
 def build_database():
@@ -43,3 +42,29 @@ def destroy_database():
 
     engine = create_engine(config_get('database', 'default'), echo=True)
     models.unregister_models(engine)
+
+
+def create_root_account():
+    """ Inserts the default root account to an existing database. Make sure to change the default password later. """
+
+    engine = create_engine(config_get('database', 'default'))
+    session = get_session()
+
+    # Account=root
+    account = models.Account(account='root', type='user', status='active')
+    # Username/Password authentication
+    # username=ddmlab
+    # password=secret
+    identity1 = models.Identity(identity='ddmlab', type='userpass', password='2ccee6f6dd1bc2269cddd7cd5e47578e98e430539807c36df23fab7dd13e7583', salt='0', email='ph-adp-ddm-lab@cern.ch')
+    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, default=True)
+
+    # X509 authentication
+    # Default DDMLAB client certificate from /opt/rucio/etc/web/client.crt
+    identity2 = models.Identity(identity='/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB\ Client\ Certificate/emailAddress=ph-adp-ddm-lab@cern.ch', type='x509', email='ph-adp-ddm-lab@cern.ch')
+    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, default=True)
+
+    # Apply
+    session.add_all([account, identity1, identity2])
+    session.commit()
+    session.add_all([iaa1, iaa2])
+    session.commit()
