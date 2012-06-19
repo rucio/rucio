@@ -38,7 +38,15 @@ Make a clone of the code from our git repository::
 Configuring git
 ===============
 
-Make sure that you get the commit-msg hook, this is mandatory::
+
+Make sure that you get the following pre-commit hooks for Git: commit-msg and pre-commit.
+
+They can be installed by executing the script tools/configure_git.sh::
+
+  $ cd rucio
+  $ ./tools/configure_git.sh
+
+Or manually with::
 
     $ cd rucio
     $ cp tools/commit-msg .git/hooks/commit-msg    
@@ -166,6 +174,23 @@ To avoid this, you need to create a :file:`~/.pip/pip.conf` with::
 - *username*, which is the registered username on the PyPI server.
 - *password*, that will be used to authenticate. If omitted the user
     will be prompt to type it when needed.
+
+
+Configuring Rucio
+==================
+
+When starting up Rucio, you can specify the configuration file(rucio.cfg) to
+use with the RUCIO_HOME environment variable:  ``$RUCIO_HOME/etc/rucio.cfg``
+
+If you do **not** specify a configuration file, Rucio will look in the ``/opt/rucio/etc/``
+directory for a configuration file.
+
+A sample configuration file distributed with Rucio is in the etc directory.
+It can be copied locally and configured::
+
+    $ mkdir -p /opt/rucio/
+    $ cp etc/rucio.cfg.template /opt/rucio/etc/rucio.cfg
+    $ edit  /opt/rucio/etc/rucio.cfg
 
 
 Generating documentation
