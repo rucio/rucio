@@ -43,7 +43,7 @@ def execute(cmd):
     return exitcode, out, err
 
 
-def create_tmp_dataset(scope, user, clean_list):
+def create_tmp_dataset(scope, user, clean_list, monotonic=False):
     """ Registers a temporary dataset and puts it in a list to be cleaned """
     dsn = str(uuid())
     clean_list.append(dsn)
