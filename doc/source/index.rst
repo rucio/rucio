@@ -57,6 +57,7 @@ Developer Documentation
     development_guidelines
     setup
     developing
+    naming_convention_db
 
 Using Rucio: API
 ================
