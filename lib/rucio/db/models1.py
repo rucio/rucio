@@ -122,10 +122,11 @@ class Identity(BASE, ModelBase):
 class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity"""
     __tablename__ = 'account_map'
-    identity = Column(String(255), ForeignKey('identities.identity'), primary_key=True)
-    type = Column(Enum('x509', 'gss', 'userpass'), ForeignKey('identities.type'), primary_key=True)
+    identity = Column(String(255), primary_key=True)
+    type = Column(Enum('x509', 'gss', 'userpass'), primary_key=True)
     account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     default = Column(Boolean, nullable=False, default=False)
+    __table_args__ = (ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type']), {})
 
 
 class Scope(BASE, ModelBase):

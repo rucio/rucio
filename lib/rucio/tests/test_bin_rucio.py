@@ -12,18 +12,20 @@ from paste.fixture import TestApp
 from nose.tools import *
 
 from rucio import version
+from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.tests.common import execute
 
 
 class TestBinRucio():
 
     def setUp(self):
-        # setup http
-        pass
+        # sudo apachectl restart
+        build_database()
+        create_root_account()
 
     def tearDown(self):
-        # teardown http
-        pass
+        # sudo apachectl stop
+        destroy_database()
 
     # FIXME: Disabled for now
     def xtest_rucio_version(self):
@@ -34,7 +36,7 @@ class TestBinRucio():
     # FIXME: Disabled for now
     def xtest_cli_add_account(self):
         """ACCOUNT (CLI): Add account"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret account add jdoe'
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret account add jdoe'
         exitcode, out, err = execute(cmd)
         assert_equal(out, '')
         assert_equal(exitcode, 0)
@@ -42,7 +44,7 @@ class TestBinRucio():
     # FIXME: Disabled for now
     def xtest_cli_disable_account(self):
         """ACCOUNT (CLI): Disable account"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account disable jdoe'
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret  account disable jdoe'
         exitcode, out, err = execute(cmd)
         assert_equal(out, '')
         assert_equal(exitcode, 0)
@@ -50,7 +52,7 @@ class TestBinRucio():
     # FIXME: Disabled for now
     def xtest_cli_list_accounts(self):
         """ACCOUNT (CLI): List account"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=80 --account=ddmlab --user=mlassnig -pwd=secret  account list'
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret  account list'
         exitcode, out, err = execute(cmd)
         assert_equal(out, 'jdoe\n')
         assert_equal(exitcode, 0)

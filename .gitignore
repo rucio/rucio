@@ -5,32 +5,33 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig (CERN PH-ADP),    <mario.lassnig@cern.ch>,   2011
-# - Vincent Garonne (CERN, PH-ADP), <vincent.garonne@cern.ch>, 2011
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 # do not accidentally commit config files
 etc/rse-accounts.cfg
 etc/rucio.cfg
-etc/web/lighttpd.conf
+etc/web/httpd*.conf
+etc/web/lighttpd*.conf
 
 # build directories
-doc/build/
-build/
-lib/rucio.egg-info/
-dist/
-examples/whip/results/
 .coverage
+build/
 covhtml
+dist/
+doc/build/
+examples/whip/results/
+lib/rucio.egg-info/
 
 # Backup and temp files
-*.swp
-*~
+*.log
 *.pyc
 *.swp
-*.log
+*.swp
+*~
 .venv
-rucio.egg-info
 lib/rucio/lib/vcsversion.py
+rucio.egg-info
 
 # Mac OS X Finder
 .DS_Store

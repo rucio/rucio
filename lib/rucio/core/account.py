@@ -17,12 +17,9 @@ from sqlalchemy.exc import IntegrityError
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.db import models1 as models
+from rucio.db.session import get_session
 
-""" Only for testing """
-engine = create_engine(config_get('database', 'default'))
-models.register_models(engine)  # this only creates the necessary tables, should be done once somewhere else and then never again
-
-session = sessionmaker(bind=engine, autocommit=True, expire_on_commit=False)
+session = get_session()
 
 
 class account_status:
@@ -34,32 +31,28 @@ class account_status:
     not_exist = 'not_exist'
 
 
-def get_session():
-    return scoped_session(session)
-
-
 def add_account(accountName, accountType):
     """ Add an account with the given account name and type.
 
     :param accountName: the name of the new account.
     :param accountType: the type of the new account.
     """
-    session = get_session()
 
-    with session.begin():
+    values = {}
+    values['account'] = accountName
+    values['type'] = accountType
+    values['status'] = account_status.active
+    new_account = models.Account()
 
-        values = {}
-        values['account'] = accountName
-        values['type'] = accountType
-        values['status'] = account_status.active
-        new_account = models.Account()
-        new_account.update(values)
-        try:
-            new_account.save(session=session)
-        except IntegrityError, e:
-            raise exception.Duplicate('Account ID \'%s\' already exists!' % values['account'])
-        finally:
-            session.flush()
+    new_account.update(values)
+
+    try:
+        new_account.save(session=session)
+    except IntegrityError, e:
+        session.rollback()
+        raise exception.Duplicate('Account ID \'%s\' already exists!' % values['account'])
+
+    session.commit()
 
 
 def account_exists(accountName):
@@ -69,7 +62,6 @@ def account_exists(accountName):
     :returns: True if found, otherwise false.
     """
 
-    session = get_session()
     return True if session.query(models.Account).filter_by(account=accountName).first() else False
 
 
@@ -79,11 +71,8 @@ def get_account(accountName):
     :param accountName: the name of the account.
     :returns: a dict with all information for the account.
     """
-    session = get_session()
 
-    result = None
-    with session.begin():
-        result = session.query(models.Account).filter_by(account=accountName).first()
+    result = session.query(models.Account).filter_by(account=accountName).first()
 
     if result is None:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
@@ -95,16 +84,14 @@ def del_account(accountName):
 
     :param accountName: the account name.
     """
-    session = get_session()
 
-    account = None
-    with session.begin():
-        account = session.query(models.Account).filter_by(account=accountName).first()
+    account = session.query(models.Account).filter_by(account=accountName).first()
 
-        if account is None:
-            raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
+    if account is None:
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
-        account.delete(session)
+    account.delete(session)
+    session.commit()
 
 
 def get_account_status(accountName):
@@ -113,7 +100,6 @@ def get_account_status(accountName):
     :param accountName: Name of the account.
     """
 
-    session = get_session()
     acc_details = session.query(models.Account).filter_by(account=accountName).one()
     return acc_details.status
 
@@ -125,8 +111,6 @@ def set_account_status(accountName, status):
     :param status: The status for the account.
     """
 
-    session = get_session()
-    session.begin()
     session.query(models.Account).filter_by(account=accountName).update({'status': status})
     session.commit()
 
@@ -136,11 +120,10 @@ def list_accounts():
 
     returns: a list of all account names.
     """
-    session = get_session()
+
     account_list = []
 
-    with session.begin():
-        for account in session.query(models.Account).order_by(models.Account.account):
-            account_list.append(account.account)
+    for account in session.query(models.Account).order_by(models.Account.account):
+        account_list.append(account.account)
 
     return account_list
