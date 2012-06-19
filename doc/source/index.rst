@@ -46,6 +46,7 @@ Architecture
     overview_Architecture
     overview_flow
     overview_Database_Schema
+    overview_Exception_Handling
 
 Developer Documentation
 =======================
