@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 import logging
 
@@ -18,16 +19,9 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from rucio.common import exception as r_exception
 from rucio.common.config import config_get
 from rucio.db import models1 as models
+from rucio.db.session import get_session
 
-""" Only for testing """
-engine = create_engine(config_get('database', 'default'))
-models.register_models(engine)  # this only creates the necessary tables, should be done once somewhere else and then never again
-
-session = sessionmaker(bind=engine, autocommit=True, expire_on_commit=False)
-
-
-def get_session():
-    return scoped_session(session)
+session = get_session()
 
 
 def add_scope(scope, account):
@@ -36,28 +30,27 @@ def add_scope(scope, account):
     :param scope: the name for the new scope.
     :param account: the account to add the scope to.
     """
-    session = get_session()
 
-    with session.begin():
-        result = session.query(models.Account).filter_by(account=account).first()
+    result = session.query(models.Account).filter_by(account=account).first()
 
-        if result is None:
-            raise r_exception.AccountNotFound('Account ID \'%s\' does not exist')
+    if result is None:
+        raise r_exception.AccountNotFound('Account ID \'%s\' does not exist')
 
-        values = {}
-        values['scope'] = scope
-        values['account'] = account
+    values = {}
+    values['scope'] = scope
+    values['account'] = account
 
-        new_scope = models.Scope()
+    new_scope = models.Scope()
 
-        new_scope.update(values)
+    new_scope.update(values)
 
-        try:
-            new_scope.save(session=session)
-        except IntegrityError, e:
-            raise r_exception.Duplicate('Scope \'%s\' already exists!' % values['scope'])
-        finally:
-            session.flush()
+    try:
+        new_scope.save(session=session)
+    except IntegrityError, e:
+        session.rollback()
+        raise r_exception.Duplicate('Scope \'%s\' already exists!' % values['scope'])
+
+    session.commit()
 
 
 def bulk_add_scopes(scopes, account, skipExisting=False):
@@ -83,12 +76,11 @@ def get_scopes(account):
     :param account: the account name to list the scopes of.
     :returns: a list of all scope names for this account.
     """
-    session = get_session()
+
     scope_list = []
 
-    with session.begin():
-        for s in session.query(models.Scope).filter_by(account=account):
-            scope_list.append(s.scope)
+    for s in session.query(models.Scope).filter_by(account=account):
+        scope_list.append(s.scope)
 
     return scope_list
 
@@ -100,5 +92,4 @@ def check_scope(scope_to_check):
     :returns: True or false
     """
 
-    session = get_session()
     return True if session.query(models.Scope).filter_by(scope=scope_to_check).first() else False

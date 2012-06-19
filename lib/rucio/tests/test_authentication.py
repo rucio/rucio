@@ -15,7 +15,7 @@ from paste.fixture import TestApp
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, add_account_identity
 from rucio.common.config import config_get
-from rucio.db.session import build_database, destroy_database
+from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.authentication import app
 
 
@@ -23,15 +23,12 @@ class TestGET():
 
     def setUp(self):
         build_database()
-        self.account = str(uuid.uuid4())
-        add_account(self.account, 'user')
-        add_identity('ddmlab', 'userpass', password='secret')
-        add_account_identity('ddmlab', 'userpass', self.account)
+        create_root_account()
 
     def tearDown(self):
         destroy_database()
 
-    def test_auth_header_userpass_fail(self):
+    def test_userpass_fail(self):
         """AUTHENTICATION (REST): Username and password (wrong credentials)."""
 
         mw = []
@@ -39,14 +36,18 @@ class TestGET():
         r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 401)
 
-    def test_auth_header_userpass_success(self):
+    def test_userpass_success(self):
         """AUTHENTICATION (REST): Username and password (correct credentials)."""
 
         mw = []
-        headers = {'Rucio-Account': self.account, 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
         r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
         assert_equal(len(r.header('Rucio-Auth-Token')), 32)
+
+    def test_x509(self):
+        """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support SSL handshake"""
+        pass
 
 
 class TestPUT():

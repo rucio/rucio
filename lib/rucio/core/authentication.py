@@ -20,17 +20,9 @@ from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.core.account import account_exists
 from rucio.db import models1 as models
+from rucio.db.session import get_session
 
-
-""" Only for testing """
-engine = create_engine(config_get('database', 'default'))
-models.register_models(engine)  # this only creates the necessary tables, should be done once somewhere else and then never again
-
-session = sessionmaker(bind=engine, autocommit=True, expire_on_commit=False)
-
-
-def get_session():
-    return scoped_session(session)
+session = get_session()
 
 
 def get_auth_token_user_pass(account, username, password, ip=None):
@@ -40,41 +32,37 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     if not account_exists(account):
         return None
 
-    session = get_session()
-    with session.begin():
-        result = session.query(models.Identity).filter_by(identity=username, type='userpass').first()
+    result = session.query(models.Identity).filter_by(identity=username, type='userpass').first()
 
-        db_salt = result['salt']
-        db_password = result['password']
+    db_salt = result['salt']
+    db_password = result['password']
 
-        if db_password != hashlib.sha256('%s%s' % (db_salt, password)).hexdigest():
-            return None
+    if db_password != hashlib.sha256('%s%s' % (db_salt, password)).hexdigest():
+        return None
 
-        # get account name
-        result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, type='userpass').first()
-        db_account = result['account']
+    # get account name
+    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, type='userpass').first()
+    db_account = result['account']
 
-        # create new rucio-auth-token for account
-        token = str(uuid.uuid4()).replace('-', '')
+    # create new rucio-auth-token for account
+    token = str(uuid.uuid4()).replace('-', '')
 
-        session.add(models.Authentication(account=db_account, token=token, ip=ip))
+    session.add(models.Authentication(account=db_account, token=token, ip=ip))
+    session.commit()
 
-        return token
-
-    return None
+    return token
 
 
 def validate_auth_token(account, token):
     """ Validate an authentication token. """
 
-    session = get_session()
-    with session.begin():
-        q = session.query(models.Authentication.lifetime).filter(and_(models.Authentication.account == account, models.Authentication.token == token, models.Authentication.lifetime > datetime.datetime.utcnow()))
+    q = session.query(models.Authentication.lifetime).filter(and_(models.Authentication.account == account, models.Authentication.token == token, models.Authentication.lifetime > datetime.datetime.utcnow()))
 
-        r = q.all()
+    r = q.all()
 
-        if r is not None and r != []:
-            q.update({'lifetime': datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)})
-            return r[0][0]
+    if r is not None and r != []:
+        q.update({'lifetime': datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)})
+        session.commit()
+        return r[0][0]
 
     return None
