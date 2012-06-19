@@ -243,6 +243,7 @@ class RSEFileAssociation(BASE, ModelBase):
     rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
     scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
+    pfn = Column(String(1024), nullable=False)
     __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],), {})
 
 
