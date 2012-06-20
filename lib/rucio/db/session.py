@@ -18,7 +18,11 @@ from rucio.db import models1 as models
 
 class ForeignKeysListener(PoolListener):
     def connect(self, dbapi_con, con_record):
-        db_cursor = dbapi_con.execute('pragma foreign_keys=ON')
+        # Hack for previous versions of sqlite3
+        try:
+            db_cursor = dbapi_con.execute('pragma foreign_keys=ON')
+        except AttributeError:
+            pass
 
 
 def get_session():
