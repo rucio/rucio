@@ -115,7 +115,7 @@ class Identity(BASE, ModelBase):
     type = Column(Enum('x509', 'gss', 'userpass'), primary_key=True)  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
     username = Column(String(255), nullable=True)
     password = Column(String(255), nullable=True)
-    salt = Column(Binary(255), nullable=True)
+    salt = Column(LargeBinary(255), nullable=True)
     email = Column(String(255), nullable=True)
 
 
@@ -211,7 +211,7 @@ class DatasetFileAssociation(BASE, ModelBase):
     parent_inode_scope = Column(String(255), nullable=False)  # Provinance inode scope
     parent_inode_name = Column(String(255), nullable=False)   # Provinance inode scope
     obsolete = Column(Boolean, nullable=False, server_default='0')
-    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED', ondelete="NO ACTION"),
+    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED'),  # ondelete="NO ACTION" problem with Oracle
                       ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"),
                       ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"), {})
 
