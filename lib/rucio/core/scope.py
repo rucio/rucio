@@ -10,14 +10,9 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import logging
-
-from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import scoped_session, sessionmaker
 
 from rucio.common import exception as r_exception
-from rucio.common.config import config_get
 from rucio.db import models1 as models
 from rucio.db.session import get_session
 
@@ -34,7 +29,7 @@ def add_scope(scope, account):
     result = session.query(models.Account).filter_by(account=account).first()
 
     if result is None:
-        raise r_exception.AccountNotFound('Account ID \'%s\' does not exist')
+        raise r_exception.AccountNotFound('Account ID \'%s\' does not exist' % account)
 
     values = {}
     values['scope'] = scope
@@ -46,7 +41,7 @@ def add_scope(scope, account):
 
     try:
         new_scope.save(session=session)
-    except IntegrityError, e:
+    except IntegrityError:
         session.rollback()
         raise r_exception.Duplicate('Scope \'%s\' already exists!' % values['scope'])
 
@@ -63,7 +58,7 @@ def bulk_add_scopes(scopes, account, skipExisting=False):
     for scope in scopes:
         try:
             add_scope(scope, account)
-        except r_exception.Duplicate, error:
+        except r_exception.Duplicate:
             if skipExisting:
                 pass
             else:
@@ -76,6 +71,11 @@ def get_scopes(account):
     :param account: the account name to list the scopes of.
     :returns: a list of all scope names for this account.
     """
+
+    result = session.query(models.Account).filter_by(account=account).first()
+
+    if result is None:
+        raise r_exception.AccountNotFound('Account ID \'%s\' does not exist' % account)
 
     scope_list = []
 
