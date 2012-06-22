@@ -69,9 +69,9 @@ The most important rule for API calls: ALWAYS WRITE YOUR TESTCASE AGAINST THE WE
 This is to make sure that the full call chain works:
 
     1. Test cases go into either lib/rucio/tests/{functional, unit}
-    2. Filename must start with test_
+    2. Filename must start with ``test_``
     3. Classname must start with Test
-    4. Test function names must start with test_
+    4. Test function names must start with ``test_``
     5. Do not import unittest
     6. Do not subclass from unittest.TestCase
     7. Remove the whole __name__ == '__main__' thing

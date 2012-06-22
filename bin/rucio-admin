@@ -23,6 +23,8 @@ import time
 from urlparse import urlparse
 
 from rucio.client.accountclient import AccountClient
+from rucio.client.client import Client
+
 from rucio import version
 
 # If ../lib/rucio/__init__.py exists, add ../ to Python search path, so that
@@ -112,6 +114,78 @@ List accounts.
     return SUCCESS
 
 
+def add_location(args):
+    """
+%(prog)s add [options] <field1=value1 field2=value2 ...>
+
+Adds a new location. Specify metadata fields as arguments.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = {}
+
+    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    try:
+        client.create_location(args.location)
+    except Exception, e:
+            print 'Failed to create location %s' % args.location
+            print e
+            return FAILURE
+    return SUCCESS
+
+
+def disable_location(args):
+    """
+%(prog)s del [options] <field1=value1 field2=value2 ...>
+
+Disable location.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = {}
+
+    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    try:
+        client.disable_location(args.location)
+    except Exception, e:
+            print 'Failed to disable account %s' % args.location
+            print e
+            return FAILURE
+    return SUCCESS
+
+
+def list_locations(args):
+    """
+%(prog)s del [options] <field1=value1 field2=value2 ...>
+
+List locations.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = {}
+
+    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    try:
+        locations = client.list_locations()
+    except Exception, e:
+            print 'Failed to list locations'
+            print e
+            return FAILURE
+
+    for location in locations:
+        print location
+
+    return SUCCESS
+
 if __name__ == '__main__':
     usage = """
 %(prog)s <command> [options] [args]
@@ -121,7 +195,7 @@ Commands:
     help <command>  Output help for one of the commands below
 
 """
-    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), usage=usage.strip())
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), usage=usage.strip(), add_help=False)
     subparsers = oparser.add_subparsers()
 
     # Main arguments
@@ -152,10 +226,31 @@ Commands:
     disable_account_parser.set_defaults(which='disable_account')
     disable_account_parser.add_argument('acnt', action='store', help='Account name')
 
+    # The location subparser
+    location_parser = subparsers.add_parser('location', help='Location methods')
+    location_subparser = location_parser.add_subparsers()
+
+    # The list_locations command
+    list_location_parser = location_subparser.add_parser('list', help='List Rucio locations')
+    list_location_parser.set_defaults(which='list_locations')
+
+    # The add_location command
+    add_location_parser = location_subparser.add_parser('add', help='Add Rucio location')
+    add_location_parser.set_defaults(which='add_location')
+    add_location_parser.add_argument('location', action='store', help='Location name')
+
+    # The disable_location command
+    disable_location_parser = location_subparser.add_parser('disable', help='Disable Rucio location')
+    disable_location_parser.set_defaults(which='disable_location')
+    disable_location_parser.add_argument('location', action='store', help='Location name')
+
     commands = {
                 'add_account': add_account,
                 'list_accounts': list_accounts,
                 'disable_account': disable_account,
+                'add_location': add_location,
+                'list_locations': list_locations,
+                'disable_location': disable_location,
                }
 
     args = oparser.parse_args(sys.argv[1:])
@@ -168,7 +263,6 @@ Commands:
         if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
-    except (RuntimeError,
-             NotImplementedError), e:
+    except (RuntimeError, NotImplementedError), e:
         print >> sys.stderr, "ERROR: ", e
         sys.exit(FAILURE)

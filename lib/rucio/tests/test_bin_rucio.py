@@ -56,3 +56,19 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         assert_equal(out, 'jdoe\n')
         assert_equal(exitcode, 0)
+
+    # FIXME: Disabled for now
+    def xtest_cli_add_location(self):
+        """LOCATION (CLI): Add location"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret location add MOCK'
+        exitcode, out, err = execute(cmd)
+        assert_equal(out, '')
+        assert_equal(exitcode, 0)
+
+    # FIXME: Disabled for now
+    def xtest_cli_list_locations(self):
+        """LOCATION (CLI): List locations"""
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret  location list'
+        exitcode, out, err = execute(cmd)
+        assert_equal(out, 'MOCK\n')
+        assert_equal(exitcode, 0)

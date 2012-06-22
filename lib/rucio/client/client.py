@@ -201,3 +201,23 @@ class Client(object):
 
         if not self.__read_token():
             self.__get_token()
+
+    # Location methods
+    def create_location(self, location):
+        """
+        Sends the request to create a new location.
+
+        :param location: the name of the location.
+        :return: True if account was created successfully else False.
+        """
+
+        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token, 'Rucio-Type': 'user'}
+        path = 'location/' + location
+        url = build_url(self.host, path=path)
+
+        r = self._send_request(url, headers, type='POST', data=" ")
+
+        if r.status_code == requests.codes.created:
+            return True
+        else:
+            raise RucioException(r.text)
