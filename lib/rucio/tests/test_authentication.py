@@ -46,7 +46,11 @@ class TestGET():
         assert_equal(len(r.header('Rucio-Auth-Token')), 32)
 
     def test_x509(self):
-        """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support SSL handshake"""
+        """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support SSL handshake. Check tools/test_x509.sh"""
+        pass
+
+    def test_gss(self):
+        """AUTHENTICATION (REST): Placeholder for now"""
         pass
 
 
