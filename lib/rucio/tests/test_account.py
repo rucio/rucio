@@ -56,7 +56,7 @@ class TestAccountCoreApi():
         del_account(usr)
 
 
-class TestAccount():
+class TestAccountRestApi():
 
     def setUp(self):
         build_database()
