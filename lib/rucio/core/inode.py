@@ -77,6 +77,7 @@ def bulk_register_datasets(scope, datasetList, account, skipExisting=None):
     :param scope: the namespace where this dataset belongs
     :param datasetList: the name of the dataset to be created
     :param skipExisting: if any dataset already exists, keep going and don't raise an exception
+
     :raise DatasetAlreadyExists: one of the specified dataset names already exists in the specified scope
     :return: the success state of attempted dataset registrations
     """
@@ -589,6 +590,7 @@ def bulk_register_files(scope, fileList, account, skipExisting=None):
     :param scope: the namespace where this files belongs
     :param datasetList: the name of the files to be created
     :param skipExisting: if any file already exists, keep going and don't raise an exception
+
     :returns success_states of dataset registration
     """
 

@@ -20,7 +20,7 @@ from sqlalchemy import Column, Integer, String, BigInteger, Enum
 from sqlalchemy import ForeignKey, DateTime, Boolean, Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declared_attr, declarative_base
 from sqlalchemy.orm import relationship, backref, exc, object_mapper, validates
 from sqlalchemy.schema import ForeignKeyConstraint, PrimaryKeyConstraint
 from sqlalchemy.types import Binary, LargeBinary
@@ -49,12 +49,21 @@ class ModelBase(object):
     __protected_attributes__ = set([
         "created_at", "updated_at", "deleted_at", "deleted"])
 
-    created_at = Column(DateTime, default=datetime.datetime.utcnow(),
-                        nullable=False)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow(),
-                        nullable=False, onupdate=datetime.datetime.utcnow())
-    deleted_at = Column(DateTime)
-    deleted = Column(Boolean, nullable=False, default=False)
+    @declared_attr
+    def created_at(cls):
+        return Column(DateTime, default=datetime.datetime.utcnow(), nullable=False)
+
+    @declared_attr
+    def updated_at(cls):
+        return Column(DateTime, default=datetime.datetime.utcnow(), nullable=False, onupdate=datetime.datetime.utcnow())
+
+    @declared_attr
+    def deleted_at(cls):
+        return Column(DateTime)
+
+    @declared_attr
+    def deleted(cls):
+        return Column(Boolean, nullable=False, default=False)
 
     def save(self, session=None):
         """Save this object"""
@@ -208,40 +217,44 @@ class DatasetFileAssociation(BASE, ModelBase):
     dsn = Column(String(255), primary_key=True)               # Parent dataset name
     scope_lfn = Column(String(255), primary_key=True)         # File's scope
     lfn = Column(String(255), primary_key=True)               # File's name
-    parent_inode_scope = Column(String(255), nullable=False)  # Provinance inode scope
-    parent_inode_name = Column(String(255), nullable=False)   # Provinance inode scope
+    parent_inode_scope = Column(String(255), nullable=False)  # Provenance inode scope
+    parent_inode_name = Column(String(255), nullable=False)   # Provenance inode scope
     obsolete = Column(Boolean, nullable=False, server_default='0')
     __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED'),  # ondelete="NO ACTION" problem with Oracle
                       ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"),
                       ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"), {})
 
 
-class RSE(BASE, ModelBase):
-    """Represents a Rucio Storage Element (RSE)"""
-    __tablename__ = 'rses'
-    rse = Column(String(255), primary_key=True)
+class Location(BASE, ModelBase):
+    """Represents a Rucio Location"""
+    __tablename__ = 'locations'
+    id = Column(String(36), primary_key=True, default=utils.generate_uuid)  # in waiting to use the binary
+    location = Column(String(255))
     storage = Column(String(255))
     path = Column(Text)
+    UniqueConstraint('location', name='uix_1')
 
 
-class RSETag(BASE, ModelBase):
-    """Represents RSE tags"""
-    __tablename__ = 'rse_tags'
-    tag = Column(String(255), primary_key=True)
-    scope = Column(String(255), nullable=True)
+class RSE(BASE, ModelBase):
+    """Represents RSE (Rucio Storage Element)"""
+    __tablename__ = 'rses'
+    id = Column(String(36), primary_key=True, default=utils.generate_uuid)  # in waiting to use the binary
+    rse = Column(String(255))
+    description = Column(String(255), nullable=True)
+    UniqueConstraint('rse', name='uix_1')
 
 
-class RSETagAssociation(BASE, ModelBase):
+class LocationRSEAssociation(BASE, ModelBase):
     """Represents the map between RSEs and tags"""
-    __tablename__ = 'rse_tag_association'
-    rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
-    tag = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)
+    __tablename__ = 'location_rse_association'
+    location_id = Column(String(36), ForeignKey('locations.id'), primary_key=True)
+    rse_id = Column(String(36), ForeignKey('rses.id'), primary_key=True)
 
 
-class RSEFileAssociation(BASE, ModelBase):
-    """Represents the map between RSEs and files"""
+class LocationFileAssociation(BASE, ModelBase):
+    """Represents the map between locations and files"""
     __tablename__ = 'file_replicas'
-    rse = Column(String(255), ForeignKey('rses.rse'), primary_key=True)
+    location_id = Column(String(36), ForeignKey('locations.id'), primary_key=True)
     scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
     pfn = Column(String(1024), nullable=False)
@@ -255,7 +268,7 @@ class ReplicationRule(BASE, ModelBase):
     account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
     scope = Column(String(255), primary_key=True)
     lfn = Column(String(255), primary_key=True)
-    tag = Column(String(255), ForeignKey('rse_tags.tag'), primary_key=True)
+    rse_id = Column(String(36), ForeignKey('rses.id'), primary_key=True)
     replication_factor = Column(Integer(), nullable=False, default=1)
     expired_at = Column(DateTime)
     locked = Column(Boolean, nullable=False, default=False)
@@ -304,10 +317,10 @@ def register_models(engine):
               File,
               FileProperty,
               DatasetFileAssociation,
+              Location,
               RSE,
-              RSETag,
-              RSETagAssociation,
-              RSEFileAssociation,
+              LocationRSEAssociation,
+              LocationFileAssociation,
               ReplicationRule,
               Subscription,
               Authentication,
@@ -330,10 +343,10 @@ def unregister_models(engine):
               File,
               FileProperty,
               DatasetFileAssociation,
+              Location,
               RSE,
-              RSETag,
-              RSETagAssociation,
-              RSEFileAssociation,
+              LocationRSEAssociation,
+              LocationFileAssociation,
               ReplicationRule,
               Subscription,
               Authentication,

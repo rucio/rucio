@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from sqlalchemy import create_engine
+from sqlalchemy import event
 from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.orm import sessionmaker, scoped_session
 
@@ -16,11 +17,10 @@ from rucio.common.config import config_get
 from rucio.db import models1 as models
 
 
-class ForeignKeysListener(PoolListener):
-    def connect(self, dbapi_con, con_record):
+def _fk_pragma_on_connect(dbapi_con, con_record):
         # Hack for previous versions of sqlite3
         try:
-            db_cursor = dbapi_con.execute('pragma foreign_keys=ON')
+            dbapi_con.execute('pragma foreign_keys=ON')
         except AttributeError:
             pass
 
@@ -30,7 +30,8 @@ def get_session():
         :returns: session """
 
     database = config_get('database', 'default')
-    engine = create_engine(database, echo=False, listeners=[ForeignKeysListener()])
+    engine = create_engine(database, echo=False)
+    event.listen(engine, 'connect', _fk_pragma_on_connect)
     return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
 
 

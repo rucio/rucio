@@ -14,6 +14,7 @@ def is_service_available(service_id):
     Checks If a service is available.
 
     :param service_id: The service identifier.
+
     :returns: True if the service is available, otherwise False
     """
     pass
@@ -28,6 +29,7 @@ def add_service_downtime(service_id, start_date=None, end_date=None, author=None
     :param end_date: The downtime end time.
     :param author: Author,e.g. external service/shifter, of the service downtime.
     :param comment: Comment describing the reason of the service downtime.
+
     :returns: downtime_id
     """
     pass
@@ -39,7 +41,9 @@ def delete_service_downtime(service_id, downtime_id):
 
     :param service_id: The service identifier.
     :param downtime_id: The downtime identifier.
+
     :raises exception.NotFound if service_id/downtime_id is not found
+
     :returns: True if the service is available, otherwise False
     """
     pass
@@ -50,7 +54,9 @@ def get_service_downtimes(service_id):
     Returns a list of service downtimes for a service.
 
     :param service_id: The service identifier.
+
     :raises exception.NotFound if service_id is not found
+
     :retval Tuple containing (downtime_id,  start_date, end_date, author, comment)
     """
     pass

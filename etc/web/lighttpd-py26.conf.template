@@ -14,7 +14,7 @@
 #
 # 2. Symlink your rucio sources into the .venv
 #
-#      ln -sf ~/dev/rucio/lib/rucio ~/dev/rucio/.venv/lib/python2.7/site-packages/rucio
+#      ln -sf ~/dev/rucio/lib/rucio ~/dev/rucio/.venv/lib/python2.6/site-packages/rucio
 #
 # 3. lighttpd must be run from within the venv
 #
@@ -41,29 +41,29 @@
 #      cat localhost.key >> localhost.crt
 #      add the CERN Root CA and TCA certificates to ca.crt (get them from http://ca.cern.ch/)
 
-server.modules= (
+server.modules = (
     "mod_access",
     "mod_alias",
     "mod_fastcgi",
     "mod_rewrite"
 )
 
-server.document-root = "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest"
-server.port = 443
+server.document-root = "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest"
+server.port = 80
 
-ssl.engine = "enable"
-ssl.pemfile = "/opt/rucio/etc/web/localhost.crt"
-ssl.ca-file = "/opt/rucio/etc/web/ddmlab.crt"
-ssl.verifyclient.activate = "enable"
-ssl.verifyclient.enforce = "disable"
-ssl.verifyclient.exportcert = "enable"
+#ssl.engine = "enable"
+#ssl.pemfile = "/opt/rucio/etc/web/localhost.crt"
+#ssl.ca-file = "/opt/rucio/etc/web/ca.crt"
+#ssl.verifyclient.activate = "enable"
+#ssl.verifyclient.enforce = "disable"
+#ssl.verifyclient.exportcert = "enable"
 
 fastcgi.debug = 1
 fastcgi.server = (
 
     "/auth/userpass" => ((
             "socket" => "/tmp/fastcgi.auth.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/authentication.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/authentication.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -73,7 +73,7 @@ fastcgi.server = (
 
     "/auth/x509" => ((
             "socket" => "/tmp/fastcgi.auth.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/authentication.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/authentication.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -83,7 +83,7 @@ fastcgi.server = (
 
     "/auth/validate" => ((
             "socket" => "/tmp/fastcgi.auth.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/authentication.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/authentication.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -93,7 +93,7 @@ fastcgi.server = (
 
     "/account" => ((
             "socket" => "/tmp/fastcgi.account.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/account.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -103,7 +103,7 @@ fastcgi.server = (
 
     "/accounts" => ((
             "socket" => "/tmp/fastcgi.account.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/account.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -113,7 +113,7 @@ fastcgi.server = (
 
     "/scope" => ((
             "socket" => "/tmp/fastcgi.scope.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/scope.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -123,7 +123,7 @@ fastcgi.server = (
 
     "/scopes" => ((
             "socket" => "/tmp/fastcgi.scope.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/scope.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -133,7 +133,27 @@ fastcgi.server = (
 
     "/rse" => ((
             "socket" => "/tmp/fastcgi.rse.socket",
-            "bin-path" => "/opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/rse.py",
+            "max-procs" => 1,
+            "bin-environment" => (
+                "REAL_SCRIPT_NAME" => ""
+            ),
+            "check-local" => "disable"
+    )),
+
+    "/location" => ((
+            "socket" => "/tmp/fastcgi.location.socket",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/location.py",
+            "max-procs" => 1,
+            "bin-environment" => (
+                "REAL_SCRIPT_NAME" => ""
+            ),
+            "check-local" => "disable"
+    )),
+
+    "/locations" => ((
+            "socket" => "/tmp/fastcgi.account.socket",
+            "bin-path" => "/opt/rucio/.venv/lib/python2.6/site-packages/rucio/web/rest/location.py",
             "max-procs" => 1,
             "bin-environment" => (
                 "REAL_SCRIPT_NAME" => ""
@@ -151,6 +171,8 @@ url.rewrite-once = (
     "^/scope/(.*)/(.*)$" => "/scope/$1/$2",
     "^/scopes/(.*)$" => "/scopes/$1",
     "^/rse/(.*)$" => "/rse/$1",
+    "^/location/(.*)$" => "/location/$1",
+    "^/locations/(.*)$" => "/locations/$1",
 )
 
 mimetype.assign = (
