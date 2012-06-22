@@ -17,6 +17,7 @@ import logging
 import os
 import requests
 
+import rucio
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.exception import NoAuthInformation
 from rucio.common.exception import RucioException
@@ -47,6 +48,26 @@ class Client(object):
 
         self.__authenticate()
 
+    def _get_exception(self, exc_str):
+        """
+        Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
+
+        :param exc_str: The error string received from the server.
+        :return: A rucio exception class and an error string.
+        """
+
+        exc_info = exc_str.split(':')
+        if len(exc_info) < 2:
+            return getattr(rucio.common.exception, 'RucioException'), 'error string has wrong format: %s' % (exc_str)
+
+        exc_cls = None
+        try:
+            exc_cls = getattr(rucio.common.exception, exc_info[0])
+        except AttributeError, e:
+            return getattr(rucio.common.exception, 'RucioException'), str(e)
+
+        return exc_cls, exc_info[1]
+
     def _send_request(self, url, headers, type='GET', data=None, retries=3):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
@@ -63,11 +84,13 @@ class Client(object):
         retry = 0
         while retry < retries:
             if type == 'GET':
-                r = requests.get(url, headers=headers)
+                r = requests.get(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
+            elif type == 'PUT':
+                r = requests.put(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
             elif type == 'POST':
-                r = requests.post(url, headers=headers, data=data)
+                r = requests.post(url, headers=headers, data=data, cert='/opt/rucio/etc/web/client.crt', verify=False)
             elif type == 'DEL':
-                r = requests.delete(url, headers=headers)
+                r = requests.delete(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
             else:
                 return
 
@@ -90,8 +113,8 @@ class Client(object):
         """
 
         headers = {'Rucio-Account': self.account, 'Rucio-Username': self.creds['username'], 'Rucio-Password': self.creds['password']}
-        url = build_url(self.host, path='auth/userpass')
-        r = requests.get(url, headers=headers)
+        url = build_url(self.host, path='auth/userpass', use_ssl=self.use_ssl)
+        r = requests.get(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
 
         if r.status_code == requests.codes.unauthorized:
             raise CannotAuthenticate('wrong credentials')
