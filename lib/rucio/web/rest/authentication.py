@@ -11,7 +11,7 @@
 import web
 
 from rucio.api.authentication import get_auth_token_user_pass
-from rucio.api.authentication import get_auth_token_kerberos
+from rucio.api.authentication import get_auth_token_gss
 from rucio.api.authentication import get_auth_token_x509
 from rucio.api.authentication import validate_auth_token
 from rucio.api.authentication import register_api_token
@@ -19,7 +19,7 @@ from rucio.api.authentication import validate_api_token
 
 urls = (
     '/userpass', 'UserPass',
-    '/kerberos', 'Kerberos',
+    '/gss', 'GSS',
     '/x509', 'x509',
     '/validate', 'Validate',
     '/register_api_token', 'APITokens'
@@ -75,8 +75,8 @@ class UserPass:
         raise web.BadRequest()
 
 
-class Kerberos:
-    """Authenticate a Rucio account temporarily via a Kerberos token."""
+class GSS:
+    """Authenticate a Rucio account temporarily via a GSS token."""
 
     def GET(self):
         web.header('Content-Type', 'application/octet-stream')
@@ -99,7 +99,34 @@ class x509:
     """Authenticate a Rucio account temporarily via an x509 certificate."""
 
     def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param Rucio-Account: Account identifier.
+        :param SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
+        :returns: "Rucio-Auth-Token" as an 32 character hex string header.
+        """
+
         web.header('Content-Type', 'application/octet-stream')
+
+        account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        dn = web.ctx.env.get('SSL_CLIENT_S_DN')
+        ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = web.ctx.ip
+
+        result = get_auth_token_x509(account, dn, ip)
+
+        if result is None:
+            raise web.Unauthorized()
+        else:
+            web.header('Rucio-Auth-Token', result)
+            return str()
+
         raise web.BadRequest()
 
     def PUT(self):
@@ -126,17 +153,16 @@ class Validate:
         HTTP Error:
             401 Unauthorized
 
-        :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
-        :returns: Expected current lifetime of the token.
+        :returns: Tuple(Account name, Expected current lifetime of the token).
         """
 
         web.header('Content-Type', 'application/octet-stream')
 
-        account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
-        result = validate_auth_token(account, token)
+        result = validate_auth_token(token)
+
         if result is None:
             raise web.Unauthorized()
         else:
