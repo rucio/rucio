@@ -49,10 +49,9 @@ class Account:
 
         web.header('Content-Type', 'application/json')
 
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
-        auth = validate_auth_token(auth_account, auth_token)
+        auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise web.Unauthorized()
@@ -95,10 +94,9 @@ class Account:
 
         web.header('Content-Type', 'application/octet-stream')
 
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
-        auth = validate_auth_token(auth_account, auth_token)
+        auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise web.Unauthorized()
@@ -133,10 +131,9 @@ class Account:
 
         web.header('Content-Type', 'application/octet-stream')
 
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
-        auth = validate_auth_token(auth_account, auth_token)
+        auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise web.Unauthorized()
@@ -167,10 +164,9 @@ class AccountList:
 
         web.header('Content-Type', 'application/json')
 
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
-        auth = validate_auth_token(auth_account, auth_token)
+        auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise web.Unauthorized()
