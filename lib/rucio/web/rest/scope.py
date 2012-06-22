@@ -33,10 +33,10 @@ class Scope:
     def GET(self):
         raise web.BadRequest()
 
-    def PUT(self):
+    def POST(self):
         raise web.BadRequest()
 
-    def POST(self, accountName, scopeName):
+    def PUT(self, accountName, scopeName):
         """ create scope with given scope name.
 
         HTTP Success:
@@ -62,9 +62,9 @@ class Scope:
         try:
             scope.add_scope(scopeName, accountName)
         except r_exception.Duplicate, e:
-            raise web.InternalError(e)
-        except r_exception.NotFound, e:
-            raise web.InternalError(e)
+            raise web.InternalError(' '.join(['Duplicate:', str(e)]))
+        except r_exception.AccountNotFound, e:
+            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
         except Exception, e:
             raise web.InternalError(e)
 
@@ -102,11 +102,13 @@ class ScopeList:
 
         try:
             scopes = scope.get_scopes(accountName)
+        except r_exception.AccountNotFound, e:
+            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
         except Exception, e:
             raise web.InternalError(e)
 
-        if not scopes:
-            raise web.InternalError('No scopes found for Account %s' % accountName)
+        if not len(scopes):
+            raise web.InternalError('ScopeNotFound: No scopes found for Account %s' % accountName)
 
         return json.dumps(scopes)
 

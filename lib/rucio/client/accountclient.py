@@ -17,7 +17,6 @@ import json
 import requests
 
 from rucio.client import Client
-from rucio.common.exception import RucioException
 from rucio.common.utils import build_url
 
 
@@ -34,18 +33,20 @@ class AccountClient(Client):
 
         :param accountName: the name of the account.
         :return: True if account was created successfully else False.
+        :raises Duplicate: if account already exists.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token, 'Rucio-Type': 'user'}
+        headers = {'Rucio-Auth-Token': self.auth_token, 'Rucio-Type': 'user'}
         path = 'account/' + accountName
-        url = build_url(self.host, path=path)
+        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
-        r = self._send_request(url, headers, type='POST', data=" ")
+        r = self._send_request(url, headers, type='PUT')
 
         if r.status_code == requests.codes.created:
             return True
         else:
-            raise RucioException(r.text)
+            exc_cls, exc_msg = self._get_exception(r.text)
+            raise exc_cls(exc_msg)
 
     def disable_account(self, accountName):
         """
@@ -53,18 +54,20 @@ class AccountClient(Client):
 
         :param accountName: the name of the account.
         :return: True is account was disabled successfully. False otherwise.
+        :raises AccountNotFound: if account doesn't exist.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
+        headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'account/' + accountName
-        url = build_url(self.host, path=path)
+        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, headers, type='DEL')
 
         if r.status_code == requests.codes.ok:
             return True
         else:
-            raise RucioException(r.text)
+            exc_cls, exc_msg = self._get_exception(r.text)
+            raise exc_cls(exc_msg)
 
     def get_account(self, accountName):
         """
@@ -72,33 +75,37 @@ class AccountClient(Client):
 
         :param accountName: the name of the account.
         :return: a list of attributes for the account. None if failure.
+        :raises AccountNotFound: if account doesn't exist.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
+        headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'account/' + accountName
-        url = build_url(self.host, path=path)
+        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
         r = self._send_request(url, headers)
 
         if r.status_code == requests.codes.ok:
             acc = json.loads(r.text)
             return acc
         else:
-            raise RucioException(r.text)
+            exc_cls, exc_msg = self._get_exception(r.text)
+            raise exc_cls(exc_msg)
 
     def list_accounts(self):
         """
         Sends the request to list all rucio accounts.
 
         :return: a list containing the names of all rucio accounts.
+        :raises AccountNotFound: if account doesn't exist.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token}
-        path = 'accounts'
-        url = build_url(self.host, path=path)
+        headers = {'Rucio-Auth-Token': self.auth_token}
+        path = 'account/'
+        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, headers)
         if r.status_code == requests.codes.ok:
             accounts = json.loads(r.text)
             return accounts
         else:
-            raise RucioException(r.text)
+            exc_cls, exc_msg = self._get_exception(r.text)
+            raise exc_cls(exc_msg)

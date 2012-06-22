@@ -60,7 +60,7 @@ class Account:
         try:
             acc = account.get_account_info(accountName)
         except r_exception.AccountNotFound, e:
-            raise web.InternalError(e)
+            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
 
         dict = acc.to_dict()
 
@@ -72,12 +72,12 @@ class Account:
 
         return json.dumps(dict)
 
-    def PUT(self, accountName):
+    def POST(self, accountName):
         """ update account informations for given account name """
         web.header('Content-Type', 'application/octet-stream')
         raise web.BadRequest()
 
-    def POST(self, accountName):
+    def PUT(self, accountName):
         """ create account with given account name.
 
         HTTP Success:
@@ -109,7 +109,7 @@ class Account:
         try:
             account.add_account(accountName, type)
         except r_exception.Duplicate, e:
-            raise web.InternalError(e)
+            raise web.InternalError(' '.join(['Duplicate:', str(e)]))
         except Exception, e:
             raise web.InternalError(e)
 
@@ -141,7 +141,7 @@ class Account:
         try:
             account.del_account(accountName)
         except r_exception.AccountNotFound, e:
-            raise web.InternalError(e)
+            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
 
         raise web.OK()
 
