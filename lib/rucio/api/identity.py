@@ -41,7 +41,7 @@ def add_account_identity(identity, type, account, default=False):
     :param account: The account name.
     :param default: If True, the account should be used by default with the provided identity.
     """
-    rucio.core.identity.add_account_member(identity, type, account, default)
+    rucio.core.identity.add_account_identity(identity, type, account, default)
 
 
 def del_account_identity(identity, type, account):
@@ -52,7 +52,7 @@ def del_account_identity(identity, type, account):
     :param type: The type of the authentication (x509, gss, userpass).
     :param account: The account name.
     """
-    rucio.core.identity.del_account_member(identity, type, account)
+    rucio.core.identity.del_account_identity(identity, type, account)
 
 
 def list_identities(**kwargs):

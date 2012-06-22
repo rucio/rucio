@@ -53,16 +53,56 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     return token
 
 
-def validate_auth_token(account, token):
+def get_auth_token_x509(account, dn, ip=None):
+    """ Authenticate a Rucio account via an x509 subject distinguished name. """
+
+    # Make sure the account exists
+    if not account_exists(account):
+        return None
+
+    result = session.query(models.Identity).filter_by(identity=dn, type='x509').first()
+
+    # create new rucio-auth-token for account
+    token = str(uuid.uuid4()).replace('-', '')
+
+    session.add(models.Authentication(account=account, token=token, ip=ip))
+    session.commit()
+
+    return token
+
+
+def get_auth_token_gss(account, gsstoken, ip=None):
+    """ Authenticate a Rucio account temporarily via a GSS token. """
+
+    # Make sure the account exists
+    if not account_exists(account):
+        return None
+
+    result = session.query(models.Identity).filter_by(identity=gsstoken, type='gsstoken').first()
+
+    # create new rucio-auth-token for account
+    token = str(uuid.uuid4()).replace('-', '')
+
+    session.add(models.Authentication(account=account, token=token, ip=ip))
+    session.commit()
+
+    return token
+
+
+def validate_auth_token(token):
     """ Validate an authentication token. """
 
-    q = session.query(models.Authentication.lifetime).filter(and_(models.Authentication.account == account, models.Authentication.token == token, models.Authentication.lifetime > datetime.datetime.utcnow()))
+    # Be gentle with bash variables, there can be whitespace
+    if token is not None:
+        token = token.strip()
+
+    q = session.query(models.Authentication.account, models.Authentication.lifetime).filter(models.Authentication.token == token, models.Authentication.lifetime > datetime.datetime.utcnow())
 
     r = q.all()
 
     if r is not None and r != []:
         q.update({'lifetime': datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)})
         session.commit()
-        return r[0][0]
+        return (r[0][0], r[0][1])
 
     return None
