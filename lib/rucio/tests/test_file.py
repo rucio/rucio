@@ -134,6 +134,21 @@ class TestFile:
         assert_equal(get_file_metadata(self.scope_misc, lfn, self.user2), file_metadata)
         unregister_file(self.scope_misc, lfn, self.user)
 
+    # Does file exist
+
+    def test_api_does_file_exist_normal_and_obsolete(self):
+        """ FILE (CORE): Check if file exists """
+        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user), True)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user, search_obsolete=False), True)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user, search_obsolete=True), False)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user, search_obsolete=None), True)
+        obsolete_file(self.scope_misc, lfn, self.user)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user), False)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user, search_obsolete=False), False)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user, search_obsolete=True), True)
+        assert_equal(does_file_exist(self.scope_misc, lfn, self.user, search_obsolete=None), True)
+
     # Obsoleting files
 
     def test_api_obsolete_file_and_list(self):
@@ -187,7 +202,7 @@ class TestFile:
 
     @raises(exception.NotAFile)
     def test_api_obsolete_dataset_specify_file(self):
-        """ FILE  (CORE): Obsoleting dataset using file obsoletion core api """
+        """ FILE (CORE): Obsoleting dataset using file obsoletion core api """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_files)
         obsolete_file(self.scope_misc, dsn, self.user)
 
