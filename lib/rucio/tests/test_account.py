@@ -78,7 +78,7 @@ class TestAccount():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -92,7 +92,7 @@ class TestAccount():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         r1 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, expect_errors=True)
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, expect_errors=True)
         assert_equal(r2.status, 500)
@@ -106,11 +106,11 @@ class TestAccount():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers3 = {'Rucio-Auth-Token': str(token)}
         r3 = TestApp(account_app.wsgifunc(*mw)).get('/testuser', headers=headers3, expect_errors=True)
         body = json.loads(r3.body)
         assert_equal(body['account'], 'testuser')
@@ -125,7 +125,7 @@ class TestAccount():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Account': 'root', 'Rucio-Auth-Token': token}
+        headers2 = {'Rucio-Auth-Token': token}
         r2 = TestApp(account_app.wsgifunc(*mw)).get('/wronguser', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 500)
 
@@ -138,15 +138,15 @@ class TestAccount():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers3 = {'Rucio-Auth-Token': str(token)}
         r3 = TestApp(account_app.wsgifunc(*mw)).delete('/testuser', headers=headers3, expect_errors=True)
         assert_equal(r3.status, 200)
 
-        headers4 = {'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers4 = {'Rucio-Auth-Token': str(token)}
         r4 = TestApp(account_app.wsgifunc(*mw)).get('/testuser', headers=headers4, expect_errors=True)
         body = json.loads(r4.body)
         assert_true(body['deleted'])
@@ -161,6 +161,6 @@ class TestAccount():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Auth-Token': str(token)}
         r2 = TestApp(account_app.wsgifunc(*mw)).delete('/wronguser', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 500)
