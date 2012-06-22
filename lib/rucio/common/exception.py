@@ -158,6 +158,12 @@ class IdentityError(RucioException):
         self._message = "Identity error."
 
 
+class LocationNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(LocationNotFound, self).__init__(args, kwargs)
+        self._message = "Location does not exist."
+
+
 class InputValidationError(RucioException):
     def __init__(self, *args, **kwargs):
         super(InputValidationError, self).__init__(args, kwargs)

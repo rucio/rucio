@@ -44,7 +44,7 @@ name =  TABLE_NAME || COLUMN_NAME || '_SEQ'
 
 ----------------
 Constraint types
----------------
+----------------
 
 name =  TABLE_NAME || COLUMN_NAME || '_CHK'
 

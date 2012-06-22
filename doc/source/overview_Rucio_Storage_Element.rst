@@ -1,6 +1,6 @@
----------------------
+----------------------
 Rucio Storage Elements
----------------------
+----------------------
 
 .. A Rucio Storage Element (RSE) is a container for physical files. It is the
 .. smallest unit of storage space addressable within Rucio. It has an unique
