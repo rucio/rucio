@@ -77,6 +77,7 @@ class TestAccount():
 
         headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         r2 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers2, expect_errors=True)
+        assert_equal(r2.status, 201)
 
     def test_create_user_failure(self):
         """ ACCOUNT (REST): send a PUT with an existing user to test the error case """
@@ -188,8 +189,8 @@ class TestAccount():
 
 class xTestAccountClient():
     def setUp(self):
-        creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.client = AccountClient('127.0.0.1', account='root', auth_type='userpass', creds=creds, use_ssl=True)
+        creds = {'username': 'ddmlab', 'password': 'secret', 'clientcert': '/opt/rucio/etc/web/client.crt'}
+        self.client = AccountClient('127.0.0.1', account='root', auth_type='userpass', creds=creds)
 
     def tearDown(self):
         pass
