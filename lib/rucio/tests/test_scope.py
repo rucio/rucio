@@ -164,9 +164,9 @@ class TestScope():
 
 class xTestScopeClient():
     def setUp(self):
-        creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.account_client = AccountClient('127.0.0.1', account='root', auth_type='userpass', creds=creds, use_ssl=True)
-        self.scope_client = ScopeClient('127.0.0.1', account='root', auth_type='userpass', creds=creds, use_ssl=True)
+        creds = {'username': 'ddmlab', 'password': 'secret', 'clientcert': '/opt/rucio/etc/web/client.crt'}
+        self.account_client = AccountClient('127.0.0.1', account='root', auth_type='userpass', creds=creds)
+        self.scope_client = ScopeClient('127.0.0.1', account='root', auth_type='userpass', creds=creds)
 
     def tearDown(self):
         pass

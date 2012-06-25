@@ -18,7 +18,7 @@ import logging
 import os
 import requests
 
-import rucio
+from rucio.common import exception
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.exception import NoAuthInformation
 from rucio.common.exception import RucioException
@@ -32,7 +32,7 @@ class Client(object):
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, host, port=None, account=None, use_ssl=False, auth_type=None, creds=None):
+    def __init__(self, host, port=None, account=None, use_ssl=True, auth_type=None, creds=None):
         self.host = host
         self.port = port
         self.account = account
@@ -40,16 +40,18 @@ class Client(object):
         self.auth_type = auth_type
         self.creds = creds
         self.auth_token = None
+        self.headers = {}
 
-        if not self.__read_token():
+        if auth_type is None or creds is None:
+            raise NoAuthInformation('No auth type or credentials specified')
 
-            if auth_type is None or creds is None:
-                    raise NoAuthInformation('No auth type or credentials specified')
+        if use_ssl and 'clientcert' not in creds:
+            raise NoAuthInformation('The path to the client certificate has to be passed in the credentials')
 
-            if account is None:
-                    raise NoAuthInformation('no account name specified')
+        if account is None:
+            raise NoAuthInformation('No account name specified')
 
-            self.__authenticate()
+        self.__authenticate()
 
     def _get_exception(self, exc_str):
         """
@@ -61,22 +63,22 @@ class Client(object):
 
         exc_info = exc_str.split(':')
         if len(exc_info) < 2:
-            return getattr(rucio.common.exception, 'RucioException'), 'error string has wrong format: %s' % (exc_str)
+            return getattr(exception, 'RucioException'), 'error string has wrong format: %s' % (exc_str)
 
         exc_cls = None
         try:
-            exc_cls = getattr(rucio.common.exception, exc_info[0])
+            exc_cls = getattr(exception, exc_info[0])
         except AttributeError, e:
-            return getattr(rucio.common.exception, 'RucioException'), str(e)
+            return getattr(exception, 'RucioException'), str(e)
 
         return exc_cls, exc_info[1]
 
-    def _send_request(self, url, headers, type='GET', data=None, retries=3):
+    def _send_request(self, url, headers=None, type='GET', data=None, retries=3):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
         :param url: the http url to use.
-        :param headers: http headers to send.
+        :param headers: additional http headers to send.
         :param type: the http request type to use.
         :param data: post data.
         :param retries: number of retries in case of unauthorized.
@@ -85,21 +87,25 @@ class Client(object):
 
         r = None
         retry = 0
+        hds = {'Rucio-Auth-Token': self.auth_token}
+        if headers is not None:
+            hds.update(headers)
+
         while retry < retries:
             if type == 'GET':
-                r = requests.get(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
+                r = requests.get(url, headers=hds, cert=self.creds['clientcert'], verify=False)
             elif type == 'PUT':
-                r = requests.put(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
+                r = requests.put(url, headers=hds, cert=self.creds['clientcert'], verify=False)
             elif type == 'POST':
-                r = requests.post(url, headers=headers, data=data, cert='/opt/rucio/etc/web/client.crt', verify=False)
+                r = requests.post(url, headers=hds, data=data, cert=self.creds['clientcert'], verify=False)
             elif type == 'DEL':
-                r = requests.delete(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
+                r = requests.delete(url, headers=hds, cert=self.creds['clientcert'], verify=False)
             else:
                 return
 
             if r.status_code == requests.codes.unauthorized:
                 self.__get_token()
-                headers['Rucio-Auth-Token'] = self.auth_token
+                hds['Rucio-Auth-Token'] = self.auth_token
                 retry += 1
             else:
                 break
@@ -139,6 +145,7 @@ class Client(object):
             raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
         self.__write_token()
+        self.headers['Rucio-Auth-Token'] = self.auth_token
 
     def __read_token(self):
         """
@@ -156,6 +163,7 @@ class Client(object):
         try:
             token_file_handler = open(self.token_file, 'r')
             self.auth_token = token_file_handler.readline()
+            self.headers['Rucio-Auth-Token'] = self.auth_token
         except IOError as (errno, strerror):
             print("I/O error({0}): {1}".format(errno, strerror))
         except Exception, e:
