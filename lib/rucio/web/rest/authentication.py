@@ -79,7 +79,34 @@ class GSS:
     """Authenticate a Rucio account temporarily via a GSS token."""
 
     def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param Rucio-Account: Account identifier.
+        :param SavedCredentials: Apache mod_auth_kerb SavedCredentials.
+        :returns: "Rucio-Auth-Token" as an 32 character hex string header.
+        """
+
         web.header('Content-Type', 'application/octet-stream')
+
+        account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        gsscred = web.ctx.env.get('REMOTE_USER')
+        ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = web.ctx.ip
+
+        result = get_auth_token_gss(account, gsscred, ip)
+
+        if result is None:
+            raise web.Unauthorized()
+        else:
+            web.header('Rucio-Auth-Token', result)
+            return str()
+
         raise web.BadRequest()
 
     def PUT(self):

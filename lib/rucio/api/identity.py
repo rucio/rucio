@@ -19,7 +19,7 @@ def add_identity(identity, type, password=None):
     :param type: The type of the authentication (x509, gss, userpass)
     :param password: If type==userpass, this sets the password.
     """
-    rucio.core.identity.add_identity(identity, type, password)
+    return rucio.core.identity.add_identity(identity, type, password)
 
 
 def del_identity(identity, type):
@@ -29,7 +29,7 @@ def del_identity(identity, type):
     :param identity: The identity key name. For example x509 DN, or a username.
     :param type: The type of the authentication (x509, gss, userpass).
     """
-    rucio.core.identity.del_identity(identity, type)
+    return rucio.core.identity.del_identity(identity, type)
 
 
 def add_account_identity(identity, type, account, default=False):
@@ -41,7 +41,7 @@ def add_account_identity(identity, type, account, default=False):
     :param account: The account name.
     :param default: If True, the account should be used by default with the provided identity.
     """
-    rucio.core.identity.add_account_identity(identity, type, account, default)
+    return rucio.core.identity.add_account_identity(identity, type, account, default)
 
 
 def del_account_identity(identity, type, account):
@@ -52,7 +52,7 @@ def del_account_identity(identity, type, account):
     :param type: The type of the authentication (x509, gss, userpass).
     :param account: The account name.
     """
-    rucio.core.identity.del_account_identity(identity, type, account)
+    return rucio.core.identity.del_account_identity(identity, type, account)
 
 
 def list_identities(**kwargs):
@@ -61,4 +61,4 @@ def list_identities(**kwargs):
 
     returns: A list of all enabled identities.
     """
-    rucio.core.identity.list_identities(**kwargs)
+    return rucio.core.identity.list_identities(**kwargs)

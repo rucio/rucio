@@ -24,13 +24,13 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     return rucio.core.authentication.get_auth_token_user_pass(account, username, password, ip)
 
 
-def get_auth_token_gss(account, gsstoken, ip=None):
+def get_auth_token_gss(account, gsscred, ip=None):
     """Authenticate a Rucio account temporarily via a GSS token.
 
     The tokens initial lifetime is 1 hour.
 
     :param account: Account identifier.
-    :param credential: GSS token.
+    :param gsscred: GSS principal@REALM
     :param ip: IP address of the client.
     :returns: Authentication token as a 32 character hex string."""
     return rucio.core.authentication.get_auth_token_gss(account, gsstoken, ip)
