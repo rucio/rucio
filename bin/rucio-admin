@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 """
-    Rucio CLI.
+    Rucio Administration Utility
 """
 
 import argparse
@@ -38,7 +38,7 @@ if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
 
 SUCCESS = 0
 FAILURE = 1
-DEFAULT_PORT = 80
+DEFAULT_PORT = 443
 
 
 def add_account(args):
@@ -54,7 +54,7 @@ Adds a new account. Specify metadata fields as arguments.
     else:
         creds = {}
 
-    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
     try:
         accountClient.create_account(args.acnt)
     except Exception, e:
@@ -77,7 +77,7 @@ Disable account.
     else:
         creds = {}
 
-    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
     try:
         accountClient.disable_account(args.acnt)
     except Exception, e:
@@ -100,7 +100,7 @@ List accounts.
     else:
         creds = {}
 
-    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
     try:
         accounts = accountClient.list_accounts()
     except Exception, e:
@@ -127,7 +127,7 @@ Adds a new location. Specify metadata fields as arguments.
     else:
         creds = {}
 
-    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
     try:
         client.create_location(args.location)
     except Exception, e:
@@ -150,7 +150,7 @@ Disable location.
     else:
         creds = {}
 
-    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
     try:
         client.disable_location(args.location)
     except Exception, e:
@@ -173,7 +173,7 @@ List locations.
     else:
         creds = {}
 
-    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=False, auth_type=args.auth_strategy, creds=creds)
+    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
     try:
         locations = client.list_locations()
     except Exception, e:
@@ -205,7 +205,7 @@ Commands:
     oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_PORT, help="Port the Rucio API host listens on. " "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default='userpass', help="Authentication strategy (userpass or x509 or ...)")
-    oparser.add_argument('-u',  '--user', dest='username', default=None, help='username')
+    oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
 
     # The account subparser

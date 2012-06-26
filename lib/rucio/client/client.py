@@ -13,6 +13,7 @@
 Client class for callers of the Rucio system
 """
 
+import json
 import logging
 import os
 import requests
@@ -40,13 +41,15 @@ class Client(object):
         self.creds = creds
         self.auth_token = None
 
-        if auth_type is None or creds is None:
-            raise NoAuthInformation('No auth type or credentials specified')
+        if not self.__read_token():
 
-        if account is None:
-            raise NoAuthInformation('no account name specified')
+            if auth_type is None or creds is None:
+                    raise NoAuthInformation('No auth type or credentials specified')
 
-        self.__authenticate()
+            if account is None:
+                    raise NoAuthInformation('no account name specified')
+
+            self.__authenticate()
 
     def _get_exception(self, exc_str):
         """
@@ -208,12 +211,13 @@ class Client(object):
         Sends the request to create a new location.
 
         :param location: the name of the location.
-        :return: True if account was created successfully else False.
+        :return: True if location was created successfully else False.
+        :raises Duplicate: if location already exists.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Auth-Token': self.auth_token, 'Rucio-Type': 'user'}
+        headers = {'Rucio-Auth-Token': self.auth_token, 'Rucio-Type': 'user'}
         path = 'location/' + location
-        url = build_url(self.host, path=path)
+        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, headers, type='POST', data=" ")
 
@@ -221,3 +225,23 @@ class Client(object):
             return True
         else:
             raise RucioException(r.text)
+
+    def list_locations(self):
+        """
+        Sends the request to list all rucio locations.
+
+        :return: a list containing the names of all rucio locations.
+        :raises AccountNotFound: if account doesn't exist.
+        """
+
+        headers = {'Rucio-Auth-Token': self.auth_token}
+        path = 'location/'
+        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+
+        r = self._send_request(url, headers)
+        if r.status_code == requests.codes.ok:
+            accounts = json.loads(r.text)
+            return accounts
+        else:
+            exc_cls, exc_msg = self._get_exception(r.text)
+            raise exc_cls(exc_msg)

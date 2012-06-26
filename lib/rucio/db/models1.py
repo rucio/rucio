@@ -17,12 +17,12 @@ import datetime
 import sys
 
 from sqlalchemy import Column, Integer, String, BigInteger, Enum
-from sqlalchemy import ForeignKey, DateTime, Boolean, Text
+from sqlalchemy import ForeignKey, DateTime, Boolean, Text, CHAR
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr, declarative_base
 from sqlalchemy.orm import relationship, backref, exc, object_mapper, validates
-from sqlalchemy.schema import ForeignKeyConstraint, PrimaryKeyConstraint
+from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint
 from sqlalchemy.types import Binary, LargeBinary
 
 from rucio.common import utils
@@ -32,6 +32,10 @@ from rucio.common import utils
 #@compiles(Binary, "oracle")
 #def compile_binary_oracle(type_, compiler, **kw):
 #    return "RAW(16)"
+
+@compiles(Boolean, "oracle")
+def compile_binary_oracle(type_, compiler, **kw):
+    return "CHAR(1)"
 
 
 BASE = declarative_base()
@@ -45,17 +49,24 @@ class InodeType:
 class ModelBase(object):
     """Base class for Rucio Models"""
     __table_args__ = {'mysql_engine': 'InnoDB'}
+
     __table_initialized__ = False
     __protected_attributes__ = set([
         "created_at", "updated_at", "deleted_at", "deleted"])
 
     @declared_attr
     def created_at(cls):
-        return Column(DateTime, default=datetime.datetime.utcnow(), nullable=False)
+        return Column(DateTime, default=datetime.datetime.utcnow())
+
+    @declared_attr
+    def __table_args__(cls):
+        return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
+                                  CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
+                                  CheckConstraint('"DELETED" IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'))
 
     @declared_attr
     def updated_at(cls):
-        return Column(DateTime, default=datetime.datetime.utcnow(), nullable=False, onupdate=datetime.datetime.utcnow())
+        return Column(DateTime, default=datetime.datetime.utcnow(), onupdate=datetime.datetime.utcnow())
 
     @declared_attr
     def deleted_at(cls):
@@ -63,7 +74,7 @@ class ModelBase(object):
 
     @declared_attr
     def deleted(cls):
-        return Column(Boolean, nullable=False, default=False)
+        return Column(Boolean, default=False)
 
     def save(self, session=None):
         """Save this object"""
@@ -112,59 +123,81 @@ class ModelBase(object):
 class Account(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
-    account = Column(String(255), primary_key=True)
-    type = Column(Enum('user', 'group', 'atlas'))
-    status = Column(Enum('active', 'inactive', 'disabled'))
+    account = Column(String(255))
+    type = Column(String(10))
+    status = Column(String(10))
+    _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
+                      CheckConstraint("type IN ('user', 'group', 'atlas')", name='ACCOUNTS_TYPE_CHK'),
+                      CheckConstraint("status IN ('active', 'inactive', 'disabled')", name='ACCOUNTS_STATUS_CHK'),
+    )
 
 
 class Identity(BASE, ModelBase):
     """Represents an identity"""
     __tablename__ = 'identities'
-    identity = Column(String(255), primary_key=True)
-    type = Column(Enum('x509', 'gss', 'userpass'), primary_key=True)  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
-    username = Column(String(255), nullable=True)
-    password = Column(String(255), nullable=True)
-    salt = Column(LargeBinary(255), nullable=True)
-    email = Column(String(255), nullable=True)
+    identity = Column(String(255))
+    type = Column(String(8))
+    username = Column(String(255))
+    password = Column(String(255))
+    salt = Column(LargeBinary(255))
+    email = Column(String(255))
+    _table_args = (PrimaryKeyConstraint('identity', 'type', name='IDENTITIES_PK'),
+                   CheckConstraint("type IN ('x509', 'gss', 'userpass')", name='IDENTITIES_TYPE_CHK'),  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
+                   CheckConstraint('"EMAIL" IS NOT NULL', name='IDENTITIES_EMAIL_NN'),)
 
 
 class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity"""
     __tablename__ = 'account_map'
-    identity = Column(String(255), primary_key=True)
-    type = Column(Enum('x509', 'gss', 'userpass'), primary_key=True)
-    account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
-    default = Column(Boolean, nullable=False, default=False)
-    __table_args__ = (ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type']), {})
+    identity = Column(String(255))
+    type = Column(String(8))
+    account = Column(String(255))
+    default = Column(Boolean)
+    _table_args = (PrimaryKeyConstraint('identity', 'type', 'account', name='ACCOUNT_MAP_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
+                   CheckConstraint("type IN ('x509', 'gss', 'userpass')", name='ACCOUNT_MAP_TYPE_CHK'),
+                   CheckConstraint('"default" IN (0, 1)', name='ACCOUNT_MAP_DEFAULT_CHK'),
+                   CheckConstraint('"default" IS NOT NULL', name='ACCOUNT_MAP_DEFAULT_NN'),)
 
 
 class Scope(BASE, ModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
-    scope = Column(String(255), primary_key=True)
-    account = Column(String(255), ForeignKey('accounts.account'))
-    default = Column(Boolean, nullable=False, default=False)
+    scope = Column(String(255))
+    account = Column(String(255))
+    default = Column(Boolean)
+    _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
+                   CheckConstraint('"default" IS NOT NULL', name='SCOPES_DEFAULT_NN'),)
 
 
 class DatasetProperty(BASE, ModelBase):
     """Represents dataset properties"""
     __tablename__ = 'dataset_properties'
-    scope = Column(String(255), primary_key=True)
-    dsn = Column(String(255), primary_key=True)
-    key = Column(String(255), index=True, primary_key=True)
+    scope = Column(String(255))
+    dsn = Column(String(255))
+    key = Column(String(255))
     value = Column(Text)
-    __table_args__ = (ForeignKeyConstraint(['scope', 'dsn'], ['datasets.scope', 'datasets.dsn']), {})
+    _table_args = (PrimaryKeyConstraint('scope', 'dsn', 'key', name='DATASET_PROPERTIES_PK'),
+                   ForeignKeyConstraint(['scope', 'dsn'], ['datasets.scope', 'datasets.dsn'], name='DATASET_PROPERTIES_FK'),
+                   Index('DATASET_PROPERTIES_KEY_IDX', 'key'),)
 
 
 class Inode(BASE, ModelBase):
     """ A dataset or file name """
     __tablename__ = 'inodes'
-    scope = Column(String(255), ForeignKey('scopes.scope'), primary_key=True)
-    label = Column(String(255), primary_key=True)
-    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
-    obsolete = Column(Boolean, nullable=False, server_default='0')
-    type = Column(Boolean, nullable=False)
+    scope = Column(String(255))
+    label = Column(String(255))
+    owner = Column(String(255))
+    obsolete = Column(Boolean, server_default='0')
+    type = Column(Boolean)
     monotonic = Column(Boolean)
+    _table_args = (PrimaryKeyConstraint('scope', 'label', name='INODES_PK'),
+                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='INODES_SCOPE_FK'),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='INODES_ACCOUNT_FK'),
+                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='INODES_OBSOLETE_NN'),
+                   CheckConstraint('"TYPE" IS NOT NULL', name='INODES_TYPE_NN'),)
 
     def __repr__(self):
         return "<Inode(%s, %s, %s, %s)" % (self.scope, self.label, self.type, self.obsolete)
@@ -175,132 +208,162 @@ class Dataset(BASE, ModelBase):
     __tablename__ = 'datasets'
     scope = Column(String(255))
     dsn = Column(String(255))
-    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='datasets_owner_FK'))
+    owner = Column(String(255))
     open = Column(Boolean)
-    monotonic = Column(Boolean, nullable=False)
+    monotonic = Column(Boolean)
     hidden = Column(Boolean)
-    obsolete = Column(Boolean, nullable=False, server_default='0')
+    obsolete = Column(Boolean, server_default='0')
     complete = Column(Boolean)
-    __table_args__ = (PrimaryKeyConstraint('scope', 'dsn', name='datasets_PK'),
-                      ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'],
-                      deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='datasets_scope_dsn_FK'), {})
+    _table_args = (PrimaryKeyConstraint('scope', 'dsn', name='DATASETS_PK'),
+                   ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='DATASETS_SCOPE_DSN_FK'),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='DATASETS_ACCOUNT_FK'),
+                   CheckConstraint('"MONOTONIC" IS NOT NULL', name='DATASETS_MONOTONIC_NN'),
+                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='DATASETS_OBSOLETE_NN'),)
 
 
 class File(BASE, ModelBase):
     """Represents a file"""
     __tablename__ = 'files'
-    scope = Column(String(255), primary_key=True)
-    lfn = Column(String(255), primary_key=True)
-    owner = Column(String(255), ForeignKey('accounts.account', deferrable=True, initially='DEFERRED', ondelete='CASCADE'))
+    scope = Column(String(255))
+    lfn = Column(String(255))
+    owner = Column(String(255))
     lost = Column(Boolean)
     size = Column(BigInteger)
-    obsolete = Column(Boolean, nullable=True, server_default='0')
+    obsolete = Column(Boolean, server_default='0')
     checksum = Column(String(32))
-    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['inodes.scope', 'inodes.label'],
-                      deferrable=True, initially='DEFERRED', ondelete="CASCADE"), {})
+    _table_args = (PrimaryKeyConstraint('scope', 'lfn', name='FILES_PK'),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope', 'lfn'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"),
+                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='FILES_OBSOLETE_NN'),)
 
 
 class FileProperty(BASE, ModelBase):
     """Represents file  properties"""
     __tablename__ = 'file_properties'
-    scope = Column(String(255), primary_key=True)
-    lfn = Column(String(255), primary_key=True)
-    key = Column(String(255), index=True, primary_key=True)
+    scope = Column(String(255))
+    lfn = Column(String(255))
+    key = Column(String(255))
     value = Column(Text)
-    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn']), {})
+    _table_args = (PrimaryKeyConstraint('scope', 'lfn', 'key', name='FILES_PROPERTIES_PK'),
+                   ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='FILES_PROPERTIES_SCOPE_LFN_FK'),
+                   Index('FILE_PROPERTIES_KEY_IDX', 'key'),)
 
 
 class DatasetFileAssociation(BASE, ModelBase):
     """Represents the map between datasets and files"""
     __tablename__ = 'dataset_contents'
-    scope_dsn = Column(String(255), primary_key=True)         # Parent dataset scope
-    dsn = Column(String(255), primary_key=True)               # Parent dataset name
-    scope_lfn = Column(String(255), primary_key=True)         # File's scope
-    lfn = Column(String(255), primary_key=True)               # File's name
+    scope_dsn = Column(String(255))         # Parent dataset scope
+    dsn = Column(String(255))               # Parent dataset name
+    scope_lfn = Column(String(255))         # File's scope
+    lfn = Column(String(255))               # File's name
     parent_inode_scope = Column(String(255), nullable=False)  # Provenance inode scope
     parent_inode_name = Column(String(255), nullable=False)   # Provenance inode scope
     obsolete = Column(Boolean, nullable=False, server_default='0')
-    __table_args__ = (ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED'),  # ondelete="NO ACTION" problem with Oracle
-                      ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"),
-                      ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"), {})
+    _table_args = (PrimaryKeyConstraint('scope_dsn', 'dsn', 'scope_lfn', 'lfn', name='DATASET_CONTENTS_PK'),
+                   ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED', name='DATASET_CONTENTS_DSN_FK'),  # ondelete="NO ACTION" problem with Oracle
+                   ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], deferrable=True, initially='DEFERRED', ondelete="CASCADE", name='DATASET_CONTENTS_LFN_FK'),
+                   ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE", name='DATASET_CONTENTS_INODE_FK'),)
 
 
 class Location(BASE, ModelBase):
     """Represents a Rucio Location"""
     __tablename__ = 'locations'
-    id = Column(String(36), primary_key=True, default=utils.generate_uuid)  # in waiting to use the binary
+    id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
     location = Column(String(255))
     storage = Column(String(255))
     path = Column(Text)
-    UniqueConstraint('location', name='uix_1')
+    _table_args = (PrimaryKeyConstraint('id', name='LOCATIONS_PK'),
+                   UniqueConstraint('location', name='LOCATIONS_LOCATION_UQ'),
+                   CheckConstraint('"LOCATION" IS NOT NULL', name='LOCATIONS_LOCATION_NN'),)
 
 
 class RSE(BASE, ModelBase):
     """Represents RSE (Rucio Storage Element)"""
     __tablename__ = 'rses'
-    id = Column(String(36), primary_key=True, default=utils.generate_uuid)  # in waiting to use the binary
+    id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
     rse = Column(String(255))
     description = Column(String(255), nullable=True)
-    UniqueConstraint('rse', name='uix_1')
+    _table_args = (PrimaryKeyConstraint('id', name='RSE_PK'),
+                   UniqueConstraint('rse', name='RSES_RSE_UQ'),
+                   CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE_NN'),)
 
 
 class LocationRSEAssociation(BASE, ModelBase):
     """Represents the map between RSEs and tags"""
-    __tablename__ = 'location_rse_association'
-    location_id = Column(String(36), ForeignKey('locations.id'), primary_key=True)
-    rse_id = Column(String(36), ForeignKey('rses.id'), primary_key=True)
+    __tablename__ = 'location_rse_map'
+    location_id = Column(String(36))
+    rse_id = Column(String(36))
+    __table_args__ = (PrimaryKeyConstraint('location_id', 'rse_id', name='LOCATION_RSE_MAP_PK'),
+                      ForeignKeyConstraint(['location_id'], ['locations.id'], name='LOCATION_RSE_MAP_LOC_ID_FK'),
+                      ForeignKeyConstraint(['rse_id'], ['rses.id'], name='LOCATION_RSE_MAP_RSE_ID_FK'),
+                      )
 
 
 class LocationFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'file_replicas'
-    location_id = Column(String(36), ForeignKey('locations.id'), primary_key=True)
-    scope = Column(String(255), primary_key=True)
-    lfn = Column(String(255), primary_key=True)
-    pfn = Column(String(1024), nullable=False)
-    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],), {})
+    location_id = Column(String(36))
+    scope = Column(String(255))
+    lfn = Column(String(255))
+    pfn = Column(String(1024))
+    _table_args = (PrimaryKeyConstraint('location_id', 'scope', 'lfn', name='FILE_REPLICAS_PK'),
+                   ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='FILE_REPLICAS_SCOPE_LFN_FK'),
+                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='FILE_REPLICAS_LOCATION_ID_FK'),
+#                  CheckConstraint('"PFN" IS NOT NULL', name='FILE_REPLICAS_PFN_NN'), # for latter...
+                   )
 
 
 class ReplicationRule(BASE, ModelBase):
     """Represents replication rules"""
     __tablename__ = 'replication_rules'
-#    __table_args__ = (UniqueConstraint("account", "scope", "lfn", "tag"),)
-    account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
-    scope = Column(String(255), primary_key=True)
-    lfn = Column(String(255), primary_key=True)
-    rse_id = Column(String(36), ForeignKey('rses.id'), primary_key=True)
-    replication_factor = Column(Integer(), nullable=False, default=1)
+    account = Column(String(255))
+    scope = Column(String(255))
+    lfn = Column(String(255))
+    rse_id = Column(String(36))
+    replication_factor = Column(Integer(), default=1)
     expired_at = Column(DateTime)
-    locked = Column(Boolean, nullable=False, default=False)
-    __table_args__ = (ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'],), {})
+    locked = Column(Boolean, default=False)
+    _table_args = (PrimaryKeyConstraint('account', 'scope', 'lfn', 'rse_id', name='REP_RULES_PK'),
+                   ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='REP_RULES_SCOPE_LFN_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='REP_RULES_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REP_RULES_RSE_ID_FK'),
+                   CheckConstraint('"REPLICATION_FACTOR" IS NOT NULL', name='REP_RULES_REP_FACTOR_NN'),
+                   CheckConstraint('"LOCKED" IS NOT NULL', name='REPLICATION_RULES_LOCKED_NN'),)
 
 
 class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
-    id = Column(String(16), primary_key=True, default=utils.generate_uuid_bytes)
-    account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
-    retroactive = Column(Boolean, nullable=False, default=False)
+    id = Column(String(16), default=utils.generate_uuid_bytes)
+    account = Column(String(255))
+    retroactive = Column(Boolean, default=False)
     expired_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('id', 'account', name='SUBSCRIPTIONS_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
+                   CheckConstraint('"RETROACTIVE" IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),)
 
 
 class Authentication(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'authentication'
-    token = Column(String(32), primary_key=True)
-    account = Column(String(255), ForeignKey('accounts.account'), primary_key=True)
-    account = Column(String(255), primary_key=True)
-    lifetime = Column(DateTime, nullable=False, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
+    token = Column(String(32))
+    account = Column(String(255))
+    lifetime = Column(DateTime, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(16), nullable=True)
+    _table_args = (PrimaryKeyConstraint('token', 'account', name='AUTH_TOKEN_ACCOUNT_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='AUTH_ACCOUNT_FK'),
+                   CheckConstraint('"LIFETIME" IS NOT NULL', name='AUTH_LIFETIME_NN'),)
 
 
 class APIToken(BASE, ModelBase):
     """Represents valid API clients"""
     __tablename__ = 'api_tokens'
-    token = Column(String(32), primary_key=True)
-    responsible = Column(String(255), ForeignKey('accounts.account'))
+    token = Column(String(32))
+    responsible = Column(String(255))
     service_name = Column(String(255))
     call_limit = Column(Integer(), default=0)
+    _table_args = (PrimaryKeyConstraint('token', name='API_TOKENS_TOKEN_PK'),
+                   ForeignKeyConstraint(['responsible'], ['accounts.account'], name='API_TOKENS_ACCOUNT_FK'),)
 
 
 def register_models(engine):
