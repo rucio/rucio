@@ -62,7 +62,8 @@ class ModelBase(object):
     def __table_args__(cls):
         return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
-                                  CheckConstraint('"DELETED" IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'))
+                                  CheckConstraint('"DELETED" IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
+                                  CheckConstraint('deleted IN (0, 1)', name=cls.__tablename__.upper() + '_DELETED_CHK'),)
 
     @declared_attr
     def updated_at(cls):
@@ -74,7 +75,7 @@ class ModelBase(object):
 
     @declared_attr
     def deleted(cls):
-        return Column(Boolean, default=False)
+        return Column(Boolean(create_constraint=False), default=False)
 
     def save(self, session=None):
         """Save this object"""
@@ -152,12 +153,11 @@ class IdentityAccountAssociation(BASE, ModelBase):
     identity = Column(String(255))
     type = Column(String(8))
     account = Column(String(255))
-    default = Column(Boolean)
+    default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'))
     _table_args = (PrimaryKeyConstraint('identity', 'type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
                    CheckConstraint("type IN ('x509', 'gss', 'userpass')", name='ACCOUNT_MAP_TYPE_CHK'),
-                   CheckConstraint('"default" IN (0, 1)', name='ACCOUNT_MAP_DEFAULT_CHK'),
                    CheckConstraint('"default" IS NOT NULL', name='ACCOUNT_MAP_DEFAULT_NN'),)
 
 
@@ -166,7 +166,7 @@ class Scope(BASE, ModelBase):
     __tablename__ = 'scopes'
     scope = Column(String(255))
     account = Column(String(255))
-    default = Column(Boolean)
+    default = Column(Boolean(name='SCOPES_DEFAULT_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
                    CheckConstraint('"default" IS NOT NULL', name='SCOPES_DEFAULT_NN'),)
@@ -190,14 +190,15 @@ class Inode(BASE, ModelBase):
     scope = Column(String(255))
     label = Column(String(255))
     owner = Column(String(255))
-    obsolete = Column(Boolean, server_default='0')
-    type = Column(Boolean)
-    monotonic = Column(Boolean)
+    obsolete = Column(Boolean(name='INODES_OBSOLETE_CHK'), server_default='0')
+    type = Column(Boolean(name='INODES_TYPE_CHK'))
+    monotonic = Column(Boolean(name='INODES_MONOTONIC_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'label', name='INODES_PK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='INODES_SCOPE_FK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='INODES_ACCOUNT_FK'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='INODES_OBSOLETE_NN'),
-                   CheckConstraint('"TYPE" IS NOT NULL', name='INODES_TYPE_NN'),)
+                   CheckConstraint('"TYPE" IS NOT NULL', name='INODES_TYPE_NN'),
+                   CheckConstraint('"MONOTONIC" IS NOT NULL', name='INODES_MONOTONIC_NN'),)
 
     def __repr__(self):
         return "<Inode(%s, %s, %s, %s)" % (self.scope, self.label, self.type, self.obsolete)
@@ -209,11 +210,11 @@ class Dataset(BASE, ModelBase):
     scope = Column(String(255))
     dsn = Column(String(255))
     owner = Column(String(255))
-    open = Column(Boolean)
-    monotonic = Column(Boolean)
-    hidden = Column(Boolean)
-    obsolete = Column(Boolean, server_default='0')
-    complete = Column(Boolean)
+    open = Column(Boolean(name='DATASETS_OPEN_CHK'))
+    monotonic = Column(Boolean(name='DATASETS_MONOTONIC_CHK'))
+    hidden = Column(Boolean(name='DATASETS_HIDDEN_CHK'))
+    obsolete = Column(Boolean(name='DATASETS_OBSOLETE_CHK'), server_default='0')
+    complete = Column(Boolean(name='DATASETS_COMPLETE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'dsn', name='DATASETS_PK'),
                    ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='DATASETS_SCOPE_DSN_FK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='DATASETS_ACCOUNT_FK'),
@@ -227,9 +228,9 @@ class File(BASE, ModelBase):
     scope = Column(String(255))
     lfn = Column(String(255))
     owner = Column(String(255))
-    lost = Column(Boolean)
+    lost = Column(Boolean(name='FILES_LOST_CHK'))
     size = Column(BigInteger)
-    obsolete = Column(Boolean, server_default='0')
+    obsolete = Column(Boolean(name='FILES_OBSOLETE_CHK'), server_default='0')
     checksum = Column(String(32))
     _table_args = (PrimaryKeyConstraint('scope', 'lfn', name='FILES_PK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
@@ -256,13 +257,17 @@ class DatasetFileAssociation(BASE, ModelBase):
     dsn = Column(String(255))               # Parent dataset name
     scope_lfn = Column(String(255))         # File's scope
     lfn = Column(String(255))               # File's name
-    parent_inode_scope = Column(String(255), nullable=False)  # Provenance inode scope
-    parent_inode_name = Column(String(255), nullable=False)   # Provenance inode scope
-    obsolete = Column(Boolean, nullable=False, server_default='0')
+    parent_inode_scope = Column(String(255))  # Provenance inode scope
+    parent_inode_name = Column(String(255))   # Provenance inode scope
+    obsolete = Column(Boolean(name='DATASET_CONTENTS_OBSOLETE_CHK'), server_default='0')
     _table_args = (PrimaryKeyConstraint('scope_dsn', 'dsn', 'scope_lfn', 'lfn', name='DATASET_CONTENTS_PK'),
                    ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED', name='DATASET_CONTENTS_DSN_FK'),  # ondelete="NO ACTION" problem with Oracle
                    ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], deferrable=True, initially='DEFERRED', ondelete="CASCADE", name='DATASET_CONTENTS_LFN_FK'),
-                   ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE", name='DATASET_CONTENTS_INODE_FK'),)
+                   ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE", name='DATASET_CONTENTS_INODE_FK'),
+                   CheckConstraint('"PARENT_INODE_SCOPE" IS NOT NULL', name='DATASET_CONTENTS_P_SCOPE_NN'),
+                   CheckConstraint('"PARENT_INODE_NAME" IS NOT NULL', name='DATASET_CONTENTS_P_NAME_NN'),
+                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='DATASET_CONTENTS_OBSOLETE_NN'),
+                   )
 
 
 class Location(BASE, ModelBase):
@@ -322,7 +327,7 @@ class ReplicationRule(BASE, ModelBase):
     rse_id = Column(String(36))
     replication_factor = Column(Integer(), default=1)
     expired_at = Column(DateTime)
-    locked = Column(Boolean, default=False)
+    locked = Column(Boolean(name='REPLICATION_RULES_LOCKED_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('account', 'scope', 'lfn', 'rse_id', name='REP_RULES_PK'),
                    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='REP_RULES_SCOPE_LFN_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='REP_RULES_ACCOUNT_FK'),
@@ -336,7 +341,7 @@ class Subscription(BASE, ModelBase):
     __tablename__ = 'subscriptions'
     id = Column(String(16), default=utils.generate_uuid_bytes)
     account = Column(String(255))
-    retroactive = Column(Boolean, default=False)
+    retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
     expired_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', 'account', name='SUBSCRIPTIONS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
