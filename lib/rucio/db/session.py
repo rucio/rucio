@@ -65,7 +65,7 @@ def create_root_account():
 
     # X509 authentication
     # Default DDMLAB client certificate from /opt/rucio/etc/web/client.crt
-    identity2 = models.Identity(identity='/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB\ Client\ Certificate/emailAddress=ph-adp-ddm-lab@cern.ch', type='x509', email='ph-adp-ddm-lab@cern.ch')
+    identity2 = models.Identity(identity='/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch', type='x509', email='ph-adp-ddm-lab@cern.ch')
     iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, default=True)
 
     # Apply

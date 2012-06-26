@@ -28,12 +28,26 @@
 # access it.
 #
 
+# Built-in modules (provided paths: ubuntu, osx)
+#LoadModule authz_host_module /usr/lib/apache2/modules/mod_authz_host.so
 LoadModule authz_host_module /usr/libexec/apache2/mod_authz_host.so
+#LoadModule authz_user_module /usr/lib/apache2/modules/mod_authz_user.so
+LoadModule authz_user_module /usr/libexec/apache2/mod_authz_user.so
 LoadModule log_config_module /usr/libexec/apache2/mod_log_config.so
+#LoadModule rewrite_module /usr/lib/apache2/modules/mod_rewrite.so
 LoadModule rewrite_module /usr/libexec/apache2/mod_rewrite.so
+#LoadModule ssl_module /usr/lib/apache2/modules/mod_ssl.so
 LoadModule ssl_module /usr/libexec/apache2/mod_ssl.so
-LoadModule wsgi_module /usr/local/Cellar/mod_wsgi/3.3/libexec/mod_wsgi.so
-#LoadModule wsgi_module /usr/libexec/apache2/mod_wsgi.so
+
+# External modules (provided paths: ubuntu, osx, osx-brew)
+# (mod_auth_kerb loads, but segfaults on OSX)
+
+#LoadModule auth_kerb_module /usr/lib/apache2/modules/mod_auth_kerb.so
+LoadModule auth_kerb_module /usr/libexec/apache2/mod_auth_kerb.so
+
+#LoadModule wsgi_module /usr/lib/apache2/modules/mod_wsgi.so
+#LoadModule wsgi_module /usr/local/Cellar/mod_wsgi/3.3/libexec/mod_wsgi.so
+LoadModule wsgi_module /usr/libexec/apache2/mod_wsgi.so
 
 Listen 443
 
@@ -49,9 +63,6 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
  SSLCertificateFile /opt/rucio/etc/web/localhost.crt
  SSLCACertificateFile /opt/rucio/etc/web/ca.crt
  #SSLCACertificatePath /etc/grid-security/certificates/
- SSLVerifyClient optional
- SSLVerifyDepth 10
- SSLOptions +StdEnvVars
 
  LogLevel warn
  ErrorLog /var/log/rucio/httpd_error_log
@@ -61,6 +72,25 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
  WSGIScriptAlias /account /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py
  WSGIScriptAlias /scope /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
  WSGIScriptAlias /rse /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
+ WSGIScriptAlias /identity /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/identity.py
  WSGIScriptAlias /location /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/location.py
+ 
+ # Valid client certificates required only for x509 authentication
+ <LocationMatch /identity/.+/x509>
+  SSLVerifyClient require
+  SSLVerifyDepth 10
+  SSLOptions +StdEnvVars
+ </LocationMatch>
+ 
+ # Proper deployment of mod_auth_kerb is required, including keytab
+ <LocationMatch /identity/.+/gss>
+  AuthType Kerberos
+  Require valid-user
+  KrbAuthRealms CERN.CH
+  KrbServiceName HTTP/localhost
+  Krb5KeyTab /etc/krb5.keytab
+  KrbSaveCredentials on
+  KrbMethodNegotiate on
+ </LocationMatch>
 
 </VirtualHost>

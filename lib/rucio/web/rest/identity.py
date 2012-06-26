@@ -148,9 +148,47 @@ class GSS:
         web.header('Content-Type', 'application/octet-stream')
         raise web.BadRequest()
 
-    def PUT(self):
+    def PUT(self, account):
+        """
+        Create a new identity and map it to an account.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            500 Internal Error
+
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :param SavedCredentials: Apache mod_auth_kerb SavedCredentials.
+        :param account: the affected account via URL.
+        """
+
         web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+
+        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise web.Unauthorized()
+
+        gsscred = web.ctx.env.get('REMOTE_USER')
+
+        try:
+            add_identity(gsscred, 'gss')
+        except Exception, e:
+            # TODO: Proper rollback
+            raise web.InternalError(e)
+
+        try:
+            add_account_identity(gsscred, 'gss', account)
+        except Exception, e:
+            # TODO: Proper rollback
+            raise web.InternalError(e)
+
+        raise web.Created()
 
     def POST(self):
         web.header('Content-Type', 'application/octet-stream')
