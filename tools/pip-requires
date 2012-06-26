@@ -3,6 +3,7 @@
 argparse
 #cx_Oracle==5.1.1        # Oracle connector
 SQLAlchemy==0.7.8        # db backend
+sqlalchemy-migrate       # To deal with database schema changes
 #Jinja2>=2.3             # Template engine
 flup                     # Needed to deploy web.py in lighthttpd
 web.py                   # Python web framework

@@ -17,6 +17,7 @@ from paste.fixture import TestApp
 from sqlalchemy import create_engine
 
 from rucio.common.config import config_get
+from rucio.common import exception
 from rucio.core.location import add_location, location_exists, del_location, list_locations
 from rucio.db import models1 as models
 from rucio.db.session import build_database, destroy_database, create_root_account
@@ -40,6 +41,14 @@ class TestLocation_core_api():
         assert_equal(location_exists(location), True)
         assert_equal(location_exists(invalid_location), False)
         del_location(location)
+
+    @raises(exception.Duplicate, ValueError)
+    def test_create_and_create_for_location(self):
+        """ LOCATION (CORE): Test the double creation of the same location """
+        location = 'MOCK'
+        add_location(location)
+        assert_equal(location_exists(location), True)
+        add_location(location)
 
     def test_list_locations(self):
         """ LOCATION (CORE): Test the listing of all locations """

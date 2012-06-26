@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 #
 # Notabene:
 #
@@ -27,38 +28,39 @@
 # access it.
 #
 
-#LoadModule authz_host_module /usr/libexec/apache2/mod_authz_host.so
-#LoadModule log_config_module /usr/libexec/apache2/mod_log_config.so
-#LoadModule rewrite_module /usr/libexec/apache2/mod_rewrite.so
-#LoadModule ssl_module /usr/libexec/apache2/mod_ssl.so
-#LoadModule wsgi_module /usr/local/Cellar/mod_wsgi/3.3/libexec/mod_wsgi.so
+LoadModule authz_host_module /usr/libexec/apache2/mod_authz_host.so
+LoadModule log_config_module /usr/libexec/apache2/mod_log_config.so
+LoadModule rewrite_module /usr/libexec/apache2/mod_rewrite.so
+LoadModule ssl_module /usr/libexec/apache2/mod_ssl.so
+LoadModule wsgi_module /usr/local/Cellar/mod_wsgi/3.3/libexec/mod_wsgi.so
 #LoadModule wsgi_module /usr/libexec/apache2/mod_wsgi.so
 
-#Listen 443
+Listen 443
 
-#WSGIPythonHome /opt/rucio/.venv/
-#WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
+WSGIPythonHome /opt/rucio/.venv/
+WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
 
-#<VirtualHost localhost:443>
+<VirtualHost localhost:443>
 
-# ServerName localhost:443
-# ServerAdmin ph-adp-ddm-lab@cern.ch
+ ServerName localhost:443
+ ServerAdmin ph-adp-ddm-lab@cern.ch
 
-# SSLEngine on
-# SSLCertificateFile /opt/rucio/etc/web/localhost.crt
-# SSLCACertificateFile /opt/rucio/etc/web/ca.crt
-# #SSLCACertificatePath /etc/grid-security/certificates/
-# SSLVerifyClient optional
-# SSLVerifyDepth 10
-# SSLOptions +StdEnvVars
+ SSLEngine on
+ SSLCertificateFile /opt/rucio/etc/web/localhost.crt
+ SSLCACertificateFile /opt/rucio/etc/web/ca.crt
+ #SSLCACertificatePath /etc/grid-security/certificates/
+ SSLVerifyClient optional
+ SSLVerifyDepth 10
+ SSLOptions +StdEnvVars
 
-# LogLevel debug
-# ErrorLog /var/log/rucio/httpd_error_log
-# TransferLog /var/log/rucio/httpd_access_log
+ LogLevel warn
+ ErrorLog /var/log/rucio/httpd_error_log
+ TransferLog /var/log/rucio/httpd_access_log
 
-# WSGIScriptAlias /auth /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/authentication.py
-# WSGIScriptAlias /account /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py
-# WSGIScriptAlias /scope /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
-# WSGIScriptAlias /rse /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
+ WSGIScriptAlias /auth /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/authentication.py
+ WSGIScriptAlias /account /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py
+ WSGIScriptAlias /scope /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
+ WSGIScriptAlias /rse /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
+ WSGIScriptAlias /location /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/location.py
 
-#</VirtualHost>
+</VirtualHost>
