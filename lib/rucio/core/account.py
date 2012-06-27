@@ -10,12 +10,10 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-from sqlalchemy import create_engine, update
-from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import exc
 
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.db import models1 as models
 from rucio.db.session import get_session
 
@@ -48,7 +46,7 @@ def add_account(accountName, accountType):
 
     try:
         new_account.save(session=session)
-    except IntegrityError, e:
+    except IntegrityError:
         session.rollback()
         raise exception.Duplicate('Account ID \'%s\' already exists!' % values['account'])
 
@@ -62,7 +60,10 @@ def account_exists(accountName):
     :returns: True if found, otherwise false.
     """
 
-    return True if session.query(models.Account).filter_by(account=accountName).first() else False
+    query = session.query(models.Account).\
+                    filter_by(account=accountName)
+
+    return True if query.first() else False
 
 
 def get_account(accountName):
@@ -72,7 +73,10 @@ def get_account(accountName):
     :returns: a dict with all information for the account.
     """
 
-    result = session.query(models.Account).filter_by(account=accountName).first()
+    query = session.query(models.Account).\
+                    filter_by(account=accountName)
+
+    result = query.first()
 
     if result is None:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
@@ -85,12 +89,16 @@ def del_account(accountName):
     :param accountName: the account name.
     """
 
-    account = session.query(models.Account).filter_by(account=accountName).first()
+    query = session.query(models.Account).\
+                    filter_by(account=accountName).\
+                    filter_by(deleted=False)
 
-    if account is None:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
+    try:
+        account = query.one()
+    except exc.NoResultFound:
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
 
-    account.delete(session)
+    account.delete(session=session)
     session.commit()
 
 
@@ -100,7 +108,10 @@ def get_account_status(accountName):
     :param accountName: Name of the account.
     """
 
-    acc_details = session.query(models.Account).filter_by(account=accountName).one()
+    query = session.query(models.Account).\
+                    filter_by(account=accountName)
+
+    acc_details = query.one()
     return acc_details.status
 
 
@@ -123,7 +134,10 @@ def list_accounts():
 
     account_list = []
 
-    for account in session.query(models.Account).order_by(models.Account.account):
+    query = session.query(models.Account).\
+                    filter_by(deleted=False)
+
+    for account in query.order_by(models.Account.account):
         account_list.append(account.account)
 
     return account_list

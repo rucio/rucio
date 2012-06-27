@@ -20,7 +20,7 @@ def has_permission(account, action, **kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    permissions = {'get_token': get_token}
+    pass
 
 
 def get_token():

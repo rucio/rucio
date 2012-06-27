@@ -33,9 +33,10 @@ from rucio.common import utils
 #def compile_binary_oracle(type_, compiler, **kw):
 #    return "RAW(16)"
 
-@compiles(Boolean, "oracle")
-def compile_binary_oracle(type_, compiler, **kw):
-    return "CHAR(1)"
+# FIXME: Breaks with Oracle
+#@compiles(Boolean, "oracle")
+#def compile_binary_oracle(type_, compiler, **kw):
+#    return "CHAR(1)"
 
 
 BASE = declarative_base()
@@ -144,7 +145,8 @@ class Identity(BASE, ModelBase):
     email = Column(String(255))
     _table_args = (PrimaryKeyConstraint('identity', 'type', name='IDENTITIES_PK'),
                    CheckConstraint("type IN ('x509', 'gss', 'userpass')", name='IDENTITIES_TYPE_CHK'),  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
-                   CheckConstraint('"EMAIL" IS NOT NULL', name='IDENTITIES_EMAIL_NN'),)
+                   #CheckConstraint('"EMAIL" IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
+                   )
 
 
 class IdentityAccountAssociation(BASE, ModelBase):
@@ -153,7 +155,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
     identity = Column(String(255))
     type = Column(String(8))
     account = Column(String(255))
-    default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'))
+    default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
@@ -166,7 +168,7 @@ class Scope(BASE, ModelBase):
     __tablename__ = 'scopes'
     scope = Column(String(255))
     account = Column(String(255))
-    default = Column(Boolean(name='SCOPES_DEFAULT_CHK'))
+    default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
     _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
                    CheckConstraint('"default" IS NOT NULL', name='SCOPES_DEFAULT_NN'),)
@@ -192,7 +194,7 @@ class Inode(BASE, ModelBase):
     owner = Column(String(255))
     obsolete = Column(Boolean(name='INODES_OBSOLETE_CHK'), server_default='0')
     type = Column(Boolean(name='INODES_TYPE_CHK'))
-    monotonic = Column(Boolean(name='INODES_MONOTONIC_CHK'))
+    monotonic = Column(Boolean(name='INODES_MONOTONIC_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('scope', 'label', name='INODES_PK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='INODES_SCOPE_FK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='INODES_ACCOUNT_FK'),
@@ -211,8 +213,8 @@ class Dataset(BASE, ModelBase):
     dsn = Column(String(255))
     owner = Column(String(255))
     open = Column(Boolean(name='DATASETS_OPEN_CHK'))
-    monotonic = Column(Boolean(name='DATASETS_MONOTONIC_CHK'))
-    hidden = Column(Boolean(name='DATASETS_HIDDEN_CHK'))
+    monotonic = Column(Boolean(name='DATASETS_MONOTONIC_CHK'), server_default='0')
+    hidden = Column(Boolean(name='DATASETS_HIDDEN_CHK'), server_default='0')
     obsolete = Column(Boolean(name='DATASETS_OBSOLETE_CHK'), server_default='0')
     complete = Column(Boolean(name='DATASETS_COMPLETE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'dsn', name='DATASETS_PK'),
@@ -298,10 +300,10 @@ class LocationRSEAssociation(BASE, ModelBase):
     __tablename__ = 'location_rse_map'
     location_id = Column(String(36))
     rse_id = Column(String(36))
-    __table_args__ = (PrimaryKeyConstraint('location_id', 'rse_id', name='LOCATION_RSE_MAP_PK'),
-                      ForeignKeyConstraint(['location_id'], ['locations.id'], name='LOCATION_RSE_MAP_LOC_ID_FK'),
-                      ForeignKeyConstraint(['rse_id'], ['rses.id'], name='LOCATION_RSE_MAP_RSE_ID_FK'),
-                      )
+    _table_args = (PrimaryKeyConstraint('location_id', 'rse_id', name='LOCATION_RSE_MAP_PK'),
+                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='LOCATION_RSE_MAP_LOC_ID_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='LOCATION_RSE_MAP_RSE_ID_FK'),
+                  )
 
 
 class LocationFileAssociation(BASE, ModelBase):

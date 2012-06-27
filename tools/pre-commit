@@ -42,6 +42,11 @@ def main():
     if output:
         print output,
         sys.exit(1)
+    # output = system('pyflakes', cwd=tempdir)
+    # if output:
+    #     print output,
+    #    sys.exit(1)
+
  
  
 if __name__ == '__main__':
