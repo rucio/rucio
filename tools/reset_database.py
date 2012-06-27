@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 # Run this once to set up the database.
 #   PYTHONPATH=/opt/rucio/.venv/lib/python2.7/site-packages/rucio python tools/bootstrap.py
