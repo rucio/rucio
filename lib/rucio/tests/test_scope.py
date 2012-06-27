@@ -19,11 +19,36 @@ from nose.tools import assert_equal, assert_true
 from rucio.client.accountclient import AccountClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException, ScopeNotFound
-from rucio.core.scope import bulk_add_scopes
+from rucio.core.scope import bulk_add_scopes, get_scopes, add_scope
 from rucio.db.session import build_database, create_root_account, destroy_database
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.scope import app as scope_app
+
+
+class TestScopeCoreApi():
+
+    def setUp(self):
+        build_database()
+        create_root_account()
+        self.scopes = ['test_scope_' + str(uuid()) for i in range(5)]
+
+    def tearDown(self):
+        destroy_database()
+
+    def test_bulk_add_scopes(self):
+        """ SCOPE (CORE): bulk create multiple scopes """
+
+        bulk_add_scopes(self.scopes, 'root', skipExisting=True)
+
+    def test_list_scopes(self):
+        """ SCOPE (CORE): List scopes """
+
+        for scope in self.scopes:
+            add_scope(scope=scope, account='root')
+
+        scopes = get_scopes(account='root')
+        assert_equal(self.scopes, scopes)
 
 
 class TestScope():
@@ -68,18 +93,12 @@ class TestScope():
         r2 = TestApp(scope_app.wsgifunc(*mw)).put('/testaccount/testscope', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 500)
 
-    def test_bulk_add_scopes(self):
-        """ SCOPE (CORE): bulk create multiple scopes """
-
-        bulk_add_scopes(self.scopes, 'root', skipExisting=True)
-
     def test_list_scope(self):
         """ SCOPE (REST): send a GET list all scopes for one account """
         mw = []
 
         headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        print r1
         assert_equal(r1.status, 200)
 
         token = str(r1.header('Rucio-Auth-Token'))
