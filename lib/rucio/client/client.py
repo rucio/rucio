@@ -16,13 +16,17 @@ Client class for callers of the Rucio system
 import json
 import logging
 import os
-import requests
+from requests import delete, get, post, put
+from requests.status_codes import codes
+from requests.exceptions import SSLError
 
 from rucio.common import exception
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.exception import NoAuthInformation
 from rucio.common.exception import RucioException
 from rucio.common.utils import build_url
+
+LOG = logging.getLogger(__name__)
 
 
 class Client(object):
@@ -32,11 +36,12 @@ class Client(object):
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, auth_type=None, creds=None):
+    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
         self.host = host
         self.port = port
         self.account = account
         self.use_ssl = use_ssl
+        self.ca_cert = ca_cert
         self.auth_type = auth_type
         self.creds = creds
         self.auth_token = None
@@ -45,8 +50,8 @@ class Client(object):
         if auth_type is None or creds is None:
             raise NoAuthInformation('No auth type or credentials specified')
 
-        if use_ssl and 'clientcert' not in creds:
-            raise NoAuthInformation('The path to the client certificate has to be passed in the credentials')
+        if use_ssl and ca_cert is None:
+            raise NoAuthInformation('The path to the server certificate has to be passed in the credentials')
 
         if account is None:
             raise NoAuthInformation('No account name specified')
@@ -88,22 +93,29 @@ class Client(object):
         r = None
         retry = 0
         hds = {'Rucio-Auth-Token': self.auth_token}
+
         if headers is not None:
             hds.update(headers)
 
         while retry < retries:
-            if type == 'GET':
-                r = requests.get(url, headers=hds, cert=self.creds['clientcert'], verify=False)
-            elif type == 'PUT':
-                r = requests.put(url, headers=hds, cert=self.creds['clientcert'], verify=False)
-            elif type == 'POST':
-                r = requests.post(url, headers=hds, data=data, cert=self.creds['clientcert'], verify=False)
-            elif type == 'DEL':
-                r = requests.delete(url, headers=hds, cert=self.creds['clientcert'], verify=False)
-            else:
-                return
+            try:
+                if type == 'GET':
+                    r = get(url, headers=hds, verify=self.ca_cert)
+                elif type == 'PUT':
+                    r = put(url, headers=hds, verify=self.ca_cert)
+                elif type == 'POST':
+                    r = post(url, headers=hds, data=data, verify=self.ca_cert)
+                elif type == 'DEL':
+                    r = delete(url, headers=hds, verify=self.ca_cert)
+                else:
+                    return
+            except SSLError:
+                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
+                self.ca_cert = False
+                retry += 1
+                continue
 
-            if r.status_code == requests.codes.unauthorized:
+            if r.status_code == codes.unauthorized:
                 self.__get_token()
                 hds['Rucio-Auth-Token'] = self.auth_token
                 retry += 1
@@ -123,24 +135,40 @@ class Client(object):
 
         headers = {'Rucio-Account': self.account, 'Rucio-Username': self.creds['username'], 'Rucio-Password': self.creds['password']}
         url = build_url(self.host, path='auth/userpass', use_ssl=self.use_ssl)
-        r = requests.get(url, headers=headers, cert='/opt/rucio/etc/web/client.crt', verify=False)
 
-        if r.status_code == requests.codes.unauthorized:
+        retry = 0
+        while retry < 2:
+            try:
+                r = get(url, headers=headers, verify=self.ca_cert)
+            except SSLError:
+                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
+                self.ca_cert = False
+                retry += 1
+                continue
+            break
+
+        if retry == 2:
+            LOG.error('cannot get auth_token')
+            return False
+
+        if r.status_code == codes.unauthorized:
             raise CannotAuthenticate('wrong credentials')
-        if r.status_code != requests.codes.ok:
+        if r.status_code != codes.ok:
             raise RucioException('unknown error')
 
         self.auth_token = r.headers['rucio-auth-token']
-        logging.debug('got new token \'%s\'' % self.auth_token)
+        LOG.debug('got new token \'%s\'' % self.auth_token)
+        return True
 
     def __get_token(self):
         """
         Sends a request to get a new token and write it to file. To be used if a 401 - Unauthorized error is received.
         """
 
-        logging.debug('get a new token')
+        LOG.debug('get a new token')
         if self.auth_type == 'userpass':
             self.__get_token_userpass()
+            #    raise CannotAuthenticate('authentication failed')
         else:
             raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
@@ -169,7 +197,7 @@ class Client(object):
         except Exception, e:
             raise e
 
-        logging.debug('read token \'%s\' from file' % self.auth_token)
+        LOG.debug('read token \'%s\' from file' % self.auth_token)
         return True
 
     def __write_token(self):
@@ -183,7 +211,7 @@ class Client(object):
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not os.path.isdir(self.TOKEN_PATH):
             try:
-                logging.debug('rucio token folder \'%s\' not found. Create it.' % self.TOKEN_PATH)
+                LOG.debug('rucio token folder \'%s\' not found. Create it.' % self.TOKEN_PATH)
                 os.mkdir(self.TOKEN_PATH, 0700)
             except Exception, e:
                 raise e
@@ -229,10 +257,11 @@ class Client(object):
 
         r = self._send_request(url, headers, type='POST', data=" ")
 
-        if r.status_code == requests.codes.created:
+        if r.status_code == codes.created:
             return True
         else:
-            raise RucioException(r.text)
+            exc_cls, exc_msg = self._get_exception(r.text)
+            raise exc_cls(exc_msg)
 
     def list_locations(self):
         """
@@ -247,7 +276,7 @@ class Client(object):
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, headers)
-        if r.status_code == requests.codes.ok:
+        if r.status_code == codes.ok:
             accounts = json.loads(r.text)
             return accounts
         else:
