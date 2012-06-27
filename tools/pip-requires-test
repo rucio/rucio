@@ -18,4 +18,5 @@ sphinx==1.1.3           # required to build documentation
 Pygments>=1.2           # Python Syntax highlighter
 docutils>=0.9           # Needed for sphinx
 pep8==0.6.1             # checks for PEP8 code style compliance
-#pylint                 # static code analysis
+pyflakes==0.5.0         # Passive checker of Python programs
+pylint                 # static code analysis

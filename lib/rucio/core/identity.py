@@ -11,12 +11,9 @@
 import hashlib
 import os
 
-from sqlalchemy import create_engine, update
-from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.core.account import account_exists
 from rucio.db import models1 as models
 from rucio.db.session import get_session
@@ -56,7 +53,7 @@ def add_identity(identity, type, password=None):
 
     try:
         new_id.save(session=session)
-    except IntegrityError, e:
+    except IntegrityError:
         session.rollback()
         raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
 
@@ -100,7 +97,7 @@ def add_account_identity(identity, type, account, default=False):
 
     try:
         new_aid.save(session=session)
-    except IntegrityError, e:
+    except IntegrityError:
         session.rollback()
         raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
 
