@@ -7,25 +7,22 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-import uuid
+from uuid import uuid4 as uuid
 
-import json
-
-from nose.tools import *
+from nose.tools import assert_equal, assert_true
 from paste.fixture import TestApp
-from sqlalchemy import create_engine
 
-from rucio.common.config import config_get
-from rucio.common import exception
+from rucio.client.locationclient import LocationClient
+from rucio.common.exception import Duplicate, RucioException
 from rucio.core.location import add_location, location_exists, del_location, list_locations
-from rucio.db import models1 as models
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.location import app as location_app
 from rucio.web.rest.authentication import app as auth_app
 
 
-class TestLocation_core_api():
+class TestLocationCoreApi():
 
     def setUp(self):
         build_database()
@@ -42,13 +39,15 @@ class TestLocation_core_api():
         assert_equal(location_exists(invalid_location), False)
         del_location(location)
 
-    @raises(exception.Duplicate, ValueError)
     def test_create_and_create_for_location(self):
         """ LOCATION (CORE): Test the double creation of the same location """
-        location = 'MOCK'
-        add_location(location)
-        assert_equal(location_exists(location), True)
-        add_location(location)
+        try:
+            location = 'MOCK'
+            add_location(location)
+            assert_equal(location_exists(location), True)
+            add_location(location)
+        except Duplicate:
+            assert_true(True)
 
     def test_list_locations(self):
         """ LOCATION (CORE): Test the listing of all locations """
@@ -101,3 +100,47 @@ class TestLocation():
         r3 = TestApp(location_app.wsgifunc(*mw)).get('/', headers=headers3, expect_errors=True)
         assert_equal(r3.body, '["MOCK"]')
         assert_equal(r3.status, 200)
+
+
+class xTestLocationClient():
+    def setUp(self):
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+        self.client = LocationClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+
+    def tearDown(self):
+        pass
+
+    def test_create_location(self):
+        """ LOCATION (CLIENTS): create a new location."""
+        try:
+            location = str(uuid())
+            ret = self.client.create_location(location)
+            assert_true(ret)
+        except RucioException:
+            assert_true(False)
+
+    def xtest_create_location_duplicate(self):
+        """ LOCATION (CLIENTS): create a duplicate location."""
+        try:
+            location = str(uuid())
+            self.client.create_location(location)
+            self.client.create_location(location)
+        except Duplicate:
+            assert_true(True)
+        else:
+            assert_true(False)
+
+    def test_list_locations(self):
+        """ LOCATION (CLIENTS): try to list locations."""
+        location_list = [str(uuid()) + str(i) for i in xrange(5)]
+        try:
+            for location in location_list:
+                self.client.create_location(location)
+
+            svr_list = self.client.list_locations()
+
+            for location in location_list:
+                if location not in svr_list:
+                    assert_true(False)
+        except RucioException:
+            assert_true(True)
