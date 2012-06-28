@@ -8,19 +8,14 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-
-"""
-Client classes for callers of the Rucio system
-"""
-
-import json
+from json import loads
 from requests.status_codes import codes
 
-from rucio.client import Client
+from rucio.client.baseclient import BaseClient
 from rucio.common.utils import build_url
 
 
-class AccountClient(Client):
+class AccountClient(BaseClient):
 
     """Account client class for working with rucio accounts"""
 
@@ -82,7 +77,7 @@ class AccountClient(Client):
         r = self._send_request(url)
 
         if r.status_code == codes.ok:
-            acc = json.loads(r.text)
+            acc = loads(r.text)
             return acc
         else:
             exc_cls, exc_msg = self._get_exception(r.text)
@@ -101,7 +96,7 @@ class AccountClient(Client):
 
         r = self._send_request(url)
         if r.status_code == codes.ok:
-            accounts = json.loads(r.text)
+            accounts = loads(r.text)
             return accounts
         else:
             exc_cls, exc_msg = self._get_exception(r.text)
