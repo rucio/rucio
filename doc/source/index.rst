@@ -43,6 +43,7 @@ Architecture
 .. toctree::
     :maxdepth: 1   
      
+    usecases
     overview_Architecture
     overview_flow
     overview_Database_Schema
