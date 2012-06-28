@@ -14,28 +14,27 @@ from rucio.client.baseclient import BaseClient
 from rucio.common.utils import build_url
 
 
-class ScopeClient(BaseClient):
+class LocationClient(BaseClient):
 
-    """Scope client class for working with rucio scopes"""
+    """Location client class for working with rucio locations"""
 
     def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(ScopeClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
+        super(LocationClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
 
-    def add_scope(self, accountName, scopeName):
+    def create_location(self, location):
         """
-        Sends the request to add a new scope.
+        Sends the request to create a new location.
 
-        :param accountName: the name of the account to the scope to.
-        :param scopeName: the name of the new scope.
-        :return: True if scope was created successfully.
-        :raises Duplicate: if scope already exists.
-        :raises AccountNotFound: if account doesn't exist.
+        :param location: the name of the location.
+        :return: True if location was created successfully else False.
+        :raises Duplicate: if location already exists.
         """
 
-        path = 'scope/' + accountName + '/' + scopeName
+        headers = {'Rucio-Auth-Token': self.auth_token}
+        path = 'location/' + location
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
-        r = self._send_request(url, type='PUT')
+        r = self._send_request(url, headers, type='POST', data=" ")
 
         if r.status_code == codes.created:
             return True
@@ -43,23 +42,22 @@ class ScopeClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.text)
             raise exc_cls(exc_msg)
 
-    def list_scopes_for_account(self, accountName):
+    def list_locations(self):
         """
-        Sends the request to list all scopes for a rucio account.
+        Sends the request to list all rucio locations.
 
-        :param accountName: the rucio account to list scopes for.
-        :return: a list containing the names of all scopes for a rucio account.
+        :return: a list containing the names of all rucio locations.
         :raises AccountNotFound: if account doesn't exist.
-        :raises ScopeNotFound: if no scopes exist for account.
         """
 
-        path = 'scope/' + accountName
+        headers = {'Rucio-Auth-Token': self.auth_token}
+        path = 'location/'
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
-        r = self._send_request(url)
+        r = self._send_request(url, headers)
         if r.status_code == codes.ok:
-            scopes = loads(r.text)
-            return scopes
+            accounts = loads(r.text)
+            return accounts
         else:
             exc_cls, exc_msg = self._get_exception(r.text)
             raise exc_cls(exc_msg)
