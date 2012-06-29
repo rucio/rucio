@@ -5,14 +5,16 @@ include README
 include TODO
 include setup.py
 include setup.cfg
-include etc/*
 graft bin
 graft doc
-graft tools
-graft examples
-graft etc
 prune dist 
-prune examples/whip/results/
-recursive-include lib *.py
-global-exclude *.pyc *.log *.db *.swp
+prune examples
+prune .coverage
+prune build/
+prune covhtml
+prune  doc/build/
+prune lib/rucio*egg-info/
+prune .venv
+prune .DS_Store
+global-exclude *.pyc *.log *.db *.swp *.proxy *~ *.cfg
 

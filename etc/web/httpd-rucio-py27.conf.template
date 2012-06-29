@@ -43,11 +43,11 @@ LoadModule ssl_module /usr/libexec/apache2/mod_ssl.so
 # (mod_auth_kerb loads, but segfaults on OSX)
 
 #LoadModule auth_kerb_module /usr/lib/apache2/modules/mod_auth_kerb.so
-LoadModule auth_kerb_module /usr/libexec/apache2/mod_auth_kerb.so
+#LoadModule auth_kerb_module /usr/libexec/apache2/mod_auth_kerb.so
 
 #LoadModule wsgi_module /usr/lib/apache2/modules/mod_wsgi.so
-#LoadModule wsgi_module /usr/local/Cellar/mod_wsgi/3.3/libexec/mod_wsgi.so
-LoadModule wsgi_module /usr/libexec/apache2/mod_wsgi.so
+LoadModule wsgi_module /usr/local/Cellar/mod_wsgi/3.3/libexec/mod_wsgi.so
+#LoadModule wsgi_module /usr/libexec/apache2/mod_wsgi.so
 
 Listen 443
 
@@ -81,16 +81,16 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
   SSLVerifyDepth 10
   SSLOptions +StdEnvVars
  </LocationMatch>
- 
- # Proper deployment of mod_auth_kerb is required, including keytab
- <LocationMatch /identity/.+/gss>
-  AuthType Kerberos
-  Require valid-user
-  KrbAuthRealms CERN.CH
-  KrbServiceName HTTP/localhost
-  Krb5KeyTab /etc/krb5.keytab
-  KrbSaveCredentials on
-  KrbMethodNegotiate on
- </LocationMatch>
 
+#	 # Proper deployment of mod_auth_kerb is required, including keytab		
+#	 <LocationMatch /identity/.+/gss>		
+#	  AuthType Kerberos		
+#	  Require valid-user		
+#	  KrbAuthRealms CERN.CH		
+#	  KrbServiceName HTTP/localhost		
+#	  Krb5KeyTab /etc/krb5.keytab		
+#	  KrbSaveCredentials on		
+#	  KrbMethodNegotiate on		
+#	 </LocationMatch>
+ 
 </VirtualHost>

@@ -205,8 +205,14 @@ Commands:
     oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_PORT, help="Port the Rucio API host listens on. " "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default='userpass', help="Authentication strategy (userpass or x509 or ...)")
+    # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+    # Options for the x509  auth_strategy
+
+
+    oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file')
+    oparser.add_argument('--ca-certificate', dest='ca-certificate', default=None, help='CA certificate to verify peer against (SSL)')
 
     # The account subparser
     account_parser = subparsers.add_parser('account', help='Account methods')
