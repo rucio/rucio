@@ -8,7 +8,6 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import gettext
 import glob
 import shutil
 import os
@@ -16,9 +15,9 @@ import re
 import subprocess
 import sys
 
-from distutils.core import Command
+#from distutils.core import Command
 from distutils.command.sdist import sdist as _sdist
-from distutils.command.build import build as _build
+#from distutils.command.build import build as _build
 
 if sys.version_info < (2, 4):
     print('ERROR: Rucio requires at least Python 2.5 to run.')
@@ -30,38 +29,30 @@ from rucio import version
 
 try:
     from setuptools               import setup, find_packages
-    from setuptools.command.sdist import sdist
+#    from setuptools.command.sdist import sdist
 except ImportError:
     from ez_setup import use_setuptools
     use_setuptools()
-    from setuptools import setup, find_packages
-
-# In order to run the i18n commands for compiling and
-# installing message catalogs, we use DistUtilsExtra.
-# Don't make this a hard requirement, but warn that
-# i18n commands won't be available if DistUtilsExtra is
-# not installed...
-#try:
-#    from DistUtilsExtra.auto import setup
-#except ImportError:
-#    from setuptools import setup
-#    print "Warning: DistUtilsExtra required to use i18n builders. "
-#    print "To build rucio with support for message catalogs, you need "
-#    print "  https://launchpad.net/python-distutils-extra > = 2.18"
-
 
 name = 'rucio'
 packages = find_packages('lib/')
 description = "Rucio Package"
 IsRelease = False
+requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
 
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
 if '--client' in copy_args:
-    name = 'rucio-client'
-    packages = ['rucio.client', ]
+    name = 'rucio-clients'
+    packages = ['rucio', 'rucio.client', 'rucio.common', 'rucio.client.api', 'rucio.rse.protocols', 'rucio.client.api.rse']
+    requirements_files = ['tools/pip-requires-client']
     description = "Rucio Client Lite Package"
-    shutil.rmtree('build/')
+    if os.path.exists('build/'):
+        shutil.rmtree('build/')
+    if os.path.exists('lib/rucio_clients.egg-info/'):
+        shutil.rmtree('lib/rucio_clients.egg-info/')
+    if os.path.exists('lib/rucio.egg-info/'):
+        shutil.rmtree('lib/rucio.egg-info/')
     copy_args.remove('--client')
 
 if '--release' in copy_args:
@@ -121,14 +112,13 @@ except:
 
 
 def get_reqs_from_files(requirements_files):
-    reqs_in = []
     for requirements_file in requirements_files:
         if os.path.exists(requirements_file):
             return open(requirements_file, 'r').read().split('\n')
     return []
 
 
-def parse_requirements(requirements_files=['tools/pip-requires']):
+def parse_requirements(requirements_files):
     requirements = []
     for line in get_reqs_from_files(requirements_files):
         if re.match(r'\s*-e\s+', line):
@@ -142,7 +132,7 @@ def parse_requirements(requirements_files=['tools/pip-requires']):
     return requirements
 
 
-def parse_dependency_links(requirements_files=['tools/pip-requires']):
+def parse_dependency_links(requirements_files):
     dependency_links = []
     for line in get_reqs_from_files(requirements_files):
         if re.match(r'(\s*#)|(\s*$)', line):
@@ -161,11 +151,43 @@ def write_requirements():
             requirements = output.communicate()[0].strip()
             req_file.write(requirements)
 
-
-requires = parse_requirements()
-depend_links = parse_dependency_links()
-
+requires = parse_requirements(requirements_files=requirements_files)
+depend_links = parse_dependency_links(requirements_files=requirements_files)
 #write_requirements()
+
+
+class CustomSdist(_sdist):
+
+    user_options = [
+        ('packaging=', None, "Some option to indicate what should be packaged")
+    ] + _sdist.user_options
+
+    def __init__(self, *args, **kwargs):
+        _sdist.__init__(self, *args, **kwargs)
+        self.packaging = "default value for this option"
+
+    def get_file_list(self):
+        print "Chosen packaging option: " + name
+        self.distribution.data_files = [('etc/', glob.glob('etc/*.template')),
+                                        ('etc/web', glob.glob('etc/web/*.template'))]
+
+        if name == 'rucio-clients':
+            print ' Change the data_files list here based on the packaging option        '
+            self.distribution.data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
+                                            ('tools/', ['tools/pip-requires-client', ]), ]
+        _sdist.get_file_list(self)
+
+    #def make_release_tree(self, base_dir, files):
+    #    _sdist.make_release_tree(self, base_dir, files)
+    #    print 'make_release_tree', base_dir, files
+
+
+    #def make_distribution(self):
+    #    _sdist.make_distribution(self)
+    #    print '_sdist.make_distribution'
+
+
+cmdclass['sdist'] = CustomSdist
 
 setup(
       name=name,
@@ -175,9 +197,6 @@ setup(
       script_args=copy_args,
       cmdclass=cmdclass,
       include_package_data=True,
-      data_files=[('etc/', glob.glob('etc/*.template')),
-                  ('etc/web', glob.glob('etc/web/*.template'))
-                 ],
       scripts=['bin/rucio',
                'bin/rucio-admin'],
       #doc=cmdclass,
