@@ -33,7 +33,7 @@ lib/rucio.egg-info/
 *.swp
 *~
 .venv
-lib/rucio/lib/vcsversion.py
+lib/rucio/vcsversion.py
 rucio.egg-info
 
 # Mac OS X Finder
