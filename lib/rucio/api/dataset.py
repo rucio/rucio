@@ -11,7 +11,7 @@
 
 from rucio.core.inode import change_dataset_owner as core_change_dataset_owner
 from rucio.core.inode import obsolete_dataset as core_obsolete_dataset
-from rucio.core.inode import does_dataset_exist, list_datasets, register_dataset
+from rucio.core.inode import does_dataset_exist, register_dataset
 
 
 def add_dataset(scope, dsn, account, monotonic=None, content=None, dataset_meta=None):

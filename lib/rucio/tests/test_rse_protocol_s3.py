@@ -13,7 +13,7 @@ import json
 import os
 import subprocess
 
-from nose.tools import *
+from S3.Exceptions import S3Error
 
 from rucio.rse import rse
 from rucio.rse.rseexception import RSEException
@@ -39,7 +39,7 @@ class TestRseSFTP():
         try:
             subprocess.call(["s3cmd", "mb", re.search('s3://[^/]+/', uri[0]).group(0)], stdout=fnull, stderr=fnull)
             subprocess.call(["s3cmd", "mb", re.search('s3://[^/]+/', uri[1]).group(0)], stdout=fnull, stderr=fnull)
-        except S3Error as e:
+        except S3Error:
             pass
         subprocess.call(["s3cmd", "put", "/tmp/rucio/local/1_local_rse_1M.raw", uri[0]], stdout=fnull, stderr=fnull)
         subprocess.call(["s3cmd", "put", "/tmp/rucio/local/2_local_rse_1M.raw", uri[1]], stdout=fnull, stderr=fnull)

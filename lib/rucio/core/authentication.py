@@ -12,12 +12,6 @@ import datetime
 import hashlib
 import uuid
 
-from sqlalchemy import create_engine, text, and_, update
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.exc import IntegrityError
-
-from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.core.account import account_exists
 from rucio.db import models1 as models
 from rucio.db.session import get_session
@@ -60,7 +54,7 @@ def get_auth_token_x509(account, dn, ip=None):
     if not account_exists(account):
         return None
 
-    result = session.query(models.Identity).filter_by(identity=dn, type='x509').first()
+    session.query(models.Identity).filter_by(identity=dn, type='x509').first()
 
     # create new rucio-auth-token for account
     token = str(uuid.uuid4()).replace('-', '')
@@ -78,7 +72,7 @@ def get_auth_token_gss(account, gsstoken, ip=None):
     if not account_exists(account):
         return None
 
-    result = session.query(models.Identity).filter_by(identity=gsstoken, type='gsstoken').first()
+    session.query(models.Identity).filter_by(identity=gsstoken, type='gsstoken').first()
 
     # create new rucio-auth-token for account
     token = str(uuid.uuid4()).replace('-', '')

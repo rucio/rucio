@@ -14,16 +14,13 @@ SQLAlchemy models for rucio data
 """
 
 import datetime
-import sys
 
-from sqlalchemy import Column, Integer, String, BigInteger, Enum
-from sqlalchemy import ForeignKey, DateTime, Boolean, Text, CHAR
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy import UniqueConstraint
-from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr, declarative_base
-from sqlalchemy.orm import relationship, backref, exc, object_mapper, validates
+from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint
-from sqlalchemy.types import Binary, LargeBinary
+from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 

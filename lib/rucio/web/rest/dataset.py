@@ -8,11 +8,10 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
-import json
 import logging
 import web
 
-from rucio.api.dataset import add_dataset, change_dataset_owner, dataset_exists, list_datasets, obsolete_dataset
+from rucio.api.dataset import add_dataset, change_dataset_owner, dataset_exists, obsolete_dataset
 from rucio.core.authentication import validate_auth_token
 from rucio.common import exception as exception
 
@@ -64,9 +63,9 @@ class Dataset:
         except exception.AccountNotFound, error:
             raise web.notfound('AccountNotFound: %s' % error.args[0])
         except exception.DatasetAlreadyExists, error:
-            raise web.conflict('DatasetAlreadyExists: %s' % error.args[0])
+            raise web.HTTPError("409 Conflict", {}, data='DatasetAlreadyExists: %s' % error.args[0])
         except exception.FileAlreadyExists, error:
-            raise web.conflict('FileAlreadyExists: %s' % error.args[0])
+            raise web.HTTPError("409 Conflict", {}, data='FileAlreadyExists: %s' % error.args[0])
         except Exception, error:
             raise web.InternalError(error.args[0])
         return web.Created()
@@ -145,7 +144,7 @@ class Dataset:
         except exception.NotADataset, error:
             raise web.notfound('NotADataset: %s' % error.args[0])
         except exception.NoPermissions, error:
-            raise web.Unauthorized('NoPermissions: %s' % error.args[0])
+            raise web.HTTPError("401 Unauthorized", {}, "NoPermissions: %s" % error.args[0])
         except Exception, error:
             raise web.InternalError(error.args[0])
         return web.OK()

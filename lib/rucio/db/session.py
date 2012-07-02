@@ -10,7 +10,6 @@
 
 from sqlalchemy import create_engine
 from sqlalchemy import event
-from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.orm import sessionmaker, scoped_session
 
 from rucio.common.config import config_get
@@ -52,7 +51,6 @@ def destroy_database():
 def create_root_account():
     """ Inserts the default root account to an existing database. Make sure to change the default password later. """
 
-    engine = create_engine(config_get('database', 'default'))
     session = get_session()
 
     # Account=root

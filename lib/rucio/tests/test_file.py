@@ -7,16 +7,13 @@
 # Authors:
 # - Angelos Molfetas,  <angelos.molfetas@cern.ch>, 2012
 
-from nose.tools import *
-from sqlalchemy import create_engine
+from nose.tools import raises, assert_equal
 from uuid import uuid4 as uuid
 
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.core.inode import bulk_register_files, change_file_owner, does_file_exist, get_file_metadata, is_file_obsolete, list_files, obsolete_file
 from rucio.core.inode import register_dataset, register_file, unregister_dataset, unregister_file
-from rucio.core.scope import add_scope, bulk_add_scopes, check_scope
-from rucio.db import models1 as models
+from rucio.core.scope import add_scope, bulk_add_scopes
 from rucio.db.session import build_database
 from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file
 
@@ -255,13 +252,11 @@ class TestFile:
     @raises(exception.FileNotFound)
     def test_api_get_file_metadata_invalid_file(self):
         """ FILE (CORE): Get metadata on invalid file """
-        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         get_file_metadata(self.scope_misc, self.invalid_file, self.user)
 
     @raises(exception.ScopeNotFound)
     def test_api_get_dataset_metadata_invalid_scope(self):
         """FILE (CORE): Get file metadata using invalid scope """
-        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         get_file_metadata(self.invalid_scope, self.invalid_file, self.user)
 
     # Error Handling: Change file owner
@@ -299,7 +294,6 @@ class TestFile:
     @raises(exception.FileNotFound)
     def test_api_change_file_owner_invalid_file(self):
         """ FILE (CORE): Change the owner of a non existing file in a scope """
-        lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         change_file_owner(self.scope_misc, self.invalid_file, self.user, self.user2)
 
     @raises(exception.FileObsolete)
