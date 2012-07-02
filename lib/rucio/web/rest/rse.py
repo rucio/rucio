@@ -8,9 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-import datetime
 import logging
-import json
 import web
 
 from rucio.api import rse

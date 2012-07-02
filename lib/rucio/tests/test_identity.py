@@ -10,13 +10,8 @@
 
 from uuid import uuid4 as uuid
 
-from nose.tools import *
-from paste.fixture import TestApp
-from sqlalchemy import create_engine
-
 from rucio.core.account import add_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
-from rucio.common.config import config_get
 from rucio.db.session import build_database, destroy_database
 
 
@@ -42,7 +37,7 @@ class TestIdentity():
         add_identity('ddmlab', 'gss')
         add_account_identity('ddmlab', 'gss', self.account)
 
-        r = list_identities()
+        list_identities()
 
         del_account_identity('ddmlab', 'userpass', self.account)
         del_account_identity('/ch/cern/rucio/ddmlab', 'x509', self.account)

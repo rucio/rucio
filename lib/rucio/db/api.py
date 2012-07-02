@@ -9,16 +9,13 @@
 
 import logging
 
-from sqlalchemy import asc, create_engine, desc
+from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import exc
-from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import or_, and_
 
 from rucio.db import models1 as models
 from rucio.common import exception
+from gettext import gettext as _
 
 _ENGINE = None
 _MAKER = None
@@ -46,7 +43,7 @@ def configure_db():
         sql_connection = db_opts['sql_connection']
         try:
             _ENGINE = create_engine(sql_connection, pool_recycle=timeout)
-        except Exception, err:
+        except Exception:
             msg = _("Error configuring registry database with supplied "
                     "sql_connection '%(sql_connection)s'. "
                     "Got error:\n%(err)s") % locals()
@@ -91,7 +88,7 @@ def create_account(account, type):
 
         try:
             new_account.save(session=session)
-        except IntegrityError, e:
+        except IntegrityError:
             raise exception.Duplicate('Account ID %s already exists!' % values['account'])
 
     return 0
@@ -146,6 +143,6 @@ def create_subscription(account):
 
         new_subscription.update(values)
 
-        new_subscriptiont.save(session=session)
+        new_subscription.save(session=session)
 
     return 0

@@ -14,8 +14,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import and_, or_
 
 from rucio.common import exception
-from rucio.common.config import config_get
-from rucio.core.account import account_exists, get_account
+from rucio.core.account import account_exists
 from rucio.core.scope import check_scope
 from rucio.db.models1 import Dataset as DATASET
 from rucio.db.models1 import DatasetFileAssociation as DATASETCONTENTS
@@ -197,7 +196,6 @@ def list_datasets(accountName, datasetScope=None, datasetName=None, obsolete=Fal
     #    raise exception.ForbiddenSearch('Dataset (%s) and scope (%s) wildcard search too broad' % (datasetName, datasetScope))
 
     dst_query = session.query(DATASET)
-    datasets = []
     # No scope
     if datasetScope is None:
         if datasetName is None:  # No dataset defined
@@ -395,7 +393,7 @@ def delete_files_from_dataset(inodeList, targetDatasetScope, targetDatasetName, 
     for inode in inodeList:
         try:
             associations.filter_by(scope_dsn=targetDatasetScope, dsn=targetDatasetName, scope_lfn=inode[0], lfn=inode[1]).one()
-        except NoResultFound, error:
+        except NoResultFound:
             if not does_file_exist(targetDatasetScope, targetDatasetName, account, search_obsolete=False):
                 raise exception.FileNotFound("Specified file '%s' in scope '%s' does not exist" % (inode[0], inode[1]))
             else:
@@ -440,7 +438,7 @@ def is_dataset_monotonic(datasetScope, datasetName, account):
 
     try:
         info = session.query(DATASET).filter_by(scope=datasetScope, dsn=datasetName).one()
-    except  NoResultFound, error:
+    except  NoResultFound:
         __evaluate_no_result_found(datasetScope, datasetName, account, InodeType.DATASET)
     return info.monotonic
 
@@ -458,7 +456,7 @@ def is_dataset_obsolete(datasetScope, datasetName, account):
 
     try:
         info = session.query(DATASET).filter_by(scope=datasetScope, dsn=datasetName).one()
-    except NoResultFound, error:
+    except NoResultFound:
         __evaluate_no_result_found(datasetScope, datasetName, account, InodeType.DATASET)
     return info.obsolete
 
@@ -595,7 +593,7 @@ def is_file_obsolete(fileScope, filename, account):
 
     try:
         info = session.query(FILE).filter_by(scope=fileScope, lfn=filename).one()
-    except NoResultFound, error:
+    except NoResultFound:
         __evaluate_no_result_found(fileScope, filename, account, inode_type=InodeType.FILE)
     return info.obsolete
 
@@ -610,8 +608,6 @@ def bulk_register_files(scope, fileList, account, skipExisting=None):
 
     :returns success_states of dataset registration
     """
-
-    session = get_session()
 
     success_states = []
     for lfn in fileList:
@@ -813,7 +809,7 @@ def is_inode_obsolete(scope, name, account):
 
     try:
         info = session.query(INODE).filter_by(scope=scope, label=name).one()
-    except NoResultFound, error:
+    except NoResultFound:
         __evaluate_no_result_found(scope, name, account)
     return info.obsolete
 

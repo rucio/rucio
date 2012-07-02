@@ -13,8 +13,6 @@ import os
 import pysftp
 import subprocess
 
-from nose.tools import *
-
 from rucio.rse import rse
 from rucio.rse.rseexception import RSEException
 

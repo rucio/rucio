@@ -62,7 +62,8 @@ class Default(protocol.RSEProtocol):
             cmd = 'stat ' + self.pfn2uri(pfn)
             status = self.__connection.execute(cmd)
         except Exception:
-            raise RSEException(500, 'Failed using storage system.', data={'exception': e, 'id': self.rse.static['url'], 'credentials': credentials})
+            # raise RSEException(500, 'Failed using storage system.', data={'exception': e, 'id': self.rse.static['url'], 'credentials': credentials})
+            raise RSEException(500, 'Failed using storage system.', data={'id': self.rse.static['url']})  # TODO: where does 'e', 'credentials' come from?
         if status[0].startswith('stat: cannot stat'):
             return False
         return True
