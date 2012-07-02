@@ -7,14 +7,9 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import uuid
-
-from nose.tools import *
+from nose.tools import assert_equal
 from paste.fixture import TestApp
 
-from rucio.core.account import add_account, del_account
-from rucio.core.identity import add_identity, add_account_identity
-from rucio.common.config import config_get
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.authentication import app
 

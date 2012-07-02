@@ -8,7 +8,6 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-import datetime
 import json
 import logging
 import web

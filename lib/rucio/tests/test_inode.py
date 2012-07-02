@@ -9,21 +9,18 @@
 
 from uuid import uuid4 as uuid
 
-from nose.tools import *
-from sqlalchemy import create_engine
+from nose.tools import raises, assert_equal
 
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.core.account import add_account
-from rucio.core.inode import add_files_to_dataset, bulk_register_datasets, does_dataset_exist, get_dataset_metadata, is_inode_obsolete, list_datasets
+from rucio.core.inode import add_files_to_dataset, bulk_register_datasets, get_dataset_metadata, is_inode_obsolete
 from rucio.core.inode import list_files_in_dataset, obsolete_dataset, obsolete_file, obsolete_inode
 from rucio.core.inode import register_dataset, register_file, unregister_dataset, unregister_file
 from rucio.core.inode import change_inode_owner, does_inode_exist, get_inode_metadata, list_inodes
-from rucio.core.scope import add_scope, bulk_add_scopes, check_scope
-from rucio.db import models1 as models
+from rucio.core.scope import add_scope, bulk_add_scopes
 from rucio.db.models1 import InodeType
 from rucio.db.session import build_database, destroy_database
-from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file
+from rucio.tests.common import create_tmp_dataset, create_tmp_file
 
 
 class TestInode:
@@ -174,7 +171,7 @@ class TestInode:
         obsolete_inode(self.scope_misc, lfn2, self.user)
         assert_equal(is_inode_obsolete(self.scope_misc, lfn2, self.user), True)
 
-    def test_api_obsoletes_dataset_and_files_and_check_obsolete_status(self):
+    def test_api_obsoletes_dataset_and_files_and_list_obsolete_status(self):
         """ INODE (CORE): List obsolete inodes """
         tmp_scope = 'next scope'
         add_scope(tmp_scope, self.user)

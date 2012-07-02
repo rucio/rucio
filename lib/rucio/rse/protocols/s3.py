@@ -10,11 +10,9 @@
 
 
 from subprocess import call
-import hashlib
-import struct
 
 # IMPORTANT: If the order of the S3 imports is changed, they fail!
-from S3.Exceptions import *
+from S3.Exceptions import S3Error, InvalidFileError
 from S3.S3 import S3
 from S3.Config import Config
 from S3.S3Uri import S3Uri
@@ -67,7 +65,7 @@ class Default(protocol.RSEProtocol):
         try:
             self.__s3.object_info(S3Uri(self.pfn2uri(pfn)))
             return True
-        except S3Error as e:
+        except S3Error:
             return False
 
     def connect(self, credentials):
@@ -123,7 +121,7 @@ class Default(protocol.RSEProtocol):
                 self.__s3.object_put(full_name, S3Uri(self.pfn2uri(pfn)))
             else:
                 raise RSEException(e.status, e.reason, data={'exception': e, 'info': e.info, 'S3Uri': S3Uri(self.pfn2uri(pfn))})
-        except InvalidFileError as e:
+        except InvalidFileError, e:
             raise RSEException(404, 'Local file not found', data={'exception': e, 'local': full_name})
 
     def delete(self, pfn):
@@ -132,7 +130,6 @@ class Default(protocol.RSEProtocol):
             :param pfn Physical file name
             :raises RSEException An error ID and message related to the reason why the delete-request failed is given
         """
-        status = ''
         try:
             self.__s3.object_delete(S3Uri(self.pfn2uri(pfn)))
         except S3Error as e:

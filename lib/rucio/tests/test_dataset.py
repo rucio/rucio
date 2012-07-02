@@ -7,24 +7,20 @@
 # Authors:
 # - Angelos Molfetas,  <angelos.molfetas@cern.ch>, 2012
 
-from nose.tools import *
+from nose.tools import raises, assert_equal
 from paste.fixture import TestApp
-from sqlalchemy import create_engine
 from uuid import uuid4 as uuid
 
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.core.account import add_account
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.core.inode import add_files_to_dataset, build_inode_list, bulk_register_datasets, bulk_register_files, change_dataset_owner
 from rucio.core.inode import delete_files_from_dataset, does_dataset_exist, get_dataset_metadata, get_dataset_owner, list_datasets
 from rucio.core.inode import is_dataset_monotonic, is_dataset_obsolete, is_file_obsolete, list_files_in_dataset, obsolete_dataset, obsolete_file
-from rucio.core.inode import register_file, register_dataset, unregister_dataset, unregister_file
-from rucio.core.scope import add_scope, bulk_add_scopes, check_scope
-from rucio.db import models1 as models
+from rucio.core.inode import register_dataset, unregister_dataset, unregister_file
+from rucio.core.scope import add_scope, bulk_add_scopes
 from rucio.db.session import build_database
 from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file, get_auth_token
-from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.dataset import dataset_web_app
 
 
@@ -182,7 +178,6 @@ class TestDataset_CORE:
 
     def test_api_add_multiple_files_to_dataset(self):
         """ DATASET (CORE): Add and remove multiple files to a dataset """
-        lfn = []
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         file_list = build_inode_list(self.scope_misc, self.test_interesting_files)
         add_files_to_dataset(file_list, self.scope_misc, dsn, self.user)
@@ -237,7 +232,7 @@ class TestDataset_CORE:
         obsolete_dataset(self.scope_misc, dsn, self.user)
         assert_equal(list_datasets(self.user, self.scope_misc, dsn), [])
 
-    def test_api_obsolete_dataset_and_list(self):
+    def test_api_obsolete_dataset_status(self):
         """ DATASET (CORE): Get obsolute status of a dataset """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         assert_equal(is_dataset_obsolete(self.scope_misc, dsn, self.user), False)
@@ -278,7 +273,7 @@ class TestDataset_CORE:
         is_dataset_monotonic(self.scope_misc, self.invalid_dsn, self.user)
 
     @raises(exception.ScopeNotFound)
-    def test_api_check_monotonic_invalid_dataset(self):
+    def test_api_check_monotonic_invalid_scope(self):
         """ DATASET (CORE): Check monotonic state of dataset in invalid scope """
         is_dataset_monotonic(self.invalid_scope, self.invalid_dsn, self.user)
 
@@ -332,8 +327,8 @@ class TestDataset_CORE:
     # Error Handling: Associate files to a dataset
 
     @raises(exception.NoPermissions)
-    def test_api_delete_file_from_dataset_not_owner(self):
-        """ DATASET (CORE): Non owner adds file from a dataset """
+    def test_api_adds_file_from_dataset_not_owner(self):
+        """ DATASET (CORE): Non owner adds file to a dataset """
         dsn = create_tmp_dataset(self.scope_misc, self.user2, self.to_clean_datasets)
         lfn = create_tmp_file(self.scope_misc, self.user2, self.to_clean_files)
         add_files_to_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
@@ -369,7 +364,7 @@ class TestDataset_CORE:
         delete_files_from_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
 
     @raises(exception.FileNotFound)
-    def test_api_delete_non_existant_file_from_dataset(self):
+    def test_api_delete_non_registered_file_from_dataset(self):
         """ DATASET (CORE): Delete a file that exists from a dataset, but is not registered to that dataset """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
@@ -405,13 +400,11 @@ class TestDataset_CORE:
     @raises(exception.DatasetNotFound)
     def test_api_get_dataset_metadata_invalid_dataset(self):
         """ DATASET (CORE): Get metadata on invalid dataset """
-        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         get_dataset_metadata(self.scope_misc, self.invalid_dsn, self.user)
 
     @raises(exception.ScopeNotFound)
     def test_api_get_dataset_metadata_invalid_scope(self):
         """ DATASET (CORE): Get metadata on invalid scope """
-        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         get_dataset_metadata(self.invalid_scope, self.invalid_dsn, self.user)
 
     # Error Handling: Dataset registration
@@ -771,7 +764,6 @@ class TestDataset_REST():
 
     def test_obsolete_dataset_does_not_exist(self):
         """ DATASET (REST): send a DELETE to obsolete a dataset that does not exist """
-        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
         headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}

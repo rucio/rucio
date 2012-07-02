@@ -7,15 +7,11 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
-
-from paste.fixture import TestApp
-from re import compile
-from nose.tools import *
+from nose.tools import assert_equal, assert_false
 from uuid import uuid4 as uuid
-
 from rucio import version
-from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.tests.common import execute
 
 

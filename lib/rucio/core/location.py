@@ -8,12 +8,9 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from sqlalchemy import create_engine, update
-from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.db import models1 as models
 from rucio.db.session import get_session
 
@@ -34,7 +31,7 @@ def add_location(location):
 
     try:
         new_location.save(session=session)
-    except IntegrityError, e:
+    except IntegrityError:
         session.rollback()
         raise exception.Duplicate('Location \'%s\' already exists!' % values['location'])
 

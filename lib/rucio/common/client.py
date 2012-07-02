@@ -8,10 +8,6 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 import httplib
-import os
-import select
-import urllib
-import urlparse
 
 
 class BaseClient(object):

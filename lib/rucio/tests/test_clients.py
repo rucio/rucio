@@ -7,11 +7,6 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from paste.fixture import TestApp
-from nose.tools import *
-
-from rucio import client
-
 
 class TestRucioClient():
 

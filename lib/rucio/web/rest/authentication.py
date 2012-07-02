@@ -14,8 +14,6 @@ from rucio.api.authentication import get_auth_token_user_pass
 from rucio.api.authentication import get_auth_token_gss
 from rucio.api.authentication import get_auth_token_x509
 from rucio.api.authentication import validate_auth_token
-from rucio.api.authentication import register_api_token
-from rucio.api.authentication import validate_api_token
 
 urls = (
     '/userpass', 'UserPass',

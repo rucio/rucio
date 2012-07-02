@@ -8,10 +8,11 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
 from uuid import uuid4 as uuid
 
-from nose.tools import assert_equal, assert_true
+from nose.tools import raises, assert_equal, assert_true
 from paste.fixture import TestApp
 
 from rucio.client.locationclient import LocationClient
