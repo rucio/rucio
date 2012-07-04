@@ -10,11 +10,11 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import json
+from json import loads
 from uuid import uuid4 as uuid
 
-from paste.fixture import TestApp
 from nose.tools import assert_equal, assert_false, assert_true
+from paste.fixture import TestApp
 
 from rucio.client.accountclient import AccountClient
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
@@ -93,7 +93,7 @@ class TestAccountRestApi():
         r1 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers, expect_errors=True)
         r2 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers, expect_errors=True)
 
-        assert_equal(r2.status, 500)
+        assert_equal(r2.status, 409)
 
     def test_get_user_success(self):
         """ ACCOUNT (REST): send a GET to retrieve the infos of the new user """
@@ -110,7 +110,7 @@ class TestAccountRestApi():
 
         headers3 = {'Rucio-Auth-Token': str(token)}
         r3 = TestApp(account_app.wsgifunc(*mw)).get('/testuser', headers=headers3, expect_errors=True)
-        body = json.loads(r3.body)
+        body = loads(r3.body)
         assert_equal(body['account'], 'testuser')
         assert_equal(r3.status, 200)
 
@@ -125,7 +125,7 @@ class TestAccountRestApi():
 
         headers2 = {'Rucio-Auth-Token': token}
         r2 = TestApp(account_app.wsgifunc(*mw)).get('/wronguser', headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 500)
+        assert_equal(r2.status, 404)
 
     def test_del_user_success(self):
         """ ACCOUNT (REST): send a DELETE to disable the new user """
@@ -146,7 +146,7 @@ class TestAccountRestApi():
 
         headers4 = {'Rucio-Auth-Token': str(token)}
         r4 = TestApp(account_app.wsgifunc(*mw)).get('/testuser', headers=headers4, expect_errors=True)
-        body = json.loads(r4.body)
+        body = loads(r4.body)
         assert_true(body['deleted'])
         assert_equal(r3.status, 200)
 
@@ -161,7 +161,7 @@ class TestAccountRestApi():
 
         headers2 = {'Rucio-Auth-Token': str(token)}
         r2 = TestApp(account_app.wsgifunc(*mw)).delete('/wronguser', headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 500)
+        assert_equal(r2.status, 404)
 
     def test_list_account(self):
         """ ACCOUNT (REST): send a GET to list all accounts."""
@@ -181,7 +181,7 @@ class TestAccountRestApi():
 
         r3 = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
         assert_equal(r3.status, 200)
-        svr_list = json.loads(r3.body)
+        svr_list = loads(r3.body)
         for account in acc_list:
             if account not in svr_list:
                 assert_true(False)
@@ -223,7 +223,8 @@ class xTestAccountClient():
             self.client.create_account(account)
             acc_info = self.client.get_account(account)
             assert_equal(acc_info['account'], account)
-        except RucioException:
+        except RucioException, e:
+            print e
             assert_true(False)
 
     def test_get_account_notfound(self):

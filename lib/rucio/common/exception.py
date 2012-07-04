@@ -136,7 +136,7 @@ class ForbiddenSearch(RucioException):
 
 class Duplicate(RucioException):
     def __init__(self, *args, **kwargs):
-        super(Duplicate, self).__init__()
+        super(Duplicate, self).__init__(args, kwargs)
         self._message = "An object with the same identifier already exists."
 
 

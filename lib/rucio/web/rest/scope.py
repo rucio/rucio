@@ -8,17 +8,17 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-import json
-import logging
-import web
+from json import dumps
+from logging import getLogger, StreamHandler, DEBUG
+from web import application, ctx, header, BadRequest, Created, InternalError, HTTPError, Unauthorized
 
-from rucio.api import scope
+from rucio.api.scope import add_scope, get_scopes
 from rucio.core.authentication import validate_auth_token
-from rucio.common import exception as r_exception
+from rucio.common.exception import AccountNotFound, Duplicate
 
-logger = logging.getLogger("rucio.scope")
-sh = logging.StreamHandler()
-sh.setLevel(logging.DEBUG)
+logger = getLogger("rucio.scope")
+sh = StreamHandler()
+sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
@@ -31,10 +31,10 @@ class Scope:
     """ create new rucio scopes. """
 
     def GET(self):
-        raise web.BadRequest()
+        raise BadRequest()
 
     def POST(self):
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self, accountName, scopeName):
         """ create scope with given scope name.
@@ -43,6 +43,9 @@ class Scope:
             201 Created
 
         HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
             500 Internal Error
 
         :param Rucio-Auth-Account: Account identifier.
@@ -50,28 +53,34 @@ class Scope:
         :params Rucio-Account: account belonging to the new scope.
         """
 
-        web.header('Content-Type', 'application/octet-stream')
+        header('Content-Type', 'application/octet-stream')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
         try:
-            scope.add_scope(scopeName, accountName)
-        except r_exception.Duplicate, e:
-            raise web.InternalError(' '.join(['Duplicate:', str(e)]))
-        except r_exception.AccountNotFound, e:
-            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
+            add_scope(scopeName, accountName)
+        except Duplicate, e:
+            status = '409 Conflict'
+            headers = {'ExceptionClass': 'Duplicate', 'ExceptionMessage': e[0][0]}
+            data = ' '.join(['Duplicate:', str(e)])
+            raise HTTPError(status, headers=headers, data=data)
+        except AccountNotFound, e:
+            status = '404 Not Found'
+            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
+            data = ' '.join(['AccountNotFound:', str(e)])
+            raise HTTPError(status, headers=headers, data=data)
         except Exception, e:
-            raise web.InternalError(e)
+            raise InternalError(e)
 
-        raise web.Created()
+        raise Created()
 
     def DELETE(self):
-        raise web.BadRequest()
+        raise BadRequest()
 
 
 class ScopeList:
@@ -85,49 +94,57 @@ class ScopeList:
 
         HTTP Error:
             401 Unauthorized
+            404 Not Found
             500 InternalError
 
         :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
         :returns: A list containing all scope names for an account.
         """
-        web.header('Content-Type', 'application/json')
+        header('Content-Type', 'application/json')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
         try:
-            scopes = scope.get_scopes(accountName)
-        except r_exception.AccountNotFound, e:
-            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
+            scopes = get_scopes(accountName)
+        except AccountNotFound, e:
+            status = '404 Not Found'
+            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
+            data = ' '.join(['AccountNotFound:', str(e)])
+            raise HTTPError(status, headers=headers, data=data)
         except Exception, e:
-            raise web.InternalError(e)
+            raise InternalError(e)
 
         if not len(scopes):
-            raise web.InternalError('ScopeNotFound: No scopes found for Account %s' % accountName)
+            errmsg = 'no scopes found for account ID \'%s\'' % accountName
+            status = '404 Not Found'
+            headers = {'ExceptionClass': 'ScopeNotFound', 'ExceptionMessage': errmsg}
+            data = ' '.join(['ScopeNotFound:', errmsg])
+            raise HTTPError(status, headers=headers, data=data)
 
-        return json.dumps(scopes)
+        return dumps(scopes)
 
     def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 """----------------------
    Web service startup
 ----------------------"""
 
-app = web.application(urls, globals())
+app = application(urls, globals())
 application = app.wsgifunc()
