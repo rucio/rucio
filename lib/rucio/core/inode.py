@@ -913,9 +913,10 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
 def list_inodes(accountName, inodeScope=None, inodeName=None, obsolete=False):
     """ lists inodes matching wildcard search.
 
-    :param accountName: the account searching for the inodes.
-    :param inodeScope: the scope where the inodes exists. This parameter accepts wildcards.
-    :param inodeName: inodeName pattern. This parameter accepts wildcards.
+    :param accountName: the account searching for the inodes
+    :param inodeScope: the scope where the inodes exists. This parameter accepts wildcards
+    :param inodeName: inodeName pattern. This parameter accepts wildcards
+    :param obsolete: if True, then also consider obsolete inodes
     """
 
     if inodeScope is not None:
