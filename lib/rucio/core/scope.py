@@ -12,7 +12,7 @@
 
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common import exception as r_exception
+from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.db import models1 as models
 from rucio.db.session import get_session
 
@@ -29,7 +29,7 @@ def add_scope(scope, account):
     result = session.query(models.Account).filter_by(account=account).first()
 
     if result is None:
-        raise r_exception.AccountNotFound('Account ID \'%s\' does not exist' % account)
+        raise AccountNotFound('Account ID \'%s\' does not exist' % account)
 
     values = {}
     values['scope'] = scope
@@ -41,9 +41,12 @@ def add_scope(scope, account):
 
     try:
         new_scope.save(session=session)
-    except IntegrityError:
+    except IntegrityError, e:
         session.rollback()
-        raise r_exception.Duplicate('Scope \'%s\' already exists!' % values['scope'])
+        if e.args[0] == "(IntegrityError) column scope is not unique":
+            raise Duplicate('Scope \'%s\' already exists!' % values['scope'])
+        else:
+            raise RucioException(e.args[0])
 
     session.commit()
 
@@ -58,7 +61,7 @@ def bulk_add_scopes(scopes, account, skipExisting=False):
     for scope in scopes:
         try:
             add_scope(scope, account)
-        except r_exception.Duplicate:
+        except Duplicate:
             if skipExisting:
                 pass
             else:
@@ -75,7 +78,7 @@ def get_scopes(account):
     result = session.query(models.Account).filter_by(account=account).first()
 
     if result is None:
-        raise r_exception.AccountNotFound('Account ID \'%s\' does not exist' % account)
+        raise AccountNotFound('Account ID \'%s\' does not exist' % account)
 
     scope_list = []
 

@@ -10,7 +10,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import json
+from json import loads
 from uuid import uuid4 as uuid
 
 from paste.fixture import TestApp
@@ -91,7 +91,27 @@ class TestScope():
 
         headers2 = {'Rucio-Auth-Token': str(token)}
         r2 = TestApp(scope_app.wsgifunc(*mw)).put('/testaccount/testscope', headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 500)
+        assert_equal(r2.status, 404)
+
+    def test_scope_duplicate(self):
+        """ SCOPE (REST): send a PUT to create a already existing scope to test the error"""
+        mw = []
+
+        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(r1.status, 200)
+
+        token = str(r1.header('Rucio-Auth-Token'))
+
+        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
+        r2 = TestApp(account_app.wsgifunc(*mw)).put('/testaccount', headers=headers2, expect_errors=True)
+        assert_equal(r2.status, 201)
+
+        headers3 = {'Rucio-Auth-Token': str(token)}
+        r3 = TestApp(scope_app.wsgifunc(*mw)).put('/testaccount/testscope', headers=headers3, expect_errors=True)
+        assert_equal(r3.status, 201)
+        r3 = TestApp(scope_app.wsgifunc(*mw)).put('/testaccount/testscope', headers=headers3, expect_errors=True)
+        assert_equal(r3.status, 409)
 
     def test_list_scope(self):
         """ SCOPE (REST): send a GET list all scopes for one account """
@@ -116,7 +136,7 @@ class TestScope():
 
         assert_equal(r4.status, 200)
 
-        svr_list = json.loads(r4.body)
+        svr_list = loads(r4.body)
         for scope in self.scopes:
             if scope not in svr_list:
                 assert_true(False)
@@ -136,8 +156,8 @@ class TestScope():
         r3 = TestApp(scope_app.wsgifunc(*mw)).get('/testaccount', headers=headers3, expect_errors=True)
 
         print r3.body
-        assert_equal(r3.status, 500)
-        assert_equal(r3.body.split(':')[0], 'AccountNotFound')
+        assert_equal(r3.status, 404)
+        assert_equal(r3.header('ExceptionClass'), 'AccountNotFound')
 
     def test_list_scope_no_scopes(self):
         """ SCOPE (REST): send a GET list all scopes for one account without scopes """
@@ -145,7 +165,6 @@ class TestScope():
 
         headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        print r1
         assert_equal(r1.status, 200)
 
         token = str(r1.header('Rucio-Auth-Token'))
@@ -158,8 +177,8 @@ class TestScope():
 
         r4 = TestApp(scope_app.wsgifunc(*mw)).get('/testaccount', headers=headers3, expect_errors=True)
 
-        assert_equal(r4.status, 500)
-        assert_equal(r4.body.split(':')[0], 'ScopeNotFound')
+        assert_equal(r4.status, 404)
+        assert_equal(r4.header('ExceptionClass'), 'ScopeNotFound')
 
 
 class xTestScopeClient():
