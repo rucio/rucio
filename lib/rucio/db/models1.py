@@ -313,6 +313,7 @@ class LocationFileAssociation(BASE, ModelBase):
     scope = Column(String(255))
     lfn = Column(String(255))
     pfn = Column(String(1024))
+    status = Column(String(255))
     _table_args = (PrimaryKeyConstraint('location_id', 'scope', 'lfn', name='FILE_REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='FILE_REPLICAS_SCOPE_LFN_FK'),
                    ForeignKeyConstraint(['location_id'], ['locations.id'], name='FILE_REPLICAS_LOCATION_ID_FK'),

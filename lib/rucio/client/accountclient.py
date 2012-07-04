@@ -101,3 +101,16 @@ class AccountClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.text)
             raise exc_cls(exc_msg)
+
+    def add_account_identity(self, accountName, identity, authtype, default=False):
+        """
+        Adds a membership association between identity and account.
+
+        :param accountName: The account name.
+        :param identity: The identity key name. For example x509 DN, or a username.
+        :param authtype: The type of the authentication (x509, gss, userpass).
+        :param default: If True, the account should be used by default with the provided identity.
+        """
+
+        path = 'account/%(accountName)s/%(authtype)s/' % locals()
+        url = build_url(self.host, path=path, use_ssl=self.use_ssl)

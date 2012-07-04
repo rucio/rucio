@@ -2,72 +2,187 @@
 Rucio RESTful API
 =================
 
-Each resource can be accessed or modified using specially formed URLs and the HTTP verbs GET, POST, PUT, and DELETE.
-Descriptions of the actions you may perform on each resource can be found below.
-
-
-Resources
-=========
-
-The following are the different resources that can be accessed or modified using the API.
-
- * Session token
- * Rucio account
- * Dataset
- * File
- * Meta-data attributes
- * Rucio Storage Element
- * Permission model
- * Replication rule
- * Transfer request
-
-We use the standard HTTP methods:
+Each resource can be accessed or modified using specially formed URLs and the standard HTTP methods:
 
  * GET to read
  * POST to create
- * PUT to update
+ * PUT to create/update
  * DELETE to remove
 
+.. note::
 
-Requesting a Rucio-Auth-Token with curl via username and password
------------------------------------------------------------------
+   PUT is idempotent and is used to create objects if the URL object names are created explicitly. If there is some server logic, like the server 
+   decides the ressource names, then POST is used. With POST you can have 2 requests coming in at the same time making modifications to a URL, and 
+   they may update different parts of the object.
 
-Add the necessary request headers, and retrieve the authentication token from the header::
-
-    curl -vvv -X GET -H "Rucio-Account: ddmlab" -H "Rucio-Username: mlassnig" -H "Rucio-Password: secret" http://localhost/auth/userpass
-
-Example response::
-
-* About to connect() to localhost port 80 (#0)
-*   Trying ::1... Connection refused
-*   Trying 127.0.0.1... connected
-* Connected to localhost (127.0.0.1) port 80 (#0)
-* GET /auth/userpass HTTP/1.1
-* User-Agent: curl/7.21.4 (universal-apple-darwin11.0) libcurl/7.21.4 OpenSSL/0.9.8r zlib/1.2.5
-* Host: localhost
-* Accept: */*
-* Rucio-Account: ddmlab
-* Rucio-Username: mlassnig
-* Rucio-Password: secret
-*
-* HTTP/1.1 200 OK
-* Content-Type: application/octet-stream
-* Rucio-Auth-Token: 65523e8dee194189ab537c3d624db0a0
-* Content-Length: 0
-* Date: Wed, 14 Mar 2012 10:33:51 GMT
-* Server: lighttpd/1.4.30
-*
-* Connection #0 to host localhost left intact
-* Closing connection #0
+We require that all requests are done over SSL. The API supports JSON formats. Rucio uses OAuth_ 
+to authenticate all API requests. The method is to get an authentication token, and use it for the rest of 
+the requests. Descriptions of the actions you may perform on each resource can be found below.
 
 
-Manually checking the validity of a Rucio-Auth-Token with curl
---------------------------------------------------------------
+.. _OAuth: http://oauth.net/
 
-You can then check the validity of the authentication token by issuing::
 
-    curl -X GET -H "Rucio-Account: ddmlab" -H "Rucio-Auth-Token: d97bc0a04b464df0a76bac6a95cf28ba" http://127.0.0.1/auth/validate
+Authentication
+==============
 
-An HTTP response of 200 OK means the token is valid, and the data returned is the expected lifetime of the token. In case the token is not valid, the response will be a HTTP 401 Unauthorized.
++------------------------------------+-----------------------------------------------------------+--------+
+| Resource                           | Description                                               | Status |
++====================================+===========================================================+========+
+| :ref:`GET auth/userpass`           | Retrieve an auth token with via username and password     |  OK    |
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET auth/x509`               | Retrieve an auth token with via a x509 certificate        |  OK    |
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET auth/gss`                | Retrieve an auth token with via a gss token               |  OK    |
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET auth/validate`           | Return accountname and expiration date, if token valid   |  OK    |
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET auth/register_api_token` | Authenticate a Rucio account for interaction with the API |  X     |
++------------------------------------+-----------------------------------------------------------+--------+
 
-Checking the validity of a token will extend its lifetime by one hour.
+Rucio account
+=============
+
++------------------------------------+-----------------------------------------------------------+--------+
+| Resource                           | Description                                               | Status |
++====================================+===========================================================+========+
+| :ref:`PUT account/{accountName}`   | Create account                                            |  OK    | 
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET account/{accountName}`   | Get account information                                   |  OK    | 
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET account/whoami`          | Get information about account whose token is used         |  OK    | 
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET account/`                | List available accounts                                   |  OK    |
++------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`DELETE account/{accountName}`| Disable an account                                        |  OK    | 
++------------------------------------+-----------------------------------------------------------+--------+
+
+Location
+========
+
++---------------------------------------+-----------------------------------------------------------+--------+
+| Resource                              | Description                                               | Status |
++=======================================+===========================================================+========+
+| :ref:`PUT location/{locationName}`    | Create a location                                         |  X     | 
++---------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET location/{locationName}`    | Get location information                                  |  X     | 
++---------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET location/`                  | List available locations                                  |  OK    |
++---------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`DELETE location/{locationName}` | Disable a location                                        |  X     |
++---------------------------------------+-----------------------------------------------------------+--------+
+
+
+Rucio Storage Element
+=====================
+
++-----------------------------------------------------+-----------------------------------------------------------+--------+
+| Resource                                            | Description                                               | Status |
++=====================================================+===========================================================+========+
+| :ref:`PUT /location/{locationName}/rse/{rseName}`    | Tag a location with a RSE                                 |  X     | 
++-----------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET rse/`                                     | List all RSEs                                             |  X     | 
++-----------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET location/{locationName}/rse/`             | List all RSEs associated to a location                    |  X     | 
++-----------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`DELETE location/{locationName}/rse/{rseName}` | Disable a RSE for a location                              |  X     | 
++-----------------------------------------------------+-----------------------------------------------------------+--------+
+
+
+Identity
+========
+
++-----------------------------------------------------------------------+-------------------------------------------------------------+--------+
+| Resource                                                              | Description                                                 | Status |
++=======================================================================+=============================================================+========+
+| :ref:`PUT account/{accountName}/identity/{x509|gss|userpass}/{id}`    | Grant an x509|gss|userpass identity access to an account    |  X     | 
++-----------------------------------------------------------------------+-------------------------------------------------------------+--------+
+| :ref:`GET account/{accountName}/identity/`                            | List all identities on an account                           |  X     | 
++-----------------------------------------------------------------------+-------------------------------------------------------------+--------+
+| :ref:`GET identity/{x509|gss|userpass}/{id}/account/`                 | List all account an identity is member of                   |  X     | 
++-----------------------------------------------------------------------+-------------------------------------------------------------+--------+
+| :ref:`DELETE account/{accountName}/identity/{x509|gss|userpass}/{id}` | Revoke an x509|gss|userpass identity's access to an account |  X     | 
++-----------------------------------------------------------------------+-------------------------------------------------------------+--------+
+
+
+Scope
+=====
+
++--------------------------------------------+-----------------------------------------------------------+--------+
+| Resource                                   | Description                                               | Status |
++============================================+===========================================================+========+
+| :ref:`PUT scope/{accountName}/{scopeName}` | Create a scope                                            |  OK    | 
++--------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET scope/{accountName}/`            | List available scope                                      |  X     | 
++--------------------------------------------+-----------------------------------------------------------+--------+
+
+
+Dataset
+=======
+
++----------------------------------------------------------+-----------------------------------------------------------+--------+
+| Resource                                                 | Description                                               | Status |
++==========================================================+===========================================================+========+
+| :ref:`POST scope/{scopeName}/dataset/{datasetName}`      | Register a dataset                                        |  X     | 
++----------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`PUT scope/{scopeName}/dataset/{datasetName}`       | Update dataset meta-data                                  |  X     | 
++----------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET scope/{scopeName}/dataset/{datasetName}/file/` | List dataset content                                      |  X     | 
++----------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`PUT scope/{scopeName}/dataset/file/{fileName}`     | Add a file to a dataset                                   |  X     | 
++----------------------------------------------------------+-----------------------------------------------------------+--------+
+
+File
+====
+
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| Resource                                                              | Description                                               | Status |
++=======================================================================+===========================================================+========+
+| :ref:`POST scope/{scopeName}/file/{fileName}/location/{locationName}` | Register a file                                           |  X     | 
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`PUT scope/{scopeName}/file/{fileName}`                          | Update file meta-data                                     |  X     | 
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET scope/{scopeName}/file/{fileName}/location/`                | List file replicas                                        |  X     | 
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+
+
+Replication rule & Transfer request
+===================================
+
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| Resource                                                              | Description                                               | Status |
++=======================================================================+===========================================================+========+
+| :ref:`POST copy/`                                                     | Register transfer requests                                |  X     | 
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET copy/<transfer_id>`                                         | Query transfer status                                     |  X     | 
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`POST replication/`                                              | Register a replication rule                               |  X     | 
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET replication/`                                               | List replication rules                                    |  X     | 
++-----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+
+
+Subscriptions
+=============
+
++----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| Resource                                                             | Description                                               | Status |
++======================================================================+===========================================================+========+
+| :ref:`POST subscription/account/{accountName}/`                      | Register a subscription                                   |  X     | 
++----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`DELETE subscription/{subscription_id}`                         | Delete a subscription                                     |  X     | 
++----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET subscription/{subscription_id}`                            | Get subscription info                                     |  X     | 
++----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+| :ref:`GET subscription/`                                             | List all subscriptions                                    |  X     | 
++----------------------------------------------------------------------+-----------------------------------------------------------+--------+
+
+
+.. Status legend:
+.. Stable - feature complete, no major changes planned
+.. Beta - usable for integrations with some bugs or missing minor functionality
+.. Alpha - major functionality in place, needs feedback from API users and integrators
+.. Prototype - very rough implementation, possible major breaking changes mid-version. Not recommended for integration
+.. Planned - planned in a future version, depending on developer availability
+
+

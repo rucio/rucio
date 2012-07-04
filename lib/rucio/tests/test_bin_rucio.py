@@ -8,67 +8,72 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
+
 from paste.fixture import TestApp
+from re import compile
 from nose.tools import *
+from uuid import uuid4 as uuid
 
 from rucio import version
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.tests.common import execute
 
 
-class TestBinRucio():
+class xTestBinRucio():
 
     def setUp(self):
         # sudo apachectl restart
-        build_database()
-        create_root_account()
+        # build_database()
+        # create_root_account()
+        self.test_account = 'jdoe-' + str(uuid())
+        self.test_location = 'MOCK-' + str(uuid())
 
     def tearDown(self):
         # sudo apachectl stop
-        destroy_database()
+        # destroy_database()
+        pass
 
-    # FIXME: Disabled for now
-    def xtest_rucio_version(self):
+    def test_rucio_version(self):
+        """CLI: Get Version"""
         cmd = 'bin/rucio --version'
         exitcode, out, err = execute(cmd)
         assert_equal(err, 'rucio %s\n' % version.version_string())
 
-    # FIXME: Disabled for now
-    def xtest_cli_add_account(self):
-        """ACCOUNT (CLI): Add account"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret account add jdoe'
+    def test_cli_add_list_delete_account(self):
+        """ACCOUNT (CLI): Add/List/Delete account"""
+
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root \
+               --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  account add {self.test_account}'.format(self=self)
         exitcode, out, err = execute(cmd)
         assert_equal(out, '')
         assert_equal(exitcode, 0)
 
-    # FIXME: Disabled for now
-    def xtest_cli_disable_account(self):
-        """ACCOUNT (CLI): Disable account"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret  account disable jdoe'
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root\
+              --user=ddmlab -pwd=secret  --ca-certificate=etc/web/ca.crt  account list'.format(self=self)
+        exitcode, out, err = execute(cmd)
+        expected_regexp = '.*{self.test_account}.*'.format(self=self)
+        result = compile(expected_regexp).search(out)
+        assert_false(result == None, '%(expected_regexp)s Versus: %(out)s' % locals())
+        assert_equal(exitcode, 0)
+
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root\
+               --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  account disable {self.test_account}'.format(self=self)
         exitcode, out, err = execute(cmd)
         assert_equal(out, '')
         assert_equal(exitcode, 0)
 
-    # FIXME: Disabled for now
-    def xtest_cli_list_accounts(self):
-        """ACCOUNT (CLI): List account"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret  account list'
-        exitcode, out, err = execute(cmd)
-        assert_equal(out, 'jdoe\n')
-        assert_equal(exitcode, 0)
+    def test_cli_add_list_delete_location(self):
+        """LOCATION (CLI): Add/List location"""
 
-    # FIXME: Disabled for now
-    def xtest_cli_add_location(self):
-        """LOCATION (CLI): Add location"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret location add MOCK'
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root\
+             --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  location add {self.test_location}'.format(self=self)
         exitcode, out, err = execute(cmd)
         assert_equal(out, '')
         assert_equal(exitcode, 0)
 
-    # FIXME: Disabled for now
-    def xtest_cli_list_locations(self):
-        """LOCATION (CLI): List locations"""
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret  location list'
+        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  location list'.format(self=self)
         exitcode, out, err = execute(cmd)
-        assert_equal(out, 'MOCK\n')
+        expected_regexp = '.*{self.test_location}.*'.format(self=self)
+        result = compile(expected_regexp).search(out)
+        assert_false(result == None, '%(expected_regexp)s Versus: %(out)s' % locals())
         assert_equal(exitcode, 0)
