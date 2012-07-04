@@ -81,7 +81,7 @@ Using Rucio: API
     meta-data
     permission
     identity
-    service_availability
+..    service_availability
     rse
     replica
     rule

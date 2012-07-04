@@ -56,6 +56,10 @@ class Account:
         if auth is None:
             raise web.Unauthorized()
 
+        if accountName == 'whoami':
+            # Redirect to the account uri
+            raise web.seeother(auth[0])
+
         acc = None
         try:
             acc = account.get_account_info(accountName)
