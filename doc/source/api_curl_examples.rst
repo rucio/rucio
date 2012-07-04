@@ -118,25 +118,25 @@ Get account information
 
 .. _`GET account/whoiam`:
 
-`GET account/whoiam`
+`GET account/whoami`
 """"""""""""""""""""
 
 Get information about account whose token is used to sign the request.
 
 **Example Request**
 
-.. literalinclude:: curl_examples/get_account_whoiam.sh
+.. literalinclude:: curl_examples/get_account_whoami.sh
    :lines: 2
 
 **Example Response**
 
-.. literalinclude:: curl_examples/get_account_whoiam.out
+.. literalinclude:: curl_examples/get_account_whoami.out
 
 
 .. _`GET account`:
 
-`GET account`
-"""""""""""""
+`GET account/`
+""""""""""""""
 
 List available accounts.
 
