@@ -116,7 +116,7 @@ Get account information
 
 .. literalinclude:: curl_examples/get_account.out
 
-.. _`GET account/whoiam`:
+.. _`GET account/whoami`:
 
 `GET account/whoami`
 """"""""""""""""""""
@@ -133,7 +133,7 @@ Get information about account whose token is used to sign the request.
 .. literalinclude:: curl_examples/get_account_whoami.out
 
 
-.. _`GET account`:
+.. _`GET account/`:
 
 `GET account/`
 """"""""""""""
