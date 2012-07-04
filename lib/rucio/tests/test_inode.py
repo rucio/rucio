@@ -203,6 +203,31 @@ class TestInode:
         obsolete_inode(self.scope_misc, lfn2, self.user)
         assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
 
+    def test_api_obosolete_inodes_and_do_wildcard_search(self):
+        """ INODE (CORE): List obsolete inodes with scope and name wildcard search """
+        dsn1 = 'test1 %s' % str(uuid())
+        dsn2 = 'test1 %s' % str(uuid())
+        lfn1 = 'test1 %s' % str(uuid())
+        lfn2 = 'test1 %s' % str(uuid())
+        try:
+            add_scope('testing_scope', self.user)
+        except exception.Duplicate:
+            pass
+        register_dataset('testing_scope', dsn1, self.user)
+        register_dataset('testing_scope', dsn2, self.user)
+        register_file('testing_scope', lfn1, self.user)
+        register_file('testing_scope', lfn2, self.user)
+        assert_equal(set(list_inodes(self.user, 'testing*', 'test*')), set([dsn1, dsn2, lfn1, lfn2]))
+        assert_equal(set(list_inodes(self.user, 'testing*', 'test*', obsolete=False)), set([dsn1, dsn2, lfn1, lfn2]))
+        assert_equal(set(list_inodes(self.user, 'testing*', 'test*', obsolete=True)), set([dsn1, dsn2, lfn1, lfn2]))
+        obsolete_inode('testing_scope', dsn1, self.user)
+        obsolete_inode('testing_scope', dsn2, self.user)
+        obsolete_inode('testing_scope', lfn1, self.user)
+        obsolete_inode('testing_scope', lfn2, self.user)
+        assert_equal(list_inodes(self.user, 'testing*', 'test*', obsolete=False), [])
+        assert_equal(list_inodes(self.user, 'testing*', 'test*'), [])
+        assert_equal(set(list_inodes(self.user, 'testing*', 'test*', obsolete=True)), set([dsn1, dsn2, lfn1, lfn2]))
+
    # Error Handling: Obsolete datasets and getting dataset obsolete state
 
     @raises(exception.InodeNotFound)
