@@ -102,7 +102,7 @@ try:
 
     class local_BuildDoc(BuildDoc):
         def run(self):
-            for builder in ['html', 'man', 'latex']:
+            for builder in ['html']:   # 'man','latex'
                 self.builder = builder
                 self.finalize_options()
                 BuildDoc.run(self)
