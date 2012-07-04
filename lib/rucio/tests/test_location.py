@@ -40,15 +40,13 @@ class TestLocationCoreApi():
         assert_equal(location_exists(invalid_location), False)
         del_location(location)
 
+    @raises(Duplicate)
     def test_create_and_create_for_location(self):
         """ LOCATION (CORE): Test the double creation of the same location """
-        try:
-            location = 'MOCK'
-            add_location(location)
-            assert_equal(location_exists(location), True)
-            add_location(location)
-        except Duplicate:
-            assert_true(True)
+        location = 'MOCK'
+        add_location(location)
+        assert_equal(location_exists(location), True)
+        add_location(location)
 
     def test_list_locations(self):
         """ LOCATION (CORE): Test the listing of all locations """
@@ -70,7 +68,7 @@ class TestLocation():
         destroy_database()
 
     def test_create_location_success(self):
-        """ LOCATION (REST): send a POST to create a new location """
+        """ LOCATION (REST): send a PUT to create a new location """
         mw = []
 
         headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
@@ -80,7 +78,7 @@ class TestLocation():
         token = str(r1.header('Rucio-Auth-Token'))
 
         headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(location_app.wsgifunc(*mw)).post('/MOCK', headers=headers2, expect_errors=True)
+        r2 = TestApp(location_app.wsgifunc(*mw)).put('/MOCK', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 201)
 
     def test_list_locations(self):
@@ -94,7 +92,7 @@ class TestLocation():
         token = str(r1.header('Rucio-Auth-Token'))
 
         headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(location_app.wsgifunc(*mw)).post('/MOCK', headers=headers2, expect_errors=True)
+        r2 = TestApp(location_app.wsgifunc(*mw)).put('/MOCK', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}

@@ -40,7 +40,7 @@ class AccountClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.text)
+            exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
     def disable_account(self, accountName):
@@ -60,7 +60,7 @@ class AccountClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.text)
+            exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
     def get_account(self, accountName):
@@ -80,7 +80,7 @@ class AccountClient(BaseClient):
             acc = loads(r.text)
             return acc
         else:
-            exc_cls, exc_msg = self._get_exception(r.text)
+            exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
     def list_accounts(self):
@@ -99,7 +99,7 @@ class AccountClient(BaseClient):
             accounts = loads(r.text)
             return accounts
         else:
-            exc_cls, exc_msg = self._get_exception(r.text)
+            exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
     def add_account_identity(self, accountName, identity, authtype, default=False):

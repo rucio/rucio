@@ -7,18 +7,20 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-import json
-import logging
-import web
 
-from rucio.api import location as location_api
+from json import dumps
+from logging import getLogger, StreamHandler, DEBUG
+from web import application, ctx, header, BadRequest, Created, InternalError, HTTPError, Unauthorized
+
+from rucio.api.location import add_location, list_locations
+from rucio.common.exception import Duplicate
 from rucio.core.authentication import validate_auth_token
-from rucio.common import exception as r_exception
 
-logger = logging.getLogger("rucio.location")
-sh = logging.StreamHandler()
-sh.setLevel(logging.DEBUG)
+logger = getLogger("rucio.location")
+sh = StreamHandler()
+sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
@@ -30,36 +32,41 @@ urls = (
 class Location:
     """ create, update, get and disable rucio location. """
 
-    def POST(self, Location):
+    def PUT(self, Location):
         """ create rse with given location name.
 
         HTTP Success:
             201 Created
 
         HTTP Error:
+            401 Unauthorized
+            409 Conflict
             500 Internal Error
 
         :param Rucio-Account: Location identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
         """
 
-        web.header('Content-Type', 'application/octet-stream')
+        header('Content-Type', 'application/octet-stream')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
         try:
-            location_api.add_location(Location)
-        except r_exception.Duplicate, e:
-            raise web.InternalError(e)
+            add_location(Location)
+        except Duplicate, e:
+            status = '409 Conflict'
+            headers = {'ExceptionClass': 'Duplicate', 'ExceptionMessage': e[0][0]}
+            data = ' '.join(['Duplicate:', str(e)])
+            raise HTTPError(status, headers=headers, data=data)
         except Exception, e:
-            raise web.InternalError(e)
+            raise InternalError(e)
 
-        raise web.Created()
+        raise Created()
 
 
 class LocationList:
@@ -78,32 +85,32 @@ class LocationList:
         :returns: A list containing all location names.
         """
 
-        web.header('Content-Type', 'application/json')
+        header('Content-Type', 'application/json')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
-        return json.dumps(location_api.list_locations())
+        return dumps(list_locations())
 
     def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 """----------------------
    Web service startup
 ----------------------"""
 
-app = web.application(urls, globals())
+app = application(urls, globals())
 application = app.wsgifunc()

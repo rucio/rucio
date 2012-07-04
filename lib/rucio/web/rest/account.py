@@ -8,18 +8,18 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-import logging
-import json
-import web
-import datetime
+from datetime import datetime
+from json import dumps
+from logging import getLogger, StreamHandler, DEBUG
+from web import application, ctx, header, BadRequest, Created, InternalError, HTTPError, OK, Unauthorized
 
-from rucio.api import account
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts
+from rucio.common.exception import AccountNotFound, Duplicate
 from rucio.core.authentication import validate_auth_token
-from rucio.common import exception as r_exception
 
-logger = logging.getLogger("rucio.account")
-sh = logging.StreamHandler()
-sh.setLevel(logging.DEBUG)
+logger = getLogger("rucio.account")
+sh = StreamHandler()
+sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
@@ -40,6 +40,7 @@ class Account:
 
         HTTP Error:
             401 Unauthorized
+            404 Not Found
             500 InternalError
 
         :param Rucio-Account: Account identifier.
@@ -47,14 +48,14 @@ class Account:
         :returns: JSON dict containing informations about the requested user.
         """
 
-        web.header('Content-Type', 'application/json')
+        header('Content-Type', 'application/json')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
         if accountName == 'whoami':
             # Redirect to the account uri
@@ -62,24 +63,27 @@ class Account:
 
         acc = None
         try:
-            acc = account.get_account_info(accountName)
-        except r_exception.AccountNotFound, e:
-            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
+            acc = get_account_info(accountName)
+        except AccountNotFound, e:
+            status = '404 Not Found'
+            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
+            data = ' '.join(['AccountNotFound:', str(e)])
+            raise HTTPError(status, headers=headers, data=data)
 
         dict = acc.to_dict()
 
         for key, value in dict.items():
-            if isinstance(value, datetime.datetime):
+            if isinstance(value, datetime):
                 dict[key] = value.strftime('%Y-%m-%dT%H:%M:%S')
 
         del dict['_sa_instance_state']
 
-        return json.dumps(dict)
+        return dumps(dict)
 
     def POST(self, accountName):
         """ update account informations for given account name """
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def PUT(self, accountName):
         """ create account with given account name.
@@ -89,6 +93,7 @@ class Account:
 
         HTTP Error:
             401 Unauthorized
+            409 Conflict
             500 Internal Error
 
         :param Rucio-Account: Account identifier.
@@ -96,28 +101,31 @@ class Account:
         :params Rucio-Type: the type of the new account.
         """
 
-        web.header('Content-Type', 'application/octet-stream')
+        header('Content-Type', 'application/octet-stream')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
-        type = web.ctx.env.get('HTTP_RUCIO_TYPE')
+        type = ctx.env.get('HTTP_RUCIO_TYPE')
 
         if type is None:
-            raise web.InternalError('Rucio-Type has to be set')
+            raise InternalError('Rucio-Type has to be set')
 
         try:
-            account.add_account(accountName, type)
-        except r_exception.Duplicate, e:
-            raise web.InternalError(' '.join(['Duplicate:', str(e)]))
+            add_account(accountName, type)
+        except Duplicate as e:
+            status = '409 Conflict'
+            headers = {'ExceptionClass': 'Duplicate', 'ExceptionMessage': e[0][0]}
+            data = ' '.join(['Duplicate:', str(e)])
+            raise HTTPError(status, headers=headers, data=data)
         except Exception, e:
-            raise web.InternalError(e)
+            raise InternalError(e)
 
-        raise web.Created()
+        raise Created()
 
     def DELETE(self, accountName):
         """ disable account with given account name.
@@ -127,27 +135,31 @@ class Account:
 
         HTTP Error:
             401 Unauthorized
+            404 Not Found
             500 InternalError
 
         :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
         """
 
-        web.header('Content-Type', 'application/octet-stream')
+        header('Content-Type', 'application/octet-stream')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
         try:
-            account.del_account(accountName)
-        except r_exception.AccountNotFound, e:
-            raise web.InternalError(' '.join(['AccountNotFound:', str(e)]))
+            del_account(accountName)
+        except AccountNotFound, e:
+            status = '404 Not Found'
+            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
+            data = ' '.join(['AccountNotFound:', str(e)])
+            raise HTTPError(status, headers=headers, data=data)
 
-        raise web.OK()
+        raise OK()
 
 
 class AccountList:
@@ -166,53 +178,52 @@ class AccountList:
         :returns: A list containing all account names.
         """
 
-        web.header('Content-Type', 'application/json')
+        header('Content-Type', 'application/json')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
 
-        return json.dumps(account.list_accounts())
+        return dumps(list_accounts())
 
     def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 class AccountLimits:
     def GET(self, accountName):
         """ get the current limits for an account """
-
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self):
         """ update the limits for an account """
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
         """ set the limits for an account """
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 """----------------------
    Web service startup
 ----------------------"""
 
-app = web.application(urls, globals())
+app = application(urls, globals())
 application = app.wsgifunc()
