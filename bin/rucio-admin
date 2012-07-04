@@ -54,7 +54,10 @@ Adds a new account. Specify metadata fields as arguments.
     else:
         creds = {}
 
-    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
+    accountClient = AccountClient(host=args.host, port=args.port,
+                                  account=args.account, use_ssl=True,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate)
     try:
         accountClient.create_account(args.acnt)
     except Exception, e:
@@ -66,7 +69,7 @@ Adds a new account. Specify metadata fields as arguments.
 
 def disable_account(args):
     """
-%(prog)s del [options] <field1=value1 field2=value2 ...>
+%(prog)s disable [options] <field1=value1 field2=value2 ...>
 
 Disable account.
 
@@ -77,7 +80,11 @@ Disable account.
     else:
         creds = {}
 
-    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
+    accountClient = AccountClient(host=args.host, port=args.port,
+                                  account=args.account, use_ssl=True,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate)
+
     try:
         accountClient.disable_account(args.acnt)
     except Exception, e:
@@ -89,7 +96,7 @@ Disable account.
 
 def list_accounts(args):
     """
-%(prog)s del [options] <field1=value1 field2=value2 ...>
+%(prog)s list [options] <field1=value1 field2=value2 ...>
 
 List accounts.
 
@@ -100,7 +107,11 @@ List accounts.
     else:
         creds = {}
 
-    accountClient = AccountClient(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
+    accountClient = AccountClient(host=args.host, port=args.port,
+                                  account=args.account, use_ssl=True,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate)
+
     try:
         accounts = accountClient.list_accounts()
     except Exception, e:
@@ -112,6 +123,57 @@ List accounts.
         print acnt
 
     return SUCCESS
+
+
+def show_account(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Show extended information of a given account
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = {}
+
+    accountClient = AccountClient(host=args.host, port=args.port,
+                                  account=args.account, use_ssl=True,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate)
+
+    try:
+        info = accountClient.get_account(accountName=args.acnt)
+    except Exception, e:
+            print 'Failed to show account'
+            print e
+            return FAILURE
+
+    for k in info:
+        print k.ljust(10) + ' : ' + str(info[k])
+
+    return SUCCESS
+
+
+def identity_add(args):
+    """
+%(prog)s del [options] <field1=value1 field2=value2 ...>
+
+Grant an identity access to an account.
+
+    """
+    pass
+
+
+def identity_delete(args):
+    """
+%(prog)s del [options] <field1=value1 field2=value2 ...>
+
+Revoke an identity's access to an account.
+
+    """
+    pass
 
 
 def add_location(args):
@@ -127,7 +189,11 @@ Adds a new location. Specify metadata fields as arguments.
     else:
         creds = {}
 
-    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
+    client = Client(host=args.host, port=args.port,
+                    account=args.account, use_ssl=True,
+                    auth_type=args.auth_strategy, creds=creds,
+                    ca_cert=args.ca_certificate)
+
     try:
         client.create_location(args.location)
     except Exception, e:
@@ -150,7 +216,10 @@ Disable location.
     else:
         creds = {}
 
-    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
+    client = Client(host=args.host, port=args.port,
+                    account=args.account, use_ssl=True,
+                    auth_type=args.auth_strategy, creds=creds,
+                    ca_cert=args.ca_certificate)
     try:
         client.disable_location(args.location)
     except Exception, e:
@@ -173,7 +242,10 @@ List locations.
     else:
         creds = {}
 
-    client = Client(host=args.host, port=args.port, account=args.account, use_ssl=True, auth_type=args.auth_strategy, creds=creds)
+    client = Client(host=args.host, port=args.port,
+                    account=args.account, use_ssl=True,
+                    auth_type=args.auth_strategy, creds=creds,
+                    ca_cert=args.ca_certificate)
     try:
         locations = client.list_locations()
     except Exception, e:
@@ -195,7 +267,7 @@ Commands:
     help <command>  Output help for one of the commands below
 
 """
-    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), usage=usage.strip(), add_help=False)
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=False)
     subparsers = oparser.add_subparsers()
 
     # Main arguments
@@ -205,14 +277,15 @@ Commands:
     oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_PORT, help="Port the Rucio API host listens on. " "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default='userpass', help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-T', '--timeout=', dest="timeout", default=None, help="set all timeout values to SECONDS")
+
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+
     # Options for the x509  auth_strategy
-
-
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file')
-    oparser.add_argument('--ca-certificate', dest='ca-certificate', default=None, help='CA certificate to verify peer against (SSL)')
+    oparser.add_argument('--ca-certificate', dest='ca_certificate', default=None, help='CA certificate to verify peer against (SSL)')
 
     # The account subparser
     account_parser = subparsers.add_parser('account', help='Account methods')
@@ -231,6 +304,25 @@ Commands:
     disable_account_parser = account_subparser.add_parser('disable', help='Disable Rucio account')
     disable_account_parser.set_defaults(which='disable_account')
     disable_account_parser.add_argument('acnt', action='store', help='Account name')
+
+    # The show_account command
+    show_account_parser = account_subparser.add_parser('show', help='Show detailed information about an account')
+    show_account_parser.set_defaults(which='show_account')
+    show_account_parser.add_argument('acnt', action='store', help='Account name')
+
+    # The identity_add command
+    identity_add_parser = account_subparser.add_parser('identity_add', help='Grant an identity access to an account')
+    identity_add_parser.set_defaults(which='identity_add')
+    identity_add_parser.add_argument('acnt', action='store', help='Account name')
+    identity_add_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
+    identity_add_parser.add_argument('identity', action='store', help='Identity')
+
+    # The identity_delete command
+    identity_delete_parser = account_subparser.add_parser('identity_delete', help="Revoke an identity's access to an account")
+    identity_delete_parser.set_defaults(which='identity_delete')
+    identity_delete_parser.add_argument('acnt', action='store', help='Account name')
+    identity_delete_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
+    identity_delete_parser.add_argument('identity', action='store', help='Identity')
 
     # The location subparser
     location_parser = subparsers.add_parser('location', help='Location methods')
@@ -254,6 +346,9 @@ Commands:
                 'add_account': add_account,
                 'list_accounts': list_accounts,
                 'disable_account': disable_account,
+                'show_account': show_account,
+                'identity_add': identity_add,
+                'identity_delete': identity_delete,
                 'add_location': add_location,
                 'list_locations': list_locations,
                 'disable_location': disable_location,
