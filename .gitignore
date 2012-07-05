@@ -17,6 +17,9 @@ etc/web/lighttpd*.conf
 # ignore test proxies
 etc/web/*.proxy
 
+# ignore MANIFEST file
+MANIFEST
+
 # build directories
 .coverage
 build/
