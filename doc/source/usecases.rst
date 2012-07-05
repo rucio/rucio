@@ -1,3 +1,10 @@
+..
+      Copyright European Organization for Nuclear Research (CERN)
+
+      Licensed under the Apache License, Version 2.0 (the "License");
+      You may not use this file except in compliance with the License.
+      You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
 --------
 Usecases
 --------
@@ -7,20 +14,22 @@ Usecases
 Usecases covered by Rucio
 =========================
 
+
 The following usecases are handled by Rucio and should be described with
 sequence diagrams.
 
-* register account
-* add identity
-* authenticate
-* register file already on storage system
-* register dataset from files on storage system
-* :doc:`usecase_upload_file_into_rucio`
-* upload file into rucio with replication
-* declare file unwanted
-* declare dataset unwanted
-* where are the replicas for file
-* where are the replicas for all files in dataset
-* add metadata to file
-* add metadata to dataset
-* declare file as lost
+* Register account
+* Add identity to an account
+* :doc:`usecases/authentication`
+* Register file already on storage system
+* Register a dataset with files
+* :doc:`usecases/usecase_upload_file_into_rucio`
+* Upload file into rucio with replication
+* Declare file unwanted
+* Declare dataset unwanted
+* Where are the replicas for file
+* Where are the replicas for all files in dataset
+* Add metadata to file
+* Add metadata to dataset
+* Declare file as lost
+* Obsolete a dataset
