@@ -11,8 +11,8 @@
 
 import pysftp
 
+from rucio.common import exception
 from rucio.rse.protocols import protocol
-from rucio.rse.rseexception import RSEException
 
 
 class Default(protocol.RSEProtocol):
@@ -56,14 +56,14 @@ class Default(protocol.RSEProtocol):
             :param pfn Physical file name
 
             :returns: True if the file exists, False if it doesn't
+            :raise ServiceUnavailable
         """
         status = ''
         try:
             cmd = 'stat ' + self.pfn2uri(pfn)
             status = self.__connection.execute(cmd)
-        except Exception:
-            # raise RSEException(500, 'Failed using storage system.', data={'exception': e, 'id': self.rse.static['url'], 'credentials': credentials})
-            raise RSEException(500, 'Failed using storage system.', data={'id': self.rse.static['url']})  # TODO: where does 'e', 'credentials' come from?
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
         if status[0].startswith('stat: cannot stat'):
             return False
         return True
@@ -78,53 +78,55 @@ class Default(protocol.RSEProtocol):
                 For details about possible additional parameters and details about their usage
                 see the pysftp.Connection() documentation.
                 NOTE: the host parametrer is overwritten with the value provided by the repository
+            :raise FailedToLogin
         """
         try:
             credentials['host'] = self.rse.static['url']
             self.__connection = pysftp.Connection(**credentials)
         except Exception as e:
-            raise RSEException(500, 'Failed to log-in into ' + self.rse.static['url'], data={'exception': e, 'id': self.rse.static['url'], 'credentials': credentials})
+            raise exception.FailedToLogin({'exception': e, 'storageurl': self.rse.static['url'], 'credentials': credentials})
 
     def get(self, pfn, dest):
         """ Provides access to files stored inside the storage system.
 
             :param pfn Physical file name of requested file
             :param dest Name and path of the files when stored at the client
+            :raises FileNotFound
         """
 
-        status = ''
         try:
-            status = self.__connection.get(self.pfn2uri(pfn), dest)
+            self.__connection.get(self.pfn2uri(pfn), dest)
         except IOError as e:
-            raise RSEException(404, 'Error while requesting file', data={'exception': e, 'status': str(status)})
+            raise exception.FileNotFound(str(e))
 
     def put(self, pfn, source_path):
         """ Allows to store files inside the referred storage system.
 
             :param pfn Physical file name
             :param source_path Path where the to be transferred files are stored in the local file system
+            :raises ServiceUnavailable, FileNotFound
         """
-        status = ""
+        source = source_path + '/' + pfn if source_path else pfn
         try:
-            source = source_path + '/' + pfn if source_path else pfn
-            status = self.__connection.put(source, self.pfn2uri(pfn))
+            self.__connection.put(source, self.pfn2uri(pfn))
             self.__register_file(pfn)
         except IOError as e:
             if not self.exists(self.rse.static['pfn_prefix']):
                 cmd = 'mkdir '
                 for p in self.rse.static['pfn_prefix'].split('/'):
                     cmd += p + '/'
-                    status = self.__connection.execute(cmd)
-                self.put(pfn, source_path)
+                    self.__connection.execute(cmd)
+                self.__connection.put(source, self.pfn2uri(pfn))
             else:
-                raise RSEException(404, 'Error while puting file', data={'exception': e, 'status': str(status)})
+                raise exception.ServiceUnavailable(e)
         except OSError as e:
-            raise RSEException(404, 'Error while puting file', data={'exception': e, 'status': str(status)})
+            raise exception.FileNotFound('Local file %s not found' % source)
 
     def delete(self, pfn):
         """ Deletes a file from the referred storage system.
 
             :param pfn Physical file name
+            :raise FileNotFound
         """
         status = ''
         try:
@@ -132,9 +134,9 @@ class Default(protocol.RSEProtocol):
             status = self.__connection.execute(cmd)
             self.__unregister_file(pfn)
         except Exception as e:
-            raise RSEException(404, 'Error while deleting file', data={'exception': e, 'status': str(status)})
+            raise exception.ServiceUnavailable(e)
         if len(status):
-            raise RSEException(404, 'Error while deleting file', data={'status': str(status)})
+            raise exception.ServiceUnavailable(str(status))
 
     def close(self):
         """ Closes the current connection to the storage system. """

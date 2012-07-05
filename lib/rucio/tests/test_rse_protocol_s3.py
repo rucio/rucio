@@ -13,10 +13,11 @@ import json
 import os
 import subprocess
 
+from nose.tools import *
 from S3.Exceptions import S3Error
 
+from rucio.common import exception
 from rucio.rse import rse
-from rucio.rse.rseexception import RSEException
 
 
 class TestRseSFTP():
@@ -60,40 +61,28 @@ class TestRseSFTP():
         """S3 (RSE/PROTOCOLS): Requesting file from swift.cern.ch """
         self.storage.get(['1_swift_rse.raw', '2_swift_rse.raw'], '/tmp/rucio/remote')
 
+    @raises(exception.FileNotFound)
     def test_get_failure(self):
         """S3 (RSE/PROTOCOLS): Request none-existing file from given storage """
-        try:
-            self.storage.get(['not_existing_data.raw'])
-        except RSEException as e:
-            if e.error_id == 404:
-                return
-        raise Exception('This should have thrown an error with ID 404')
+        self.storage.get(['not_existing_data.raw'])
 
     def test_put_success(self):
         """S3 (RSE/PROTOCOLS): Put local file to server """
         self.storage.put(['1_local_rse_1M.raw', '2_local_rse_1M.raw'], '/tmp/rucio/local')
 
+    @raises(exception.FileNotFound)
     def test_put_failure(self):
         """S3 (RSE/PROTOCOLS): Put none-existing local file to server """
-        try:
-            self.storage.put(['not_existing_data.raw'], '/tmp/rucio/local')
-        except RSEException as e:
-            if e.error_id == 404:
-                return
-        raise Exception('This should have thrown an error with ID 404')
+        self.storage.put(['not_existing_data.raw'], '/tmp/rucio/local')
 
     def test_delete_success(self):
         """S3 (RSE/PROTOCOLS): Delete file from server """
         self.storage.delete(['1_swift_rse.raw', '2_swift_rse.raw'])
 
+    @raises(exception.FileNotFound)
     def test_delete_failure(self):
         """S3 (RSE/PROTOCOLS): Delete none-existing file from server """
-        try:
-            self.storage.delete(['not_existing_data.raw'])
-        except RSEException as e:
-            if e.error_id == 404:
-                return
-        raise Exception('This should have thrown an error with ID 404')
+        self.storage.delete(['not_existing_data.raw'])
 
     def test_exists_success(self):
         """S3 (RSE/PROTOCOLS): Check if existing file is found by exists """
