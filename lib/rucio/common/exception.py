@@ -168,3 +168,39 @@ class InputValidationError(RucioException):
     def __init__(self, *args, **kwargs):
         super(InputValidationError, self).__init__(args, kwargs)
         self._message = "There is an error with one of the input parameters."
+
+
+class SwitchProtocol(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(SwitchProtocol, self).__init__(args, kwargs)
+        self._message = "Protocol not supported."
+
+
+class RSERepositoryNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSERepositoryNotFound, self).__init__(args, kwargs)
+        self._message = "Unable to locate RSE-Repository."
+
+
+class RSENotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSENotFound, self).__init__(args, kwargs)
+        self._message = "Referred storage system not defined in RSE-Repositories."
+
+
+class FailedToLogin(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FailedToLogin, self).__init__(args, kwargs)
+        self._message = "Unable to login at the referred storage system."
+
+
+class AccessDenied(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(AccessDenied, self).__init__(args, kwargs)
+        self._message = "Access to the requested resource denied."
+
+
+class ServiceUnavailable(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ServiceUnavailable, self).__init__(args, kwargs)
+        self._message = "The requested service is not available at the moment."
