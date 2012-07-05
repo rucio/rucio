@@ -12,7 +12,7 @@ import json
 import os
 import pprint
 
-from rucio.rse.rseexception import RSEException
+from rucio.common import exception
 
 path_to_repo = {'global': 'etc/rse.repository', 'local': []}
 
@@ -37,7 +37,7 @@ def add_local_repository(path):
     if os.path.isfile(path):
         path_to_repo['local'].append(path)
     else:
-        raise RSEException(404, 'Local repository not found', data={'path': path})
+        raise exception.RSERepositoryNotFound('Local repository %s not found' % path)
 
 
 class RucioStorageElement(object):
@@ -84,7 +84,7 @@ class RucioStorageElement(object):
                 if p == kwarg['protocol']:
                     self.instance['protocol_id'] = kwarg['protocol']
         if self.instance['protocol_id'] == None:
-            raise RSEException(101, 'Switching Protocols', data={'protocols': json.dumps(self._rse_properties['static']['protocols'])})
+            raise exception.SwitchProtocols({'protocols': json.dumps(self._rse_properties['static']['protocols'])})
         self.__create_protocol_instance()
 
     def __get_repo_data(self):
@@ -94,14 +94,14 @@ class RucioStorageElement(object):
         data = json.load(open(path_to_repo['global']))
         try:
             for loc_repo in path_to_repo['local']:
-                data = json.load(open(loc_repo))
+                data.update(json.load(open(loc_repo)))
         except Exception as e:
-            raise RSEException(404, 'Failed to open repository', data={'repos': path_to_repo, 'exception': e})
+            raise exception.RSERepositoryNotFound({'repos': path_to_repo, 'exception': e})
         if self.instance['site_id'] in data:
             self.dynamic = data[self.instance['site_id']]['dynamic']
             self.static = data[self.instance['site_id']]['static']
         else:
-            raise RSEException(404, 'Storage not defined in the repository', data={'repos': path_to_repo})
+            raise exception.RSENotFound('RSE %s not found in %s' % (self.instance['site_id'], path_to_repo))
 
     def __create_protocol_instance(self):
         """ Instantiates the protocol class defined in the object. """
@@ -185,7 +185,7 @@ class RucioStorageElement(object):
         if dest != None:
             dest_file = dest
         for lfn in lfns:
-            # TODO: Must the central catalogue be check here?
+            # TODO: Must the central catalogue be checked here?
             # TODO: create a thread for each file
             pfn = self.__lfn2pfn(lfn)
             # TODO: Populate popularity stuff
@@ -217,7 +217,7 @@ class RucioStorageElement(object):
                 self.instance['protocol'].delete(pfn)
                 self.__unregister_file(lfn)  # Happens only if put didn't fail
             else:
-                raise RSEException(404, 'File not found at given storage system.', data={'lfn': lfn})
+                raise exception.FileNotFound('File %s not found at given storage system.' % lfn)
 
     def exists(self, lfns):
         """ Checks if given files exist on referred storage system.
