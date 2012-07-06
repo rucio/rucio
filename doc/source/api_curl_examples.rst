@@ -10,12 +10,42 @@
 REST API Examples Using Curl
 ----------------------------
 
+Service
+^^^^^^^
+
+.. _`GET /`:
+
+`GET /`
+"""""""
+
+Discover server version information.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_api.sh
+
+**Example Response**
+
+.. literalinclude:: curl_examples/get_api.out
+
+Authentication
+^^^^^^^^^^^^^^
+
 .. _`GET auth/userpass`:
 
 `GET auth/userpass`
 """""""""""""""""""
 
 Requesting a Rucio-Auth-Token with curl via username and password.
+
+**Responses**
+
+ * ``200 OK``
+ * ``401 Unauthorized``
 
 **Example Request**
 
@@ -31,6 +61,13 @@ Requesting a Rucio-Auth-Token with curl via username and password.
 `GET auth/x509`
 """""""""""""""
 
+Requesting a Rucio-Auth-Token with curl via a X509 certificate.
+
+**Responses**
+
+ * ``200 OK``
+ * ``401 Unauthorized``
+
 **Example Request**
 
 .. literalinclude:: curl_examples/get_auth_x509.sh
@@ -45,6 +82,13 @@ Requesting a Rucio-Auth-Token with curl via username and password.
 `GET auth/gss`
 """"""""""""""
 
+Requesting a Rucio-Auth-Token with curl via kerberos.
+
+**Responses**
+
+ * ``200 OK``
+ * ``401 Unauthorized``
+
 **Example Request**
 
 .. literalinclude:: curl_examples/get_auth_gss.sh
@@ -58,11 +102,12 @@ Requesting a Rucio-Auth-Token with curl via username and password.
 `GET auth/validate`
 """""""""""""""""""
 
-Check the validity of a authentication token.
+Check the validity of a authentication token. Checking the validity of a token will extend its lifetime by one hour.
 
-An HTTP response of 200 OK means the token is valid, and the data returned is the expected lifetime of the token. In case the token is not valid, the response will be a HTTP 401 Unauthorized.
+**Responses**
 
-Checking the validity of a token will extend its lifetime by one hour.
+ * ``200 OK``: the token is valid
+ * ``401 Unauthorized``: The token is not valid
 
 **Example Request**
 
@@ -78,34 +123,58 @@ Checking the validity of a token will extend its lifetime by one hour.
 `GET auth/register_api_token`
 """""""""""""""""""""""""""""
 
+**Responses**
+
 **Example Request**
 
 
 **Example Response**
 
 
-.. _`PUT account/{accountName}`:
+Account
+^^^^^^^
 
-`PUT account/{accountName}`
-"""""""""""""""""""""""""""
+.. _`POST accounts/`:
+
+`POST accounts/`
+""""""""""""""""
 
 Create account.
 
+**Parameters**
+
++-------------------+-----------+-------------------------+
+| Name              | Type      | Description             |
++===================+===========+=========================+
+| ``accountName``   | String    | The name of the account |
++-------------------+-----------+-------------------------+
+
+**Responses**
+
+ * ``201 Created``: Account created
+ * ``409 Conflict``: Account already exists
+ * ``401 Unauthorized``
+
 **Example Request**
 
-.. literalinclude:: curl_examples/put_account.sh
+.. literalinclude:: curl_examples/post_account.sh
    :lines: 2
 
 **Example Response**
 
-.. literalinclude:: curl_examples/put_account.out
+.. literalinclude:: curl_examples/post_account.out
 
-.. _`GET account/{accountName}`:
+.. _`GET accounts/{accountName}`:
 
-`GET account/{accountName}`
-"""""""""""""""""""""""""""
+`GET accounts/{accountName}`
+""""""""""""""""""""""""""""
 
-Get account information
+Get account information.
+
+**Responses**
+
+ * ``200 OK``
+ * ``404 Not Found``
 
 **Example Request**
 
@@ -116,12 +185,37 @@ Get account information
 
 .. literalinclude:: curl_examples/get_account.out
 
-.. _`GET account/whoami`:
+.. _`PUT accounts/{accountName}`:
 
-`GET account/whoami`
-""""""""""""""""""""
+`PUT accounts/{accountName}`
+""""""""""""""""""""""""""""
+
+Update account information
+
+**Responses**
+
+ * ``200 OK``
+ * ``404 Not Found``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/pu_account.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/put_account.out
+
+.. _`GET accounts/whoami`:
+
+`GET accounts/whoami`
+"""""""""""""""""""""
 
 Get information about account whose token is used to sign the request.
+
+**Responses**
+
+ * ``303 See Other``
 
 **Example Request**
 
@@ -133,12 +227,16 @@ Get information about account whose token is used to sign the request.
 .. literalinclude:: curl_examples/get_account_whoami.out
 
 
-.. _`GET account/`:
+.. _`GET accounts/`:
 
-`GET account/`
-""""""""""""""
+`GET accounts/`
+"""""""""""""""
 
 List available accounts.
+
+**Responses**
+
+ * ``200 OK``
 
 **Example Request**
 
@@ -150,12 +248,16 @@ List available accounts.
 
 .. literalinclude:: curl_examples/get_accounts.out
 
-.. _`DELETE account/{accountName}`:
+.. _`DELETE accounts/{accountName}`:
 
-`DELETE account/{accountName}`
+`DELETE accounts/{accountName}`
 """""""""""""""""""""""""""""""
 
 Disable an account.
+
+**Responses**
+
+ * ``200 OK``
 
 **Example Request**
 
@@ -167,28 +269,50 @@ Disable an account.
 .. literalinclude:: curl_examples/del_account.out
 
 
-.. _`PUT location/{locationName}`:
+Location
+^^^^^^^^
 
-`PUT location/{locationName}`
-"""""""""""""""""""""""""""""
+.. _`POST locations/`:
+
+`POST locations/`
+"""""""""""""""""
 
 Create a location
 
+**Parameters**
+
++-------------------+-----------+--------------------------+
+| Name              | Type      | Description              |
++===================+===========+==========================+
+| ``locationName``  | String    | The name of the location |
++-------------------+-----------+--------------------------+
+
+**Responses**
+
+ * ``201 Created``: Location created
+ * ``409 Conflict``: Location already exists
+ * ``401 Unauthorized``
+
 **Example Request**
 
-.. literalinclude:: curl_examples/put_location.sh
+.. literalinclude:: curl_examples/post_location.sh
    :lines: 2
 
 **Example Response**
 
-.. literalinclude:: curl_examples/put_location.out
+.. literalinclude:: curl_examples/post_location.out
 
-.. _`GET location/{locationName}`:
 
-`GET location/{locationName}`
-"""""""""""""""""""""""""""""
+.. _`GET locations/{locationName}`:
 
-Get location information
+`GET locations/{locationName}`
+""""""""""""""""""""""""""""""
+
+Get location information.
+
+**Responses**
+
+ * ``200 OK``
 
 **Example Request**
 
@@ -199,12 +323,16 @@ Get location information
 
 .. literalinclude:: curl_examples/get_location.out
 
-.. _`GET location/`:
+.. _`GET locations/`:
 
-`GET location/`
-"""""""""""""""
+`GET locations/`
+""""""""""""""""
 
-List available locations
+List available locations.
+
+**Responses**
+
+ * ``200 OK``
 
 **Example Request**
 
@@ -215,12 +343,16 @@ List available locations
 
 .. literalinclude:: curl_examples/get_locations.out
 
-.. _`DELETE location/{locationName}`:
+.. _`DELETE locations/{locationName}`:
 
-`DELETE location/{locationName}`
-""""""""""""""""""""""""""""""""
+`DELETE locations/{locationName}`
+"""""""""""""""""""""""""""""""""
 
 Disable a location.
+
+**Responses**
+
+ * ``200 OK``
 
 **Example Request**
 
@@ -231,68 +363,283 @@ Disable a location.
 
 .. literalinclude:: curl_examples/del_location.out
 
+Rucio Storage Element
+^^^^^^^^^^^^^^^^^^^^^
 
-.. _`PUT location/{locationName}/rse/{rseName}`:
+.. _`POST /locations/{locationName}/rses/`:
 
-`PUT location/{locationName}/rse/{rseName}`
-"""""""""""""""""""""""""""""""""""""""""""
+`POST /locations/{locationName}/rses/`
+""""""""""""""""""""""""""""""""""""""
 
 Tag a location with a RSE.
 
 **Parameters**
 
 +-------------------+-----------+------------------------+
-| Name              | Type      | description            |
+| Name              | Type      | Description            |
++===================+===========+========================+
+| ``rseName``       | String    | RSE name               |
++-------------------+-----------+------------------------+
+| ``description``   | String    | Description of the RSE |
+| (optional)        |           |                        |
++-------------------+-----------+------------------------+
+
+**Responses**
+
+ * ``201 Created``: Location-RSE created
+ * ``409 Conflict``: Location-RSE already exists
+ * ``401 Unauthorized``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/post_location_rse.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/post_location_rse.out
+
+
+.. _`GET locations/{locationName}/rses/`:
+
+`GET locations/{locationName}/rses/`
+""""""""""""""""""""""""""""""""""""
+
+List all RSEs associated to a location.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_rses_location_rse.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/get_rses_location_rse.out
+
+.. _`GET rses/`:
+
+`GET rses/`
+"""""""""""
+
+List all RSEs.
+
+**Parameters**
+
++-------------------+-----------+------------------------+
+| Name              | Type      | Description            |
 +===================+===========+========================+
 | ``description``   | String    | Description of the RSE |
 | (optional)        |           |                        |
 +-------------------+-----------+------------------------+
 
-**Example Request**
+**Responses**
 
-**Example Response**
-
-
-.. _`GET location/{locationName}/rse/`:
-
-`GET location/{locationName}/rse/`
-""""""""""""""""""""""""""""""""""
-
-.. _`GET rse/`:
-
-`GET rse/`
-""""""""""
-
-.. _`DELETE location/{locationName}/rse/{rseName}`:
-
-`DELETE location/{locationName}/rse/{rseName}`
-"""""""""""""""""""""""""""""""""""""""""""""""
-
-Remove a location from a RSE.
-
-
-.. _`PUT scope/{accountName}/{scopeName}`:
-
-`PUT scope/{accountName}/{scopeName}`
-"""""""""""""""""""""""""""""""""""""
-
-Create a scope within an account.
+ * ``200 OK``
+ * ``404 Not Found``
 
 **Example Request**
 
-.. literalinclude:: curl_examples/put_scope.sh
+.. literalinclude:: curl_examples/get_rses.sh
    :lines: 2
 
 **Example Response**
 
-.. literalinclude:: curl_examples/put_scope.out
+.. literalinclude:: curl_examples/get_rses.out
 
-.. _`GET scope/{accountName}/`:
+.. _`DELETE locations/{locationName}/rses/{rseName}`:
 
-`GET scope/{accountName}/`
-""""""""""""""""""""""""""
+`DELETE locations/{locationName}/rses/{rseName}`
+""""""""""""""""""""""""""""""""""""""""""""""""
 
-Get the scope for an account
+Remove a location from a RSE.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/del_location_rse.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/del_location_rse.out
+
+Identity
+^^^^^^^^
+
+.. _`POST accounts/{accountName}/identities/`:
+
+`POST accounts/{accountName}/identities/`
+"""""""""""""""""""""""""""""""""""""""""
+
+Grant an x509|gss|userpass identity access to an account.
+
+**Parameters**
+
++-------------------+-----------+------------------------+
+| Name              | Type      | Description            |
++===================+===========+========================+
+| ``type``          | String    |  x509|gss|userpass     |
++-------------------+-----------+------------------------+
+| ``identity``      | String    | DN|username|gss user   |
++-------------------+-----------+------------------------+
+
+**Responses**
+
+ * ``201 Created``: Account-identity created
+ * ``409 Conflict``: Account-identity already exists
+ * ``401 Unauthorized``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/post_account_identity.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/post_account_identity.out
+
+.. _`GET accounts/{accountName}/identities/`:
+
+`GET accounts/{accountName}/identities/`
+""""""""""""""""""""""""""""""""""""""""
+
+List all identities on an account.
+
+**Parameters**
+
++-------------------+-----------+------------------------+
+| Name              | Type      | Description            |
++===================+===========+========================+
+| ``type`   `       | String    |  x509|gss|userpass     |
+| (optional)        |           |                        |
++-------------------+-----------+------------------------+
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_account_identities.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/get_account_identities.out
+
+
+.. _`GET identities/{x509|gss|userpass}/{id}/accounts/`:
+
+`GET identities/{x509|gss|userpass}/{id}/accounts/`
+"""""""""""""""""""""""""""""""""""""""""""""""""""
+
+List all accounts an identity is member of.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_identity_accounts.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/get_identity_accounts.out
+
+.. _`DELETE accounts/{accountName}/identities/{x509|gss|userpass}/{id}`:
+
+`DELETE accounts/{accountName}/identities/{x509|gss|userpass}/{id}`
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Revoke an x509|gss|userpass identity's access to an account.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/del_account_identity.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/del_account_identity.out
+
+Scope
+^^^^^
+
+.. _`POST accounts/{accountName}/scopes/`:
+
+`POST accounts/{accountName}/scopes/`
+"""""""""""""""""""""""""""""""""""""
+
+Create a scope within an account.
+
+**Parameters**
+
++-------------------+-----------+------------------------+
+| Name              | Type      | Description            |
++===================+===========+========================+
+| ``scopeName``     | String    |  Scope name            |
++-------------------+-----------+------------------------+
+
+**Responses**
+
+ * ``201 Created``: Account-scope created
+ * ``409 Conflict``: Account-scope already exists
+ * ``401 Unauthorized``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/post_scope.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/post_scope.out
+
+
+.. _`GET accounts/{accountName}/scopes/`:
+
+`GET accounts/{accountName}/scopes/`
+""""""""""""""""""""""""""""""""""""
+
+Get the scopes for an account.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_account_scopes.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/get_account_scopes.out
+
+
+.. _`GET scopes/`:
+
+`GET scopes/`
+"""""""""""""
+
+List all scopes.
+
+**Responses**
+
+ * ``200 OK``
 
 **Example Request**
 
@@ -303,4 +650,191 @@ Get the scope for an account
 
 .. literalinclude:: curl_examples/get_scopes.out
 
+.. _`DELETE accounts/{accountName}/scopes/{scopeName}`:
+
+`DELETE accounts/{accountName}/scopes/{scopeName}`
+""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Delete a scope from an account.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/del_scope.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/del_scope.out
+
+
+Dataset
+^^^^^^^
+
+.. _`POST datasets/{scopeName}/`:
+
+`POST datasets/{scopeName}/`
+""""""""""""""""""""""""""""
+
+Register a dataset.
+
+**Parameters**
+
++-------------------+-----------+------------------------+
+| Name              | Type      | Description            |
++===================+===========+========================+
+| ``datasetName``   | String    |  dataset name          |
++-------------------+-----------+------------------------+
+| ``...``           | ...       |   ...                  |
++-------------------+-----------+------------------------+
+
+**Responses**
+
+ * ``201 Created``: Dataset created
+ * ``409 Conflict``: Dataset already exists
+ * ``401 Unauthorized``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/post_dataset.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/post_dataset.out
+
+.. _`GET datasets/{scopeName}/{datasetName}/`:
+
+`GET datasets/{scopeName}/{datasetName}/`
+"""""""""""""""""""""""""""""""""""""""""
+
+List dataset content.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_dataset_files.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/get_dataset_files.out
+
+
+.. _`GET datasets/{scopeName}/{datasetName}`:
+
+`GET datasets/{scopeName}/{datasetName}`
+""""""""""""""""""""""""""""""""""""""""
+
+List dataset meta-data.
+
+**Responses**
+
+ * ``200 OK``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_dataset_meta.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/get_dataset_meta.out
+
+.. _`PUT datasets/{datasetName}`:
+
+`PUT datasets/{datasetName}`
+""""""""""""""""""""""""""""
+
+Update dataset meta-data.
+
+.. _`POST datasets/{scopeName}/{datasetName}/`:
+
+`POST datasets/{scopeName}/{datasetName}/`
+""""""""""""""""""""""""""""""""""""""""""
+
+Add file(s) to a dataset.
+
+
+.. _`GET datasets/{scopeName}/{datasetName}/{fileName}`:
+
+`GET datasets/{scopeName}/{datasetName}/{fileName}`
+""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Get file meta-data.
+
+.. _`GET datasets/`:
+
+`GET datasets/`
+"""""""""""""""
+
+
+File
+^^^^
+
+.. _`POST /locations/{locationName}/files/`:
+
+`POST /locations/{locationName}/files/`
+"""""""""""""""""""""""""""""""""""""""
+
+Register a file.
+
+**Parameters**
+
++-------------------+-----------+------------------------+
+| Name              | Type      | Description            |
++===================+===========+========================+
+| ``fileName``      | String    |  file name             |
++-------------------+-----------+------------------------+
+| ``...``           | ...       |   ...                  |
++-------------------+-----------+------------------------+
+
+**Responses**
+
+ * ``201 Created``: File created
+ * ``409 Conflict``: File already exists
+ * ``401 Unauthorized``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/post_file.sh
+   :lines: 2
+
+**Example Response**
+
+.. literalinclude:: curl_examples/post_file.out
+
+
+.. _`GET /files/{scopeName}/locations/`:
+
+`GET /files/{scopeName}/locations/`
+"""""""""""""""""""""""""""""""""""
+
+List file replicas.
+
+.. _`PUT /files/{scopeName}/{fileName}/`:
+
+`PUT /files/{scopeName}/{fileName}/`
+""""""""""""""""""""""""""""""""""""
+
+Update file meta-data.
+
+
+.. _`GET /files/{scopeName}/{fileName}`:
+
+`GET /files/{scopeName}/{fileName}`
+"""""""""""""""""""""""""""""""""""
+
+.. _`GET files/`:
+
+`GET files/`
+"""""""""""""
+
+Search files.
 
