@@ -1,7 +1,10 @@
-.. Rucio documentation master file, created by
-   sphinx-quickstart on Thu Sep 22 16:31:25 2011.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+..
+      Copyright European Organization for Nuclear Research (CERN)
+
+      Licensed under the Apache License, Version 2.0 (the "License");
+      You may not use this file except in compliance with the License.
+      You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
 
 Welcome to Rucio's documentation!
 =================================
@@ -42,9 +45,10 @@ Architecture
 
 .. toctree::
     :maxdepth: 1
-     
+
     usecases
     overview_Architecture
+    overview_Deployment
     overview_flow
     overview_Database_Schema
     overview_Exception_Handling
@@ -93,7 +97,7 @@ Rucio RESTful API
 
 .. toctree::
     :maxdepth: 1
-    
+
     rest
     api_curl_examples
 
@@ -111,7 +115,7 @@ Appendices
 
 .. toctree::
     :maxdepth: 1
-    
+
     Acronyms_and_Abbreviations
 
 Indices and tables

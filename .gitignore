@@ -19,6 +19,7 @@ etc/web/*.proxy
 
 # ignore MANIFEST file
 MANIFEST
+lib/rucio_clients.egg-info
 
 # build directories
 .coverage
