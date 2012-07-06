@@ -39,6 +39,9 @@ packages = find_packages('lib/')
 description = "Rucio Package"
 IsRelease = False
 requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
+data_files = [('etc/', glob.glob('etc/*.template')),
+              ('etc/web', glob.glob('etc/web/*.template')),
+              ('tools/', glob.glob('tools/*'))]
 
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
@@ -47,6 +50,8 @@ if '--client' in copy_args:
     packages = ['rucio', 'rucio.client', 'rucio.common', 'rucio.client.api', 'rucio.rse.protocols', 'rucio.client.api.rse']
     requirements_files = ['tools/pip-requires-client']
     description = "Rucio Client Lite Package"
+    data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
+                  ('tools/', ['tools/pip-requires-client', ]), ]
     if os.path.exists('build/'):
         shutil.rmtree('build/')
     if os.path.exists('lib/rucio_clients.egg-info/'):
@@ -168,13 +173,7 @@ class CustomSdist(_sdist):
 
     def get_file_list(self):
         print "Chosen packaging option: " + name
-        self.distribution.data_files = [('etc/', glob.glob('etc/*.template')),
-                                        ('etc/web', glob.glob('etc/web/*.template'))]
-
-        if name == 'rucio-clients':
-            print ' Change the data_files list here based on the packaging option        '
-            self.distribution.data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
-                                            ('tools/', ['tools/pip-requires-client', ]), ]
+        self.distribution.data_files = data_files
         _sdist.get_file_list(self)
 
     #def make_release_tree(self, base_dir, files):
@@ -194,6 +193,7 @@ setup(
       version=version.version_string(),
       packages=packages,
       package_dir={'': 'lib'},
+      data_files=data_files,
       script_args=copy_args,
       cmdclass=cmdclass,
       include_package_data=True,
