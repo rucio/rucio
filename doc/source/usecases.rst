@@ -26,7 +26,7 @@ sequence diagrams.
 * Add metadata to file (Mario)
 * Add scopes to an account  (Thomas)
 * An user A should not be able to register a dataset in the scope of an user B
-* Close a dataset(Angelos)
+* Close a dataset (Angelos)
 * Crosscheck if a file is still on disk and in the rucio catalog (Mario)
 * Crosscheck that all files are still on disk and in the rucio catalog
 * Declare dataset unwanted (Angelos)
@@ -47,14 +47,14 @@ sequence diagrams.
 * Register a transfer request for a file and FTS (Mario)
 * Register account (Thomas)
 * Register file already on storage system (Ralph)
-* Remove replication rules on a file (Martin)
-* Select unwanted files (with no replication rules) for deletion on a storage which is full (Martin)
+* :doc:`usecases/remove_replication_rules_from_file` (Martin)
+* :doc:`usecases/select_unwanted_files_for_deletion` (Martin)
 * Send notifications when a transfer is done
 * Set a quota on an account
-* Set a replication rule on a existing file (Martin)
-* Subscribe automatically all blue files to a RSE DATADISKS (Martin)
+* :doc:`usecases/set_replication_rule_to_file` (Martin)
+* :doc:`usecases/add_subscription` (Martin)
 * Tell how many files/how much space is used at a site
-* Upload file into rucio with replication rules (Martin/Ralp)
+* :doc:`usecases/upload_file_with_replication_rule` (Martin/Ralph)
 * Where are the replicas for a file (Thomas)
 * Where are the replicas for all files in dataset (Angelos)
 * etc.
