@@ -1,3 +1,10 @@
+..
+      Copyright European Organization for Nuclear Research (CERN)
+
+      Licensed under the Apache License, Version 2.0 (the "License");
+      You may not use this file except in compliance with the License.
+      You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
 ----------------------
 Upload file into rucio
 ----------------------
@@ -6,18 +13,14 @@ Upload file into rucio
 
 
 .. sequence-diagram::
-   :maxwidth: 800
-   :linewrap: false
-   :threadnumber: true
 
-   client:Client
-   rucio:Server
-   storage:Storage[a]
+   client:PythonClient
+   rucio:Core
+   external:Storage
 
-   client:rucio.registerFileToLocation(**)
-   client:storage.uploadFile(**)
-   client:rucio.commitRegistration(**)
-
+   client:rucio.registerFileToLocation
+   client:external.uploadFile
+   client:rucio.commitTransaction
 
 Replica can be in one the following statuses:
 
