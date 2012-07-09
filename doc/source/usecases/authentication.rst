@@ -10,12 +10,30 @@ Authenticate with rucio
 -----------------------
 
 .. sequence-diagram::
-   :maxwidth: 600
-   :linewrap: false
-   :threadnumber: true
 
-   client:Client
-   rucio:Server(Auth)
+   client:HTTPClient
+   rucio:Authentication
 
-   client:rucio.GET auth/{userpass|x509|gss}
-   client:rucio.GET/PUT/DELETE/POST -H token ...
+   client:Rucio-Auth-Token=rucio.GET auth/{userpass|x509|gss|proxy}
+
+Every API call needs to provide a valid Rucio-Auth-Token. This authentication handshake is therefore omitted from the other sequence diagrams.
+
+The client needs to provide the appropriate credentials for the authentication to succeed:
+
+* ``userpass``
+
+HTTP Header: "Rucio-Username=<username>"
+
+HTTP Header: "Rucio-Password=<password>"
+
+* ``x509``
+
+The client needs to present a valid x509 client certificate.
+
+* ``gss``
+
+The client needs to present a valid Kerberos5/GSSAPI authentication token.
+
+* ``proxy``
+
+The client needs to present a valid Globus proxy certificate.
