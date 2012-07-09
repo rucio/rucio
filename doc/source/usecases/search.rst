@@ -1,0 +1,30 @@
+..
+      Copyright European Organization for Nuclear Research (CERN)
+
+      Licensed under the Apache License, Version 2.0 (the "License");
+      You may not use this file except in compliance with the License.
+      You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+------------------------------------------------
+Search datasets with wildcard pattern, meta-data
+------------------------------------------------
+
+* Search via pattern
+
+.. sequence-diagram::
+
+   client:HTTPClient
+   rucio:Core
+
+   client:[datasets]=rucio.GET datasets/{regular expression}
+
+* Search via meta-data
+
+.. sequence-diagram::
+
+   client::HTTPClient
+   rucio:Core
+
+   client:[datasets]=rucio.POST datasets/search
+
+Body of the POST is a JSON dictionary with the appropriate key/value pairs, e.g. ``{'project':'data11*', 'datatype':'raw'}``.
