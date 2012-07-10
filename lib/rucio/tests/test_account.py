@@ -10,14 +10,14 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-from json import loads
+from json import dumps, loads
 from uuid import uuid4 as uuid
 
-from nose.tools import assert_equal, assert_false, assert_true
+from nose.tools import assert_equal, assert_false, assert_true, raises
 from paste.fixture import TestApp
 
 from rucio.client.accountclient import AccountClient
-from rucio.common.exception import AccountNotFound, Duplicate, RucioException
+from rucio.common.exception import AccountNotFound, Duplicate
 from rucio.core.account import add_account, account_exists, del_account
 from rucio.core.account import get_account_status, account_status, set_account_status
 from rucio.db.session import build_database, destroy_database, create_root_account
@@ -66,7 +66,7 @@ class TestAccountRestApi():
         destroy_database()
 
     def test_create_user_success(self):
-        """ ACCOUNT (REST): send a PUT to create a new user """
+        """ ACCOUNT (REST): send a POST to create a new user """
         mw = []
 
         headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
@@ -75,12 +75,13 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers2, expect_errors=True)
+        headers2 = {'Rucio-Auth-Token': str(token)}
+        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
     def test_create_user_failure(self):
-        """ ACCOUNT (REST): send a PUT with an existing user to test the error case """
+        """ ACCOUNT (REST): send a POST with an existing user to test the error case """
         mw = []
 
         headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
@@ -89,11 +90,60 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
-        r1 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers, expect_errors=True)
-        r2 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
+        r1 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
 
         assert_equal(r2.status, 409)
+
+    def test_create_user_non_json_body(self):
+        """ ACCOUNT (REST): send a POST with a non json body"""
+        mw = []
+        headers = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        r = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        assert_equal(r.status, 200)
+        token = str(r.header('Rucio-Auth-Token'))
+
+        headers = {'Rucio-Auth-Token': str(token)}
+        data = {'datasetName': 'dataset'}
+        ret = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+
+        assert_equal(ret.header('ExceptionClass'), 'ValueError')
+        assert_equal(ret.normal_body, 'ValueError: cannot decode json parameter dictionary')
+        assert_equal(ret.status, 400)
+
+    def test_create_user_missing_parameter(self):
+        """ ACCOUNT (REST): send a POST with a missing parameter"""
+        mw = []
+        headers = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        r = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        assert_equal(r.status, 200)
+        token = str(r.header('Rucio-Auth-Token'))
+
+        headers = {'Rucio-Auth-Token': str(token)}
+        data = dumps({'accountName': 'account'})
+        ret = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+
+        assert_equal(ret.header('ExceptionClass'), 'KeyError')
+        assert_equal(ret.normal_body, "KeyError: \'accountType\' not defined")
+        assert_equal(ret.status, 400)
+
+    def test_create_user_not_json_dict(self):
+        """ ACCOUNT (REST): send a POST with a non dictionary json body"""
+        mw = []
+        headers = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        r = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        assert_equal(r.status, 200)
+        token = str(r.header('Rucio-Auth-Token'))
+
+        headers = {'Rucio-Auth-Token': str(token)}
+        data = dumps(('accountName', 'account'))
+        r = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+
+        assert_equal(r.header('ExceptionClass'), 'TypeError')
+        assert_equal(r.normal_body, "TypeError: body must be a json dictionary")
+        assert_equal(r.status, 400)
 
     def test_get_user_success(self):
         """ ACCOUNT (REST): send a GET to retrieve the infos of the new user """
@@ -105,7 +155,8 @@ class TestAccountRestApi():
         token = str(r1.header('Rucio-Auth-Token'))
 
         headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers2, expect_errors=True)
+        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Auth-Token': str(token)}
@@ -136,8 +187,9 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(account_app.wsgifunc(*mw)).put('/testuser', headers=headers2, expect_errors=True)
+        headers2 = {'Rucio-Auth-Token': str(token)}
+        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Auth-Token': str(token)}
@@ -176,7 +228,8 @@ class TestAccountRestApi():
         headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         acc_list = ['test' + str(i) for i in xrange(5)]
         for account in acc_list:
-            r2 = TestApp(account_app.wsgifunc(*mw)).put('/' + account, headers=headers2, expect_errors=True)
+            data = dumps({'accountName': account, 'accountType': 'user'})
+            r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
             assert_equal(r2.status, 201)
 
         r3 = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
@@ -197,81 +250,55 @@ class xTestAccountClient():
 
     def test_create_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account."""
-        ret = False
-        try:
-            ret = self.client.create_account(str(uuid()))
-        except RucioException:
-            pass
-
+        ret = self.client.create_account(str(uuid()), 'user')
         assert_true(ret)
 
+    @raises(Duplicate)
     def test_create_account_duplicate(self):
         """ ACCOUNT (CLIENTS): try to create a duplicate account."""
-        try:
-            account = str(uuid())
-            self.client.create_account(account)
-            self.client.create_account(account)
-        except Duplicate:
-            assert_true(True)
-        else:
-            assert_true(False)
+        account = str(uuid())
+        type = 'user'
+        self.client.create_account(account, type)
+        self.client.create_account(account, type)
 
     def test_get_account(self):
         """ ACCOUNT (CLIENTS): get information about account."""
-        try:
-            account = str(uuid())
-            self.client.create_account(account)
-            acc_info = self.client.get_account(account)
-            assert_equal(acc_info['account'], account)
-        except RucioException, e:
-            print e
-            assert_true(False)
+        account = str(uuid())
+        self.client.create_account(account, 'user')
+        acc_info = self.client.get_account(account)
+        assert_equal(acc_info['account'], account)
 
+    @raises(AccountNotFound)
     def test_get_account_notfound(self):
         """ ACCOUNT (CLIENTS): try to get information about not existing account."""
-        try:
-            account = str(uuid())
-            self.client.get_account(account)
-        except AccountNotFound:
-            assert_true(True)
-        else:
-            assert_true(False)
+        account = str(uuid())
+        self.client.get_account(account)
 
     def test_disable_account(self):
         """ ACCOUNT (CLIENTS): try to disable account."""
-        try:
-            account = str(uuid())
-            self.client.create_account(account)
-            acc_info = self.client.get_account(account)
-            assert_false(acc_info['deleted'])
-            self.client.disable_account(account)
-            acc_info = self.client.get_account(account)
-            assert_true(acc_info['deleted'])
-        except RucioException:
-            assert_true(False)
+        account = str(uuid())
+        self.client.create_account(account, 'user')
+        acc_info = self.client.get_account(account)
+        assert_false(acc_info['deleted'])
+        self.client.disable_account(account)
+        acc_info = self.client.get_account(account)
+        assert_true(acc_info['deleted'])
 
+    @raises(AccountNotFound)
     def test_disable_account_notfound(self):
         """ ACCOUNT (CLIENTS): try to disable not existing account."""
-
-        try:
-            account = str(uuid())
-            self.client.disable_account(account)
-        except AccountNotFound:
-            assert_true(True)
-        else:
-            assert_false(True)
+        account = str(uuid())
+        self.client.disable_account(account)
 
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
         acc_list = [str(uuid()) + str(i) for i in xrange(5)]
-        try:
-            for account in acc_list:
-                self.client.create_account(account)
 
-            svr_list = self.client.list_accounts()
+        for account in acc_list:
+            self.client.create_account(account, 'user')
 
-            for account in acc_list:
-                if account not in svr_list:
-                    assert_true(False)
-        except RucioException:
-            assert_true(False)
+        svr_list = self.client.list_accounts()
+
+        for account in acc_list:
+            if account not in svr_list:
+                assert_true(False)

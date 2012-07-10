@@ -57,25 +57,26 @@ class BaseClient(object):
 
         self.__authenticate()
 
-    def _get_exception(self, exc_str):
+    def _get_exception(self, headers):
         """
         Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
 
-        :param exc_str: The error string received from the server.
+        :param headers: The http response header containing the Rucio exception details.
         :return: A rucio exception class and an error string.
         """
 
-        exc_info = exc_str.split(':')
-        if len(exc_info) < 2:
-            return getattr(exception, 'RucioException'), 'error string has wrong format: %s' % (exc_str)
+        if 'ExceptionClass' not in headers:
+            if 'ExceptionMessage' not in headers:
+                return getattr(exception, 'RucioException'), 'no error information passed'
+            return getattr(exception, 'RucioException'), headers['ExceptionMessage']
 
         exc_cls = None
         try:
-            exc_cls = getattr(exception, exc_info[0])
-        except AttributeError, e:
-            return getattr(exception, 'RucioException'), str(e)
+            exc_cls = getattr(exception, headers['ExceptionClass'])
+        except AttributeError:
+            return getattr(exception, 'RucioException'), headers['ExceptionMessage']
 
-        return exc_cls, exc_info[1]
+        return exc_cls, headers['ExceptionMessage']
 
     def _send_request(self, url, headers=None, type='GET', data=None, retries=3):
         """

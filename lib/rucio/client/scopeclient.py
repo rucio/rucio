@@ -7,7 +7,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-from json import loads
+from json import dumps, loads
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -17,6 +17,8 @@ from rucio.common.utils import build_url
 class ScopeClient(BaseClient):
 
     """Scope client class for working with rucio scopes"""
+
+    BASEURL = 'accounts/%s/scopes'
 
     def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
         super(ScopeClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
@@ -32,10 +34,11 @@ class ScopeClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = 'scope/' + accountName + '/' + scopeName
+        path = self.BASEURL % accountName
+        data = dumps({'scopeName': scopeName})
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
-        r = self._send_request(url, type='PUT')
+        r = self._send_request(url, type='POST', data=data)
 
         if r.status_code == codes.created:
             return True
@@ -53,7 +56,7 @@ class ScopeClient(BaseClient):
         :raises ScopeNotFound: if no scopes exist for account.
         """
 
-        path = 'scope/' + accountName
+        path = self.BASEURL % accountName
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url)
