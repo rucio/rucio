@@ -5,14 +5,13 @@
       You may not use this file except in compliance with the License.
       You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
---------------------------
-Add identity to an account
---------------------------
+----------------
+Obsolete dataset
+----------------
 
 .. sequence-diagram::
 
    HTTPClient::
    Rucio::
 
-   HTTPClient:Rucio.PUT accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}
-
+   HTTPClient:Rucio.DELETE datasets/{scope}/{datasetName}
