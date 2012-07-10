@@ -9,7 +9,18 @@
 Upload file with replication rule
 ---------------------------------
 
-* TBA
-
 .. sequence-diagram::
 
+   client:PythonClient
+   core:rucioserver "RucioCore"
+   storage:? "Grid Storage"
+
+   client:core.registerFileToLocation(**)
+   client:storage.uploadFile(data)
+   client:core.commitFileRegistration(**)
+
+   client:core[s].setReplicationRules(**)
+   core[s]:core.registerTransfers(**)
+
+The *registerTransfers* method registers the transfers to the transfer service,
+which will asynchronously transfer the files to the sites. 
