@@ -9,12 +9,14 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 from datetime import datetime
-from json import dumps
+from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, header, BadRequest, Created, InternalError, HTTPError, OK, Unauthorized
+from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, HTTPError, OK, Unauthorized
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts
+from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate
+from rucio.common.utils import generate_http_error
 from rucio.core.authentication import validate_auth_token
 
 logger = getLogger("rucio.account")
@@ -23,13 +25,108 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
+    '/(.+)/scopes', 'Scopes',
     '/(.+)/limits', 'AccountLimits',
-    '/(.+)', 'Account',
-    '/', 'AccountList'
+    '/(.+)', 'AccountParameter',
+    '/', 'Account'
 )
 
 
-class Account:
+class Scopes:
+    def GET(self, accountName):
+        """ list all scopes for an account.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 InternalError
+
+        :param Rucio-Account: Account identifier.
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :returns: A list containing all scope names for an account.
+        """
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        try:
+            scopes = get_scopes(accountName)
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        if not len(scopes):
+            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % accountName)
+
+        return dumps(scopes)
+
+    def POST(self, accountName):
+        """ create scope with given scope name.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param Rucio-Auth-Account: Account identifier.
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :params Rucio-Account: account belonging to the new scope.
+        """
+
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        scopeName = None
+
+        try:
+            scopeName = parameter['scopeName']
+        except KeyError, e:
+            if e.args[0] == 'scopeName':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        try:
+
+            add_scope(scopeName, accountName)
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise Created()
+
+
+class AccountParameter:
     """ create, update, get and disable rucio accounts. """
 
     def GET(self, accountName):
@@ -59,16 +156,13 @@ class Account:
 
         if accountName == 'whoami':
             # Redirect to the account uri
-            raise web.seeother(auth[0])
+            raise seeother(auth[0])
 
         acc = None
         try:
             acc = get_account_info(accountName)
         except AccountNotFound, e:
-            status = '404 Not Found'
-            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
-            data = ' '.join(['AccountNotFound:', str(e)])
-            raise HTTPError(status, headers=headers, data=data)
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
 
         dict = acc.to_dict()
 
@@ -80,52 +174,10 @@ class Account:
 
         return dumps(dict)
 
-    def POST(self, accountName):
+    def PUT(self, accountName):
         """ update account informations for given account name """
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
-
-    def PUT(self, accountName):
-        """ create account with given account name.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
-
-        :param Rucio-Account: Account identifier.
-        :param Rucio-Auth-Token: as an 32 character hex string.
-        :params Rucio-Type: the type of the new account.
-        """
-
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
-        type = ctx.env.get('HTTP_RUCIO_TYPE')
-
-        if type is None:
-            raise InternalError('Rucio-Type has to be set')
-
-        try:
-            add_account(accountName, type)
-        except Duplicate as e:
-            status = '409 Conflict'
-            headers = {'ExceptionClass': 'Duplicate', 'ExceptionMessage': e[0][0]}
-            data = ' '.join(['Duplicate:', str(e)])
-            raise HTTPError(status, headers=headers, data=data)
-        except Exception, e:
-            raise InternalError(e)
-
-        raise Created()
 
     def DELETE(self, accountName):
         """ disable account with given account name.
@@ -162,7 +214,7 @@ class Account:
         raise OK()
 
 
-class AccountList:
+class Account:
     def GET(self):
         """ list all rucio accounts.
 
@@ -194,8 +246,57 @@ class AccountList:
         raise BadRequest()
 
     def POST(self):
+        """ create account with given account name.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Reqeust
+            401 Unauthorized
+            409 Conflict
+            500 Internal Error
+
+        :param Rucio-Account: Account identifier.
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :params Rucio-Type: the type of the new account.
+        """
         header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        accountName = None
+        accountType = None
+
+        try:
+            accountName = parameter['accountName']
+            accountType = parameter['accountType']
+        except KeyError, e:
+            if e.args[0] == 'accountName' or e.args[0] == 'accountType':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        try:
+            add_account(accountName, accountType)
+        except Duplicate as e:
+            raise generate_http_error(409, 'Duplicate', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise Created()
 
     def DELETE(self):
         header('Content-Type', 'application/octet-stream')

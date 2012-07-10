@@ -7,28 +7,31 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-import logging
-import web
+from json import loads
+from logging import getLogger, StreamHandler, DEBUG
+from web import application, ctx, data, header, Created, InternalError, HTTPError, OK, Unauthorized
 
 from rucio.api.dataset import add_dataset, change_dataset_owner, dataset_exists, obsolete_dataset
 from rucio.core.authentication import validate_auth_token
-from rucio.common import exception as exception
+from rucio.common.exception import AccountNotFound, DatasetAlreadyExists, DatasetNotFound, DatasetObsolete, FileAlreadyExists, NoPermissions, NotADataset, ScopeNotFound
+from rucio.common.utils import generate_http_error
 
-logger = logging.getLogger("rucio.rest")
-sh = logging.StreamHandler()
-sh.setLevel(logging.DEBUG)
+logger = getLogger("rucio.rest")
+sh = StreamHandler()
+sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/dataset/(.*)/(.*)', 'Dataset',
+    '/(.*)/(.*)', 'Dataset2Parameter',
+    '/(.*)', 'Dataset1Parameter'
 )
 
 
-class Dataset:
-    """ register datasets in Rucio """
+class Dataset1Parameter:
 
-    def POST(self, scope, datasetName):
+    def POST(self, scope):
         """ register a new dataset
 
         :param scope: The scope of the dataset being registered
@@ -43,32 +46,56 @@ class Dataset:
         :returns: (HTTP Success: 201 Created)
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-        monotonic_parameter = web.ctx.env.get('HTTP_TYPE')
+        header('Content-Type', 'application/octet-stream')
+        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        json_data = data()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        datasetName = None
+        monotonic_parameter = None
+
+        try:
+            datasetName = parameter['datasetName']
+            monotonic_parameter = parameter['datasetType']
+        except KeyError, e:
+            if e.args[0] == 'datasetName':
+                raise generate_http_error(400, 'KeyError', "\'datasetName\' not defined")
+        except TypeError:
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
         if monotonic_parameter == 'monotonic':
             monotonic = True
         elif monotonic_parameter == 'non-monotonic' or monotonic_parameter is None:
             monotonic = False
         else:
-            raise web.HTTPError("400 Bad request", {}, "InputValidationError: dataset type parameter is not properly defined")
+            raise generate_http_error(400, 'InputValidationError', 'dataset type parameter is not properly defined')
+
         auth = validate_auth_token(auth_token)
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
         try:
+            logger.error('%s: %s' % (scope, datasetName))
             add_dataset(scope, datasetName, auth_account, monotonic=monotonic)
-        except exception.ScopeNotFound, error:
-            raise web.notfound('ScopeNotFound: %s' % error.args[0])
-        except exception.AccountNotFound, error:
-            raise web.notfound('AccountNotFound: %s' % error.args[0])
-        except exception.DatasetAlreadyExists, error:
-            raise web.HTTPError("409 Conflict", {}, data='DatasetAlreadyExists: %s' % error.args[0])
-        except exception.FileAlreadyExists, error:
-            raise web.HTTPError("409 Conflict", {}, data='FileAlreadyExists: %s' % error.args[0])
+        except ScopeNotFound, error:
+            raise generate_http_error(404, 'ScopeNotFound', error.args[0][0])
+        except AccountNotFound, error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0][0])
+        except DatasetAlreadyExists, error:
+            raise generate_http_error(409, 'DatasetAlreadyExists', error.args[0][0])
+        except FileAlreadyExists, error:
+            raise generate_http_error(409, 'FileAlreadyExists', error.args[0][0])
         except Exception, error:
-            raise web.InternalError(error.args[0])
-        return web.Created()
+            raise InternalError(error.args[0])
+        return Created()
+
+
+class Dataset2Parameter:
 
     def DELETE(self, scope, datasetName):
         """ obsolete a dataset in Rucio
@@ -84,29 +111,29 @@ class Dataset:
         :returns: (HTTP Success: 500 OK)
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        header('Content-Type', 'application/octet-stream')
+        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
         try:
             obsolete_dataset(scope, datasetName, auth_account)
-        except exception.ScopeNotFound, error:
-            raise web.notfound('ScopeNotFound: %s' % error.args[0])
-        except exception.AccountNotFound, error:
-            raise web.notfound('AccountNotFound: %s' % error.args[0])
-        except exception.DatasetObsolete, error:
-            raise web.notfound('DatasetObsolete: %s' % error.args[0])
-        except exception.FileAlreadyExists, error:
-            raise web.conflict('FileAlreadyExists: %s' % error.args[0])
-        except exception.DatasetNotFound, error:
-            raise web.notfound('DatasetNotFound: %s' % error.args[0])
-        except exception.NotADataset, error:
-            raise web.notfound('NotADataset: %s' % error.args[0])
+        except ScopeNotFound, error:
+            raise generate_http_error(404, 'ScopeNotFound', error.args[0][0])
+        except AccountNotFound, error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0][0])
+        except DatasetObsolete, error:
+            raise generate_http_error(404, 'DatasetObsolete', error.args[0][0])
+        except FileAlreadyExists, error:
+            raise generate_http_error(409, 'FileAlreadyExists', error.args[0][0])
+        except DatasetNotFound, error:
+            raise generate_http_error(404, 'DatasetNotFound', error.args[0][0])
+        except NotADataset, error:
+            raise generate_http_error(404, 'NotADataset', error.args[0][0])
         except Exception, error:
-            raise web.InternalError(error.args[0])
-        return web.OK()
+            raise InternalError(error.args[0])
+        return OK()
 
     def PUT(self, scope, datasetName):
         """ obsolete a dataset in Rucio
@@ -122,32 +149,32 @@ class Dataset:
         :returns: (HTTP Success: 500 OK)
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-        new_account = web.ctx.env.get('HTTP_NEW_ACCOUNT')
+        header('Content-Type', 'application/octet-stream')
+        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        new_account = ctx.env.get('HTTP_NEW_ACCOUNT')
         auth = validate_auth_token(auth_token)
         if new_account is None:
-            raise web.HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
+            raise HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
         try:
             change_dataset_owner(scope, datasetName, auth_account, new_account)
-        except exception.ScopeNotFound, error:
-            raise web.notfound('ScopeNotFound: %s' % error.args[0])
-        except exception.AccountNotFound, error:
-            raise web.notfound('AccountNotFound: %s' % error.args[0])
-        except exception.DatasetObsolete, error:
-            raise web.notfound('DatasetObsolete: %s' % error.args[0])
-        except exception.DatasetNotFound, error:
-            raise web.notfound('DatasetNotFound: %s' % error.args[0])
-        except exception.NotADataset, error:
-            raise web.notfound('NotADataset: %s' % error.args[0])
-        except exception.NoPermissions, error:
-            raise web.HTTPError("401 Unauthorized", {}, "NoPermissions: %s" % error.args[0])
+        except ScopeNotFound, error:
+            raise generate_http_error(404, 'ScopeNotFound', error.args[0][0])
+        except AccountNotFound, error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0][0])
+        except DatasetObsolete, error:
+            raise generate_http_error(404, 'DatasetObsolete', error.args[0][0])
+        except DatasetNotFound, error:
+            raise generate_http_error(404, 'DatasetNotFound', error.args[0][0])
+        except NotADataset, error:
+            raise generate_http_error(404, 'NotADataset', error.args[0][0])
+        except NoPermissions, error:
+            raise generate_http_error(401, 'NoPermissions', error.args[0][0])
         except Exception, error:
-            raise web.InternalError(error.args[0])
-        return web.OK()
+            raise InternalError(error.args[0])
+        return OK()
 
     def GET(self, scope, datasetName):
         """ checks to see if dataset is registered in Rucio
@@ -163,17 +190,17 @@ class Dataset:
         :returns: HTTP Success: 500 OK), response is True if dataset exists else it is False
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        auth_account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        header('Content-Type', 'application/octet-stream')
+        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
-        search_type = web.ctx.env.get('HTTP_SEARCH_TYPE')
+        search_type = ctx.env.get('HTTP_SEARCH_TYPE')
         if search_type not in ('current', 'obsolete', 'all', None):
-            raise web.HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
+            raise HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
         if search_type is not None:
             search_type = search_type.lower()
         if auth is None:
-            raise web.Unauthorized()
+            raise Unauthorized()
         try:
             if search_type is None:
                 return dataset_exists(scope, datasetName, auth_account, search_obsolete=False)
@@ -183,16 +210,15 @@ class Dataset:
                 return dataset_exists(scope, datasetName, auth_account, search_obsolete=True)
             elif search_type == 'all':
                 return dataset_exists(scope, datasetName, auth_account, search_obsolete=None)
-        except exception.AccountNotFound, error:
-            raise web.notfound('AccountNotFound: %s' % error.args[0])
+        except AccountNotFound, error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0][0])
         except Exception, error:
-            raise web.InternalError(error.args[0])
+            raise InternalError(error.args[0])
 
-dataset_web_app = web.application(urls, globals())
 
 """----------------------
    Web service startup
 ----------------------"""
 
-if __name__ == "__main__":
-    dataset_web_app.run()
+app = application(urls, globals())
+application = app.wsgifunc()
