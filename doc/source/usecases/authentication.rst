@@ -11,10 +11,10 @@ Authenticate with rucio
 
 .. sequence-diagram::
 
-   client:HTTPClient
-   rucio:Authentication
+   HTTPClient::
+   Authentication::
 
-   client:Rucio-Auth-Token=rucio.GET auth/{userpass|x509|gss|proxy}
+   HTTPClient:Rucio-Auth-Token=Authentication.GET auth/{userpass|x509|gss|proxy}
 
 Every API call needs to provide a valid Rucio-Auth-Token. This authentication handshake is therefore omitted from the other sequence diagrams.
 

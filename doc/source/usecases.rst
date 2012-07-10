@@ -22,18 +22,18 @@ sequence diagrams.
 * :doc:`usecases/search`
 * :doc:`usecases/usecase_upload_file_into_rucio` (Ralph)
 * :doc:`usecases/add_account_identity`
-* Add metadata to dataset (Mario)
-* Add metadata to file (Mario)
-* :doc:`usecases/add_scope_to_account` (Thomas)
+* :doc:`usecases/add_metadata_dataset`
+* :doc:`usecases/add_metadata_file`
+* :doc:`usecases/add_scope_to_account`
 * An user A should not be able to register a dataset in the scope of an user B
 * Close a dataset (Angelos)
-* Crosscheck if a file is still on disk and in the rucio catalog (Mario)
+* :doc:`usecases/consistency_file_between_storage_and_rucio`
 * Crosscheck that all files are still on disk and in the rucio catalog
 * Declare dataset unwanted (Angelos)
 * Declare file as lost (Angelos)
 * Declare file unwanted (Angelos)
-* Delete a file replica from a storage (Mario)
-* Detect that a storage is closed to be full/reached the watermark (Mario)
+* :doc:`usecases/delete_file_replica_from_storage`
+* :doc:`usecases/detect_site_reach_watermark`
 * Download all files from a given list of file replicas from rucio/storage (Ralph)
 * Download all files from a given list of files from rucio/storage (Ralph)
 * Download all files in a dataset from rucio/storage (Ralph)
@@ -41,11 +41,11 @@ sequence diagrams.
 * Generate the list of files at a site
 * Give how much data has an account
 * List dataset parents (Angelos)
-* Obsolete a dataset (Mario)
+* :doc:`usecases/obsolete_dataset`
 * Re-upload a file after an failed upload (Ralph)
 * Register a dataset with files (Angelos)
-* Register a transfer request for a file and FTS (Mario)
 * :doc:`usecases/register_account` (Thomas)
+* :doc:`usecases/register_transfer_request_file_fts`
 * Register file already on storage system (Ralph)
 * :doc:`usecases/remove_replication_rules_from_file` (Martin)
 * :doc:`usecases/select_unwanted_files_for_deletion` (Martin)
