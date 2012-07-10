@@ -42,3 +42,6 @@ rucio.egg-info
 
 # Mac OS X Finder
 .DS_Store
+
+# Virtualbox host certificate
+etc/web/vbox*

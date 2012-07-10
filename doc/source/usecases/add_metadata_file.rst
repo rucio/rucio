@@ -5,14 +5,16 @@
       You may not use this file except in compliance with the License.
       You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
---------------------------
-Add identity to an account
---------------------------
+----------------------
+Add metadata to a file
+----------------------
+
 
 .. sequence-diagram::
 
    HTTPClient::
    Rucio::
 
-   HTTPClient:Rucio.PUT accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}
+   HTTPClient:Rucio.POST files/{scope}/{fileName}/metadata
 
+Body must be a JSON dictionary containing the appropriate key/value mappings.

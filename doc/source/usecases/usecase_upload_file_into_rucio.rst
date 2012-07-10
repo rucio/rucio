@@ -14,13 +14,13 @@ Upload file into rucio
 
 .. sequence-diagram::
 
-   client:PythonClient
-   rucio:Core
-   external:Storage
+   PythonClient::
+   Rucio::
+   Storage::{locationName}
 
-   client:rucio.registerFileToLocation
-   client:external.uploadFile
-   client:rucio.commitTransaction
+   PythonClient:Rucio.registerFileToLocation()
+   PythonClient:Storage.uploadFile()
+   PythonClient:Rucio.commitTransaction()
 
 Replica can be in one the following statuses:
 

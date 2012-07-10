@@ -5,14 +5,15 @@
       You may not use this file except in compliance with the License.
       You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
---------------------------
-Add identity to an account
---------------------------
+---------------------------------------------
+Register a transfer request for a file in FTS
+---------------------------------------------
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Rucio::
+    HTTPClient::
+    Rucio::
+    TransferService:FTS
 
-   HTTPClient:Rucio.PUT accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}
-
+    HTTPClient:Transfer-ID=Rucio.POST /transfer/file
+    Rucio:Transfer-ID=TransferService.submit({fileName,source,destination})
