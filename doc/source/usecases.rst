@@ -24,7 +24,7 @@ sequence diagrams.
 * :doc:`usecases/add_account_identity`
 * Add metadata to dataset (Mario)
 * Add metadata to file (Mario)
-* Add scopes to an account  (Thomas)
+* :doc:`usecases/add_scope_to_account` (Thomas)
 * An user A should not be able to register a dataset in the scope of an user B
 * Close a dataset (Angelos)
 * Crosscheck if a file is still on disk and in the rucio catalog (Mario)
@@ -45,7 +45,7 @@ sequence diagrams.
 * Re-upload a file after an failed upload (Ralph)
 * Register a dataset with files (Angelos)
 * Register a transfer request for a file and FTS (Mario)
-* Register account (Thomas)
+* :doc:`usecases/register_account` (Thomas)
 * Register file already on storage system (Ralph)
 * :doc:`usecases/remove_replication_rules_from_file` (Martin)
 * :doc:`usecases/select_unwanted_files_for_deletion` (Martin)
@@ -55,6 +55,6 @@ sequence diagrams.
 * :doc:`usecases/add_subscription` (Martin)
 * Tell how many files/how much space is used at a site
 * :doc:`usecases/upload_file_with_replication_rule` (Martin/Ralph)
-* Where are the replicas for a file (Thomas)
+* :doc:`usecases/where_are_the_replicas_for_a_file` (Thomas)
 * Where are the replicas for all files in dataset (Angelos)
 * etc.
