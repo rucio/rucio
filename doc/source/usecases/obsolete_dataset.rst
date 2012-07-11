@@ -11,7 +11,11 @@ Obsolete dataset
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Rucio::
+    HTTPClient::
+    REST::
+    Core::
+    DB::
 
-   HTTPClient:Rucio.DELETE datasets/{scope}/{datasetName}
+    HTTPClient:REST.DELETE datasets/{scope}/{datasetName}
+    REST:Core.obsolete(scope, datasetName)
+    Core:DB.store(scope, datasetName)
