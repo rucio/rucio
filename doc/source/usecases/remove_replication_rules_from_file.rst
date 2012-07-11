@@ -9,7 +9,9 @@
 Remove replication rules from file
 ----------------------------------
 
-* TBA
-
 .. sequence-diagram::
 
+   client:PythonClient
+   core:rucioserver "RucioServer"
+
+   client:core.removeReplicationRulesFromFile(**)

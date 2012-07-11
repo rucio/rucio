@@ -9,7 +9,10 @@
 Set a replication rule on an existing file
 ------------------------------------------
 
-* TBA
-
 .. sequence-diagram::
 
+   client:PythonClient
+   core:rucioserver "RucioCore"
+
+   client:core[s].setreplicationRules(**)
+   core[s]:core.registerTransfers(**)
