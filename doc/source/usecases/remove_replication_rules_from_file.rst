@@ -11,7 +11,11 @@ Remove replication rules from file
 
 .. sequence-diagram::
 
-   client:PythonClient
-   core:rucioserver "RucioServer"
+   HTTPClient::
+   REST::
+   Core::
+   DB::
 
-   client:core.removeReplicationRulesFromFile(**)
+   HTTPClient:REST[a].DEL /?/
+   REST[a]:Core.removeReplicationRules(**)
+   Core:DB.SQL
