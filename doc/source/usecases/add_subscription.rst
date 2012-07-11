@@ -9,38 +9,53 @@
 Add subscription
 ----------------
 
-* Client adds a subscription without the retroactive option
+* Client adds a subscription without the retrofit option
 
-  Due to the retroactive option not beeing enabled, the subscription is only
+  Due to the retrofit option not beeing enabled, the subscription is only
   registered and therefore only checked against future data.
 
 .. sequence-diagram::
 
-   client:PythonClient
-   core:rucioserver "RucioServer"
+   HTTPClient::
+   REST::
+   Core::
+   DB::
 
-   client:core.addSubscription(filter, action, retroactive=False)
+   HTTPClient:REST[a].POST subscriptions/
+   REST[a]:Core[a].addSubscription(filter, action, retrofit=False)
+   Core[a]:DB.SQL
 
-* Client adds a subscription with the retroactive option
+* Client adds a subscription with the retrofit option
 
-  Due to the retroactive option beeing enabled, the subscription must be matched
+  Due to the retrofit option beeing enabled, the subscription must be matched
   against all existing data. 
 
 .. sequence-diagram::
 
-   client:PythonClient
-   core:rucioserver "RucioServer"
-   jobserver:jobserver "JobServer"
-   worker:worker
+   HTTPClient::
+   REST::
+   Core::
+   DB::
+   JobServer::
+   Worker::
 
-   client:core[s].addSubscription(filter, action, retroactive=True)
-   core[s]:jobserver.executeRetroactiveSubscription(**)
-   #[c asynchronously]
-   jobserver:>worker.executeRetroactiveSubscription(**)
-   #[/c]
-   core:_
-   client:_
-   worker:core.searchDatasets(**)
-   worker:core[j].setReplicationRules(**)
-   core[j]:core.registerTransfers(**)   
+   HTTPClient:REST[a].POST /subscriptions/
+   REST[a]:Core[a].addSubscription(filter, action, retrofit=True)
+   Core[a]:DB.SQL
+   Core[a]:JobServer.executeRetroactiveSubscription(**)
+   JobServer:>Worker.executeRetroactiveSubscription(**)
+   Core:_
+   REST:_
+   HTTPClient:_
+   Worker:Core[c].searchDatasets(**)
+   Core[c]:DB.SQL
+   [c loop or bulk]
+     Worker:Core[b].setReplicationRules(**)
+     Core[b]:DB.SQL
+     Core[b]:Core.registerTransfers(**)
+   [/c]
+
+
+
+ 
 
