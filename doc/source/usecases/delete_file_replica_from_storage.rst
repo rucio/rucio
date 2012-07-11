@@ -11,9 +11,17 @@ Delete a file replica from a storage system
 
 .. sequence-diagram::
 
-    HTTPClient::
-    Rucio::
-    Storage:{locationName}
+     HTTPClient::
+     REST::
+     Core::
+     DB::
+     AsynchronousWorkerManager::
+     Worker::
+     Storage:{locationName}
 
-    HTTPClient:Rucio.DELETE /location/{locationName}/{scope}/{fileName}
-    Rucio:Storage.delete({physicalFileName})
+     HTTPClient:REST.DELETE /location/{locationName}/{scope}/{fileName}
+     REST:Core.delete(locationName, scope, fileName)
+     Core:DB.store(physicalFileName)
+     DB:AsynchronousWorkerManager.notify()/poll()
+     AsynchronousWorkerManager:Worker.delegate(deletionJob)
+     Worker:Storage.delete(physicalFileName)
