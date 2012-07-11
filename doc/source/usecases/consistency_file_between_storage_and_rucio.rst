@@ -13,9 +13,12 @@ Periodically retrieve the file metadata from the external storage system.
 
 .. sequence-diagram::
 
-    Rucio::
     Storage::{locationName}
+    Daemon::
+    DB::
 
     [c:loop]
-    Rucio:physical_file_metadata=Storage.stat({physicalFileName})
+    Daemon:physical_file_metadata=Storage.stat({physicalFileName})
+    Daemon:DB.store(physical_file_metadata)
+    Daemon:Daemon.compareAndNotify()
     [/c]

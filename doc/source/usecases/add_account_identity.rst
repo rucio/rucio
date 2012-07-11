@@ -11,8 +11,13 @@ Add identity to an account
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Rucio::
+    HTTPClient::
+    REST::
+    Core::
+    DB::
 
-   HTTPClient:Rucio.PUT accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}
-
+    HTTPClient:REST.PUT accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}
+    REST:Core.addAccountIdentity(accountName, identityType, identityString)
+    Core:DB.storeIfNecessary(accountName)
+    Core:DB.store(identityType, identityString)
+    Core:DB.store(accountName, identityType, identityString)

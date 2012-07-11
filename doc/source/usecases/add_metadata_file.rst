@@ -12,9 +12,13 @@ Add metadata to a file
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Rucio::
+    HTTPClient::
+    REST::
+    Core::
+    DB::
 
-   HTTPClient:Rucio.POST files/{scope}/{fileName}/metadata
+    HTTPClient:REST.POST files/{scope}/{fileName}/metadata
+    REST:Core.addMetadata(scope, fileName, {dictionary})
+    Core:DB.store(scope, datasetName, {dictionary})
 
 Body must be a JSON dictionary containing the appropriate key/value mappings.
