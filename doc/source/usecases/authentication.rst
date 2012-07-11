@@ -11,10 +11,15 @@ Authenticate with rucio
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Authentication::
+    HTTPClient::
+    REST::
+    Authentication::
+    Core::
+    DB::
 
-   HTTPClient:Rucio-Auth-Token=Authentication.GET auth/{userpass|x509|gss|proxy}
+    HTTPClient:Rucio-Auth-Token=REST.GET auth/{userpass|x509|gss|proxy}
+    REST:Rucio-Auth-Token=Authentication.authorize(credentials)
+    Authentication:DB.store(Rucio-Auth-Token)
 
 Every API call needs to provide a valid Rucio-Auth-Token. This authentication handshake is therefore omitted from the other sequence diagrams.
 
@@ -37,3 +42,21 @@ The client needs to present a valid Kerberos5/GSSAPI authentication token.
 * ``proxy``
 
 The client needs to present a valid Globus proxy certificate.
+
+
+---------------------------
+Validate a Rucio-Auth-Token
+---------------------------
+
+.. sequence-diagram::
+
+    HTTPClient::
+    REST::
+    Authentication::
+    Core::
+    DB::
+
+    HTTPClient:[true|false]=REST.GET auth/validate
+    REST:[true|false]=Authentication.validate(Rucio-Auth-Token)
+    Authentication:storedCredentials=DB.retrieve(Rucio-Auth-Token)
+    Authentication:[true|false]=Authentication.validIfStoredCredentialsFound()

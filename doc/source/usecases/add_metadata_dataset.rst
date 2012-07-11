@@ -11,9 +11,13 @@ Add Metadata to a dataset
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Rucio::
+    HTTPClient::
+    REST::
+    Core::
+    DB::
 
-   HTTPClient:Rucio.POST datasets/{scope}/{datasetName}/metadata
+    HTTPClient:REST.POST datasets/{scope}/{datasetName}/metadata
+    REST:Core.addMetadata(scope, datasetName, {dictionary})
+    Core:DB.store(scope, datasetName, {dictionary})
 
 Body must be a JSON dictionary containing the appropriate key/value mappings.

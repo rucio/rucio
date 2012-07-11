@@ -13,9 +13,12 @@ Periodically update the space occupancy for each external storage system.
 
 .. sequence-diagram::
 
-    Rucio::
-    Storage::{locationName}
+     Daemon::
+     DB::
+     Storage::{locationName}
 
-    [c:loop]
-    Rucio:occupancy=Storage.getSpaceOccupancy()
-    [/c]
+     [c:loop]
+     Daemon:occupancy=Storage.getSpaceOccupancy()
+     Daemon:DB.store(locationName, occupancy)
+     Daemon:Daemon.compareAndNotify()
+     [/c]

@@ -13,18 +13,24 @@ Search datasets with wildcard pattern, meta-data
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Rucio::
+    HTTPClient::                                                                                                                                                                                                                                                                 REST::
+    Core::                                                                                                                                                                                                                                                                       DB::
 
-   HTTPClient:[datasets]=Rucio.GET datasets/{regular expression}
+    HTTPClient:[datasets]=REST.GET /datasets/{regular expression}
+    REST:[datasets]=Core.searchDatasets({regular expression})
+    Core:[datasets]=DB.retrieve({regular expression})
 
 * Search via meta-data
 
 .. sequence-diagram::
 
-   HTTPClient::
-   Rucio::
+    HTTPClient::
+    REST::
+    Core::
+    DB::
 
-   HTTPClient:[datasets]=Rucio.POST datasets/search
+    HTTPClient:[datasets]=REST.POST /datasets/search
+    REST:[datasets]=Core.searchDatasets({dictionary})
+    Core:[datasets]=DB.retrieve({dictionary})
 
 Body of the POST is a JSON dictionary with the appropriate key/value pairs, e.g. ``{'project':'data11*', 'datatype':'raw'}``.
