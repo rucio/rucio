@@ -13,10 +13,12 @@ Register account
 
 .. sequence-diagram::
 
-   HTTPClient::Client
-   Rucio::Server
+   HTTPClient::
+   REST::
+   Rucio::
 
-   HTTPClient:Rucio.POST /accounts/
-
+   HTTPClient:REST.POST /accounts/
+   REST:Rucio.add_account(accountName, accountType)
+   
 
 Body of the POST is a JSON dictionary with two fields: 'accountName' and 'accountType'
