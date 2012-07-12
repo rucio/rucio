@@ -13,9 +13,11 @@ Add scope to account
 
 .. sequence-diagram::
 
-   HTTPClient::Client
-   Rucio::Server
-
-   HTTPClient:Rucio.POST /accounts/{accountName}/scopes/
+   HTTPClient::
+   REST::
+   Rucio::
+   
+   HTTPClient:REST.POST /accounts/{accountName}/scopes/
+   REST:Rucio.add_scope(accountName, scopeName)
 
 Body of the POST is a JSON dictionary with one field: 'scopeName'
