@@ -12,11 +12,37 @@
 Rucio utilities.
 """
 
-import urllib
-import uuid
+from urllib import urlencode
+from uuid import uuid4 as uuid
+from web import HTTPError
+
+# HTTP code dictionary. Not complete. Can be extended if needed.
+codes = {
+    # Informational.
+    200: '200 OK',
+    201: '201 Created',
+    202: '202 Accepted',
+
+    # Client Error.
+    400: '400 Bad Request',
+    401: '401 Unauthorized',
+    403: '403 Forbidden',
+    404: '404 Not Found',
+    405: '405 Method Not Allowed',
+    408: '408 Request Timeout',
+    409: '409 Conflict',
+    410: '410 Gone',
+
+    # Server Error.
+    500: '500 Internal Server Error',
+    501: '501 Not Implemented',
+    502: '502 Bad Gateway',
+    503: '503 Service Unavailable',
+    504: '504 Gateway Timeout'
+}
 
 
-def build_url(host, port=None, path=None, params=None, use_ssl=False):
+def build_url(host, port=None, path=None, params=None, use_ssl=True):
     """
     utitily function to build an url for requests to the rucio system.
     """
@@ -33,13 +59,29 @@ def build_url(host, port=None, path=None, params=None, use_ssl=False):
         url += path
     if params is not None:
         url += "?"
-        url += urllib.urlencode(params)
+        url += urlencode(params)
     return url
 
 
 def generate_uuid():
-    return str(uuid.uuid4()).replace('-', '').lower()
+    return str(uuid()).replace('-', '').lower()
 
 
 def generate_uuid_bytes():
-    return uuid.uuid4().bytes
+    return uuid().bytes
+
+
+def generate_http_error(status_code, exc_cls, exc_msg):
+    """
+    utitily function to generate a complete HTTP error response.
+    :param status_code: The HTTP status code to generate a response for.
+    :param exc_cls: The name of the exception class to send with the response.
+    :param exc_msg: The error message.
+    :returns: a web.py HTTP response object.
+    """
+
+    status = codes[status_code]
+    headers = {'Content-Type': 'text/html', 'ExceptionClass': exc_cls, 'ExceptionMessage': exc_msg}
+    data = ': '.join([exc_cls, exc_msg])
+
+    return HTTPError(status, headers=headers, data=data)
