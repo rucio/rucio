@@ -13,7 +13,9 @@ Where are the replicas for a file
 
 .. sequence-diagram::
 
-   HTTPClient::Client
-   Rucio::Server
+   HTTPClient::
+   REST::
+   Rucio::
 
-   HTTPClient:[locations]=Rucio.POST /files/{scopeName}/locations/
+   HTTPClient:[locations]=REST.GET /files/{scopeName}/locations/
+   REST:[locations]=Rucio.get_file_locations(scopeName, LFN)
