@@ -19,7 +19,7 @@ class AccountClient(BaseClient):
 
     """Account client class for working with rucio accounts"""
 
-    BASEURL = 'accounts/'
+    BASEURL = 'accounts'
 
     def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
         super(AccountClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
@@ -34,7 +34,7 @@ class AccountClient(BaseClient):
         """
 
         data = dumps({'accountName': accountName, 'accountType': accountType})
-        path = self.BASEURL
+        path = '/'.join([self.BASEURL, ''])
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, type='POST', data=data)
@@ -54,7 +54,7 @@ class AccountClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = self.BASEURL + accountName
+        path = '/'.join([self.BASEURL, accountName])
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, type='DEL')
@@ -74,7 +74,7 @@ class AccountClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = self.BASEURL + accountName
+        path = '/'.join([self.BASEURL, accountName])
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
         r = self._send_request(url)
 
@@ -93,7 +93,7 @@ class AccountClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = self.BASEURL
+        path = '/'.join([self.BASEURL, ''])
         url = build_url(self.host, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url)

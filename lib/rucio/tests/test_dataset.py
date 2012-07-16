@@ -9,13 +9,14 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 from json import dumps
-from nose.tools import raises, assert_equal, assert_true
+from nose.tools import raises, assert_equal, assert_false, assert_true
 from paste.fixture import TestApp
-from uuid import uuid4 as uuid
 
+from rucio.client.accountclient import AccountClient
 from rucio.client.datasetclient import DatasetClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, DatasetAlreadyExists, DatasetIsMonotonic, DatasetNotFound, DatasetObsolete, Duplicate, FileAlreadyExists, FileNotFound, InodeNotFound, InputValidationError, NoPermissions, NotADataset, ScopeNotFound
+from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.core.inode import add_files_to_dataset, build_inode_list, bulk_register_datasets, bulk_register_files, change_dataset_owner
@@ -520,6 +521,8 @@ class TestDataset_REST():
             pass  # Account already exists, no need to create it
         try:
             add_account(self.user2, self.user_type)
+            add_identity('ddmlab3', 'userpass', password='secret')
+            add_account_identity('ddmlab3', 'userpass', self.user2)
         except Duplicate:
             pass  # Account already exists, no need to create it
         self.scope_misc = 'misc_3'
@@ -546,7 +549,7 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         data = dumps({'datasetName': dsn})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
@@ -558,7 +561,7 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         data = dumps({'datasetName': dsn, 'datasetType': 'monotonic'})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
@@ -571,7 +574,7 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         data = dumps({'datasetName': dsn, 'datasetType': 'non-monotonic'})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
@@ -586,7 +589,7 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'False')
         assert_equal(ret.status, 200)
@@ -607,18 +610,18 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'search-type': 'all', 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=all' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'False')
         assert_equal(ret.status, 200)
         data = dumps({'datasetName': dsn})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=all' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'True')
         assert_equal(ret.status, 200)
         obsolete_dataset(self.scope_misc, dsn, self.user)
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=all' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'True')
         assert_equal(ret.status, 200)
 
@@ -628,18 +631,18 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'search_type': 'current', 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=current' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'False')
         assert_equal(ret.status, 200)
         data = dumps({'datasetName': dsn})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=current' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'True')
         assert_equal(ret.status, 200)
         obsolete_dataset(self.scope_misc, dsn, self.user)
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=current' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'False')
         assert_equal(ret.status, 200)
 
@@ -649,18 +652,18 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'search_type': 'obsolete', 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=obsolete' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'False')
         assert_equal(ret.status, 200)
         data = dumps({'datasetName': dsn})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=obsolete' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'False')
         assert_equal(ret.status, 200)
         obsolete_dataset(self.scope_misc, dsn, self.user)
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=obsolete' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'True')
         assert_equal(ret.status, 200)
 
@@ -672,7 +675,7 @@ class TestDataset_REST():
         assert_equal(is_dataset_obsolete(self.scope_misc, dsn, self.user), False)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).delete('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.status, 200)
         assert_equal(is_dataset_obsolete(self.scope_misc, dsn, self.user), True)
@@ -685,8 +688,8 @@ class TestDataset_REST():
         assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.user2, 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s?newAccount=%s' % (self.scope_misc, dsn, self.user2), headers=headers, expect_errors=True)
         assert_equal(ret.status, 200)
         assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user2)
 
@@ -720,25 +723,26 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         data = dumps({'datasetName': dsn})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.invalid_scope), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.normal_body, "ScopeNotFound: Scope '%s' does not exist" % self.invalid_scope)
         assert_equal(ret.status, 404)
         assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), False)
 
-    def test_register_invalid_account(self):
-        """ DATASET (REST) send a POST to create a dataset with an account that does not exist """
-        dsn = str(uuid())
-        self.to_clean_datasets.append(dsn)
-        mw = []
-        token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.invalid_user, 'Rucio-Auth-Token': str(token)}
-        data = dumps({'datasetName': dsn})
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
-        assert_equal(ret.normal_body, "AccountNotFound: Account '%s' does not exist" % self.invalid_user)
-        assert_equal(ret.status, 404)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), False)
+# Shouldn't be possible anymore because the server gets the account name from the token. So the a wrong account name cannot be send a this point.
+#    def test_register_invalid_account(self):
+#        """ DATASET (REST) send a POST to create a dataset with an account that does not exist """
+#        dsn = str(uuid())
+#        self.to_clean_datasets.append(dsn)
+#        mw = []
+#        token = get_auth_token(self.user, 'ddmlab2', 'secret')
+#        headers = {'Rucio-Account': self.invalid_user, 'Rucio-Auth-Token': str(token)}
+#        data = dumps({'datasetName': dsn})
+#        ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
+#        assert_equal(ret.normal_body, "AccountNotFound: Account '%s' does not exist" % self.invalid_user)
+#        assert_equal(ret.status, 404)
+#        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), False)
 
     def test_register_dataset_input_error_type(self):
         """ DATASET (REST): send a POST to create a dataset specifying an invalid type """
@@ -746,7 +750,7 @@ class TestDataset_REST():
         self.to_clean_datasets.append(dsn)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         data = dumps({'datasetName': dsn, 'datasetType': 'very_large'})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.normal_body, "InputValidationError: dataset type parameter is not properly defined")
@@ -796,8 +800,8 @@ class TestDataset_REST():
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'search_type': 'everything', 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).get('/%s/%s?searchType=everything' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, 'InputValidationError: search type parameter is not properly defined')
         assert_equal(ret.status, 400)
 
@@ -817,7 +821,7 @@ class TestDataset_REST():
         """ DATASET (REST): send a DELETE to obsolete a dataset that does not exist """
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).delete('/%s/%s' % (self.scope_misc, self.invalid_dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "DatasetNotFound: Target dataset '%s' in scope '%s' does not exist." % (self.invalid_dsn, self.scope_misc))
         assert_equal(ret.status, 404)
@@ -827,7 +831,7 @@ class TestDataset_REST():
         dsn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).delete('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "NotADataset: Specified dataset '%s' in scope '%s' is actually a file" % (dsn, self.scope_misc))
         assert_equal(ret.status, 404)
@@ -839,7 +843,7 @@ class TestDataset_REST():
         obsolete_dataset(self.scope_misc, dsn, self.user)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).delete('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "DatasetObsolete: Dataset '%s' in scope '%s' already obsolete" % (dsn, self.scope_misc))
         assert_equal(ret.status, 404)
@@ -851,7 +855,7 @@ class TestDataset_REST():
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
+        headers = {'Rucio-Auth-Token': str(token)}
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "InputValidationError: search type parameter is not properly defined")
         assert_equal(ret.status, 400)
@@ -862,8 +866,8 @@ class TestDataset_REST():
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.invalid_user, 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s?newAccount=%s' % (self.scope_misc, dsn, self.invalid_user), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "AccountNotFound: Account (%s) does not exist" % self.invalid_user)
         assert_equal(ret.status, 404)
         assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user)
@@ -872,31 +876,32 @@ class TestDataset_REST():
         """ DATASET (REST) send a PUT to change dataset's owner by specifying the wrong old owner """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         mw = []
-        token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.user2, 'Rucio-Account': self.user2, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        token = get_auth_token(self.user2, 'ddmlab3', 'secret')
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s?newAccount=%s' % (self.scope_misc, dsn, self.user2), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "NoPermissions: Specified account (%s) is not the owner" % self.user2)
         assert_equal(ret.status, 401)
         assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user)
 
-    def test_change_owner_of_dataset_invalid_account(self):
-        """ DATASET (REST) send a PUT to change dataset's owner by specifying invalid old owner """
-        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
-        mw = []
-        token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.user2, 'Rucio-Account': self.invalid_user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
-        assert_equal(ret.normal_body, "AccountNotFound: Account (%s) does not exist" % self.invalid_user)
-        assert_equal(ret.status, 404)
-        assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user)
+# Shouldn't be possible anymore because the server gets the account from the token.
+#    def test_change_owner_of_dataset_invalid_account(self):
+#        """ DATASET (REST) send a PUT to change dataset's owner by specifying invalid old owner """
+#        dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
+#        mw = []
+#        token = get_auth_token(self.user, 'ddmlab2', 'secret')
+#        headers = {'new_account': self.user2, 'Rucio-Account': self.invalid_user, 'Rucio-Auth-Token': str(token)}
+#        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+#        assert_equal(ret.normal_body, "AccountNotFound: Account (%s) does not exist" % self.invalid_user)
+#        assert_equal(ret.status, 404)
+#        assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user)
 
     def test_change_owner_of_dataset_invalid_scope(self):
         """ DATASET (REST) send a PUT to change dataset's owner by specifying invalid scope """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.user2, 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.invalid_scope, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s?newAccount=%s' % (self.invalid_scope, dsn, self.user2), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "ScopeNotFound: Scope (%s) does not exist" % self.invalid_scope)
         assert_equal(ret.status, 404)
         assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user)
@@ -906,8 +911,8 @@ class TestDataset_REST():
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.user2, 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, self.invalid_dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s?newAccount=%s' % (self.scope_misc, self.invalid_dsn, self.user2), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "DatasetNotFound: Dataset (%s) does not exist" % self.invalid_dsn)
         assert_equal(ret.status, 404)
         assert_equal(get_dataset_owner(self.scope_misc, dsn, self.user), self.user)
@@ -917,8 +922,8 @@ class TestDataset_REST():
         dsn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.user2, 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s?newAccount=%s' % (self.scope_misc, dsn, self.user2), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "NotADataset: Specified dsn (%s) in scope (%s) is actually a file" % (dsn, self.scope_misc))
         assert_equal(ret.status, 404)
 
@@ -928,8 +933,8 @@ class TestDataset_REST():
         obsolete_dataset(self.scope_misc, dsn, self.user)
         mw = []
         token = get_auth_token(self.user, 'ddmlab2', 'secret')
-        headers = {'new_account': self.user2, 'Rucio-Account': self.user, 'Rucio-Auth-Token': str(token)}
-        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s' % (self.scope_misc, dsn), headers=headers, expect_errors=True)
+        headers = {'Rucio-Auth-Token': str(token)}
+        ret = TestApp(dataset_web_app.wsgifunc(*mw)).put('/%s/%s?newAccount=%s' % (self.scope_misc, dsn, self.user2), headers=headers, expect_errors=True)
         assert_equal(ret.normal_body, "DatasetObsolete: Dataset (%s) in scope (%s) is obsolete" % (dsn, self.scope_misc))
         assert_equal(ret.status, 404)
 
@@ -938,6 +943,7 @@ class xTestDatasetClient():
     def setUp(self):
         creds = {'username': 'ddmlab', 'password': 'secret'}
         self.dclient = DatasetClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.aclient = AccountClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
         self.sclient = ScopeClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     def tearDown(self):
@@ -955,7 +961,146 @@ class xTestDatasetClient():
     @raises(ScopeNotFound)
     def test_add_dataset_no_scope(self):
         """ DATASET (CLIENTS): add a new dataset for a non existing scope."""
-
         scope = str(uuid())
         dataset = str(uuid())
         self.dclient.add_dataset(scope, dataset)
+
+    @raises(DatasetAlreadyExists)
+    def test_add_dataset_already_exists(self):
+        """ DATASET (CLIENTS): add a dataset that already exists."""
+        account = 'root'
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.dclient.add_dataset(scope, dataset)
+
+    def test_obsolete_dataset(self):
+        """ DATASET (CLIENTS): obsolete a dataset."""
+        account = 'root'
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.dclient.obsolete_dataset(scope, dataset)
+
+    @raises(ScopeNotFound)
+    def test_obsolete_dataset_wrong_scope(self):
+        """ DATASET (CLIENTS): obsolete a dataset with wrong scope."""
+        account = 'root'
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.dclient.obsolete_dataset('wrong_scope', dataset)
+
+    @raises(DatasetObsolete)
+    def test_obsolete_dataset_already_obsoleted(self):
+        """ DATASET (CLIENTS): obsolete an already obsoleted dataset."""
+        account = 'root'
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.dclient.obsolete_dataset(scope, dataset)
+        self.dclient.obsolete_dataset(scope, dataset)
+
+    @raises(DatasetNotFound)
+    def test_obsolete_dataset_doesnt_exist(self):
+        """ DATASET (CLIENTS): obsolete an non existing dataset."""
+        account = 'root'
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.dclient.obsolete_dataset(scope, 'wrong_dataset')
+
+    def test_change_dataset_owner(self):
+        """ DATASET (CLIENTS): change the owner of a dataset."""
+        account = 'root'
+        new_account = uuid()
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.aclient.create_account(new_account, 'user')
+        self.dclient.change_dataset_owner(scope, dataset, new_account)
+
+    @raises(ScopeNotFound)
+    def test_change_dataset_owner_wrong_scope(self):
+        """ DATASET (CLIENTS): change the owner of a dataset with wrong scope."""
+        account = 'root'
+        new_account = uuid()
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.aclient.create_account(new_account, 'user')
+        self.dclient.change_dataset_owner('wrong_scope', dataset, new_account)
+
+    @raises(DatasetObsolete)
+    def test_change_obsolete_dataset(self):
+        """ DATASET (CLIENTS): change the owner of an obsolete dataset."""
+        account = 'root'
+        new_account = uuid()
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.dclient.obsolete_dataset(scope, dataset)
+        self.aclient.create_account(new_account, 'user')
+        self.dclient.change_dataset_owner(scope, dataset, new_account)
+
+    @raises(DatasetNotFound)
+    def test_change_dataset_no_dataset(self):
+        """ DATASET (CLIENTS): change the owner of a non existing dataset."""
+        account = 'root'
+        new_account = uuid()
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope(account, scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.aclient.create_account(new_account, 'user')
+        self.dclient.change_dataset_owner(scope, 'wrong_dataset', new_account)
+
+    def test_dataset_exists(self):
+        """ DATASET (CLIENTS): check if dataset exists."""
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope('root', scope)
+        self.dclient.add_dataset(scope, dataset)
+        ret = self.dclient.dataset_exists(scope, dataset)
+        assert_true(ret)
+
+    def test_dataset_exists_current(self):
+        """ DATASET (CLIENTS): check if current dataset exists."""
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope('root', scope)
+        self.dclient.add_dataset(scope, dataset)
+        ret = self.dclient.dataset_exists(scope, dataset, searchType='current')
+        assert_true(ret)
+
+    def test_dataset_exists_obsolete(self):
+        """ DATASET (CLIENTS): check if obsolete dataset exists."""
+        scope = uuid()
+        dataset = uuid()
+        self.sclient.add_scope('root', scope)
+        self.dclient.add_dataset(scope, dataset)
+        self.dclient.obsolete_dataset(scope, dataset)
+        ret = self.dclient.dataset_exists(scope, dataset, searchType='obsolete')
+        assert_true(ret)
+
+    def test_dataset_exists_all(self):
+        """ DATASET (CLIENTS): check different searchTypes for dataset exists."""
+        scope = uuid()
+        dataset1 = uuid()
+        dataset2 = uuid()
+        self.sclient.add_scope('root', scope)
+        self.dclient.add_dataset(scope, dataset1)
+        self.dclient.add_dataset(scope, dataset2)
+        self.dclient.obsolete_dataset(scope, dataset1)
+        ret = self.dclient.dataset_exists(scope, dataset1)
+        assert_false(ret)
+        ret = self.dclient.dataset_exists(scope, dataset2, searchType='all')
+        assert_true(ret)

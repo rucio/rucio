@@ -11,7 +11,7 @@
 
 from json import loads
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, header, Created, InternalError, HTTPError, OK, Unauthorized
+from web import application, ctx, data, header, input as web_input, websafe, Created, InternalError, HTTPError, OK, Unauthorized
 
 from rucio.api.dataset import add_dataset, change_dataset_owner, dataset_exists, obsolete_dataset
 from rucio.core.authentication import validate_auth_token
@@ -47,7 +47,6 @@ class Dataset1Parameter:
         """
 
         header('Content-Type', 'application/octet-stream')
-        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         json_data = data()
@@ -79,8 +78,10 @@ class Dataset1Parameter:
         auth = validate_auth_token(auth_token)
         if auth is None:
             raise Unauthorized()
+
+        auth_account = auth[0]
+
         try:
-            logger.error('%s: %s' % (scope, datasetName))
             add_dataset(scope, datasetName, auth_account, monotonic=monotonic)
         except ScopeNotFound, error:
             raise generate_http_error(404, 'ScopeNotFound', error.args[0][0])
@@ -112,11 +113,12 @@ class Dataset2Parameter:
         """
 
         header('Content-Type', 'application/octet-stream')
-        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
         if auth is None:
             raise Unauthorized()
+        auth_account = auth[0]
+
         try:
             obsolete_dataset(scope, datasetName, auth_account)
         except ScopeNotFound, error:
@@ -150,14 +152,21 @@ class Dataset2Parameter:
         """
 
         header('Content-Type', 'application/octet-stream')
-        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-        new_account = ctx.env.get('HTTP_NEW_ACCOUNT')
-        auth = validate_auth_token(auth_token)
+
+        params = web_input(newAccount=None)
+        new_account = websafe(params.newAccount)
+
+        if not len(new_account):
+            new_account = None
         if new_account is None:
             raise HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
+
+        auth = validate_auth_token(auth_token)
         if auth is None:
             raise Unauthorized()
+        auth_account = auth[0]
+
         try:
             change_dataset_owner(scope, datasetName, auth_account, new_account)
         except ScopeNotFound, error:
@@ -191,16 +200,22 @@ class Dataset2Parameter:
         """
 
         header('Content-Type', 'application/octet-stream')
-        auth_account = ctx.env.get('HTTP_RUCIO_ACCOUNT')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-        search_type = ctx.env.get('HTTP_SEARCH_TYPE')
+
+        params = web_input(searchType=None)
+        search_type = websafe(params.searchType)
+        if not len(search_type):
+            search_type = None
         if search_type not in ('current', 'obsolete', 'all', None):
             raise HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
         if search_type is not None:
             search_type = search_type.lower()
+
+        auth = validate_auth_token(auth_token)
         if auth is None:
             raise Unauthorized()
+        auth_account = auth[0]
+
         try:
             if search_type is None:
                 return dataset_exists(scope, datasetName, auth_account, search_obsolete=False)
