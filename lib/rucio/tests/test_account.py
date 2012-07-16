@@ -11,13 +11,13 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from json import dumps, loads
-from uuid import uuid4 as uuid
 
 from nose.tools import assert_equal, assert_false, assert_true, raises
 from paste.fixture import TestApp
 
 from rucio.client.accountclient import AccountClient
 from rucio.common.exception import AccountNotFound, Duplicate
+from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, account_exists, del_account
 from rucio.core.account import get_account_status, account_status, set_account_status
 from rucio.db.session import build_database, destroy_database, create_root_account
@@ -154,7 +154,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Auth-Token': str(token)}
         data = dumps({'accountName': 'testuser', 'accountType': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
@@ -225,7 +225,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Auth-Token': str(token)}
         acc_list = ['test' + str(i) for i in xrange(5)]
         for account in acc_list:
             data = dumps({'accountName': account, 'accountType': 'user'})

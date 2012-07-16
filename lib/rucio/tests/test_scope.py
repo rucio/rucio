@@ -11,7 +11,6 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from json import dumps, loads
-from uuid import uuid4 as uuid
 
 from paste.fixture import TestApp
 from nose.tools import assert_equal, assert_true, raises
@@ -19,6 +18,7 @@ from nose.tools import assert_equal, assert_true, raises
 from rucio.client.accountclient import AccountClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
+from rucio.common.utils import generate_uuid as uuid
 from rucio.core.scope import bulk_add_scopes, get_scopes, add_scope
 from rucio.db.session import build_database, create_root_account, destroy_database
 from rucio.web.rest.account import app as account_app
@@ -70,7 +70,7 @@ class TestScope():
 
         token = str(r1.header('Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Auth-Token': str(token)}
         data = dumps({'accountName': 'testaccount', 'accountType': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
@@ -180,7 +180,7 @@ class TestScope():
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers3 = {'Rucio-Auth-Token': str(token)}
         for scope in self.scopes:
             data = dumps({'scopeName': scope})
             r3 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount/scopes', headers=headers3, params=data, expect_errors=True)
