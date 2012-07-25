@@ -9,19 +9,17 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
+from rucio.core import permission
 
-def has_permission(account, action, **kwargs):
+
+def has_permission(accountName, action, kwargs):
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
 
-    :param account: Account identifier.
+    :param accountName: Account identifier.
     :param action:  The action(API call) called by the account.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    pass
-
-
-def get_token():
-    pass
+    return permission.has_permission(accountName=accountName, action=action, kwargs=kwargs)

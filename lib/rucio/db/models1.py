@@ -275,10 +275,22 @@ class Location(BASE, ModelBase):
     id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
     location = Column(String(255))
     storage = Column(String(255))
+    type = Column(String(255))
     path = Column(Text)
     _table_args = (PrimaryKeyConstraint('id', name='LOCATIONS_PK'),
                    UniqueConstraint('location', name='LOCATIONS_LOCATION_UQ'),
                    CheckConstraint('"LOCATION" IS NOT NULL', name='LOCATIONS_LOCATION_NN'),)
+
+
+class LocationUsage(BASE, ModelBase):
+    """Represents location usage"""
+    __tablename__ = 'location_usage'
+    location_id = Column(String(255))
+    name = Column(String(255))
+    value = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('location_id', 'name', name='LOCATION_USAGE_PK'),
+                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='LOCATION_USAGE_LOC_ID_FK'),
+                  )
 
 
 class RSE(BASE, ModelBase):
@@ -290,6 +302,32 @@ class RSE(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='RSE_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE_NN'),)
+
+
+class AccountLimit(BASE, ModelBase):
+    """Represents account limits"""
+    __tablename__ = 'account_limits'
+    account = Column(String(255))
+    rse_id = Column(String(36))
+    name = Column(String(255))
+    value = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'name', name='ACCOUNT_LIMITS_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_LIMITS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_LIMITS_RSE_ID_FK'),
+                  )
+
+
+class AccountUsage(BASE, ModelBase):
+    """Represents account usage"""
+    __tablename__ = 'account_usage'
+    account = Column(String(255))
+    rse_id = Column(String(36))
+    name = Column(String(255))
+    value = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'name', name='ACCOUNT_USAGE_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_USAGE_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_USAGE_RSE_ID_FK'),
+                  )
 
 
 class LocationRSEAssociation(BASE, ModelBase):
