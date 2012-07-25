@@ -97,6 +97,6 @@ def validate_auth_token(token):
     if r is not None and r != []:
         q.update({'lifetime': datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)})
         session.commit()
-        return (r[0][0], r[0][1])
+        return {'account': r[0][0], 'lifetime': r[0][1]}
 
     return None
