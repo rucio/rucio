@@ -14,10 +14,12 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, HTTPError, OK, Unauthorized
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts
+from rucio.api.permission import has_permission
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied
 from rucio.common.utils import generate_http_error
 from rucio.core.authentication import validate_auth_token
+
 
 logger = getLogger("rucio.account")
 sh = StreamHandler()
@@ -93,7 +95,7 @@ class Scopes:
 
         auth = validate_auth_token(auth_token)
 
-        if auth is None:
+        if not auth:
             raise Unauthorized()
 
         json_data = data()
@@ -114,8 +116,11 @@ class Scopes:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-
+            if not has_permission(accountName=auth.get('account'), action='add_scope', kwargs={'accountName': accountName, 'scopeName': scopeName}):
+                raise AccessDenied('Account %s can not add scope to account %s' (auth.get('account'), accountName))
             add_scope(scopeName, accountName)
+        except AccessDenied, e:
+            raise Unauthorized(e[0][0])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except AccountNotFound, e:
