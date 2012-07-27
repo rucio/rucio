@@ -23,7 +23,7 @@ from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint,
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
-
+from rucio.db.history import Versioned
 
 # FIXME: Breaks unit test
 #@compiles(Binary, "oracle")
@@ -275,20 +275,23 @@ class Location(BASE, ModelBase):
     id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
     location = Column(String(255))
     storage = Column(String(255))
-    type = Column(String(255))
+    type = Column(String(255), default='disk')
     path = Column(Text)
     _table_args = (PrimaryKeyConstraint('id', name='LOCATIONS_PK'),
                    UniqueConstraint('location', name='LOCATIONS_LOCATION_UQ'),
-                   CheckConstraint('"LOCATION" IS NOT NULL', name='LOCATIONS_LOCATION_NN'),)
+                   CheckConstraint('"LOCATION" IS NOT NULL', name='LOCATIONS_LOCATION_NN'),
+                   CheckConstraint("type IN ('disk')", name='LOCATIONS_TYPE_CHK'),
+                  )
 
 
-class LocationUsage(BASE, ModelBase):
+class LocationUsage(BASE, ModelBase, Versioned):
     """Represents location usage"""
     __tablename__ = 'location_usage'
     location_id = Column(String(255))
+    source = Column(String(255))
     name = Column(String(255))
     value = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('location_id', 'name', name='LOCATION_USAGE_PK'),
+    _table_args = (PrimaryKeyConstraint('location_id', 'source', 'name', name='LOCATION_USAGE_PK'),
                    ForeignKeyConstraint(['location_id'], ['locations.id'], name='LOCATION_USAGE_LOC_ID_FK'),
                   )
 
@@ -317,16 +320,16 @@ class AccountLimit(BASE, ModelBase):
                   )
 
 
-class AccountUsage(BASE, ModelBase):
+class AccountUsage(BASE, ModelBase, Versioned):
     """Represents account usage"""
     __tablename__ = 'account_usage'
     account = Column(String(255))
-    rse_id = Column(String(36))
+    location_id = Column(String(36))
     name = Column(String(255))
     value = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'name', name='ACCOUNT_USAGE_PK'),
+    _table_args = (PrimaryKeyConstraint('account', 'location_id', 'name', name='ACCOUNT_USAGE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_USAGE_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_USAGE_RSE_ID_FK'),
+                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='ACCOUNT_USAGE_LOC_ID_FK'),
                   )
 
 
