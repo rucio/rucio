@@ -204,3 +204,77 @@ class ServiceUnavailable(RucioException):
     def __init__(self, *args, **kwargs):
         super(ServiceUnavailable, self).__init__(args, kwargs)
         self._message = "The requested service is not available at the moment."
+
+# An other set of RSE related exceptions. When it is finished 'duplicated' Exceptions mut be removed
+
+
+class SourceAccessDenied(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(SourceAccessDenied, self).__init__(args, kwargs)
+        self._message = "Access to local source file denied."
+
+
+class SourceNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(SourceNotFound, self).__init__(args, kwargs)
+        self._message = "Local source file not found."
+
+
+class RSENotReachable(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSENotReachable, self).__init__(args, kwargs)
+        self._message = "Referrenced RSE not reachable."
+
+
+class RSEAccessDenied(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSENotReachable, self).__init__(args, kwargs)
+        self._message = "Referrenced RSE not reachable."
+
+
+class DatasetAccessDenied(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSENotReachable, self).__init__(args, kwargs)
+        self._message = "Access to referrenced dataset denied."
+
+
+class ScopeAccessDenied(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ScopeAccessDenied, self).__init__(args, kwargs)
+        self._message = "Access to referrenced scope denied."
+
+
+class RSEOverQuota(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSEOverQuota, self).__init__(args, kwargs)
+        self._message = "Quota of referrenced RSE is exceeded."
+
+
+class InvalidMetadata(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidMetadata, self).__init__(args, kwargs)
+        self._message = "Provided metadata is considered invalid."
+
+
+class FileReplicaAlreadyExists(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FileReplicaAlreadyExists, self).__init__(args, kwargs)
+        self._message = "A replica of the file already exists."
+
+
+class FileConsistencyConflict(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FileConsistencyConflict, self).__init__(args, kwargs)
+        self._message = "Error related to file consistency."
+
+
+class InvalidReplicationRule(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidReplicationRule, self).__init__(args, kwargs)
+        self._message = "Provided replication rule is considered invalid."
+
+
+class FullStorage(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FullStorage, self).__init__(args, kwargs)
+        self._message = "The referrenced storage is out of disk space."
