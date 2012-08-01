@@ -18,8 +18,8 @@ class LocationClient(BaseClient):
 
     """Location client class for working with rucio locations"""
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(LocationClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+        super(LocationClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
 
     def create_location(self, location):
         """
@@ -32,7 +32,7 @@ class LocationClient(BaseClient):
 
         headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'location/' + location
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, headers, type='POST', data=" ")
 
@@ -52,7 +52,7 @@ class LocationClient(BaseClient):
 
         headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'location/'
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, headers)
         if r.status_code == codes.ok:

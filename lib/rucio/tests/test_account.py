@@ -243,7 +243,7 @@ class TestAccountRestApi():
 class xTestAccountClient():
     def setUp(self):
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.client = AccountClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.client = AccountClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     def tearDown(self):
         pass

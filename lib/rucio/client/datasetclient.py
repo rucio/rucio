@@ -20,8 +20,8 @@ class DatasetClient(BaseClient):
 
     BASEURL = 'datasets'
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(DatasetClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+        super(DatasetClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
 
     def add_dataset(self, scope, datasetName, monotonic=None):
         """
@@ -39,7 +39,7 @@ class DatasetClient(BaseClient):
         """
 
         path = '/'.join([self.BASEURL, scope])
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
         data = dumps({'datasetName': datasetName, 'monotonic': monotonic})
 
         r = self._send_request(url, data=data, type='POST')
@@ -63,7 +63,7 @@ class DatasetClient(BaseClient):
         """
 
         path = '/'.join([self.BASEURL, scope, datasetName])
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, type='DEL')
 
@@ -90,7 +90,7 @@ class DatasetClient(BaseClient):
 
         path = '/'.join([self.BASEURL, scope, datasetName])
         params = {'newAccount': newAccount}
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl, params=params)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl, params=params)
 
         r = self._send_request(url, type='PUT')
 
@@ -114,7 +114,7 @@ class DatasetClient(BaseClient):
         params = {}
         if searchType:
             params = {'searchType': searchType}
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl, params=params)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl, params=params)
 
         r = self._send_request(url, type='GET')
 

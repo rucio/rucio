@@ -21,16 +21,18 @@ class Client(AccountClient, LocationClient, ScopeClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
         """
         Constructor for the Rucio main client class.
 
-        :param host: the hostname or ip address of the rucio system.
-        :param port: the corresponding port.
+        :param rucio_host: the hostname or ip address of the rucio system.
+        :param rucio_port: the port of the rucio system.
+        :param auth_host: the hostname or ip address of the rucio authentication server.
+        :param auth_port: the port of the rucio authentication server.
         :param account: the rucio account that should be used to interact with the rucio system.
         :param use_ssl: flag indicating if a secure communication channel should be used.
         :param ca_cert: the certificate to verify the server.
         :param auth_type: the type of authentication to use (e.g. userpass, x509 ...)
         :param creds: credentials needed for authentication.
         """
-        super(Client, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
+        super(Client, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)

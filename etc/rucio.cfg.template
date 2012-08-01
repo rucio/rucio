@@ -6,8 +6,15 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 [common]
+
+[client]
+rucio_host = atlas-rucio.cern.ch
+rucio_port = 443
+auth_host = atlas-rucio-auth.cern.ch
+auth_port = 443
 
 [database]
 sqlite = sqlite:////tmp/rucio.db

@@ -20,6 +20,7 @@ from requests.status_codes import codes
 from requests.exceptions import SSLError
 
 from rucio.common import exception
+from rucio.common.config import config_get
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.exception import NoAuthInformation
 from rucio.common.exception import RucioException
@@ -35,9 +36,33 @@ class BaseClient(object):
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        self.host = host
-        self.port = port
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+        """
+        Constructor of the BaseClient.
+        :param rucio_host: the address of the rucio server, if None it is read from the config file.
+        :param rucio_port: the port of the rucio server, if None it is read from the config file.
+        :param auth_host: the address of the rucio authentication server, if None it is read from the config file.
+        :param auth_port: the port of the rucio authentication server, if None it is read from the config file.
+        :param account: the account to authenticate to rucio.
+        :param use_ssl: enable or disable ssl for commucation. Default is enabled.
+        :param ca_cert: the path to the rucio server certificate.
+        :param auth_type: the type of authentication (e.g.: 'userpass', 'kerberos' ...)
+        :param creds: a dictionary with credentials needed for authentication.
+        """
+        self.host = rucio_host
+        self.port = rucio_port
+        self.auth_host = auth_host
+        self.auth_port = auth_port
+
+        if self.host is None:
+            self.host = config_get('client', 'rucio_host')
+        if self.port is None:
+            self.port = config_get('client', 'rucio_port')
+        if self.auth_host is None:
+            self.auth_host = config_get('client', 'auth_host')
+        if self.auth_port is None:
+            self.auth_port = config_get('client', 'auth_port')
+
         self.account = account
         self.use_ssl = use_ssl
         self.ca_cert = ca_cert
@@ -134,7 +159,7 @@ class BaseClient(object):
         """
 
         headers = {'Rucio-Account': self.account, 'Rucio-Username': self.creds['username'], 'Rucio-Password': self.creds['password']}
-        url = build_url(self.host, path='auth/userpass', use_ssl=self.use_ssl)
+        url = build_url(self.auth_host, port=self.auth_port, path='auth/userpass', use_ssl=self.use_ssl)
 
         retry = 0
         while retry < 2:
