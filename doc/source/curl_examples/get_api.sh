@@ -1,1 +1,1 @@
-curl -s -i -X GET http://localhost/
+curl -s  -X GET http://localhost/

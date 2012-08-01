@@ -14,20 +14,21 @@
     Rucio CLI.
 """
 
-import functools
-import gettext
 import argparse
 import os
 import sys
 import time
 
-from urlparse import urlparse
 
 from rucio import client as rucio_client
 from rucio import version
+from rucio.client.pingclient import PingClient
 
 SUCCESS = 0
 FAILURE = 1
+
+DEFAULT_SECURE_PORT = 443
+DEFAULT_PORT = 80
 
 
 def get_client(args):
@@ -52,6 +53,18 @@ Adds a new dataset. Specify metadata fields as arguments.
     return SUCCESS
 
 
+def ping(args):
+    """
+
+    Pings a Rucio server.
+
+    """
+    client = PingClient(host=args.host)
+    server_info = client.ping()
+    print server_info['version']
+    return SUCCESS
+
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -61,12 +74,29 @@ Commands:
     help <command>  Output help for one of the commands below
 
 """
-    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), usage=usage.strip())
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=False)
     subparsers = oparser.add_subparsers()
 
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
+    oparser.add_argument('-H', '--host', metavar="ADDRESS", default="127.0.0.1", help="Address of Rucio API host. " "Default: %default")
+    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_SECURE_PORT, help="Port the Rucio API host listens on. " "Default: %default")
+    oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
+    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default='userpass', help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-T', '--timeout=', dest="timeout", default=None, help="Set all timeout values to SECONDS")
+
+    # Options for the userpass auth_strategy
+    oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
+    oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+
+    # Options for the x509  auth_strategy
+    oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file')
+    oparser.add_argument('--ca-certificate', dest='ca_certificate', default=None, help='CA certificate to verify peer against (SSL)')
+
+    # Ping command
+    ping_parser = subparsers.add_parser('ping', help='Ping Rucio server')
+    ping_parser.set_defaults(which='ping')
 
     # A list command
     list_parser = subparsers.add_parser('list', help='List contents')
@@ -76,7 +106,7 @@ Commands:
     # A create command
     create_parser = subparsers.add_parser('create', help='Create a dataset')
     create_parser.set_defaults(which='create')
-    create_parser.add_argument('dataset',  action='store', help='New dataset to create')
+    create_parser.add_argument('dataset', action='store', help='New dataset to create')
 
     # A delete command
     delete_parser = subparsers.add_parser('delete', help='Remove a dataset')
@@ -84,9 +114,9 @@ Commands:
     delete_parser.add_argument('dataset', action='store', help='The dataset to remove')
 
     args = oparser.parse_args(sys.argv[1:])
-    print args
 
     commands = {'create': dataset_add,
+                'ping': ping,
                }
 
     try:

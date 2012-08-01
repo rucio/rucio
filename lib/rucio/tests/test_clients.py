@@ -13,11 +13,15 @@ from os import remove
 from nose.tools import raises
 
 from rucio.client.baseclient import BaseClient
-from rucio.common.exception import CannotAuthenticate, NoAuthInformation
+from rucio.db.session import build_database, destroy_database, create_root_account
+from rucio.common.exception import CannotAuthenticate
 
 
-class xTestBaseClient():
+class TestBaseClient():
+
     def setUp(self):
+        build_database(echo=False)
+        create_root_account()
         try:
             remove('/tmp/rucio/auth_token_root')
         except OSError, e:
@@ -25,7 +29,7 @@ class xTestBaseClient():
                 raise e
 
     def tearDown(self):
-        pass
+        destroy_database(echo=False)
 
     def testUserpass(self):
         """ CLIENTS (BASECLIENT): authenticate with userpass."""
@@ -38,22 +42,22 @@ class xTestBaseClient():
         creds = {'username': 'wrong', 'password': 'secret'}
         BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
-    @raises(NoAuthInformation)
-    def testUserpassNoCreds(self):
-        """ CLIENTS (BASECLIENT): try to authenticate without userpass credentials."""
-        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass')
+#    @raises(NoAuthInformation)
+#    def testUserpassNoCreds(self):
+#        """ CLIENTS (BASECLIENT): try to authenticate without userpass credentials."""
+#        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass')
 
-    @raises(NoAuthInformation)
-    def testUserpassNoAuthType(self):
-        """ CLIENTS (BASECLIENT): try to authenticate without auth_type."""
-        creds = {'username': 'wrong', 'password': 'secret'}
-        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', creds=creds)
+#    @raises(NoAuthInformation)
+#    def testUserpassNoAuthType(self):
+#        """ CLIENTS (BASECLIENT): try to authenticate without auth_type."""
+#        creds = {'username': 'wrong', 'password': 'secret'}
+#        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', creds=creds)
 
-    @raises(NoAuthInformation)
-    def testUserpassNoCACert(self):
-        """ CLIENTS (BASECLIENT): authenticate with userpass without ca cert."""
-        creds = {'username': 'wrong', 'password': 'secret'}
-        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', auth_type='userpass', creds=creds)
+#    @raises(NoAuthInformation)
+#    def testUserpassNoCACert(self):
+#        """ CLIENTS (BASECLIENT): authenticate with userpass without ca cert."""
+#        creds = {'username': 'wrong', 'password': 'secret'}
+#        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', auth_type='userpass', creds=creds)
 
     def testx509(self):
         """ CLIENTS (BASECLIENT): authenticate with x509."""
@@ -73,17 +77,21 @@ class xTestBaseClient():
         BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
 
 
-class TestRucioClient():
+class TestRucioClients():
 
     def setUp(self):
-        #self.client = client.Client("0.0.0.0")
-        pass
+        build_database(echo=False)
+        create_root_account()
+        self.marker = '$> '
 
     def tearDown(self):
-        # teardown http
-        pass
+        destroy_database(echo=False)
 
-    def test_add_dataset(self):
-        """ CLIENTS (CLI): Test adding dataset """
-        #self.client.add_dataset()
-        pass
+    def test_ping(self):
+        """ PING (CLIENT): Ping Rucio """
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+        from rucio.client import Client
+
+        c = Client(rucio_host='localhost', rucio_port=443, auth_host='localhost', auth_port=443, account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+
+        print c.ping()

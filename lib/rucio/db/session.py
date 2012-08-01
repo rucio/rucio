@@ -7,6 +7,7 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
 from sqlalchemy import create_engine
 from sqlalchemy import event
@@ -29,22 +30,22 @@ def get_session():
         :returns: session """
 
     database = config_get('database', 'default')
-    engine = create_engine(database, echo=False)
+    engine = create_engine(database, echo=False, echo_pool=False)
     event.listen(engine, 'connect', _fk_pragma_on_connect)
     return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
 
 
-def build_database():
+def build_database(echo=True):
     """ Applies the schema to the database. Run this command once to build the database. """
 
-    engine = create_engine(config_get('database', 'default'), echo=True)
+    engine = create_engine(config_get('database', 'default'), echo=echo)
     models.register_models(engine)
 
 
-def destroy_database():
+def destroy_database(echo=True):
     """ Removes the schema from the database. Only useful for test cases or malicious intents. """
 
-    engine = create_engine(config_get('database', 'default'), echo=True)
+    engine = create_engine(config_get('database', 'default'), echo=echo)
     models.unregister_models(engine)
 
 
@@ -66,8 +67,12 @@ def create_root_account():
     identity2 = models.Identity(identity='/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch', type='x509', email='ph-adp-ddm-lab@cern.ch')
     iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, default=True)
 
+    # GSS authentication
+    identity3 = models.Identity(identity='ddmlab@CERN.CH', type='gss', email='ph-adp-ddm-lab@cern.ch')
+    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, type=identity3.type, account=account.account, default=True)
+
     # Apply
-    session.add_all([account, identity1, identity2])
+    session.add_all([account, identity1, identity2, identity3])
     session.commit()
-    session.add_all([iaa1, iaa2])
+    session.add_all([iaa1, iaa2, iaa3])
     session.commit()

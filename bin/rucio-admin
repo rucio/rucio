@@ -15,12 +15,11 @@
 """
 
 import argparse
-import functools
-import gettext
 import os
 import sys
 import time
-from urlparse import urlparse
+
+from logging import getLogger
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.client import Client
@@ -52,14 +51,16 @@ Adds a new account. Specify metadata fields as arguments.
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
-        creds = {}
+        creds = None
 
-    accountClient = AccountClient(host=args.host, port=args.port,
+    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
+                                  auth_host=args.host, auth_port=args.port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate)
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        accountClient.create_account(args.acnt)
+        accountClient.create_account(accountName=args.acnt, accountType=args.acnttype)
+        print 'Added new account: %s' % args.acnt
     except Exception, e:
             print 'Failed to create account %s' % args.acnt
             print e
@@ -74,16 +75,16 @@ def disable_account(args):
 Disable account.
 
     """
-    # For the moment...
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
-        creds = {}
+        creds = None
 
-    accountClient = AccountClient(host=args.host, port=args.port,
+    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
+                                  auth_host=args.host, auth_port=args.port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate)
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         accountClient.disable_account(args.acnt)
@@ -101,16 +102,16 @@ def list_accounts(args):
 List accounts.
 
     """
-    # For the moment...
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
-        creds = {}
+        creds = None
 
-    accountClient = AccountClient(host=args.host, port=args.port,
+    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
+                                  auth_host=args.host, auth_port=args.port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate)
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         accounts = accountClient.list_accounts()
@@ -132,16 +133,16 @@ def show_account(args):
     Show extended information of a given account
 
     """
-    # For the moment...
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
-        creds = {}
+        creds = None
 
-    accountClient = AccountClient(host=args.host, port=args.port,
+    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
+                                  auth_host=args.host, auth_port=args.port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate)
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         info = accountClient.get_account(accountName=args.acnt)
@@ -276,8 +277,8 @@ Commands:
     oparser.add_argument('-H', '--host', metavar="ADDRESS", default="127.0.0.1", help="Address of Rucio API host. " "Default: %default")
     oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_PORT, help="Port the Rucio API host listens on. " "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
-    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default='userpass', help="Authentication strategy (userpass or x509 or ...)")
-    oparser.add_argument('-T', '--timeout=', dest="timeout", default=None, help="set all timeout values to SECONDS")
+    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-T', '--timeout=', dest="timeout", default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -299,6 +300,7 @@ Commands:
     add_account_parser = account_subparser.add_parser('add', help='Add Rucio account')
     add_account_parser.set_defaults(which='add_account')
     add_account_parser.add_argument('acnt', action='store', help='Account name')
+    add_account_parser.add_argument('acnttype', action='store', help='Account Type')
 
     # The disable_account command
     disable_account_parser = account_subparser.add_parser('disable', help='Disable Rucio account')

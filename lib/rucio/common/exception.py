@@ -164,10 +164,16 @@ class IdentityError(RucioException):
         self._message = "Identity error."
 
 
-class LocationNotFound(RucioException):
+class RSENotFound(RucioException):
     def __init__(self, *args, **kwargs):
-        super(LocationNotFound, self).__init__(args, kwargs)
-        self._message = "Location does not exist."
+        super(RSENotFound, self).__init__(args, kwargs)
+        self._message = "RSE does not exist."
+
+
+class RSETagNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSETagNotFound, self).__init__(args, kwargs)
+        self._message = "RSE Tag does not exist."
 
 
 class InputValidationError(RucioException):

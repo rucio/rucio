@@ -53,7 +53,7 @@ def build_url(host, port=None, path=None, params=None, use_ssl=True):
         url = "http://"
     url += host
     if port is not None:
-        url += ":" + port
+        url += ":" + str(port)
     url += "/"
     if path is not None:
         url += path
