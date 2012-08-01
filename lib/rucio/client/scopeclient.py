@@ -20,14 +20,14 @@ class ScopeClient(BaseClient):
 
     BASEURL = 'accounts'
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(ScopeClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+        super(ScopeClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
 
     def add_scope(self, accountName, scopeName):
         """
         Sends the request to add a new scope.
 
-        :param accountName: the name of the account to the scope to.
+        :param accountName: the name of the account to add the scope to.
         :param scopeName: the name of the new scope.
         :return: True if scope was created successfully.
         :raises Duplicate: if scope already exists.
@@ -36,7 +36,7 @@ class ScopeClient(BaseClient):
 
         path = '/'.join([self.BASEURL, accountName, 'scopes'])
         data = dumps({'scopeName': scopeName})
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, type='POST', data=data)
 
@@ -57,7 +57,7 @@ class ScopeClient(BaseClient):
         """
 
         path = '/'.join([self.BASEURL, accountName, 'scopes'])
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url)
         if r.status_code == codes.ok:

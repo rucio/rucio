@@ -942,9 +942,9 @@ class TestDataset_REST():
 class xTestDatasetClient():
     def setUp(self):
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.dclient = DatasetClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
-        self.aclient = AccountClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
-        self.sclient = ScopeClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.dclient = DatasetClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.aclient = AccountClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.sclient = ScopeClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     def tearDown(self):
         pass

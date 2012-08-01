@@ -237,8 +237,8 @@ class TestScope():
 class xTestScopeClient():
     def setUp(self):
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.account_client = AccountClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
-        self.scope_client = ScopeClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.account_client = AccountClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.scope_client = ScopeClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     def tearDown(self):
         pass
