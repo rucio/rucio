@@ -79,7 +79,7 @@ class Dataset1Parameter:
         if auth is None:
             raise Unauthorized()
 
-        auth_account = auth[0]
+        auth_account = auth['account']
 
         try:
             add_dataset(scope, datasetName, auth_account, monotonic=monotonic)
@@ -117,7 +117,7 @@ class Dataset2Parameter:
         auth = validate_auth_token(auth_token)
         if auth is None:
             raise Unauthorized()
-        auth_account = auth[0]
+        auth_account = auth['account']
 
         try:
             obsolete_dataset(scope, datasetName, auth_account)
@@ -165,7 +165,7 @@ class Dataset2Parameter:
         auth = validate_auth_token(auth_token)
         if auth is None:
             raise Unauthorized()
-        auth_account = auth[0]
+        auth_account = auth['account']
 
         try:
             change_dataset_owner(scope, datasetName, auth_account, new_account)
@@ -214,7 +214,7 @@ class Dataset2Parameter:
         auth = validate_auth_token(auth_token)
         if auth is None:
             raise Unauthorized()
-        auth_account = auth[0]
+        auth_account = auth['account']
 
         try:
             if search_type is None:

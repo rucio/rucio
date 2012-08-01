@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 
 import os
@@ -28,8 +29,8 @@ class UploadClient(BaseClient):
 
     BASEURL = '??_uploadclient_??'
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(AccountClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, host, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+        super(UploadClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
 
     def upload_files(account, sources):
         """

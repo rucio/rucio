@@ -21,8 +21,8 @@ class AccountClient(BaseClient):
 
     BASEURL = 'accounts'
 
-    def __init__(self, host, port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(AccountClient, self).__init__(host, port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+        super(AccountClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
 
     def create_account(self, accountName, accountType):
         """
@@ -35,7 +35,7 @@ class AccountClient(BaseClient):
 
         data = dumps({'accountName': accountName, 'accountType': accountType})
         path = '/'.join([self.BASEURL, ''])
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, type='POST', data=data)
 
@@ -55,7 +55,7 @@ class AccountClient(BaseClient):
         """
 
         path = '/'.join([self.BASEURL, accountName])
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, type='DEL')
 
@@ -75,7 +75,7 @@ class AccountClient(BaseClient):
         """
 
         path = '/'.join([self.BASEURL, accountName])
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
         r = self._send_request(url)
 
         if r.status_code == codes.ok:
@@ -94,7 +94,7 @@ class AccountClient(BaseClient):
         """
 
         path = '/'.join([self.BASEURL, ''])
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url)
         if r.status_code == codes.ok:

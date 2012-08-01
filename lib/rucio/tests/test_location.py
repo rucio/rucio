@@ -16,7 +16,7 @@ from nose.tools import raises, assert_equal, assert_true
 from paste.fixture import TestApp
 
 from rucio.client.locationclient import LocationClient
-from rucio.common.exception import Duplicate, RucioException
+from rucio.common.exception import Duplicate
 from rucio.core.location import add_location, location_exists, del_location, list_locations
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.location import app as location_app
@@ -104,42 +104,33 @@ class TestLocation():
 class xTestLocationClient():
     def setUp(self):
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.client = LocationClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.client = LocationClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     def tearDown(self):
         pass
 
     def test_create_location(self):
         """ LOCATION (CLIENTS): create a new location."""
-        try:
-            location = str(uuid())
-            ret = self.client.create_location(location)
-            assert_true(ret)
-        except RucioException:
-            assert_true(False)
+        location = str(uuid())
+        ret = self.client.create_location(location)
+        assert_true(ret)
 
-    def xtest_create_location_duplicate(self):
+    @raises(Duplicate)
+    def test_create_location_duplicate(self):
         """ LOCATION (CLIENTS): create a duplicate location."""
-        try:
-            location = str(uuid())
-            self.client.create_location(location)
-            self.client.create_location(location)
-        except Duplicate:
-            assert_true(True)
-        else:
-            assert_true(False)
+        location = str(uuid())
+        self.client.create_location(location)
+        self.client.create_location(location)
 
     def test_list_locations(self):
         """ LOCATION (CLIENTS): try to list locations."""
         location_list = [str(uuid()) + str(i) for i in xrange(5)]
-        try:
-            for location in location_list:
-                self.client.create_location(location)
 
-            svr_list = self.client.list_locations()
+        for location in location_list:
+            self.client.create_location(location)
 
-            for location in location_list:
-                if location not in svr_list:
-                    assert_true(False)
-        except RucioException:
-            assert_true(True)
+        svr_list = self.client.list_locations()
+
+        for location in location_list:
+            if location not in svr_list:
+                assert_true(False)
