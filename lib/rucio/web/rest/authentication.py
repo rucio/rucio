@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
 import web
 
@@ -14,6 +15,7 @@ from rucio.api.authentication import get_auth_token_user_pass
 from rucio.api.authentication import get_auth_token_gss
 from rucio.api.authentication import get_auth_token_x509
 from rucio.api.authentication import validate_auth_token
+from rucio.common.exception   import AccessDenied
 
 urls = (
     '/userpass', 'UserPass',
@@ -50,7 +52,10 @@ class UserPass:
         if ip is None:
             ip = web.ctx.ip
 
-        result = get_auth_token_user_pass(account, username, password, ip)
+        try:
+            result = get_auth_token_user_pass(account, username, password, ip)
+        except AccessDenied, e:
+            raise web.Unauthorized(e[0][0])
 
         if result is None:
             raise web.Unauthorized()
@@ -97,7 +102,10 @@ class GSS:
         if ip is None:
             ip = web.ctx.ip
 
-        result = get_auth_token_gss(account, gsscred, ip)
+        try:
+            result = get_auth_token_gss(account, gsscred, ip)
+        except AccessDenied, e:
+            raise web.Unauthorized(e[0][0])
 
         if result is None:
             raise web.Unauthorized()
@@ -144,7 +152,10 @@ class x509:
         if ip is None:
             ip = web.ctx.ip
 
-        result = get_auth_token_x509(account, dn, ip)
+        try:
+            result = get_auth_token_x509(account, dn, ip)
+        except AccessDenied, e:
+            raise web.Unauthorized(e[0][0])
 
         if result is None:
             raise web.Unauthorized()

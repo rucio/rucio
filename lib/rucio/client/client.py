@@ -13,15 +13,16 @@ Client class for callers of the Rucio system
 """
 
 from rucio.client.accountclient import AccountClient
-from rucio.client.locationclient import LocationClient
+from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.client.pingclient import PingClient
 
 
-class Client(AccountClient, LocationClient, ScopeClient):
+class Client(AccountClient, RSEClient, ScopeClient, PingClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
         """
         Constructor for the Rucio main client class.
 
@@ -34,5 +35,6 @@ class Client(AccountClient, LocationClient, ScopeClient):
         :param ca_cert: the certificate to verify the server.
         :param auth_type: the type of authentication to use (e.g. userpass, x509 ...)
         :param creds: credentials needed for authentication.
+        :param timeout: Float describes the timeout of the request (in seconds).
         """
-        super(Client, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
+        super(Client, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds, timeout)

@@ -1,0 +1,2 @@
+$> rucio ping
+0-105-gcaac355-dev1343915431

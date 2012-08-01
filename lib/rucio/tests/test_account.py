@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
 from json import dumps, loads
 
@@ -28,10 +29,10 @@ from rucio.web.rest.authentication import app as auth_app
 class TestAccountCoreApi():
 
     def setUp(self):
-        build_database()
+        build_database(echo=False)
 
     def tearDown(self):
-        destroy_database()
+        destroy_database(echo=False)
 
     def test_create_and_check_for_user(self):
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
@@ -59,11 +60,11 @@ class TestAccountCoreApi():
 class TestAccountRestApi():
 
     def setUp(self):
-        build_database()
+        build_database(echo=False)
         create_root_account()
 
     def tearDown(self):
-        destroy_database()
+        destroy_database(echo=False)
 
     def test_create_user_success(self):
         """ ACCOUNT (REST): send a POST to create a new user """
@@ -215,6 +216,20 @@ class TestAccountRestApi():
         r2 = TestApp(account_app.wsgifunc(*mw)).delete('/wronguser', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 404)
 
+    def test_whoami_account(self):
+        """ ACCOUNT (REST): Test the whoami method."""
+        mw = []
+
+        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(r1.status, 200)
+        token = str(r1.header('Rucio-Auth-Token'))
+
+        headers2 = {'Rucio-Auth-Token': str(token)}
+        r2 = TestApp(account_app.wsgifunc(*mw)).get('/whoami', headers=headers2, expect_errors=True)
+        assert_equal(r2.status, 303)
+
     def test_list_account(self):
         """ ACCOUNT (REST): send a GET to list all accounts."""
         mw = []
@@ -240,13 +255,16 @@ class TestAccountRestApi():
                 assert_true(False)
 
 
-class xTestAccountClient():
+class TestAccountClient():
+
     def setUp(self):
+        build_database(echo=False)
+        create_root_account()
         creds = {'username': 'ddmlab', 'password': 'secret'}
         self.client = AccountClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     def tearDown(self):
-        pass
+        destroy_database(echo=False)
 
     def test_create_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account."""

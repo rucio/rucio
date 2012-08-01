@@ -9,67 +9,41 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
-from nose.tools import assert_equal, assert_false
-from uuid import uuid4 as uuid
+import nose.tools
+
 from rucio import version
+from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.tests.common import execute
 
 
-class xTestBinRucio():
+class TestBinRucio():
 
     def setUp(self):
-        # sudo apachectl restart
-        # build_database()
-        # create_root_account()
-        self.test_account = 'jdoe-' + str(uuid())
-        self.test_location = 'MOCK-' + str(uuid())
+        build_database(echo=False)
+        create_root_account()
+        self.marker = '$> '
 
     def tearDown(self):
-        # sudo apachectl stop
-        # destroy_database()
-        pass
+        destroy_database(echo=False)
 
     def test_rucio_version(self):
         """CLI: Get Version"""
         cmd = 'bin/rucio --version'
         exitcode, out, err = execute(cmd)
-        assert_equal(err, 'rucio %s\n' % version.version_string())
+        nose.tools.assert_equal(err, 'rucio %s\n' % version.version_string())
 
-    def test_cli_add_list_delete_account(self):
-        """ACCOUNT (CLI): Add/List/Delete account"""
-
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root \
-               --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  account add {self.test_account}'.format(self=self)
+    def test_rucio_ping(self):
+        """PING (CLI): Rucio ping"""
+        cmd = 'rucio ping'
+        print  self.marker + cmd
         exitcode, out, err = execute(cmd)
-        assert_equal(out, '')
-        assert_equal(exitcode, 0)
+        print out,
+        nose.tools.assert_in(version.version_string(), out)
 
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root\
-              --user=ddmlab -pwd=secret  --ca-certificate=etc/web/ca.crt  account list'.format(self=self)
+    def test_add_account(self):
+        """ACCOUNT (CLI): Add account"""
+        cmd = 'rucio-admin --host=localhost --port=443 --account=root --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt account add jdoe user'
+        print  self.marker + cmd
         exitcode, out, err = execute(cmd)
-        expected_regexp = '.*{self.test_account}.*'.format(self=self)
-        result = compile(expected_regexp).search(out)
-        assert_false(result == None, '%(expected_regexp)s Versus: %(out)s' % locals())
-        assert_equal(exitcode, 0)
-
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root\
-               --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  account disable {self.test_account}'.format(self=self)
-        exitcode, out, err = execute(cmd)
-        assert_equal(out, '')
-        assert_equal(exitcode, 0)
-
-    def test_cli_add_list_delete_location(self):
-        """LOCATION (CLI): Add/List location"""
-
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root\
-             --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  location add {self.test_location}'.format(self=self)
-        exitcode, out, err = execute(cmd)
-        assert_equal(out, '')
-        assert_equal(exitcode, 0)
-
-        cmd = 'bin/rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  location list'.format(self=self)
-        exitcode, out, err = execute(cmd)
-        expected_regexp = '.*{self.test_location}.*'.format(self=self)
-        result = compile(expected_regexp).search(out)
-        assert_false(result == None, '%(expected_regexp)s Versus: %(out)s' % locals())
-        assert_equal(exitcode, 0)
+        print out,
+        nose.tools.assert_equal('Added new account: jdoe\n', out)

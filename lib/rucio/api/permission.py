@@ -12,14 +12,14 @@
 from rucio.core import permission
 
 
-def has_permission(accountName, action, kwargs):
+def has_permission(issuer, action, kwargs):
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
 
-    :param accountName: Account identifier.
+    :param issuer: The Account issuer.
     :param action:  The action(API call) called by the account.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return permission.has_permission(accountName=accountName, action=action, kwargs=kwargs)
+    return permission.has_permission(issuer=issuer, action=action, kwargs=kwargs)

@@ -6,43 +6,47 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+
+import rucio.api.permission
+import rucio.common.exception
+
+from rucio.core import rse as rse_core
 
 
-def add_rse(RSEName):
+def add_rse(rse, issuer):
         """
-        Creates a new Rucio Storage Element (RSE).
+        Creates a new Rucio Location/RSE.
 
-        :param RSEName: The rse name.
+        :param rse: The rse name.
+        :param issuer: The issuer account.
 
         :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
         """
-        raise NotImplementedError
+        kwargs = {'rse': rse}
+        if not rucio.api.permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
+            raise rucio.common.exception.AccessDenied('Account %s can not add RSE' % (issuer))
+        return rse_core.add_rse(rse)
 
 
-def add_rse_tag(rse, tag, scope=None):
+def del_rse(rse, issuer):
         """
-        Tags a rse.
+        Disables a RSE with the provided RSE name.
 
-        :param rse:   The rse name.
-        :param tag:   The tag.
-        :param scope: The tag name-space, e.g., site, federation, tier.
-
-        :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
+        :param rse: The rse name.
+        :param issuer: The issuer account.
         """
-        raise NotImplementedError
+        kwargs = {'rse': rse}
+        if not rucio.api.permission.has_permission(issuer=issuer, action='del_rse', kwargs=kwargs):
+            raise rucio.common.exception.AccessDenied('Account %s can not delete RSE' % (issuer))
+
+        return rse_core.del_rse(rse)
 
 
-def list_rses(**kwargs):
+def list_rses():
         """
-        Returns a list of rse/tag mappings
+        Lists all the rses.
 
-        :param filters: dictionary of attributes by which the resulting
-                        collection of rses should be filtered
-        :param limit: maximum number of items to return
-        :param sort_key: results will be ordered by this rse attribute
-        :param sort_dir: direction in which to to order results (asc, desc)
 
-        :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
+        :returns: List of all RSEs.
         """
-        raise NotImplementedError
+        return rse_core.list_rses()

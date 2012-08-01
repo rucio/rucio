@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 import datetime
 import hashlib
@@ -45,6 +46,20 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     session.commit()
 
     return token
+
+
+def exist_identity_account(identity, type, account):
+    """ Check if a identity is mapped to an account.
+
+    :param identity: The user identity.
+    :param type: The type of identity, e.g. userpass, x509, gss...
+    :param account: The account name.
+    :returns: True if identity is mapped to account, otherwise False
+
+    """
+    query = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account)
+    result = query.first()
+    return result is not None
 
 
 def get_auth_token_x509(account, dn, ip=None):

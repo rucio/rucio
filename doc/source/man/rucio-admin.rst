@@ -16,7 +16,7 @@ Rucio Admin Utility
 SYNOPSIS
 ========
 
-  rucio-admin [options]
+  rucio-admin <command> [options] [args]
 
 DESCRIPTION
 ===========
@@ -30,6 +30,16 @@ OPTIONS
 
   **-v, --verbose**
         Print more verbose output
+
+  **--version**
+        Print version
+
+  **-H, --host**
+        Address of The Rucio API host
+
+  **-p, --port**
+        Port the Rucio API host listens on.
+
 
 FILES
 =====
@@ -45,4 +55,3 @@ BUGS
 ====
 
 * Trac server: `Rucio <http://trac.cern.ch/rucio>`__
-

@@ -46,12 +46,12 @@ Architecture
 .. toctree::
     :maxdepth: 1
 
-    usecases
     overview_Architecture
-    overview_Deployment
-    overview_flow
+    overview_Rucio_Storage_Element_Manager
     overview_Database_Schema
     overview_Exception_Handling
+    usecases
+    overview_flow
 
 Developer Documentation
 =======================
@@ -72,9 +72,10 @@ Installing Rucio
 
     installing_clients
     installing_server
+    overview_Deployment
 
-Using Rucio: API
-================
+Rucio Core API
+==============
 
 .. toctree::
     :maxdepth: 2
@@ -92,23 +93,19 @@ Using Rucio: API
     transfer
     subscription
 
-Rucio RESTful API
-=================
+Using Rucio
+===========
 
 .. toctree::
     :maxdepth: 1
 
     rest
     api_curl_examples
+    rucio_cli
+    cli_examples
+    rucio_clients
+    client_examples
 
-Man Pages
----------
-
-.. toctree::
-    :maxdepth: 1
-
-    man/rucio
-    man/rucio-admin
 
 Appendices
 ==========

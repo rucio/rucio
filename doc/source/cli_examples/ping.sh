@@ -1,0 +1,1 @@
+ rucio ping

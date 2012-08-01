@@ -7,7 +7,10 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
+import rucio.api.permission
+import rucio.common.exception
 import rucio.core.authentication
 
 
@@ -21,6 +24,11 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     :param password: SHA1 hash of the password as a string.
     :param ip: IP address of the client.
     :returns: Authentication token as a 32 character hex string."""
+
+    kwargs = {'account': account, 'username': username, 'password': password}
+    if not rucio.api.permission.has_permission(issuer=account, action='get_auth_token_user_pass', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
+
     return rucio.core.authentication.get_auth_token_user_pass(account, username, password, ip)
 
 
@@ -33,7 +41,12 @@ def get_auth_token_gss(account, gsscred, ip=None):
     :param gsscred: GSS principal@REALM
     :param ip: IP address of the client.
     :returns: Authentication token as a 32 character hex string."""
-    return rucio.core.authentication.get_auth_token_gss(account, gsstoken, ip)
+
+    kwargs = {'account': account, 'gsscred': gsscred}
+    if not rucio.api.permission.has_permission(issuer=account, action='get_auth_token_gss', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('User with identity %s can not log to account %s' % (gsscred, account))
+
+    return rucio.core.authentication.get_auth_token_gss(account, gsscred, ip)
 
 
 def get_auth_token_x509(account, dn, ip=None):
@@ -45,6 +58,11 @@ def get_auth_token_x509(account, dn, ip=None):
     :param dn: Client certificate distinguished name string, as extracted by Apache/mod_ssl.
     :param ip: IP address of the client.
     :returns: Authentication token as a 32 character hex string."""
+
+    kwargs = {'account': account, 'dn': dn}
+    if not rucio.api.permission.has_permission(issuer=account, action='get_auth_token_x509', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
+
     return rucio.core.authentication.get_auth_token_x509(account, dn, ip)
 
 

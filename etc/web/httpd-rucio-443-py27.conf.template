@@ -69,18 +69,24 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
  TransferLog /var/log/rucio/httpd_access_log
 
  WSGIScriptAlias /auth /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/authentication.py
- WSGIScriptAlias /account /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py
- WSGIScriptAlias /scope /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
- WSGIScriptAlias /rse /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
- WSGIScriptAlias /identity /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/identity.py
- WSGIScriptAlias /location /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/location.py
- 
+ WSGIScriptAlias /accounts /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py
+ WSGIScriptAlias /scopes /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
+ WSGIScriptAlias /identities /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/identity.py
+ WSGIScriptAlias /rses /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
+
  # Valid client certificates required only for x509 authentication
  <LocationMatch /identity/.+/x509>
   SSLVerifyClient require
   SSLVerifyDepth 10
   SSLOptions +StdEnvVars
  </LocationMatch>
+
+ <LocationMatch auth/x509>
+  SSLVerifyClient require
+  SSLVerifyDepth 10
+  SSLOptions +StdEnvVars
+ </LocationMatch>
+
 
 #	 # Proper deployment of mod_auth_kerb is required, including keytab		
 #	 <LocationMatch /identity/.+/gss>		
