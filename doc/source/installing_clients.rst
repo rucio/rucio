@@ -6,7 +6,7 @@
       You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
 
-Installing Rucio clients
+Installing Rucio Clients
 ========================
 
 Prerequisites
@@ -15,6 +15,17 @@ Prerequisites
 Rucio clients runs on Python 2.6, 2.7.
 
 Platforms: Rucio should run on any Unix-like platform.
+
+
+Python Dependencies
+~~~~~~~~~~~~~~~~~~~
+
+Rucio clients need the following python modules:
+
+.. literalinclude:: ../../tools/pip-requires-client
+   :lines: 2-
+
+All Dependencies are automatically installed with pip.
 
 Install via pip
 ~~~~~~~~~~~~~~~

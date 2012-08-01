@@ -18,7 +18,7 @@ import datetime
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.declarative import declared_attr, declarative_base
-from sqlalchemy.orm import object_mapper
+from sqlalchemy.orm import object_mapper, relationship, backref
 from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint
 from sqlalchemy.types import LargeBinary
 
@@ -269,54 +269,71 @@ class DatasetFileAssociation(BASE, ModelBase):
                    )
 
 
-class Location(BASE, ModelBase):
-    """Represents a Rucio Location"""
-    __tablename__ = 'locations'
-    id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
-    location = Column(String(255))
-    storage = Column(String(255))
-    type = Column(String(255), default='disk')
-    path = Column(Text)
-    _table_args = (PrimaryKeyConstraint('id', name='LOCATIONS_PK'),
-                   UniqueConstraint('location', name='LOCATIONS_LOCATION_UQ'),
-                   CheckConstraint('"LOCATION" IS NOT NULL', name='LOCATIONS_LOCATION_NN'),
-                   CheckConstraint("type IN ('disk')", name='LOCATIONS_TYPE_CHK'),
-                  )
-
-
-class LocationUsage(BASE, ModelBase, Versioned):
-    """Represents location usage"""
-    __tablename__ = 'location_usage'
-    location_id = Column(String(255))
-    source = Column(String(255))
-    name = Column(String(255))
-    value = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('location_id', 'source', 'name', name='LOCATION_USAGE_PK'),
-                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='LOCATION_USAGE_LOC_ID_FK'),
-                  )
-
-
 class RSE(BASE, ModelBase):
-    """Represents RSE (Rucio Storage Element)"""
+    """Represents a Rucio Location"""
     __tablename__ = 'rses'
     id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
     rse = Column(String(255))
-    description = Column(String(255), nullable=True)
-    _table_args = (PrimaryKeyConstraint('id', name='RSE_PK'),
+    type = Column(String(255), default='disk')
+    watermark = Column(BigInteger)
+    path = Column(Text)
+    usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
+    #rse = relationship("LocationRSEAssociation", order_by="LocationRSEAssociation.location_id", backref="locations")
+    _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
-                   CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE_NN'),)
+                   CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
+                   CheckConstraint("type IN ('disk')", name='RSES_TYPE_CHK'),
+                  )
+
+
+class RSEUsage(BASE, ModelBase, Versioned):
+    """Represents location usage"""
+    __tablename__ = 'rse_usage'
+    rse_id = Column(String(255))
+    source = Column(String(255))
+    total = Column(BigInteger)
+    free = Column(BigInteger)
+    rse = relationship("RSE", backref=backref('rse_usage', order_by=rse_id))
+    _table_args = (PrimaryKeyConstraint('rse_id', 'source', name='RSE_USAGE_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'),
+                  )
+
+
+class RSETag(BASE, ModelBase):
+    """Represents RSE (Rucio Storage Element)"""
+    __tablename__ = 'rse_tags'
+    id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
+    tag = Column(String(255))
+    description = Column(String(255), nullable=True)
+    rses = relationship("RSETagAssociation", order_by="RSETagAssociation.rse_id", backref="rse_tags")
+    _table_args = (PrimaryKeyConstraint('id', name='RSE_TAGS_PK'),
+                   UniqueConstraint('tag', name='RSE_TAGS_TAG_UQ'),
+                   CheckConstraint('"TAG" IS NOT NULL', name='RSES_TAGS_TAG_NN'),)
+
+
+class RSETagAssociation(BASE, ModelBase):
+    """Represents the map between RSEs and tags"""
+    __tablename__ = 'rse_tag_map'
+    rse_id = Column(String(36))
+    rse_tag_id = Column(String(36))
+    rse = relationship("RSE", backref=backref('rse_tag_map', order_by=rse_id))
+    tag = relationship("RSETag", backref=backref('rse_tag_map', order_by=rse_id))
+    _table_args = (PrimaryKeyConstraint('rse_id', 'rse_tag_id', name='RSE_TAG_MAP_PK'),
+                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='RSE_TAG_MAP_TAG_ID_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TAG_MAP_RSE_ID_FK'),
+                  )
 
 
 class AccountLimit(BASE, ModelBase):
     """Represents account limits"""
     __tablename__ = 'account_limits'
     account = Column(String(255))
-    rse_id = Column(String(36))
+    rse_tag_id = Column(String(36))
     name = Column(String(255))
     value = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'name', name='ACCOUNT_LIMITS_PK'),
+    _table_args = (PrimaryKeyConstraint('account', 'rse_tag_id', 'name', name='ACCOUNT_LIMITS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_LIMITS_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_LIMITS_RSE_ID_FK'),
+                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='ACCOUNT_LIMITS_RSE_TAG_ID_FK'),
                   )
 
 
@@ -324,37 +341,26 @@ class AccountUsage(BASE, ModelBase, Versioned):
     """Represents account usage"""
     __tablename__ = 'account_usage'
     account = Column(String(255))
-    location_id = Column(String(36))
+    rse_tag_id = Column(String(36))
     name = Column(String(255))
     value = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('account', 'location_id', 'name', name='ACCOUNT_USAGE_PK'),
+    _table_args = (PrimaryKeyConstraint('account', 'rse_tag_id', 'name', name='ACCOUNT_USAGE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_USAGE_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='ACCOUNT_USAGE_LOC_ID_FK'),
+                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='ACCOUNT_USAGE_RSE_TAG_ID_FK'),
                   )
 
 
-class LocationRSEAssociation(BASE, ModelBase):
-    """Represents the map between RSEs and tags"""
-    __tablename__ = 'location_rse_map'
-    location_id = Column(String(36))
-    rse_id = Column(String(36))
-    _table_args = (PrimaryKeyConstraint('location_id', 'rse_id', name='LOCATION_RSE_MAP_PK'),
-                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='LOCATION_RSE_MAP_LOC_ID_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='LOCATION_RSE_MAP_RSE_ID_FK'),
-                  )
-
-
-class LocationFileAssociation(BASE, ModelBase):
+class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'file_replicas'
-    location_id = Column(String(36))
+    rse_id = Column(String(36))
     scope = Column(String(255))
     lfn = Column(String(255))
     pfn = Column(String(1024))
     status = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('location_id', 'scope', 'lfn', name='FILE_REPLICAS_PK'),
+    _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'lfn', name='FILE_REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='FILE_REPLICAS_SCOPE_LFN_FK'),
-                   ForeignKeyConstraint(['location_id'], ['locations.id'], name='FILE_REPLICAS_LOCATION_ID_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'),
 #                  CheckConstraint('"PFN" IS NOT NULL', name='FILE_REPLICAS_PFN_NN'), # for latter...
                    )
 
@@ -365,14 +371,14 @@ class ReplicationRule(BASE, ModelBase):
     account = Column(String(255))
     scope = Column(String(255))
     lfn = Column(String(255))
-    rse_id = Column(String(36))
+    rse_tag_id = Column(String(36))
     replication_factor = Column(Integer(), default=1)
     expired_at = Column(DateTime)
     locked = Column(Boolean(name='REPLICATION_RULES_LOCKED_CHK'), default=False)
-    _table_args = (PrimaryKeyConstraint('account', 'scope', 'lfn', 'rse_id', name='REP_RULES_PK'),
+    _table_args = (PrimaryKeyConstraint('account', 'scope', 'lfn', 'rse_tag_id', name='REP_RULES_PK'),
                    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='REP_RULES_SCOPE_LFN_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='REP_RULES_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REP_RULES_RSE_ID_FK'),
+                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='REP_RULES_RSE_TAG_ID_FK'),
                    CheckConstraint('"REPLICATION_FACTOR" IS NOT NULL', name='REP_RULES_REP_FACTOR_NN'),
                    CheckConstraint('"LOCKED" IS NOT NULL', name='REPLICATION_RULES_LOCKED_NN'),)
 
@@ -426,10 +432,13 @@ def register_models(engine):
               File,
               FileProperty,
               DatasetFileAssociation,
-              Location,
               RSE,
-              LocationRSEAssociation,
-              LocationFileAssociation,
+              RSETag,
+              RSEUsage,
+              AccountLimit,
+              AccountUsage,
+              RSETagAssociation,
+              RSEFileAssociation,
               ReplicationRule,
               Subscription,
               Authentication,
@@ -452,10 +461,13 @@ def unregister_models(engine):
               File,
               FileProperty,
               DatasetFileAssociation,
-              Location,
               RSE,
-              LocationRSEAssociation,
-              LocationFileAssociation,
+              RSETag,
+              RSEUsage,
+              AccountLimit,
+              AccountUsage,
+              RSETagAssociation,
+              RSEFileAssociation,
               ReplicationRule,
               Subscription,
               Authentication,

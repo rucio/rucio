@@ -26,6 +26,13 @@ urls = (
     '/(.+)', 'ScopeList',
 )
 
+urls = (
+    '/(.+)/scopes', 'Scopes',
+    '/(.+)/limits', 'AccountLimits',
+    '/(.+)', 'AccountParameter',
+    '/', 'Account'
+)
+
 
 class Scope:
     """ create new rucio scopes. """

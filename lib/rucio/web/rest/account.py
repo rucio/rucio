@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
 from datetime import datetime
 from json import dumps, loads
@@ -116,7 +117,7 @@ class Scopes:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            if not has_permission(accountName=auth.get('account'), action='add_scope', kwargs={'accountName': accountName, 'scopeName': scopeName}):
+            if not has_permission(issuer=auth.get('account'), action='add_scope', kwargs={'accountName': accountName, 'scopeName': scopeName}):
                 raise AccessDenied('Account %s can not add scope to account %s' (auth.get('account'), accountName))
             add_scope(scopeName, accountName)
         except AccessDenied, e:
@@ -161,7 +162,7 @@ class AccountParameter:
 
         if accountName == 'whoami':
             # Redirect to the account uri
-            raise seeother(auth[0])
+            raise seeother(auth['account'])
 
         acc = None
         try:

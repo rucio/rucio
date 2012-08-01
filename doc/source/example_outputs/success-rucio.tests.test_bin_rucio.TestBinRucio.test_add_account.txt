@@ -1,0 +1,2 @@
+$> rucio-admin --host=localhost  --port=443 --account=root --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt  account add jdoe user
+Added new account: jdoe

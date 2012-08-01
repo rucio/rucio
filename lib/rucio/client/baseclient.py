@@ -16,7 +16,7 @@ Client class for callers of the Rucio system
 from logging import getLogger
 from os import chmod, environ, mkdir, path
 
-from ConfigParser import NoOptionError
+from ConfigParser import NoOptionError, NoSectionError
 from requests import delete, get, post, put
 from requests.auth import HTTPKerberosAuth
 from requests.status_codes import codes
@@ -24,10 +24,7 @@ from requests.exceptions import SSLError
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.exception import CannotAuthenticate
-from rucio.common.exception import NoAuthInformation
-from rucio.common.exception import MissingClientParameter
-from rucio.common.exception import RucioException
+from rucio.common.exception import CannotAuthenticate, NoAuthInformation, MissingClientParameter, RucioException
 from rucio.common.utils import build_url
 
 LOG = getLogger(__name__)
@@ -41,7 +38,7 @@ class BaseClient(object):
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
         """
         Constructor of the BaseClient.
         :param rucio_host: the address of the rucio server, if None it is read from the config file.
@@ -68,8 +65,8 @@ class BaseClient(object):
                 self.auth_host = config_get('client', 'auth_host')
             if self.auth_port is None:
                 self.auth_port = config_get('client', 'auth_port')
-        except NoOptionError, e:
-            raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+        except (NoOptionError, NoSectionError), e:
+            raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % e.args[0])
 
         self.account = account
         self.use_ssl = use_ssl
@@ -78,12 +75,13 @@ class BaseClient(object):
         self.creds = creds
         self.auth_token = None
         self.headers = {}
+        self.timeout = None
 
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the config file.')
             try:
                 self.auth_type = config_get('client', 'auth_type')
-            except NoOptionError, e:
+            except (NoOptionError, NoSectionError), e:
                 raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if creds is None:
@@ -95,26 +93,25 @@ class BaseClient(object):
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = config_get('client', 'client_cert')
-            except NoOptionError, e:
+            except (NoOptionError, NoSectionError), e:
                 raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if use_ssl and ca_cert is None:
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = config_get('client', 'ca_cert')
-            except NoOptionError, e:
+            except (NoOptionError, NoSectionError), e:
                 raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if account is None:
             LOG.debug('no account passed. Trying to get it from the config file.')
             try:
                 self.account = config_get('client', 'account')
-            except NoOptionError, e:
+            except (NoOptionError, NoSectionError), e:
                 try:
                     self.account = environ['RUCIO_ACCOUNT']
                 except KeyError:
                     raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
-
         self.__authenticate()
 
     def _get_exception(self, headers):
@@ -160,13 +157,13 @@ class BaseClient(object):
         while retry < retries:
             try:
                 if type == 'GET':
-                    r = get(url, headers=hds, verify=self.ca_cert)
+                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'PUT':
-                    r = put(url, headers=hds, verify=self.ca_cert)
+                    r = put(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    r = post(url, headers=hds, data=data, verify=self.ca_cert)
+                    r = post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'DEL':
-                    r = delete(url, headers=hds, verify=self.ca_cert)
+                    r = delete(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
             except SSLError:

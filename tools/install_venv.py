@@ -9,6 +9,7 @@
 Installation script Rucio's development virtualenv
 """
 
+import errno
 import os
 import subprocess
 import sys
@@ -98,8 +99,6 @@ def create_virtualenv(venv=VENV):
 def install_dependencies(venv=VENV):
     print 'Installing dependencies with pip (this can take a while)...'
 
-    venv_tool = 'tools/with_venv.sh'
-
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_CLIENT],
                 redirect_output=False)
 
@@ -123,6 +122,27 @@ def _detect_python_version(venv):
         if pathname.startswith('python'):
             return pathname
     raise Exception('Unable to detect Python version')
+
+
+def create_symlinks(venv=VENV):
+    print 'Installing binaries symlinks ...'
+    bin_dir = os.path.join(ROOT, "bin")
+    venv_bin_dir = os.path.join(venv, "bin")
+    binaries = os.listdir(bin_dir)
+    for binary in binaries:
+        source = os.path.join(bin_dir, binary)
+        link_name = os.path.join(venv_bin_dir, binary)
+        try:
+            os.path.exists(link_name) and source != os.readlink(link_name)
+        except OSError, e:
+            if e.errno == errno.EINVAL:
+                print 'Delete broken symlink: %(link_name)s -> %(source)s' % locals()
+                os.remove(link_name)
+            else:
+                raise e
+        if not os.path.exists(link_name):
+            print 'Create the symlink: %(link_name)s -> %(source)s' % locals()
+            os.symlink(source, link_name)
 
 
 def print_help():
@@ -151,6 +171,7 @@ def main(argv):
     check_dependencies()
     create_virtualenv()
     install_dependencies()
+    create_symlinks()
     print_help()
 
 if __name__ == '__main__':

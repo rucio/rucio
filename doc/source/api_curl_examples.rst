@@ -10,6 +10,10 @@
 REST API Examples Using Curl
 ----------------------------
 
+Below are some examples of The Rucio REST API with Curl. We assume that there is
+a Rucio server running on the localhost on port 80/443.
+
+
 Service
 ^^^^^^^
 
@@ -26,11 +30,8 @@ Discover server version information.
 
 **Example Request**
 
-.. literalinclude:: curl_examples/get_api.sh
+.. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_ping.txt
 
-**Example Response**
-
-.. literalinclude:: curl_examples/get_api.out
 
 Authentication
 ^^^^^^^^^^^^^^
@@ -49,12 +50,7 @@ Requesting a Rucio-Auth-Token with curl via username and password.
 
 **Example Request**
 
-.. literalinclude:: curl_examples/get_auth_userpass.sh
-
-**Example Response**
-
-.. literalinclude:: curl_examples/get_auth_userpass.out
-
+.. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_userpass.txt
 
 .. _`GET auth/x509`:
 
@@ -70,11 +66,7 @@ Requesting a Rucio-Auth-Token with curl via a X509 certificate.
 
 **Example Request**
 
-.. literalinclude:: curl_examples/get_auth_x509.sh
-
-**Example Response**
-
-.. literalinclude:: curl_examples/get_auth_x509.out
+.. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_x509.txt
 
 
 .. _`GET auth/gss`:
@@ -91,11 +83,28 @@ Requesting a Rucio-Auth-Token with curl via kerberos.
 
 **Example Request**
 
-.. literalinclude:: curl_examples/get_auth_gss.sh
+.. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_gss.txt
+
+.. _`GET auth/proxy`:
+
+`GET auth/proxy`
+""""""""""""""
+
+Requesting a Rucio-Auth-Token with curl via a Globus proxy.
+
+**Responses**
+
+ * ``200 OK``
+ * ``401 Unauthorized``
+
+**Example Request**
+
+.. literalinclude:: curl_examples/get_auth_proxy.sh
 
 **Example Response**
 
-.. literalinclude:: curl_examples/get_auth_gss.out
+.. literalinclude:: curl_examples/get_auth_proxy.out
+
 
 .. _`GET auth/validate`:
 
@@ -111,12 +120,8 @@ Check the validity of a authentication token. Checking the validity of a token w
 
 **Example Request**
 
-.. literalinclude:: curl_examples/get_auth_validate.sh
-   :lines: 2
+.. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_validate.txt
 
-**Example Response**
-
-.. literalinclude:: curl_examples/get_auth_validate.out
 
 .. _`GET auth/register_api_token`:
 
@@ -143,11 +148,13 @@ Create account.
 
 **Parameters**
 
-+-------------------+-----------+-------------------------+
-| Name              | Type      | Description             |
-+===================+===========+=========================+
-| ``accountName``   | String    | The name of the account |
-+-------------------+-----------+-------------------------+
++-------------------+-----------+----------------------------------------------+
+| Name              | Type      | Description                                  |
++===================+===========+==============================================+
+| ``accountName``   | String    | The name of the account                      |
++-------------------+-----------+----------------------------------------------+
+| ``accountType``   | String    | The type of the account (user, group, atlas) |
++-------------------+-----------+----------------------------------------------+
 
 **Responses**
 
@@ -157,12 +164,8 @@ Create account.
 
 **Example Request**
 
-.. literalinclude:: curl_examples/post_account.sh
+.. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_post_account.txt
    :lines: 2
-
-**Example Response**
-
-.. literalinclude:: curl_examples/post_account.out
 
 .. _`GET accounts/{accountName}`:
 

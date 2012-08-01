@@ -6,15 +6,32 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_is_not_none
 from paste.fixture import TestApp
 
+from rucio.api.authentication import get_auth_token_user_pass
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.authentication import app
 
 
-class TestGET():
+class TestAuthCoreApi():
+
+    def setUp(self):
+        build_database(echo=False)
+        create_root_account()
+
+    def tearDown(self):
+        destroy_database(echo=False)
+
+    def test_get_auth_token_user_pass(self):
+        """AUTHENTICATION (CORE): Username and password (correct credentials)."""
+        result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', ip='127.0.0.1')
+        assert_is_not_none(result)
+
+
+class TestAuthRestApi():
 
     def setUp(self):
         build_database()
@@ -29,6 +46,7 @@ class TestGET():
         mw = []
         headers = {'Rucio-Account': 'wrong', 'Rucio-Username': 'wrong', 'Rucio-Password': 'wrong'}
         r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
+        assert_equal(r.normal_body, 'User with identity wrong can not log to account wrong')
         assert_equal(r.status, 401)
 
     def test_userpass_success(self):

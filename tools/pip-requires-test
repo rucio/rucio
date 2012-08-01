@@ -3,6 +3,7 @@
 multi-mechanize==1.2.0    # Performance Test Framework
 Matplotlib==1.1.0         # Python plotting libs
 nose                      # for test discovery and console feedback
+pinocchio==0.3.1          # Extensions for the 'nose' unit testing framework
 #unittest2                # backport of unittest lib in python 2.7
 #webtest                  # test wsgi apps without starting an http server
 #mox                      # mock object framework
