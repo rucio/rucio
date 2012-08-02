@@ -142,13 +142,19 @@ class Duplicate(RucioException):
 
 class NoAuthInformation(RucioException):
     def __init__(self, *args, **kwargs):
-        super(NoAuthInformation, self).__init__()
+        super(NoAuthInformation, self).__init__(args)
         self._message = "No authentication information passed."
+
+
+class MissingClientParameter(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(MissingClientParameter, self).__init__(args)
+        self._message = "Client parameters are missing."
 
 
 class CannotAuthenticate(RucioException):
     def __init__(self, *args, **kwargs):
-        super(CannotAuthenticate, self).__init__()
+        super(CannotAuthenticate, self).__init__(args)
         self._message = "Cannot authenticate."
 
 
