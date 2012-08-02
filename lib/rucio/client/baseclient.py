@@ -14,7 +14,9 @@ Client class for callers of the Rucio system
 """
 
 from logging import getLogger
-from os import chmod, mkdir, path
+from os import chmod, environ, mkdir, path
+
+from ConfigParser import NoOptionError
 from requests import delete, get, post, put
 from requests.status_codes import codes
 from requests.exceptions import SSLError
@@ -23,6 +25,7 @@ from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.exception import NoAuthInformation
+from rucio.common.exception import MissingClientParameter
 from rucio.common.exception import RucioException
 from rucio.common.utils import build_url
 
@@ -54,14 +57,17 @@ class BaseClient(object):
         self.auth_host = auth_host
         self.auth_port = auth_port
 
-        if self.host is None:
-            self.host = config_get('client', 'rucio_host')
-        if self.port is None:
-            self.port = config_get('client', 'rucio_port')
-        if self.auth_host is None:
-            self.auth_host = config_get('client', 'auth_host')
-        if self.auth_port is None:
-            self.auth_port = config_get('client', 'auth_port')
+        try:
+            if self.host is None:
+                self.host = config_get('client', 'rucio_host')
+            if self.port is None:
+                self.port = config_get('client', 'rucio_port')
+            if self.auth_host is None:
+                self.auth_host = config_get('client', 'auth_host')
+            if self.auth_port is None:
+                self.auth_port = config_get('client', 'auth_port')
+        except NoOptionError, e:
+            raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         self.account = account
         self.use_ssl = use_ssl
@@ -71,14 +77,41 @@ class BaseClient(object):
         self.auth_token = None
         self.headers = {}
 
-        if auth_type is None or creds is None:
-            raise NoAuthInformation('No auth type or credentials specified')
+        if auth_type is None:
+            LOG.debug('no auth_type passed. Trying to get it from the config file.')
+            try:
+                self.auth_type = config_get('client', 'auth_type')
+            except NoOptionError, e:
+                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+
+        if creds is None:
+            LOG.debug('no creds passed. Trying to get it from the config file.')
+            self.creds = {}
+            try:
+                if self.auth_type == 'userpass':
+                    self.creds['username'] = config_get('client', 'username')
+                    self.creds['password'] = config_get('client', 'password')
+                elif self.auth_type == 'x509':
+                    self.creds['client_cert'] = config_get('client', 'client_cert')
+            except NoOptionError, e:
+                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if use_ssl and ca_cert is None:
-            raise NoAuthInformation('The path to the server certificate has to be passed in the credentials')
+            LOG.debug('no ca_cert passed. Trying to get it from the config file.')
+            try:
+                self.ca_cert = config_get('client', 'ca_cert')
+            except NoOptionError, e:
+                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if account is None:
-            raise NoAuthInformation('No account name specified')
+            LOG.debug('no account passed. Trying to get it from the config file.')
+            try:
+                self.account = config_get('client', 'account')
+            except NoOptionError, e:
+                try:
+                    self.account = environ['RUCIO_ACCOUNT']
+                except KeyError:
+                    raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
 
         self.__authenticate()
 
@@ -185,6 +218,46 @@ class BaseClient(object):
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
+    def __get_token_x509(self):
+        """
+        Sends a request to get an auth token from the server. Uses x509 authentication.
+        """
+
+        headers = {'Rucio-Account': self.account}
+        url = build_url(self.host, path='auth/x509', use_ssl=self.use_ssl)
+
+        client_cert = self.creds['client_cert']
+
+        if not path.exists(client_cert):
+            LOG.error('given client cert (%s) doesn\'t exist' % client_cert)
+            return False
+
+        retry = 0
+        while retry < 2:
+            try:
+                r = get(url, headers=headers, cert=client_cert, verify=self.ca_cert)
+            except SSLError, e:
+                if 'error:14090086' not in e.args[0][0]:
+                    return False
+                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
+                self.ca_cert = False
+                retry += 1
+                continue
+            break
+
+        if retry == 2:
+            LOG.error('cannot get auth_token')
+            return False
+
+        if r.status_code == codes.unauthorized:
+            raise CannotAuthenticate('wrong credentials')
+        if r.status_code != codes.ok:
+            raise RucioException('unknown error')
+
+        self.auth_token = r.headers['rucio-auth-token']
+        LOG.debug('got new token \'%s\'' % self.auth_token)
+        return True
+
     def __get_token(self):
         """
         Sends a request to get a new token and write it to file. To be used if a 401 - Unauthorized error is received.
@@ -192,8 +265,11 @@ class BaseClient(object):
 
         LOG.debug('get a new token')
         if self.auth_type == 'userpass':
-            self.__get_token_userpass()
-            #    raise CannotAuthenticate('authentication failed')
+            if not self.__get_token_userpass():
+                raise CannotAuthenticate('authentication failed')
+        elif self.auth_type == 'x509':
+            if not self.__get_token_x509():
+                raise CannotAuthenticate('authentication failed')
         else:
             raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
@@ -260,6 +336,9 @@ class BaseClient(object):
         if self.auth_type == 'userpass':
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')
+        elif self.auth_type == 'x509':
+            if self.creds['client_cert'] is None:
+                raise NoAuthInformation('The path to the client certificate is required')
         else:
             raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
