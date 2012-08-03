@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 from json import loads
 from requests import get
