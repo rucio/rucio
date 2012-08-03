@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
 """
 Client class for callers of the Rucio system
