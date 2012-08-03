@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 from json import loads
 from requests.status_codes import codes
