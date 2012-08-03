@@ -18,6 +18,7 @@ from os import chmod, environ, mkdir, path
 
 from ConfigParser import NoOptionError
 from requests import delete, get, post, put
+from requests.auth import HTTPKerberosAuth
 from requests.status_codes import codes
 from requests.exceptions import SSLError
 
@@ -36,6 +37,7 @@ class BaseClient(object):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
+    AUTH_RETRIES = 2
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
@@ -195,7 +197,7 @@ class BaseClient(object):
         url = build_url(self.auth_host, port=self.auth_port, path='auth/userpass', use_ssl=self.use_ssl)
 
         retry = 0
-        while retry < 2:
+        while retry < self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, verify=self.ca_cert)
             except SSLError:
@@ -233,12 +235,44 @@ class BaseClient(object):
             return False
 
         retry = 0
-        while retry < 2:
+        while retry < self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, cert=client_cert, verify=self.ca_cert)
             except SSLError, e:
                 if 'error:14090086' not in e.args[0][0]:
                     return False
+                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
+                self.ca_cert = False
+                retry += 1
+                continue
+            break
+
+        if retry == 2:
+            LOG.error('cannot get auth_token')
+            return False
+
+        if r.status_code == codes.unauthorized:
+            raise CannotAuthenticate('wrong credentials')
+        if r.status_code != codes.ok:
+            raise RucioException('unknown error')
+
+        self.auth_token = r.headers['rucio-auth-token']
+        LOG.debug('got new token \'%s\'' % self.auth_token)
+        return True
+
+    def __get_token_gss(self):
+        """
+        Sends a request to get an auth token from the server. Uses Kerberos authentication.
+        """
+
+        headers = {'Rucio-Account': self.account}
+        url = build_url(self.auth_host, port=self.auth_port, path='auth/gss', use_ssl=self.use_ssl)
+
+        retry = 0
+        while retry < self.AUTH_RETRIES:
+            try:
+                r = get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
+            except SSLError:
                 LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
                 self.ca_cert = False
                 retry += 1
@@ -266,10 +300,13 @@ class BaseClient(object):
         LOG.debug('get a new token')
         if self.auth_type == 'userpass':
             if not self.__get_token_userpass():
-                raise CannotAuthenticate('authentication failed')
+                raise CannotAuthenticate('userpass authentication failed')
         elif self.auth_type == 'x509':
             if not self.__get_token_x509():
-                raise CannotAuthenticate('authentication failed')
+                raise CannotAuthenticate('x509 authentication failed')
+        elif self.auth_type == 'gss':
+            if not self.__get_token_gss():
+                raise CannotAuthenticate('kerberos authentication failed')
         else:
             raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
@@ -339,6 +376,8 @@ class BaseClient(object):
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
+        elif self.auth_type == 'gss':
+            pass
         else:
             raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
