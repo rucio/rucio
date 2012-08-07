@@ -22,7 +22,11 @@ import time
 
 from rucio import client as rucio_client
 from rucio import version
+from rucio.client.accountclient import AccountClient
 from rucio.client.pingclient import PingClient
+from rucio.client.cli.upload import upload as cli_upload
+from rucio.client.cli.download import download as cli_download
+
 
 SUCCESS = 0
 FAILURE = 1
@@ -59,10 +63,70 @@ def ping(args):
     Pings a Rucio server.
 
     """
-    client = PingClient(host=args.host)
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    client = PingClient(rucio_host=args.host, rucio_port=args.port,
+                        auth_host=args.auth_host, auth_port=args.auth_port,
+                        account=args.account, use_ssl=False,
+                        auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
+
     server_info = client.ping()
     print server_info['version']
     return SUCCESS
+
+def whoami_account(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Show extended information of a given account
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
+                                  auth_host=args.auth_host, auth_port=args.auth_port,
+                                  account=args.account, use_ssl=True,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        info = accountClient.whoami()
+    except Exception, e:
+            print 'Failed to show account'
+            print e
+            return FAILURE
+
+    for k in info:
+        print k.ljust(10) + ' : ' + str(info[k])
+
+    return SUCCESS
+
+
+def upload(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Upload files into Rucio
+
+    """
+    cli_upload
+
+
+def download(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Download files from Rucio
+
+    """
+    cli_download
 
 
 if __name__ == '__main__':
@@ -80,10 +144,12 @@ Commands:
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
-    oparser.add_argument('-H', '--host', metavar="ADDRESS", default="127.0.0.1", help="Address of Rucio API host. " "Default: %default")
-    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_SECURE_PORT, help="Port the Rucio API host listens on. " "Default: %default")
+    oparser.add_argument('-H', '--host', metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
+    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, help="Port the Rucio API host listens on. " "Default: %default")
+    oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="Address of Rucio Authentication host. " "Default: %default")
+    oparser.add_argument('--auth_port', dest="auth_port", metavar="ADDRESS", help="Port the Rucio Authentication host listens on. " "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
-    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default='userpass', help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
     oparser.add_argument('-T', '--timeout=', dest="timeout", default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
@@ -97,6 +163,22 @@ Commands:
     # Ping command
     ping_parser = subparsers.add_parser('ping', help='Ping Rucio server')
     ping_parser.set_defaults(which='ping')
+
+    # The account subparser
+    account_parser = subparsers.add_parser('account', help='Account methods')
+    account_subparser = account_parser.add_subparsers()
+
+    # The whoami command
+    whoami_account_parser = account_subparser.add_parser('whoami', help='Get information about account whose token is used')
+    whoami_account_parser.set_defaults(which='whoami_account')
+
+    # The upload subparser
+    upload_parser = subparsers.add_parser('upload', help='Upload method')
+    upload_parser.set_defaults(which='upload')
+
+    # The download subparser
+    download_parser = subparsers.add_parser('download', help='Download method')
+    download_parser.set_defaults(which='download')
 
     # A list command
     list_parser = subparsers.add_parser('list', help='List contents')
@@ -117,6 +199,9 @@ Commands:
 
     commands = {'create': dataset_add,
                 'ping': ping,
+                'whoami_account': whoami_account,
+                'download': download,
+                'upload': upload,
                }
 
     try:
