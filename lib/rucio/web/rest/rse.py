@@ -15,9 +15,9 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest,\
                 Created, InternalError, HTTPError, Unauthorized, OK
 
-from rucio.api.rse import add_rse, list_rses, del_rse
-from rucio.common.exception import Duplicate, AccountNotFound
-
+from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_tag,\
+                          list_rse_tags
+from rucio.common.exception import Duplicate, AccountNotFound, AccessDenied
 from rucio.common.utils import generate_http_error
 from rucio.core.authentication import validate_auth_token
 
@@ -26,9 +26,9 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-
 urls = (
     '/', 'RSE',
+    '/(.+)/tags', 'Tag',
 )
 
 
@@ -42,12 +42,10 @@ class RSE:
             201 Created
 
         HTTP Error:
+            400 Bad request
             401 Unauthorized
-            409 Conflict
             500 Internal Error
 
-        :param Rucio-Account: Location identifier.
-        :param Rucio-Auth-Token: as an 32 character hex string.
         """
         header('Content-Type', 'application/octet-stream')
 
@@ -76,17 +74,14 @@ class RSE:
         try:
             add_rse(rse=rseName, issuer=auth['account'])
         except Duplicate, e:
-            status = '409 Conflict'
-            headers = {'ExceptionClass': 'Duplicate', 'ExceptionMessage': e[0][0]}
-            d = ' '.join(['Duplicate:', str(e)])
-            raise HTTPError(status, headers=headers, data=d)
+            raise generate_http_error(409, 'Duplicate', e[0][0])
         except Exception, e:
             raise InternalError(e)
 
         raise Created()
 
     def GET(self):
-        """ list all rucio locations.
+        """ list all RSEs.
 
         HTTP Success:
             200 OK
@@ -95,9 +90,7 @@ class RSE:
             401 Unauthorized
             500 InternalError
 
-        :param Rucio-Account: Account identifier.
-        :param Rucio-Auth-Token: as an 32 character hex string.
-        :returns: A list containing all location names.
+        :returns: A list containing all RSEs.
         """
 
         header('Content-Type', 'application/json')
@@ -125,8 +118,7 @@ class RSE:
             404 Not Found
             500 InternalError
 
-        :param Rucio-Account: Account identifier.
-        :param Rucio-Auth-Token: as an 32 character hex string.
+        :param rse: RSE name.
         """
 
         header('Content-Type', 'application/octet-stream')
@@ -142,7 +134,7 @@ class RSE:
             raise Unauthorized()
 
         try:
-            del_rse(rse=rseName, who=auth['account'])
+            del_rse(rse=rseName, issuer=auth['account'])
         except AccountNotFound, e:
             status = '404 Not Found'
             headers = {'ExceptionClass': 'RSENotFound', 'ExceptionMessage': e[0][0]}
@@ -150,6 +142,94 @@ class RSE:
             raise HTTPError(status, headers=headers, data=data)
 
         raise OK()
+
+
+class Tag:
+    """ create, update, get and disable RSE tag."""
+
+    def POST(self, rse):
+        """ create rse tag.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad request
+            401 Unauthorized
+            500 Internal Error
+
+        :param rse: RSE name.
+        """
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        description = None
+        try:
+            tag = parameter['tag']
+            if 'description' in tag:
+                description = parameter['description']
+        except KeyError, e:
+            if e.args[0] == 'tag':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        try:
+            add_rse_tag(rse=rse, tag=tag, description=description, issuer=auth['account'])
+        except AccessDenied, e:
+            raise Unauthorized(e[0][0])
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise Created()
+
+    def GET(self, rse):
+        """ list all RSE tags for a RSE.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param rse: RSE name.
+
+        :returns: A list containing all RSE tags.
+        """
+
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        return dumps(list_rse_tags(filters={'rse': rse}))
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self, rseName):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 """----------------------

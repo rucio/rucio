@@ -9,7 +9,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
+
 import nose.tools
+import re
 
 from rucio import version
 from rucio.db.session import build_database, destroy_database, create_root_account
@@ -42,8 +44,50 @@ class TestBinRucio():
 
     def test_add_account(self):
         """ACCOUNT (CLI): Add account"""
-        cmd = 'rucio-admin --host=localhost --port=443 --account=root --user=ddmlab -pwd=secret --ca-certificate=etc/web/ca.crt account add jdoe user'
+        cmd = 'rucio-admin account add jdoe user'
         print  self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_equal('Added new account: jdoe\n', out)
+
+    def test_whoami(self):
+        """ACCOUNT (CLI): Test whoami"""
+        cmd = 'rucio account whoami'
+        print  self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+        nose.tools.assert_regexp_matches(out, re.compile('.*account.*'))
+
+    def test_add_rse(self):
+        """RSE (CLI): Add RSE"""
+        cmd = 'rucio-admin rse add MOCK'
+        print  self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+        nose.tools.assert_equal('Added new RSE: MOCK\n', out)
+
+    def test_list_rses(self):
+        """RSE (CLI): List RSEs"""
+        cmd = 'rucio-admin rse add MOCK'
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio-admin rse list'
+        print  self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+        nose.tools.assert_regexp_matches(out, re.compile('.*MOCK.*'))
+
+    def test_upload(self):
+        """RSE (CLI): Upload"""
+        cmd = 'rucio-admin rse add MOCK'
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio upload'
+        print  self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+
+    def test_download(self):
+        """RSE (CLI): Download"""
+        cmd = 'rucio download'
+        print  self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,

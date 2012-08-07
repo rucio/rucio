@@ -141,6 +141,22 @@ def add_rse_tag(rse, tag, description=None):
     session.commit()
 
 
+def list_rse_tags(filters=None):
+    """ List RSE tags.
+
+    :param filters: dictionary of attributes by which the results should be filtered.
+
+    :returns: List of all RSE tags.
+    """
+    rse_tags_list = []
+
+    query = session.query(models.RSETag).order_by(models.RSETag.tag)
+    for tag in query:
+        rse_tags_list.append(tag.tag)
+
+    return rse_tags_list
+
+
 def get_rses(filters=None):
     """ Gets the list of RSEs
 
@@ -215,6 +231,7 @@ def get_rse_usage(rse, filters=None):
 
 def get_rse_usage_history(rse, filters=None):
     """ get location usage history information.
+
     :param location: The location name.
     :param filters: dictionary of attributes by which the results should be filtered.
 

@@ -13,8 +13,9 @@
 import os
 import os.path
 
-from rucio.client.baseclient import BaseClient
+from logging import getLogger
 
+from rucio.client.baseclient import BaseClient
 from rucio.common.exception import SourceAccessDenied
 from rucio.common.exception import SourceNotFound
 from rucio.common.exception import RSENotReachable
@@ -29,8 +30,8 @@ class UploadClient(BaseClient):
 
     BASEURL = '??_uploadclient_??'
 
-    def __init__(self, host, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(UploadClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
+        super(UploadClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds, timeout)
 
     def upload_files(account, sources):
         """
@@ -42,7 +43,7 @@ class UploadClient(BaseClient):
         deleted automatically and therefore at least one replication rule (default)
         must be created. After the rucio server responded without error, the physical
         copy of the file can be started. After the physical copy finished successfully
-        the replica’s state is changed from ‘queued’ to ‘active’ to enable the
+        the replica's state is changed from 'queued' to 'active' to enable the
         replica for users.
 
         :param account Account identifier
@@ -71,15 +72,15 @@ class UploadClient(BaseClient):
         # ToDo: Merge the response from above into the report array (per file)
         #       possible file status are: DatasetAcessDenied, ScopeAccessDenied, RSEOverQuota, InvalidMetadata, FileReplicaAlreadyExsists, FileConsitencyConfilct, InvalidRepliactionRule, FullStorage
         #       if the transfer is considered to be fine, the value fo the file will be True
-
+        RSEMgr, recommendation = None, None  # In waiting
         for src in sources:
             if report[src]:
                 # ToDo the REST call for: recommendation = rucio_server.recommend_storage(account, sources[src])
                 # ToDo the REST call for: rucio_server.prepare_upload(account, sources[src], recommendation)
                 try:
                     RSEMgr.upload(src, recommendation)
-                except RSENotReachable, RSEAccessDenied, FullStorage as e:
-                    r eport[src] = e
+                except (RSENotReachable, RSEAccessDenied, FullStorage), e:
+                    report[src] = e
                     continue
                 # ToDo the REST call for: rucio_server.confirm_upload(src, recommendation)
                 report[src] = True

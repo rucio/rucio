@@ -14,7 +14,11 @@ Rucio utilities.
 
 from urllib import urlencode
 from uuid import uuid4 as uuid
-from web import HTTPError
+try:
+    # Hack for the client distribution
+    from web import HTTPError
+except:
+    pass
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
