@@ -42,11 +42,40 @@ def del_rse(rse, issuer):
         return rse_core.del_rse(rse)
 
 
-def list_rses():
-        """
-        Lists all the rses.
+def list_rses(filters=None):
+    """
+    Lists all the rses.
+
+    :param filters: dictionary of attributes by which the results should be filtered.
+
+    :returns: List of all RSEs.
+    """
+    return rse_core.list_rses()
 
 
-        :returns: List of all RSEs.
-        """
-        return rse_core.list_rses()
+def add_rse_tag(rse, tag, issuer, description=None):
+    """ Tags a RSE.
+
+    :param rse: the rse name.
+    :param tag: the tag name.
+    :param description: Description of the rse, e.g. cloud, site, etc.
+    :param issuer: The issuer account.
+
+
+    returns: True is successfull
+    """
+    kwargs = {'rse': rse, 'tag': tag, 'description': description}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='add_rse_tag', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not tag RSE' % (issuer))
+
+    return rse_core.add_rse_tag(rse=rse, tag=tag, description=description)
+
+
+def list_rse_tags(filters=None):
+    """ List RSE tags.
+
+    :param filters: dictionary of attributes by which the results should be filtered.
+
+    :returns: List of all RSE tags.
+    """
+    return rse_core.list_rse_tags(filters=filters)

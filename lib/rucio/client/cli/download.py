@@ -6,12 +6,8 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 
 
-from rucio.client import uploadclient
-
-
-def upload(sources):
-    """ This method just links the CLI upload to the according method of the client API."""
-    uploadclient.upload(sources)
+def download():
+    """ This method just links the CLI download to the according method of the client API."""
+    pass

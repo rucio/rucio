@@ -22,6 +22,7 @@ import time
 from logging import getLogger
 
 from rucio.client.accountclient import AccountClient
+from rucio.client.rseclient import RSEClient
 from rucio.client.client import Client
 
 from rucio import version
@@ -42,9 +43,9 @@ DEFAULT_PORT = 443
 
 def add_account(args):
     """
-%(prog)s add [options] <field1=value1 field2=value2 ...>
+    %(prog)s add [options] <field1=value1 field2=value2 ...>
 
-Adds a new account. Specify metadata fields as arguments.
+    Adds a new account. Specify metadata fields as arguments.
 
     """
     # For the moment...
@@ -54,7 +55,7 @@ Adds a new account. Specify metadata fields as arguments.
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.host, auth_port=args.port,
+                                  auth_host=args.auth_host, auth_port=args.auth_port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -70,9 +71,9 @@ Adds a new account. Specify metadata fields as arguments.
 
 def disable_account(args):
     """
-%(prog)s disable [options] <field1=value1 field2=value2 ...>
+    %(prog)s disable [options] <field1=value1 field2=value2 ...>
 
-Disable account.
+    Disable account.
 
     """
     if args.auth_strategy == 'userpass':
@@ -81,7 +82,7 @@ Disable account.
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.host, auth_port=args.port,
+                                  auth_host=args.auth_host, auth_port=args.auth_port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -97,9 +98,9 @@ Disable account.
 
 def list_accounts(args):
     """
-%(prog)s list [options] <field1=value1 field2=value2 ...>
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
 
-List accounts.
+    List accounts.
 
     """
     if args.auth_strategy == 'userpass':
@@ -108,7 +109,7 @@ List accounts.
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.host, auth_port=args.port,
+                                  auth_host=args.auth_host, auth_port=args.auth_port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -139,7 +140,7 @@ def show_account(args):
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.host, auth_port=args.port,
+                                  auth_host=args.auth_host, auth_port=args.auth_port,
                                   account=args.account, use_ssl=True,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -159,9 +160,9 @@ def show_account(args):
 
 def identity_add(args):
     """
-%(prog)s del [options] <field1=value1 field2=value2 ...>
+    %(prog)s del [options] <field1=value1 field2=value2 ...>
 
-Grant an identity access to an account.
+    Grant an identity access to an account.
 
     """
     pass
@@ -169,60 +170,62 @@ Grant an identity access to an account.
 
 def identity_delete(args):
     """
-%(prog)s del [options] <field1=value1 field2=value2 ...>
+    %(prog)s del [options] <field1=value1 field2=value2 ...>
 
-Revoke an identity's access to an account.
+    Revoke an identity's access to an account.
 
     """
     pass
 
 
-def add_location(args):
+def add_rse(args):
     """
-%(prog)s add [options] <field1=value1 field2=value2 ...>
+    %(prog)s add [options] <field1=value1 field2=value2 ...>
 
-Adds a new location. Specify metadata fields as arguments.
+    Adds a new rse. Specify metadata fields as arguments.
 
     """
     # For the moment...
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
-        creds = {}
+        creds = None
 
-    client = Client(host=args.host, port=args.port,
-                    account=args.account, use_ssl=True,
-                    auth_type=args.auth_strategy, creds=creds,
-                    ca_cert=args.ca_certificate)
-
+    client = RSEClient(rucio_host=args.host, rucio_port=args.port,
+                       auth_host=args.auth_host, auth_port=args.auth_port,
+                       account=args.account, use_ssl=True,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.create_location(args.location)
+        client.create_rse(args.rse)
+        print 'Added new RSE: %s' % args.rse
     except Exception, e:
-            print 'Failed to create location %s' % args.location
+            print 'Failed to create rse %s' % args.rse
             print e
             return FAILURE
     return SUCCESS
 
 
-def disable_location(args):
+def disable_rse(args):
     """
-%(prog)s del [options] <field1=value1 field2=value2 ...>
+    %(prog)s del [options] <field1=value1 field2=value2 ...>
 
-Disable location.
+    Disable rse.
 
     """
     # For the moment...
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
-        creds = {}
+        creds = None
 
     client = Client(host=args.host, port=args.port,
+                    auth_host=args.auth_host, auth_port=args.auth_port,
                     account=args.account, use_ssl=True,
                     auth_type=args.auth_strategy, creds=creds,
                     ca_cert=args.ca_certificate)
     try:
-        client.disable_location(args.location)
+        client.disable_rse(args.location)
     except Exception, e:
             print 'Failed to disable account %s' % args.location
             print e
@@ -230,25 +233,26 @@ Disable location.
     return SUCCESS
 
 
-def list_locations(args):
+def list_rses(args):
     """
-%(prog)s del [options] <field1=value1 field2=value2 ...>
+    %(prog)s del [options] <field1=value1 field2=value2 ...>
 
-List locations.
+    List rses.
 
     """
     # For the moment...
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
-        creds = {}
+        creds = None
 
-    client = Client(host=args.host, port=args.port,
-                    account=args.account, use_ssl=True,
-                    auth_type=args.auth_strategy, creds=creds,
-                    ca_cert=args.ca_certificate)
+    client = RSEClient(rucio_host=args.host, rucio_port=args.port,
+                       auth_host=args.auth_host, auth_port=args.auth_port,
+                       account=args.account, use_ssl=True,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        locations = client.list_locations()
+        locations = client.list_rses()
     except Exception, e:
             print 'Failed to list locations'
             print e
@@ -261,7 +265,9 @@ List locations.
 
 if __name__ == '__main__':
     usage = """
-%(prog)s <command> [options] [args]
+%(prog)s
+
+ <command> [options] [args]
 
 Commands:
 
@@ -274,8 +280,10 @@ Commands:
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
-    oparser.add_argument('-H', '--host', metavar="ADDRESS", default="127.0.0.1", help="Address of Rucio API host. " "Default: %default")
-    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, default=DEFAULT_PORT, help="Port the Rucio API host listens on. " "Default: %default")
+    oparser.add_argument('-H', '--host', metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
+    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, help="Port the Rucio API host listens on. " "Default: %default")
+    oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="Address of Rucio Authentication host. " "Default: %default")
+    oparser.add_argument('--auth_port', dest="auth_port", metavar="ADDRESS", help="Port the Rucio Authentication host listens on. " "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
     oparser.add_argument('-T', '--timeout=', dest="timeout", default=None, help="Set all timeout values to SECONDS")
@@ -312,37 +320,62 @@ Commands:
     show_account_parser.set_defaults(which='show_account')
     show_account_parser.add_argument('acnt', action='store', help='Account name')
 
+    # The identity subparser
+    identity_parser = subparsers.add_parser('identity', help='Identity methods')
+    identity_subparser = identity_parser.add_subparsers()
+
     # The identity_add command
-    identity_add_parser = account_subparser.add_parser('identity_add', help='Grant an identity access to an account')
+    identity_add_parser = identity_subparser.add_parser('identity_add', help='Grant an identity access to an account')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('acnt', action='store', help='Account name')
     identity_add_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
     identity_add_parser.add_argument('identity', action='store', help='Identity')
 
     # The identity_delete command
-    identity_delete_parser = account_subparser.add_parser('identity_delete', help="Revoke an identity's access to an account")
+    identity_delete_parser = identity_subparser.add_parser('identity_delete', help="Revoke an identity's access to an account")
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('acnt', action='store', help='Account name')
     identity_delete_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
     identity_delete_parser.add_argument('identity', action='store', help='Identity')
 
-    # The location subparser
-    location_parser = subparsers.add_parser('location', help='Location methods')
-    location_subparser = location_parser.add_subparsers()
+    # The RSE subparser
+    rse_parser = subparsers.add_parser('rse', help='RSE(Rucio Storage Element) methods')
+    rse_subparser = rse_parser.add_subparsers()
 
-    # The list_locations command
-    list_location_parser = location_subparser.add_parser('list', help='List Rucio locations')
-    list_location_parser.set_defaults(which='list_locations')
+    # The list_rses command
+    list_rse_parser = rse_subparser.add_parser('list', help='List Rucio RSEs')
+    list_rse_parser.set_defaults(which='list_rses')
 
-    # The add_location command
-    add_location_parser = location_subparser.add_parser('add', help='Add Rucio location')
-    add_location_parser.set_defaults(which='add_location')
-    add_location_parser.add_argument('location', action='store', help='Location name')
+    # The add_rse command
+    add_rse_parser = rse_subparser.add_parser('add', help='Add RSE')
+    add_rse_parser.set_defaults(which='add_rse')
+    add_rse_parser.add_argument('rse', action='store', help='RSE name')
+
+    # The tag_rse command
+    tag_rse_parser = rse_subparser.add_parser('tag', help='Add a RSE tag to a RSE')
+    tag_rse_parser.set_defaults(which='tag_rse')
+    tag_rse_parser.add_argument('rse', action='store', help='RSE name')
+    tag_rse_parser.add_argument('tag', action='store', help='RSE Tag name')
+
+    # The untag_rse command
+    untag_rse_parser = rse_subparser.add_parser('untag', help='Remove a RSE tag from a RSE')
+    untag_rse_parser.set_defaults(which='untag_rse')
+    untag_rse_parser.add_argument('rse', action='store', help='RSE name')
+    untag_rse_parser.add_argument('tag_rse', action='store', help='RSE Tag name')
 
     # The disable_location command
-    disable_location_parser = location_subparser.add_parser('disable', help='Disable Rucio location')
-    disable_location_parser.set_defaults(which='disable_location')
-    disable_location_parser.add_argument('location', action='store', help='Location name')
+    disable_rse_parser = rse_subparser.add_parser('disable', help='Disable RSE')
+    disable_rse_parser.set_defaults(which='disable_rse')
+    disable_rse_parser.add_argument('rse', action='store', help='RSE name')
+
+    # The scope subparser
+    scope_parser = subparsers.add_parser('scope', help='Scope methods')
+    scope_subparser = scope_parser.add_subparsers()
+
+    # The add_scope command
+    add_scope_parser = scope_subparser.add_parser('add', help='Add scope')
+    add_scope_parser.set_defaults(which='add_scope')
+    add_scope_parser.add_argument('scope', action='store', help='Scope name')
 
     commands = {
                 'add_account': add_account,
@@ -351,9 +384,9 @@ Commands:
                 'show_account': show_account,
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
-                'add_location': add_location,
-                'list_locations': list_locations,
-                'disable_location': disable_location,
+                'add_rse': add_rse,
+                'list_rses': list_rses,
+                'disable_rse': disable_rse,
                }
 
     args = oparser.parse_args(sys.argv[1:])

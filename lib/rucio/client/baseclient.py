@@ -13,7 +13,7 @@
 Client class for callers of the Rucio system
 """
 
-from logging import getLogger
+from logging import getLogger, StreamHandler, ERROR
 from os import chmod, environ, mkdir, path
 
 from ConfigParser import NoOptionError, NoSectionError
@@ -28,6 +28,9 @@ from rucio.common.exception import CannotAuthenticate, NoAuthInformation, Missin
 from rucio.common.utils import build_url
 
 LOG = getLogger(__name__)
+sh = StreamHandler()
+sh.setLevel(ERROR)
+LOG.addHandler(sh)
 
 
 class BaseClient(object):
@@ -121,7 +124,6 @@ class BaseClient(object):
         :param headers: The http response header containing the Rucio exception details.
         :return: A rucio exception class and an error string.
         """
-
         if 'ExceptionClass' not in headers:
             if 'ExceptionMessage' not in headers:
                 return getattr(exception, 'RucioException'), 'no error information passed'

@@ -20,7 +20,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.common.exception import Duplicate, RucioException
 from rucio.core.rse import  add_rse, del_rse, list_rses,\
                             rse_exists, set_rse_usage, get_rse_usage,\
-                            add_rse_tag, get_rses
+                            add_rse_tag, get_rses, list_rse_tags
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
@@ -85,6 +85,19 @@ class TestRSECoreApi():
         assert_items_equal(get_rses(filters={'rse': 'MOCK'}), [{'rse': u'MOCK', 'tag': u'TIERS2'}])
         assert_items_equal(get_rses(filters={'description': 'cloud'}), [{'rse': u'MOCK', 'tag': u'TIERS2'}, {'rse': u'MOCK2', 'tag': u'TIERS2'}])
 
+    def test_list_rse_tags(self):
+        """  RSE (CORE): Test the listing of RSE tags """
+        l1 = 'MOCK'
+        l2 = 'MOCK2'
+        description = 'cloud'
+        add_rse(l1)
+        add_rse(l2)
+        assert_equal(rse_exists(l1), True)
+        add_rse_tag(rse=l1, tag='TIERS2', description=description)
+        add_rse_tag(rse=l2, tag='TIERS3', description=description)
+        rse_tags = list_rse_tags()
+        assert_items_equal(['TIERS2', 'TIERS3'], rse_tags)
+
 
 class TestRSE():
 
@@ -110,6 +123,11 @@ class TestRSE():
         r2 = TestApp(rse_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
+        headers3 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        data = dumps({'rse': 'MOCK'})
+        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/', headers=headers3, params=data, expect_errors=True)
+        assert_equal(r3.status, 409)
+
     def test_list_rses(self):
         """ RSE (REST): send a GET to list all rses """
         mw = []
@@ -130,34 +148,72 @@ class TestRSE():
         assert_equal(r3.body, '["MOCK"]')
         assert_equal(r3.status, 200)
 
+    def test_tag_rses(self):
+        """ RSE (REST): send a POST to tag a RSE """
+        mw = []
 
-class xTestRSEClient():
+        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(r1.status, 200)
+        token = str(r1.header('Rucio-Auth-Token'))
+
+        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        data = dumps({'rse': 'MOCK'})
+        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 201)
+
+        headers3 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        data = dumps({'tag': 'MOCK_TAG'})
+        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/MOCK/tags', headers=headers3, params=data, expect_errors=True)
+        assert_equal(r3.status, 201)
+
+    def test_list_rse_tags(self):
+        """ RSE (REST): Test the listing of RSE tags """
+        mw = []
+
+        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(r1.status, 200)
+        token = str(r1.header('Rucio-Auth-Token'))
+
+        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        data = dumps({'rse': 'MOCK'})
+        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 201)
+
+        headers3 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        data = dumps({'tag': 'MOCK_TAG'})
+        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/MOCK/tags', headers=headers3, params=data, expect_errors=True)
+        assert_equal(r3.status, 201)
+
+        headers4 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        r4 = TestApp(rse_app.wsgifunc(*mw)).get('/MOCK/tags', headers=headers4, expect_errors=True)
+        assert_equal(r4.status, 200)
+
+
+class TestRSEClient():
     def setUp(self):
-        creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.client = RSEClient('localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        build_database(echo=False)
+        create_root_account()
+        self.client = RSEClient()
 
     def tearDown(self):
-        pass
+        destroy_database(echo=False)
 
     def test_create_rse(self):
         """ RSE (CLIENTS): create a new rse."""
-        try:
-            location = str(uuid())
-            ret = self.client.create_rse(location)
-            assert_true(ret)
-        except RucioException:
-            assert_true(False)
+        location = str(uuid())
+        ret = self.client.create_rse(location)
+        assert_true(ret)
 
+    @raises(Duplicate)
     def test_create_rse_duplicate(self):
         """ RSE (CLIENTS): create a duplicate rse."""
-        try:
-            location = str(uuid())
-            self.client.create_rse(location)
-            self.client.create_rse(location)
-        except Duplicate:
-            assert_true(True)
-        else:
-            assert_true(False)
+        location = str(uuid())
+        self.client.create_rse(location)
+        self.client.create_rse(location)
 
     def test_list_rses(self):
         """ RSE (CLIENTS): try to list rses."""

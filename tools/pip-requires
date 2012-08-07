@@ -6,7 +6,7 @@ SQLAlchemy==0.7.8        # db backend
 sqlalchemy-migrate       # To deal with database schema changes
 #Jinja2>=2.3             # Template engine
 flup                     # Needed to deploy web.py in lighthttpd
-web.py                   # Python web framework
+web.py==0.37             # Python web framework
 #python-memcached        # Cache
 
 Celery==2.5.1            # Distributed Task Queue

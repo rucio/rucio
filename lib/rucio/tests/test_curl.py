@@ -94,3 +94,15 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         print out
         nose.tools.assert_in('303 See Other', out)
+
+    def test_post_rse(self):
+        """RSE (CURL): add RSE"""
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_in('Rucio-Auth-Token', out)
+        os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"rse": "MOCK"}' -X POST https://localhost/rses/'''
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        nose.tools.assert_in('201 Created', out)

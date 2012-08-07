@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -20,8 +21,8 @@ class ScopeClient(BaseClient):
 
     BASEURL = 'accounts'
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(ScopeClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
+        super(ScopeClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds, timeout)
 
     def add_scope(self, accountName, scopeName):
         """

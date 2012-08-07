@@ -63,10 +63,11 @@ Install via pip and virtualenv
 
 To install the Rucio clients in an isolated ``virtualenv`` environment::
 
-   $> wget https://raw.github.com/pypa/virtualenv/master/virtualenv.py
+   $> wget --no-check-certificate https://raw.github.com/pypa/virtualenv/master/virtualenv.py
    $> python virtualenv.py rucio
    $> source rucio/bin/activate.csh
    $> pip install rucio-clients -i http://atlas-pip.cern.ch/simple
+   $> export RUCIO_HOME=`pwd`/rucio/
 
 
 
