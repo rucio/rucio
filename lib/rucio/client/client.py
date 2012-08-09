@@ -37,5 +37,5 @@ class Client(AccountClient, RSEClient, ScopeClient, PingClient):
         :param creds: credentials needed for authentication.
         :param timeout: Float describes the timeout of the request (in seconds).
         """
-        super(Client, self).__init__(rucio_host=rucio_host, rucio_port=rucio_port, auth_host=auth_host, auth_port=auth_port,\
+        super(Client, self).__init__(rucio_host=rucio_host, rucio_port=rucio_port, auth_host=auth_host, auth_port=auth_port,
                                      account=account, use_ssl=use_ssl, ca_cert=ca_cert, auth_type=auth_type, creds=creds, timeout=timeout)

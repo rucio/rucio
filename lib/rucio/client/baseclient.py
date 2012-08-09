@@ -78,7 +78,7 @@ class BaseClient(object):
         self.creds = creds
         self.auth_token = None
         self.headers = {}
-        self.timeout = None
+        self.timeout = timeout
 
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the config file.')

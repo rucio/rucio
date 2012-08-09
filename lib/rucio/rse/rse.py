@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 import json
 import os
@@ -83,7 +84,7 @@ class RucioStorageElement(object):
             for p in self.static['protocols']['supported']:
                 if p == kwarg['protocol']:
                     self.instance['protocol_id'] = kwarg['protocol']
-        if self.instance['protocol_id'] == None:
+        if self.instance['protocol_id'] is None:
             raise exception.SwitchProtocols({'protocols': json.dumps(self._rse_properties['static']['protocols'])})
         self.__create_protocol_instance()
 
@@ -182,7 +183,7 @@ class RucioStorageElement(object):
         """
         lfns = [lfns] if type(lfns) is str else lfns
         dest_file = ''
-        if dest != None:
+        if dest is not None:
             dest_file = dest
         for lfn in lfns:
             # TODO: Must the central catalogue be checked here?

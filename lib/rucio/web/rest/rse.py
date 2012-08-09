@@ -13,11 +13,11 @@
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest,\
-                Created, InternalError, HTTPError, Unauthorized, OK
+    Created, InternalError, HTTPError, Unauthorized, OK
 
 from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_tag,\
-                          list_rse_tags
-from rucio.common.exception import Duplicate, AccountNotFound, AccessDenied
+    list_rse_tags, add_file_replica
+from rucio.common.exception import Duplicate, AccountNotFound, AccessDenied, RSENotFound
 from rucio.common.utils import generate_http_error
 from rucio.core.authentication import validate_auth_token
 
@@ -28,7 +28,8 @@ logger.addHandler(sh)
 
 urls = (
     '/', 'RSE',
-    '/(.+)/tags', 'Tag',
+    '/(.+)/tags', 'Tags',
+    '/(.+)/files', 'Files',
 )
 
 
@@ -118,7 +119,7 @@ class RSE:
             404 Not Found
             500 InternalError
 
-        :param rse: RSE name.
+        :param rseName: RSE name.
         """
 
         header('Content-Type', 'application/octet-stream')
@@ -144,11 +145,11 @@ class RSE:
         raise OK()
 
 
-class Tag:
+class Tags:
     """ create, update, get and disable RSE tag."""
 
     def POST(self, rse):
-        """ create rse tag.
+        """ create rse with given RSE name.
 
         HTTP Success:
             201 Created
@@ -159,6 +160,7 @@ class Tag:
             500 Internal Error
 
         :param rse: RSE name.
+
         """
         header('Content-Type', 'application/octet-stream')
 
@@ -190,7 +192,7 @@ class Tag:
         try:
             add_rse_tag(rse=rse, tag=tag, description=description, issuer=auth['account'])
         except AccessDenied, e:
-            raise Unauthorized(e[0][0])
+            raise Unauthorized()
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except Exception, e:
@@ -212,7 +214,6 @@ class Tag:
 
         :returns: A list containing all RSE tags.
         """
-
         header('Content-Type', 'application/json')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
@@ -228,6 +229,72 @@ class Tag:
         raise BadRequest()
 
     def DELETE(self, rseName):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+
+class Files:
+    def POST(self, rseName):
+        """ create a file replica with given RSE name.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            409 Conflict
+            500 Internal Error
+
+        :param rse: RSE name.
+
+        """
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        try:
+            scope = parameter['scope']
+            lfn = parameter['lfn']
+        except KeyError, e:
+            if e.args[0] == 'scope' or e.args[0] == 'lfn':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        try:
+            add_file_replica(rse=rseName, scope=scope, lfn=lfn, issuer=auth['account'])
+        except AccessDenied, e:
+            raise Unauthorized()
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except Exception, e:
+            print e
+            raise InternalError(e)
+
+        raise Created()
+
+    def GET(self):
+        raise BadRequest()
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 

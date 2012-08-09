@@ -67,9 +67,7 @@ def _history_mapper(local_mapper):
         if super_fks:
             cols.append(ForeignKeyConstraint(*zip(*super_fks)))
 
-        table = Table(local_mapper.local_table.name + '_history', local_mapper.local_table.metadata,
-           *cols
-        )
+        table = Table(local_mapper.local_table.name + '_history', local_mapper.local_table.metadata, *cols)
     else:
         # single table inheritance.  take any additional columns that may have
         # been added and add them to the history table.
@@ -87,12 +85,12 @@ def _history_mapper(local_mapper):
     versioned_cls = type.__new__(type, "%sHistory" % cls.__name__, bases, {})
 
     m = mapper(
-            versioned_cls,
-            table,
-            inherits=super_history_mapper,
-            polymorphic_on=polymorphic_on,
-            polymorphic_identity=local_mapper.polymorphic_identity
-            )
+        versioned_cls,
+        table,
+        inherits=super_history_mapper,
+        polymorphic_on=polymorphic_on,
+        polymorphic_identity=local_mapper.polymorphic_identity)
+
     cls.__history_mapper__ = m
 
     if not super_history_mapper:
@@ -173,8 +171,7 @@ def create_version(obj, session, deleted=False):
         # not changed, but we have relationships.  OK
         # check those too
         for prop in obj_mapper.iterate_properties:
-            if isinstance(prop, RelationshipProperty) and \
-                attributes.get_history(obj, prop.key).has_changes():
+            if isinstance(prop, RelationshipProperty) and attributes.get_history(obj, prop.key).has_changes():
                 obj_changed = True
                 break
 

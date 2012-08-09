@@ -52,11 +52,31 @@ class TestBinRucio():
 
     def test_whoami(self):
         """ACCOUNT (CLI): Test whoami"""
-        cmd = 'rucio account whoami'
+        cmd = 'rucio whoami'
         print  self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_regexp_matches(out, re.compile('.*account.*'))
+
+    def test_add_identity(self):
+        """ACCOUNT (CLI): Test add identity"""
+        cmd = 'rucio-admin account add jdoe user'
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio-admin identity add jdoe gss jdoe@CERN.CH'
+        print  self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+        nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-jdoe\n', out)
+
+    def test_add_scope(self):
+        """ACCOUNT (CLI): Test add identity"""
+        cmd = 'rucio-admin account add jdoe user'
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio-admin identity add jdoe gss jdoe@CERN.CH'
+        print  self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+        nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-jdoe\n', out)
 
     def test_add_rse(self):
         """RSE (CLI): Add RSE"""

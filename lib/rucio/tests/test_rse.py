@@ -13,14 +13,14 @@
 from uuid import uuid4 as uuid
 from json import dumps
 from nose.tools import raises, assert_equal, assert_true,\
-                       assert_items_equal
+    assert_items_equal
 from paste.fixture import TestApp
 
 from rucio.client.rseclient import RSEClient
 from rucio.common.exception import Duplicate, RucioException
-from rucio.core.rse import  add_rse, del_rse, list_rses,\
-                            rse_exists, set_rse_usage, get_rse_usage,\
-                            add_rse_tag, get_rses, list_rse_tags
+from rucio.core.rse import add_rse, del_rse, list_rses,\
+    rse_exists, set_rse_usage, get_rse_usage,\
+    add_rse_tag, get_rses, list_rse_tags
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app

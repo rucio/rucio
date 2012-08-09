@@ -113,7 +113,7 @@ class AccountClient(BaseClient):
         """
         return self.get_account('whoami')
 
-    def add_account_identity(self, accountName, identity, authtype, default=False):
+    def add_identity(self, accountName, identity, authtype, default=False):
         """
         Adds a membership association between identity and account.
 
@@ -123,5 +123,14 @@ class AccountClient(BaseClient):
         :param default: If True, the account should be used by default with the provided identity.
         """
 
-#        path = 'accounts/%(accountName)s/%(authtype)s/' % locals()
-#        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        data = dumps({'identity': identity, 'authtype': authtype})
+        path = '/'.join([self.BASEURL, accountName, 'identities'])
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
+
+        r = self._send_request(url, type='POST', data=data)
+
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)

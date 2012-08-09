@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 import hashlib
 import os
@@ -86,17 +87,19 @@ def add_account_identity(identity, type, account, default=False):
     :param account: The account name.
     :param default: If True, the account should be used by default with the provided identity.
     """
-
     if not account_exists(account):
         raise exception.AccountNotFound('Account \'%s\' does not exist.' % account)
 
-    new_aid = models.IdentityAccountAssociation()
-    new_aid['identity'] = identity
-    new_aid['type'] = type
-    new_aid['account'] = account
+    id = models.Identity(identity=identity, type=type)
+    iaa = models.IdentityAccountAssociation(identity=id.identity, type=id.type, account=account)
 
     try:
-        new_aid.save(session=session)
+        id.save(session=session)
+    except IntegrityError:
+        session.rollback()
+
+    try:
+        iaa.save(session=session)
     except IntegrityError:
         session.rollback()
         raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))

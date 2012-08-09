@@ -19,7 +19,9 @@ def add_subscription(account, filter, replication_rules, transfer_requests, subs
     :param filter: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
     :type filter:  Dict
-    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group; The lock flag tells rucio that this is a locked replication rule; If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
+    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group;
+                              The lock flag tells rucio that this is a locked replication rule;
+                              If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
                               **Example**: ``[(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)]``
     :type replication_rules:  List
     :param transfer_requests: Transfer requests to be issued. List of tuples holding count, RSE-tag, group; If the group flag is set to ``true``, this transfer_request will resolve to the same RSE for all files in the same dataset
@@ -52,7 +54,9 @@ def update_subscription(subscription_id, account=None, filter=None, replication_
     :param filter: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
     :type filter:  Dict
-    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group; The lock flag tells rucio that this is a locked replication rule; If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
+    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group;
+                              The lock flag tells rucio that this is a locked replication rule;
+                              If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
                               **Example**: ``[(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)]``
     :type replication_rules:  List
     :param transfer_requests: Transfer requests to be issued. List of tuples holding count, RSE-tag, group; If the group flag is set to ``true``, this transfer_request will resolve to the same RSE for all files in the same dataset
