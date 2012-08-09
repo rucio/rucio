@@ -7,6 +7,7 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 from json import dumps
 from nose.tools import raises, assert_equal, assert_false, assert_true
@@ -15,14 +16,17 @@ from paste.fixture import TestApp
 from rucio.client.accountclient import AccountClient
 from rucio.client.datasetclient import DatasetClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.common.exception import AccountNotFound, DatasetAlreadyExists, DatasetIsMonotonic, DatasetNotFound, DatasetObsolete, Duplicate, FileAlreadyExists, FileNotFound, InodeNotFound, InputValidationError, NoPermissions, NotADataset, ScopeNotFound
+from rucio.common.exception import AccountNotFound, DatasetAlreadyExists,\
+    DatasetIsMonotonic, DatasetNotFound, DatasetObsolete,\
+    Duplicate, FileAlreadyExists, FileNotFound, InodeNotFound,\
+    InputValidationError, NoPermissions, NotADataset, ScopeNotFound
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
 from rucio.core.identity import add_account_identity, add_identity
-from rucio.core.inode import add_files_to_dataset, build_inode_list, bulk_register_datasets, bulk_register_files, change_dataset_owner
-from rucio.core.inode import delete_files_from_dataset, does_dataset_exist, get_dataset_metadata, get_dataset_owner, list_datasets
-from rucio.core.inode import is_dataset_monotonic, is_dataset_obsolete, is_file_obsolete, list_files_in_dataset, obsolete_dataset, obsolete_file
-from rucio.core.inode import register_dataset, unregister_dataset, unregister_file
+from rucio.core.inode import add_files_to_dataset, build_inode_list, bulk_register_datasets, bulk_register_files, change_dataset_owner,\
+    delete_files_from_dataset, does_dataset_exist, get_dataset_metadata, get_dataset_owner, list_datasets,\
+    is_dataset_monotonic, is_dataset_obsolete, is_file_obsolete, list_files_in_dataset, obsolete_dataset, obsolete_file,\
+    register_dataset, unregister_dataset, unregister_file
 from rucio.core.scope import add_scope, bulk_add_scopes
 from rucio.db.session import build_database
 from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file, get_auth_token
@@ -31,7 +35,7 @@ from rucio.web.rest.dataset import app as dataset_web_app
 
 class TestDataset_CORE:
     def setUp(self):
-        build_database()
+        build_database(echo=False)
         self.user = 'test_user'
         self.user2 = 'another_usr'
         self.user3 = 'one_more_usr'
@@ -96,11 +100,11 @@ class TestDataset_CORE:
         dsn = str(uuid())
         # Test registering and quering whether datasets exists
         register_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), True)  # Dataset exists
-        assert_equal(does_dataset_exist(self.scope_misc, self.invalid_dsn, self.user), False)  # Invalid dataset does not exist
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), True)  # Dataset exists
+        assert_equal(does_dataset_exist(self.scope_misc, self.invalid_dsn), False)  # Invalid dataset does not exist
         # Unregister dataset
         unregister_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(does_dataset_exist(self.user, self.scope_misc, dsn), False)  # Deleted dataset does not exist anymore
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), False)  # Deleted dataset does not exist anymore
 
     def test_api_bulk_register_datasets(self):
         """ DATASET (CORE): Bulk register datasets """
@@ -139,15 +143,15 @@ class TestDataset_CORE:
     def test_api_does_dataset_exist_normal_and_obsolete(self):
         """ DATASET (CORE): Check if dataset exists """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), True)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user, search_obsolete=False), True)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user, search_obsolete=True), False)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user, search_obsolete=None), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn, search_obsolete=False), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn, search_obsolete=True), False)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn, search_obsolete=None), True)
         obsolete_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), False)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user, search_obsolete=False), False)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user, search_obsolete=True), True)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user, search_obsolete=None), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), False)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn, search_obsolete=False), False)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn, search_obsolete=True), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn, search_obsolete=None), True)
 
     # Dataset owner
 
@@ -175,19 +179,19 @@ class TestDataset_CORE:
         dsn2 = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         add_files_to_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [(self.scope_misc, lfn), ])
         delete_files_from_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [])
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn2, self.user), [])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn2), [])
 
     def test_api_add_multiple_files_to_dataset(self):
         """ DATASET (CORE): Add and remove multiple files to a dataset """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         file_list = build_inode_list(self.scope_misc, self.test_interesting_files)
         add_files_to_dataset(file_list, self.scope_misc, dsn, self.user)
-        assert_equal(set(list_files_in_dataset(self.scope_misc, dsn, self.user)), set(file_list))
+        assert_equal(set(list_files_in_dataset(self.scope_misc, dsn)), set(file_list))
         delete_files_from_dataset(file_list, self.scope_misc, dsn, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [])
 
     def test_api_add_dataset_to_a_dataset(self):
         """ DATASET (CORE): Add a dataset to another dataset """
@@ -196,7 +200,7 @@ class TestDataset_CORE:
         add_files_to_dataset(file_list, self.scope_misc, dsn, self.user)
         dsn2 = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         add_files_to_dataset([dsn, ], self.scope_misc, dsn2, self.user, self.scope_misc)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn2, self.user), list_files_in_dataset(self.scope_misc, dsn, self.user))
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn2), list_files_in_dataset(self.scope_misc, dsn))
 
     # Monotonic datasets and obsoleting datasets
 
@@ -218,9 +222,9 @@ class TestDataset_CORE:
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets, monotonic=False)
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         add_files_to_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [(self.scope_misc, lfn), ])
         delete_files_from_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [])
 
     def test_api_check_if_dataset_is_monotonic(self):
         """ DATASET (CORE): Check whether dataset is monotonic """
@@ -248,9 +252,9 @@ class TestDataset_CORE:
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         add_files_to_dataset([lfn, ], self.scope_misc, dsn, self.user, self.scope_misc)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [(self.scope_misc, lfn), ])
         obsolete_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [])
 
     def test_api_obsolete_file_and_list_files_in_dataset(self):
         """ DATASET (CORE): Obsolete one of the files in a dataset and list files in dataset """
@@ -259,7 +263,7 @@ class TestDataset_CORE:
         lfn2 = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         add_files_to_dataset([lfn, lfn2], self.scope_misc, dsn, self.user, self.scope_misc)
         obsolete_file(self.scope_misc, lfn2, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [(self.scope_misc, lfn), ])
 
     # Error Handling: Check if dataset exists
 
@@ -267,7 +271,7 @@ class TestDataset_CORE:
     def test_api_check_if_dataset_exists(self):
         """ DATASET (CORE): Check if dataset exists, but enter incorrect search obsolete parameter """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
-        does_dataset_exist(self.scope_misc, dsn, self.user, search_obsolete='everything')
+        does_dataset_exist(self.scope_misc, dsn, search_obsolete='everything')
 
     # Error Handling: Monotonic datasets
 
@@ -392,12 +396,12 @@ class TestDataset_CORE:
     @raises(DatasetNotFound)
     def test_api_list_files_in_dataset_invalid_dataset(self):
         """ DATASET (CORE): List files in dataset using an invalid dataset name """
-        list_files_in_dataset(self.scope_misc, self.invalid_dsn, self.user)
+        list_files_in_dataset(self.scope_misc, self.invalid_dsn)
 
     @raises(ScopeNotFound)
     def test_api_list_files_in_dataset_invalid_scope(self):
         """ DATASET (CORE): List files in dataset using an invalid scope name """
-        list_files_in_dataset(self.invalid_scope, self.invalid_dsn, self.user)
+        list_files_in_dataset(self.invalid_scope, self.invalid_dsn)
 
     # Error Handling: Get dataset metadata
 
@@ -505,10 +509,10 @@ class TestDataset_CORE:
         change_dataset_owner(self.scope_misc, dsn, self.user, self.user2)
 
 
-class TestDataset_REST():
+class xTestDataset_REST():
 
     def setUp(self):
-        build_database()
+        build_database(echo=False)
         self.user = 'dataset_user'
         self.user2 = 'user_two'
         self.user_type = 'user'
@@ -553,7 +557,7 @@ class TestDataset_REST():
         data = dumps({'datasetName': dsn})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), True)
 
     def test_register_dataset_monotonic(self):
         """ DATASET (REST): send a POST to create a monotonic dataset """
@@ -565,7 +569,7 @@ class TestDataset_REST():
         data = dumps({'datasetName': dsn, 'datasetType': 'monotonic'})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), True)
         assert_equal(is_dataset_monotonic(self.scope_misc, dsn, self.user), True)
 
     def test_register_dataset_non_monotonic(self):
@@ -578,7 +582,7 @@ class TestDataset_REST():
         data = dumps({'datasetName': dsn, 'datasetType': 'non-monotonic'})
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.status, 201)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), True)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), True)
         assert_equal(is_dataset_monotonic(self.scope_misc, dsn, self.user), False)
 
     # Check if dataset exists
@@ -728,7 +732,7 @@ class TestDataset_REST():
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.invalid_scope), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.normal_body, "ScopeNotFound: Scope '%s' does not exist" % self.invalid_scope)
         assert_equal(ret.status, 404)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), False)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), False)
 
 # Shouldn't be possible anymore because the server gets the account name from the token. So the a wrong account name cannot be send a this point.
 #    def test_register_invalid_account(self):
@@ -755,7 +759,7 @@ class TestDataset_REST():
         ret = TestApp(dataset_web_app.wsgifunc(*mw)).post('/%s' % (self.scope_misc), headers=headers, params=data, expect_errors=True)
         assert_equal(ret.normal_body, "InputValidationError: dataset type parameter is not properly defined")
         assert_equal(ret.status, 400)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn, self.user), False)
+        assert_equal(does_dataset_exist(self.scope_misc, dsn), False)
 
     def test_register_non_json_body(self):
         """ DATASET (REST): send a POST with a non json body"""

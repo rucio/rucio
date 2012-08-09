@@ -8,14 +8,18 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from json import loads
+from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, header, input as web_input, websafe, Created, InternalError, HTTPError, OK, Unauthorized
+from web import application, ctx, data, header, input as web_input, websafe,\
+    Created, InternalError, HTTPError, OK, Unauthorized, BadRequest
 
-from rucio.api.dataset import add_dataset, change_dataset_owner, dataset_exists, obsolete_dataset
+from rucio.api.dataset import add_dataset, change_dataset_owner, dataset_exists, obsolete_dataset,\
+    add_files_to_dataset, list_files_in_dataset
 from rucio.core.authentication import validate_auth_token
-from rucio.common.exception import AccountNotFound, DatasetAlreadyExists, DatasetNotFound, DatasetObsolete, FileAlreadyExists, NoPermissions, NotADataset, ScopeNotFound
+from rucio.common.exception import AccountNotFound, DatasetAlreadyExists, DatasetNotFound, DatasetObsolete,\
+    FileAlreadyExists, NoPermissions, NotADataset, ScopeNotFound
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.rest")
@@ -24,12 +28,12 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/(.*)/(.*)', 'Dataset2Parameter',
-    '/(.*)', 'Dataset1Parameter'
+    '/(.*)/(.*)/files', 'Contents',
+    '/(.*)', 'Datasets'
 )
 
 
-class Dataset1Parameter:
+class Datasets:
 
     def POST(self, scope):
         """ register a new dataset
@@ -47,42 +51,32 @@ class Dataset1Parameter:
         """
 
         header('Content-Type', 'application/octet-stream')
+
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
-        json_data = data()
+        auth = validate_auth_token(auth_token)
 
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
         try:
             parameter = loads(json_data)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
-        datasetName = None
-        monotonic_parameter = None
-
         try:
-            datasetName = parameter['datasetName']
-            monotonic_parameter = parameter['datasetType']
+            dsn = parameter['dsn']
         except KeyError, e:
-            if e.args[0] == 'datasetName':
-                raise generate_http_error(400, 'KeyError', "\'datasetName\' not defined")
+            if e.args[0] == 'dsn':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
-            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
-
-        if monotonic_parameter == 'monotonic':
-            monotonic = True
-        elif monotonic_parameter == 'non-monotonic' or monotonic_parameter is None:
-            monotonic = False
-        else:
-            raise generate_http_error(400, 'InputValidationError', 'dataset type parameter is not properly defined')
-
-        auth = validate_auth_token(auth_token)
-        if auth is None:
-            raise Unauthorized()
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         auth_account = auth['account']
 
         try:
-            add_dataset(scope, datasetName, auth_account, monotonic=monotonic)
+            add_dataset(scope=scope, dsn=dsn, account=auth_account)
         except ScopeNotFound, error:
             raise generate_http_error(404, 'ScopeNotFound', error.args[0][0])
         except AccountNotFound, error:
@@ -92,8 +86,79 @@ class Dataset1Parameter:
         except FileAlreadyExists, error:
             raise generate_http_error(409, 'FileAlreadyExists', error.args[0][0])
         except Exception, error:
+            print str(error)
             raise InternalError(error.args[0])
+
         return Created()
+
+
+class Contents:
+    def POST(self, scope, dsn):
+        """ Add files to dataset.
+
+        :param scope: The scope of the dataset being registered
+        :param dsn: The name of dataset
+
+        :returns: (HTTP Success: 201 Created)
+        """
+
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        try:
+            lfns = parameter['lfns']
+        except KeyError, e:
+            if e.args[0] == 'lfns':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        auth_account = auth['account']
+
+        try:
+            add_files_to_dataset(scope=scope, dsn=dsn, lfns=lfns, account=auth_account)
+        except Exception, error:
+            print str(error)
+            raise InternalError(error.args[0])
+
+        return Created()
+
+    def GET(self, scope, dsn):
+        """ List files in dataset.
+
+        :param scope: The scope of the dataset being registered
+        :param dsn: The name of dataset
+
+        :returns: (HTTP Success: 200)
+        """
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        return dumps(list_files_in_dataset(scope=scope, dsn=dsn))
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
 
 
 class Dataset2Parameter:

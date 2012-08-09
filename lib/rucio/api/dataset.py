@@ -9,9 +9,11 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011-2012
 
-from rucio.core.inode import change_dataset_owner as core_change_dataset_owner
-from rucio.core.inode import obsolete_dataset as core_obsolete_dataset
-from rucio.core.inode import does_dataset_exist, register_dataset
+from rucio.core.inode import change_dataset_owner as core_change_dataset_owner,\
+    obsolete_dataset as core_obsolete_dataset,\
+    does_dataset_exist, register_dataset,\
+    add_files_to_dataset as core_add_files_to_dataset,\
+    list_files_in_dataset as core_list_files_in_dataset
 
 
 def add_dataset(scope, dsn, account, monotonic=None, content=None, dataset_meta=None):
@@ -40,15 +42,28 @@ def add_dataset(scope, dsn, account, monotonic=None, content=None, dataset_meta=
         raise NotImplementedError  # TODO: Needs metadata core component in place
 
 
-def add_to_dataset(dsn, contents):
+def add_files_to_dataset(scope, dsn, lfns, account):
     """
     Addes files or other datasets to the specified "dsn" dataset. This specified dataset must be open.
 
+    :param scope:   The scope name.
     :param dsn: The target dataset which the user wants to add to.
     :param contents: The datasets/files that will be added to the target dataset.
     :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
     """
-    pass
+    return core_add_files_to_dataset(inodeList=lfns, targetDatasetScope=scope, targetDatasetName=dsn, account=account)
+
+
+def list_files_in_dataset(scope, dsn):
+    """
+    Addes files or other datasets to the specified "dsn" dataset. This specified dataset must be open.
+
+    :param scope:   The scope name.
+    :param dsn: The target dataset which the user wants to add to.
+
+    :returns: The list of files.
+    """
+    return core_list_files_in_dataset(datasetScope=scope, datasetName=dsn)
 
 
 def close_dataset(scope, dsn):

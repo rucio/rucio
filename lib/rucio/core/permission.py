@@ -29,7 +29,7 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
-           }
+            'add_account_identity': perm_add_account_identity, }
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -126,3 +126,14 @@ def perm_get_auth_token_x509(issuer, kwargs):
     if rucio.core.authentication.exist_identity_account(identity=kwargs['dn'], type='x509', account=kwargs['account']):
         return True
     return False
+
+
+def perm_add_account_identity(issuer, kwargs):
+    """
+    Checks if an account can add an identity to an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root' or issuer == kwargs.get('accountName')

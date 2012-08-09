@@ -70,9 +70,10 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
 
  WSGIScriptAlias /auth /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/authentication.py
  WSGIScriptAlias /accounts /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/account.py
- WSGIScriptAlias /scopes /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
+ WSGIScriptAlias /datasets /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/dataset.py
  WSGIScriptAlias /identities /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/identity.py
  WSGIScriptAlias /rses /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
+ WSGIScriptAlias /scopes /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
 
  # Valid client certificates required only for x509 authentication
  <LocationMatch /identity/.+/x509>

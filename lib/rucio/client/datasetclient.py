@@ -6,8 +6,9 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from json import dumps
+from json import dumps, loads
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -16,33 +17,30 @@ from rucio.common.utils import build_url
 
 class DatasetClient(BaseClient):
 
-    """Dataset client class for working with rucio datasets"""
+    """Dataset client class for working with dataset"""
 
     BASEURL = 'datasets'
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None):
-        super(DatasetClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
+        super(DatasetClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds, timeout)
 
-    def add_dataset(self, scope, datasetName, monotonic=None):
+    def add_dataset(self, scope, dsn, meta=None):
         """
-        Sends the request to add a new dataset.
+        Sends the request to create a new dataset.
 
-        :param scope: the scope name.
-        :param datasetName: the dataset name.
-        :param monotonic:
-        :raise ScopeNotFound: the scope does not exist.
-        :raise AccountNotFound: the account does not exist.
-        :raise DatasetAlreadyExists: the dataset is already registerd in the system.
-        :raise FileAlreadyExists: the file is already registered in the system.
-        :raise RucioException: unknown error.
-        :returns: True is dataset is successfully registered.
+        :param scope: the scope.
+        :param dsn: the dsn.
+        :param meta: Optional Mapping of information about the dataset.
+
+
+        :return: True if account was created successfully else False.
+        :raises Duplicate: if account already exists.
         """
-
+        data = dumps({'dsn': dsn, 'meta': meta})
         path = '/'.join([self.BASEURL, scope])
         url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
-        data = dumps({'datasetName': datasetName, 'monotonic': monotonic})
 
-        r = self._send_request(url, data=data, type='POST')
+        r = self._send_request(url, type='POST', data=data)
 
         if r.status_code == codes.created:
             return True
@@ -50,79 +48,46 @@ class DatasetClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def obsolete_dataset(self, scope, datasetName):
+    def add_files_to_dataset(self, scope, dsn, lfns):
         """
-        Sends the request to obsolete a dataset.
+        Add files to dataset.
 
-        :param scope: the scope of the dataset.
-        :param datasetName: the name of the dataset.
-        :raise ScopeNotFound: scope does not exist.
-        :raise DatasetObsolete: the dataset is already obsolete.
-        :raise DatasetNotFound: the dataset does not exist.
-        :returns: True if datasets is successfully obsoleted, False otherwise.
+        :param scope: the scope.
+        :param dsn: the dsn.
+        :param lfns: The list of lfn.
+
+        :return: True if files were registered successfully.
         """
-
-        path = '/'.join([self.BASEURL, scope, datasetName])
+        data = dumps({'lfns': lfns})
+        path = '/'.join([self.BASEURL, scope, dsn, 'files'])
         url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
-        r = self._send_request(url, type='DEL')
+        r = self._send_request(url, type='POST', data=data)
 
-        if r.status_code == codes.ok:
+        if r.status_code == codes.created:
             return True
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def change_dataset_owner(self, scope, datasetName, newAccount):
+    def list_files_in_dataset(self, scope, dsn):
         """
-        Sends the request to change the owner of a dataset.
+        Sends the request to create a new dataset.
 
-        :param scope: the scope of the dataset.
-        :param datasetName: the name of the dataset.
-        :param newAccount: the account name of the new owner.
-        :raise ScopeNotFound: the scope does not exist.
-        :raise AccountNotFound: the account does not exist.
-        :raise DatasetObsolete: the dataset is obsolete.
-        :raise DatasetNotFound: the dataset does not exist.
-        :raise NoPermissions: no permissions the change the dataset.
-        :returns: True if dataset owner is successfully changed, False otherwise.
+        :param scope: the scope.
+        :param dsn: the dsn.
+
+
+        :return: The list of files.
         """
-
-        path = '/'.join([self.BASEURL, scope, datasetName])
-        params = {'newAccount': newAccount}
-        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl, params=params)
-
-        r = self._send_request(url, type='PUT')
-
-        if r.status_code == codes.ok:
-            return True
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
-            raise exc_cls(exc_msg)
-
-    def dataset_exists(self, scope, datasetName, searchType=None):
-        """
-        Sends the request to check if a dataset exists.
-
-        :param scope: the scope of the dataset.
-        :param datasetName: the name of the dataset.
-        :param searchType: the type of the search [current, obsolete, all]
-        :returns: True if datasets exists, False otherwise.
-        """
-
-        path = '/'.join([self.BASEURL, scope, datasetName])
-        params = {}
-        if searchType:
-            params = {'searchType': searchType}
-        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl, params=params)
+        path = '/'.join([self.BASEURL, scope, dsn, 'files'])
+        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
 
         r = self._send_request(url, type='GET')
 
-        print r.text
-        if r.text == 'True':
-            return True
-        elif r.text == 'False':
-            return False
+        if r.status_code == codes.ok:
+            files = loads(r.text)
+            return files
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)

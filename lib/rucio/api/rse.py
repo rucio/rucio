@@ -8,9 +8,10 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 import rucio.api.permission
-import rucio.common.exception
 
+from rucio.common.exception import FileAlreadyExists
 from rucio.core import rse as rse_core
+from rucio.core import inode as inode_core
 
 
 def add_rse(rse, issuer):
@@ -79,3 +80,20 @@ def list_rse_tags(filters=None):
     :returns: List of all RSE tags.
     """
     return rse_core.list_rse_tags(filters=filters)
+
+
+def add_file_replica(rse, scope, lfn, issuer):
+    """ Add File replica.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param lfn: The file name.
+    :param issuer: The issuer account.
+
+    :returns: True is successfull.
+    """
+    try:
+        inode_core.register_file(scope=scope, filename=lfn, account=issuer)
+    except FileAlreadyExists:
+        pass
+    inode_core.add_file_replica(rse=rse, scope=scope, filename=lfn)

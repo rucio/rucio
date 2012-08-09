@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann,  <thomas.beermann@cern.ch> , 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 import logging
 
@@ -25,8 +26,7 @@ sa_logger = None
 
 db_opts = {
     'sql_idle_timeout': 6,
-    'sql_connection': 'sqlite:///:memory:'
-    }
+    'sql_connection': 'sqlite:///:memory:'}
 
 
 def configure_db():

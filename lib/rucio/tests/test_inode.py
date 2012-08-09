@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Angelos Molfetas,  <angelos.molfetas@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 from uuid import uuid4 as uuid
 
@@ -26,7 +27,7 @@ from rucio.tests.common import create_tmp_dataset, create_tmp_file
 class TestInode:
 
     def setUp(self):
-        build_database()
+        build_database(echo=False)
 
         self.user = 'test_user'
         add_account(self.user, 'user')
@@ -190,9 +191,9 @@ class TestInode:
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         lfn = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         add_files_to_dataset([lfn, ], self.scope_misc, dsn, self.user, self.scope_misc)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [(self.scope_misc, lfn), ])
         obsolete_inode(self.scope_misc, dsn, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [])
 
     def test_api_obsolete_file_and_list_files_in_dataset(self):
         """ DATASET (CORE): Obsolete one of the files in a dataset using inode obsolete API and list files in dataset """
@@ -201,7 +202,7 @@ class TestInode:
         lfn2 = create_tmp_file(self.scope_misc, self.user, self.to_clean_files)
         add_files_to_dataset([lfn, lfn2], self.scope_misc, dsn, self.user, self.scope_misc)
         obsolete_inode(self.scope_misc, lfn2, self.user)
-        assert_equal(list_files_in_dataset(self.scope_misc, dsn, self.user), [(self.scope_misc, lfn), ])
+        assert_equal(list_files_in_dataset(self.scope_misc, dsn), [(self.scope_misc, lfn), ])
 
     def test_api_obosolete_inodes_and_do_wildcard_search(self):
         """ INODE (CORE): List obsolete inodes with scope and name wildcard search """

@@ -15,7 +15,7 @@ from rucio.api.authentication import get_auth_token_user_pass
 from rucio.api.authentication import get_auth_token_gss
 from rucio.api.authentication import get_auth_token_x509
 from rucio.api.authentication import validate_auth_token
-from rucio.common.exception   import AccessDenied
+from rucio.common.exception import AccessDenied
 
 urls = (
     '/userpass', 'UserPass',
@@ -150,7 +150,6 @@ class x509:
         """
 
         web.header('Content-Type', 'application/octet-stream')
-
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         dn = web.ctx.env.get('SSL_CLIENT_S_DN')
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')

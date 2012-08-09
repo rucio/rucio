@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
@@ -60,8 +61,7 @@ def account_exists(accountName):
     :returns: True if found, otherwise false.
     """
 
-    query = session.query(models.Account).\
-                    filter_by(account=accountName)
+    query = session.query(models.Account).filter_by(account=accountName)
 
     return True if query.first() else False
 
@@ -73,8 +73,7 @@ def get_account(accountName):
     :returns: a dict with all information for the account.
     """
 
-    query = session.query(models.Account).\
-                    filter_by(account=accountName)
+    query = session.query(models.Account).filter_by(account=accountName)
 
     result = query.first()
 
@@ -89,9 +88,7 @@ def del_account(accountName):
     :param accountName: the account name.
     """
 
-    query = session.query(models.Account).\
-                    filter_by(account=accountName).\
-                    filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(account=accountName).filter_by(deleted=False)
 
     try:
         account = query.one()
@@ -108,8 +105,7 @@ def get_account_status(accountName):
     :param accountName: Name of the account.
     """
 
-    query = session.query(models.Account).\
-                    filter_by(account=accountName)
+    query = session.query(models.Account).filter_by(account=accountName)
 
     acc_details = query.one()
     return acc_details.status
@@ -134,8 +130,7 @@ def list_accounts():
 
     account_list = []
 
-    query = session.query(models.Account).\
-                    filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(deleted=False)
 
     for account in query.order_by(models.Account.account):
         account_list.append(account.account)
