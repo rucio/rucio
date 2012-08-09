@@ -15,12 +15,15 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, HTTPError, OK, Unauthorized
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts
+from rucio.api.identity import add_account_identity
 from rucio.api.permission import has_permission
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied
 from rucio.common.utils import generate_http_error
 from rucio.core.authentication import validate_auth_token
 
+import web
+web.config.debug = True
 
 logger = getLogger("rucio.account")
 sh = StreamHandler()
@@ -29,6 +32,7 @@ logger.addHandler(sh)
 
 urls = (
     '/(.+)/scopes', 'Scopes',
+    '/(.+)/identities', 'Identities',
     '/(.+)/limits', 'AccountLimits',
     '/(.+)', 'AccountParameter',
     '/', 'Account'
@@ -148,6 +152,7 @@ class AccountParameter:
 
         :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
+
         :returns: JSON dict containing informations about the requested user.
         """
 
@@ -327,6 +332,74 @@ class AccountLimits:
     def DELETE(self):
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
+
+
+class Identities:
+    def POST(self, accountName):
+        """ Grant an identity access to an account.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Reqeust
+            401 Unauthorized
+            409 Conflict
+            500 Internal Error
+
+        :param accountName: Account identifier.
+        """
+
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        try:
+            identity = parameter['identity']
+            authtype = parameter['authtype']
+        except KeyError, e:
+            if e.args[0] == 'authtype' or e.args[0] == 'identity':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        try:
+            add_account_identity(identity=identity, type=authtype, account=accountName, issuer=auth.get('account'))
+        except AccessDenied, e:
+            raise Unauthorized()
+        except Duplicate as e:
+            raise generate_http_error(409, 'Duplicate', e.args[0][0])
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise Created()
+
+    def GET(self, accountName):
+        raise BadRequest()
+
+    def PUT(self):
+        """ update the limits for an account """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
 
 """----------------------
    Web service startup

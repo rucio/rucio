@@ -23,7 +23,9 @@ from logging import getLogger
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.rseclient import RSEClient
+from rucio.client.scopeclient import ScopeClient
 from rucio.client.client import Client
+
 
 from rucio import version
 
@@ -165,7 +167,26 @@ def identity_add(args):
     Grant an identity access to an account.
 
     """
-    pass
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
+                                  auth_host=args.auth_host, auth_port=args.auth_port,
+                                  account=args.account, use_ssl=True,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        accountClient.add_identity(accountName=args.acnt, identity=args.identity, authtype=args.authtype)
+        print 'Added new identity to account: %s-%s' % (args.identity, args.acnt)
+    except Exception, e:
+            print 'Failed  to grant an identity access to an account'
+            print e
+            return FAILURE
+
+    return SUCCESS
 
 
 def identity_delete(args):
@@ -235,7 +256,7 @@ def disable_rse(args):
 
 def list_rses(args):
     """
-    %(prog)s del [options] <field1=value1 field2=value2 ...>
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     List rses.
 
@@ -263,6 +284,52 @@ def list_rses(args):
 
     return SUCCESS
 
+
+def tag_rse(args):
+    """
+    %(prog)s tag [options] <field1=value1 field2=value2 ...>
+
+    Tag RSE.
+
+    """
+    pass
+
+def untag_rse(args):
+    """
+    %(prog)s tag [options] <field1=value1 field2=value2 ...>
+
+    Untag RSE.
+
+    """
+    pass
+
+def add_scope(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    Add scope.
+
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = ScopeClient(rucio_host=args.host, rucio_port=args.port,
+                         auth_host=args.auth_host, auth_port=args.auth_port,
+                         account=args.account, use_ssl=True,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.add_scope(accountName=args.acnt, scopeName=args.scope)
+        print 'Added new scope to account: %s-%s' % (args.scope, args.acnt)
+    except Exception, e:
+            print 'Failed to add scope'
+            print e
+            return FAILURE
+
+    return SUCCESS
+
 if __name__ == '__main__':
     usage = """
 %(prog)s
@@ -280,13 +347,13 @@ Commands:
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
-    oparser.add_argument('-H', '--host', metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
+    oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
     oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, help="Port the Rucio API host listens on. " "Default: %default")
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="Address of Rucio Authentication host. " "Default: %default")
     oparser.add_argument('--auth_port', dest="auth_port", metavar="ADDRESS", help="Port the Rucio Authentication host listens on. " "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
-    oparser.add_argument('-T', '--timeout=', dest="timeout", default=None, help="Set all timeout values to SECONDS")
+    oparser.add_argument('-T', '--timeout=', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -325,14 +392,14 @@ Commands:
     identity_subparser = identity_parser.add_subparsers()
 
     # The identity_add command
-    identity_add_parser = identity_subparser.add_parser('identity_add', help='Grant an identity access to an account')
+    identity_add_parser = identity_subparser.add_parser('add', help='Grant an identity access to an account')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('acnt', action='store', help='Account name')
     identity_add_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
     identity_add_parser.add_argument('identity', action='store', help='Identity')
 
     # The identity_delete command
-    identity_delete_parser = identity_subparser.add_parser('identity_delete', help="Revoke an identity's access to an account")
+    identity_delete_parser = identity_subparser.add_parser('delete', help="Revoke an identity's access to an account")
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('acnt', action='store', help='Account name')
     identity_delete_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
@@ -376,6 +443,8 @@ Commands:
     add_scope_parser = scope_subparser.add_parser('add', help='Add scope')
     add_scope_parser.set_defaults(which='add_scope')
     add_scope_parser.add_argument('scope', action='store', help='Scope name')
+    add_scope_parser.add_argument('acnt', action='store', help='Account name')
+
 
     commands = {
                 'add_account': add_account,
@@ -385,8 +454,11 @@ Commands:
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
                 'add_rse': add_rse,
+                'tag_rse': tag_rse,
+                'untag_rse': untag_rse,
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
+                'add_scope': add_scope,
                }
 
     args = oparser.parse_args(sys.argv[1:])

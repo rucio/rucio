@@ -68,8 +68,7 @@ def del_rse(rse):
 def get_rse(rse):
     """Get a RSE or raise if it does not exist."""
     try:
-        query = session.query(models.RSE).\
-                 filter_by(rse=rse)
+        query = session.query(models.RSE).filter_by(rse=rse)
         location = query.one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
@@ -93,8 +92,7 @@ def list_rses():
 def get_rse_tag(tag):
     """Get a rse tag or raise if it does not exist."""
     try:
-        query = session.query(models.RSETag).\
-                 filter_by(tag=tag)
+        query = session.query(models.RSETag).filter_by(tag=tag)
         rse = query.one()
         return rse
     except sqlalchemy.orm.exc.NoResultFound:
@@ -165,8 +163,8 @@ def get_rses(filters=None):
     returns: List of locations.
     """
     query = session.query(models.RSETagAssociation).\
-            join(models.RSE, models.RSE.id == models.RSETagAssociation.rse_id).\
-            join(models.RSETag, models.RSETag.id == models.RSETagAssociation.rse_tag_id)
+        join(models.RSE, models.RSE.id == models.RSETagAssociation.rse_id).\
+        join(models.RSETag, models.RSETag.id == models.RSETagAssociation.rse_tag_id)
 
     if filters:
         for (k, v) in filters.items():
@@ -190,11 +188,10 @@ def set_rse_usage(rse, source, total, free):
     :returns: True if successfull, otherwise false.
     """
 
-    rse = session.query(models.RSE).\
-                       filter_by(rse=rse).one()
+    rse = session.query(models.RSE).filter_by(rse=rse).one()
 
-    rse_usage = models.RSEUsage(rse_id=rse.id, source=source,\
-                                    total=total, free=free)
+    rse_usage = models.RSEUsage(rse_id=rse.id, source=source, total=total, free=free)
+
     versioned_session(session)
     merged_rse_usage = session.merge(rse_usage)
     merged_rse_usage.save(session=session)
@@ -213,8 +210,8 @@ def get_rse_usage(rse, filters=None):
     """
 
     query = session.query(models.RSEUsage).\
-            join(models.RSE, models.RSE.id == models.RSEUsage.rse_id).\
-            filter_by(rse=rse)
+        join(models.RSE, models.RSE.id == models.RSEUsage.rse_id).\
+        filter_by(rse=rse)
 
     if filters:
         for (k, v) in filters.items():
@@ -223,8 +220,8 @@ def get_rse_usage(rse, filters=None):
 
     result = list()
     for usage in query:
-        result.append({'rse': usage.rse.rse, 'source': usage.source,\
-                       'total': usage.total, 'free': usage.free,\
+        result.append({'rse': usage.rse.rse, 'source': usage.source,
+                       'total': usage.total, 'free': usage.free,
                        'updated_at': usage.updated_at})
     return result
 

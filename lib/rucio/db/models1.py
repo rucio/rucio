@@ -126,9 +126,8 @@ class Account(BASE, ModelBase):
     type = Column(String(10))
     status = Column(String(10))
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
-                      CheckConstraint("type IN ('user', 'group', 'atlas')", name='ACCOUNTS_TYPE_CHK'),
-                      CheckConstraint("status IN ('active', 'inactive', 'disabled')", name='ACCOUNTS_STATUS_CHK'),
-    )
+                   CheckConstraint("type IN ('user', 'group', 'atlas')", name='ACCOUNTS_TYPE_CHK'),
+                   CheckConstraint("status IN ('active', 'inactive', 'disabled')", name='ACCOUNTS_STATUS_CHK'), )
 
 
 class Identity(BASE, ModelBase):
@@ -282,8 +281,7 @@ class RSE(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint("type IN ('disk')", name='RSES_TYPE_CHK'),
-                  )
+                   CheckConstraint("type IN ('disk')", name='RSES_TYPE_CHK'),)
 
 
 class RSEUsage(BASE, ModelBase, Versioned):
@@ -295,8 +293,7 @@ class RSEUsage(BASE, ModelBase, Versioned):
     free = Column(BigInteger)
     rse = relationship("RSE", backref=backref('rse_usage', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'source', name='RSE_USAGE_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'),
-                  )
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
 
 
 class RSETag(BASE, ModelBase):
@@ -320,8 +317,7 @@ class RSETagAssociation(BASE, ModelBase):
     tag = relationship("RSETag", backref=backref('rse_tag_map', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'rse_tag_id', name='RSE_TAG_MAP_PK'),
                    ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='RSE_TAG_MAP_TAG_ID_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TAG_MAP_RSE_ID_FK'),
-                  )
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TAG_MAP_RSE_ID_FK'), )
 
 
 class AccountLimit(BASE, ModelBase):
@@ -333,8 +329,7 @@ class AccountLimit(BASE, ModelBase):
     value = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_tag_id', 'name', name='ACCOUNT_LIMITS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_LIMITS_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='ACCOUNT_LIMITS_RSE_TAG_ID_FK'),
-                  )
+                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='ACCOUNT_LIMITS_RSE_TAG_ID_FK'), )
 
 
 class AccountUsage(BASE, ModelBase, Versioned):
@@ -346,8 +341,7 @@ class AccountUsage(BASE, ModelBase, Versioned):
     value = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_tag_id', 'name', name='ACCOUNT_USAGE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_USAGE_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='ACCOUNT_USAGE_RSE_TAG_ID_FK'),
-                  )
+                   ForeignKeyConstraint(['rse_tag_id'], ['rse_tags.id'], name='ACCOUNT_USAGE_RSE_TAG_ID_FK'), )
 
 
 class RSEFileAssociation(BASE, ModelBase):
@@ -360,9 +354,8 @@ class RSEFileAssociation(BASE, ModelBase):
     status = Column(String(255))
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'lfn', name='FILE_REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'lfn'], ['files.scope', 'files.lfn'], name='FILE_REPLICAS_SCOPE_LFN_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'), )
 #                  CheckConstraint('"PFN" IS NOT NULL', name='FILE_REPLICAS_PFN_NN'), # for latter...
-                   )
 
 
 class ReplicationRule(BASE, ModelBase):
