@@ -32,7 +32,6 @@ class PingClient(BaseClient):
         headers = None
         path = '/'
         url = build_url(self.host, path=path, use_ssl=False)
-
         r = get(url, headers=headers)
         if r.status_code == codes.ok:
             server_info = loads(r.text)
