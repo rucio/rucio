@@ -21,6 +21,7 @@ password = secret
 ca_cert = /opt/rucio/etc/web/ca.crt
 client_cert = /opt/rucio/etc/web/client.crt
 account = root
+request_retries = 3
 
 [database]
 sqlite = sqlite:////tmp/rucio.db

@@ -38,6 +38,7 @@ class BaseClient(object):
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
     AUTH_RETRIES = 2
+    REQUEST_RETRIES = 3
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
@@ -79,6 +80,7 @@ class BaseClient(object):
         self.auth_token = None
         self.headers = {}
         self.timeout = timeout
+        self.request_retries = self.REQUEST_RETRIES
 
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the config file.')
@@ -117,6 +119,13 @@ class BaseClient(object):
                     raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
         self.__authenticate()
 
+        try:
+            self.request_retries = int(config_get('client', 'request_retries'))
+        except NoOptionError:
+            LOG.debug('request_retries not specified in config file. Taking default.')
+        except ValueError:
+            LOG.debug('request_retries must be an integer. Taking default.')
+
     def _get_exception(self, headers):
         """
         Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
@@ -137,7 +146,7 @@ class BaseClient(object):
 
         return exc_cls, headers['ExceptionMessage']
 
-    def _send_request(self, url, headers=None, type='GET', data=None, retries=3):
+    def _send_request(self, url, headers=None, type='GET', data=None):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
@@ -145,7 +154,6 @@ class BaseClient(object):
         :param headers: additional http headers to send.
         :param type: the http request type to use.
         :param data: post data.
-        :param retries: number of retries in case of unauthorized.
         :return: the HTTP return body.
         """
 
@@ -156,7 +164,7 @@ class BaseClient(object):
         if headers is not None:
             hds.update(headers)
 
-        while retry < retries:
+        while retry < self.request_retries:
             try:
                 if type == 'GET':
                     r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
