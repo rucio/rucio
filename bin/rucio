@@ -63,8 +63,12 @@ def ping(args):
                         ca_cert=args.ca_certificate, timeout=args.timeout)
 
     server_info = client.ping()
-    print server_info['version']
-    return SUCCESS
+    if server_info:
+        print server_info['version']
+        return SUCCESS
+    print 'Ping failed'
+    return FAILURE
+
 
 def whoami_account(args):
     """
