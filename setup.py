@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.abspath('lib/'))
 from rucio import version
 
 try:
-    from setuptools               import setup, find_packages
+    from setuptools import setup, find_packages
 #    from setuptools.command.sdist import sdist
 except ImportError:
     from ez_setup import use_setuptools
@@ -116,34 +116,33 @@ except:
     pass
 
 
-def get_reqs_from_files(requirements_files):
-    for requirements_file in requirements_files:
-        if os.path.exists(requirements_file):
-            return open(requirements_file, 'r').read().split('\n')
+def get_reqs_from_file(requirements_file):
+    if os.path.exists(requirements_file):
+        return open(requirements_file, 'r').read().split('\n')
     return []
 
 
 def parse_requirements(requirements_files):
     requirements = []
-    for line in get_reqs_from_files(requirements_files):
-        if re.match(r'\s*-e\s+', line):
-            requirements.append(re.sub(r'\s*-e\s+.*#egg=(.*)$', r'\1',
-                                line))
-        elif re.match(r'\s*-f\s+', line):
-            pass
-        else:
-            requirements.append(line)
-
+    for requirements_file in requirements_files:
+        for line in get_reqs_from_file(requirements_file):
+            if re.match(r'\s*-e\s+', line):
+                requirements.append(re.sub(r'\s*-e\s+.*#egg=(.*)$', r'\1', line))
+            elif re.match(r'\s*-f\s+', line):
+                pass
+            else:
+                requirements.append(line)
     return requirements
 
 
 def parse_dependency_links(requirements_files):
     dependency_links = []
-    for line in get_reqs_from_files(requirements_files):
-        if re.match(r'(\s*#)|(\s*$)', line):
-            continue
-        if re.match(r'\s*-[ef]\s+', line):
-            dependency_links.append(re.sub(r'\s*-[ef]\s+', '', line))
+    for requirements_file in requirements_files:
+        for line in get_reqs_from_file(requirements_file):
+            if re.match(r'(\s*#)|(\s*$)', line):
+                continue
+            if re.match(r'\s*-[ef]\s+', line):
+                dependency_links.append(re.sub(r'\s*-[ef]\s+', '', line))
     return dependency_links
 
 
@@ -189,29 +188,27 @@ class CustomSdist(_sdist):
 cmdclass['sdist'] = CustomSdist
 
 setup(
-      name=name,
-      version=version.version_string(),
-      packages=packages,
-      package_dir={'': 'lib'},
-      data_files=data_files,
-      script_args=copy_args,
-      cmdclass=cmdclass,
-      include_package_data=True,
-      scripts=['bin/rucio',
-               'bin/rucio-admin'],
-      #doc=cmdclass,
-      author="Vincent Garonne",
-      author_email="vincent.garonne@cern.ch",
-      description=description,
-      license="Apache License, Version 2.0",
-      url="http://rucio.cern.ch/",
-      classifiers=[
+    name=name,
+    version=version.version_string(),
+    packages=packages,
+    package_dir={'': 'lib'},
+    data_files=data_files,
+    script_args=copy_args,
+    cmdclass=cmdclass,
+    include_package_data=True,
+    scripts=['bin/rucio', 'bin/rucio-admin'],
+    # doc=cmdclass,
+    author="Vincent Garonne",
+    author_email="vincent.garonne@cern.ch",
+    description=description,
+    license="Apache License, Version 2.0",
+    url="http://rucio.cern.ch/",
+    classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2.6',
-        'Environment :: No Input/Output (Daemon)',
-      ],
-      install_requires=requires,
-      dependency_links=depend_links,
+        'Environment :: No Input/Output (Daemon)', ],
+    install_requires=requires,
+    dependency_links=depend_links,
 )
