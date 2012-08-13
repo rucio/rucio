@@ -294,13 +294,13 @@ Commands:
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
-    oparser.add_argument('-H', '--host', metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
-    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, help="Port the Rucio API host listens on. " "Default: %default")
+    oparser.add_argument('--host', metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
+    oparser.add_argument('--port', dest="port", metavar="PORT", type=int, help="Port the Rucio API host listens on. " "Default: %default")
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="Address of Rucio Authentication host. " "Default: %default")
     oparser.add_argument('--auth_port', dest="auth_port", metavar="ADDRESS", help="Port the Rucio Authentication host listens on. " "Default: %default")
-    oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
-    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
-    oparser.add_argument('-T', '--timeout=', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
+    oparser.add_argument('--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
+    oparser.add_argument('--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('--timeout=', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
