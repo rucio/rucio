@@ -97,14 +97,14 @@ class BaseClient(object):
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
-                    self.creds['client_cert'] = config_get('client', 'client_cert')
+                    self.creds['client_cert'] = path.expandvars(config_get('client', 'client_cert'))
             except (NoOptionError, NoSectionError), e:
                 raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if use_ssl and ca_cert is None:
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
             try:
-                self.ca_cert = config_get('client', 'ca_cert')
+                self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
             except (NoOptionError, NoSectionError), e:
                 raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
