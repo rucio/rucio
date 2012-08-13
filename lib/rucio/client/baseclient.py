@@ -304,21 +304,30 @@ class BaseClient(object):
         Sends a request to get a new token and write it to file. To be used if a 401 - Unauthorized error is received.
         """
 
+        retry = 0
         LOG.debug('get a new token')
-        if self.auth_type == 'userpass':
-            if not self.__get_token_userpass():
-                raise CannotAuthenticate('userpass authentication failed')
-        elif self.auth_type == 'x509':
-            if not self.__get_token_x509():
-                raise CannotAuthenticate('x509 authentication failed')
-        elif self.auth_type == 'gss':
-            if not self.__get_token_gss():
-                raise CannotAuthenticate('kerberos authentication failed')
-        else:
-            raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
+        while retry < self.AUTH_RETRIES:
+            if self.auth_type == 'userpass':
+                if not self.__get_token_userpass():
+                    raise CannotAuthenticate('userpass authentication failed')
+            elif self.auth_type == 'x509':
+                if not self.__get_token_x509():
+                    raise CannotAuthenticate('x509 authentication failed')
+            elif self.auth_type == 'gss':
+                if not self.__get_token_gss():
+                    raise CannotAuthenticate('kerberos authentication failed')
+            else:
+                raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
 
-        self.__write_token()
-        self.headers['Rucio-Auth-Token'] = self.auth_token
+            if self.auth_token is not None:
+                self.__write_token()
+                self.headers['Rucio-Auth-Token'] = self.auth_token
+                break
+
+            retry += 1
+
+        if self.auth_token is None:
+            raise CannotAuthenticate('cannot get an auth token from server')
 
     def __read_token(self):
         """
