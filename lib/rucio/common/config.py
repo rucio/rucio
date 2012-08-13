@@ -45,7 +45,13 @@ __configfile = '/opt/rucio/etc/rucio.cfg'
 __validate = __config.read(__configfile)
 
 if __validate != [__configfile]:
-    __configfile = '%s/etc/rucio.cfg' % os.environ['RUCIO_HOME']
-    __validate = __config.read(__configfile)
+    if 'RUCIO_HOME' in os.environ:
+        __configfile = '%s/etc/rucio.cfg' % os.environ['RUCIO_HOME']
+        __validate = __config.read(__configfile)
+
+    if 'VIRTUAL_ENV' in os.environ:
+        __configfile = '%s/etc/rucio.cfg' % os.environ['VIRTUAL_ENV']
+        __validate = __config.read(__configfile)
+
     if __validate != [__configfile]:
         raise Exception('Could not load /opt/rucio/etc/rucio.cfg and RUCIO_HOME is not set.')
