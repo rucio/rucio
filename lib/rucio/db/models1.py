@@ -193,7 +193,7 @@ class Inode(BASE, ModelBase):
     monotonic = Column(Boolean(name='INODES_MONOTONIC_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('scope', 'label', name='INODES_PK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='INODES_SCOPE_FK'),
-                   ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='INODES_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], name='INODES_ACCOUNT_FK'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='INODES_OBSOLETE_NN'),
                    CheckConstraint('"TYPE" IS NOT NULL', name='INODES_TYPE_NN'),
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='INODES_MONOTONIC_NN'),)
@@ -214,8 +214,8 @@ class Dataset(BASE, ModelBase):
     obsolete = Column(Boolean(name='DATASETS_OBSOLETE_CHK'), server_default='0')
     complete = Column(Boolean(name='DATASETS_COMPLETE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'dsn', name='DATASETS_PK'),
-                   ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='DATASETS_SCOPE_DSN_FK'),
-                   ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='DATASETS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope', 'dsn'], ['inodes.scope', 'inodes.label'], ondelete='CASCADE', name='DATASETS_SCOPE_DSN_FK'),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DATASETS_ACCOUNT_FK'),
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='DATASETS_MONOTONIC_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DATASETS_OBSOLETE_NN'),)
 
@@ -231,8 +231,8 @@ class File(BASE, ModelBase):
     obsolete = Column(Boolean(name='FILES_OBSOLETE_CHK'), server_default='0')
     checksum = Column(String(32))
     _table_args = (PrimaryKeyConstraint('scope', 'lfn', name='FILES_PK'),
-                   ForeignKeyConstraint(['owner'], ['accounts.account'], deferrable=True, initially='DEFERRED', ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['scope', 'lfn'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE"),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope', 'lfn'], ['inodes.scope', 'inodes.label'], ondelete="CASCADE"),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='FILES_OBSOLETE_NN'),)
 
 
@@ -259,9 +259,9 @@ class DatasetFileAssociation(BASE, ModelBase):
     parent_inode_name = Column(String(255))   # Provenance inode scope
     obsolete = Column(Boolean(name='DATASET_CONTENTS_OBSOLETE_CHK'), server_default='0')
     _table_args = (PrimaryKeyConstraint('scope_dsn', 'dsn', 'scope_lfn', 'lfn', name='DATASET_CONTENTS_PK'),
-                   ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], deferrable=True, initially='DEFERRED', name='DATASET_CONTENTS_DSN_FK'),  # ondelete="NO ACTION" problem with Oracle
-                   ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], deferrable=True, initially='DEFERRED', ondelete="CASCADE", name='DATASET_CONTENTS_LFN_FK'),
-                   ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], deferrable=True, initially='DEFERRED', ondelete="CASCADE", name='DATASET_CONTENTS_INODE_FK'),
+                   ForeignKeyConstraint(['scope_dsn', 'dsn'], ['datasets.scope', 'datasets.dsn'], name='DATASET_CONTENTS_DSN_FK'),  # ondelete="NO ACTION" problem with Oracle
+                   ForeignKeyConstraint(['scope_lfn', 'lfn'], ['files.scope', 'files.lfn'], ondelete="CASCADE", name='DATASET_CONTENTS_LFN_FK'),
+                   ForeignKeyConstraint(['parent_inode_scope', 'parent_inode_name'], ['inodes.scope', 'inodes.label'], ondelete="CASCADE", name='DATASET_CONTENTS_INODE_FK'),
                    CheckConstraint('"PARENT_INODE_SCOPE" IS NOT NULL', name='DATASET_CONTENTS_P_SCOPE_NN'),
                    CheckConstraint('"PARENT_INODE_NAME" IS NOT NULL', name='DATASET_CONTENTS_P_NAME_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DATASET_CONTENTS_OBSOLETE_NN'),
