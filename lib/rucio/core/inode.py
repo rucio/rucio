@@ -43,13 +43,11 @@ def register_dataset(scope, datasetName, account, monotonic=False):
     if (type(monotonic) is not bool and monotonic is not None):
         raise exception.InputValidationError('Monotonic option needs to be a boolean value')
 
-    new_inode = INODE()
-    new_dataset = DATASET()
-    new_inode.update({'scope': scope, 'label': datasetName, 'type': InodeType.DATASET, 'owner': account, 'monotonic': monotonic})
-    new_dataset.update({'dsn': datasetName, 'scope': scope, 'owner': account, 'monotonic': monotonic})
-    session.add(new_inode)
-    session.add(new_dataset)
+    new_inode = INODE(scope=scope, label=datasetName, type=InodeType.DATASET, owner=account, monotonic=monotonic)
+    new_dataset = DATASET(dsn=datasetName, scope=scope, owner=account, monotonic=monotonic)
     try:
+        new_inode.save(session=session)
+        new_dataset.save(session=session)
         session.commit()
     except IntegrityError, error:
         session.rollback()
@@ -104,18 +102,17 @@ def unregister_dataset(scope, datasetName, account):
     :param datasetName: the dataset to be removed. This parameter is not used to do wildcard matches.
     """
 
-    dsts = session.query(DATASET)
+    #dsts = session.query(DATASET)
     inds = session.query(INODE)
     assc = session.query(DATASETCONTENTS)
     try:
         assc.filter_by(scope_dsn=scope, dsn=datasetName).delete()
-        dsts.filter_by(scope=scope, dsn=datasetName).delete()
+#        dsts.filter_by(scope=scope, dsn=datasetName).delete()
         inds.filter_by(scope=scope, label=datasetName).delete()
+        session.commit()
     except IntegrityError, error:
         session.rollback()
         raise exception.RucioException(error.args[0])
-    inds.filter_by(scope=scope, label=datasetName).delete()
-    session.commit()
 
 
 def does_dataset_exist(datasetScope, datasetName, search_obsolete=False):
@@ -144,7 +141,6 @@ def obsolete_dataset(datasetScope, datasetName, accountName):
 
    :param datasetScope: the scope of the dataset. The parameter does not do wildcard searches.
    :param datasetName: the name of the dataset. The parameter does not do wildcard searches.
-   :param accountName: the account that is requesting this operation.
    :raise DatasetObsolete: dataset is already obsolete
    :raise ScopeNotFound: The specified scope does not exist
    :raise NotADataset: Specified dataset is actually a file
@@ -155,8 +151,8 @@ def obsolete_dataset(datasetScope, datasetName, accountName):
     inds = session.query(INODE)
     cons = session.query(DATASETCONTENTS)
     try:
-        dsts.filter_by(scope=datasetScope, dsn=datasetName, obsolete=False).one()
-        dsts.filter_by(scope=datasetScope, dsn=datasetName).update({'obsolete': True})
+        dataset = dsts.filter_by(scope=datasetScope, dsn=datasetName, obsolete=False).one()
+        dataset.update({'obsolete': True})
         inds.filter_by(scope=datasetScope, label=datasetName).update({'obsolete': True})
         cons.filter_by(scope_dsn=datasetScope, dsn=datasetName).update({'obsolete': True})
         session.commit()
@@ -245,6 +241,7 @@ def change_dataset_owner(datasetScope, datasetName, oldAccount, newAccount):
     try:
         session.query(DATASET).filter_by(scope=datasetScope, dsn=datasetName, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
         session.query(INODE).filter_by(scope=datasetScope, label=datasetName, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
+        session.commit()
     except NoResultFound, error:
         session.rollback()
         if not check_scope(datasetScope):  # check that scope exists
@@ -262,8 +259,6 @@ def change_dataset_owner(datasetScope, datasetName, oldAccount, newAccount):
             else:
                 raise exception.NoPermissions("Specified account (%s) is not the owner" % oldAccount)
             raise exception.RucioException(error.args[0])
-    try:
-        session.commit()
     except IntegrityError, error:
         session.rollback()
         if error.args[0] == "(IntegrityError) foreign key constraint failed":
@@ -523,13 +518,11 @@ def register_file(scope, filename, account):
     :returns: nothing
     """
 
-    new_inode = INODE()
-    new_file = FILE()
-    new_inode.update({'scope': scope, 'label': filename, 'type': InodeType.FILE, 'owner': account})
-    new_file.update({'lfn': filename, 'scope': scope, 'owner': account})
-    session.add(new_inode)
-    session.add(new_file)
+    new_inode = INODE(scope=scope, label=filename, type=InodeType.FILE, owner=account)
+    new_file = FILE(lfn=filename, scope=scope, owner=account)
     try:
+        new_inode.save(session=session)
+        new_file.save(session=session)
         session.commit()
     except IntegrityError, error:
         session.rollback()
@@ -588,8 +581,8 @@ def obsolete_file(fileScope, filename, accountName):
     inds = session.query(INODE)
     cons = session.query(DATASETCONTENTS)
     try:
-        fils.filter_by(scope=fileScope, lfn=filename, obsolete=False).one()
-        fils.filter_by(scope=fileScope, lfn=filename).update({'obsolete': True})
+        file = fils.filter_by(scope=fileScope, lfn=filename, obsolete=False).one()
+        file.update({'obsolete': True})
         inds.filter_by(scope=fileScope, label=filename).update({'obsolete': True})
         cons.filter_by(scope_dsn=fileScope, lfn=filename).update({'obsolete': True})
         session.commit()
@@ -744,6 +737,7 @@ def change_file_owner(fileScope, filename, oldAccount, newAccount):
     try:
         session.query(FILE).filter_by(scope=fileScope, lfn=filename, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
         session.query(INODE).filter_by(scope=fileScope, label=filename, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
+        session.commit()
     except NoResultFound, error:
         session.rollback()
         if error.args[0] == 'No row was found for one()':
@@ -763,8 +757,6 @@ def change_file_owner(fileScope, filename, oldAccount, newAccount):
                     raise exception.NoPermissions("Specified account (%s) is not the owner" % oldAccount)
         else:
             exception.RucioException(error.args[0])
-    try:
-        session.commit()
     except IntegrityError, error:
         session.rollback()
         if error.args[0] == "(IntegrityError) foreign key constraint failed":

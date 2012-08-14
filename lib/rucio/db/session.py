@@ -12,6 +12,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy import event
 from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.exc import DisconnectionError
 
 from rucio.common.config import config_get
 from rucio.db import models1 as models
@@ -25,12 +26,39 @@ def _fk_pragma_on_connect(dbapi_con, con_record):
             pass
 
 
+def ping_listener(dbapi_conn, connection_rec, connection_proxy):
+
+    """
+    Ensures that MySQL connections checked out of the
+    pool are alive.
+
+    Borrowed from:
+    http://groups.google.com/group/sqlalchemy/msg/a4ce563d802c929f
+
+    :param dbapi_conn: DBAPI connection
+    :param connection_rec: connection record
+    :param connection_proxy: connection proxy
+    """
+
+    try:
+        dbapi_conn.cursor().execute('select 1')
+    except dbapi_conn.OperationalError, ex:
+        if ex.args[0] in (2006, 2013, 2014, 2045, 2055):
+            msg = 'Got mysql server has gone away: %s' % ex
+            raise DisconnectionError(msg)
+        else:
+            raise
+
+
 def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
         :returns: session """
 
     database = config_get('database', 'default')
     engine = create_engine(database, echo=False, echo_pool=False)
+    if 'mysql' in database:
+        event.listen(engine, 'checkout', ping_listener)
+
     event.listen(engine, 'connect', _fk_pragma_on_connect)
     return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
 

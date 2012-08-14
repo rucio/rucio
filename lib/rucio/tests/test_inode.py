@@ -73,7 +73,7 @@ class TestInode:
         bulk_register_datasets(self.scopes_mc[0], self.test_mc_dsts, self.user, skipExisting=True)
 
     def tearDown(self):
-        destroy_database()
+        destroy_database(echo=False)
 
     def clean_files_and_datasets(self):
         # Clean unwanted datasets from exceptions
