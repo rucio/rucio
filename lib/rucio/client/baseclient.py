@@ -99,8 +99,10 @@ class BaseClient(object):
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
+                elif self.auth_type == 'x509_proxy':
+                    self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
             except (NoOptionError, NoSectionError), e:
-                if e.args[0] == 'client_cert':
+                if e.args[0] != 'client_key':
                     raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if use_ssl and ca_cert is None:
@@ -195,11 +197,9 @@ class BaseClient(object):
 
     def __get_token_userpass(self):
         """
-        Sends a request to get an auth token from the server. Uses username/password.
+        Sends a request to get an auth token from the server and stores it as a class attribute. Uses username/password.
 
-        :param username: the username to authenticate with the system.
-        :param password: the password to authenticate with the system.
-        :return: the auth token as a string, None if not authorized or raises an exeption if some failure occurs.
+        :returns: True if the token was successfully received. False otherwise.
         """
 
         headers = {'Rucio-Account': self.account, 'Rucio-Username': self.creds['username'], 'Rucio-Password': self.creds['password']}
@@ -231,16 +231,22 @@ class BaseClient(object):
 
     def __get_token_x509(self):
         """
-        Sends a request to get an auth token from the server. Uses x509 authentication.
+        Sends a request to get an auth token from the server and stores it as a class attribute. Uses x509 authentication.
+
+        :returns: True if the token was successfully received. False otherwise.
         """
 
         headers = {'Rucio-Account': self.account}
         url = build_url(self.host, path='auth/x509', use_ssl=self.use_ssl)
 
-        client_cert = self.creds['client_cert']
+        client_cert = None
         client_key = None
-        if 'client_key' in self.creds:
-            client_key = self.creds['client_key']
+        if self.auth_type == 'x509':
+            client_cert = self.creds['client_cert']
+            if 'client_key' in self.creds:
+                client_key = self.creds['client_key']
+        elif self.auth_type == 'x509_proxy':
+            client_cert = self.creds['client_proxy']
 
         if not path.exists(client_cert):
             LOG.error('given client cert (%s) doesn\'t exist' % client_cert)
@@ -282,7 +288,9 @@ class BaseClient(object):
 
     def __get_token_gss(self):
         """
-        Sends a request to get an auth token from the server. Uses Kerberos authentication.
+        Sends a request to get an auth token from the server and stores it as a class attribute. Uses Kerberos authentication.
+
+        :returns: True if the token was successfully received. False otherwise.
         """
 
         headers = {'Rucio-Account': self.account}
@@ -314,7 +322,7 @@ class BaseClient(object):
 
     def __get_token(self):
         """
-        Sends a request to get a new token and write it to file. To be used if a 401 - Unauthorized error is received.
+        Calls the corresponding method to receive an auth token depending on the auth type. To be used if a 401 - Unauthorized error is received.
         """
 
         retry = 0
@@ -323,14 +331,14 @@ class BaseClient(object):
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
                     raise CannotAuthenticate('userpass authentication failed')
-            elif self.auth_type == 'x509':
+            elif self.auth_type == 'x509' or self.auth_type == 'x509_proxy':
                 if not self.__get_token_x509():
                     raise CannotAuthenticate('x509 authentication failed')
             elif self.auth_type == 'gss':
                 if not self.__get_token_gss():
                     raise CannotAuthenticate('kerberos authentication failed')
             else:
-                raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
+                raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
 
             if self.auth_token is not None:
                 self.__write_token()
@@ -405,10 +413,13 @@ class BaseClient(object):
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
+        elif self.auth_type == 'x509_proxy':
+            if self.creds['client_proxy'] is None:
+                raise NoAuthInformation('The client proxy has to be defined')
         elif self.auth_type == 'gss':
             pass
         else:
-            raise CannotAuthenticate('auth type \'%s\' no supported' % self.auth_type)
+            raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
 
         if not self.__read_token():
             self.__get_token()
