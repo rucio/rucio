@@ -97,9 +97,11 @@ class BaseClient(object):
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
-                    self.creds['client_cert'] = path.expandvars(config_get('client', 'client_cert'))
+                    self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
+                    self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
             except (NoOptionError, NoSectionError), e:
-                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+                if e.args[0] == 'client_cert':
+                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if use_ssl and ca_cert is None:
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
@@ -236,15 +238,26 @@ class BaseClient(object):
         url = build_url(self.host, path='auth/x509', use_ssl=self.use_ssl)
 
         client_cert = self.creds['client_cert']
+        client_key = None
+        if 'client_key' in self.creds:
+            client_key = self.creds['client_key']
 
         if not path.exists(client_cert):
             LOG.error('given client cert (%s) doesn\'t exist' % client_cert)
             return False
+        if client_key is not None and not path.exists(client_key):
+            LOG.error('given client key (%s) doesn\'t exist' % client_key)
 
         retry = 0
+
+        if client_key is None:
+            cert = client_cert
+        else:
+            cert = (client_cert, client_key)
+
         while retry < self.AUTH_RETRIES:
             try:
-                r = get(url, headers=headers, cert=client_cert, verify=self.ca_cert)
+                r = get(url, headers=headers, cert=cert, verify=self.ca_cert)
             except SSLError, e:
                 if 'error:14090086' not in e.args[0][0]:
                     return False
