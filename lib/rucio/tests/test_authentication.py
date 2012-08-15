@@ -62,6 +62,10 @@ class TestAuthRestApi():
         """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support SSL handshake. Check tools/test_auth.sh"""
         pass
 
+    def test_proxy(self):
+        """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support gridsite handshake. Check tools/test_auth.sh"""
+        pass
+
     def test_gss(self):
         """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support GSSAPI handshake. Check tools/test_auth.sh"""
         pass
