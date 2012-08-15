@@ -21,6 +21,7 @@ password = secret
 ca_cert = /opt/rucio/etc/web/ca.crt
 client_cert = /opt/rucio/etc/web/client.crt
 client_key = /opt/rucio/etc/web/client.key
+client_x509_proxy = $X509_USER_PROXY
 account = root
 request_retries = 3
 
