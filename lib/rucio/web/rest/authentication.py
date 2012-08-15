@@ -21,6 +21,7 @@ urls = (
     '/userpass', 'UserPass',
     '/gss', 'GSS',
     '/x509', 'x509',
+    '/x509_proxy', 'x509',
     '/validate', 'Validate',
     '/register_api_token', 'APITokens'
 )
@@ -55,9 +56,9 @@ class UserPass:
         try:
             result = get_auth_token_user_pass(account, username, password, ip)
         except AccessDenied, e:
-            xcpt = web.Unauthorized()
-            xcpt.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
-            xcpt.data = e[0][0]
+            exc = web.Unauthorized()
+            exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
+            exc.data = e[0][0]
             raise web.Unauthorized()
 
         if result is None:
@@ -108,9 +109,9 @@ class GSS:
         try:
             result = get_auth_token_gss(account, gsscred, ip)
         except AccessDenied, e:
-            xcpt = web.Unauthorized()
-            xcpt.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
-            raise xcpt
+            exc = web.Unauthorized()
+            exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
+            raise exc
 
         if result is None:
             raise web.Unauthorized()
@@ -159,9 +160,9 @@ class x509:
         try:
             result = get_auth_token_x509(account, dn, ip)
         except AccessDenied, e:
-            xcpt = web.Unauthorized()
-            xcpt.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
-            raise xcpt
+            exc = web.Unauthorized()
+            exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
+            raise exc
 
         if result is None:
             raise web.Unauthorized()
