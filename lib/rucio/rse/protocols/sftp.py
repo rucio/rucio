@@ -10,53 +10,36 @@
 
 
 import pysftp
+from subprocess import call
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to storage systems using the SFTP protocol
-        in its standard/default implementation, meaning no storage specific
-        customizations are made.
-    """
+    """ Implementing access to RSEs using the SFTP protocol."""
 
-    def __init__(self, rse):
-        """ Initializes the object with information about the referred storage system."""
-        self.rse = rse
+    def __init__(self, props):
+        """ Initializes the object with information about the referred RSE."""
+        self.rse = props
 
     def pfn2uri(self, pfn):
-        """ Transforms the physical file name into the local URI in the referred storage system.
+        """ Transforms the physical file name into the local URI in the referred RSE.
 
             :param pfn Physical file name
 
-            :returns: Storage specific URI of the physical file
+            :returns: RSE specific URI of the physical file
         """
-        return self.rse.static['pfn_prefix'] + pfn
-
-    def __register_file(self, pfn):
-        """ Register data in the local catalogue.
-
-            :param pfn Physical file name
-        """
-        # TODO: Discuss if we need this in RUCIO too?
-        pass
-
-    def __unregister_file(self, pfn):
-        """ Unregister data in the local catalogue.
-
-            :param pfn Physical file name
-        """
-        # TODO: Discuss if we need this in RUCIO too?
-        pass
+        return self.rse['static']['pfn_prefix'] + pfn
 
     def exists(self, pfn):
-        """ Checks if the requested file is known by the referred storage system.
+        """ Checks if the requested file is known by the referred RSE.
 
             :param pfn Physical file name
 
             :returns: True if the file exists, False if it doesn't
-            :raise ServiceUnavailable
+
+            :raise  ServiceUnavailable
         """
         status = ''
         try:
@@ -64,12 +47,12 @@ class Default(protocol.RSEProtocol):
             status = self.__connection.execute(cmd)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
-        if status[0].startswith('stat: cannot stat'):
+        if status[0].endswith('No such file or directory\n'):
             return False
         return True
 
     def connect(self, credentials):
-        """ Establishes the actual connection to the referred storage system using SFTP as protocol.
+        """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provide all necessary information to establish a connection
                 to the referred storage system. Some is loaded from the repository inside the
@@ -78,66 +61,106 @@ class Default(protocol.RSEProtocol):
                 For details about possible additional parameters and details about their usage
                 see the pysftp.Connection() documentation.
                 NOTE: the host parametrer is overwritten with the value provided by the repository
-            :raise FailedToLogin
+
+            :raise RSEAccessDenied
         """
         try:
-            credentials['host'] = self.rse.static['url']
+            credentials['host'] = self.rse['static']['url']
             self.__connection = pysftp.Connection(**credentials)
         except Exception as e:
-            raise exception.FailedToLogin({'exception': e, 'storageurl': self.rse.static['url'], 'credentials': credentials})
+            raise exception.RSEAccessDenied(e)
+
+    def close(self):
+        """ Closes the connection to RSE."""
+        self.__connection.close()
 
     def get(self, pfn, dest):
-        """ Provides access to files stored inside the storage system.
+        """ Provides access to files stored inside connected the RSE.
 
             :param pfn Physical file name of requested file
             :param dest Name and path of the files when stored at the client
-            :raises FileNotFound
-        """
 
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+         """
         try:
             self.__connection.get(self.pfn2uri(pfn), dest)
         except IOError as e:
-            raise exception.FileNotFound(str(e))
-
-    def put(self, pfn, source_path):
-        """ Allows to store files inside the referred storage system.
-
-            :param pfn Physical file name
-            :param source_path Path where the to be transferred files are stored in the local file system
-            :raises ServiceUnavailable, FileNotFound
-        """
-        source = source_path + '/' + pfn if source_path else pfn
-        try:
-            self.__connection.put(source, self.pfn2uri(pfn))
-            self.__register_file(pfn)
-        except IOError as e:
-            if not self.exists(self.rse.static['pfn_prefix']):
-                cmd = 'mkdir '
-                for p in self.rse.static['pfn_prefix'].split('/'):
-                    cmd += p + '/'
-                    self.__connection.execute(cmd)
-                self.__connection.put(source, self.pfn2uri(pfn))
+            try:  # To check if the error happend local or remote
+                with open(dest, 'wb'):
+                    pass
+                call(['rm', dest])
+            except IOError as e:
+                if e.errno == 2:
+                    raise exception.DestinationNotAccessible(e)
+                else:
+                    raise exception.ServiceUnavailable(e)
+            if e.errno == 2:
+                raise exception.SourceNotFound(e)
             else:
                 raise exception.ServiceUnavailable(e)
+
+    def put(self, source, source_dir=None):
+        """ Allows to store files inside the referred RSE.
+
+            :param source Physical file name
+            :param source_dir Path where the to be transferred files are stored in the local file system
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        if source_dir:
+            sf = source_dir + '/' + source
+        else:
+            sf = source
+        try:
+            self.__connection.put(sf, self.pfn2uri(source))
+        except IOError as e:
+            if not self.exists(self.rse['static']['pfn_prefix']):
+                cmd = 'mkdir '
+                for p in self.rse['static']['pfn_prefix'].split('/'):
+                    cmd += p + '/'
+                    self.__connection.execute(cmd)
+                self.__connection.put(source, self.pfn2uri(source))
+            else:
+                raise exception.DestinationNotAccessible(e)
         except OSError as e:
-            raise exception.FileNotFound('Local file %s not found' % source)
+            if e.errno == 2:
+                raise exception.SourceNotFound(e)
+            else:
+                raise exception.ServiceUnavailable(e)
 
     def delete(self, pfn):
-        """ Deletes a file from the referred storage system.
+        """ Deletes a file from the connected RSE.
 
             :param pfn Physical file name
-            :raise FileNotFound
+
+            :raises ServiceUnavailable, SourceNotFound
         """
         status = ''
+        cmd = 'rm ' + self.pfn2uri(pfn)
         try:
-            cmd = 'rm ' + self.pfn2uri(pfn)
             status = self.__connection.execute(cmd)
-            self.__unregister_file(pfn)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
         if len(status):
-            raise exception.ServiceUnavailable(str(status))
+            if status[0].endswith('No such file or directory\n'):
+                raise exception.SourceNotFound(IOError({'errno': 2, 'file': self.pfn2uri(pfn)}))
 
-    def close(self):
-        """ Closes the current connection to the storage system. """
-        self.__connection.close()
+    def rename(self, pfn, new_pfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param pfn      Current physical file name
+            :param new_pfn  New physical file name
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        cmd = 'mv %s %s' % (self.pfn2uri(pfn), self.pfn2uri(new_pfn))
+        try:
+            self.__connection.execute(cmd)
+        except IOError as e:
+            if e.errno == 2:
+                if self.exists(self.pfn2uri(pfn)):
+                    raise exception.SourceNotFound(e)
+                else:
+                    raise exception.DestinationNotAccessible(e)
+            else:
+                raise exception.ServiceUnavailable(e)

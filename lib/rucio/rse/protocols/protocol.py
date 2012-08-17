@@ -12,72 +12,81 @@
 class RSEProtocol(object):
     """ This class is virtual and acts as a base to inherit new protocols from."""
 
-    def __init__(self, rse):
-        """ Initializes the protocol class with information defined for the referred storage system.
+    def __init__(self, props):
+        """ Initializes the object with information about the referred RSE.
 
-            :param rse Information about the referred storage system.
+            :param props Properties derived from the RSE Repository
         """
         raise NotImplemented
 
     def pfn2uri(self, pfn):
-        """ Transforms the physical file name into the local URI in the storage system.
+        """ Transforms the physical file name into the local URI in the referred RSE.
 
             :param pfn Physical file name
 
-            :returns: Storage specific URI of the physical file
+            :returns: RSE specific URI of the physical file
         """
-        raise NotImplemented
-
-    def __register_file(self, pfn):
-        """ Register data into local catalogue.
-
-            :param pfn Physical file name
-        """
-        raise NotImplemented
-
-    def __unregister_file(self, pfn):
-        """ Unregister data at the local catalogue.
-
-            :param pfn Physical file name
-        """
-        # TODO: Discuss if this is needed in RUCIO too?
         raise NotImplemented
 
     def exists(self, pfn):
-        """ Checks if the requested file is known by the local storage system
+        """ Checks if the requested file is known by the referred RSE.
 
             :param pfn Physical file name
-            :returns: True if file exists, False if it doesn't
+
+            :returns: True if the file exists, False if it doesn't
+
+            :raise  ServiceUnavailable
         """
         raise NotImplemented
 
     def connect(self):
-        """ Establishes the connection to the referred storage system. """
-        raise NotImplemented
+        """ Establishes the actual connection to the referred RSE.
 
-    def close(self):
-        """ Closes the connection to the storage system """
-        raise NotImplemented
+            :param credentials User credentials to establish the connection to the RSE. See documentation of the according protocol for further information.
 
-    def get(self, pfn, dest):
-        """ Copies a file from the referred storage system to a specified destination in the local file system.
-
-            :param pfn  Physical file name of the requested file
-            :param dest Path where the files will be stored
+            :raises RSEAccessDenied
         """
         raise NotImplemented
 
-    def put(self, pfn, source_path):
-        """ Allows to store a file at the referred storage system.
+    def close(self):
+        """ Closes the connection to RSE."""
+        raise NotImplemented
 
-            :param pfn         Physical file name
-            :param source_path Path where the to be transferred files are stored on the client
+    def get(self, pfn, dest):
+        """ Provides access to files stored inside connected the RSE.
+
+            :param pfn Physical file name of requested file
+            :param dest Name and path of the files when stored at the client
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+         """
+        raise NotImplemented
+
+    def put(self, source, source_dir):
+        """ Allows to store files inside the referred RSE.
+
+            :param source Physical file name
+            :param source_dir Path where the to be transferred files are stored in the local file system
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
         raise NotImplemented
 
     def delete(self, pfn):
-        """ Deletes a file from the storage system
+        """ Deletes a file from the connected RSE.
 
             :param pfn Physical file name
+
+            :raises ServiceUnavailable, SourceNotFound
+        """
+        raise NotImplemented
+
+    def rename(self, lfn, new_lfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param pfn      Current physical file name
+            :param new_pfn  New physical file name
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
         raise NotImplemented

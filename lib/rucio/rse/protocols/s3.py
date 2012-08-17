@@ -10,7 +10,6 @@
 
 
 from subprocess import call
-
 # IMPORTANT: If the order of the S3 imports is changed, they fail!
 from S3.Exceptions import S3Error, InvalidFileError
 from S3.S3 import S3
@@ -22,62 +21,51 @@ from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to storage systems using the S3 protocol
-        in its standard/default implementation, meaning no storage specific
-        customizations are made.
+    """ Implementing access to RSEs using the S3 protocol."""
 
-        A complete list with all possible Exception can be found here: http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/ErrorResponses.html
-    """
+    def __init__(self, props):
+        """ Initializes the object with information about the referred RSE.
 
-    def __init__(self, rse):
-        """ Initializes the object with information about the referred storage system."""
-        self.rse = rse
+            :param props Properties derived from the RSE Repository
+        """
+        self.rse = props
 
     def pfn2uri(self, pfn):
-        """ Transforms the physical file name into the local URI in the referred storage system.
+        """ Transforms the physical file name into the local URI in the referred RSE.
 
             :param pfn Physical file name
-            :returns: Storage specific URI of the physical file
+
+            :returns: RSE specific URI of the physical file
         """
-        return 's3://%s/%s' % (self.rse.static['pfn_prefix'], pfn)
-
-    def __register_file(self, pfn):
-        """ Register data in the local catalogue.
-
-            :param pfn Physical file name
-        """
-        # TODO: Discuss if we need this in RUCIO too?
-        pass
-
-    def __unregister_file(self, pfn):
-        """ Unregister data in the local catalogue.
-
-            :param pfn Physical file name
-        """
-        # TODO: Discuss if we need this in RUCIO too?
-        pass
+        return 's3://%s/%s' % (self.rse['static']['pfn_prefix'], pfn)
 
     def exists(self, pfn):
-        """ Checks if the requested file is known by the referred storage system.
+        """ Checks if the requested file is known by the referred RSE.
 
             :param pfn Physical file name
 
             :returns: True if the file exists, False if it doesn't
+
+            :raise  ServiceUnavailable
         """
         try:
             self.__s3.object_info(S3Uri(self.pfn2uri(pfn)))
             return True
-        except S3Error:
-            return False
+        except S3Error as e:
+            if e.status == 404:
+                return False
+            else:
+                raise exception.ServiceUnavailable(e)
 
     def connect(self, credentials):
-        """ Establishes the actual connection to the referred storage system using the S3 protocol.
+        """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provides information to establish a connection
                 to the referred storage system. For S3 connections these are
                 access_key, secretkey, host_base, host_bucket, progress_meter
                 and skip_existing.
-            :raises FailedToLogin
+
+            :raises RSEAccessDenied
         """
         try:
             cfg = Config()
@@ -85,15 +73,20 @@ class Default(protocol.RSEProtocol):
                 cfg.update_option(k.encode('utf-8'), credentials[k].encode('utf-8'))
             self.__s3 = S3(cfg)
         except Exception as e:
-            raise exception.FailedToLogin({'exception': e, 'storageurl': self.rse.static['url'], 'credentials': credentials})
+            raise exception.RSEAccessDenied(e)
+
+    def close(self):
+        """ Closes the connection to RSE."""
+        pass
 
     def get(self, pfn, dest):
-        """ Provides access to files stored inside the storage system.
+        """ Provides access to files stored inside connected the RSE.
 
             :param pfn Physical file name of requested file
             :param dest Name and path of the files when stored at the client
-            :raises AccessDenied, ServiceUnavailable, RucioException
-        """
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+         """
         tf = None
         try:
             tf = open(dest, 'wb')
@@ -102,59 +95,65 @@ class Default(protocol.RSEProtocol):
         except S3Error as e:
             tf.close()
             call(['rm', dest])  # Must be changed if resume will be supported
-            if e.status == 403:
-                raise exception.AccessDenied(e.info)
-            elif e.status == 404:
-                raise exception.FileNotFound('Remote file %s not found' % (S3Uri(self.pfn2uri(pfn))))
-            elif e.info['Code'] == 'ServiceUnavailable':
-                raise exception.ServiceUnavailable(e.info)
+            if e.status in [404, 403]:
+                raise exception.SourceNotFound(e)
             else:
-                raise exception.RucioException(e.info)
+                raise exception.ServiceUnavailable(e)
+        except IOError as e:
+            if e.errno == 2:
+                raise exception.DestinationNotAccessible(e)
+            else:
+                raise exception.ServiceUnavailable(e)
 
-    def put(self, pfn, source_path):
-        """ Allows to store files inside the referred storage system.
+    def put(self, source, source_dir=None):
+        """ Allows to store files inside the referred RSE.
 
-            :param pfn Physical file name
-            :param source_path Path where the to be transferred files are stored in the local file system
-            :raises AccessDenied, ServiceUnavailable, RucioException, FileNotFound
+            :param source Physical file name
+            :param source_dir Path where the to be transferred files are stored in the local file system
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        full_name = source_path + '/' + pfn if source_path else pfn
+        full_name = source_dir + '/' + source if source_dir else source
         try:
-            self.__s3.object_put(full_name, S3Uri(self.pfn2uri(pfn)))
+            self.__s3.object_put(full_name, S3Uri(self.pfn2uri(source)))
         except S3Error as e:
-            if e.info['Code'] == 'NoSuchBucket':
-                try:
-                    self.__s3.bucket_create(self.rse.static['pfn_prefix'])
-                except Exception as f:
-                    raise exception.RucioException(f.info)
-                self.__s3.object_put(full_name, S3Uri(self.pfn2uri(pfn)))
-            if e.info['Code'] == "AccessDenied":
-                raise exception.AccessDenied(e.info)
-            elif e.info['Code'] == "ServiceUnavailable":
-                raise exception.ServiceUnavailable(e.info)
+            if e.info['Code'] in ['NoSuchBucket', "AccessDenied"]:
+                raise exception.DestinationNotAccessible(e)
             else:
-                raise exception.RucioException(e.info)
-        except InvalidFileError:
-            raise exception.FileNotFound('Local file %s not found' % full_name)
+                raise exception.ServiceUnavailable(e)
+        except InvalidFileError as e:
+                raise exception.SourceNotFound(e)
 
     def delete(self, pfn):
-        """ Deletes a file from the referred storage system.
+        """ Deletes a file from the connected RSE.
 
             :param pfn Physical file name
-            :raises AccessDenied, ServiceUnavailable, RucioException
+
+            :raises ServiceUnavailable, SourceNotFound
         """
         try:
             self.__s3.object_delete(S3Uri(self.pfn2uri(pfn)))
         except S3Error as e:
-            if e.status == 403:
-                raise exception.AccessDenied(e.info)
-            elif e.info['Code'] == "ServiceUnavailable":
-                raise exception.ServiceUnavailable(e.info)
-            elif e.status == 404:
-                raise exception.FileNotFound('Remote file %s not found' % (S3Uri(self.pfn2uri(pfn))))
+            if e.status in [404, 403]:
+                raise exception.SourceNotFound(e)
             else:
-                raise exception.RucioException(e.info)
+                raise exception.ServiceUnavailable(e)
 
-    def close(self):
-        """ Closes the current connection to the storage system. """
-        pass
+    def rename(self, pfn, new_pfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param pfn      Current physical file name
+            :param new_pfn  New physical file name
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        try:
+            self.__s3.object_move(S3Uri(self.pfn2uri(pfn)), S3Uri(self.pfn2uri(new_pfn)))
+        except S3Error as e:
+            if e.status in [404, 403]:
+                if self.exists(self.pfn2uri(pfn)):
+                    raise exception.SourceNotFound(e)
+                else:
+                    raise exception.DestinationNotAccessible(e)
+            else:
+                raise exception.ServiceUnavailable(e)
