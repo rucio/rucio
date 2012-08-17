@@ -157,6 +157,14 @@ class x509:
         if ip is None:
             ip = web.ctx.ip
 
+        # If we get a valid proxy certificate we have to strip this postfix,
+        # otherwise we would have to store the proxy DN in the database as well.
+        # Alternative: use the SSL_CLIENT_I_DN, but that would require a separate
+        # endpoint as you cannot programmatically decide, by examining the SSL variables,
+        # if you got a proxy or regular certificate
+        while dn.endswith('/CN=proxy'):
+            dn = dn[:9]
+
         try:
             result = get_auth_token_x509(account, dn, ip)
         except AccessDenied, e:
