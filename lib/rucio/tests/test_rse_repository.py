@@ -10,10 +10,10 @@
 
 import json
 
-from nose.tools import *
+from nose.tools import raises
 
 from rucio.common import exception
-from rucio.rse import rse
+from rucio.rse import wrapper
 
 
 class TestRseRepository():
@@ -21,19 +21,14 @@ class TestRseRepository():
         """ RSE (RSE): Repository => Using a defined storage """
         credentials = {}
         data = json.load(open('etc/rse-accounts.cfg'))
-        credentials['username'] = str(data['cern.lxplus.ch']['username'])
-        credentials['password'] = str(data['cern.lxplus.ch']['password'])
+        credentials['username'] = str(data['lxplus.cern.ch']['username'])
+        credentials['password'] = str(data['lxplus.cern.ch']['password'])
         credentials['host'] = 'lxplus.cern.ch'
-        self.storage = rse.RucioStorageElement(id='cern.lxplus.ch')
+        self.storage = wrapper.RSEWrapper('lxplus.cern.ch')
         self.storage.connect(credentials)
         self.storage.close()
 
     @raises(exception.RSENotFound)
     def test_storage_failure(self):
         """ RSE (RSE): Repository => Storage not defined Exception """
-        rse.RucioStorageElement(id='not.existing')
-
-    @raises(exception.RSERepositoryNotFound)
-    def test_storage_not_found_failure(self):
-        """ RSE (RSE): Repository => Repository not found Exception """
-        rse.add_local_repository('/path/not/existing/rse/repository')
+        wrapper.RSEWrapper('not.existing')
