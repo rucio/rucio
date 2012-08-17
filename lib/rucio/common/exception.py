@@ -207,59 +207,39 @@ class RSERepositoryNotFound(RucioException):
         self._message = "Unable to locate RSE-Repository."
 
 
-class RSENotFound(RucioException):
-    def __init__(self, *args, **kwargs):
-        super(RSENotFound, self).__init__(args, kwargs)
-        self._message = "Referred storage system not defined in RSE-Repositories."
-
-
-class FailedToLogin(RucioException):
-    def __init__(self, *args, **kwargs):
-        super(FailedToLogin, self).__init__(args, kwargs)
-        self._message = "Unable to login at the referred storage system."
-
-
-class AccessDenied(RucioException):
-    def __init__(self, *args, **kwargs):
-        super(AccessDenied, self).__init__(args, kwargs)
-        self._message = "Access to the requested resource denied."
-
-
 class ServiceUnavailable(RucioException):
     def __init__(self, *args, **kwargs):
         super(ServiceUnavailable, self).__init__(args, kwargs)
         self._message = "The requested service is not available at the moment."
 
-# An other set of RSE related exceptions. When it is finished 'duplicated' Exceptions mut be removed
-
-
-class SourceAccessDenied(RucioException):
-    def __init__(self, *args, **kwargs):
-        super(SourceAccessDenied, self).__init__(args, kwargs)
-        self._message = "Access to local source file denied."
-
 
 class SourceNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(SourceNotFound, self).__init__(args, kwargs)
-        self._message = "Local source file not found."
+        self._message = "Source file not found."
 
 
-class RSENotReachable(RucioException):
+class DestinationNotAccessible(RucioException):
     def __init__(self, *args, **kwargs):
-        super(RSENotReachable, self).__init__(args, kwargs)
-        self._message = "Referrenced RSE not reachable."
+        super(DestinationNotAccessible, self).__init__(args, kwargs)
+        self._message = "Access to local destination denied."
+
+
+class RSENotConnected(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSENotConnected, self).__init__(args, kwargs)
+        self._message = "Connection to RSE not established."
 
 
 class RSEAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
-        super(RSENotReachable, self).__init__(args, kwargs)
+        super(RSEAccessDenied, self).__init__(args, kwargs)
         self._message = "Referrenced RSE not reachable."
 
 
 class DatasetAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
-        super(RSENotReachable, self).__init__(args, kwargs)
+        super(DatasetAccessDenied, self).__init__(args, kwargs)
         self._message = "Access to referrenced dataset denied."
 
 
