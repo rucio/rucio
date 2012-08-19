@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011-2012
 
-from rucio.core.inode import change_dataset_owner as core_change_dataset_owner,\
+from rucio.core.name import change_dataset_owner as core_change_dataset_owner,\
     obsolete_dataset as core_obsolete_dataset,\
     does_dataset_exist, register_dataset,\
     add_files_to_dataset as core_add_files_to_dataset,\
@@ -51,7 +51,7 @@ def add_files_to_dataset(scope, dsn, lfns, account):
     :param contents: The datasets/files that will be added to the target dataset.
     :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
     """
-    return core_add_files_to_dataset(inodeList=lfns, targetDatasetScope=scope, targetDatasetName=dsn, account=account)
+    return core_add_files_to_dataset(nameList=lfns, targetDatasetScope=scope, targetDatasetName=dsn, account=account)
 
 
 def list_files_in_dataset(scope, dsn):
