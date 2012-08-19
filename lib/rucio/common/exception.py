@@ -60,13 +60,13 @@ class NoPermissions(RucioException):
 class NotADataset(RucioException):
     def __init__(self, *args, **kwargs):
         super(NotADataset, self).__init__(args, kwargs)
-        self._message = 'Specified inode is not a dataset'
+        self._message = 'Specified name is not a dataset'
 
 
 class NotAFile(RucioException):
     def __init__(self, *args, **kwargs):
         super(NotAFile, self).__init__(args, kwargs)
-        self._message = 'Specified inode is not a file'
+        self._message = 'Specified name is not a file'
 
 
 class DatasetAlreadyExists(RucioException):
@@ -117,16 +117,16 @@ class FileNotFound(RucioException):
         self._message = "File not found in scope"
 
 
-class InodeNotFound(RucioException):
+class NameNotFound(RucioException):
     def __init__(self, *args, **kwargs):
-        super(InodeNotFound, self).__init__(args, kwargs)
-        self._message = "Inode not found in scope"
+        super(NameNotFound, self).__init__(args, kwargs)
+        self._message = "Name not found in scope"
 
 
-class InodeTypeError(RucioException):
+class NameTypeError(RucioException):
     def __init__(self, *args, **kwargs):
-        super(InodeTypeError, self).__init__(args, kwargs)
-        self._message = "Inode is of the wrong type"
+        super(NameTypeError, self).__init__(args, kwargs)
+        self._message = "Name is of the wrong type"
 
 
 class ForbiddenSearch(RucioException):

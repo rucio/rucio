@@ -11,7 +11,7 @@ import rucio.api.permission
 
 from rucio.common.exception import FileAlreadyExists
 from rucio.core import rse as rse_core
-from rucio.core import inode as inode_core
+from rucio.core import name as name_core
 
 
 def add_rse(rse, issuer):
@@ -93,7 +93,7 @@ def add_file_replica(rse, scope, lfn, issuer):
     :returns: True is successfull.
     """
     try:
-        inode_core.register_file(scope=scope, filename=lfn, account=issuer)
+        name_core.register_file(scope=scope, filename=lfn, account=issuer)
     except FileAlreadyExists:
         pass
-    inode_core.add_file_replica(rse=rse, scope=scope, filename=lfn)
+    name_core.add_file_replica(rse=rse, scope=scope, filename=lfn)
