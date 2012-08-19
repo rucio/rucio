@@ -18,12 +18,12 @@ from rucio.client.datasetclient import DatasetClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, DatasetAlreadyExists,\
     DatasetIsMonotonic, DatasetNotFound, DatasetObsolete,\
-    Duplicate, FileAlreadyExists, FileNotFound, InodeNotFound,\
+    Duplicate, FileAlreadyExists, FileNotFound, NameNotFound,\
     InputValidationError, NoPermissions, NotADataset, ScopeNotFound
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
 from rucio.core.identity import add_account_identity, add_identity
-from rucio.core.inode import add_files_to_dataset, build_inode_list, bulk_register_datasets, bulk_register_files, change_dataset_owner,\
+from rucio.core.name import add_files_to_dataset, build_name_list, bulk_register_datasets, bulk_register_files, change_dataset_owner,\
     delete_files_from_dataset, does_dataset_exist, get_dataset_metadata, get_dataset_owner, list_datasets,\
     is_dataset_monotonic, is_dataset_obsolete, is_file_obsolete, list_files_in_dataset, obsolete_dataset, obsolete_file,\
     register_dataset, unregister_dataset, unregister_file
@@ -187,7 +187,7 @@ class TestDataset_CORE:
     def test_api_add_multiple_files_to_dataset(self):
         """ DATASET (CORE): Add and remove multiple files to a dataset """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
-        file_list = build_inode_list(self.scope_misc, self.test_interesting_files)
+        file_list = build_name_list(self.scope_misc, self.test_interesting_files)
         add_files_to_dataset(file_list, self.scope_misc, dsn, self.user)
         assert_equal(set(list_files_in_dataset(self.scope_misc, dsn)), set(file_list))
         delete_files_from_dataset(file_list, self.scope_misc, dsn, self.user)
@@ -196,7 +196,7 @@ class TestDataset_CORE:
     def test_api_add_dataset_to_a_dataset(self):
         """ DATASET (CORE): Add a dataset to another dataset """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
-        file_list = build_inode_list(self.scope_misc, self.test_interesting_files)
+        file_list = build_name_list(self.scope_misc, self.test_interesting_files)
         add_files_to_dataset(file_list, self.scope_misc, dsn, self.user)
         dsn2 = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)
         add_files_to_dataset([dsn, ], self.scope_misc, dsn2, self.user, self.scope_misc)
@@ -357,7 +357,7 @@ class TestDataset_CORE:
         add_files_to_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
         delete_files_from_dataset([(self.scope_misc, lfn), ], self.scope_misc, dsn, self.user)
 
-    @raises(InodeNotFound)
+    @raises(NameNotFound)
     def test_api_add_invalid_file_to_dataset(self):
         """ DATASET (CORE): Assign invalid file to a valid dataset """
         dsn = create_tmp_dataset(self.scope_misc, self.user, self.to_clean_datasets)

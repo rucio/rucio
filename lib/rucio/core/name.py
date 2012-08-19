@@ -17,8 +17,8 @@ from sqlalchemy.sql import and_, or_
 from rucio.common import exception
 from rucio.core.account import account_exists
 from rucio.core.scope import check_scope
-from rucio.db.models1 import Dataset as DATASET, DatasetFileAssociation as DATASETCONTENTS, Inode as INODE,\
-    File as FILE, InodeType, RSEFileAssociation, RSE
+from rucio.db.models1 import Dataset as DATASET, DatasetFileAssociation as DATASETCONTENTS, Name as NAME,\
+    File as FILE, NameType, RSEFileAssociation, RSE
 from rucio.db.session import get_session
 
 session = get_session()
@@ -35,7 +35,7 @@ def register_dataset(scope, datasetName, account, monotonic=False):
     :param monotonic: is set to true then files cannot be removed from dataset
     :raise ScopeNotFound: specified scope does not exist
     :raise AccountNotFound: specified account does not exist
-    :raise InodeNotFound: Inode not found
+    :raise NameNotFound: Name not found
     :raise DatasetAlreadyExists: a dataset with the same name already exists in the specified scope
     :returns: nothing
     """
@@ -43,10 +43,10 @@ def register_dataset(scope, datasetName, account, monotonic=False):
     if (type(monotonic) is not bool and monotonic is not None):
         raise exception.InputValidationError('Monotonic option needs to be a boolean value')
 
-    new_inode = INODE(scope=scope, label=datasetName, type=InodeType.DATASET, owner=account, monotonic=monotonic)
+    new_name = NAME(scope=scope, name=datasetName, type=NameType.DATASET, owner=account, monotonic=monotonic)
     new_dataset = DATASET(dsn=datasetName, scope=scope, owner=account, monotonic=monotonic)
     try:
-        new_inode.save(session=session)
+        new_name.save(session=session)
         new_dataset.save(session=session)
         session.commit()
     except IntegrityError, error:
@@ -58,8 +58,8 @@ def register_dataset(scope, datasetName, account, monotonic=False):
                 raise exception.AccountNotFound("Account '%s' does not exist" % account)
             else:
                 raise exception.RucioException(error.args[0])
-        elif error.args[0] == "(IntegrityError) columns scope, label are not unique":
-            if session.query(INODE).filter_by(scope=scope, label=datasetName).first().type == InodeType.DATASET:
+        elif error.args[0] == "(IntegrityError) columns scope, name are not unique":
+            if session.query(NAME).filter_by(scope=scope, name=datasetName).first().type == NameType.DATASET:
                 raise exception.DatasetAlreadyExists('Dataset with same name (%s) already exists in scope (%s)' % (datasetName, scope))
             else:
                 raise exception.FileAlreadyExists('File with same name (%s) already exists in scope (%s)' % (datasetName, scope))
@@ -103,12 +103,12 @@ def unregister_dataset(scope, datasetName, account):
     """
 
     #dsts = session.query(DATASET)
-    inds = session.query(INODE)
+    inds = session.query(NAME)
     assc = session.query(DATASETCONTENTS)
     try:
         assc.filter_by(scope_dsn=scope, dsn=datasetName).delete()
 #        dsts.filter_by(scope=scope, dsn=datasetName).delete()
-        inds.filter_by(scope=scope, label=datasetName).delete()
+        inds.filter_by(scope=scope, name=datasetName).delete()
         session.commit()
     except IntegrityError, error:
         session.rollback()
@@ -148,12 +148,12 @@ def obsolete_dataset(datasetScope, datasetName, accountName):
 """
 
     dsts = session.query(DATASET)
-    inds = session.query(INODE)
+    inds = session.query(NAME)
     cons = session.query(DATASETCONTENTS)
     try:
         dataset = dsts.filter_by(scope=datasetScope, dsn=datasetName, obsolete=False).one()
         dataset.update({'obsolete': True})
-        inds.filter_by(scope=datasetScope, label=datasetName).update({'obsolete': True})
+        inds.filter_by(scope=datasetScope, name=datasetName).update({'obsolete': True})
         cons.filter_by(scope_dsn=datasetScope, dsn=datasetName).update({'obsolete': True})
         session.commit()
     except NoResultFound, error:
@@ -240,7 +240,7 @@ def change_dataset_owner(datasetScope, datasetName, oldAccount, newAccount):
 
     try:
         session.query(DATASET).filter_by(scope=datasetScope, dsn=datasetName, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
-        session.query(INODE).filter_by(scope=datasetScope, label=datasetName, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
+        session.query(NAME).filter_by(scope=datasetScope, name=datasetName, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
         session.commit()
     except NoResultFound, error:
         session.rollback()
@@ -249,10 +249,10 @@ def change_dataset_owner(datasetScope, datasetName, oldAccount, newAccount):
         elif not account_exists(oldAccount):  # check that account specified exists
             raise exception.AccountNotFound("Account (%s) does not exist" % oldAccount)
         else:  # if account and scope exist then check to see if scope+name are registered as a dataset
-            inode_info = get_inode_metadata(datasetScope, datasetName, oldAccount)
+            inode_info = get_name_metadata(datasetScope, datasetName, oldAccount)
             if inode_info is None:
                 raise exception.DatasetNotFound("Dataset (%s) does not exist" % datasetName)
-            elif inode_info['type'] == InodeType.FILE:  # check if specified dataset is a file
+            elif inode_info['type'] == NameType.FILE:  # check if specified dataset is a file
                 raise exception.NotADataset("Specified dsn (%s) in scope (%s) is actually a file" % (datasetName, datasetScope))
             elif inode_info['obsolete'] is True:  # check that specified dataset is not obsolete
                 raise exception.DatasetObsolete("Dataset (%s) in scope (%s) is obsolete" % (datasetName, datasetScope))
@@ -281,12 +281,12 @@ def get_dataset_metadata(datasetScope, datasetName, account):
     """
 
     try:
-        dst_info = session.query(INODE).filter_by(scope=datasetScope, label=datasetName, type=InodeType.DATASET).one()
+        dst_info = session.query(NAME).filter_by(scope=datasetScope, name=datasetName, type=NameType.DATASET).one()
     except NoResultFound, error:
         session.rollback()
         if not check_scope(datasetScope):  # check if non existing account was provided
             raise exception.ScopeNotFound("Scope (%s) does not exist" % datasetScope)
-        elif not get_inode_metadata(datasetScope, datasetName, account):
+        elif not get_name_metadata(datasetScope, datasetName, account):
             raise exception.DatasetNotFound("Dataset (%s) does not exist in scope (%s)" % (datasetName, datasetScope))
         else:
             raise exception.RucioException(error.args[0])
@@ -297,7 +297,7 @@ def get_dataset_metadata(datasetScope, datasetName, account):
 def add_files_to_dataset(inodeList, targetDatasetScope, targetDatasetName, account, inode_scope=None):
     """ Associate a group of files to a dataset. This method accepts a list of inodes, which can be files or datasets. Dataset inodes converted to lists of files. If one the inodes specified is obsolete an exception is raised.
 
-    :param inodeList: A list of inodes defined as (scope, label). If file_scope is defined, then this parameters is a list of labels only
+    :param inodeList: A list of inodes defined as (scope, label). If file_scope is defined, then this parameters is a list of names only
     :param targetDatasetScope: The scope of the dataset which we are adding files to
     :param targetDatasetName: The name of the dataset which we are adding files to
     :param account: The account which is doing this operation
@@ -306,7 +306,7 @@ def add_files_to_dataset(inodeList, targetDatasetScope, targetDatasetName, accou
     :raise NotADataset: specified dataset is actually a file
     :raise DatasetNotFound: target dataset does not exist
     :raise NoPermissions: account is not the owner of the dataset
-    :raise InodeNotFound: File or dataset in inodeList does not exist
+    :raise NameNotFound: File or dataset in inodeList does not exist
     """
 
     # validate inodeList
@@ -322,35 +322,35 @@ def add_files_to_dataset(inodeList, targetDatasetScope, targetDatasetName, accou
                 raise exception.InputValidationError("inodeList elect '%s' should be a string" % inode)
     dst_owner = get_dataset_owner(targetDatasetScope, targetDatasetName, account)
     if dst_owner is None:
-        if get_inode_type(targetDatasetScope, targetDatasetName, account) == InodeType.FILE:
+        if get_name_type(targetDatasetScope, targetDatasetName, account) == NameType.FILE:
             raise exception.NotADataset('Specified dataset (%s, %s) is actually a file' % (targetDatasetScope, targetDatasetName))
         else:
             raise exception.DatasetNotFound('Target dataset (%s,%s) does not exist' % (targetDatasetScope, targetDatasetName))
     elif account != dst_owner:
         raise exception.NoPermissions('Files cannot be added to dataset. Account (%s) is not the owner (%s) of the dataset' % (account, dst_owner))
     if inode_scope:
-        inodeList = inode_list_generator(inode_scope, inodeList)
+        inodeList = name_list_generator(inode_scope, inodeList)
     conditions = []
     for inode in inodeList:
-        conditions.append(and_(INODE.scope == inode[0], INODE.label == inode[1]))
-    db_list = session.query(INODE).filter(or_(*conditions)).all()
+        conditions.append(and_(NAME.scope == inode[0], NAME.name == inode[1]))
+    db_list = session.query(NAME).filter(or_(*conditions)).all()
 
     if not len(db_list):  # if nothing returned then one or more parameters are wrong
         for inode in inodeList:
-            if not does_inode_exist(inode[0], inode[1], account):
-                raise exception.InodeNotFound('File or dataset in inodeList (%s, %s) does not exist' % (inode[0], inode[1]))
+            if not does_name_exist(inode[0], inode[1], account):
+                raise exception.NameNotFound('File or dataset in inodeList (%s, %s) does not exist' % (inode[0], inode[1]))
 
     file_list = []
     for target_node in db_list:
-        if target_node.type == InodeType.FILE:
-            file_list.append((target_node.scope, target_node.label, target_node.scope, target_node.label))
+        if target_node.type == NameType.FILE:
+            file_list.append((target_node.scope, target_node.name, target_node.scope, target_node.name))
         else:
-            for fl in list_files_in_dataset(target_node.scope, target_node.label):
-                file_list.append((fl[0], fl[1], target_node.scope, target_node.label))
+            for fl in list_files_in_dataset(target_node.scope, target_node.name):
+                file_list.append((fl[0], fl[1], target_node.scope, target_node.name))
 
     for file in file_list:
         new_file_association = DATASETCONTENTS()
-        new_file_association.update({'scope_dsn': targetDatasetScope, 'dsn': targetDatasetName, 'scope_lfn': file[0], 'lfn': file[1], 'parent_inode_scope': file[2], 'parent_inode_name': file[3]})
+        new_file_association.update({'scope_dsn': targetDatasetScope, 'dsn': targetDatasetName, 'scope_lfn': file[0], 'lfn': file[1], 'parent_scope': file[2], 'parent_name': file[3]})
         session.add(new_file_association)
         try:
             session.commit()
@@ -358,8 +358,8 @@ def add_files_to_dataset(inodeList, targetDatasetScope, targetDatasetName, accou
             session.rollback()
             if error.args[0] == '(IntegrityError) foreign key constraint failed':
                 for inode in inodeList:
-                    if not does_inode_exist(inode[0], inode[1], account):
-                        raise exception.InodeNotFound('File or dataset in inodeList (%s, %s) does not exist' % (inode[0], inode[1]))
+                    if not does_name_exist(inode[0], inode[1], account):
+                        raise exception.NameNotFound('File or dataset in inodeList (%s, %s) does not exist' % (inode[0], inode[1]))
             else:
                 raise exception.RucioException(error.args[0])
 
@@ -431,7 +431,7 @@ def is_dataset_monotonic(datasetScope, datasetName, account):
     try:
         info = session.query(DATASET).filter_by(scope=datasetScope, dsn=datasetName).one()
     except  NoResultFound:
-        __evaluate_no_result_found(datasetScope, datasetName, account, InodeType.DATASET)
+        __evaluate_no_result_found(datasetScope, datasetName, account, NameType.DATASET)
     return info.monotonic
 
 
@@ -449,7 +449,7 @@ def is_dataset_obsolete(datasetScope, datasetName, account):
     try:
         info = session.query(DATASET).filter_by(scope=datasetScope, dsn=datasetName).one()
     except NoResultFound:
-        __evaluate_no_result_found(datasetScope, datasetName, account, InodeType.DATASET)
+        __evaluate_no_result_found(datasetScope, datasetName, account, NameType.DATASET)
     return info.obsolete
 
 
@@ -469,18 +469,18 @@ def __evaluate_no_result_found(inodeScope, inodeName, account, inode_type=None):
     if not check_scope(inodeScope):
         raise exception.ScopeNotFound("Scope '%s' does not exist" % inodeScope)
 
-    if inode_type == InodeType.DATASET:
-        if get_inode_type(inodeScope, inodeName, account) == InodeType.FILE:
+    if inode_type == NameType.DATASET:
+        if get_name_type(inodeScope, inodeName, account) == NameType.FILE:
             raise exception.NotADataset("Specified dataset '%s' in scope '%s' is actually a file" % (inodeName, inodeScope))
         else:
             raise exception.DatasetNotFound("Target dataset '%s' in scope '%s' does not exist." % (inodeName, inodeScope))
-    elif inode_type == InodeType.FILE:
-        if get_inode_type(inodeScope, inodeName, account) == InodeType.DATASET:
+    elif inode_type == NameType.FILE:
+        if get_name_type(inodeScope, inodeName, account) == NameType.DATASET:
             raise exception.NotAFile("Specified file '%s' in scope '%s' is actually a dataset" % (inodeName, inodeScope))
         else:
             raise exception.FileNotFound("Target file '%s' in scope '%s' does not exist." % (inodeName, inodeScope))
     elif inode_type is None:
-        raise exception.InodeNotFound("Target inode '%s' in scope '%s' does not exist" % (inodeScope, inodeName))
+        raise exception.NameNotFound("Target inode '%s' in scope '%s' does not exist" % (inodeScope, inodeName))
     else:
         exception.InputValidationError('Unrecognised inode type')
 
@@ -499,7 +499,7 @@ def get_dataset_owner(datasetScope, datasetName, account):
     try:
         info = session.query(DATASET).filter_by(scope=datasetScope, dsn=datasetName).one()
     except:
-        __evaluate_no_result_found(datasetScope, datasetName, account, InodeType.DATASET)
+        __evaluate_no_result_found(datasetScope, datasetName, account, NameType.DATASET)
     return info.owner
 
 # FILE FUNCTIONALITY
@@ -518,10 +518,10 @@ def register_file(scope, filename, account):
     :returns: nothing
     """
 
-    new_inode = INODE(scope=scope, label=filename, type=InodeType.FILE, owner=account)
+    new_name = NAME(scope=scope, name=filename, type=NameType.FILE, owner=account)
     new_file = FILE(lfn=filename, scope=scope, owner=account)
     try:
-        new_inode.save(session=session)
+        new_name.save(session=session)
         new_file.save(session=session)
         session.commit()
     except IntegrityError, error:
@@ -533,8 +533,8 @@ def register_file(scope, filename, account):
                 raise exception.AccountNotFound("Account (%s) does not exist" % account)
             else:
                 raise exception.RucioException(error.args[0])
-        elif error.args[0] == "(IntegrityError) columns scope, label are not unique":
-            if session.query(INODE).filter_by(scope=scope, label=filename).first().type == InodeType.DATASET:
+        elif error.args[0] == "(IntegrityError) columns scope, name are not unique":
+            if session.query(NAME).filter_by(scope=scope, name=filename).first().type == NameType.DATASET:
                 raise exception.DatasetAlreadyExists('Dataset with same name (%s) as specified file already exists in scope (%s)' % (filename, scope))
             else:
                 raise exception.FileAlreadyExists('Filename with same name (%s) already exists in scope (%s)' % (filename, scope))
@@ -578,12 +578,12 @@ def obsolete_file(fileScope, filename, accountName):
     """
 
     fils = session.query(FILE)
-    inds = session.query(INODE)
+    inds = session.query(NAME)
     cons = session.query(DATASETCONTENTS)
     try:
         file = fils.filter_by(scope=fileScope, lfn=filename, obsolete=False).one()
         file.update({'obsolete': True})
-        inds.filter_by(scope=fileScope, label=filename).update({'obsolete': True})
+        inds.filter_by(scope=fileScope, name=filename).update({'obsolete': True})
         cons.filter_by(scope_dsn=fileScope, lfn=filename).update({'obsolete': True})
         session.commit()
     except NoResultFound, error:
@@ -608,7 +608,7 @@ def is_file_obsolete(fileScope, filename, account):
     try:
         info = session.query(FILE).filter_by(scope=fileScope, lfn=filename).one()
     except NoResultFound:
-        __evaluate_no_result_found(fileScope, filename, account, inode_type=InodeType.FILE)
+        __evaluate_no_result_found(fileScope, filename, account, inode_type=NameType.FILE)
     return info.obsolete
 
 
@@ -645,9 +645,9 @@ def unregister_file(scope, name, account):
     session = get_session()
 
     fils = session.query(FILE)
-    inds = session.query(INODE)
+    inds = session.query(NAME)
     fils.filter_by(scope=scope, lfn=name).delete()
-    inds.filter_by(scope=scope, label=name).delete()
+    inds.filter_by(scope=scope, name=name).delete()
     session.commit()
 
 
@@ -736,7 +736,7 @@ def change_file_owner(fileScope, filename, oldAccount, newAccount):
 
     try:
         session.query(FILE).filter_by(scope=fileScope, lfn=filename, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
-        session.query(INODE).filter_by(scope=fileScope, label=filename, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
+        session.query(NAME).filter_by(scope=fileScope, name=filename, owner=oldAccount, obsolete=False).one().update({'owner': newAccount})
         session.commit()
     except NoResultFound, error:
         session.rollback()
@@ -746,10 +746,10 @@ def change_file_owner(fileScope, filename, oldAccount, newAccount):
             elif not account_exists(oldAccount):  # check that account specified exists
                 raise exception.AccountNotFound("Account (%s) does not exist" % oldAccount)
             else:  # if account and scope exist then check to see if scope+name are registered as a file
-                inode_info = get_inode_metadata(fileScope, filename, oldAccount)
+                inode_info = get_name_metadata(fileScope, filename, oldAccount)
                 if inode_info is None:
                     raise exception.FileNotFound("File (%s) does not exist" % filename)
-                elif inode_info['type'] == InodeType.DATASET:  # check if specified file is actually a dataset
+                elif inode_info['type'] == NameType.DATASET:  # check if specified file is actually a dataset
                     raise exception.NotAFile("Specified file (%s) in scope (%s) is actually a dataset" % (filename, fileScope))
                 elif inode_info['obsolete'] is True:  # check that specified dataset is not obsolete
                     raise exception.FileObsolete("File (%s) in scope (%s) is obsolete" % (filename, fileScope))
@@ -779,7 +779,7 @@ def get_file_metadata(fileScope, filename, account):
     """
 
     try:
-        dst_info = session.query(INODE).filter_by(scope=fileScope, label=filename, type=InodeType.FILE).one()
+        dst_info = session.query(NAME).filter_by(scope=fileScope, name=filename, type=NameType.FILE).one()
     except NoResultFound, error:
         session.rollback()
         if error.args[0] == 'No row was found for one()':
@@ -795,10 +795,10 @@ def get_file_metadata(fileScope, filename, account):
     return dictionary
 
 
-# INODE FUNCTIONALITY
+# NAME FUNCTIONALITY
 
 
-def does_inode_exist(scope, name, account):
+def does_name_exist(scope, name, account):
     """ checks to see if inode exists.
 
     :param account: the account searching for the file.
@@ -807,27 +807,27 @@ def does_inode_exist(scope, name, account):
     :returns: True if inode exists, otherwise False
     """
 
-    return True if session.query(INODE).filter_by(scope=scope, label=name).first() else False
+    return True if session.query(NAME).filter_by(scope=scope, name=name).first() else False
 
 
-def is_inode_obsolete(scope, name, account):
+def is_name_obsolete(scope, name, account):
     """ Check if file is obsolete
 
     :param scope: The scope of the inode
     :param name: The name of the file
     :returns: True if file is obsolete, otherwise false
     :raise ScopeNotFound: The specified scope does not exist
-    :raise InodeNotFound: The specified inode does not exist
+    :raise NameNotFound: The specified inode does not exist
     """
 
     try:
-        info = session.query(INODE).filter_by(scope=scope, label=name).one()
+        info = session.query(NAME).filter_by(scope=scope, name=name).one()
     except NoResultFound:
         __evaluate_no_result_found(scope, name, account)
     return info.obsolete
 
 
-def get_inode_metadata(inodeScope, inodeName, account):
+def get_name_metadata(inodeScope, inodeName, account):
     """ Return inode metadata
 
     :param inodeScope: scope of the file or dataset
@@ -837,17 +837,17 @@ def get_inode_metadata(inodeScope, inodeName, account):
     """
 
     inodeScope.replace('*', '%')
-    inode = session.query(INODE).filter_by(scope=inodeScope, label=inodeName).first()
+    inode = session.query(NAME).filter_by(scope=inodeScope, name=inodeName).first()
     if not inode:
         return None
     else:
         metadata = {'type': inode.type, 'obsolete': inode.obsolete, 'owner': inode.owner}
-        if inode.type == InodeType.DATASET:
+        if inode.type == NameType.DATASET:
             metadata['monotonic'] = inode.monotonic
         return metadata
 
 
-def get_inode_type(inodeScope, inodeName, account):
+def get_name_type(inodeScope, inodeName, account):
     """ Returns the inode's type
 
     :param inodeScope: scope of the file or dataset
@@ -856,15 +856,15 @@ def get_inode_type(inodeScope, inodeName, account):
     :returns: inode metadata or None if inode does not exist
     """
 
-    inode = session.query(INODE).filter_by(scope=inodeScope, label=inodeName).first()
+    inode = session.query(NAME).filter_by(scope=inodeScope, name=inodeName).first()
     if not inode:
         return None
     else:
         return inode.type
 
 
-def obsolete_inode(inodeScope, inodeName, account):
-    """ obsoletes an inode
+def obsolete_name(inodeScope, inodeName, account):
+    """ obsoletes a name
 
     :param inodeScope: the scope of the inode. The parameter does not do wildcard searches.
     :param inodeName: the name of the inode. The parameter does not do wildcard searches.
@@ -873,16 +873,16 @@ def obsolete_inode(inodeScope, inodeName, account):
     :raise FileObsolete: inode is a file which is already obsolete
     """
 
-    if get_inode_type(inodeScope, inodeName, account) == InodeType.FILE:
+    if get_name_type(inodeScope, inodeName, account) == NameType.FILE:
         obsolete_file(inodeScope, inodeName, account)
     else:
         try:
             obsolete_dataset(inodeScope, inodeName, account)
         except exception.DatasetNotFound:  # As we don't know whether it was intended to be a dataset or a file
-            raise exception.InodeNotFound('Target inode (%s) in scope (%s) does not exist.' % (inodeScope, inodeName))
+            raise exception.NameNotFound('Target inode (%s) in scope (%s) does not exist.' % (inodeScope, inodeName))
 
 
-def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
+def change_name_owner(inodeScope, inodeName, oldAccount, newAccount):
     """ Change a dataset's owner
 
     :param inodeScope: the scope of the dataset
@@ -891,13 +891,13 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
     :param newAccount: the new owner of the dataset
     :raise ScopeNotFound: specified scope does not exist
     :raise AccountNotFound: specified account does not exist
-    :raise InodeNotFound: specified inode does not exist
+    :raise NameNotFound: specified inode does not exist
     :raise DatasetObsolete: specified dataset does not exist
     :raise FileObsolete: specified file does not exist
     """
 
     try:
-        inode_type = session.query(INODE).filter_by(scope=inodeScope, label=inodeName, owner=oldAccount, obsolete=False).one().type
+        inode_type = session.query(NAME).filter_by(scope=inodeScope, name=inodeName, owner=oldAccount, obsolete=False).one().type
     except NoResultFound, error:
         if error.args[0] == 'No row was found for one()':
             if not check_scope(inodeScope):  # check that scope exists
@@ -905,11 +905,11 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
             elif not account_exists(oldAccount):  # check that account specified exists
                 raise exception.AccountNotFound("Account (%s) does not exist" % oldAccount)
             else:
-                inode_info = get_inode_metadata(inodeScope, inodeName, oldAccount)
+                inode_info = get_name_metadata(inodeScope, inodeName, oldAccount)
                 if inode_info is None:
-                    raise exception.InodeNotFound("Inode (%s) does not exist" % inodeName)
+                    raise exception.NameNotFound("Inode (%s) does not exist" % inodeName)
                 elif inode_info['obsolete'] is True:  # check that specified dataset is not obsolete
-                    if get_inode_type(inodeScope, inodeName, oldAccount) == InodeType.DATASET:
+                    if get_name_type(inodeScope, inodeName, oldAccount) == NameType.DATASET:
                         raise exception.DatasetObsolete("Dataset (%s) in scope (%s) is obsolete" % (inodeName, inodeScope))
                     else:
                         raise exception.FileObsolete("File (%s) in scope (%s) is obsolete" % (inodeName, inodeScope))
@@ -917,63 +917,63 @@ def change_inode_owner(inodeScope, inodeName, oldAccount, newAccount):
                     raise exception.NoPermissions("Specified account (%s) is not the owner" % oldAccount)
         else:
             exception.RucioException(error.args[0])
-    if inode_type == InodeType.DATASET:
+    if inode_type == NameType.DATASET:
         change_dataset_owner(inodeScope, inodeName, oldAccount, newAccount)
     else:
         change_file_owner(inodeScope, inodeName, oldAccount, newAccount)
 
 
-def list_inodes(accountName, inodeScope=None, inodeName=None, obsolete=False):
-    """ lists inodes matching wildcard search.
+def list_names(accountName, nameScope=None, inodeName=None, obsolete=False):
+    """ lists names matching wildcard search.
 
     :param accountName: the account searching for the inodes
-    :param inodeScope: the scope where the inodes exists. This parameter accepts wildcards
+    :param nameScope: the scope where the inodes exists. This parameter accepts wildcards
     :param inodeName: inodeName pattern. This parameter accepts wildcards
     :param obsolete: if True, then also consider obsolete inodes
     """
 
-    if inodeScope is not None:
-        inodeScope = inodeScope.replace("*", "%")
+    if nameScope is not None:
+        nameScope = nameScope.replace("*", "%")
     if inodeName is not None:
         inodeName = inodeName.replace("*", "%")
 
-    if inodeScope == '%':
-        inodeScope = None
+    if nameScope == '%':
+        nameScope = None
     if inodeName == '%':
         inodeName = None
 
-    inode_query = session.query(INODE)
+    inode_query = session.query(NAME)
     # No scope
-    if inodeScope is None:
+    if nameScope is None:
         if inodeName is None:  # No node defined
             inodes = inode_query.all() if obsolete else inode_query.all(obsolete=False)
         elif '%' not in inodeName:  # No wildcards in inode name
-            inodes = inode_query.filter_by(label=inodeName) if obsolete else inode_query.filter_by(label=inodeName, obsolete=False)
+            inodes = inode_query.filter_by(name=inodeName) if obsolete else inode_query.filter_by(name=inodeName, obsolete=False)
         else:  # Dataset wild card search
-            inodes = inode_query.filter(INODE.label.like(inodeName)) if obsolete else inode_query.filter(INODE.label.like(inodeName)).filter_by(obsolete=False)
+            inodes = inode_query.filter(NAME.name.like(inodeName)) if obsolete else inode_query.filter(NAME.name.like(inodeName)).filter_by(obsolete=False)
     # Scope has wildcards
-    elif '%' in inodeScope:
+    elif '%' in nameScope:
         if inodeName is None:  # No inode defined
-            inodes = inode_query.filter(INODE.scope.like(inodeScope)) if obsolete else inode_query.filter(INODE.scope.like(inodeScope))
+            inodes = inode_query.filter(NAME.scope.like(nameScope)) if obsolete else inode_query.filter(NAME.scope.like(nameScope))
         elif '%' not in inodeName:  # No wildcards in inode name
-            inodes = inode_query.filter(INODE.scope.like(inodeScope)).filter_by(label=inodeName).all() if obsolete else inode_query.filter(INODE.scope.like(inodeScope)).filter_by(label=inodeName).filter_by(obsolete=False)
+            inodes = inode_query.filter(NAME.scope.like(nameScope)).filter_by(name=inodeName).all() if obsolete else inode_query.filter(NAME.scope.like(nameScope)).filter_by(name=inodeName).filter_by(obsolete=False)
         else:  # Inode wildcard card search
             if obsolete:
-                inodes = inode_query.filter(INODE.scope.like(inodeScope)).filter(INODE.label.like(inodeName))
+                inodes = inode_query.filter(NAME.scope.like(nameScope)).filter(NAME.name.like(inodeName))
             else:
-                inodes = inode_query.filter(INODE.scope.like(inodeScope)).filter(INODE.label.like(inodeName)).filter_by(obsolete=False)
+                inodes = inode_query.filter(NAME.scope.like(nameScope)).filter(NAME.name.like(inodeName)).filter_by(obsolete=False)
     # Single scope search
     else:
         if inodeName is None:  # No inode defined
-            inodes = inode_query.filter_by(scope=inodeScope) if obsolete else inode_query.filter_by(scope=inodeScope, obsolete=False)
+            inodes = inode_query.filter_by(scope=nameScope) if obsolete else inode_query.filter_by(scope=nameScope, obsolete=False)
         elif '%' not in inodeName:  # No wildcards in inode name
-            inodes = inode_query.filter_by(scope=inodeScope, label=inodeName) if obsolete else inode_query.filter_by(scope=inodeScope, label=inodeName, obsolete=False)
+            inodes = inode_query.filter_by(scope=nameScope, name=inodeName) if obsolete else inode_query.filter_by(scope=nameScope, name=inodeName, obsolete=False)
         else:  # Wildcards in inode name
-            inodes = inode_query.filter_by(scope=inodeScope).filter(INODE.label.like(inodeName)) if obsolete else inode_query.filter_by(scope=inodeScope).filter(INODE.label.like(inodeName)).filter_by(obsolete=False)
-    return [inode.label for inode in inodes]
+            inodes = inode_query.filter_by(scope=nameScope).filter(NAME.name.like(inodeName)) if obsolete else inode_query.filter_by(scope=nameScope).filter(NAME.name.like(inodeName)).filter_by(obsolete=False)
+    return [inode.name for inode in inodes]
 
 
-def inode_list_generator(scope, listOfNames):
+def name_list_generator(scope, listOfNames):
     """ Utility function. Takes a list of names and a scope parameter and generates (scope, name) tuples
 
     :param scope: The scope of the inode
@@ -985,7 +985,7 @@ def inode_list_generator(scope, listOfNames):
         yield (scope, name)
 
 
-def build_inode_list(scope, listOfNames):
+def build_name_list(scope, listOfNames):
     """ Utility function. Takes a list of names and a scope parameter and generates a list of (scope, name) tuples
 
     :param scope: The scope of the inode
