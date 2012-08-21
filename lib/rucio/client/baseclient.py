@@ -269,7 +269,7 @@ class BaseClient(object):
         """
 
         headers = {'Rucio-Account': self.account}
-        url = build_url(self.host, path='auth/x509', use_ssl=self.use_ssl)
+        url = build_url(self.host, path='auth/x509', use_ssl=self.auth_use_ssl)
 
         client_cert = None
         client_key = None
@@ -326,7 +326,7 @@ class BaseClient(object):
         """
 
         headers = {'Rucio-Account': self.account}
-        url = build_url(self.auth_host, port=self.auth_port, path='auth/gss', use_ssl=self.use_ssl)
+        url = build_url(self.auth_host, port=self.auth_port, path='auth/gss', use_ssl=self.auth_use_ssl)
 
         retry = 0
         while retry < self.AUTH_RETRIES:

@@ -30,7 +30,7 @@ class PingClient(BaseClient):
         """
 
         headers = None
-        path = '/'
+        path = '/ping'
         url = build_url(self.host, path=path, use_ssl=False)
         r = get(url, headers=headers)
         if r.status_code == codes.ok:
