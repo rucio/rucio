@@ -48,7 +48,7 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
  TransferLog /var/log/rucio/httpd_access_log
 
 
- WSGIScriptAlias / /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/ping.py
+ WSGIScriptAlias /ping /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/ping.py
 
 
 </VirtualHost>
