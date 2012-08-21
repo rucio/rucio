@@ -13,12 +13,15 @@ Rucio utilities.
 """
 
 from urllib import urlencode
+from urlparse import urlparse
 from uuid import uuid4 as uuid
 try:
     # Hack for the client distribution
     from web import HTTPError
 except:
     pass
+
+from rucio.common.exception import ClientProtocolNotSupported
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -51,6 +54,12 @@ def build_url(host, port=None, path=None, params=None, use_ssl=True):
     utitily function to build an url for requests to the rucio system.
     """
 
+    parse = urlparse(host)
+    if len(parse.scheme) == 0:
+        host = parse.path
+    else:
+        host = parse.netloc
+
     if use_ssl:
         url = "https://"
     else:
@@ -65,6 +74,23 @@ def build_url(host, port=None, path=None, params=None, use_ssl=True):
         url += "?"
         url += urlencode(params)
     return url
+
+
+def check_url(url, use_ssl):
+    """ utility function to check if scheme in url matches with the use_ssl switch"""
+    scheme = urlparse(url).scheme
+
+    if scheme == '':
+        return True
+    if scheme != 'http' and scheme != 'https':
+        raise ClientProtocolNotSupported('\'%s\' not supported' % scheme)
+
+    if scheme == 'http' and use_ssl is True:
+        return False
+    if scheme == 'https' and use_ssl is False:
+        return False
+
+    return True
 
 
 def generate_uuid():

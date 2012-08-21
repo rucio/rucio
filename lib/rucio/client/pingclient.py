@@ -19,8 +19,8 @@ class PingClient(BaseClient):
 
     """Ping client class"""
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(PingClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, use_ssl, ca_cert, auth_type, creds)
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, rucio_use_ssl=True, auth_use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
+        super(PingClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, rucio_use_ssl, auth_use_ssl, ca_cert, auth_type, creds)
 
     def ping(self):
         """
