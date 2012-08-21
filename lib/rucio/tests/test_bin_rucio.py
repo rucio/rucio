@@ -8,7 +8,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
+from os import remove
 
 import nose.tools
 import re
@@ -23,6 +25,12 @@ class TestBinRucio():
     def setUp(self):
         build_database(echo=False)
         create_root_account()
+        try:
+            remove('/tmp/rucio/auth_token_root')
+        except OSError, e:
+            if e.args[0] != 2:
+                raise e
+
         self.marker = '$> '
 
     def tearDown(self):
