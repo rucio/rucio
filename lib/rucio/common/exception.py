@@ -159,6 +159,18 @@ class CannotAuthenticate(RucioException):
         self._message = "Cannot authenticate."
 
 
+class ClientParameterMismatch(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ClientParameterMismatch, self).__init__(args)
+        self._message = "Client parameters don\'t match."
+
+
+class ClientProtocolNotSupported(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ClientProtocolNotSupported, self).__init__(args)
+        self._message = "Client protocol not supported."
+
+
 class IdentityError(RucioException):
     def __init__(self, *args, **kwargs):
         super(IdentityError, self).__init__()

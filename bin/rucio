@@ -58,7 +58,7 @@ def ping(args):
 
     client = PingClient(rucio_host=args.host, rucio_port=args.port,
                         auth_host=args.auth_host, auth_port=args.auth_port,
-                        account=args.account, use_ssl=False,
+                        account=args.account, rucio_use_ssl=args.ssl,
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -83,7 +83,7 @@ def whoami_account(args):
 
     accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
                                   auth_host=args.auth_host, auth_port=args.auth_port,
-                                  account=args.account, use_ssl=True,
+                                  account=args.account, rucio_use_ssl=args.ssl,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -121,7 +121,7 @@ def add_file(args):
 
     client = RSEClient(rucio_host=args.host, rucio_port=args.port,
                        auth_host=args.auth_host, auth_port=args.auth_port,
-                       account=args.account, use_ssl=True,
+                       account=args.account, rucio_use_ssl=args.ssl,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -165,7 +165,7 @@ def add_dataset(args):
 
     client = DatasetClient(rucio_host=args.host, rucio_port=args.port,
                            auth_host=args.auth_host, auth_port=args.auth_port,
-                           account=args.account, use_ssl=True,
+                           account=args.account, rucio_use_ssl=args.ssl,
                            auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -202,7 +202,7 @@ def add_files_to_dataset(args):
 
     client = DatasetClient(rucio_host=args.host, rucio_port=args.port,
                            auth_host=args.auth_host, auth_port=args.auth_port,
-                           account=args.account, use_ssl=True,
+                           account=args.account, rucio_use_ssl=args.ssl,
                            auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -232,7 +232,7 @@ def list_files_in_dataset(args):
 
     client = DatasetClient(rucio_host=args.host, rucio_port=args.port,
                            auth_host=args.auth_host, auth_port=args.auth_port,
-                           account=args.account, use_ssl=True,
+                           account=args.account, rucio_use_ssl=args.ssl,
                            auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -294,6 +294,7 @@ Commands:
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
+    oparser.add_argument('--ssl', default=None, action='store_true', help="Enable ssl.")
     oparser.add_argument('--host', metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
     oparser.add_argument('--port', dest="port", metavar="PORT", type=int, help="Port the Rucio API host listens on. " "Default: %default")
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="Address of Rucio Authentication host. " "Default: %default")

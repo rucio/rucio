@@ -261,7 +261,7 @@ class TestAccountClient():
         build_database(echo=False)
         create_root_account()
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.client = AccountClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.client = AccountClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     def tearDown(self):
         destroy_database(echo=False)
