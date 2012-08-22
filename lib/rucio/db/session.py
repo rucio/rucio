@@ -87,23 +87,38 @@ def destroy_database(echo=True):
 def create_root_account():
     """ Inserts the default root account to an existing database. Make sure to change the default password later. """
 
+    up_id = 'ddmlab'
+    up_pwd = '2ccee6f6dd1bc2269cddd7cd5e47578e98e430539807c36df23fab7dd13e7583'
+    up_email = 'ph-adp-ddm-lab@cern.ch'
+    x509_id = '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'
+    x509_email = 'ph-adp-ddm-lab@cern.ch'
+    gss_id = 'ddmlab@CERN.CH'
+    gss_email = 'ph-adp-ddm-lab@cern.ch'
+
+    try:
+        up_id = config_get('bootstrap', 'userpass_identity')
+        up_pwd = config_get('bootstrap', 'userpass_pwd')
+        up_email = config_get('bootstrap', 'userpass_email')
+        x509_id = config_get('bootstrap', 'x509_identity')
+        x509_email = config_get('bootstrap', 'x509_email')
+        gss_id = config_get('bootstrap', 'gss_identity')
+        gss_email = config_get('bootstrap', 'gss_email')
+    except:
+        print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
+
     session = get_session()
 
-    # Account=root
     account = models.Account(account='root', type='user', status='active')
-    # Username/Password authentication
-    # username=ddmlab
-    # password=secret
-    identity1 = models.Identity(identity='ddmlab', type='userpass', password='2ccee6f6dd1bc2269cddd7cd5e47578e98e430539807c36df23fab7dd13e7583', salt='0', email='ph-adp-ddm-lab@cern.ch')
+
+    identity1 = models.Identity(identity=up_id, type='userpass', password=up_pwd, salt='0', email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, default=True)
 
     # X509 authentication
-    # Default DDMLAB client certificate from /opt/rucio/etc/web/client.crt
-    identity2 = models.Identity(identity='/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch', type='x509', email='ph-adp-ddm-lab@cern.ch')
+    identity2 = models.Identity(identity=x509_id, type='x509', email=x509_email)
     iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, default=True)
 
     # GSS authentication
-    identity3 = models.Identity(identity='ddmlab@CERN.CH', type='gss', email='ph-adp-ddm-lab@cern.ch')
+    identity3 = models.Identity(identity=gss_id, type='gss', email=gss_email)
     iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, type=identity3.type, account=account.account, default=True)
 
     # Apply
