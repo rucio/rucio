@@ -14,8 +14,9 @@ from sqlalchemy import event
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import DisconnectionError
 
+from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.db import models1 as models
+from rucio.db import models1 as models, migration
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):
@@ -66,8 +67,14 @@ def get_session():
 def build_database(echo=True):
     """ Applies the schema to the database. Run this command once to build the database. """
 
-    engine = create_engine(config_get('database', 'default'), echo=echo)
+    sql_connection = config_get('database', 'default')
+    engine = create_engine(sql_connection, echo=echo)
     models.register_models(engine)
+    try:
+        migration.version_control(sql_connection=sql_connection)
+    except exception.DatabaseMigrationError:
+        # Can happen if the DB exists and is under version control
+        pass
 
 
 def destroy_database(echo=True):

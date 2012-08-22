@@ -18,7 +18,7 @@ from logging import getLogger
 from rucio.client.baseclient import BaseClient
 from rucio.common.exception import SourceAccessDenied
 from rucio.common.exception import SourceNotFound
-from rucio.common.exception import RSENotReachable
+#from rucio.common.exception import RSENotReachable
 from rucio.common.exception import RSEAccessDenied
 from rucio.common.exception import FullStorage
 
@@ -79,7 +79,7 @@ class UploadClient(BaseClient):
                 # ToDo the REST call for: rucio_server.prepare_upload(account, sources[src], recommendation)
                 try:
                     RSEMgr.upload(src, recommendation)
-                except (RSENotReachable, RSEAccessDenied, FullStorage), e:
+                except (RSEAccessDenied, FullStorage), e:
                     report[src] = e
                     continue
                 # ToDo the REST call for: rucio_server.confirm_upload(src, recommendation)
