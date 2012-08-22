@@ -123,8 +123,6 @@ def get_auth_token_gss(account, gsstoken, ip=None):
 def validate_auth_token(token):
     """Validate an authentication token.
 
-    If the validation is successful, the token lifetime will be extended by 1 hour.
-
     :param account: Account identifier.
     :param token: Authentication token as a 32 character hex string.
     :returns: Tuple(account name, Datetime(expected expiry time)) if successful, None otherwise."""
@@ -138,8 +136,6 @@ def validate_auth_token(token):
     r = q.all()
 
     if r is not None and r != []:
-        q.update({'lifetime': datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)})
-        session.commit()
         return {'account': r[0][0], 'lifetime': r[0][1]}
 
     return None
