@@ -273,6 +273,12 @@ class FileReplicaAlreadyExists(RucioException):
         self._message = "A replica of the file already exists."
 
 
+class FileAlreadyExists(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(FileAlreadyExists, self).__init__(args, kwargs)
+        self._message = "The file already exists."
+
+
 class FileConsistencyConflict(RucioException):
     def __init__(self, *args, **kwargs):
         super(FileConsistencyConflict, self).__init__(args, kwargs)
