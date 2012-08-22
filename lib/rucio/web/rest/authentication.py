@@ -55,7 +55,7 @@ class UserPass:
 
         try:
             result = get_auth_token_user_pass(account, username, password, ip)
-        except AccessDenied, e:
+        except AccessDenied as e:
             exc = web.Unauthorized()
             exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
             exc.data = e[0][0]
@@ -108,7 +108,7 @@ class GSS:
 
         try:
             result = get_auth_token_gss(account, gsscred, ip)
-        except AccessDenied, e:
+        except AccessDenied as e:
             exc = web.Unauthorized()
             exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
             raise exc
@@ -167,7 +167,7 @@ class x509:
 
         try:
             result = get_auth_token_x509(account, dn, ip)
-        except AccessDenied, e:
+        except AccessDenied as e:
             exc = web.Unauthorized()
             exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
             raise exc
