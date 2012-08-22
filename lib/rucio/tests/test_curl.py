@@ -27,7 +27,7 @@ class TestCurlRucio():
 
     def test_ping(self):
         """PING (CURL): Get Version"""
-        cmd = 'curl -s  -X GET http://localhost/'
+        cmd = 'curl -s  -X GET http://localhost/ping'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
