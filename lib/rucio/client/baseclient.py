@@ -137,7 +137,7 @@ class BaseClient(object):
         except ClientProtocolNotSupported, e:
             raise e
 
-        if rucio_use_ssl and ca_cert is None:
+        if  (self.use_ssl or self.auth_use_ssl) and ca_cert is None:
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
@@ -269,15 +269,16 @@ class BaseClient(object):
         """
 
         headers = {'Rucio-Account': self.account}
-        url = build_url(self.host, path='auth/x509', use_ssl=self.auth_use_ssl)
 
         client_cert = None
         client_key = None
         if self.auth_type == 'x509':
+            url = build_url(self.auth_host, port=self.auth_port, path='auth/x509', use_ssl=self.auth_use_ssl)
             client_cert = self.creds['client_cert']
             if 'client_key' in self.creds:
                 client_key = self.creds['client_key']
         elif self.auth_type == 'x509_proxy':
+            url = build_url(self.auth_host, port=self.auth_port, path='auth/x509_proxy', use_ssl=self.auth_use_ssl)
             client_cert = self.creds['client_proxy']
 
         if not path.exists(client_cert):

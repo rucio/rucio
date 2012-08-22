@@ -163,7 +163,7 @@ class x509:
         # endpoint as you cannot programmatically decide, by examining the SSL variables,
         # if you got a proxy or regular certificate
         while dn.endswith('/CN=proxy'):
-            dn = dn[:9]
+            dn = dn[:-9]
 
         try:
             result = get_auth_token_x509(account, dn, ip)
