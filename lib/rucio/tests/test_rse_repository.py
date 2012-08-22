@@ -13,7 +13,7 @@ import json
 from nose.tools import raises
 
 from rucio.common import exception
-from rucio.rse import wrapper
+from rucio.rse import rsemanager
 
 
 class TestRseRepository():
@@ -24,11 +24,17 @@ class TestRseRepository():
         credentials['username'] = str(data['lxplus.cern.ch']['username'])
         credentials['password'] = str(data['lxplus.cern.ch']['password'])
         credentials['host'] = 'lxplus.cern.ch'
-        self.storage = wrapper.RSEWrapper('lxplus.cern.ch')
+        self.storage = rsemanager.RSE('lxplus.cern.ch')
         self.storage.connect(credentials)
         self.storage.close()
 
     @raises(exception.RSENotFound)
     def test_storage_failure(self):
-        """ RSE (RSE): Repository => Storage not defined Exception """
-        wrapper.RSEWrapper('not.existing')
+        """ RSE (RSE): Repository => RSENotFound Exception """
+        rsemanager.RSE('not.existing')
+
+    @raises(exception.RSENotFound)
+    def test_storage_failure_mgr(self):
+        """ RSE (RSE): Repository => RSENotFound Exception (Mgr) """
+        mgr = rsemanager.RSEMgr()
+        mgr.download('not_existing_rse', 'not_existing_file.raw')
