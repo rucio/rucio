@@ -165,7 +165,6 @@ class RSEWrapper(object):
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
 
             :raises RSENotConnected    If the connection to the RSE has not yet been established
-            :raises SourceAccessDenied If access to the local destination directory is denied
             :raises SourceNotFound     If access to the local destination directory is not found
         """
         ret = {}
@@ -173,12 +172,17 @@ class RSEWrapper(object):
         if self.__connected:
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
-                try:
-                    self.__protocol.put(lfn, source_dir)
-                    ret[lfn] = True
-                except Exception as e:
+                # Check if file replica is already on the storage system
+                if self.exists(lfn):
+                    ret[lfn] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % lfn)
                     gs = False
-                    ret[lfn] = e
+                else:
+                    try:
+                        self.__protocol.put(lfn, source_dir)
+                        ret[lfn] = True
+                    except Exception as e:
+                        gs = False
+                        ret[lfn] = e
         else:
             raise exception.RSENotConnected()
         if len(ret) == 1:
@@ -199,7 +203,6 @@ class RSEWrapper(object):
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
 
             :raises RSENotConnected    If the connection to the RSE has not yet been established
-            :raises SourceAccessDenied If access to the local destination directory is denied
             :raises SourceNotFound     If access to the local destination directory is not found
         """
         ret = {}
@@ -224,7 +227,7 @@ class RSEWrapper(object):
         return [gs, ret]
 
     def rename(self, lfns):
-        """ Rename files store d on the connected RSE.
+        """ Rename files stored on the connected RSE.
             Providing a list of LFNs indicates the bulk mode.
 
             :param lfns        A single LFN as string or a list object with LFNs
@@ -232,9 +235,8 @@ class RSEWrapper(object):
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
 
             :raises RSENotConnected    If the connection to the RSE has not yet been established
-            :raises SourceAccessDenied If access to the local destination directory is denied
-            :raises SourceNotFound     If access to the local destination directory is not found
-            :raises FileAlreadyExists  If the new name is already present on the RSE
+            :raises SourceNotFound     If access to the remote source directory is not found
+            :raises FileReplicaAlreadyExists  If the new name is already present on the RSE
         """
         ret = {}
         gs = True
@@ -246,7 +248,7 @@ class RSEWrapper(object):
                     gs = False
                 # Check if target is not on storage
                 elif self.exists(lfns[lfn]):
-                    ret[lfn] = exception.FileAlreadyExists('File %s already exists on storage' % lfn)
+                    ret[lfn] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % lfn)
                     gs = False
                 else:
                     try:
