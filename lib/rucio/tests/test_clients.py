@@ -122,6 +122,6 @@ class TestRucioClients():
         creds = {'username': 'ddmlab', 'password': 'secret'}
         from rucio.client import Client
 
-        c = Client(rucio_host='localhost', rucio_port=443, auth_host='localhost', auth_port=443, account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        c = Client(rucio_host='https://localhost', rucio_port=443, auth_host='https://localhost', auth_port=443, account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
         print c.ping()

@@ -124,7 +124,7 @@ class BaseClient(object):
             else:
                 self.use_ssl = True
         if self.auth_use_ssl is None:
-            if (auth_scheme == '' or host_scheme == 'http'):
+            if (auth_scheme == '' or auth_scheme == 'http'):
                 self.auth_use_ssl = False
             else:
                 self.auth_use_ssl = True

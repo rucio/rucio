@@ -22,7 +22,7 @@ class Client(AccountClient, RSEClient, ScopeClient, PingClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, rucio_use_ssl=True, auth_use_ssl=True, ca_cert=None, auth_type=None, creds=None, timeout=None):
+    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, rucio_use_ssl=None, auth_use_ssl=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         """
         Constructor for the Rucio main client class.
 
