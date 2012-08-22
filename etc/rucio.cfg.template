@@ -31,3 +31,18 @@ request_retries = 3
 sqlite = sqlite:////tmp/rucio.db
 mysql = mysql://ddmlab:ddmlab@localhost/rucio
 default = sqlite:////tmp/rucio.db
+
+
+[bootstrap]
+# Hardcoded salt = 0, String = secret, Python: hashlib.sha256("0secret").hexdigest()
+userpass_identity = ddmlab
+userpass_pwd = 2ccee6f6dd1bc2269cddd7cd5e47578e98e430539807c36df23fab7dd13e7583
+userpass_email = ph-adp-ddm-lab@cern.ch
+
+# Default DDMLAB client certificate from /opt/rucio/etc/web/client.crt
+x509_identity = /C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch
+x509_email = ph-adp-ddm-lab@cern.ch
+
+# Default DDMLAB cern account
+gss_identity = ddmlab@CERN.CH
+gss_email = ph-adp-ddm-lab@cern.ch
