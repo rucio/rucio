@@ -207,6 +207,12 @@ class RSERepositoryNotFound(RucioException):
         self._message = "Unable to locate RSE-Repository."
 
 
+class ErrorLoadingCredentials(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ErrorLoadingCredentials, self).__init__(args, kwargs)
+        self._message = "Unable to to load user credentials."
+
+
 class ServiceUnavailable(RucioException):
     def __init__(self, *args, **kwargs):
         super(ServiceUnavailable, self).__init__(args, kwargs)

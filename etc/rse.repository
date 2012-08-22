@@ -32,7 +32,7 @@
         "default":"s3.Default",
         "supported":["s3.Default"]
       },
-      "pfn_prefix":"RUCIO-TEST"
+      "pfn_prefix":"RSETEST"
     },
     "dynamic":{
     }

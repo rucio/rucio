@@ -9,22 +9,136 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 
 import json
+import os
 
 from rucio.common import exception
 
 
-class RSEWrapper(object):
+class RSEMgr(object):
+    def __init__(self, path_to_credentials_file='etc/rse-accounts.cfg'):
+        """ Instantiates the RSEMgr.
+
+            :param path_to_credentials_file Relatiuve path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed.
+        """
+        self.__credentials = None
+
+        # Load all user credentials
+        try:
+            self.__credentials = json.load(open('%s/%s' % (os.environ['RUCIO_HOME'], path_to_credentials_file)))
+        except Exception as e:
+            raise exception.ErrorLoadingCredentials(e)
+
+    def __create_rse__(self, rse_id, protocol=None):
+        """ Create the according RSE object.
+
+            :param rse_id       The identifier of the requested RSE
+            :param protocol     The identifier of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost, ...
+
+            :returns: an instance of the according RSE object
+        """
+        # If we go for connection pooling, this would be the place to do so
+        rse = RSE(rse_id, protocol)
+        rse.connect(self.__credentials[rse_id])
+        return rse
+
+    def upload(self, rse_id, lfns, source_dir='.', protocol=None):
+        """ Uploads a file (LFN) to the connected RSE
+            Providing a list of LFNs indicates the bulk mode.
+
+            :param rse_id       The identifier of the requested RSE
+            :param lfns        A single LFN as string or a list object with LFNs
+            :param source_dir  Path to the local directory including the source files
+            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+
+            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+
+            :raises FileReplicaAlreadyExists, DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+        """
+        rse = self.__create_rse__(rse_id, protocol)
+        res = rse.put(lfns, source_dir)
+        rse.close()
+        return res
+
+    def download(self, rse_id, lfns, dest_dir='.', protocol=None):
+        """ Downloads a file (LFN) from the connected RSE to the local file system.
+            Providing a list of LFNs indicates the bulk mode.
+
+            :param rse_id       The identifier of the requested RSE
+            :param lfns         A single LFN as string or a list object with LFNs
+            :param dest_dir     Path where the downloaded file(s) will be stored
+            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+
+            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+        """
+        rse = self.__create_rse__(rse_id, protocol)
+        res = rse.get(lfns, dest_dir)
+        rse.close()
+        return res
+
+    def delete(self, rse_id, lfns, protocol=None):
+        """ Delete a file (LFN) from the connected RSE.
+            Providing a list of LFNs indicates the bulk mode.
+
+            :param rse_id       The identifier of the requested RSE
+            :param lfns        A single LFN as string or a list object with LFNs
+            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+
+            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+
+            :raises ServiceUnavailable,  RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+        """
+        rse = self.__create_rse__(rse_id, protocol)
+        res = rse.delete(lfns)
+        rse.close()
+        return res
+
+    def rename(self, rse_id, lfns, protocol=None):
+        """ Rename files stored on the connected RSE.
+            Providing a list of LFNs indicates the bulk mode.
+
+            :param rse_id       The identifier of the requested RSE
+            :param lfns       A dict object with the current filename (key) and the new file name (value)
+            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+
+            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+
+            :raises SourceNotFound, FileReplicaAlreadyExists, DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+        """
+        rse = self.__create_rse__(rse_id, protocol)
+        res = rse.rename(lfns)
+        rse.close()
+        return res
+
+    def exists(self, rse_id, lfns, protocol=None):
+        """ Checks if the provided LFN is known by the connected RSE.
+            Providing a list of LFNs indicates the bulk mode.
+
+            :param lfns A single LFN as string or a list object with LFNs
+
+            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+
+            :raises DestinationNotAccessible, ServiceUnavailable, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+        """
+        rse = self.__create_rse__(rse_id, protocol)
+        res = rse.exists(lfns)
+        rse.close()
+        return res
+
+
+class RSE(object):
     """ This class is a  wrapper for all registered RSEs. Its intention is to provide generic access to
         whatever RSE is referred during the instantiation. It further provides the basic methods
         GET (Download), PUT (Upload), Delete, and Rename files for RSEs.
     """
 
     def __init__(self, rse_id, credentials={}, protocol=None):
-        """ This methode instantiates a new RSE using the provided credetnials and the reffered protocol.
+        """  This methode instantiates a new RSE using the provided credetnials and the reffered protocol.
 
             :param rse_id       The identifier of the requested RSE
             :param credentials  RSE and protocol specific information to authenticate the user
-            :param protocol     The identifier of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost, ...
+            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
 
             :raises SwitchProtocol          If the referred protocol is not supported by the referred RSE
             :raises RSENotFound             If the referred RSE is not found insode the RSERepository
@@ -36,7 +150,7 @@ class RSEWrapper(object):
         self.__props = None
         self.__connected = False
         self.__credentials = credentials
-        self.__path_to_repo = 'etc/rse.repository'  # path_to_repo: path to the RSE repository used to look-up a specific RSE
+        self.__path_to_repo = '%s/etc/rse.repository' % os.environ['RUCIO_HOME']  # path_to_repo: path to the RSE repository used to look-up a specific RSE
 
         # Loading repository data
         try:
@@ -131,8 +245,7 @@ class RSEWrapper(object):
 
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
 
-            :raises RSENotConnected         If the connection to the RSE has not yet been established
-            :raises DestinationAccessDenied If access to the local destination directory is denied
+            :raises RSENotConnected, SourceNotFound, DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
         ret = {}
         gs = True
@@ -164,8 +277,7 @@ class RSEWrapper(object):
 
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
 
-            :raises RSENotConnected    If the connection to the RSE has not yet been established
-            :raises SourceNotFound     If access to the local destination directory is not found
+            :raises FileReplicaAlreadyExists, RSENotConnected, SourceNotFound, DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
         ret = {}
         gs = True
@@ -198,12 +310,10 @@ class RSEWrapper(object):
             Providing a list of LFNs indicates the bulk mode.
 
             :param lfns        A single LFN as string or a list object with LFNs
-            :param source_dir  Path to the local directory including the source files
 
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
 
-            :raises RSENotConnected    If the connection to the RSE has not yet been established
-            :raises SourceNotFound     If access to the local destination directory is not found
+            :raises RSENotConnected, SourceNotFound
         """
         ret = {}
         gs = True
@@ -230,13 +340,11 @@ class RSEWrapper(object):
         """ Rename files stored on the connected RSE.
             Providing a list of LFNs indicates the bulk mode.
 
-            :param lfns        A single LFN as string or a list object with LFNs
+            :param lfns       A dict object with the current filename (key) and the new file name (value)
 
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
 
-            :raises RSENotConnected    If the connection to the RSE has not yet been established
-            :raises SourceNotFound     If access to the remote source directory is not found
-            :raises FileReplicaAlreadyExists  If the new name is already present on the RSE
+            :raises FileReplicaAlreadyExists, RSENotConnected, SourceNotFound
         """
         ret = {}
         gs = True
