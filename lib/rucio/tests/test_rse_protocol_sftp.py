@@ -25,6 +25,8 @@ class TestRseSFTP():
         subprocess.call(["mkdir", "/tmp/rucio/remote"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
         subprocess.call(["dd", "if=/dev/urandom", "of=/tmp/rucio/local/1_rse_local.raw", "bs=1024", "count=1024"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
         subprocess.call(["dd", "if=/dev/urandom", "of=/tmp/rucio/local/2_rse_local.raw", "bs=1024", "count=1024"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
+        subprocess.call(["dd", "if=/dev/urandom", "of=/tmp/rucio/local/3_rse_local.raw", "bs=1024", "count=1024"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
+        subprocess.call(["dd", "if=/dev/urandom", "of=/tmp/rucio/local/4_rse_local.raw", "bs=1024", "count=1024"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
         # Load local creditentials from file
         credentials = {}
         data = json.load(open('etc/rse-accounts.cfg'))
@@ -52,11 +54,14 @@ class TestRseSFTP():
         lxplus.execute('rm -rf ~/rse_test')
         lxplus.close()
         self.storage.close()
-        #os.system('rm -rf /tmp/rucio')
+        os.system('rm -rf /tmp/rucio')
 
     def test_get(self):
         """SFTP (RSE/PROTOCOLS): Requesting files from lxplus.cern.ch """
+        match = False
         gs = True
+        status = None
+        details = None
 
         # Files are there cases
         # Bulk
@@ -86,6 +91,7 @@ class TestRseSFTP():
             match = True
         if not match:
             print 'Bulk Mode: Get exsisting and none-existing files failed'
+            print status, details
             gs = False
         # Single
         match = False
@@ -100,7 +106,10 @@ class TestRseSFTP():
 
     def test_put(self):
         """SFTP (RSE/PROTOCOLS): Put local file to server """
+        match = False
         gs = True
+        status = None
+        details = None
 
         # Files are there cases
         # Bulk
@@ -111,7 +120,7 @@ class TestRseSFTP():
             gs = False
         # Single
         try:
-            self.storage.put('1_rse_local.raw', '/tmp/rucio/local')
+            self.storage.put('3_rse_local.raw', '/tmp/rucio/local')
         except Exception as e:
             print 'Single Mode: Upload existing file failed'
             print e
@@ -130,6 +139,7 @@ class TestRseSFTP():
             match = True
         if not match:
             print 'Mix Mode: Upload  with one missing local file failed'
+            print status, details
             gs = False
         # Single
         match = False
@@ -140,11 +150,40 @@ class TestRseSFTP():
         if not match:
             print 'Single Mode: Upload with missing local file falied'
             gs = False
+
+        # Files already on storage cases
+        match = False
+        # Bulk
+        try:
+            status, details = self.storage.put(['2_rse_local.raw', '4_rse_local.raw'], '/tmp/rucio/local')
+            if details['4_rse_local.raw']:
+                raise details['2_rse_local.raw']
+            else:
+                gs = False
+        except exception.FileReplicaAlreadyExists:
+            match = True
+        if not match:
+            print 'Mix Mode: Upload  where files already on the storage failed.'
+            print status, details
+            gs = False
+        # Single
+        match = False
+        try:
+            self.storage.put('3_rse_local.raw', '/tmp/rucio/local')
+        except exception.FileReplicaAlreadyExists:
+            match = True
+        if not match:
+            print 'Single Mode: Upload with file already on the storage falied'
+            gs = False
+
         assert gs
 
     def test_delete(self):
         """SFTP (RSE/PROTOCOLS): Delete file from server """
+        match = False
         gs = True
+        status = None
+        details = None
 
         # Files are there cases
         # Bulk
@@ -174,6 +213,7 @@ class TestRseSFTP():
             match = True
         if not match:
             print 'Bulk Mode: Delete existing and none-existing files failed'
+            print status, details
             gs = False
         # Single
         match = False
@@ -188,15 +228,19 @@ class TestRseSFTP():
 
     def test_exists(self):
         """SFTP (RSE/PROTOCOLS): Check if existing files are found and none-existing not """
-
         gs = True
+        status = None
+        details = None
+
         status, details = self.storage.exists(['1_rse_remote.raw', '2_rse_remote.raw'])
         if not (details['1_rse_remote.raw'] and details['1_rse_remote.raw']):
             print 'Bulk Mode: Existing files failed'
+            print status, details
             gs = False
         status, details = self.storage.exists(['1_rse_remote.raw', 'not_existing_data.raw'])
         if not details['1_rse_remote.raw'] or details['not_existing_data.raw']:
             print 'Bulk Mode: Existing and none-existing files failed'
+            print status, details
             gs = False
         if not self.storage.exists('1_rse_remote.raw'):
             print 'Single Mode: Existing file failed'
@@ -212,11 +256,13 @@ class TestRseSFTP():
         gs = True
         status = None
         details = None
+
         # Everything fine
         status, details = self.storage.rename({'1_rse_remote.raw': '1_rse_new.raw', '2_rse_remote.raw': '2_rse_new.raw'})
         # Files after renaming: 1_rse_new.raw, 2_rse_new.raw, 3_rse_remote.raw, 4_rse_remote.raw
         if not status or not (details['1_rse_remote.raw'] and details['2_rse_remote.raw']):
             print 'Bulk Mode: Existing files failed'
+            print status, details
             gs = False
         try:
             self.storage.rename({'3_rse_remote.raw': '3_rse_new.raw'})
@@ -232,6 +278,7 @@ class TestRseSFTP():
         # Files after renaming: 1_rse_new.raw, 2_rse_new.raw, 3_rse_new.raw, 4_rse_remote.raw
         if status:
             print 'Bulk Mode: All targets exist failed'
+            print status, details
             gs = False
         match = False
         try:
@@ -240,7 +287,7 @@ class TestRseSFTP():
             if not status:
                 if details['4_rse_remote.raw']:
                     raise details['1_rse_new.raw']
-        except exception.FileAlreadyExists:
+        except exception.FileReplicaAlreadyExists:
             match = True
         if not match:
             print 'Bulk Mode: Existing and none-existing targets failed'
@@ -250,7 +297,7 @@ class TestRseSFTP():
         try:
             self.storage.rename({'3_rse_new.raw': '4_rse_new.raw'})
             # Files after renaming: 1_rse_new.raw, 2_rse_new.raw, 3_rse_new.raw, 4_rse_new.raw
-        except exception.FileAlreadyExists:
+        except exception.FileReplicaAlreadyExists:
             match = True
         if not match:
             print 'Single Mode: Existing target failed'

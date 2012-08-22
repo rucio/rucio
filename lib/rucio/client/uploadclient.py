@@ -18,7 +18,6 @@ from logging import getLogger
 from rucio.client.baseclient import BaseClient
 from rucio.common.exception import SourceAccessDenied
 from rucio.common.exception import SourceNotFound
-#from rucio.common.exception import RSENotReachable
 from rucio.common.exception import RSEAccessDenied
 from rucio.common.exception import FullStorage
 

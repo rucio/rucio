@@ -75,9 +75,9 @@ class DatasetAlreadyExists(RucioException):
         self._message = "Dataset name in specified scope already exists"
 
 
-class FileAlreadyExists(RucioException):
+class FileReplicaAlreadyExists(RucioException):
     def __init__(self, *args, **kwargs):
-        super(FileAlreadyExists, self).__init__(args, kwargs)
+        super(FileReplicaAlreadyExists, self).__init__(args, kwargs)
         self._message = "File name in specified scope already exists"
 
 
