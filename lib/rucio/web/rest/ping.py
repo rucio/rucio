@@ -22,7 +22,8 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/', 'Ping'
+    '/', 'Ping',
+    '', 'Ping'
 )
 
 

@@ -231,6 +231,12 @@ class RSENotConnected(RucioException):
         self._message = "Connection to RSE not established."
 
 
+class AccessDenied(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(AccessDenied, self).__init__(args, kwargs)
+        self._message = "Access to the requested resource denied."
+
+
 class RSEAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEAccessDenied, self).__init__(args, kwargs)
@@ -283,3 +289,15 @@ class FullStorage(RucioException):
     def __init__(self, *args, **kwargs):
         super(FullStorage, self).__init__(args, kwargs)
         self._message = "The referrenced storage is out of disk space."
+
+
+class SourceAccessDenied(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(SourceAccessDenied, self).__init__(args, kwargs)
+        self._message = "Access to local source file denied."
+
+
+class DatabaseMigrationError(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DatabaseMigrationError, self).__init__(args, kwargs)
+        self._message = "Error when migrating the database."
