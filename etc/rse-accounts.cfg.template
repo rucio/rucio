@@ -1,7 +1,8 @@
 {
-  "cern.lxplus.ch":{
+  "lxplus.cern.ch":{
     "username":"USERNAME",
-    "password":"PASSWORD"
+    "password":"PASSWORD",
+    "host":"lxplus.cern.ch"
   },
   "swift.cern.ch": {
     "access_key": "ACCESSKEY",
