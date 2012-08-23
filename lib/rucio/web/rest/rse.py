@@ -13,7 +13,7 @@
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest,\
-    Created, InternalError, HTTPError, Unauthorized, OK
+    Created, InternalError, OK
 
 from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_tag,\
     list_rse_tags, add_file_replica
@@ -55,7 +55,7 @@ class RSE:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
 
@@ -100,7 +100,7 @@ class RSE:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         return dumps(list_rses())
 
@@ -132,15 +132,12 @@ class RSE:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
             del_rse(rse=rseName, issuer=auth['account'])
         except AccountNotFound, e:
-            status = '404 Not Found'
-            headers = {'ExceptionClass': 'RSENotFound', 'ExceptionMessage': e[0][0]}
-            data = ' '.join(['RSENotFound:', str(e)])
-            raise HTTPError(status, headers=headers, data=data)
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
 
         raise OK()
 
@@ -169,7 +166,7 @@ class Tags:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
 
@@ -192,7 +189,7 @@ class Tags:
         try:
             add_rse_tag(rse=rse, tag=tag, description=description, issuer=auth['account'])
         except AccessDenied, e:
-            raise Unauthorized()
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except Exception, e:
@@ -220,7 +217,7 @@ class Tags:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         return dumps(list_rse_tags(filters={'rse': rse}))
 
@@ -255,7 +252,7 @@ class Files:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
 
@@ -276,13 +273,12 @@ class Files:
         try:
             add_file_replica(rse=rseName, scope=scope, lfn=lfn, issuer=auth['account'])
         except AccessDenied, e:
-            raise Unauthorized()
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except Exception, e:
-            print e
             raise InternalError(e)
 
         raise Created()
