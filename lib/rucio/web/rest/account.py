@@ -12,7 +12,7 @@
 from datetime import datetime
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, HTTPError, OK, Unauthorized
+from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts
 from rucio.api.identity import add_account_identity
@@ -62,12 +62,12 @@ class Scopes:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
             scopes = get_scopes(accountName)
         except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e[0][0])
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
@@ -101,7 +101,7 @@ class Scopes:
         auth = validate_auth_token(auth_token)
 
         if not auth:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
 
@@ -125,11 +125,11 @@ class Scopes:
                 raise AccessDenied('Account %s can not add scope to account %s' (auth.get('account'), accountName))
             add_scope(scopeName, accountName)
         except AccessDenied, e:
-            raise Unauthorized(e[0][0])
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e[0][0])
+            raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e[0][0])
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
@@ -163,7 +163,7 @@ class AccountParameter:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         if accountName == 'whoami':
             # Redirect to the account uri
@@ -212,15 +212,12 @@ class AccountParameter:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
             del_account(accountName)
         except AccountNotFound, e:
-            status = '404 Not Found'
-            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
-            data = ' '.join(['AccountNotFound:', str(e)])
-            raise HTTPError(status, headers=headers, data=data)
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
 
         raise OK()
 
@@ -248,7 +245,7 @@ class Account:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         return dumps(list_accounts())
 
@@ -279,7 +276,7 @@ class Account:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
 
@@ -357,7 +354,7 @@ class Identities:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
 
@@ -378,11 +375,11 @@ class Identities:
         try:
             add_account_identity(identity=identity, type=authtype, account=accountName, issuer=auth.get('account'))
         except AccessDenied, e:
-            raise Unauthorized()
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate as e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e[0][0])
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
