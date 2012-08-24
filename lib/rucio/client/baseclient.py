@@ -28,9 +28,9 @@ from requests.status_codes import codes
 from requests.exceptions import SSLError
 
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, ClientParameterMismatch, NoAuthInformation, MissingClientParameter, RucioException
-from rucio.common.utils import build_url, check_url
+from rucio.common.config import config_get
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter, RucioException
+from rucio.common.utils import build_url
 
 LOG = getLogger(__name__)
 sh = StreamHandler()
@@ -47,7 +47,7 @@ class BaseClient(object):
     TOKEN_PATH = '/tmp/rucio'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, rucio_use_ssl=None, auth_use_ssl=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         """
         Constructor of the BaseClient.
         :param rucio_host: the address of the rucio server, if None it is read from the config file.
@@ -60,26 +60,19 @@ class BaseClient(object):
         :param auth_type: the type of authentication (e.g.: 'userpass', 'kerberos' ...)
         :param creds: a dictionary with credentials needed for authentication.
         """
+
         self.host = rucio_host
-        self.port = rucio_port
         self.auth_host = auth_host
-        self.auth_port = auth_port
 
         try:
             if self.host is None:
                 self.host = config_get('client', 'rucio_host')
-            if self.port is None:
-                self.port = config_get('client', 'rucio_port')
             if self.auth_host is None:
                 self.auth_host = config_get('client', 'auth_host')
-            if self.auth_port is None:
-                self.auth_port = config_get('client', 'auth_port')
         except (NoOptionError, NoSectionError), e:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % e.args[0])
 
         self.account = account
-        self.use_ssl = rucio_use_ssl
-        self.auth_use_ssl = auth_use_ssl
         self.ca_cert = ca_cert
         self.auth_type = auth_type
         self.creds = creds
@@ -111,37 +104,16 @@ class BaseClient(object):
                 if e.args[0] != 'client_key':
                     raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
-        try:
-            if self.use_ssl is None:
-                self.use_ssl = config_get_bool('client', 'rucio_use_ssl')
-            if self.auth_use_ssl is None:
-                self.auth_use_ssl = config_get_bool('client', 'auth_use_ssl')
-        except (NoOptionError, NoSectionError):
-            LOG.debug('No use\_ssl options found in config file. Using defaults')
-
-        host_scheme = urlparse(self.host).scheme
+        rucio_scheme = urlparse(self.host).scheme
         auth_scheme = urlparse(self.auth_host).scheme
-        # if not set as parameter or specified in file enable ssl by default
-        if self.use_ssl is None:
-            if (host_scheme == '' or host_scheme == 'http'):
-                self.use_ssl = False
-            else:
-                self.use_ssl = True
-        if self.auth_use_ssl is None:
-            if (auth_scheme == '' or auth_scheme == 'http'):
-                self.auth_use_ssl = False
-            else:
-                self.auth_use_ssl = True
 
-        try:
-            if not check_url(self.host, self.use_ssl):
-                raise ClientParameterMismatch('the protocol defined in \'rucio\_host\' (%s) doesn\'t match with \'rucio_use_ssl\' (%s)' % (urlparse(self.host).scheme, self.use_ssl))
-            if not check_url(self.auth_host, self.auth_use_ssl):
-                raise ClientParameterMismatch('the protocol defined in \'auth\_host\' (%s) doesn\'t match with \'auth_use_ssl\' (%s)' % (urlparse(self.auth_host).scheme, self.auth_use_ssl))
-        except ClientProtocolNotSupported, e:
-            raise e
+        if (rucio_scheme != 'http' and rucio_scheme != 'https'):
+            raise ClientProtocolNotSupported('\'%s\' not supported' % rucio_scheme)
 
-        if  (self.use_ssl or self.auth_use_ssl) and ca_cert is None:
+        if (auth_scheme != 'http' and auth_scheme != 'https'):
+            raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
+
+        if  (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
@@ -239,7 +211,7 @@ class BaseClient(object):
         """
 
         headers = {'Rucio-Account': self.account, 'Rucio-Username': self.creds['username'], 'Rucio-Password': self.creds['password']}
-        url = build_url(self.auth_host, port=self.auth_port, path='auth/userpass', use_ssl=self.auth_use_ssl)
+        url = build_url(self.auth_host, path='auth/userpass')
 
         retry = 0
         while retry < self.AUTH_RETRIES:
@@ -277,12 +249,12 @@ class BaseClient(object):
         client_cert = None
         client_key = None
         if self.auth_type == 'x509':
-            url = build_url(self.auth_host, port=self.auth_port, path='auth/x509', use_ssl=self.auth_use_ssl)
+            url = build_url(self.auth_host, path='auth/x509')
             client_cert = self.creds['client_cert']
             if 'client_key' in self.creds:
                 client_key = self.creds['client_key']
         elif self.auth_type == 'x509_proxy':
-            url = build_url(self.auth_host, port=self.auth_port, path='auth/x509_proxy', use_ssl=self.auth_use_ssl)
+            url = build_url(self.auth_host, path='auth/x509_proxy')
             client_cert = self.creds['client_proxy']
 
         if not path.exists(client_cert):
@@ -331,7 +303,7 @@ class BaseClient(object):
         """
 
         headers = {'Rucio-Account': self.account}
-        url = build_url(self.auth_host, port=self.auth_port, path='auth/gss', use_ssl=self.auth_use_ssl)
+        url = build_url(self.auth_host, path='auth/gss')
 
         retry = 0
         while retry < self.AUTH_RETRIES:

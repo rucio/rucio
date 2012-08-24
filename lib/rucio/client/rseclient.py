@@ -21,8 +21,8 @@ class RSEClient(BaseClient):
 
     BASEURL = 'rses'
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, rucio_use_ssl=None, auth_use_ssl=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(RSEClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, rucio_use_ssl, auth_use_ssl, ca_cert, auth_type, creds, timeout)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
+        super(RSEClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
     def create_rse(self, rse):
         """
@@ -35,7 +35,7 @@ class RSEClient(BaseClient):
 
         headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'rses/'
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, path=path)
         data = dumps({'rse': rse})
         r = self._send_request(url, headers, type='POST', data=data)
         if r.status_code == codes.created:
@@ -54,7 +54,7 @@ class RSEClient(BaseClient):
 
         headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'rses/'
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, path=path)
 
         r = self._send_request(url, headers)
         if r.status_code == codes.ok:
@@ -77,7 +77,7 @@ class RSEClient(BaseClient):
 
         headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'rses/{rse}s/tags' % locals()
-        url = build_url(self.host, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, path=path)
         data = dumps({'tag': tag})
         r = self._send_request(url, headers, type='POST', data=data)
         if r.status_code == codes.created:
@@ -99,7 +99,7 @@ class RSEClient(BaseClient):
         """
         data = dumps({'scope': scope, 'lfn': lfn})
         path = '/'.join([self.BASEURL, rse, 'files'])
-        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:

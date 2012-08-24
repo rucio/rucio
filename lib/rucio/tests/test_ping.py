@@ -42,7 +42,7 @@ class TestPingClient():
     def setUp(self):
         build_database(echo=False)
         create_root_account()
-        self.client = PingClient('localhost')
+        self.client = PingClient('http://localhost')
 
     def tearDown(self):
         destroy_database(echo=False)

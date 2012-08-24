@@ -9,6 +9,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 """
     Rucio Administration Utility
@@ -56,9 +57,8 @@ def add_account(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.auth_host, auth_port=args.auth_port,
-                                  account=args.account, rucio_use_ssl=args.ssl,
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -83,9 +83,8 @@ def disable_account(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.auth_host, auth_port=args.auth_port,
-                                  account=args.account, rucio_use_ssl=args.ssl,
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -110,9 +109,8 @@ def list_accounts(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.auth_host, auth_port=args.auth_port,
-                                  account=args.account, rucio_use_ssl=args.ssl,
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -141,9 +139,8 @@ def show_account(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.auth_host, auth_port=args.auth_port,
-                                  account=args.account, rucio_use_ssl=args.ssl,
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -172,9 +169,8 @@ def identity_add(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, rucio_port=args.port,
-                                  auth_host=args.auth_host, auth_port=args.auth_port,
-                                  account=args.account, rucio_use_ssl=args.ssl,
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -212,9 +208,8 @@ def add_rse(args):
     else:
         creds = None
 
-    client = RSEClient(rucio_host=args.host, rucio_port=args.port,
-                       auth_host=args.auth_host, auth_port=args.auth_port,
-                       account=args.account, rucio_use_ssl=args.ssl,
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -240,9 +235,8 @@ def disable_rse(args):
     else:
         creds = None
 
-    client = Client(host=args.host, port=args.port,
-                    auth_host=args.auth_host, auth_port=args.auth_port,
-                    account=args.account, rucio_use_ssl=args.ssl,
+    client = Client(host=args.host, auth_host=args.auth_host,
+                    account=args.account,
                     auth_type=args.auth_strategy, creds=creds,
                     ca_cert=args.ca_certificate)
     try:
@@ -267,9 +261,8 @@ def list_rses(args):
     else:
         creds = None
 
-    client = RSEClient(rucio_host=args.host, rucio_port=args.port,
-                       auth_host=args.auth_host, auth_port=args.auth_port,
-                       account=args.account, rucio_use_ssl=args.ssl,
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -315,9 +308,8 @@ def add_scope(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = ScopeClient(rucio_host=args.host, rucio_port=args.port,
-                         auth_host=args.auth_host, auth_port=args.auth_port,
-                         account=args.account, rucio_use_ssl=args.ssl,
+    client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
                          auth_type=args.auth_strategy, creds=creds,
                          ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -347,11 +339,8 @@ Commands:
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
-    oparser.add_argument('--ssl', default=None, action='store_true', help="Enable ssl")
-    oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="Address of Rucio API host. " "Default: %default")
-    oparser.add_argument('-p', '--port', dest="port", metavar="PORT", type=int, help="Port the Rucio API host listens on. " "Default: %default")
-    oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="Address of Rucio Authentication host. " "Default: %default")
-    oparser.add_argument('--auth_port', dest="auth_port", metavar="ADDRESS", help="Port the Rucio Authentication host listens on. " "Default: %default")
+    oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host." "Default: %default")
+    oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host."  "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
     oparser.add_argument('-T', '--timeout=', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
