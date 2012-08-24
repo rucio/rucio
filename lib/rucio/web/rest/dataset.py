@@ -65,8 +65,12 @@ class Datasets:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
+        monotonic = False
         try:
             dsn = parameter['dsn']
+            monotonic = parameter['monotonic']
+            if (type(monotonic) is not bool and monotonic is not None):
+                raise generate_http_error(400, 'InputValidationError', 'Monotonic option needs to be a boolean value')
         except KeyError, e:
             if e.args[0] == 'dsn':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
@@ -76,7 +80,7 @@ class Datasets:
         auth_account = auth['account']
 
         try:
-            add_dataset(scope=scope, dsn=dsn, account=auth_account)
+            add_dataset(scope=scope, dsn=dsn, account=auth_account, monotonic=monotonic)
         except ScopeNotFound, error:
             raise generate_http_error(404, 'ScopeNotFound', error.args[0][0])
         except AccountNotFound, error:
