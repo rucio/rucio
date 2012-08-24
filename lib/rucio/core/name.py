@@ -9,6 +9,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -39,9 +40,6 @@ def register_dataset(scope, datasetName, account, monotonic=False):
     :raise DatasetAlreadyExists: a dataset with the same name already exists in the specified scope
     :returns: nothing
     """
-
-    if (type(monotonic) is not bool and monotonic is not None):
-        raise exception.InputValidationError('Monotonic option needs to be a boolean value')
 
     new_name = NAME(scope=scope, name=datasetName, type=NameType.DATASET, owner=account, monotonic=monotonic)
     new_dataset = DATASET(dsn=datasetName, scope=scope, owner=account, monotonic=monotonic)
