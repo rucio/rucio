@@ -13,7 +13,6 @@ Rucio utilities.
 """
 
 from urllib import urlencode
-from urlparse import urlparse
 from uuid import uuid4 as uuid
 try:
     # Hack for the client distribution
@@ -21,7 +20,6 @@ try:
 except:
     pass
 
-from rucio.common.exception import ClientProtocolNotSupported
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -49,48 +47,19 @@ codes = {
 }
 
 
-def build_url(host, port=None, path=None, params=None, use_ssl=True):
+def build_url(url, path=None, params=None):
     """
     utitily function to build an url for requests to the rucio system.
     """
+    complete_url = url
 
-    parse = urlparse(host)
-    if len(parse.scheme) == 0:
-        host = parse.path
-    else:
-        host = parse.netloc
-
-    if use_ssl:
-        url = "https://"
-    else:
-        url = "http://"
-    url += host
-    if port is not None:
-        url += ":" + str(port)
-    url += "/"
+    complete_url += "/"
     if path is not None:
-        url += path
+        complete_url += path
     if params is not None:
-        url += "?"
-        url += urlencode(params)
-    return url
-
-
-def check_url(url, use_ssl):
-    """ utility function to check if scheme in url matches with the use_ssl switch"""
-    scheme = urlparse(url).scheme
-
-    if scheme == '':
-        return True
-    if scheme != 'http' and scheme != 'https':
-        raise ClientProtocolNotSupported('\'%s\' not supported' % scheme)
-
-    if scheme == 'http' and use_ssl is True:
-        return False
-    if scheme == 'https' and use_ssl is False:
-        return False
-
-    return True
+        complete_url += "?"
+        complete_url += urlencode(params)
+    return complete_url
 
 
 def generate_uuid():

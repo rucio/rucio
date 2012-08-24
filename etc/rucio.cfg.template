@@ -11,12 +11,8 @@
 [common]
 
 [client]
-rucio_host = https://atlas-rucio.cern.ch
-rucio_port = 443
-auth_host = https://atlas-rucio-auth.cern.ch
-auth_port = 443
-rucio_use_ssl = True
-auth_use_ssl = True
+rucio_url = https://atlas-rucio.cern.ch:443
+auth_url = https://atlas-rucio-auth.cern.ch:443
 auth_type = userpass
 username = ddmlab
 password = secret

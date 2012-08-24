@@ -44,7 +44,7 @@ class TestBinRucio():
 
     def test_rucio_ping(self):
         """PING (CLI): Rucio ping"""
-        cmd = 'rucio ping'
+        cmd = 'rucio --host http://localhost ping'
         print  self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,

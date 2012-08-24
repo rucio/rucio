@@ -21,8 +21,8 @@ class DatasetClient(BaseClient):
 
     BASEURL = 'datasets'
 
-    def __init__(self, rucio_host=None, rucio_port=None, auth_host=None, auth_port=None, account=None, rucio_use_ssl=None, auth_use_ssl=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(DatasetClient, self).__init__(rucio_host, rucio_port, auth_host, auth_port, account, rucio_use_ssl, auth_use_ssl, ca_cert, auth_type, creds, timeout)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
+        super(DatasetClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
     def add_dataset(self, scope, dsn, meta=None):
         """
@@ -38,7 +38,7 @@ class DatasetClient(BaseClient):
         """
         data = dumps({'dsn': dsn, 'meta': meta})
         path = '/'.join([self.BASEURL, scope])
-        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)
 
@@ -60,7 +60,7 @@ class DatasetClient(BaseClient):
         """
         data = dumps({'lfns': lfns})
         path = '/'.join([self.BASEURL, scope, dsn, 'files'])
-        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)
 
@@ -81,7 +81,7 @@ class DatasetClient(BaseClient):
         :return: The list of files.
         """
         path = '/'.join([self.BASEURL, scope, dsn, 'files'])
-        url = build_url(self.host, port=self.port, path=path, use_ssl=self.use_ssl)
+        url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='GET')
 
