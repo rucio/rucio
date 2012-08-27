@@ -13,7 +13,7 @@
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, input as web_input, websafe,\
-    Created, InternalError, HTTPError, OK, Unauthorized, BadRequest
+    Created, InternalError, OK, BadRequest
 
 from rucio.api.dataset import add_dataset, change_dataset_owner, dataset_exists, obsolete_dataset,\
     add_files_to_dataset, list_files_in_dataset
@@ -57,7 +57,7 @@ class Datasets:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
         try:
@@ -86,7 +86,6 @@ class Datasets:
         except FileAlreadyExists, error:
             raise generate_http_error(409, 'FileAlreadyExists', error.args[0][0])
         except Exception, error:
-            print str(error)
             raise InternalError(error.args[0])
 
         return Created()
@@ -109,7 +108,7 @@ class Contents:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
         try:
@@ -149,7 +148,7 @@ class Contents:
         auth = validate_auth_token(auth_token)
 
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         return dumps(list_files_in_dataset(scope=scope, dsn=dsn))
 
@@ -181,7 +180,8 @@ class Dataset2Parameter:
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
         auth_account = auth['account']
 
         try:
@@ -225,11 +225,11 @@ class Dataset2Parameter:
         if not len(new_account):
             new_account = None
         if new_account is None:
-            raise HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
+            raise generate_http_error(400, "InputValidationError", "search type parameter is not properly defined")
 
         auth = validate_auth_token(auth_token)
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         auth_account = auth['account']
 
         try:
@@ -272,13 +272,13 @@ class Dataset2Parameter:
         if not len(search_type):
             search_type = None
         if search_type not in ('current', 'obsolete', 'all', None):
-            raise HTTPError("400 Bad request", {}, "InputValidationError: search type parameter is not properly defined")
+            raise generate_http_error(400, "InputValidationError", "search type parameter is not properly defined")
         if search_type is not None:
             search_type = search_type.lower()
 
         auth = validate_auth_token(auth_token)
         if auth is None:
-            raise Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         auth_account = auth['account']
 
         try:
