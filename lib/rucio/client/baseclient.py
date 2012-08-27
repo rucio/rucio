@@ -13,6 +13,10 @@
 Client class for callers of the Rucio system
 """
 
+import os
+import shutil
+import tempfile
+
 from logging import getLogger, StreamHandler, ERROR
 from os import chmod, environ, mkdir, path
 from urlparse import urlparse
@@ -426,9 +430,11 @@ class BaseClient(object):
 
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
-            token_file_handler = open(self.token_file, 'w')
-            token_file_handler.write(self.auth_token)
-            token_file_handler.close()
+            fd, fn = tempfile.mkstemp(dir=self.TOKEN_PATH)
+            f = os.fdopen(fd, 'w')
+            f.write(self.auth_token)
+            f.close()
+            shutil.move(fn, self.token_file)
             chmod(self.token_file, 0700)
         except IOError as (errno, strerror):
             print("I/O error({0}): {1}".format(errno, strerror))
