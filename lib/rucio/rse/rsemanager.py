@@ -154,7 +154,9 @@ class RSE(object):
 
         # Loading repository data
         try:
-            repdata = json.load(open(self.__path_to_repo))
+            f = open(self.__path_to_repo)
+            repdata = json.load(f)
+            f.close()
         except Exception:
             raise exception.RSERepositoryNotFound({'RSERepository': self.__path_to_repo})
 
