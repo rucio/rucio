@@ -171,7 +171,7 @@ class BaseClient(object):
 
         r = None
         retry = 0
-        hds = {'Rucio-Auth-Token': self.auth_token}
+        hds = {'Rucio-Auth-Token': self.auth_token, 'Rucio-Account': self.account, 'Rucio-Appid': ''}
 
         if headers is not None:
             hds.update(headers)
