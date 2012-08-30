@@ -133,11 +133,10 @@ class RSE(object):
         GET (Download), PUT (Upload), Delete, and Rename files for RSEs.
     """
 
-    def __init__(self, rse_id, credentials={}, protocol=None):
+    def __init__(self, rse_id, protocol=None):
         """  This methode instantiates a new RSE using the provided credetnials and the reffered protocol.
 
             :param rse_id       The identifier of the requested RSE
-            :param credentials  RSE and protocol specific information to authenticate the user
             :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
 
             :raises SwitchProtocol          If the referred protocol is not supported by the referred RSE
@@ -145,35 +144,44 @@ class RSE(object):
             :raises RSERepositoryNotFound   If the RSERepository can be accessed
         """
 
-        self.__protocol = protocol
+        self.__protocol = None
         self.__id = rse_id
         self.__props = None
         self.__connected = False
-        self.__credentials = credentials
-        self.__path_to_repo = '%s/etc/rse.repository' % os.environ['RUCIO_HOME']  # path_to_repo: path to the RSE repository used to look-up a specific RSE
+        self.__path_to_repo = '%s/etc/rse_repository.json' % os.environ['RUCIO_HOME']  # path_to_repo: path to the RSE repository used to look-up a specific RSE
 
         # Loading repository data
         try:
             f = open(self.__path_to_repo)
             repdata = json.load(f)
             f.close()
-        except Exception:
-            raise exception.RSERepositoryNotFound({'RSERepository': self.__path_to_repo})
+        except Exception as e:
+            raise exception.RSERepositoryNotFound({'RSERepository': self.__path_to_repo, 'Exception': e})
 
         try:
             self.__props = repdata[self.__id]
         except Exception:
             raise exception.RSENotFound({'ID': rse_id})
 
-        # Check if protocol is provided and supported or otherwise assign default protocol
-        if self.__protocol is None:
-            self.__protocol = self.__props['static']['protocols']['default']
-        else:
-            if not self.__protocol in self.__props['static']['protocols']['supported']:
-                raise exception.SwitchProtocol({'protocols': json.dumps(self.__props['static']['protocols'])})
+        self.__props['protocol'] = {}
+        # Check if user requested a specific protocol?
+        self.__props['protocol']['id'] = protocol
+        if self.__props['protocol']['id'] is None:
+            self.__props['protocol']['id'] = self.__props['protocols']['default']
+        # Check if selected protocol is supported
+        if self.__props['protocol']['id'] not in self.__props['protocols']['supported']:
+            raise exception.SwitchProtocol(self.__props['protocols']['supported'].keys())
+
+        # Copy selected protocol attributes into new dict
+        for i in self.__props['protocols']['supported'][self.__props['protocol']['id']]:
+            self.__props['protocol'][i] = self.__props['protocols']['supported'][self.__props['protocol']['id']][i]
+
+        # If protcol doesn't define a prefix get the default one for all protocols at this storage
+        if 'prefix' not in self.__props['protocol']:
+            self.__props['protocol']['prefix'] = self.__props['protocols']['prefix']
 
         # Instantiating the actual protocol class
-        parts = ('rucio.rse.protocols.' + self.__protocol).split('.')
+        parts = self.__props['protocol']['impl'].split('.')
         module = ".".join(parts[:-1])
         m = __import__(module)
         for comp in parts[1:]:

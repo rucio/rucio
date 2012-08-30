@@ -11,7 +11,8 @@
 import json
 import os
 import pysftp
-import subprocess
+import shutil
+import tempfile
 
 from nose.tools import raises
 
@@ -20,20 +21,23 @@ from rucio.rse import rsemanager
 
 
 class TestRseSFTP():
+    tmpdir = None
 
     @classmethod
     def setUpClass(cls):
         """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
-        subprocess.call(["mkdir", "/tmp/rucio"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        subprocess.call(["mkdir", "/tmp/rucio/local"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        subprocess.call(["mkdir", "/tmp/rucio/remote"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        subprocess.call(["dd", "if=/dev/urandom", "of=/tmp/rucio/local/data.raw", "bs=1024", "count=1024"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        files = ["/tmp/rucio/local/1_rse_local_put.raw", "/tmp/rucio/local/2_rse_local_put.raw", "/tmp/rucio/local/3_rse_local_put.raw", "/tmp/rucio/local/4_rse_local_put.raw",
-                 "/tmp/rucio/local/1_rse_remote_get.raw", "/tmp/rucio/local/2_rse_remote_get.raw", "/tmp/rucio/local/3_rse_remote_get.raw"]
+        cls.tmpdir = tempfile.mkdtemp()
+
+        with open("%s/data.raw" % cls.tmpdir, "wb") as out:
+            out.seek((1024 * 1024) - 1)  # 1 MB
+            out.write('\0')
+        files = ["1_rse_local_put.raw", "2_rse_local_put.raw", "3_rse_local_put.raw", "4_rse_local_put.raw",
+                 "1_rse_remote_get.raw", "2_rse_remote_get.raw", "3_rse_remote_get.raw"]
         for f in files:
-            #subprocess.call(['cp', '/tmp/rucio/local/data.raw', f])
-            subprocess.call(['ln', '-s', '/tmp/rucio/local/data.raw', f])
+            os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
+
+        storage = rsemanager.RSE('lxplus.cern.ch')
         # Load local creditentials from file
         data = json.load(open('etc/rse-accounts.cfg'))
         credentials = data['lxplus.cern.ch']
@@ -45,13 +49,12 @@ class TestRseSFTP():
                  '1_rse_remote_rename.raw', '2_rse_remote_rename.raw', '3_rse_remote_rename.raw', '4_rse_remote_rename.raw', '5_rse_remote_rename.raw', '6_rse_remote_rename.raw']
         lxplus.execute('dd if=/dev/urandom of=~/rse_test/data.raw bs=1024 count=1024')
         for f in files:
-            # lxplus.execute('cp ~/rse_test/data.raw ~/rse_test/%s' % f)
-            lxplus.execute('ln -s ~/rse_test/data.raw ~/rse_test/%s' % f)
+            lxplus.execute('ln -s ~/rse_test/data.raw %s' % storage.lfn2uri(f))
         lxplus.close()
 
     @classmethod
     def tearDownClass(cls):
-        """SFTP (RSE/PROTOCOLS): Removing created directories and files """
+        """SFTP (RSE/PROTOCOLS): Removing created directorie s and files """
         # Load local creditentials from file
         credentials = {}
         data = json.load(open('etc/rse-accounts.cfg'))
@@ -61,7 +64,7 @@ class TestRseSFTP():
         lxplus = pysftp.Connection(**credentials)
         lxplus.execute('rm -rf ~/rse_test')
         lxplus.close()
-        os.system('rm -rf /tmp/rucio')
+        shutil.rmtree(cls.tmpdir)
 
     def setUp(self):
         """SFTP (RSE/PROTOCOLS): Creating Mgr-instance """
@@ -71,18 +74,18 @@ class TestRseSFTP():
     # Mgr-Tests: GET
     def test_get_ok_multi(self):
         """SFTP (RSE/PROTOCOLS): Get multiple files from storage (Success)"""
-        status, details = self.mgr.download(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], '/tmp/rucio/remote')
+        status, details = self.mgr.download(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], self.tmpdir)
         if not (status and details['1_rse_remote_get.raw'] and details['2_rse_remote_get.raw']):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
     def test_get_ok_single(self):
         """SFTP (RSE/PROTOCOLS): Get a single file from storage (Success)"""
-        self.mgr.download(self.rse_tag, '1_rse_remote_get.raw', '/tmp/rucio/remote')
+        self.mgr.download(self.rse_tag, '1_rse_remote_get.raw', self.tmpdir)
 
     @raises(exception.SourceNotFound)
     def test_get_SourceNotFound_multi(self):
         """SFTP (RSE/PROTOCOLS): Get multiple files from storage (SourceNotFound)"""
-        status, details = self.mgr.download(self.rse_tag, ['not_existing_data.raw', '1_rse_remote_get.raw'], '/tmp/rucio/remote')
+        status, details = self.mgr.download(self.rse_tag, ['not_existing_data.raw', '1_rse_remote_get.raw'], self.tmpdir)
         if details['1_rse_remote_get.raw']:
             raise details['not_existing_data.raw']
         else:
@@ -96,18 +99,18 @@ class TestRseSFTP():
     # Mgr-Tests: PUT
     def test_put_ok_multi(self):
         """SFTP (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
-        status, details = self.mgr.upload(self.rse_tag, ['1_rse_local_put.raw', '2_rse_local_put.raw'], '/tmp/rucio/local')
+        status, details = self.mgr.upload(self.rse_tag, ['1_rse_local_put.raw', '2_rse_local_put.raw'], self.tmpdir)
         if not (status and details['1_rse_local_put.raw'] and details['2_rse_local_put.raw']):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
     def test_put_ok_single(self):
         """SFTP (RSE/PROTOCOLS): Put a single file to storage (Success)"""
-        self.mgr.upload(self.rse_tag, '3_rse_local_put.raw', '/tmp/rucio/local')
+        self.mgr.upload(self.rse_tag, '3_rse_local_put.raw', self.tmpdir)
 
     @raises(exception.SourceNotFound)
     def test_put_SourceNotFound_multi(self):
         """SFTP (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
-        status, details = self.mgr.upload(self.rse_tag, ['not_existing_data.raw', '4_rse_local_put.raw'], '/tmp/rucio/local')
+        status, details = self.mgr.upload(self.rse_tag, ['not_existing_data.raw', '4_rse_local_put.raw'], self.tmpdir)
         if details['4_rse_local_put.raw']:
             raise details['not_existing_data.raw']
         else:
@@ -116,12 +119,12 @@ class TestRseSFTP():
     @raises(exception.SourceNotFound)
     def test_put_SourceNotFound_single(self):
         """SFTP (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
-        self.mgr.upload(self.rse_tag, 'not_existing_data2.raw', '/tmp/rucio/local')
+        self.mgr.upload(self.rse_tag, 'not_existing_data2.raw', self.tmpdir)
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_FileReplicaAlreadyExists_multi(self):
         """SFTP (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
-        status, details = self.mgr.upload(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], '/tmp/rucio/local')
+        status, details = self.mgr.upload(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], self.tmpdir)
         if details['1_rse_remote_get.raw']:
             raise details['2_rse_remote_get.raw']
         else:
@@ -130,7 +133,7 @@ class TestRseSFTP():
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_FileReplicaAlreadyExists_single(self):
         """SFTP (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
-        self.mgr.upload(self.rse_tag, '1_rse_remote_get.raw', '/tmp/rucio/local')
+        self.mgr.upload(self.rse_tag, '1_rse_remote_get.raw', self.tmpdir)
 
     # MGR-Tests: DELETE
     def test_delete_ok_multi(self):

@@ -10,6 +10,8 @@
 
 import os
 import subprocess
+import shutil
+import tempfile
 
 from nose.tools import raises
 from S3.Exceptions import S3Error
@@ -19,36 +21,36 @@ from rucio.rse import rsemanager
 
 
 class TestRseS3():
+    tmpdir = None
 
     @classmethod
     def setUpClass(cls):
         """S3 (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
-        subprocess.call(["mkdir", "/tmp/rucio"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        subprocess.call(["mkdir", "/tmp/rucio/local"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        subprocess.call(["mkdir", "/tmp/rucio/remote"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        subprocess.call(["dd", "if=/dev/urandom", "of=/tmp/rucio/local/data.raw", "bs=1024", "count=1024"], stdout=open(os.devnull, "w"), stderr=subprocess.STDOUT)
-        files = ["/tmp/rucio/local/1_rse_local_put.raw", "/tmp/rucio/local/2_rse_local_put.raw", "/tmp/rucio/local/3_rse_local_put.raw", "/tmp/rucio/local/4_rse_local_put.raw",
-                 "/tmp/rucio/local/1_rse_remote_get.raw", "/tmp/rucio/local/2_rse_remote_get.raw", "/tmp/rucio/local/3_rse_remote_get.raw"]
+        cls.tmpdir = tempfile.mkdtemp()
+
+        with open("%s/data.raw" % cls.tmpdir, "wb") as out:
+            out.seek((1024 * 1024) - 1)  # 1 MB
+            out.write('\0')
+        files = ["1_rse_local_put.raw", "2_rse_local_put.raw", "3_rse_local_put.raw", "4_rse_local_put.raw",
+                 "1_rse_remote_get.raw", "2_rse_remote_get.raw", "3_rse_remote_get.raw"]
         for f in files:
-            #subprocess.call(['cp', '/tmp/rucio/local/data.raw', f])
-            subprocess.call(['ln', '-s', '/tmp/rucio/local/data.raw', f])
+            os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
         storage = rsemanager.RSE('swift.cern.ch')
+        fnull = open(os.devnull, 'w')
 
         # Create test files on storage
-        fnull = open(os.devnull, 'w')
-        try:
-            subprocess.call(["s3cmd", "mb", "s3://RSETEST"], stdout=fnull, stderr=fnull)
-        except S3Error:
-            pass
         files = ['1_rse_remote_get.raw', '2_rse_remote_get.raw',
                  '1_rse_remote_delete.raw', '2_rse_remote_delete.raw', '3_rse_remote_delete.raw', '4_rse_remote_delete.raw',
                  '1_rse_remote_exists.raw', '2_rse_remote_exists.raw',
                  '1_rse_remote_rename.raw', '2_rse_remote_rename.raw', '3_rse_remote_rename.raw', '4_rse_remote_rename.raw', '5_rse_remote_rename.raw', '6_rse_remote_rename.raw']
-        subprocess.call(["s3cmd", "put", "/tmp/rucio/local/data.raw", storage.lfn2uri('data.raw'), "--no-progress"], stdout=fnull, stderr=fnull)
+        try:
+            subprocess.call(["s3cmd", "mb", "s3://RSETESTS3"], stdout=fnull, stderr=fnull, shell=False)
+        except S3Error:
+            pass
+        subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, storage.lfn2uri('data.raw'), "--no-progress"], stdout=fnull, stderr=fnull)
         for f in files:
-            print ["s3cmd", "cp", storage.lfn2uri('data.raw'), storage.lfn2uri(f), "--no-progress"]
             subprocess.call(["s3cmd", "cp", storage.lfn2uri('data.raw'), storage.lfn2uri(f), "--no-progress"], stdout=fnull, stderr=fnull)
         fnull.close()
 
@@ -63,25 +65,25 @@ class TestRseS3():
         """S3 (RSE/PROTOCOLS): Removing created directories and files """
         # Remove test files from storage
         fnull = open(os.devnull, 'w')
-        subprocess.call(["s3cmd", "rb", "s3://RSETEST", "--no-progress", "--force"], stdout=fnull, stderr=fnull)
+        subprocess.call(["s3cmd", "rb", "s3://RSETESTS3", "--no-progress", "--force"], stdout=fnull, stderr=fnull)
+        shutil.rmtree(cls.tmpdir)
         fnull.close()
-        os.system('rm -rf /tmp/rucio')
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
         """S3 (RSE/PROTOCOLS): Get multiple files from storage (Success)"""
-        status, details = self.mgr.download(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], '/tmp/rucio/remote')
+        status, details = self.mgr.download(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], self.tmpdir)
         if not (status and details['1_rse_remote_get.raw'] and details['2_rse_remote_get.raw']):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
     def test_get_mgr_ok_single(self):
         """S3 (RSE/PROTOCOLS): Get a single file from storage (Success)"""
-        self.mgr.download(self.rse_tag, '1_rse_remote_get.raw', '/tmp/rucio/remote')
+        self.mgr.download(self.rse_tag, '1_rse_remote_get.raw', self.tmpdir)
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Get multiple files from storage (SourceNotFound)"""
-        status, details = self.mgr.download(self.rse_tag, ['not_existing_data.raw', '1_rse_remote_get.raw'], '/tmp/rucio/remote')
+        status, details = self.mgr.download(self.rse_tag, ['not_existing_data.raw', '1_rse_remote_get.raw'], self.tmpdir)
         if details['1_rse_remote_get.raw']:
             raise details['not_existing_data.raw']
         else:
@@ -95,18 +97,18 @@ class TestRseS3():
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
         """S3 (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
-        status, details = self.mgr.upload(self.rse_tag, ['1_rse_local_put.raw', '2_rse_local_put.raw'], '/tmp/rucio/local')
+        status, details = self.mgr.upload(self.rse_tag, ['1_rse_local_put.raw', '2_rse_local_put.raw'], self.tmpdir)
         if not (status and details['1_rse_local_put.raw'] and details['2_rse_local_put.raw']):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
     def test_put_mgr_ok_single(self):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (Success)"""
-        self.mgr.upload(self.rse_tag, '3_rse_local_put.raw', '/tmp/rucio/local')
+        self.mgr.upload(self.rse_tag, '3_rse_local_put.raw', self.tmpdir)
 
     @raises(exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
-        status, details = self.mgr.upload(self.rse_tag, ['not_existing_data.raw', '4_rse_local_put.raw'], '/tmp/rucio/local')
+        status, details = self.mgr.upload(self.rse_tag, ['not_existing_data.raw', '4_rse_local_put.raw'], self.tmpdir)
         if details['4_rse_local_put.raw']:
             raise details['not_existing_data.raw']
         else:
@@ -115,12 +117,12 @@ class TestRseS3():
     @raises(exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_single(self):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
-        self.mgr.upload(self.rse_tag, 'not_existing_data2.raw', '/tmp/rucio/local')
+        self.mgr.upload(self.rse_tag, 'not_existing_data2.raw', self.tmpdir)
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
         """S3 (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
-        status, details = self.mgr.upload(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], '/tmp/rucio/local')
+        status, details = self.mgr.upload(self.rse_tag, ['1_rse_remote_get.raw', '2_rse_remote_get.raw'], self.tmpdir)
         if details['1_rse_remote_get.raw']:
             raise details['2_rse_remote_get.raw']
         else:
@@ -129,7 +131,7 @@ class TestRseS3():
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
-        self.mgr.upload(self.rse_tag, '1_rse_remote_get.raw', '/tmp/rucio/local')
+        self.mgr.upload(self.rse_tag, '1_rse_remote_get.raw', self.tmpdir)
 
     # MGR-Tests: DELETE
     def test_delete_mgr_ok_multi(self):
