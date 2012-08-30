@@ -1,0 +1,31 @@
+{
+  "swift.cern.ch": {
+    "backend_type": "S3",
+    "protocols": {
+      "default": "s3",
+      "prefix": "SOME-PATH",
+      "supported": {
+        "s3": {
+          "impl": "rucio.rse.protocols.s3.Default",
+          "prefix": "RSETESTS3",
+          "host": "swift.cern.ch"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.s3.Default.getSpace"
+  },
+  "lxplus.cern.ch":{
+    "backend_type": "SFTP",
+    "protocols": {
+      "default": "sftp",
+      "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test/",
+      "supported": {
+        "sftp": {
+          "impl": "rucio.rse.protocols.sftp.Default",
+          "host": "lxplus.cern.ch"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.sftp.Default.getSpace"
+  }
+}
