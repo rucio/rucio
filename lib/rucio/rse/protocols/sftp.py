@@ -30,7 +30,7 @@ class Default(protocol.RSEProtocol):
 
             :returns: RSE specific URI of the physical file
         """
-        return self.rse['static']['pfn_prefix'] + pfn
+        return self.rse['protocol']['prefix'] + pfn
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
@@ -65,7 +65,7 @@ class Default(protocol.RSEProtocol):
             :raise RSEAccessDenied
         """
         try:
-            credentials['host'] = self.rse['static']['url']
+            credentials['host'] = self.rse['protocol']['host']
             self.__connection = pysftp.Connection(**credentials)
         except Exception as e:
             raise exception.RSEAccessDenied(e)
@@ -114,9 +114,9 @@ class Default(protocol.RSEProtocol):
         try:
             self.__connection.put(sf, self.pfn2uri(source))
         except IOError as e:
-            if not self.exists(self.rse['static']['pfn_prefix']):
+            if not self.exists(self.rse['protocol']['prefix']):
                 cmd = 'mkdir '
-                for p in self.rse['static']['pfn_prefix'].split('/'):
+                for p in self.rse['protocol']['prefix'].split('/'):
                     cmd += p + '/'
                     self.__connection.execute(cmd)
                 self.__connection.put(source, self.pfn2uri(source))

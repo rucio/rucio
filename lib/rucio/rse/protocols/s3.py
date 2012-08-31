@@ -37,7 +37,7 @@ class Default(protocol.RSEProtocol):
 
             :returns: RSE specific URI of the physical file
         """
-        return 's3://%s/%s' % (self.rse['static']['pfn_prefix'], pfn)
+        return 's3://%s/%s' % (self.rse['protocol']['prefix'], pfn)
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
