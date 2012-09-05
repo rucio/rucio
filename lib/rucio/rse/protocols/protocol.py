@@ -62,10 +62,11 @@ class RSEProtocol(object):
          """
         raise NotImplemented
 
-    def put(self, source, source_dir):
+    def put(self, source, target, source_dir):
         """ Allows to store files inside the referred RSE.
 
             :param source Physical file name
+            :param target Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
