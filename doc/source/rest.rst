@@ -26,170 +26,140 @@ the requests. Descriptions of the actions you may perform on each resource can b
 Service
 =======
 
-+---------------+--------------------------------------+-------------+---------------------+
-| Resource      | Description                          | Command     | Method              |
-+===============+======================================+=============+=====================+
-| :ref:`GET /`  | Discover server version information  | :ref:`ping` | :ref:`client_ping`  |
-+---------------+--------------------------------------+-------------+---------------------+
 
-
+* :ref:`GET /PING`: Discover server version information
 
 Authentication
 ==============
 
-+------------------------------------+-----------------------------------------------------------+--------------+
-| Resource                           | Description                                               | Availability |
-+====================================+===========================================================+==============+
-| :ref:`GET auth/userpass`           | Retrieve an auth token with via username and password     |  OK          |
-+------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET auth/x509`               | Retrieve an auth token with via a x509 certificate        |  OK          |
-+------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET auth/gss`                | Retrieve an auth token with via a gss token               |  OK          |
-+------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET auth/proxy`              | Retrieve an auth token with via a Globus proxy            |  No          |
-+------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET auth/validate`           | Return accountname and expiration date, if token valid    |  OK          |
-+------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET auth/register_api_token` | Authenticate a Rucio account for interaction with the API |  No          |
-+------------------------------------+-----------------------------------------------------------+--------------+
+* :ref:`GET auth/userpass`: Retrieve an auth token with via username and password
+* :ref:`GET auth/x509`: Retrieve an auth token with via a x509 certificate
+* :ref:`GET auth/x509_proxy`: Retrieve an auth token with via a Globus proxy
+* :ref:`GET auth/gss`: Retrieve an auth token with via a gss token
+* :ref:`GET auth/validate`: Retrieve an auth token with via a gss token
+* :ref:`DELETE auth/tokens/`: Revoke a  <token> ?
 
 Rucio account
 =============
 
-+--------------------------------------+---------------------------------------------------+---------------------------------+---------------------------+
-| Resource                             | Description                                       | Command                         | Method                    |
-+======================================+===================================================+=================================+===========================+
-| :ref:`POST accounts/`                | Create account                                    | :ref:`add_account`              | :ref:`client_add_account` |
-+--------------------------------------+---------------------------------------------------+---------------------------------+---------------------------+
-| :ref:`GET accounts/{accountName}`    | Get account information                           | :ref:`rucio-admin account show` |                           |
-+--------------------------------------+---------------------------------------------------+---------------------------------+---------------------------+
-| :ref:`PUT accounts/{accountName}`    | Update account information                        |  No                             |                           |
-+--------------------------------------+---------------------------------------------------+---------------------------------+---------------------------+
-| :ref:`GET accounts/whoami`           | Get information about account whose token is used | :ref:`rucio whoami`             | :ref:`whoami`             |
-+--------------------------------------+---------------------------------------------------+---------------------------------+---------------------------+
-| :ref:`GET accounts/`                 | List available accounts                           | :ref:`rucio-admin account list` | :ref:`list_accounts`      |
-+--------------------------------------+---------------------------------------------------+---------------------------------+---------------------------+
-| :ref:`DELETE accounts/{accountName}` | Disable an account                                |  :ref:`rucio-admin account del` | :ref:`del_account`        |
-+--------------------------------------+---------------------------------------------------+---------------------------------+---------------------------+
+* :ref:`POST accounts/{accountName}`: Create account
+
+  - Command: :ref:`rucio-admin account add`
+  - Method: :ref:`add_account`
+
+* :ref:`GET accounts/{accountName}`: Get account information
+* :ref:`PUT accounts/{accountName}`: Update account information
+* :ref:`GET accounts/{accountName}/usage`: Get account usage information
+* :ref:`GET accounts/{accountName}/limits`: Get limits
+* :ref:`PUT accounts/{accountName}/limits`: Set limits for a account and a value
+* :ref:`GET accounts/whoami`: Get information about account whose token is used
+* :ref:`GET accounts/`:  List available accounts
+* :ref:`DELETE accounts/{accountName}`: Disable account name
 
 RSE (Rucio Storage Element)
 ============================
 
-+----------------------------------------+-----------------------------------------------------------+--------------+
-| Resource                               | Description                                               | Availability |
-+========================================+===========================================================+==============+
-| :ref:`POST rses/`                      | Create a RSE                                              |  No          |
-+----------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET rses/{rseName}`              | Get RSE information                                       |  No          |
-+----------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET rses/`                       | List available RSEs                                       |  OK          |
-+----------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`DELETE rses/{rseName}`           | Disable a RSE                                             |  No          |
-+----------------------------------------+-----------------------------------------------------------+--------------+
+* :ref:`POST rses/{RSEName}`: Create a RSE
+
+  - Command: :ref:`rucio-admin rse add`
+  - Method: :ref:`add_rse`
+
+* :ref:`GET rses/{rseName}`: Get RSE information
+* :ref:`GET rses/`: List available RSEs
+* :ref:`DELETE rses/{rseName}`: Disable a RSE
+* :ref:`GET rses/{rseName}/usage`: Get RSE usage information
+* :ref:`GET rses/{rseName}/usage/history`: Get RSE usage information history
 
 
-RSE Tag
-=======
+RSE  Metadata
+=============
 
-+-------------------------------------------------------+------------------------------------------+--------------+
-| Resource                                              | Description                              | Availability |
-+=======================================================+==========================================+==============+
-| :ref:`POST /rses/{rseName}/tags/`                     | Tag a RSE                                |  No          |
-+-------------------------------------------------------+------------------------------------------+--------------+
-| :ref:`GET rses/tags/`                                 | List all RSE tags                        |  No          |
-+-------------------------------------------------------+------------------------------------------+--------------+
-| :ref:`GET rses/{rseName}/tags/`                       | List all tags associated to a RSE        |  No          |
-+-------------------------------------------------------+------------------------------------------+--------------+
-| :ref:`DELETE rses/{RSEName}/tags/{tagName}`           | Untag a RSE                              |  No          |
-+-------------------------------------------------------+------------------------------------------+--------------+
-
+* :ref:`GET rses/{RSEName}/meta/`: List all keys of the RSE with their respective values
+* :ref:`GET rses/{rseName}/meta/{key}`: Get the value of the RSE attribute/key
+* :ref:`POST rses/{rseName}/meta/{key}/`: Create an RSE key
+* :ref:`PUT rses/{rseName}/meta/{key}/`: Update the value of a key
+* :ref:`DELETE rses/{rseName}/meta/{key}`: Remove a key from a RSE
 
 Identity
 ========
 
-+--------------------------------------------------------------------------------------------+----------------------------------------------------------------------+--------------+
-| Resource                                                                                   | Description                                                          | Availability |
-+============================================================================================+======================================================================+==============+
-| :ref:`POST accounts/{accountName}/identities/`                                             | Grant a \{userpass|x509|gss|proxy\} identity access to an account    |  No          |
-+--------------------------------------------------------------------------------------------+----------------------------------------------------------------------+--------------+
-| :ref:`GET accounts/{accountName}/identities/`                                              | List all identities on an account                                    |  No          |
-+--------------------------------------------------------------------------------------------+----------------------------------------------------------------------+--------------+
-| :ref:`GET identities/{userpass|x509|gss|proxy}/{identityString}/accounts/`                 | List all account memberships of an identity                          |  No          |
-+--------------------------------------------------------------------------------------------+----------------------------------------------------------------------+--------------+
-| :ref:`DELETE accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}` | Revoke a \{userpass|x509|gss|proxy\} identity's access to an account |  No          |
-+--------------------------------------------------------------------------------------------+----------------------------------------------------------------------+--------------+
-
+* :ref:`POST accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}`: Grant a \{userpass|x509|gss|proxy\} identity access to an account
+* :ref:`GET accounts/{accountName}/identities/`: List all identities on an account
+* :ref:`GET identities/{userpass|x509|gss|proxy}/{identityString}/accounts/`: List all account memberships of an identity
+* :ref:`DELETE accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}`:  Revoke a \{userpass|x509|gss|proxy\} identity's access to an account
 
 Scope
 =====
 
-+----------------------------------------------------------+-----------------------------------------------------------+--------------+
-| Resource                                                 | Description                                               | Availability |
-+==========================================================+===========================================================+==============+
-| :ref:`POST accounts/{accountName}/scopes/`               | Create a scope                                            |  No          |
-+----------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET accounts/{accountName}/scopes/`                | List available scopes for an account                      |  No          |
-+----------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET scopes/`                                       | List all scopes                                           |  No          |
-+----------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`DELETE accounts/{accountName}/scopes/{scopeName}`  | Delete a scope from an account                            |  No          |
-+----------------------------------------------------------+-----------------------------------------------------------+--------------+
-
+* :ref:`POST accounts/{accountName}/scopes/{scopeName}`: Create a scope
+* :ref:`GET accounts/{accountName}/scopes/`: List available scopes for an account
+* :ref:`GET scopes/`: List/query all scopes with filter parameter lists
+* :ref:`DELETE accounts/{accountName}/scopes/{scopeName}`: Delete a scope from an account
 
 Dataset
 =======
 
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| Resource                                                           | Description                                               | Availability |
-+====================================================================+===========================================================+==============+
-| :ref:`POST datasets/{scopeName}/`                                  | Register a dataset                                        |  No          |
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET datasets/{scopeName}/{datasetName}/`                     | List dataset content                                      |  No          |
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET datasets/{scopeName}/{datasetName}`                      | List dataset meta-data                                    |  No          |
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`PUT datasets/{datasetName}`                                  | Update dataset meta-data                                  |  No          |
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`POST datasets/{scopeName}/{datasetName}/`                    | Add file(s) to a dataset                                  |  No          |
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET datasets/{scopeName}/{datasetName}/{fileName}`           | Get file meta-data                                        |  No          |
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET datasets/`                                               | Search datasets                                           |  No          |
-+--------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-
+* :ref:`POST datasets/{scopeName}/{datasetName}`: Register a dataset
+* :ref:`GET datasets/{scopeName}/{datasetName}/names/`: List dataset content
+* :ref:`GET datasets/{scopeName}/{datasetName}/files/`: List dataset file content
+* :ref:`PUT datasets/{scopeName}/{datasetName}/status/`: Update dataset status
+* :ref:`GET datasets/{scopeName}/{datasetName}/status/`: Get dataset status
+* :ref:`GET datasets/{scopeName}/{datasetName}/meta`: List all keys of the dataset with their respective values
+* :ref:`POST datasets/{scopeName}/{datasetName}/meta/{key}`:  Creation of a key for a dataset
+* :ref:`GET datasets/{scopeName}/{datasetName}/meta/{key}`: Retrieve the selected key value pair for the given dataset
+* :ref:`DELETE datasets/{scopeName}/{datasetName}/meta/{key}`: Remove a key from a dataset
+* :ref:`PUT datasets/{scopeName}/{datasetName}/meta/{key}`:  Update the value of the key
+* :ref:`GET datasets/`:  Search/list datasets with filter parameters
+* :ref:`POST datasets/{scopeName}/{datasetName}/files|names`: Add file(s)/dataset(s) to a dataset
+* :ref:`DELETE datasets/{scopeName}/{datasetName}`: Delete a dataset
 
 File
 ====
 
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| Resource                                                              | Description                                               | Availability |
-+=======================================================================+===========================================================+==============+
-| :ref:`POST /locations/{locationName}/files/`                          | Register a file                                           |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`PUT /files/{scopeName}/{fileName}/`                             | Update file meta-data                                     |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET /files/{scopeName}/{fileName}`                              | Get file meta-data                                        |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET /files/{scopeName}/locations/`                              | List file replicas                                        |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET files/`                                                     | Search files                                              |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
+* :ref:`POST /rses/{RSEName}/files/{scopeName}/{fileName}`: Register a file replica
+* :ref:`GET files/{scopeName}/{datasetName}/meta`: List all keys of the dataset with their respective values
+* :ref:`GET files/{scopeName}/{fileName}/meta/{key}`: Retrieve the selected key value pair for the given file
+* :ref:`PUT files/{scopeName}/{fileName}/status`: Update file status
+* :ref:`GET files/{scopeName}/{fileName}/status`: Get file status
+* :ref:`POST files/{scopeName}/{datasetName}/meta/{key}/`:  Creation of a key for a file
+* :ref:`PUT files/{scopeName}/{fileName}/meta/{key}`: Update the value of the key
+* :ref:`DELETE files/{scopeName}/{fileName}/meta/{key}`: Remove a key from a file
+* :ref:`PUT files/{scopeName}/{fileName}/meta/{key}/`:  Set the value of the key to {value}
+* :ref:`GET files/{scopeName}/{fileName}/rses/`:  List file replicas
 
 
-Replication rule & Transfer request
-===================================
+Name
+====
 
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| Resource                                                              | Description                                               | Availability |
-+=======================================================================+===========================================================+==============+
-| :ref:`POST copy/`                                                     | Register transfer requests                                |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET copy/<transfer_id>`                                         | Query transfer status                                     |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`POST replications/`                                             | Register a replication rule                               |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET replications/`                                              | List replication rules                                    |  No          |
-+-----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
+* :ref:`GET names/{scopeName}/{name}/rses/`: List file replicas for dataset|file
+* :ref:`GET names/{scopeName}/{name}/names/`: List content
+* :ref:`GET names/{scopeName}/{name}/files/`: List file content
+* :ref:`GET names/{scopeName}/{name}/meta`: List all keys of the name with their respective values
+* :ref:`GET names/{scopeName}/{name}/meta/{key}`: Retrieve the selected key value pair for the given name
+* :ref:`PUT names/{scopeName}/{name}/meta/{key}`: Set the value of the key to NULL ?
+* :ref:`DELETE /names/{scopeName}/{name}/meta/{key}`: Remove a key from a name
+* :ref:`PUT /names/{scopeName}/{name}/meta/{key}`:  Set the value of the key to {value}
+* :ref:`GET names/`:  Search names with filter parameters
+
+Metadata
+=========
+
+What's written below for datasets is applicable to files 1:1 (replace string 'datasets' with 'files').
+
+
+* :ref:`POST meta/datasets/{key}`: Create a new allowed key (value is NULL)
+* :ref:`GET meta/datasets`: List all allowed keys with their default values
+* :ref:`POST meta/datasets/{key}/`: Create a new allowed key with a default value
+* :ref:`DELETE meta/datasets/{key}`:  Delete an allowed key
+* :ref:`DELETE meta/datasets/{key}/{defaultvalue}`: Delete the default value of a key (change the value to NULL)
+
+
+Replication rule
+=================
+
+* :ref:`POST rules/{accountName}/{scopeName}/{name}`: Create a rule on a name
+* :ref:`GET rules/{accountName}/{scopeName}/{name}`: Get all the rules associated to a name
+* :ref:`DELETE rules/{accountName}/{scopeName}/{name}`: Delete a rule
 
 
 Subscriptions
