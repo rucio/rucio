@@ -41,10 +41,11 @@ class TestRseSFTP():
         data = json.load(open('etc/rse-accounts.cfg'))
         credentials = data['lxplus.cern.ch']
         lxplus = pysftp.Connection(**credentials)
-        lxplus.execute('mkdir ~/rse_test')
-        lxplus.execute('dd if=/dev/urandom of=~/rse_test/data.raw bs=1024 count=1024')
+        prefix = json.load(open('etc/rse_repository.json'))['lxplus.cern.ch']['protocols']['prefix']
+        lxplus.execute('mkdir %s' % prefix)
+        lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         for f in MgrTestCases.files_remote:
-            lxplus.execute('ln -s ~/rse_test/data.raw %s' % storage.lfn2uri({'filename': f, 'scope': 'test'}))
+            lxplus.execute('ln -s %s/data.raw %s' % (prefix, storage.lfn2uri({'filename': f, 'scope': 'test'})))
         lxplus.close()
 
     @classmethod
@@ -57,7 +58,8 @@ class TestRseSFTP():
         credentials['password'] = str(data['lxplus.cern.ch']['password'])
         credentials['host'] = 'lxplus.cern.ch'
         lxplus = pysftp.Connection(**credentials)
-        lxplus.execute('rm -rf ~/rse_test')
+        prefix = json.load(open('etc/rse_repository.json'))['lxplus.cern.ch']['protocols']['prefix']
+        lxplus.execute('rm -rf %s' % prefix)
         lxplus.close()
         shutil.rmtree(cls.tmpdir)
 
