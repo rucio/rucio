@@ -18,7 +18,7 @@
     "backend_type": "SFTP",
     "protocols": {
       "default": "sftp",
-      "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test/",
+      "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test_run/",
       "supported": {
         "sftp": {
           "impl": "rucio.rse.protocols.sftp.Default",
