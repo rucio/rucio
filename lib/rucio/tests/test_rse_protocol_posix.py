@@ -10,7 +10,6 @@
 
 import json
 import os
-import pysftp
 import shutil
 import tempfile
 
@@ -21,12 +20,12 @@ from rucio.rse import rsemanager
 from rsemgr_api_test import MgrTestCases
 
 
-class TestRseSFTP():
+class TestRsePOSIX():
     tmpdir = None
 
     @classmethod
     def setUpClass(cls):
-        """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
+        """POSIX (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
 
@@ -34,151 +33,142 @@ class TestRseSFTP():
             out.seek((1024 * 1024) - 1)  # 1 MB
             out.write('\0')
         for f in MgrTestCases.files_local:
-            os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
+            shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSE('lxplus.cern.ch')
-        # Load local creditentials from file
-        data = json.load(open('etc/rse-accounts.cfg'))
-        credentials = data['lxplus.cern.ch']
-        lxplus = pysftp.Connection(**credentials)
-        lxplus.execute('mkdir ~/rse_test')
-        lxplus.execute('dd if=/dev/urandom of=~/rse_test/data.raw bs=1024 count=1024')
+        storage = rsemanager.RSE('posix')
+        data = json.load(open('etc/rse_repository.json'))
+        prefix = data['posix']['protocols']['prefix']
+        os.mkdir(prefix)
+        os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         for f in MgrTestCases.files_remote:
-            lxplus.execute('ln -s ~/rse_test/data.raw %s' % storage.lfn2uri({'filename': f, 'scope': 'test'}))
-        lxplus.close()
+            shutil.copy('%s/data.raw' % prefix, storage.lfn2uri({'filename': f, 'scope': 'test'}))
 
     @classmethod
     def tearDownClass(cls):
-        """SFTP (RSE/PROTOCOLS): Removing created directorie s and files """
-        # Load local creditentials from file
-        credentials = {}
-        data = json.load(open('etc/rse-accounts.cfg'))
-        credentials['username'] = str(data['lxplus.cern.ch']['username'])
-        credentials['password'] = str(data['lxplus.cern.ch']['password'])
-        credentials['host'] = 'lxplus.cern.ch'
-        lxplus = pysftp.Connection(**credentials)
-        lxplus.execute('rm -rf ~/rse_test')
-        lxplus.close()
+        """POSIX (RSE/PROTOCOLS): Removing created directorie s and files """
+        data = json.load(open('etc/rse_repository.json'))
+        prefix = data['posix']['protocols']['prefix']
+        shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)
 
     def setUp(self):
-        """SFTP (RSE/PROTOCOLS): Creating Mgr-instance """
-        self.tmpdir = TestRseSFTP.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'lxplus.cern.ch')
+        """POSIX (RSE/PROTOCOLS): Creating Mgr-instance """
+        self.tmpdir = TestRsePOSIX.tmpdir
+        self.mtc = MgrTestCases(self.tmpdir, 'posix')
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
-        """SFTP (RSE/PROTOCOLS): Get multiple files from storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Get multiple files from storage (Success)"""
         self.mtc.test_multi_get_mgr_ok()
 
     def test_get_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Get a single file from storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Get a single file from storage (Success)"""
         self.mtc.test_get_mgr_ok_single()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
-        """SFTP (RSE/PROTOCOLS): Get multiple files from storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Get multiple files from storage (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single(self):
-        """SFTP (RSE/PROTOCOLS): Get a single file from storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Get a single file from storage (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single()
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
-        """SFTP (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
         self.mtc.test_put_mgr_ok_multi()
 
     def test_put_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Put a single file to storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Put a single file to storage (Success)"""
         self.mtc.test_put_mgr_ok_single()
 
     @raises(exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_multi(self):
-        """SFTP (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_single(self):
-        """SFTP (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_single()
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
-        """SFTP (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
+        """POSIX (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
-        """SFTP (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
+        """POSIX (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
 
     # MGR-Tests: DELETE
     def test_delete_mgr_ok_multi(self):
-        """SFTP (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
         self.mtc.test_delete_mgr_ok_multi()
 
     def test_delete_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         self.mtc.test_delete_mgr_ok_single()
 
     @raises(exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_multi(self):
-        """SFTP (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
         self.mtc.test_delete_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_single(self):
-        """SFTP (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
         self.mtc.test_delete_mgr_SourceNotFound_single()
 
     # MGR-Tests: EXISTS
     def test_exists_mgr_ok_multi(self):
-        """SFTP (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
         self.mtc.test_exists_mgr_ok_multi()
 
     def test_exists_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Check a single file on storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Check a single file on storage (Success)"""
         self.mtc.test_exists_mgr_ok_single()
 
     def test_exists_mgr_false_multi(self):
-        """SFTP (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
+        """POSIX (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
         self.mtc.test_exists_mgr_false_multi()
 
     def test_exists_mgr_fals_single(self):
-        """SFTP (RSE/PROTOCOLS): Check a single file on storage (Fail)"""
+        """POSIX (RSE/PROTOCOLS): Check a single file on storage (Fail)"""
         self.mtc.test_exists_mgr_fals_single()
 
     # MGR-Tests: RENAME
     def test_rename_mgr_ok_multi(self):
-        """SFTP (RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
         self.mtc.test_rename_mgr_ok_multi()
 
     def test_rename_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Rename a single file on storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage (Success)"""
         self.mtc.test_rename_mgr_ok_single()
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
-        """SFTP (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
+        """POSIX (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_single(self):
-        """SFTP (RSE/PROTOCOLS): Rename a single file on storage (FileReplicaAlreadyExists)"""
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single()
 
     @raises(exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_multi(self):
-        """SFTP (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single(self):
-        """SFTP (RSE/PROTOCOLS): Rename a single file on storage (SourceNotFound)"""
+        """POSIX (RSE/PROTOCOLS): Rename a single file on storage (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single()
 
     def test_change_scope_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Change the scope of a single file on storage (Success)"""
+        """POSIX (RSE/PROTOCOLS): Change the scope of a single file on storage (Success)"""
         self.mtc.test_change_scope_mgr_ok_single()

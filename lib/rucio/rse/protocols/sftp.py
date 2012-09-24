@@ -99,10 +99,11 @@ class Default(protocol.RSEProtocol):
             else:
                 raise exception.ServiceUnavailable(e)
 
-    def put(self, source, source_dir=None):
+    def put(self, source, target, source_dir=None):
         """ Allows to store files inside the referred RSE.
 
             :param source Physical file name
+            :param target Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
@@ -112,7 +113,7 @@ class Default(protocol.RSEProtocol):
         else:
             sf = source
         try:
-            self.__connection.put(sf, self.pfn2uri(source))
+            self.__connection.put(sf, self.pfn2uri(target))
         except IOError as e:
             if not self.exists(self.rse['protocol']['prefix']):
                 cmd = 'mkdir '

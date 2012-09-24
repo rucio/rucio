@@ -27,5 +27,18 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.sftp.Default.getSpace"
+  },
+  "posix":{
+    "backend_type": "POSIX",
+    "protocols": {
+      "default": "posix",
+      "prefix": "remote_folder/",
+      "supported": {
+        "posix": {
+          "impl": "rucio.rse.protocols.posix.Default"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
   }
 }

@@ -9,25 +9,19 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 
 
+import os
+import shutil
 from subprocess import call
-# IMPORTANT: If the order of the S3 imports is changed, they fail!
-from S3.Exceptions import S3Error, InvalidFileError
-from S3.S3 import S3
-from S3.Config import Config
-from S3.S3Uri import S3Uri
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to RSEs using the S3 protocol."""
+    """ Implementing access to RSEs using the local filesystem."""
 
     def __init__(self, props):
-        """ Initializes the object with information about the referred RSE.
-
-            :param props Properties derived from the RSE Repository
-        """
+        """ Initializes the object with information about the referred RSE."""
         self.rse = props
 
     def pfn2uri(self, pfn):
@@ -37,8 +31,7 @@ class Default(protocol.RSEProtocol):
 
             :returns: RSE specific URI of the physical file
         """
-        tmp = pfn.split(':')
-        return 's3://%s/%s/%s' % (self.rse['protocol']['prefix'], tmp[0], tmp[1])
+        return self.rse['protocol']['prefix'] + pfn
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
@@ -49,32 +42,27 @@ class Default(protocol.RSEProtocol):
 
             :raise  ServiceUnavailable
         """
+        status = ''
         try:
-            self.__s3.object_info(S3Uri(self.pfn2uri(pfn)))
-            return True
-        except S3Error as e:
-            if e.status == 404:
-                return False
-            else:
-                raise exception.ServiceUnavailable(e)
+            status = os.path.exists(self.pfn2uri(pfn))
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+        return status
 
     def connect(self, credentials):
         """ Establishes the actual connection to the referred RSE.
 
-            :param credentials Provides information to establish a connection
-                to the referred storage system. For S3 connections these are
-                access_key, secretkey, host_base, host_bucket, progress_meter
-                and skip_existing.
+            :param credentials Provide all necessary information to establish a connection
+                to the referred storage system. Some is loaded from the repository inside the
+                RSE class and some must be provided specific for the SFTP protocol like
+                username, password, private_key, private_key_pass, port.
+                For details about possible additional parameters and details about their usage
+                see the pysftp.Connection() documentation.
+                NOTE: the host parametrer is overwritten with the value provided by the repository
 
-            :raises RSEAccessDenied
+            :raise RSEAccessDenied
         """
-        try:
-            cfg = Config()
-            for k in credentials:
-                cfg.update_option(k.encode('utf-8'), credentials[k].encode('utf-8'))
-            self.__s3 = S3(cfg)
-        except Exception as e:
-            raise exception.RSEAccessDenied(e)
+        pass
 
     def close(self):
         """ Closes the connection to RSE."""
@@ -88,21 +76,21 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
          """
-        tf = None
         try:
-            tf = open(dest, 'wb')
-            self.__s3.object_get(S3Uri(self.pfn2uri(pfn)), tf)
-            tf.close()
-        except S3Error as e:
-            tf.close()
-            call(['rm', dest])  # Must be changed if resume will be supported
-            if e.status in [404, 403]:
-                raise exception.SourceNotFound(e)
-            else:
-                raise exception.ServiceUnavailable(e)
+            tmp = '%s%s' % (self.rse['protocol']['prefix'], pfn)
+            shutil.copy(tmp, dest)
         except IOError as e:
+            try:  # To check if the error happend local or remote
+                with open(dest, 'wb'):
+                    pass
+                call(['rm', dest])
+            except IOError as e:
+                if e.errno == 2:
+                    raise exception.DestinationNotAccessible(e)
+                else:
+                    raise exception.ServiceUnavailable(e)
             if e.errno == 2:
-                raise exception.DestinationNotAccessible(e)
+                raise exception.SourceNotFound(e)
             else:
                 raise exception.ServiceUnavailable(e)
 
@@ -115,16 +103,28 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        full_name = source_dir + '/' + source if source_dir else source
+        if source_dir:
+            sf = source_dir + '/' + source
+        else:
+            sf = source
         try:
-            self.__s3.object_put(full_name, S3Uri(self.pfn2uri(target)))
-        except S3Error as e:
-            if e.info['Code'] in ['NoSuchBucket', "AccessDenied"]:
-                raise exception.DestinationNotAccessible(e)
-            else:
-                raise exception.ServiceUnavailable(e)
-        except InvalidFileError as e:
+            print 'Put**' * 20
+            print 'Sorucefile: %s' % sf
+            print 'Target: %s ' % target
+            print 'Trans: %s' % self.pfn2uri(target)
+            print 'Put**' * 20
+            shutil.copy(sf, self.pfn2uri(target))
+        except IOError as e:
+            if e.errno == 2:
                 raise exception.SourceNotFound(e)
+            elif not self.exists(self.rse['protocol']['prefix']):
+                path = ''
+                for p in self.rse['protocol']['prefix'].split('/'):
+                    path += p + '/'
+                    os.mkdir(path)
+                shutil.copy(sf, self.pfn2uri(target))
+            else:
+                raise exception.DestinationNotAccessible(e)
 
     def delete(self, pfn):
         """ Deletes a file from the connected RSE.
@@ -134,12 +134,10 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable, SourceNotFound
         """
         try:
-            self.__s3.object_delete(S3Uri(self.pfn2uri(pfn)))
-        except S3Error as e:
-            if e.status in [404, 403]:
+            os.remove(self.pfn2uri(pfn))
+        except OSError as e:
+            if e.errno == 2:
                 raise exception.SourceNotFound(e)
-            else:
-                raise exception.ServiceUnavailable(e)
 
     def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
@@ -150,9 +148,9 @@ class Default(protocol.RSEProtocol):
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
         try:
-            self.__s3.object_move(S3Uri(self.pfn2uri(pfn)), S3Uri(self.pfn2uri(new_pfn)))
-        except S3Error as e:
-            if e.status in [404, 403]:
+            os.rename(self.pfn2uri(pfn), self.pfn2uri(new_pfn))
+        except IOError as e:
+            if e.errno == 2:
                 if self.exists(self.pfn2uri(pfn)):
                     raise exception.SourceNotFound(e)
                 else:
