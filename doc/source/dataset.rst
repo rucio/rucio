@@ -3,7 +3,7 @@ Dataset  Methods
 ****************
 
 .. _dataset:
-.. automodule:: rucio.core.inode
+.. automodule:: rucio.core.name
     :members:
     :undoc-members:
     :show-inheritance:

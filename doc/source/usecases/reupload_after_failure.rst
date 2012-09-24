@@ -5,9 +5,9 @@
       You may not use this file except in compliance with the License.
       You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
-----------------
+---------------------------------------
 Re-upload a file after an failed upload
-----------------
+---------------------------------------
 
 .. sequence-diagram::
 
@@ -24,16 +24,16 @@ Re-upload a file after an failed upload
       Client:RSE.delete(filename)
         RSE:Protocol.delete(filename)
           Protocol:StorageSystem.deleteFile(filename)
-        [c opt get failed?]                                                                                                                              
-          RSE:REST.updateTracer(filename, 'DELETE FAILED')                                                                                                  
+        [c opt get failed?]
+          RSE:REST.updateTracer(filename, 'DELETE FAILED')
         [/c]
       Client:RSE.put(filename, dataset, scope)
         RSE:Protocol.put(filename)
           Protocol:StorageSystem.putFile(filename)
         RSE:REST.registerFile(filename, dataset, scope, state='active')
         RSE:REST.updateTracer(filename,'uploaded')
-        [c opt get failed?]                                                                                                                              
-          RSE:REST.updateTracer(filename, 'PUT FAILED')                                                                                                  
+        [c opt get failed?]
+          RSE:REST.updateTracer(filename, 'PUT FAILED')
         [/c]
     [/c]
   [/c]

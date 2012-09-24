@@ -29,14 +29,16 @@ Service
 
 * :ref:`GET /PING`: Discover server version information
 
+  - Command: :ref:`rucio ping`, method: :ref:`ping`
+
 Authentication
 ==============
 
-* :ref:`GET auth/userpass`: Retrieve an auth token with via username and password
-* :ref:`GET auth/x509`: Retrieve an auth token with via a x509 certificate
-* :ref:`GET auth/x509_proxy`: Retrieve an auth token with via a Globus proxy
-* :ref:`GET auth/gss`: Retrieve an auth token with via a gss token
-* :ref:`GET auth/validate`: Retrieve an auth token with via a gss token
+* :ref:`GET auth/userpass`: Retrieve an auth token with an username and password
+* :ref:`GET auth/x509`: Retrieve an auth token with a x509 certificate
+* :ref:`GET auth/x509_proxy`: Retrieve an auth token with a Globus proxy
+* :ref:`GET auth/gss`: Retrieve an auth token with a gss token
+* :ref:`GET auth/validate`: Retrieve an auth token with a gss token
 * :ref:`DELETE auth/tokens/`: Revoke a  <token> ?
 
 Rucio account
@@ -44,8 +46,7 @@ Rucio account
 
 * :ref:`POST accounts/{accountName}`: Create account
 
-  - Command: :ref:`rucio-admin account add`
-  - Method: :ref:`add_account`
+  - Command: :ref:`rucio-admin account add`, method: :ref:`add_account`
 
 * :ref:`GET accounts/{accountName}`: Get account information
 * :ref:`PUT accounts/{accountName}`: Update account information
