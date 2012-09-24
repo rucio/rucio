@@ -1,8 +1,8 @@
 $> curl -s -i --cacert /opt/rucio/etc/web/ca.crt  -X GET -H "Rucio-Account: root" -H "Rucio-Username: ddmlab" -H "Rucio-Password: secret" https://localhost/auth/userpass
 HTTP/1.1 200 OK
-Date: Thu, 02 Aug 2012 13:45:38 GMT
+Date: Wed, 19 Sep 2012 06:51:52 GMT
 Server: Apache/2.2.21 (Unix) mod_fastcgi/2.4.2 mod_ssl/2.2.21 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.8
-Rucio-Auth-Token: 3694593d6d2845fa991b1ebf0272a1d2
+Rucio-Auth-Token: eed66c5f015b4b60865c60a2d81c4488
 Content-Length: 0
 Content-Type: application/octet-stream
 

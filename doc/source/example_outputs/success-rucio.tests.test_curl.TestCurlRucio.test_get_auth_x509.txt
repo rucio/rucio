@@ -1,8 +1,8 @@
 $> curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509
 HTTP/1.1 200 OK
-Date: Thu, 02 Aug 2012 13:45:39 GMT
+Date: Wed, 19 Sep 2012 06:51:54 GMT
 Server: Apache/2.2.21 (Unix) mod_fastcgi/2.4.2 mod_ssl/2.2.21 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.8
-Rucio-Auth-Token: 74ce632ec7ba48c6b1c9cc8086062cee
+Rucio-Auth-Token: 1585a8a437a348188e402b6ffdaaf51f
 Content-Length: 0
 Content-Type: application/octet-stream
 

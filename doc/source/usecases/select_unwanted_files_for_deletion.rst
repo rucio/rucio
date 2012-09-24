@@ -9,7 +9,5 @@
 Select unwanted files for deletion
 ----------------------------------
 
-* TBA
 
-.. sequence-diagram::
 
