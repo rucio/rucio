@@ -14,6 +14,7 @@ Below are some examples of using Rucio’s Client class. We assume that there is
 a Rucio server running on the localhost on port 80/443.
 
 .........................................................
+
 Service
 ^^^^^^^
 

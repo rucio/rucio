@@ -5,9 +5,9 @@
       You may not use this file except in compliance with the License.
       You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
-----------------
+---------------------------------
 Download files from rucio/storage
-----------------
+---------------------------------
 
 .. sequence-diagram::
 
@@ -22,7 +22,7 @@ Download files from rucio/storage
     [c opt file_state == 'active']
       RSE:Protocol.get(filename)
       RSE:REST.updateTracer(filename, 'GET')
-      [c opt get failed?]                                                                                                                              
+      [c opt get failed?]
         RSE:REST.updateTracer(filename, 'GET FAILED')
       [/c]
     [/c]
