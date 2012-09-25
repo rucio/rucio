@@ -1,2 +1,3 @@
+Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.
 $> curl -s  -X GET http://localhost/ping
-{"version": "0-15-g4755e47-dev1348036934"}
+{"version": "0-15-g4755e47-dev1348039512"}

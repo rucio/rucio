@@ -52,7 +52,7 @@ class TestBinRucio():
 
     def test_add_account(self):
         """ACCOUNT (CLI): Add account"""
-        cmd = 'rucio-admin account add jdoe user'
+        cmd = 'rucio-admin account add jdoe'
         print  self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -68,7 +68,7 @@ class TestBinRucio():
 
     def test_add_identity(self):
         """ACCOUNT (CLI): Test add identity"""
-        cmd = 'rucio-admin account add jdoe user'
+        cmd = 'rucio-admin account add jdoe'
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin identity add jdoe gss jdoe@CERN.CH'
         print  self.marker + cmd
@@ -78,7 +78,7 @@ class TestBinRucio():
 
     def test_add_scope(self):
         """ACCOUNT (CLI): Test add identity"""
-        cmd = 'rucio-admin account add jdoe user'
+        cmd = 'rucio-admin account add jdoe'
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin identity add jdoe gss jdoe@CERN.CH'
         print  self.marker + cmd

@@ -1,8 +1,9 @@
-$> curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"accountName": "jdoe", "accountType": "user"}' -X POST https://localhost/accounts/
+Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.
+$> curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"accountType": "user"}' -X POST https://localhost/accounts/jdoe
 HTTP/1.1 201 Created
-Date: Wed, 19 Sep 2012 06:51:56 GMT
+Date: Tue, 25 Sep 2012 09:16:49 GMT
 Server: Apache/2.2.21 (Unix) mod_fastcgi/2.4.2 mod_ssl/2.2.21 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.8
-Content-Length: 7
+Transfer-Encoding: chunked
 Content-Type: application/octet-stream
 
 Created

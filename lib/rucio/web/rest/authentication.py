@@ -45,7 +45,6 @@ class UserPass:
         """
 
         web.header('Content-Type', 'application/octet-stream')
-
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         username = web.ctx.env.get('HTTP_RUCIO_USERNAME')
         password = web.ctx.env.get('HTTP_RUCIO_PASSWORD')

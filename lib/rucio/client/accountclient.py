@@ -33,8 +33,8 @@ class AccountClient(BaseClient):
         :raises Duplicate: if account already exists.
         """
 
-        data = dumps({'accountName': accountName, 'accountType': accountType})
-        path = '/'.join([self.BASEURL, ''])
+        data = dumps({'accountType': accountType})
+        path = '/'.join([self.BASEURL, accountName])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)

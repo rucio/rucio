@@ -1,0 +1,1 @@
+Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.
