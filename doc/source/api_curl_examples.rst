@@ -17,10 +17,10 @@ a Rucio server running on the localhost on port 80/443.
 Service
 ^^^^^^^
 
-.. _`GET /`:
+.. _`GET /PING`:
 
-`GET /`
-"""""""
+`GET /PING`
+"""""""""""
 
 Discover server version information.
 
@@ -85,10 +85,10 @@ Requesting a Rucio-Auth-Token with curl via kerberos.
 
 .. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_gss.txt
 
-.. _`GET auth/proxy`:
+.. _`GET auth/x509_proxy`:
 
-`GET auth/proxy`
-""""""""""""""
+`GET auth/x509_proxy`
+"""""""""""""""""""""
 
 Requesting a Rucio-Auth-Token with curl via a Globus proxy.
 
@@ -139,10 +139,10 @@ Check the validity of a authentication token. Checking the validity of a token w
 Account
 ^^^^^^^
 
-.. _`POST accounts/`:
+.. _`POST accounts/{accountName}`:
 
-`POST accounts/`
-""""""""""""""""
+`POST POST accounts/{accountName}`
+""""""""""""""""""""""""""""""""""
 
 Create account.
 
@@ -151,8 +151,6 @@ Create account.
 +-------------------+-----------+----------------------------------------------+
 | Name              | Type      | Description                                  |
 +===================+===========+==============================================+
-| ``accountName``   | String    | The name of the account                      |
-+-------------------+-----------+----------------------------------------------+
 | ``accountType``   | String    | The type of the account (user, group, atlas) |
 +-------------------+-----------+----------------------------------------------+
 

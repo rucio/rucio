@@ -1,2 +1,2 @@
-$> curl -s  -X GET http://localhost/
-{"version": "0-105-gcaac355-dev1343830448"}
+$> curl -s  -X GET http://localhost/ping
+{"version": "0-15-g4755e47-dev1348036934"}
