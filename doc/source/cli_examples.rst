@@ -15,7 +15,7 @@ Rucio CLI Examples
 Service
 ^^^^^^^
 
-.. _`ping`:
+.. _`rucio ping`:
 
 
 ``rucio ping``
@@ -35,7 +35,7 @@ Discover server version information.
 Account
 ^^^^^^^
 
-.. _`add_account`:
+.. _`rucio-admin account add`:
 
 
 ``rucio-admin account add``
