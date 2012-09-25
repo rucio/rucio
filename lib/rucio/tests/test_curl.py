@@ -19,13 +19,17 @@ from rucio.tests.common import execute
 
 class TestCurlRucio():
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         build_database(echo=False)
         create_root_account()
-        self.marker = '$> '
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         destroy_database(echo=False)
+
+    def setUp(self):
+        self.marker = '$> '
 
     def test_ping(self):
         """PING (CURL): Get Version"""
@@ -79,7 +83,7 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"accountName": "jdoe", "accountType": "user"}' -X POST https://localhost/accounts/'''
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"accountType": "user"}' -X POST https://localhost/accounts/jdoe'''
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out

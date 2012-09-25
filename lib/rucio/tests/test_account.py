@@ -28,10 +28,12 @@ from rucio.web.rest.authentication import app as auth_app
 
 class TestAccountCoreApi():
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         build_database(echo=False)
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         destroy_database(echo=False)
 
     def test_create_and_check_for_user(self):
@@ -59,11 +61,13 @@ class TestAccountCoreApi():
 
 class TestAccountRestApi():
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         build_database(echo=False)
         create_root_account()
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         destroy_database(echo=False)
 
     def test_create_user_success(self):
@@ -76,9 +80,10 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
+        acntusr = 'user' + str(uuid())
         headers2 = {'Rucio-Auth-Token': str(token)}
-        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
+        data = dumps({'accountType': 'user'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
     def test_create_user_failure(self):
@@ -92,9 +97,9 @@ class TestAccountRestApi():
         token = str(r1.header('Rucio-Auth-Token'))
 
         headers = {'Rucio-Auth-Token': str(token)}
-        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
-        r1 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+        data = dumps({'accountType': 'user'})
+        r1 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
 
         assert_equal(r2.status, 409)
 
@@ -107,8 +112,8 @@ class TestAccountRestApi():
         token = str(r.header('Rucio-Auth-Token'))
 
         headers = {'Rucio-Auth-Token': str(token)}
-        data = {'datasetName': 'dataset'}
-        ret = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+        data = {'accountType': 'user'}
+        ret = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'ValueError')
         assert_equal(ret.normal_body, 'ValueError: cannot decode json parameter dictionary')
@@ -123,8 +128,8 @@ class TestAccountRestApi():
         token = str(r.header('Rucio-Auth-Token'))
 
         headers = {'Rucio-Auth-Token': str(token)}
-        data = dumps({'accountName': 'account'})
-        ret = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+        data = dumps({})
+        ret = TestApp(account_app.wsgifunc(*mw)).post('/account', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'KeyError')
         assert_equal(ret.normal_body, "KeyError: \'accountType\' not defined")
@@ -140,7 +145,7 @@ class TestAccountRestApi():
 
         headers = {'Rucio-Auth-Token': str(token)}
         data = dumps(('accountName', 'account'))
-        r = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers, params=data, expect_errors=True)
+        r = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers, params=data, expect_errors=True)
 
         assert_equal(r.header('ExceptionClass'), 'TypeError')
         assert_equal(r.normal_body, "TypeError: body must be a json dictionary")
@@ -155,15 +160,16 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
+        acntusr = 'user' + str(uuid())
         headers2 = {'Rucio-Auth-Token': str(token)}
-        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
+        data = dumps({'accountType': 'user'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Auth-Token': str(token)}
-        r3 = TestApp(account_app.wsgifunc(*mw)).get('/testuser', headers=headers3, expect_errors=True)
+        r3 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers3, expect_errors=True)
         body = loads(r3.body)
-        assert_equal(body['account'], 'testuser')
+        assert_equal(body['account'], acntusr)
         assert_equal(r3.status, 200)
 
     def test_get_user_failure(self):
@@ -188,17 +194,18 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
+        acntusr = 'user' + str(uuid())
         headers2 = {'Rucio-Auth-Token': str(token)}
-        data = dumps({'accountName': 'testuser', 'accountType': 'user'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
+        data = dumps({'accountType': 'user'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Auth-Token': str(token)}
-        r3 = TestApp(account_app.wsgifunc(*mw)).delete('/testuser', headers=headers3, expect_errors=True)
+        r3 = TestApp(account_app.wsgifunc(*mw)).delete('/' + acntusr, headers=headers3, expect_errors=True)
         assert_equal(r3.status, 200)
 
         headers4 = {'Rucio-Auth-Token': str(token)}
-        r4 = TestApp(account_app.wsgifunc(*mw)).get('/testuser', headers=headers4, expect_errors=True)
+        r4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
         body = loads(r4.body)
         assert_true(body['deleted'])
         assert_equal(r3.status, 200)
@@ -243,8 +250,8 @@ class TestAccountRestApi():
         headers2 = {'Rucio-Auth-Token': str(token)}
         acc_list = ['test' + str(i) for i in xrange(5)]
         for account in acc_list:
-            data = dumps({'accountName': account, 'accountType': 'user'})
-            r2 = TestApp(account_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
+            data = dumps({'accountType': 'user'})
+            r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + account, headers=headers2, params=data, expect_errors=True)
             assert_equal(r2.status, 201)
 
         r3 = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
@@ -257,14 +264,18 @@ class TestAccountRestApi():
 
 class TestAccountClient():
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         build_database(echo=False)
         create_root_account()
+
+    @classmethod
+    def tearDownClass(cls):
+        destroy_database(echo=False)
+
+    def setUp(self):
         creds = {'username': 'ddmlab', 'password': 'secret'}
         self.client = AccountClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
-
-    def tearDown(self):
-        destroy_database(echo=False)
 
     def test_create_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account."""

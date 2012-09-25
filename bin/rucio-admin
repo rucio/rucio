@@ -365,7 +365,8 @@ Commands:
     add_account_parser = account_subparser.add_parser('add', help='Add Rucio account')
     add_account_parser.set_defaults(which='add_account')
     add_account_parser.add_argument('acnt', action='store', help='Account name')
-    add_account_parser.add_argument('acnttype', action='store', help='Account Type')
+    add_account_parser.add_argument('--type', dest='acnttype', default='user', help='Account Type')
+
 
     # The disable_account command
     disable_account_parser = account_subparser.add_parser('disable', help='Disable Rucio account')

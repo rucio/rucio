@@ -8,7 +8,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from json import dumps, loads
+from json import loads
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -35,11 +35,10 @@ class ScopeClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.BASEURL, accountName, 'scopes'])
-        data = dumps({'scopeName': scopeName})
+        path = '/'.join([self.BASEURL, accountName, 'scopes', scopeName])
         url = build_url(self.host, path=path)
 
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type='POST')
 
         if r.status_code == codes.created:
             return True
@@ -57,7 +56,7 @@ class ScopeClient(BaseClient):
         :raises ScopeNotFound: if no scopes exist for account.
         """
 
-        path = '/'.join([self.BASEURL, accountName, 'scopes'])
+        path = '/'.join([self.BASEURL, accountName, 'scopes/'])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url)

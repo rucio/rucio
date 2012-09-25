@@ -31,7 +31,8 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/(.+)/scopes', 'Scopes',
+    '/(.+)/scopes/', 'Scopes',
+    '/(.+)/scopes/(.+)', 'Scopes',
     '/(.+)/identities', 'Identities',
     '/(.+)/limits', 'AccountLimits',
     '/(.+)', 'AccountParameter',
@@ -76,7 +77,7 @@ class Scopes:
 
         return dumps(scopes)
 
-    def POST(self, accountName):
+    def POST(self, accountName, scopeName):
         """ create scope with given scope name.
 
         HTTP Success:
@@ -102,23 +103,6 @@ class Scopes:
 
         if not auth:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
-        json_data = data()
-
-        try:
-            parameter = loads(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
-
-        scopeName = None
-
-        try:
-            scopeName = parameter['scopeName']
-        except KeyError, e:
-            if e.args[0] == 'scopeName':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
-        except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             if not has_permission(issuer=auth.get('account'), action='add_scope', kwargs={'accountName': accountName, 'scopeName': scopeName}):
@@ -190,6 +174,57 @@ class AccountParameter:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
+    def POST(self, accountName):
+        """ create account with given account name.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Reqeust
+            401 Unauthorized
+            409 Conflict
+            500 Internal Error
+
+        :param Rucio-Account: Account identifier.
+        :param Rucio-Auth-Token: as an 32 character hex string.
+        :params Rucio-Type: the type of the new account.
+        """
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        json_data = data()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        accountType = None
+
+        try:
+            accountType = parameter['accountType']
+        except KeyError, e:
+            if e.args[0] == 'accountType':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        try:
+            add_account(accountName, accountType)
+        except Duplicate as e:
+            raise generate_http_error(409, 'Duplicate', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise Created()
+
     def DELETE(self, accountName):
         """ disable account with given account name.
 
@@ -246,7 +281,6 @@ class Account:
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         return dumps(list_accounts())
 
     def PUT(self):
@@ -254,57 +288,8 @@ class Account:
         raise BadRequest()
 
     def POST(self):
-        """ create account with given account name.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            400 Bad Reqeust
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
-
-        :param Rucio-Account: Account identifier.
-        :param Rucio-Auth-Token: as an 32 character hex string.
-        :params Rucio-Type: the type of the new account.
-        """
         header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
-        json_data = data()
-
-        try:
-            parameter = loads(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
-
-        accountName = None
-        accountType = None
-
-        try:
-            accountName = parameter['accountName']
-            accountType = parameter['accountType']
-        except KeyError, e:
-            if e.args[0] == 'accountName' or e.args[0] == 'accountType':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
-        except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
-
-        try:
-            add_account(accountName, accountType)
-        except Duplicate as e:
-            raise generate_http_error(409, 'Duplicate', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
-
-        raise Created()
+        raise BadRequest()
 
     def DELETE(self):
         header('Content-Type', 'application/octet-stream')
