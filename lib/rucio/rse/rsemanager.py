@@ -42,8 +42,8 @@ class RSEMgr(object):
         return rse
 
     def upload(self, rse_id, lfns, source_dir='.', protocol=None):
-        """ Uploads a file (LFN) to the connected RSE
-            Providing a list of LFNs indicates the bulk mode.
+        """ Uploads a file to the connected RSE
+            Providing a list indicates the bulk mode.
 
             :param rse_id       The identifier of the requested RSE
             :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
@@ -59,12 +59,11 @@ class RSEMgr(object):
         rse.close()
         return res
 
-    def download(self, rse_id, lfns, dest_dir='.', protocol=None):
-        """ Downloads a file (LFN) from the connected RSE to the local file system.
-            Providing a list of LFNs indicates the bulk mode.
+    def download(self, rse_id, files, dest_dir='.', protocol=None):
+        """ Downloads files from the connected RSE to the local file system.
 
             :param rse_id       The identifier of the requested RSE
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
+            :param files        A dict with the following structure: {'lfns': [{'scope': '', 'filename': ''}], 'pfns': []}
             :param dest_dir     Path where the downloaded file(s) will be stored
             :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
 
@@ -73,13 +72,13 @@ class RSEMgr(object):
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
         """
         rse = self.__create_rse__(rse_id, protocol)
-        res = rse.get(lfns, dest_dir)
+        res = rse.get(files, dest_dir)
         rse.close()
         return res
 
     def delete(self, rse_id, lfns, protocol=None):
-        """ Delete a file (LFN) from the connected RSE.
-            Providing a list of LFNs indicates the bulk mode.
+        """ Deletes a file from the connected RSE.
+            Providing a list indicates the bulk mode.
 
             :param rse_id       The identifier of the requested RSE
             :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
@@ -96,7 +95,7 @@ class RSEMgr(object):
 
     def rename(self, rse_id, lfns, protocol=None):
         """ Rename files stored on the connected RSE.
-            Providing a list of LFNs indicates the bulk mode.
+            Providing a list indicates the bulk mode.
 
             :param rse_id       The identifier of the requested RSE
             :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
@@ -112,8 +111,8 @@ class RSEMgr(object):
         return res
 
     def exists(self, rse_id, lfns, protocol=None):
-        """ Checks if the provided LFN is known by the connected RSE.
-            Providing a list of LFNs indicates the bulk mode.
+        """ Checks if the referred file is known by the connected RSE.
+            Providing a list of indicates the bulk mode.
 
             :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
 
@@ -216,6 +215,15 @@ class RSE(object):
         # Do some magic to transform LFN to PFN
         return '%s:%s' % (scope, lfn)
 
+    def __pfn2lfn(self, pfn):
+        """ Transforms the physical file name into the logical file name consiting of 'scope' and 'file'.
+
+            :param pfn The physical file name
+
+            :returns: A list where the first item ist the scope and the second is the file name
+        """
+        return pfn.split(':')
+
     def exists(self, lfns, new=False):
         """ Checks if the provided LFN is known by the connected RSE.
             Providing a list of LFNs indicates the bulk mode.
@@ -262,11 +270,10 @@ class RSE(object):
         if self.__connected:
             self.__protocol.close()
 
-    def get(self, lfns, dest_dir='.'):
+    def get(self, files, dest_dir='.'):
         """ Copy a file (LFN) from the connected RSE to the local file system.
-            Providing a list of LFNs indicates the bulk mode.
 
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
+            :param files       A dict with the following structure: {'lfns': [{'scope': '', 'filename': ''}], 'pfns': []}
             :param dest_dir     Path where the downloaded file(s) will be stored
 
             :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
@@ -276,15 +283,20 @@ class RSE(object):
         ret = {}
         gs = True
         if self.__connected:
-            lfns = [lfns] if not type(lfns) is list else lfns
-            for lfn in lfns:
+            pfns = files['pfns'] if 'pfns' in files else []
+            if 'lfns' in files:
+                for lfn in files['lfns']:
+                    pfns.append(self.__lfn2pfn(lfn['filename'], lfn['scope']))
+            for pfn in pfns:
                 try:
-                    #self.__protocol.get(self.__lfn2pfn(lfn['filename'], lfn['scope']), '%s/%s:%s.download' % (dest_dir, lfn['scope'], lfn['filename']))
-                    self.__protocol.get(self.__lfn2pfn(lfn['filename'], lfn['scope']), '%s/%s:%s' % (dest_dir, lfn['scope'], lfn['filename']))
-                    ret[lfn['scope'] + ':' + lfn['filename']] = True
+                    scope, filename = self.__pfn2lfn(pfn)
+                    if not os.path.exists('%s/%s' % (dest_dir, scope)):
+                        os.makedirs('%s/%s' % (dest_dir, scope))
+                    self.__protocol.get(pfn, '%s/%s/%s' % (dest_dir, scope, filename))
+                    ret[pfn] = True
                 except Exception as e:
                     gs = False
-                    ret[lfn['scope'] + ':' + lfn['filename']] = e
+                    ret[pfn] = e
         else:
             raise exception.RSENotConnected()
         if len(ret) == 1:
@@ -312,17 +324,17 @@ class RSE(object):
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
                 # Check if file replica is already on the storage system
+                pfn = self.__lfn2pfn(lfn['filename'], lfn['scope'])
                 if self.exists(lfn):
-                    ret[lfn['scope'] + ':' + lfn['filename']] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % lfn['filename'])
+                    ret[pfn] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % lfn['filename'])
                     gs = False
                 else:
                     try:
-                        target_file = self.__lfn2pfn(lfn['filename'], lfn['scope'])
-                        self.__protocol.put(lfn['filename'], target_file, source_dir)
-                        ret[lfn['scope'] + ':' + lfn['filename']] = True
+                        self.__protocol.put(lfn['filename'], pfn, source_dir)
+                        ret[pfn] = True
                     except Exception as e:
                         gs = False
-                        ret[lfn['scope'] + ':' + lfn['filename']] = e
+                        ret[pfn] = e
         else:
             raise exception.RSENotConnected()
         if len(ret) == 1:
@@ -348,11 +360,12 @@ class RSE(object):
         if self.__connected:
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
+                pfn = self.__lfn2pfn(lfn['filename'], lfn['scope'])
                 try:
-                    self.__protocol.delete(self.__lfn2pfn(lfn['filename'], lfn['scope']))
-                    ret[lfn['scope'] + ':' + lfn['filename']] = True
+                    self.__protocol.delete(pfn)
+                    ret[pfn] = True
                 except Exception as e:
-                    ret[lfn['scope'] + ':' + lfn['filename']] = e
+                    ret[pfn] = e
                     gs = False
         else:
             raise exception .RSENotConnected()
@@ -379,22 +392,26 @@ class RSE(object):
         if self.__connected:
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
-                # Check if source is on storage
+                if not 'new_filename' in lfn:
+                    lfn['new_filename'] = lfn['filename']
                 if not 'new_scope' in lfn:
                     lfn['new_scope'] = lfn['scope']
+                pfn = self.__lfn2pfn(lfn['filename'], lfn['scope'])
+                pfn_new = self.__lfn2pfn(lfn['new_filename'], lfn['new_scope'])
+                # Check if source is on storage
                 if not self.exists(lfn):
-                    ret[lfn['scope'] + ':' + lfn['filename']] = exception.SourceNotFound('File %s in scope %s is not found on storage' % (lfn['filename'], lfn['scope']))
+                    ret[pfn] = exception.SourceNotFound('File %s in scope %s is not found on storage' % (lfn['filename'], lfn['scope']))
                     gs = False
                 # Check if target is not on storage
                 elif self.exists(lfn, True):
-                    ret[lfn['scope'] + ':' + lfn['filename']] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (lfn['new_filename'], lfn['new_scope']))
+                    ret[pfn] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (lfn['new_filename'], lfn['new_scope']))
                     gs = False
                 else:
                     try:
-                        self.__protocol.rename(self.__lfn2pfn(lfn['filename'], lfn['scope']), self.__lfn2pfn(lfn['new_filename'], lfn['new_scope']))
-                        ret[lfn['scope'] + ':' + lfn['filename']] = True
+                        self.__protocol.rename(pfn, pfn_new)
+                        ret[pfn] = True
                     except Exception as e:
-                        ret[lfn['scope'] + ':' + lfn['filename']] = e
+                        ret[pfn] = e
                         gs = False
         else:
             raise exception.RSENotConnected()
