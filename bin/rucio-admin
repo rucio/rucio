@@ -213,7 +213,7 @@ def add_rse(args):
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.create_rse(args.rse)
+        client.add_rse(args.rse)
         print 'Added new RSE: %s' % args.rse
     except Exception, e:
             print 'Failed to create rse %s' % args.rse
