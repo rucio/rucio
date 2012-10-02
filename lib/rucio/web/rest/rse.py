@@ -28,6 +28,7 @@ logger.addHandler(sh)
 
 urls = (
     '/', 'RSE',
+    '/(.+)', 'RSE',
     '/(.+)/tags', 'Tags',
     '/(.+)/files', 'Files',
 )
@@ -36,7 +37,7 @@ urls = (
 class RSE:
     """ create, update, get and disable rucio location. """
 
-    def POST(self):
+    def POST(self, rseName):
         """ create rse with given location name.
 
         HTTP Success:
@@ -56,21 +57,6 @@ class RSE:
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
-        json_data = data()
-
-        try:
-            parameter = loads(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
-
-        try:
-            rseName = parameter['rse']
-        except KeyError, e:
-            if e.args[0] == 'rseName':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
-        except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_rse(rse=rseName, issuer=auth['account'])

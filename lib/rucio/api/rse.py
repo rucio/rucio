@@ -11,7 +11,7 @@ import rucio.api.permission
 
 from rucio.common.exception import FileAlreadyExists
 from rucio.core import rse as rse_core
-from rucio.core import name as name_core
+from rucio.core import dataset as name_core
 
 
 def add_rse(rse, issuer):

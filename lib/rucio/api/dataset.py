@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011-2012
 
-from rucio.core.name import change_dataset_owner as core_change_dataset_owner,\
+from rucio.core.dataset import change_dataset_owner as core_change_dataset_owner,\
     obsolete_dataset as core_obsolete_dataset,\
     does_dataset_exist, register_dataset,\
     add_files_to_dataset as core_add_files_to_dataset,\

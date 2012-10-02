@@ -141,7 +141,8 @@ class MgrTestCases():
 
     def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
         """S3 (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
-        status, details = self.mgr.rename(self.rse_tag, [{'filename': '4_rse_remote_rename.raw', 'scope': 'test', 'new_filename': '1_rse_remote_get.raw', 'new_scope': 'test'}, {'filename': '5_rse_remote_rename.raw', 'scope': 'test', 'new_filename': '5_rse_new.raw'}])
+        status, details = self.mgr.rename(self.rse_tag, [{'filename': '4_rse_remote_rename.raw', 'scope': 'test', 'new_filename': '1_rse_remote_get.raw', 'new_scope': 'test'},
+                                          {'filename': '5_rse_remote_rename.raw', 'scope': 'test', 'new_filename': '5_rse_new.raw'}])
         if not status and details['test:5_rse_remote_rename.raw']:
             raise details['test:4_rse_remote_rename.raw']
         else:
@@ -153,7 +154,8 @@ class MgrTestCases():
 
     def test_rename_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
-        status, details = self.mgr.rename(self.rse_tag, [{'filename': '1_rse_not_existing.raw', 'scope': 'test', 'new_filename': '1_rse_new_not_created.raw'}, {'filename': '2_rse_not_existing.raw', 'scope': 'test', 'new_filename': '2_rse_new_not_created.raw'}])
+        status, details = self.mgr.rename(self.rse_tag, [{'filename': '1_rse_not_existing.raw', 'scope': 'test', 'new_filename': '1_rse_new_not_created.raw'},
+                                          {'filename': '2_rse_not_existing.raw', 'scope': 'test', 'new_filename': '2_rse_new_not_created.raw'}])
         if not status:
             raise details['test:1_rse_not_existing.raw']
         else:
