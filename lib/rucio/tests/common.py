@@ -15,7 +15,7 @@ from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.core.account import add_account
-from rucio.core.name import register_dataset, register_file
+from rucio.core.dataset import register_dataset, register_file
 from rucio.web.rest.authentication import app as auth_app
 
 

@@ -24,7 +24,7 @@ class RSEClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(RSEClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def create_rse(self, rse):
+    def add_rse(self, rse):
         """
         Sends the request to create a new rse/location.
 
@@ -34,10 +34,9 @@ class RSEClient(BaseClient):
         """
 
         headers = {'Rucio-Auth-Token': self.auth_token}
-        path = 'rses/'
+        path = 'rses/' + rse
         url = build_url(self.host, path=path)
-        data = dumps({'rse': rse})
-        r = self._send_request(url, headers, type='POST', data=data)
+        r = self._send_request(url, headers, type='POST')
         if r.status_code == codes.created:
             return True
         else:

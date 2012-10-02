@@ -1,9 +1,8 @@
-Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.
 $> curl -s -i --cacert /opt/rucio/etc/web/ca.crt  -X GET -H "Rucio-Account: root" -H "Rucio-Username: ddmlab" -H "Rucio-Password: secret" https://localhost/auth/userpass
 HTTP/1.1 200 OK
-Date: Tue, 25 Sep 2012 09:16:46 GMT
+Date: Tue, 02 Oct 2012 13:57:41 GMT
 Server: Apache/2.2.21 (Unix) mod_fastcgi/2.4.2 mod_ssl/2.2.21 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.8
-Rucio-Auth-Token: 4a7d2a458b954e9595e75c91e771a159
+Rucio-Auth-Token: 6248bbb82b324d24be6e4260d6377124
 Content-Length: 0
 Content-Type: application/octet-stream
 
