@@ -1,10 +1,10 @@
-\documentclass{atlasnote} 
+\documentclass{atlasnote}
 
-%\documentclass[usetikz]{atlasnote} % the 'usetikz' option loads tikz.sty in the proper place, 
+%\documentclass[usetikz]{atlasnote} % the 'usetikz' option loads tikz.sty in the proper place,
                                    % avoiding conflicts with graphicx.sty.
                                    % Don't know what tikz.st is? Just ignore this line! :-)
 
-%\documentclass[coverpage]{atlasnote} % the 'coverpage' option loads the ATLAS Cover Page package 
+%\documentclass[coverpage]{atlasnote} % the 'coverpage' option loads the ATLAS Cover Page package
                                       % ans makes sure that the cover page is generated before the
                                       % note title page. Make sure that the latest version of
                                       % of 'atlascover.sty. is installed on your system!
@@ -16,7 +16,7 @@
                            % See instruction.pdf for details
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%           Title page             % 
+%           Title page             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \skipbeforetitle{100pt}
@@ -43,47 +43,32 @@
 \author[1]{Graeme A Stewart}
 \author[1]{Armin Nairz}
 \author[1]{Luc Goossens}
+\author[1]{Ralph Vigne}
+\author[1]{Cedric Serfon}
 
 \affil[1]{PH-ADP-CO, CERN}
 
 % Date: if not given, uses current date
-\date{7 December 2011\\ Version 1.1}
+\date{9 October 2012\\ Version 2}
 
 % Draft version: if given, adds draft version on front page, a
 % 'DRAFT' box on top of each other page, and line numbers to easy
 % commenting. Comment or remove in final version.
 %\draftversion{0.6}
 
-% Journal: adds a 
+% Journal: adds a
 
 % Abstract
-\abstracttext{ 
+\abstracttext{
 
-  This document describes the conceptual model of the new version of the
-  ATLAS Distributed Data Management (DDM) system, Rucio. We
-  describe core concepts of the system and the high level interactions
-  between Rucio and its clients.
+This document describes the conceptual model of the new version of the ATLAS Distributed Data Management (DDM) system: Rucio. Core concepts that Rucio uses to manage accounts, files and storage systems are introduced.
 
-  The DDM system is designed to allow the ATLAS collaboration to
-  manage the large volumes of data, both taken by the detector as well
-  as generated or derived, in the ATLAS distributed computing
-  system. Rucio supports permissions, accouting and quota on
-  its accounts, which can represent an ATLAS user, physics group or
-  central activity.  Rucio allows the organisation of files into
-  arbitary, overlapping datasets and the setting of selected metadata
-  properties on both files and datasets. Replication rules can be set
-  that instruct the system how to organise and manage
-  replicas. Replication policies can be set, allowing the automatic
-  generation of rules based on metadata.
-  Rucio can group storage elements by the setting
-  of common properties that can be specified as part of a replication
-  rule. Rucio manages ATLAS accessible storage elements by moving
-  required files to them and deleting unnecessary files from them.
+The DDM system is designed to allow the ATLAS collaboration to manage the large volumes of data, both taken by the detector as well as generated or derived, in the ATLAS distributed computing system. Any user of the system is mapped to an account in Rucio, which can represent an individual ATLAS user, physics group or central activity. Rucio supports permissions, accounting and quota on accounts. Rucio allows users to upload and register files in the system. Files may be grouped into datasets and datasets into containers. Rucio allows the setting of selected metadata properties on files, datasets and containers. The term data identifier set (DIS) is used to refer to any set consisting of files, datasets or containers. Replication rules can be set on DISs that instruct the system how to organise file replicas at sites. Rucio will trigger appropriate data replication to satisfy the current set of rules. Files are stored at physical locations that are managed as Rucio Storage Elements (RSEs). Rucio can group storage elements by setting RSE attributes that can be specified as part of a replication rule. As well as moving required files to them, Rucio will delete unnecessary files from storage elements.
 
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%            Content               % 
+%            Content               %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
@@ -95,431 +80,321 @@
 \section{Introduction}
 
 
-In this document we describe the conceptual model of the new version
-of ATLAS Distributed Data Management (DDM) system: codename Rucio.
-We introduce the core concepts Rucio uses to manage accounts, files,
-datasets and storage systems. A high level description of how users
-interact with the system is given where appropriate.
+The new version of the ATLAS Distributed Data Management (DDM) system is called Rucio. In this document the key concepts of Rucio are introduced.
 
 \section{Rucio account}
 \label{overview_Rucio_account::doc}\label{overview_Rucio_account:rucio-account}
 
-A Rucio account is the unit of assigning privileges in Rucio. It can
-represent individual users (like \mbox{lgoossen}, graemes, vgaronne, \dots), a
-group of users (like bphys, higgs, susy, \dots) or an organised
-production activity for the whole ATLAS collaboration (prod,
-tzero, \dots). A Rucio account is identified by a string.
+A Rucio account can represent individual users (e.g., lgoossen, graemes, vgaronne), a group of users (e.g., bphys, higgs, susy)
+or an organised production activity for the whole ATLAS collaboration (e.g., prod, tzero). A Rucio account is identified by a
+string and is the unit of assigning privileges in Rucio.
 
-Rucio actions are always conducted by a Rucio account. Each account
-has a namespace identifier called \emph{scope} that is included in every
-name assigned to a collection of data created by that account (see
-\S\ref{overview_Dataset:dataset-file-identifiers-and-scope}). By default, Rucio accounts can only create identifiers
-in their own scope and not in any other.
 
-A Rucio user is identified by their credentials, like X509 certificate,
-username/password, or token. Credentials can map to one or more
-accounts (N:M mapping). The Rucio authentication system checks if the
-used credentials are authorised to use the supplied Rucio account.
-The figure below gives an example of the mapping between credentials
-and Rucio accounts:
+Actions in Rucio are always conducted by a Rucio account. Each account has a namespace identifier, called scope, that is
+included in every name assigned to a data identifier created by that account (see \S\ref{overview_Dataset:data-identifiers-and-scope}).
+By default, Rucio accounts can only create identifiers in their own scope and not in any other.
+
+
+A Rucio user is identified by their credentials, such as X509 certificate or Kerberos token. Credentials can map to one or more accounts (N:M mapping).
+Rucio checks if the credentials used are authorized to use the supplied Rucio account. The figure below gives an example of
+the mapping between credentials and Rucio accounts:
 
 {\hfill\scalebox{0.800000}{\includegraphics{accounts.pdf}}\hfill}
 
 \newpage
 
-\section{Datasets and files}
+\section{Files, Datasets and Containers}
 \label{overview_Dataset::doc}\label{overview_Dataset:dataset}
-ATLAS naturally has a large amount of data, which is physically stored
-in files. The actual distribution of the data over files is mostly
-incidental. The data consists usually, but not exclusively, of
-persistent C++ objects associated with physics events.  Physicists
-need to be able to identify and operate on any arbitrary subset of
-this data: a dataset.  Hence, a dataset might be a single file or
-multiple files, but either case this dataset unit is that on
-which most users will act most of the time.
 
-Datasets may be overlapping in the sense that a subset of data, i.e.,
-a single file or more files, can be part of multiple datasets.
+ATLAS has a large amount of data, which is physically stored in files. For the data management system these files are the smallest operational unit of data (so sub-file operations are not possible). Physicists need to be able to identify and operate on any arbitrary set of files.
 
-New datasets can be defined based on the contents of existing
-datasets. In particular, it is possible to aggregate the contents of
-two or more datasets into a new one by taking the set union of their
-respective contents. While successive aggregations will implicitly
-create an aggregation hierarchy, this is not reflected in the naming
-of the datasets. Instead Rucio will merely record in the dataset
-metadata that it was created by performing such a union. Otherwise the
-dataset will be identical to one created by simple enumeration of the
-resulting contents, i.e., the corresponding files.
+Files can be grouped into datasets (a named set of files) and datasets can be grouped into containers (a named set of datasets or, recursively, containers). All three types of names refer to data so the term ‘data identifier set’ (DIS) is used to mean any set of file, dataset or container identifiers. A data identifier is just the name of a single file, dataset or container. The figure below gives an example of an aggregation hierarchy:
 
-The most common aggregation scheme in ATLAS is hierarchical, e.g., run datasets
-aggregated into sub-periods, sub-periods into periods, periods into
-a year of data. However, Rucio also will support horizontal
-aggregation of files between any datasets.
+{\hfill\scalebox{0.600000}{\includegraphics{aggregation_hierarchy.pdf}}\hfill}
 
+An example of data identifier set (DIS) is: \{prod:Dataset1, prod:File3, prod:File5\}.
 
-\subsection{Dataset/file identifiers and scope}
-\label{overview_Dataset:dataset-file-identifiers-and-scope}
+\subsection{Data identifiers and scope}
+\label{overview_Dataset:data-identifiers-and-scope}
 
-To be able to unambiguously refer to a logical file it needs to have
-an identifier.  For a logical file this is the Logical File Name (LFN)
-which is composed of two strings: the scope identifier and the file
-label.  A
-single file is a dataset in itself and as such dataset identifiers
-follow the same scheme: Each dataset is identified by the Dataset Name (DSN)
- which is composed of the scope identifier and the dataset label.
+Files, datasets and containers follow an identical naming scheme which is composed of two strings: the scope and a name.
+The combination of both is called a data identifier (DI). For instance a file identifier (LFN) is composed of a scope and a file name.
+The scope string partitions the name space in several sub spaces. The primary use case for this is to have separate scopes for production and individual users.
 
-The scope identifier partitions the dataset name space into several
-sub-spaces. The primary use case for this is to have separate scopes
-for production and individual users. There is a one to one
-relationship between account and scope.  There are no particular
-constraints on the strings used for either scope and labels other than
-a restricted set of allowed characters. In particular, it is
-possible to use Universally Unique Identifiers (UUIDs) as labels.
+By default accounts will have read access to all scopes and write access only to their own scope.
+Privileged accounts will have write access to multiple scopes, e.g., production might use scopes such as mc11, data12\_8TeV, tmp.prod\footnote{Scopes can be marked as read-only, which will prevent the registration of new data in them.}.
 
-Datasets/files are uniquely identified over all time. A DSN/LFN once
-used to refer to a dataset/file can never be reused to refer to
-another dataset/file, not even if the former has become obsolete or
-has been deleted from the system.
+Files, datasets and containers are uniquely identified over all time. This implies that an identifier, once used,
+can never be reused to refer to anything else at all, not even if the data it referred to has been deleted from the system.
 
-
-\subsection{Dataset and file status}
+\subsection{File, dataset and container status}
 
 \subsubsection{File status}
 \label{sec:file-status}
 
-The following status flags are supported for files:
+The following status attributes are supported for files:
 
 \begin{itemize}
 \item {}
-\code{Obsolete}: True/False
+\code{availability}: LOST/DELETED/AVAILABLE
 \end{itemize}
 
-The obsolete flag indicates a file which, for one reason or another,
-should not be used by the collaboration. A file marked as obsolete
-will have all replicas removed from the system. Obsolete LFNs are
-remembered by the system to prevent accidental reuse in the future.
+A file is LOST if there are no known replicas of the file in Rucio, while at the same time at least one
+account requested a replica; a file is DELETED if no account requested a replica; otherwise the file is AVAILABLE. This is a derived attribute.
 
 \begin{itemize}
 \item {}
-\code{Lost}: True/False
+\code{suppressed}: True/False
 \end{itemize}
 
-The lost flag indicates that although the logical definition of the
-file still exists in Rucio, no physical replicas of the file currently
-exist. If the file is recovered from outside Rucio this flag can be
-changed from True to False.
+This is a user settable flag. It indicates that the owner of the scope no longer needs the name to be
+present in the scope. Files that are suppressed (by default) do not show up in search and list
+operations on the scope. The setting of this flag is subject to conditions, e.g., one can not suppress
+a file while at the same time requesting it to be replicated somewhere.
 
-\subsubsection{Dataset status}
-\label{sec:dataset-status}
+Note however that this flag will be ignored when explicitly listing contents of datasets/containers.
+
+
+\subsubsection{Dataset/Container status}
+\label{sec:dataset-container-status}
 
 \label{sec:status}
-The dataset status is reflected by a set of attributes. Datasets in
-Rucio can have the following attributes:
+The dataset/container status is reflected by a set of attributes:
+
 \begin{itemize}
-\item {} 
+\item {}
 \code{Open}: True/False
 
 \end{itemize}
 
-A dataset might be a result of more than one computational process,
-therefore the definition of a dataset is not an atomic operation and
-can even extend over a large amount of time. For this purpose, a
-dataset has an open status to publish its availability, i.e., to
-reflect that its content is (not) complete. Open datasets cannot be
-used in aggregations. When the filling of the dataset is done, its
-state changes to closed and cannot thereafter be reopened.
+If a dataset/container  is open, content can be added to it. Datasets/Containers
+are created open and once closed, they cannot be opened again \footnote{Datasets
+from which files have been lost can be repaired when replacement files are available, even
+if Open=False. The replacements need not be binary identical to the lost files.}.
+
 \begin{itemize}
-\item {} 
-\code{Monotonic}: True/False
+\item {}
+\code{monotonic}: True/False
 
 \end{itemize}
 
-If the monotonic mode is enabled files cannot be removed from an open
-dataset. Once the monotonic flag is set to True it cannot be unset.
+If the monotonic attribute is set, content cannot be removed from an open dataset/container.
+Datasets/Containers are, by default, created non-monotonic. Once set to monotonic, this cannot be reversed.
 
 \begin{itemize}
-\item {} 
-\code{Hidden}: True/False
-
+\item {}
+\code{complete}: True/False
 \end{itemize}
 
-Datasets can be hidden so they do not show up in normal listing operations.
-\begin{itemize}
-\item {} 
-\code{Obsolete}: True/False
-
-\end{itemize}
-
-The obsolete status means that a dataset and its definition should not
-be used anymore. Obsoleting a dataset does not obsolete its contents
-(however, one can instruct Rucio to obsolete all files which are in a
-particular dataset).
+A dataset/container where all files have replicas available is complete. Any dataset/container which contains files without replicas is incomplete. This is a derived attribute.
 
 \begin{itemize}
-\item {} 
-\code{Complete}: True/False
-
+\item {}
+\code{suppressed}: True/False
 \end{itemize}
 
-The data a file points to can be temporarily or permanently lost,
-e.g., the system has lost all corresponding physical files. This is
-reflected in the lost status of the file and by the
-complete/incomplete status of all aggregate datasets containing
-them. The file content can be recovered and re-injected in the system
-causing the corresponding lost and complete/incomplete statuses to be
-updated.
-
-Note that Rucio has no concept of dataset versioning. The loss of
-files is simply recorded as described above with a single flag, hence
-not recording in what order they were lost. Adding further files
-requires the definition of a new dataset with a new identifier. The
-latter dataset might reflect the relation with the former, but this is
-not required.
-
-\subsubsection{Dataset Replication Policy}
-\label{sec:datas-repl-policy}
-
-THIS SECTION IS DRAFT FOR DISCUSSION
-
-The question of file distribution in datasets is an important one. If
-the file content of datasets is very widely distributed across many
-sites this will maximise the availability of CPU resources that can
-be used to process this data. If the files are concentrated at one
-site this might be optimal for processing which required the use of
-many files at the one time (e.g., merging and archiving to
-tape). Using the wrong distribution policy will impact on the
-efficiency of processing the data.
-
-Therefore Rucio will support a hinting mechanism which will allow
-clients to suggest to the system what the optimal distribution across
-sites will be. This will influence the way that the system distributes
-files when it is satisfying rules (however, the distribution will be
-consistent with the rules, e.g., a rule which directs the data to a
-specific site will mean that replication policy could not take effect).
-
-It is therefore proposed to support the following flag at the dataset level:
-
-\begin{itemize}
-\item {} 
-\code{ReplicationPolicy}: RPValue
-\end{itemize}
-
-Precise values of RPValue and the effects they will have need to be
-discussed. However, it should be possible to concentrate dataset
-content at as few sites as possible or to distribute the data as
-widely as possible or to adopt some intermediate strategy. 
-
-In any case, given other constraints in the data management system, it
-will be very beneficial to overall efficiency if job processing
-systems to not rely on 100\% of files being at a specific site, but
-will be able to process data at other sites or transfer as needed in
-order to complete tasks.
-
+This attribute has the same meaning as for files.
+\newline\newline
+Note that there is no concept of versioning. Adding content to a closed dataset/container
+is not possible and instead a new dataset/container, with a new identifier, must be created.
 
 \section{Metadata attributes}
-\label{overview_metadata_attributes:metadata-attributes}\label{overview_metadata_attributes::doc}
-Metadata associated with a dataset/file is represented using
-attribute/value pairs.  The set of available attributes is
-restricted. Metadata attributes are classified into four categories:
-\begin{enumerate}
-\item System-defined attributes: e.g., size, checksum, creationtime,
-  modificationtime, status
 
-\item Physics attributes: e.g., number of events, 
-  POOL GUID
+Metadata associated with a data identifier is represented using attributes which are key-value pairs. The set of available attributes is restricted. Some metadata attributes are user settable, e.g., physics attributes (number of events, run number, run period, POOL GUID) or production attributes (task ID, job ID). Metadata which is not user settable includes system attributes, such as size, checksum, creation time, etc.
 
-\item Production attributes: e.g., task
-  and job ID that produced the file, processing campaign ID
+For datasets and containers, it is possible that the value of a metadata attribute is a function of the metadata of its constituents, e.g., the total size is the sum of the sizes of the constituents. In this case it is also obviously not possible to assign a value to it.
 
-\item Data management attributes: necessary for the organisation of
-  data on the grid (see \S\ref{overview_Replica_management:replica-management})
+When appropriate and requested, Rucio will check metadata values for validity, rejecting the attempt to set invalid values. This can be used to ensure that, e.g., POOL GUID is unique and that the Job ID is a positive integer.
 
-\end{enumerate}
-
-For datasets, it is possible that the value of a metadata attribute is
-a function of the metadata of its constituents, e.g., the total size
-is the sum of the sizes of the constituents. In this case it is
-obviously not possible to assign a value to it.
-
-When appropriate and requested, Rucio will check metadata values for
-validity, rejecting the attempt to set invalid values. This can used
-to ensure that, e.g., POOL GUID is unique and that the Job ID is a
-positive integer.
-
-Rucio supports searching for files and datasets based on metadata
-values. Wildcard queries or range operations will only be supported on
-certain metadata fields. e.g., processing tag can be searched using
-wildcards, task ID can be searched using range operators, but scope
-can only be an exact match.
+The upload of data with incorrect attributes or values will be rejected. Rucio supports searching for files, datasets and containers based on metadata attributes.
 
 
 \section{Rucio Storage Element}
 \label{overview_Rucio_Storage_Element:rucio-storage-element}\label{overview_Rucio_Storage_Element::doc}
-A Rucio Storage Element (RSE) is a container for physical files. It is
-the smallest unit of storage space addressable within Rucio. It has an
-unique identifier and a set of meta attributes describing properties
-such as supported protocols, e.g., file, https, srm; host/port
-address; quality of service; storage type, e.g., disk, tape, \dots;
-physical space properties, e.g., used, available, non-pledged; and geographical zone.
 
-Rucio Storage Elements can be grouped in many logical ways, e.g., the
-UK RSEs, the Tier-1 RSEs, or the `good' RSEs. One can reference groups of
-RSEs by metadata attributes or by explicit enumeration of RSEs.
+A Rucio Storage Element (RSE) is a repository for physical files. It is the smallest unit of storage space addressable within Rucio. It has an unique identifier and a set of properties such as:
 
-RSE tags are expanded at transfer time to enumerate target
-sites. Post-facto changes to the sites in an RSE tag list will not
-affect currently replicated files.
+\begin{itemize}
+    \item supported protocols, e.g., file, https, srm
+    \item quality of service; storage type, e.g., disk, tape
+    \item physical space properties, e.g., used, available, non-pledged
+    \item a weight value, used for data distribution (see \S\ref{sec:replica-rules})
+    \item a threshold for deletion (see \S\ref{sec:Datadeletion})
+\end{itemize}
 
+A set of RSEs can be identified directly by enumeration of their names, or indirectly by a boolean expression
+ over their attributes. Attributes are key-value pairs, e.g., CLOUD=UK, Tier=1, T2D=True, MoUShare=15. A key whose
+ value is ‘True’ is equivalent to a tag. RSE attributes are used to manage data with replication rules (see \S\ref{sec:replica-rules}).
 
-\subsection{Physical File Name}
-\label{overview_Rucio_Storage_Element:physical-file-name}
-The Physical File Name (PFN) is a fully qualified name identifying a
-replica of a file. PFNs may take the form of file names, URIs, or any
-other identifier meaningful to a Rucio Storage Element. The mapping
-between the LFN and the PFN is a deterministic function which also
-takes RSE and protocol into account. It may also consider the
-filename, allowing a separation of PFN based on scope, project or
-other criteria.
+Physical files stored on RSEs are identified by their Physical File Name (PFN). The PFN is a fully qualified path identifying a replica of a file. PFNs may take the form of file names, URIs, or any other identifier meaningful to a Rucio Storage Element. The mapping between the LFN and the PFN is a deterministic function of the LFN, RSE and protocol.
 
-Normally the upload to an RSE and the registration of an additional
-replica is a single operation. For trusted users like the Tier-0 and
-PanDA production systems, it is possible to register a replica
-uploaded independently.
+Normally the upload to an RSE and the registration of a replica is a single operation. For trusted users, like the Tier-0 and PanDA production systems, it is possible to register a replica uploaded independently.
 
 
 \section{Permission model}
 \label{overview_Permission_model:permission-model}\label{overview_Permission_model::doc}
-Rucio assigns permissions to accounts. Permissions are boolean flags
-designating whether an account may perform a certain action (read,
-write, delete) on a resource (RSE, account, replica, etc.).
 
+Rucio assigns permissions to accounts. Permissions are boolean flags designating whether an account may perform a certain action. For example, the check of the permission to add an account for the rucio administrative account will return true.
 
 \section{Replica management}
 \label{overview_Replica_management:replica-management}\label{overview_Replica_management::doc}
 
-\subsection{Replication Rules}
-\label{sec:replication-rules}
+\subsection{Replica Rules}
+\label{sec:replica-rules}
 
-Replica management is based on replication rules defined on datasets.
-A replication rule is owned by an account and defines the
-minimum number of replicas to be available on a list of RSEs. Accounts
-are allowed to set multiple rules\footnote{ The system may reject
-  rules if these violate other policies, e.g., a normal ATLAS user
-  would not be allowed to set a rule which committed the system to
-  generate 5PB of new replicas or to request replicas on an RSE tape
-  system.  }.  Rules may optionally have a limited lifetime and can be
-added, removed or modified at any time. Rules can also be locked,
-which will prevent their modification until an explicit unlock
-operation is performed.
+Replica management is based on replication rules defined on data identifiers. Replication rules defined on datasets or containers will affect all contained datasets, containers and files (either directly or recursively), including content added to these datasets and containers in the future. A replication rule is owned by an account and defines the minimum number of replicas to be available on a list of RSEs.
 
-An example listing of replication rules is given below:
+Rules may have a limited lifetime and can be added, removed or modified at
+ any time. Rules may specify a grouping policy that controls which files
+ are grouped together at the same RSEs (see \S\ref{sec:replica-rules}).
+
+The list of RSEs can be specified with RSE attributes (see \S\ref{overview_Rucio_Storage_Element:rucio-storage-element}).RSE attributes
+ are resolved at rule creation time to enumerate target RSEs. Post-facto changes
+  to RSE attributes will not affect current replication rules.
+
+Sample replication rules are given below (some parameters are optional, a value in [] denotes usage of the default value):
+
+
+\begin{tabular}{c c c p{2cm} c c c}
+  \textbf{Account} & \textbf{Copies} & \textbf{Data Identifier} & \textbf{RSEs} & \textbf{Weight} & \textbf{Lifetime} & \textbf{Grouping\footnote{See \S\ref{sec:file-replica-grouping} }} \\\hline
+  prod & 1 & atlas:container3 & Site=CERN  & [MoU Share]  &  [No]  &  All   \\\hline
+  prod  &  2 & prod:container1  & Tier=1  & [MoU Share]  & [No]   & [Dataset]  \\\hline
+barisits & 1  & martin:container2  & (Cloud=US AND Tier=2) OR Site=CERN  &  [MoU Share]  &  until 2013-01-01  & [Dataset]  \\\hline
+vgaronne  & 2  &  graeme:file1  & Cloud=UK AND T2D\footnote{This is interpreted as T2D=True.}  & No &  [No] & None  \\\hline
+\end{tabular}
+
+\medskip
+
+As transferring a file to a site can fail, a replication rule has a state to reflect its status:
+
 \begin{enumerate}
-\item \code{prod}: 1x replica @ CERN, no lifetime
-\item \code{prod}: 1x replica @ T1TAPE, no lifetime, locked
-\item \code{higgs}: 2x replica @ GROUPDISK, no lifetime
-\item \code{barisits}: 1x replica @ UST2, until 2012-01-01 00:00
-\item \code{vgaronne}: 2x replica @ T1, no lifetime
-\item \code{graemes}: 1x replica @ GLASGOW, until 2011-12-25 00:00
+\item[] \code{satisfied} - rule is fulfilled by current replicas
+\item[] \code{replicating} - not all replicas are made for this rule
+\item[] \code{stuck} - replication attempts for at least one replica have failed and have reached an attempt limit
+\item[] \code{suspended} - a manually set status, indicating that no further attempts should be made to satisfy the rule
 \end{enumerate}
 
-The Rucio rule engine validates the rules and creates transfer
-primitives to fulfil all rules, e.g., transfer some files from RSE A
-to RSE B. The rule engine is triggered when a file is created in the
-system, when a new rule is added to a dataset or when one explicitly
-requests for the rule to be applied on existing data. The rule engine
-will only create the minimum set of necessary transfer primitives to
-satisfy all rules.
 
-Files inherit all rules from all datasets they are members of. This
-allows users of the system to interact at the dataset level and Rucio
-will propagate these rules to the appropriate files. The dataset
-ReplicationPolicy (see \S\ref{sec:datas-repl-policy}) will affect how
-the system groups files in the same dataset across potential RSEs.
+Rucio processes the replication rule(s) and creates replica locks to satisfy the rule(s) and prevent deletion of the replicas. A replica lock is defined for a replica on a specific RSE. It is owned by the account which issued the replication rule. Rucio will record the relationship between the replication rules and replica locks so that the correct locks can be removed when a replication rule is deleted.
 
-Deletion is triggered per RSE when storage policy dictates that space
-must be freed. A reaper service will look for replicas on that RSE
-that can be deleted without violating any replication rules. The
-reaper will use a Least Recently Used (LRU) algorithm to select
-replicas for deletion. The reaper service will also immediately delete
-all replicas of any file which is declared obsolete.
+A replication rule can generate a data transfer prior to the replica lock being satisfied. Rucio will only create the minimum set of necessary transfer primitives to satisfy all rules. If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
 
+Example: vgaronne:Dataset1 = \{File1, File2\} with the replication rule ‘vgaronne: 2 replicas @ Tier=2’ is resolved into two replica locks for each file of the dataset:
+\begin{itemize}
+	\item[] vgaronne: File1 @ LMU
+	\item[] vgaronne: File1 @ MANCHESTER
+	\item[] vgaronne: File2 @ LMU
+	\item[] vgaronne: File2 @ MANCHESTER
+\end{itemize}
 
-\subsection{Transfer Primitives}
-\label{sec:transfer-primitives}
+If Rucio encounters failures when transferring files, it will apply a configurable policy to determine how to proceed. This policy can specify a retry strategy, whether alternative sites can be used and when the rule will be considered stuck.
 
-Accounts can inject transfer primitives directly, e.g.,
-transient replicas required for production operations. Notifications
-can be provided for the transfer request. All transfer requests are
-transient.
+\subsection{File replica grouping}
+\label{sec:file-replica-grouping}
 
-The injection of transfer primitives requires a specific privileges to
-prevent abuse of this feature.
+If the file content of a dataset is very widely distributed across many sites this will maximise the CPU resources that can be used to process this data. If the files are concentrated at one site this will be optimal for processing which requires the use of many files at once (e.g., merging and archiving to tape).
 
-\subsection{Policies}
-\label{sec:policies}
+Rucio uses the dataset/container hierarchy to control how files are grouped together at sites. Rucio offers three levels of grouping, which will affect how the file replicas in a hierarchy are grouped:
+\begin{enumerate}
+    \item[] \code{all} -  All files will be replicated to the same RSE
+    \item[] \code{dataset} - All files in the same dataset will be replicated to the same RSE; different datasets will be spread maximally over all allowed RSEs
+    \item[] \code{none} - Files will be completely spread over all allowed RSEs without any grouping considerations at all
+\end{enumerate}
 
-Policies are system entities which generate rules or transfer requests
-based on matching particular dataset metadata at registration
-time. Polices are owned by an account and can only generate rules for
-that account. Policies may have a lifetime, after which they will
-expire.
+The default grouping level is \code{dataset}.
 
-An example of a policy is given below:
+To illustrate this consider the following dataset hierarchy:
+
+{\hfill\scalebox{0.600000}{\includegraphics{dataset_hierarchy.pdf}}\hfill}
+
+There are 1250 files organised in 5 datasets:
+\begin{itemize}
+	\item[] prod:DatasetA = \{prod:File\_0001, \ldots, File\_0250\}
+	\item[] prod:DatasetB = \{prod:File\_0251, \ldots, File\_0500\}
+	\item[] prod:DatasetC = \{prod:File\_0501, \ldots, File\_0750\}
+	\item[] prod:DatasetD = \{prod:File\_0751, \ldots, File\_1000\}
+	\item[] prod:DatasetE = \{prod:File\_1001, \ldots, File\_1250\}
+\end{itemize}
+
+Some datasets are aggregated into a container:
+\begin{itemize}
+	\item[] prod:Container1 = \{prod:DatasetA, prod:DatasetB, prod:DatasetC, prod:DatasetD\}
+\end{itemize}
+
+The container prod:Container1 and dataset prod::DatasetE are aggregated into a bigger container:
+\begin{itemize}
+	\item[] prod:HugeContainer1 = \{prod:Container1, prod:DatasetE\}
+\end{itemize}
+
+If a replication rule is specified on prod:HugeContainer1, specifying that \code{all} grouping should be used, then Rucio will replicate
+all files belonging to prod:HugeContainer1 (prod:File\_0001 \ldots File\_1250) to the same RSE.
+
+If a replication rule with \code{dataset} grouping is specified on prod:HugeContainer1, then Rucio will spread the datasets as much as
+possible over the allowed RSEs, but keep all the files in each dataset at the same RSE\footnote{Assuming that multiple RSEs are allowed by this rule - specifying a single RSE obviously negates grouping}.
+
+If a replication rule with \code{none} grouping is specified on prod:HugeContainer1, then Rucio will
+replicate all files belonging to the datasets to individually random selected RSEs.
+
+Note that intermediate grouping options, e.g., by specifying a replication rule on prod:HugeContainer1, but only grouping all
+of the content of prod:Container1 together is not supported. To achieve this an individual replication rule has to be specified on prod:Container1 with \code{all} grouping.
+
+Clients should ensure that their dataset/container hierarchies, in particular the definition of the datasets, are created in
+such a way as to provide suitable file groupings for further data processing.
+
+\subsection{Subscription}
+\label{sec:Subscription}
+
+Subscriptions generate replication rules based on matching particular metadata at registration time. Subscriptions are owned by an account and can only generate rules for that account. Subscriptions do not have a lifetime and need to be removed when no longer required. The lifetime of the generated replication rules can be expressed in a relative way.
+
+An example of a subscription is given below:
 
 \medskip
 
-\begin{tabular}{l p{6cm}}
+\begin{tabular}{l p{13cm}}
   \textbf{Attribute} & \textbf{Value} \\\hline
   Owner & tzero \\\hline
-  match & project=data11\_7TeV,  dataType=RAW, stream=physics\_* \\\hline
-  rule & 1@CERNTAPE, 1 @T1TAPE \\\hline
-  lifetime & 2012-01-01 00:00 \\\hline
+  Match & project=data12\_8TeV AND dataType=RAW AND stream=physics\_* AND DIType=dataset \\\hline
+  Rule & 1@Site=CERNTAPE; 1@T1TAPE; 1@T1DISK until NOW+90days; grouping=dataset \\\hline
 \end{tabular}
 
-\bigskip
- 
-Policies can also create transfer primitives, so generate extra copies
-of data as it is produced:
+\subsection{Data deletion}
+\label{sec:Datadeletion}
 
-\medskip
-
-\begin{tabular}{l p{6cm}}
-  \textbf{Attribute} & \textbf{Value} \\\hline
-  Owner & prod \\\hline
-  match & \sloppy project=mc11\_7TeV, dataType=merge.AOD,
-  tag=*(p795$\mid$p796$\mid$p805)*, {ReplicationPolicy}=RPValue \\\hline
-  rule & 1@T1DISK, 1@T2DISK \\\hline
-  transfer & 1@T1DISK, 2@T2DISK \\\hline
-  lifetime & 2011-12-01 00:00  \\\hline
-\end{tabular}
-
-\medskip
- 
-In this case the transfer request is for \emph{extra} copies, in
-addition to those set by rules. (This is different behaviour to that
-for rules themselves, which are always independent.)
+In case a replica on a particular RSE has no associated replica locks anymore it can be deleted.
+Locks disappear when users decrease the number of desired replicas in their replica rules, or the whole rule altogether.
 
 \section{Accounting and quota}
 \label{overview_Accounting_and_quota:accounting-and-quota}\label{overview_Accounting_and_quota::doc}
-Accounting is the measure of how much resource, e.g., storage, an
-account has used as a consequence of its actions. Quota is a policy
-limit which the system applies to an account. Quotas will be available
-which apply to an account at a specific RSE tag or globally.
 
-For storage accounting, Rucio accounts will only be accounted for the
-files they set replication rules on. Accounting is based on the
-replicas an account requested, not on the actual amount of physical
-replicas in the system. Consequently, it is expected that over-booking
-of physical space will be employed as a particular physical replica
-may satisfy several replication rules.
+Accounting is the measure of how much resource, e.g., storage, an account has used as a consequence of its actions. Quota is a policy limit which the system applies to an account for some resource.
 
+For storage accounting, Rucio accounts will only be charged for the files on which they have set replication rules. The accounting is based on the number of replicas an account requested, not on the number of physical replicas in the system. Accounting and quota calculations use the replica locks generated from replication rules. Quotas are constraints on the replica locks, based on limits set per account.
+
+Example: The GROUPDISK RSE tag is translated into the RSE list: CERN\_GROUPDISK, BNL\_GROUPDISK, GLASGOW\_GROUPDISK.
+
+\medskip
+
+\begin{tabular}{l p{9cm} p{2cm}}
+  \textbf{Account} & \textbf{RSE list} & \textbf{Limit (TB)} \\\hline
+  user.vgaronne     & CERN\_USERDISK  & $< 1$ \\\hline
+  group.phys-higgs  & GROUPDISK AND NOT GLASGOW\_GROUPDISK  & $< 30$ \\\hline
+  group.phys-higgs  & CERN\_GROUPDISK  & $< 20$ \\\hline
+  group.phys-higgs  & BNL\_GROUPDISK  & $< 20$ \\\hline
+  group.phys-higgs  & GLASGOW\_GROUPDISK  & $< 100$ \\\hline
+\end{tabular}
+
+\medskip
+
+The account user.vgaronne has a quota of 1TB at CERN\_USERDISK.
+
+The account group.phys-higgs has an overall quota of 30TB on all GROUPDISK RSEs, excluding GLASGOW. CERN and BNL have an additional protection
+that group.phys-higgs cannot use more than 20TB on each site, despite the global quota. GLASGOW provides explicitly
+a quota of 100TB and is excluded from the GROUPDISK quota.
 
 \section{Notifications}
 \label{overview_Notifications:notifications}\label{overview_Notifications::doc}
-External applications can require synchronisation on events relative
-to data availability and can subscribe to particular 
-events, e.g., dataset state changes. Rucio will then publish a message
-to external application when it detects these events.
+
+External applications can require to synchronize on events relative to data availability and can subscribe to particular events, e.g. dataset state changes. Then Rucio will publish a messages to an external application when it detects these events.
 
 \section*{Acknowledgments}
 \label{Acknowledgments::doc}\label{Acknowledgments:acknowledgments}
@@ -552,160 +427,29 @@ DQ2
 Rucio
 }\\
 \midrule
-
-File identifier
- & 
-GUID/LFN (Basename)
- & 
-Scope + Label name
-\\
-
-Dataset identifier
- & 
-DUID/DSN
- & 
-Scope + Label name
-\\
-
-Versioning
- & 
-Yes
- & 
-No
-\\
-
-Namespace
- & 
-Global/Flat
- & 
-Scoped
-\\
-
-Unique PFN
- & 
-No
- & 
-Yes
-\\
-
-Overlapping dataset
- & 
-Yes
- & 
-Yes
-\\
-
-Storage Element Groups
- & 
-No
- & 
-Yes
-\\
-
-Storage Element Tagging
- & 
-No
- & 
-Yes
-\\
-
-Quota support
- & 
-Group
- & 
-Account (Group/User)
-\\
-
-Dataset Replica completeness
- & 
-Yes
- & 
-No
-\\
-
-Dataset Distribution Policy
-&
-Only complete at site
-&
-Flexible
-\\
-
-Replica Lifetime
-&
-Yes
-&
-No
-\\
-
-Metadata namespace/support
- & 
-System defined, Data placement
- & 
-System defined, Physics, Production, Analysis, Data placement
-\\
-
-Data discovery unit
- & 
-Pattern
- & 
-Metadata
-\\
-
-Data operation unit
- & 
-Dataset
- & 
-Dataset, File
-\\
-
-Multiple replica ownership
- & 
-No
- & 
-Yes
-\\
-
-Dynamic placement
- & 
-No
- & 
-Yes
-\\
-
-Replication rule support
- & 
-No
- & 
-Yes
-\\
-
-Hidden data
- & 
-Yes
- & 
-Yes
-\\
-
-Reuse of dataset name
- & 
-No
- & 
-No (but possibility to resuscitate dataset)
-\\
-
-Notifications
- & 
-Yes
- & 
-Yes
-\\
-
-Fine-grained accounting
- & 
-Partially
- & 
-Yes
-\\
+File identifier  & GUID/LFN  & Scope + name (DI) \\
+Dataset identifier  & DUID/DSN & Scope + name (DI) \\
+Container identifier  & CUID/CNT & Scope + name (DI) \\
+Versioning & Yes & No \\
+Namespace & Global/Flat & Scoped \& hierarchical \\
+Unique PFN & No & Yes \\
+Overlapping dataset & Yes & Yes \\
+Storage Element Groups & No  & Yes \\
+Storage Element Attributes  & No  & Yes \\
+Quota support & Group & Account (Group/User) \\
+Dataset Replica completeness & Yes  & Yes \\
+Dataset Distribution Policy & Only complete at site & Flexible \\
+Replica Lifetime & Yes & No \\
+Metadata namespace/support  & System defined, Data placement  & System defined, Physics, Production, Analysis, Data placement \\
+Data discovery unit & Pattern & Metadata\\
+Data operation unit &Dataset & Dataset, File, Container, DIS \\
+Multiple replica ownership & No & Yes \\
+Dynamic placement & No & Yes \\
+Replication rule support & No  & Yes \\
+Hidden data & Yes  & Yes \\
+Reuse of dataset name & No & No (but possibility to resuscitate dataset) \\
+Notifications & Yes & Yes \\
+Fine-grained accounting & Partially & Yes \\
 \bottomrule
 \end{tabular}
 
@@ -716,11 +460,14 @@ Yes
 \item[{LFN}] \leavevmode
 Logical File Name.
 
-\item[{LRU}] \leavevmode
-Least Recently Used.
-
 \item[{DSN}] \leavevmode
 Dataset Name.
+
+\item[{DI}] \leavevmode
+Data Identifier.
+
+\item[{DIS}] \leavevmode
+Data Identifier Set.
 
 \item[{PFN}] \leavevmode
 Physical File Name.

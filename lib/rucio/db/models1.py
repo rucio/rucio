@@ -354,7 +354,7 @@ class RSEAttrAssociation(BASE, ModelBase):
     value = Column(String(255))
     rse = relationship("RSE", backref=backref('rse_attr_map', order_by=rse_id))
     tag = relationship("RSEAttribute", backref=backref('rse_attr_map', order_by=rse_id))
-    _table_args = (PrimaryKeyConstraint('rse_id', 'key', 'value', name='RSE_ATTR_MAP_PK'),
+    _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
                    ForeignKeyConstraint(['key', 'value'], ['rse_attributes.key', 'rse_attributes.value'], name='RSE_ATTR_MAP_ATTR_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'), )
 

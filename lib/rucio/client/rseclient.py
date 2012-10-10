@@ -43,9 +43,11 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def list_rses(self):
+    def list_rses(self, filters=None):
         """
         Sends the request to list all rucio locations(RSEs).
+
+        :filters: dict of keys & expected values to filter results
 
         :return: a list containing the names of all rucio locations.
         :raises AccountNotFound: if account doesn't exist.
@@ -63,26 +65,63 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.text)
             raise exc_cls(exc_msg)
 
-    def tag_rse(self, rse, tag):
+    def add_rse_attribute(self, rse, key, value):
         """
-        Sends the request to tag a RSE.
+        Sends the request to add a RSE attribute.
 
         :param rse: the name of the rse.
-        :param tag: the tag name.
+        :param key: the attribute key.
+        :param value: the attribute value.
 
-        :return: True if RSE tag was created successfully else False.
-        :raises Duplicate: if RSE tag already exists.
+        :return: True if RSE attribute was created successfully else False.
+        :raises Duplicate: if RSE attribute already exists.
         """
-
-        headers = {'Rucio-Auth-Token': self.auth_token}
-        path = 'rses/{rse}s/tags' % locals()
+        path = '/'.join([self.BASEURL, rse, 'attr', key])
         url = build_url(self.host, path=path)
-        data = dumps({'tag': tag})
-        r = self._send_request(url, headers, type='POST', data=data)
+        data = dumps({'value': value})
+
+        r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
+
+    def delete_rse_attribute(self, rse, key):
+        """
+        Sends the request to delete a RSE attribute.
+
+        :param rse: the name of the rse.
+        :param key: the attribute key.
+
+        :return: True if RSE attribute was deleted successfully else False.
+        """
+        path = '/'.join([self.BASEURL, rse, 'attr', key])
+        url = build_url(self.host, path=path)
+
+        r = self._send_request(url, type='DEL')
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
+
+    def list_rse_attributes(self, rse):
+        """
+        Sends the request to get RSE attributes.
+
+        :param rse: the name of the rse.
+
+        :return: True if RSE attribute was created successfully else False.
+        """
+        path = '/'.join([self.BASEURL, rse, 'attr/'])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            attributes = loads(r.text)
+            return attributes
+        else:
+            exc_cls, exc_msg = self._get_exception(r.text)
             raise exc_cls(exc_msg)
 
     def add_file(self, rse, scope, lfn):

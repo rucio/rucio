@@ -25,6 +25,8 @@ def has_permission(issuer, action, kwargs):
     perm = {'add_account': perm_add_account,
             'add_scope': perm_add_scope,
             'add_rse': perm_add_rse,
+            'add_rse_attr': perm_add_rse_attr,
+            'del_rse_attr': perm_del_rse_attr,
             'del_rse': perm_del_rse,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
@@ -48,6 +50,28 @@ def perm_default(issuer, kwargs):
 def perm_add_rse(issuer, kwargs):
     """
     Checks if an account can add a RSE.
+
+    :param accountName: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_add_rse_attr(issuer, kwargs):
+    """
+    Checks if an account can add a RSE attribute.
+
+    :param accountName: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_del_rse_attr(issuer, kwargs):
+    """
+    Checks if an account can delete a RSE attribute.
 
     :param accountName: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
