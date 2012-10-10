@@ -16,6 +16,7 @@
 """
 
 import argparse
+import itertools
 import os
 import sys
 import time
@@ -45,6 +46,7 @@ def get_client(args):
     supplied to the CLI
     """
     return rucio_client.Client(host="0.0.0.0")
+
 
 def ping(args):
     """
@@ -95,6 +97,35 @@ def whoami_account(args):
 
     for k in info:
         print k.ljust(10) + ' : ' + str(info[k])
+
+    return SUCCESS
+
+
+def add_replicas(args):
+    """
+    %(prog)s add_replicas [options] <field1=value1 field2=value2 ...>
+
+    Add file replicas.
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    # lfns = [('lfn', lfn) for lfn in args.lfns]
+    # rses = [('rse', rse) for rse in args.rses]
+    # checksums = [('checksum', checksum) for checksum in args.checksums]
+    # sizes = [('size', size) for size in args.sizes]
+    # files = [dict(i) for i in itertools.izip_longest(lfns, rses, sizes, checksums)]
+
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    for lfn, rse, checksum, size in zip(args.lfns, args.rses, args.checksums, args.sizes):
+        scope, name = lfn.split(':')
+        client.add_file_replica(scope=scope, name=name, rse=rse, checksum=checksum, size=size)
 
     return SUCCESS
 
@@ -175,6 +206,7 @@ def add_dataset(args):
             return FAILURE
     return SUCCESS
 
+
 def add_files_to_dataset(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
@@ -201,7 +233,6 @@ def add_files_to_dataset(args):
                            account=args.account,
                            auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
-
 
     try:
         report = client.add_files_to_dataset(scope=scope, dsn=dsn, lfns=lfns)
@@ -232,7 +263,6 @@ def list_files_in_dataset(args):
                            auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
 
-
     try:
         files = client.list_files_in_dataset(scope=scope, dsn=dsn)
     except Exception, e:
@@ -254,6 +284,7 @@ def close_dataset(args):
 
     """
     raise NotImplementedError
+
 
 def upload(args):
     """
@@ -312,6 +343,14 @@ Commands:
     whoami_parser = subparsers.add_parser('whoami', help='Get information about account whose token is used')
     whoami_parser.set_defaults(which='whoami_account')
 
+    # The add_replicas command
+    add_replicas_parser = subparsers.add_parser('add_replicas', help='Add file replicas')
+    add_replicas_parser.set_defaults(which='add_replicas')
+    add_replicas_parser.add_argument('--lfns', dest='lfns', nargs='+', action='store', help='List of space separated LFNs', required=True)
+    add_replicas_parser.add_argument('--rses', dest='rses', nargs='+', action='store', help='List of space separated Rucio Storage Element(RSE)', required=True)
+    add_replicas_parser.add_argument('--sizes', dest='sizes', nargs='+', action='store', help='List of space separated file sizes', required=True)
+    add_replicas_parser.add_argument('--checksums', dest='checksums', nargs='+', action='store', help='List of space separated file checksums', required=True)
+
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method')
     upload_parser.set_defaults(which='upload')
@@ -320,73 +359,67 @@ Commands:
     download_parser = subparsers.add_parser('download', help='Download method')
     download_parser.set_defaults(which='download')
 
-    # The file subparser
-    file_parser = subparsers.add_parser('file', help='File methods')
-    file_subparser = file_parser.add_subparsers()
-
-     # The add_file command
-    add_file_parser = file_subparser.add_parser('add', help='Add file')
-    add_file_parser.set_defaults(which='add_file')
-    add_file_parser.add_argument('lfn', action='store', help='File name')
-    add_file_parser.add_argument('rse', action='store', help='RSE name')
-    add_file_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-
-    # The replica subparser
-    replica_parser = subparsers.add_parser('replica', help='Replica methods')
-    replica_subparser = replica_parser.add_subparsers()
-
-    # The list replica command
-    list_replica_parser = replica_subparser.add_parser('list', help='List replica')
-    list_replica_parser.set_defaults(which='list_replicas')
-    list_replica_parser.add_argument('lfn', action='store', help='File name')
-    list_replica_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-
-    # The dataset subparser
-    dataset_parser = subparsers.add_parser('dataset', help='Dataset methods')
-    dataset_subparser = dataset_parser.add_subparsers()
-
-    # The dataset_add command
-    add_dataset_parser =  dataset_subparser.add_parser('add', help='Add dataset')
-    add_dataset_parser.set_defaults(which='add_dataset')
-    add_dataset_parser.add_argument('dsn', action='store', help='Dataset name')
-    add_dataset_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-
-    # The close_add command
-    close_dataset_parser =  dataset_subparser.add_parser('close', help='Close dataset')
-    close_dataset_parser.set_defaults(which='close_dataset')
-    close_dataset_parser.add_argument('dsn', action='store', help='Dataset name')
-    close_dataset_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-
-    # The dataset file subparser
-    dataset_file_parser = dataset_subparser.add_parser('file', help='Dataset file methods')
-    dataset_file_subparser = dataset_file_parser.add_subparsers()
-
-    # The add_files_to_dataset command
-    add_dataset_file_parser = dataset_file_subparser.add_parser('add', help='Add files to dataset')
-    add_dataset_file_parser.set_defaults(which='add_files_to_dataset')
-    add_dataset_file_parser.add_argument('dsn', action='store', help='Dataset name')
-    add_dataset_file_parser.add_argument('lfns', type=str, nargs='+', action='store', help='List of filenames')
-    add_dataset_file_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-
-    # The list_dataset_files command
-    list_dataset_files_parser = dataset_file_subparser.add_parser('list', help='List files in dataset')
-    list_dataset_files_parser.set_defaults(which='list_files_in_dataset')
-    list_dataset_files_parser.add_argument('dsn', action='store', help='Dataset name')
-    list_dataset_files_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
+# The file subparser
+#     file_parser = subparsers.add_parser('file', help='File methods')
+#     file_subparser = file_parser.add_subparsers()
+#
+#      # The add_file command
+#     add_file_parser = file_subparser.add_parser('add', help='Add file')
+#     add_file_parser.set_defaults(which='add_file')
+#     add_file_parser.add_argument('lfn', action='store', help='File name')
+#     add_file_parser.add_argument('rse', action='store', help='RSE name')
+#     add_file_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
+#
+# The replica subparser
+#     replica_parser = subparsers.add_parser('replica', help='Replica methods')
+#     replica_subparser = replica_parser.add_subparsers()
+#
+# The list replica command
+#     list_replica_parser = replica_subparser.add_parser('list', help='List replica')
+#     list_replica_parser.set_defaults(which='list_replicas')
+#     list_replica_parser.add_argument('lfn', action='store', help='File name')
+#     list_replica_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
+#
+# The dataset subparser
+#     dataset_parser = subparsers.add_parser('dataset', help='Dataset methods')
+#     dataset_subparser = dataset_parser.add_subparsers()
+#
+# The dataset_add command
+#     add_dataset_parser =  dataset_subparser.add_parser('add', help='Add dataset')
+#     add_dataset_parser.set_defaults(which='add_dataset')
+#     add_dataset_parser.add_argument('dsn', action='store', help='Dataset name')
+#     add_dataset_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
+#
+# The close_add command
+#     close_dataset_parser =  dataset_subparser.add_parser('close', help='Close dataset')
+#     close_dataset_parser.set_defaults(which='close_dataset')
+#     close_dataset_parser.add_argument('dsn', action='store', help='Dataset name')
+#     close_dataset_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
+#
+# The dataset file subparser
+#     dataset_file_parser = dataset_subparser.add_parser('file', help='Dataset file methods')
+#     dataset_file_subparser = dataset_file_parser.add_subparsers()
+#
+# The add_files_to_dataset command
+#     add_dataset_file_parser = dataset_file_subparser.add_parser('add', help='Add files to dataset')
+#     add_dataset_file_parser.set_defaults(which='add_files_to_dataset')
+#     add_dataset_file_parser.add_argument('dsn', action='store', help='Dataset name')
+#     add_dataset_file_parser.add_argument('lfns', type=str, nargs='+', action='store', help='List of filenames')
+#     add_dataset_file_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
+#
+# The list_dataset_files command
+#     list_dataset_files_parser = dataset_file_subparser.add_parser('list', help='List files in dataset')
+#     list_dataset_files_parser.set_defaults(which='list_files_in_dataset')
+#     list_dataset_files_parser.add_argument('dsn', action='store', help='Dataset name')
+#     list_dataset_files_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
 
     args = oparser.parse_args(sys.argv[1:])
 
     commands = {'ping': ping,
-               'whoami_account': whoami_account,
-               'download': download,
-               'upload': upload,
-               'add_file': add_file,
-               'list_replicas': list_replicas,
-               'add_dataset': add_dataset,
-               'add_files_to_dataset': add_files_to_dataset,
-               'list_files_in_dataset': list_files_in_dataset,
-               'close_dataset': close_dataset,
-               }
+                'add_replicas': add_replicas,
+                'whoami_account': whoami_account,
+                'download': download,
+                'upload': upload}
 
     try:
         start_time = time.time()
@@ -396,7 +429,6 @@ Commands:
         if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
-    except (RuntimeError,
-             NotImplementedError), e:
+    except (RuntimeError, NotImplementedError), e:
         print >> sys.stderr, "ERROR: ", e
         sys.exit(FAILURE)

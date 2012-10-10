@@ -156,6 +156,7 @@ The list of RSEs can be specified with RSE attributes (see section \ref{overview
 
 Sample replication rules are given below (some parameters are optional, a value in [] denotes usage of the default value):
 
+\begin{minipage}{12cm}
 \begin{tabular}{c c c p{2cm} c c c}
 \toprule
 \textbf{Account} & \textbf{Copies} & \textbf{Data Identifier} & \textbf{RSEs} & \textbf{Weight} & \textbf{Lifetime} & \textbf{Grouping\footnote{See section \ref{sec:file-replica-grouping} }} \\
@@ -166,6 +167,7 @@ mario & 1 & mario:container2 & (Cloud=US AND Tier=2) OR Site=CERN & [MoU] & 2013
 luc & 2 & graeme:file1 & Cloud=UK AND T2D\footnote{This is interpreted as T2D=True.} & No & [No] & None \\
 \bottomrule
 \end{tabular}
+\end{minipage}
 
 As transferring a file to a site can fail, a replication rule has a state to reflect its status:
 

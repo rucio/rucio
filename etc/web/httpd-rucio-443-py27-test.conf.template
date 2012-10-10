@@ -81,6 +81,8 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
  WSGIProcessGroup rucio
  WSGIScriptAlias /rses /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
  WSGIProcessGroup rucio
+ WSGIScriptAlias /ping /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/ping.py
+ WSGIProcessGroup rucio
 
  # Valid client certificates required only for x509 authentication
  <LocationMatch /identity/.+/x509>

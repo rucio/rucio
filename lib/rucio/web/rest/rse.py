@@ -29,7 +29,7 @@ logger.addHandler(sh)
 urls = (
     '/(.+)/attr/', 'Attributes',
     '/(.+)/attr/(.+)', 'Attributes',
-    '/(.+)/files', 'Files',
+    '/(.+)/files/(.+)/(.+)', 'Files',
     '/', 'RSE',
     '/(.+)', 'RSE',
 )
@@ -223,7 +223,8 @@ class Attributes:
 
 
 class Files:
-    def POST(self, rseName):
+
+    def POST(self, rse, scope, name):
         """ create a file replica with given RSE name.
 
         HTTP Success:
@@ -234,7 +235,11 @@ class Files:
             409 Conflict
             500 Internal Error
 
-        :param rse: RSE name.
+        :param rse: The RSE name.
+        :param scope: the name of the scope.
+        :param name: the name of the file.
+        :param size: the size of the file.
+        :param checksum: the checksum of the file.
 
         """
         header('Content-Type', 'application/octet-stream')
@@ -247,23 +252,22 @@ class Files:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
-
         try:
             parameter = loads(json_data)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
         try:
-            scope = parameter['scope']
-            lfn = parameter['lfn']
+            size = parameter['size']
+            checksum = parameter['checksum']
         except KeyError, e:
-            if e.args[0] == 'scope' or e.args[0] == 'lfn':
+            if e.args[0] == 'size' or e.args[0] == 'checksum':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_file_replica(rse=rseName, scope=scope, lfn=lfn, issuer=auth['account'])
+            add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
