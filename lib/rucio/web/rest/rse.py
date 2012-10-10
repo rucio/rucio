@@ -15,8 +15,8 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest,\
     Created, InternalError, OK
 
-from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_tag,\
-    list_rse_tags, add_file_replica
+from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute,\
+    list_rse_attributes, del_rse_attribute, add_file_replica
 from rucio.common.exception import Duplicate, AccountNotFound, AccessDenied, RSENotFound
 from rucio.common.utils import generate_http_error
 from rucio.core.authentication import validate_auth_token
@@ -27,10 +27,11 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
+    '/(.+)/attr/', 'Attributes',
+    '/(.+)/attr/(.+)', 'Attributes',
+    '/(.+)/files', 'Files',
     '/', 'RSE',
     '/(.+)', 'RSE',
-    '/(.+)/tags', 'Tags',
-    '/(.+)/files', 'Files',
 )
 
 
@@ -128,10 +129,10 @@ class RSE:
         raise OK()
 
 
-class Tags:
-    """ create, update, get and disable RSE tag."""
+class Attributes:
+    """ create, update, get and disable RSE attribute."""
 
-    def POST(self, rse):
+    def POST(self, rse, key):
         """ create rse with given RSE name.
 
         HTTP Success:
@@ -143,12 +144,11 @@ class Tags:
             500 Internal Error
 
         :param rse: RSE name.
+        :param key: Key attribute.
 
         """
         header('Content-Type', 'application/octet-stream')
-
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -161,19 +161,13 @@ class Tags:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
-        description = None
         try:
-            tag = parameter['tag']
-            if 'description' in tag:
-                description = parameter['description']
+            value = parameter['value']
         except KeyError, e:
-            if e.args[0] == 'tag':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
-        except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
 
         try:
-            add_rse_tag(rse=rse, tag=tag, description=description, issuer=auth['account'])
+            add_rse_attribute(rse=rse, key=key, value=value, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -184,7 +178,7 @@ class Tags:
         raise Created()
 
     def GET(self, rse):
-        """ list all RSE tags for a RSE.
+        """ list all RSE attributes for a RSE.
 
         HTTP Success:
             200 OK
@@ -195,25 +189,37 @@ class Tags:
 
         :param rse: RSE name.
 
-        :returns: A list containing all RSE tags.
+        :returns: A list containing all RSE attributes.
         """
-        header('Content-Type', 'application/json')
-
+        header('Content-Type', 'application/octet-stream')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        return dumps(list_rse_tags(filters={'rse': rse}))
+        return dumps(list_rse_attributes(rse))
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    def DELETE(self, rseName):
+    def DELETE(self, rse, key):
         header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            del_rse_attribute(rse=rse, key=key, issuer=auth['account'])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise OK()
 
 
 class Files:

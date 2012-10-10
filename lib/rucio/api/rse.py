@@ -54,32 +54,48 @@ def list_rses(filters=None):
     return rse_core.list_rses()
 
 
-def add_rse_tag(rse, tag, issuer, description=None):
-    """ Tags a RSE.
+def del_rse_attribute(rse, key, issuer):
+    """
+    Delete a RSE attribute.
+
+    :param rse: the name of the rse.
+    :param key: the attribute key.
+
+    :return: True if RSE attribute was deleted successfully else False.
+    """
+    kwargs = {'rse': rse, 'key': key}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='del_rse_attribute', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not delete RSE attributes' % (issuer))
+
+    return rse_core.del_rse_attribute(rse=rse, key=key)
+
+
+def add_rse_attribute(rse, key, value, issuer):
+    """ Adds a RSE attribute.
 
     :param rse: the rse name.
-    :param tag: the tag name.
-    :param description: Description of the rse, e.g. cloud, site, etc.
+    :param key: the key name.
+    :param value: the value name.
     :param issuer: The issuer account.
 
 
     returns: True is successfull
     """
-    kwargs = {'rse': rse, 'tag': tag, 'description': description}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='add_rse_tag', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('Account %s can not tag RSE' % (issuer))
+    kwargs = {'rse': rse, 'key': key, 'value': value}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='add_rse_attribute', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
 
-    return rse_core.add_rse_tag(rse=rse, tag=tag, description=description)
+    return rse_core.add_rse_attribute(rse=rse, key=key, value=value)
 
 
-def list_rse_tags(filters=None):
-    """ List RSE tags.
+def list_rse_attributes(rse):
+    """ List RSE attributes for a RSE.
 
-    :param filters: dictionary of attributes by which the results should be filtered.
+    :param rse: the rse name.
 
-    :returns: List of all RSE tags.
+    :returns: List of all RSE attributes for a RSE.
     """
-    return rse_core.list_rse_tags(filters=filters)
+    return rse_core.list_rse_attributes(rse=rse)
 
 
 def add_file_replica(rse, scope, lfn, issuer):

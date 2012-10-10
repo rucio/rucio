@@ -31,7 +31,7 @@ The following concepts define how data is organised, accessed, and catalogued by
     :maxdepth: 1
 
     overview_Rucio_account
-    overview_Dataset
+    overview_File_Dataset_Container
     overview_Meta-data_attributes
     overview_Rucio_Storage_Element
     overview_Permission_model

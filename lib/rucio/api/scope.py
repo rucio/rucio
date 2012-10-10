@@ -11,6 +11,15 @@
 from rucio.core import scope
 
 
+def list_scopes():
+    """
+    Lists all scopes.
+
+    :returns: A list containing all scopes.
+    """
+    return scope.list_scopes()
+
+
 def add_scope(scopeName, accountName):
     """
     Creates a scope for an account.

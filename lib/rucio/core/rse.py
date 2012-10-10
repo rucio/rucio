@@ -113,46 +113,69 @@ def add_tag(tag, description=None):
     return new_rse_tag
 
 
-def add_rse_tag(rse, tag, description=None):
-    """ Tags a location with a RSE.
+def add_rse_attribute(rse, key, value):
+    """ Adds a RSE attribute.
 
     :param rse: the rse name.
-    :param tag: the tag name.
-    :param description: Description of the rse, e.g. cloud, site, etc.
+    :param key: the key name.
+    :param value: the value name.
+    :param issuer: The issuer account.
 
     returns: True is successfull
     """
-
-    l = get_rse(rse=rse)
     try:
-        tag = get_rse_tag(tag=tag)
-    except exception.RSETagNotFound:
-        tag = add_tag(tag=tag, description=description)
+        # Check location
+        l = get_rse(rse=rse)
 
-    try:
-        new_rse_tag = models.RSETagAssociation(rse_id=l.id, rse_tag_id=tag.id)
-        new_rse_tag.save(session=session)
-    except IntegrityError:
+        query = session.query(models.RSEAttribute).filter(models.RSEAttribute.key == key).filter(models.RSEAttribute.value == value)
+        if not query.count():
+            new_attr = models.RSEAttribute(key=key, value=value)
+            new_attr.save(session=session)
+
+        try:
+            new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value, deleted=False)
+            new_rse_attr = session.merge(new_rse_attr)
+            new_rse_attr.save(session=session)
+            session.commit()
+        except IntegrityError, e:
+                raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
+    finally:
         session.rollback()
-        raise exception.Duplicate('Tag \'%(rse)s\' for location \'%(location)s\' already exists!' % locals())
-
-    session.commit()
 
 
-def list_rse_tags(filters=None):
-    """ List RSE tags.
-
-    :param filters: dictionary of attributes by which the results should be filtered.
-
-    :returns: List of all RSE tags.
+def del_rse_attribute(rse, key):
     """
-    rse_tags_list = []
+    Delete a RSE attribute.
 
-    query = session.query(models.RSETag).order_by(models.RSETag.tag)
-    for tag in query:
-        rse_tags_list.append(tag.tag)
+    :param rse: the name of the rse.
+    :param key: the attribute key.
 
-    return rse_tags_list
+    :return: True if RSE attribute was deleted successfully else False.
+    """
+    l = get_rse(rse=rse)
+    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id, deleted=False).filter(models.RSEAttrAssociation.key == key)
+    try:
+        rse_attr = query.one()
+        rse_attr.delete(session=session)
+        session.commit()
+    except:
+        pass
+
+
+def list_rse_attributes(rse):
+    """ List RSE attributes for a RSE.
+
+    :param rse: the rse name.
+
+    :returns: A dictionary with RSE attributes for a RSE.
+    """
+    rse_attrs = {}
+    l = get_rse(rse=rse)
+
+    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id, deleted=False)
+    for attr in query:
+        rse_attrs[attr.key] = attr.value
+    return rse_attrs
 
 
 def get_rses(filters=None):

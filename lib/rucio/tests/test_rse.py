@@ -21,7 +21,7 @@ from rucio.common.exception import Duplicate, RucioException
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.rse import add_rse, del_rse, list_rses,\
     rse_exists, set_rse_usage, get_rse_usage,\
-    add_rse_tag, get_rses, list_rse_tags
+    add_rse_attribute, get_rses, list_rse_attributes
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
@@ -74,33 +74,6 @@ class TestRSECoreApi():
         usage = get_rse_usage(rse=rse)
         for u in usage:
             assert_equal(u['total'], 1000000)
-
-    def xtest_add_rse_tag(self):
-        """  RSE (CORE): Test the creation of a rse tag """
-        l1 = 'MOCK_' + str(uuid())
-        l2 = 'MOCK_' + str(uuid())
-        tag = 'TIERS2'
-        description = 'cloud'
-        add_rse(l1)
-        add_rse(l2)
-        assert_equal(rse_exists(l1), True)
-        add_rse_tag(rse=l1, tag=tag, description=description)
-        add_rse_tag(rse=l2, tag=tag, description=description)
-        assert_items_equal(get_rses(filters={'rse': l1}), [{'rse': l1, 'tag': u'TIERS2'}])
-        assert_items_equal(get_rses(filters={'description': 'cloud'}), [{'rse': l1, 'tag': u'TIERS2'}, {'rse': l2, 'tag': u'TIERS2'}])
-
-    def xtest_list_rse_tags(self):
-        """  RSE (CORE): Test the listing of RSE tags """
-        l1 = 'MOCK_' + str(uuid())
-        l2 = 'MOCK_' + str(uuid())
-        description = 'cloud'
-        add_rse(l1)
-        add_rse(l2)
-        assert_equal(rse_exists(l1), True)
-        add_rse_tag(rse=l1, tag='TIERS2', description=description)
-        add_rse_tag(rse=l2, tag='TIERS3', description=description)
-        rse_tags = list_rse_tags()
-        assert_items_equal(['TIERS2', 'TIERS3'], rse_tags)
 
 
 class TestRSE():
