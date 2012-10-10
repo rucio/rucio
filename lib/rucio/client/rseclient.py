@@ -124,20 +124,23 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.text)
             raise exc_cls(exc_msg)
 
-    def add_file(self, rse, scope, lfn):
+    def add_file_replica(self, rse, scope, name, size, checksum):
         """
         Add a file replica to a RSE.
 
         :param rse: the name of the rse.
         :param scope: the name of the scope.
-        :param lfn: the lfn (logical file name).
+        :param name: the name of the file.
+        :param size: the size of the file.
+        :param checksum: the checksum of the file.
 
         :return: True if file was created successfully else False.
         :raises Duplicate: if file replica already exists.
         """
-        data = dumps({'scope': scope, 'lfn': lfn})
-        path = '/'.join([self.BASEURL, rse, 'files'])
+        data = dumps({'size': size, 'checksum': checksum})
+        path = '/'.join([self.BASEURL, rse, 'files', scope, name])
         url = build_url(self.host, path=path)
+        print url
 
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
