@@ -298,6 +298,7 @@ def setattr_rse(args):
 
     try:
         client.add_rse_attribute(rse=args.rse, key=args.key, value=args.value)
+        print 'Added new RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
     except Exception, e:
             print 'Failed to add RSE attribute'
             print e
@@ -336,6 +337,7 @@ def getattr_rse(args):
 
     return SUCCESS
 
+
 def delattr_rse(args):
     """
     %(prog)s setattr [options] <field1=value1 field2=value2 ...>
@@ -356,12 +358,14 @@ def delattr_rse(args):
 
     try:
         client.delete_rse_attribute(rse=args.rse, key=args.key)
+        print 'Deleted RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
     except Exception, e:
             print 'Failed to delete RSE attribute'
             print e
             return FAILURE
 
     return SUCCESS
+
 
 def add_scope(args):
     """
@@ -387,6 +391,7 @@ def add_scope(args):
             print e
             return FAILURE
     return SUCCESS
+
 
 def list_scopes(args):
     """
@@ -460,7 +465,6 @@ Commands:
     add_account_parser.set_defaults(which='add_account')
     add_account_parser.add_argument('acnt', action='store', help='Account name')
     add_account_parser.add_argument('--type', dest='acnttype', default='user', help='Account Type')
-
 
     # The disable_account command
     disable_account_parser = account_subparser.add_parser('disable', help='Disable Rucio account')
@@ -541,14 +545,12 @@ Commands:
     add_scope_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
     add_scope_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)
 
-
     # The list_scope command
     list_scope_parser = scope_subparser.add_parser('list', help='List scopes')
     list_scope_parser.set_defaults(which='list_scopes')
     list_scope_parser.add_argument('--account', dest='acnt', action='store', help='Account name')
 
-    commands = {
-                'add_account': add_account,
+    commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
                 'disable_account': disable_account,
                 'show_account': show_account,
@@ -561,8 +563,7 @@ Commands:
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
-                'list_scopes': list_scopes,
-               }
+                'list_scopes': list_scopes}
 
     args = oparser.parse_args(sys.argv[1:])
 

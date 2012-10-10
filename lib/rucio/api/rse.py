@@ -98,18 +98,21 @@ def list_rse_attributes(rse):
     return rse_core.list_rse_attributes(rse=rse)
 
 
-def add_file_replica(rse, scope, lfn, issuer):
+def add_file_replica(rse, scope, name, size, checksum, issuer):
     """ Add File replica.
 
     :param rse: the rse name.
     :param scope: the tag name.
-    :param lfn: The file name.
+    :param name: The file name.
+    :param size: the size of the file.
+    :param checksum: the checksum of the file.
     :param issuer: The issuer account.
 
     :returns: True is successfull.
     """
-    try:
-        name_core.register_file(scope=scope, filename=lfn, account=issuer)
-    except FileAlreadyExists:
-        pass
-    name_core.add_file_replica(rse=rse, scope=scope, filename=lfn)
+    pass
+    #try:
+    #    name_core.register_file(scope=scope, filename=lfn, account=issuer)
+    #except FileAlreadyExists:
+    #    pass
+    #name_core.add_file_replica(rse=rse, scope=scope, filename=lfn)
