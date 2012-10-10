@@ -68,6 +68,19 @@ def bulk_add_scopes(scopes, account, skipExisting=False):
                 raise
 
 
+def list_scopes():
+    """
+    Lists all scopes.
+
+    :returns: A list containing all scopes.
+    """
+    scope_list = []
+    query = session.query(models.Scope)
+    for s in query:
+        scope_list.append(s.scope)
+    return scope_list
+
+
 def get_scopes(account):
     """ get all scopes defined for an account.
 

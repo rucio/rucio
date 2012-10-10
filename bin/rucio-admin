@@ -268,7 +268,7 @@ def list_rses(args):
     try:
         locations = client.list_rses()
     except Exception, e:
-            print 'Failed to list locations'
+            print 'Failed to list RSEs'
             print e
             return FAILURE
 
@@ -278,23 +278,90 @@ def list_rses(args):
     return SUCCESS
 
 
-def tag_rse(args):
+def setattr_rse(args):
     """
-    %(prog)s tag [options] <field1=value1 field2=value2 ...>
+    %(prog)s setattr [options] <field1=value1 field2=value2 ...>
 
-    Tag RSE.
-
-    """
-    pass
-
-def untag_rse(args):
-    """
-    %(prog)s tag [options] <field1=value1 field2=value2 ...>
-
-    Untag RSE.
+    setattr RSE.
 
     """
-    pass
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        client.add_rse_attribute(rse=args.rse, key=args.key, value=args.value)
+    except Exception, e:
+            print 'Failed to add RSE attribute'
+            print e
+            return FAILURE
+
+    return SUCCESS
+
+
+def getattr_rse(args):
+    """
+    %(prog)s getattr [options] <field1=value1 field2=value2 ...>
+
+    getattr RSE.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        attributes = client.list_rse_attributes(rse=args.rse)
+    except Exception, e:
+            print 'Failed to get RSE attributes'
+            print e
+            return FAILURE
+
+    for k in attributes:
+        print k + ': ' + str(attributes[k])
+
+    return SUCCESS
+
+def delattr_rse(args):
+    """
+    %(prog)s setattr [options] <field1=value1 field2=value2 ...>
+
+    setattr RSE.
+
+    """
+    # For the moment...
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        client.delete_rse_attribute(rse=args.rse, key=args.key)
+    except Exception, e:
+            print 'Failed to delete RSE attribute'
+            print e
+            return FAILURE
+
+    return SUCCESS
 
 def add_scope(args):
     """
@@ -319,6 +386,33 @@ def add_scope(args):
             print 'Failed to add scope'
             print e
             return FAILURE
+    return SUCCESS
+
+def list_scopes(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List scopes.
+
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        scopes = client.list_scopes()
+    except Exception, e:
+            print 'Failed to list scopes'
+            print e
+            return FAILURE
+
+    for scope in scopes:
+        print scope
 
     return SUCCESS
 
@@ -385,16 +479,16 @@ Commands:
     # The identity_add command
     identity_add_parser = identity_subparser.add_parser('add', help='Grant an identity access to an account')
     identity_add_parser.set_defaults(which='identity_add')
-    identity_add_parser.add_argument('acnt', action='store', help='Account name')
-    identity_add_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
-    identity_add_parser.add_argument('identity', action='store', help='Identity')
+    identity_add_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', help='Authentivation type(e.g. X509, gss)', required=True)
+    identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The identity_delete command
     identity_delete_parser = identity_subparser.add_parser('delete', help="Revoke an identity's access to an account")
     identity_delete_parser.set_defaults(which='identity_delete')
-    identity_delete_parser.add_argument('acnt', action='store', help='Account name')
-    identity_delete_parser.add_argument('authtype', action='store', help='Authentivation type(e.g. X509, gss)')
-    identity_delete_parser.add_argument('identity', action='store', help='Identity')
+    identity_delete_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    identity_delete_parser.add_argument('--type', dest='authtype', action='store', help='Authentivation type(e.g. X509, gss)', required=True)
+    identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The RSE subparser
     rse_parser = subparsers.add_parser('rse', help='RSE(Rucio Storage Element) methods')
@@ -409,17 +503,28 @@ Commands:
     add_rse_parser.set_defaults(which='add_rse')
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
 
-    # The tag_rse command
-    tag_rse_parser = rse_subparser.add_parser('tag', help='Add a RSE tag to a RSE')
-    tag_rse_parser.set_defaults(which='tag_rse')
-    tag_rse_parser.add_argument('rse', action='store', help='RSE name')
-    tag_rse_parser.add_argument('tag', action='store', help='RSE Tag name')
+    # The setattr_rse command
+    setattr_rse_parser = rse_subparser.add_parser('setattr', help='Add RSE attribute(key-value pair)')
+    setattr_rse_parser.set_defaults(which='setattr_rse')
+    setattr_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
+    setattr_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    setattr_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
-    # The untag_rse command
-    untag_rse_parser = rse_subparser.add_parser('untag', help='Remove a RSE tag from a RSE')
-    untag_rse_parser.set_defaults(which='untag_rse')
-    untag_rse_parser.add_argument('rse', action='store', help='RSE name')
-    untag_rse_parser.add_argument('tag_rse', action='store', help='RSE Tag name')
+    # The delattr_rse command
+    delattr_rse_parser = rse_subparser.add_parser('delattr', help='Delete a RSE attribute(key-value pair)')
+    delattr_rse_parser.set_defaults(which='delattr_rse')
+    delattr_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
+    delattr_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    delattr_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+
+    # The getattr_rse command
+    getattr_rse_parser = rse_subparser.add_parser('getattr', help='List RSE attributes')
+    getattr_rse_parser.set_defaults(which='getattr_rse')
+    getattr_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
+
+    # The listattr_rse command
+    #listattr_rse_parser = rse_subparser.add_parser('listattr', help='List RSE attributes')
+    #listattr_rse_parser.set_defaults(which='listattr_rse')
 
     # The disable_location command
     disable_rse_parser = rse_subparser.add_parser('disable', help='Disable RSE')
@@ -433,9 +538,14 @@ Commands:
     # The add_scope command
     add_scope_parser = scope_subparser.add_parser('add', help='Add scope')
     add_scope_parser.set_defaults(which='add_scope')
-    add_scope_parser.add_argument('scope', action='store', help='Scope name')
-    add_scope_parser.add_argument('acnt', action='store', help='Account name')
+    add_scope_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    add_scope_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)
 
+
+    # The list_scope command
+    list_scope_parser = scope_subparser.add_parser('list', help='List scopes')
+    list_scope_parser.set_defaults(which='list_scopes')
+    list_scope_parser.add_argument('--account', dest='acnt', action='store', help='Account name')
 
     commands = {
                 'add_account': add_account,
@@ -445,11 +555,13 @@ Commands:
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
                 'add_rse': add_rse,
-                'tag_rse': tag_rse,
-                'untag_rse': untag_rse,
+                'setattr_rse': setattr_rse,
+                'getattr_rse': getattr_rse,
+                'delattr_rse': delattr_rse,
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
+                'list_scopes': list_scopes,
                }
 
     args = oparser.parse_args(sys.argv[1:])

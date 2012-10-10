@@ -70,7 +70,7 @@ class TestBinRucio():
         """ACCOUNT (CLI): Test add identity"""
         cmd = 'rucio-admin account add jdoe'
         exitcode, out, err = execute(cmd)
-        cmd = 'rucio-admin identity add jdoe gss jdoe@CERN.CH'
+        cmd = 'rucio-admin identity add --account jdoe --type gss --id jdoe@CERN.CH'
         print  self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -80,7 +80,7 @@ class TestBinRucio():
         """ACCOUNT (CLI): Test add identity"""
         cmd = 'rucio-admin account add jdoe'
         exitcode, out, err = execute(cmd)
-        cmd = 'rucio-admin identity add jdoe gss jdoe@CERN.CH'
+        cmd = 'rucio-admin identity add --account jdoe --type gss --id jdoe@CERN.CH'
         print  self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,

@@ -46,6 +46,23 @@ class ScopeClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
+    def list_scopes(self):
+        """
+        Sends the request to list all scopes.
+
+        :return: a list containing the names of all scopes.
+        """
+
+        path = '/'.join(['scopes/'])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url)
+        if r.status_code == codes.ok:
+            scopes = loads(r.text)
+            return scopes
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
+
     def list_scopes_for_account(self, accountName):
         """
         Sends the request to list all scopes for a rucio account.

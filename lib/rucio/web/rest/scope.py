@@ -12,33 +12,43 @@ from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, header, BadRequest, Created, InternalError, HTTPError, Unauthorized
 
-from rucio.api.scope import add_scope, get_scopes
+from rucio.api.scope import add_scope, get_scopes, list_scopes
+
 from rucio.core.authentication import validate_auth_token
 from rucio.common.exception import AccountNotFound, Duplicate
+from rucio.common.utils import generate_http_error
+
 
 logger = getLogger("rucio.scope")
 sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = (
-    '/(.+)/(.+)', 'Scope',
-    '/(.+)', 'ScopeList',
-)
+# urls = (
+#     '/(.+)/(.+)', 'Scope',
+#     '/(.+)', 'ScopeList',
+# )
 
 urls = (
-    '/(.+)/scopes', 'Scopes',
-    '/(.+)/limits', 'AccountLimits',
-    '/(.+)', 'AccountParameter',
-    '/', 'Account'
+    '/', 'Scope'
 )
+     #    '/(.+)/scopes', 'Scopes',
+     #    '/(.+)/limits', 'AccountLimits',
+     #    '/(.+)', 'AccountParameter',
 
 
 class Scope:
     """ create new rucio scopes. """
 
     def GET(self):
-        raise BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        return dumps(list_scopes())
 
     def POST(self):
         raise BadRequest()

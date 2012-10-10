@@ -72,14 +72,14 @@ RSE (Rucio Storage Element)
 * :ref:`GET rses/{rseName}/usage/history`: Get RSE usage information history
 
 
-RSE  Metadata
-=============
+RSE  attributes
+===============
 
-* :ref:`GET rses/{RSEName}/meta/`: List all keys of the RSE with their respective values
-* :ref:`GET rses/{rseName}/meta/{key}`: Get the value of the RSE attribute/key
-* :ref:`POST rses/{rseName}/meta/{key}/`: Create an RSE key
-* :ref:`PUT rses/{rseName}/meta/{key}/`: Update the value of a key
-* :ref:`DELETE rses/{rseName}/meta/{key}`: Remove a key from a RSE
+* :ref:`GET rses/{RSEName}/attr/`: List all keys of the RSE with their respective values
+* :ref:`GET rses/{rseName}/attr/{key}`: Get the value of the RSE attribute/key
+* :ref:`POST rses/{rseName}/attr/{key}/`: Create an RSE key
+* :ref:`PUT rses/{rseName}/attr/{key}/`: Update the value of a key
+* :ref:`DELETE rses/{rseName}/attr/{key}`: Remove a key from a RSE
 
 Identity
 ========
