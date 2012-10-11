@@ -261,3 +261,38 @@ def get_rse_usage_history(rse, filters=None):
     query = session.query(models.LocationUsage.__history_mapper__.class_)
     for usage in query:
         result.append({'location': usage.location.location, 'source': usage.source, usage.name: usage.value, 'updated_at': usage.updated_at})
+
+
+def add_file_replica(rse, scope, name, size, checksum, issuer):
+    """ Add File replica.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param name: The file name.
+    :param size: the size of the file.
+    :param checksum: the checksum of the file.
+    :param issuer: The issuer account.
+
+    :returns: True is successfull.
+    """
+    new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
+    new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
+    replica_rse = get_rse(rse=rse)
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum)
+    # Add optional pfn
+    try:
+        new_data_id.save(session=session)
+        new_file.save(session=session)
+    except IntegrityError, e:
+        'columns scope, name are not unique'
+        # needs to parse the exception string
+        print e
+        session.rollback()
+
+    try:
+        new_replica.save(session=session)
+    except IntegrityError, e:
+        raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
+        session.rollback()
+
+    session.commit()

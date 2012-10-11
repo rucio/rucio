@@ -117,10 +117,10 @@ class FileNotFound(RucioException):
         self._message = "File not found in scope"
 
 
-class NameNotFound(RucioException):
+class DataIdentifierNotFound(RucioException):
     def __init__(self, *args, **kwargs):
-        super(NameNotFound, self).__init__(args, kwargs)
-        self._message = "Name not found in scope"
+        super(DataIdentifierNotFound, self).__init__(args, kwargs)
+        self._message = "Data identifier not found"
 
 
 class NameTypeError(RucioException):

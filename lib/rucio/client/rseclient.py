@@ -121,7 +121,7 @@ class RSEClient(BaseClient):
             attributes = loads(r.text)
             return attributes
         else:
-            exc_cls, exc_msg = self._get_exception(r.text)
+            exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
     def add_file_replica(self, rse, scope, name, size, checksum):
@@ -140,7 +140,6 @@ class RSEClient(BaseClient):
         data = dumps({'size': size, 'checksum': checksum})
         path = '/'.join([self.BASEURL, rse, 'files', scope, name])
         url = build_url(self.host, path=path)
-        print url
 
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
