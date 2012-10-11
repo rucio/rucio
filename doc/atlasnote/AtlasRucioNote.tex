@@ -318,18 +318,20 @@ File identifier & GUID/LFN & Scope + name (DI) \\
 Dataset identifier & DUID/DSN & Scope + name (DI) \\
 Container identifier & CUID/CNT & Scope + name (DI) \\
 Versioning & Yes & No \\
-Namespace & Global/Flat & Scoped \& hierarchical \\
+Namespace & Global/Flat & Scoped  \\
+File aggregation & Dataset & Dataset  \\
+Dataset aggregation & Container & Container  \\
+Container aggregation & No  & Container  \\
 Unique PFN & No & Yes \\
 Overlapping dataset & Yes & Yes \\
 Storage Element Groups & No & Yes \\
 Storage Element Attributes & No & Yes \\
 Quota support & Group & Account (Group/User) \\
-Dataset Replica completeness & Yes & Yes \\
-Dataset Distribution Policy & Only complete at site & Flexible \\
+Replica grouping & Strict & Best effort \\
 Replica Lifetime & Yes & No \\
-Metadata namespace/support & System defined, Data placement & System defined, Physics, Production, Analysis, Data placement \\
-Data discovery unit & Pattern & Metadata\\
-Data operation unit &Dataset & Dataset, File, Container, DIS \\
+Metadata namespace and support & System defined, Data placement & System defined, Physics, Production, Analysis, Data placement \\
+Data discovery unit & Wildcard string matching & Metadata, dataset/container hierarchy\\
+Data operation unit &Dataset & Dataset, File, Container (DIS) \\
 Multiple replica ownership & No & Yes \\
 Dynamic placement & No & Yes \\
 Replication rule support & No & Yes \\
@@ -345,12 +347,12 @@ Fine-grained accounting & Partially & Yes \\
 \label{Acronyms_and_Abbreviations:acronyms-and-abbreviations}
 \begin{description}
 \item[{LFN}] Logical File Name.
-\item[{DSN}] Dataset Name.
 \item[{DI}] Data Identifier.
 \item[{DIS}] Data Identifier Set.
 \item[{PFN}] Physical File Name.
 \item[{RSE}] Rucio Storage Element.
-\item[{UUID}] Universal Unique Identifier.
+\item[{URI}] Uniform Resource Identifier.
+
 \end{description}
 
 \end{document}

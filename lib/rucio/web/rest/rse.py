@@ -275,6 +275,7 @@ class Files:
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except Exception, e:
+            print e
             raise InternalError(e)
 
         raise Created()

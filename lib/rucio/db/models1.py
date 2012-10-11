@@ -40,11 +40,10 @@ from rucio.db.history import Versioned
 BASE = declarative_base()
 
 
-class DatasetType:
+class DataIdType:
     FILE = 'file'
-    BLOCK = 'block'
-    BLOCKSET = 'blockset'
-    DATASET = 'blockset'  # here for compatibility reason
+    CONTAINER = 'container'
+    DATASET = 'dataset'  # here for compatibility reason
 
 
 @event.listens_for(PrimaryKeyConstraint, "after_parent_attach")
@@ -195,39 +194,39 @@ class Scope(BASE, ModelBase):
                    CheckConstraint('"default" IS NOT NULL', name='SCOPES_DEFAULT_NN'),)
 
 
-class DatasetKey(BASE, ModelBase):
-    """Represents dataset property keys"""
-    __tablename__ = 'dataset_keys'
-    key = Column(String(255))
-    type = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('key', name='DATASET_KEYS_PK'),)
+# class DatasetKey(BASE, ModelBase):
+#     """Represents dataset property keys"""
+#     __tablename__ = 'dataset_keys'
+#     key = Column(String(255))
+#     type = Column(String(255))
+#     _table_args = (PrimaryKeyConstraint('key', name='DATASET_KEYS_PK'),)
+#
+#
+# class DatasetKeyValueAssociation(BASE, ModelBase):
+#     """Represents dataset property key/values"""
+#     __tablename__ = 'dataset_key_map'
+#     key = Column(String(255))
+#     value = Column(String(255))
+#     _table_args = (PrimaryKeyConstraint('key', 'value', name='DATASET_KEY_MAP_PK'),
+#                    ForeignKeyConstraint(['key'], ['dataset_keys.key'], name='DATASET_MAP_KEYS_FK'), )
+#
+#
+# class DatasetAttribute(BASE, ModelBase):
+#     """Represents dataset attributes"""
+#     __tablename__ = 'dataset_attributes'
+#     scope = Column(String(255))
+#     name = Column(String(255))
+#     key = Column(String(255))
+#     value = Column(Text)
+#     _table_args = (PrimaryKeyConstraint('scope', 'name', 'key', name='DATASET_ATTR_PK'),
+#                    ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_ATTR_FK'),
+#                    ForeignKeyConstraint(['key'], ['dataset_keys.key'], name='DATASET_ATTR_KEYS_FK'),
+#                    Index('DATASET_ATTR_KEY_IDX', 'key'),)
 
 
-class DatasetKeyValueAssociation(BASE, ModelBase):
-    """Represents dataset property key/values"""
-    __tablename__ = 'dataset_key_map'
-    key = Column(String(255))
-    value = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('key', 'value', name='DATASET_KEY_MAP_PK'),
-                   ForeignKeyConstraint(['key'], ['dataset_keys.key'], name='DATASET_MAP_KEYS_FK'), )
-
-
-class DatasetAttribute(BASE, ModelBase):
-    """Represents dataset attributes"""
-    __tablename__ = 'dataset_attributes'
-    scope = Column(String(255))
-    name = Column(String(255))
-    key = Column(String(255))
-    value = Column(Text)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'key', name='DATASET_ATTR_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_ATTR_FK'),
-                   ForeignKeyConstraint(['key'], ['dataset_keys.key'], name='DATASET_ATTR_KEYS_FK'),
-                   Index('DATASET_ATTR_KEY_IDX', 'key'),)
-
-
-class Dataset(BASE, ModelBase):
+class DataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
-    __tablename__ = 'datasets'
+    __tablename__ = 'data_identifiers'
     scope = Column(String(255))
     name = Column(String(255))
     owner = Column(String(255))
@@ -241,7 +240,7 @@ class Dataset(BASE, ModelBase):
                    ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DATASETS_ACCOUNT_FK'),
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='DATASETS_MONOTONIC_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DATASETS_OBSOLETE_NN'),
-                   CheckConstraint("type IN ('file', 'block', 'blockset')", name='DATASETS_TYPE_CHK'),)
+                   CheckConstraint("type IN ('file', 'dataset', 'container')", name='DATASETS_TYPE_CHK'),)
 
 
 class File(BASE, ModelBase):
@@ -250,14 +249,15 @@ class File(BASE, ModelBase):
     scope = Column(String(255))
     name = Column(String(255))
     owner = Column(String(255))
-    lost = Column(Boolean(name='FILES_LOST_CHK'))
+    availability = Column(String(32))
+    suppressed = Column(Boolean(name='FILES_SUPPRESSED_CHK'), server_default='0')
     size = Column(BigInteger)
-    obsolete = Column(Boolean(name='FILES_OBSOLETE_CHK'), server_default='0')
     checksum = Column(String(32))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='FILES_PK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], ondelete="CASCADE"),
-                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='FILES_OBSOLETE_NN'),)
+                   ForeignKeyConstraint(['scope', 'name'], ['data_identifiers.scope', 'data_identifiers.name'], ondelete="CASCADE"),
+                   CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DATASETS_TYPE_CHK'),
+                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPPRESSED_NN'),)
 
 
 class FileKey(BASE, ModelBase):
@@ -290,23 +290,23 @@ class FileAttribute(BASE, ModelBase):
                    Index('FILE_ATTR_KEY_IDX', 'key'),)
 
 
-class DatasetAssociation(BASE, ModelBase):
-    """Represents the map between datasets and files"""
-    __tablename__ = 'dataset_contents'
-    scope = Column(String(255))         # dataset scope
-    name = Column(String(255))          # dataset name
-    child_scope = Column(String(255))  # Provenance name scope
-    child_name = Column(String(255))   # Provenance name scope
-    type = Column(String(8))
-    child_type = Column(String(8))
-    obsolete = Column(Boolean(name='DATASET_CONTENTS_OBSOLETE_CHK'), server_default='0')
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='DATASET_CNTS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_CNTS_DSN_FK'),  # ondelete="NO ACTION" problem with Oracle
-                   ForeignKeyConstraint(['child_scope', 'child_name'], ['datasets.scope', 'datasets.name'], ondelete="CASCADE", name='DATASET_CNTS_CHILD_FK'),
-                   CheckConstraint("type IN ('file', 'block', 'blockset')", name='DATASET_CNTS_TYPE_CHK'),
-                   CheckConstraint("child_type IN ('file', 'block', 'blockset')", name='DATASET_CNTS_CHILD_TYPE_CHK'),
-                   Index('DATASETS_CNTS_CHILD_IDX', 'child_scope', 'child_name'),
-                   )
+# class DatasetAssociation(BASE, ModelBase):
+#     """Represents the map between datasets and files"""
+#     __tablename__ = 'dataset_contents'
+#     scope = Column(String(255))         # dataset scope
+#     name = Column(String(255))          # dataset name
+#     child_scope = Column(String(255))  # Provenance name scope
+#     child_name = Column(String(255))   # Provenance name scope
+#     type = Column(String(8))
+#     child_type = Column(String(8))
+#     obsolete = Column(Boolean(name='DATASET_CONTENTS_OBSOLETE_CHK'), server_default='0')
+#     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='DATASET_CNTS_PK'),
+#                    ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_CNTS_DSN_FK'),  # ondelete="NO ACTION" problem with Oracle
+#                    ForeignKeyConstraint(['child_scope', 'child_name'], ['datasets.scope', 'datasets.name'], ondelete="CASCADE", name='DATASET_CNTS_CHILD_FK'),
+#                    CheckConstraint("type IN ('file', 'block', 'blockset')", name='DATASET_CNTS_TYPE_CHK'),
+#                    CheckConstraint("child_type IN ('file', 'block', 'blockset')", name='DATASET_CNTS_CHILD_TYPE_CHK'),
+#                    Index('DATASETS_CNTS_CHILD_IDX', 'child_scope', 'child_name'),
+#                    )
 
 
 class RSE(BASE, ModelBase):
@@ -318,7 +318,7 @@ class RSE(BASE, ModelBase):
     watermark = Column(BigInteger)
     path = Column(Text)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
-    #rse = relationship("LocationRSEAssociation", order_by="LocationRSEAssociation.location_id", backref="locations")
+#    file_replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
@@ -388,32 +388,35 @@ class RSEFileAssociation(BASE, ModelBase):
     rse_id = Column(String(36))
     scope = Column(String(255))
     name = Column(String(255))
+    size = Column(BigInteger)
+    checksum = Column(String(32))
     pfn = Column(String(1024))
     status = Column(String(255))
+    rse = relationship("RSE", backref=backref('file_replicas', order_by="RSE.id"))
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='FILE_REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['files.scope', 'files.name'], name='FILE_REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'), )
 #                  CheckConstraint('"PFN" IS NOT NULL', name='FILE_REPLICAS_PFN_NN'), # for latter...
 
 
-class DatasetReplicationRule(BASE, ModelBase):
-    """Represents dataset replication rules"""
-    __tablename__ = 'dataset_rules'
-    account = Column(String(255))
-    scope = Column(String(255))
-    name = Column(String(255))
-    rse_expression = Column(String(255))
-    rses = Column(String(255))
-    replication_factor = Column(Integer(), default=1)
-    expired_at = Column(DateTime)
-    locked = Column(Boolean(name='DATASET_RULES_LOCKED_CHK'), default=False)
-    group = Column(String(512))
-    block = Column(String(512))
-    _table_args = (PrimaryKeyConstraint('account', 'scope', 'name', 'rse_expression', name='DATASET_RULES_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_RULES_DSN_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DATASET_RULES_ACCOUNT_FK'),
-                   CheckConstraint('"REPLICATION_FACTOR" IS NOT NULL', name='DATASET_RULES_REP_FACTOR_NN'),
-                   CheckConstraint('"LOCKED" IS NOT NULL', name='DATASET_RULES_LOCKED_NN'),)
+# class DatasetReplicationRule(BASE, ModelBase):
+#     """Represents dataset replication rules"""
+#     __tablename__ = 'dataset_rules'
+#     account = Column(String(255))
+#     scope = Column(String(255))
+#     name = Column(String(255))
+#     rse_expression = Column(String(255))
+#     rses = Column(String(255))
+#     replication_factor = Column(Integer(), default=1)
+#     expired_at = Column(DateTime)
+#     locked = Column(Boolean(name='DATASET_RULES_LOCKED_CHK'), default=False)
+#     group = Column(String(512))
+#     block = Column(String(512))
+#     _table_args = (PrimaryKeyConstraint('account', 'scope', 'name', 'rse_expression', name='DATASET_RULES_PK'),
+#                    ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_RULES_DSN_FK'),
+#                    ForeignKeyConstraint(['account'], ['accounts.account'], name='DATASET_RULES_ACCOUNT_FK'),
+#                    CheckConstraint('"REPLICATION_FACTOR" IS NOT NULL', name='DATASET_RULES_REP_FACTOR_NN'),
+#                    CheckConstraint('"LOCKED" IS NOT NULL', name='DATASET_RULES_LOCKED_NN'),)
 
 
 class FileReplicationRule(BASE, ModelBase):
@@ -495,11 +498,9 @@ def register_models(engine):
               Identity,
               IdentityAccountAssociation,
               Scope,
-              DatasetAttribute,
-              Dataset,
+              DataIdentifier,
               File,
               FileAttribute,
-              DatasetAssociation,
               RSE,
               RSEAttribute,
               RSEUsage,
@@ -508,7 +509,6 @@ def register_models(engine):
               RSEAttrAssociation,
               RSEFileAssociation,
               FileReplicationRule,
-              DatasetReplicationRule,
               Subscription,
               Authentication,
               APIToken)
@@ -524,11 +524,9 @@ def unregister_models(engine):
               Identity,
               IdentityAccountAssociation,
               Scope,
-              DatasetAttribute,
-              Dataset,
+              DataIdentifier,
               File,
               FileAttribute,
-              DatasetAssociation,
               RSE,
               RSEAttribute,
               RSEUsage,
@@ -537,7 +535,6 @@ def unregister_models(engine):
               RSEAttrAssociation,
               RSEFileAssociation,
               FileReplicationRule,
-              DatasetReplicationRule,
               Subscription,
               Authentication,
               APIToken)

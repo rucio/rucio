@@ -11,7 +11,6 @@ import rucio.api.permission
 
 from rucio.common.exception import FileAlreadyExists
 from rucio.core import rse as rse_core
-from rucio.core import dataset as name_core
 
 
 def add_rse(rse, issuer):
@@ -110,9 +109,8 @@ def add_file_replica(rse, scope, name, size, checksum, issuer):
 
     :returns: True is successfull.
     """
-    pass
-    #try:
-    #    name_core.register_file(scope=scope, filename=lfn, account=issuer)
-    #except FileAlreadyExists:
-    #    pass
-    #name_core.add_file_replica(rse=rse, scope=scope, filename=lfn)
+    kwargs = {'rse': rse, 'scope': scope, 'name': name, 'size': size, 'checksum': checksum}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='scope, name, size, checksum, issuer', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
+
+    rse_core.add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=issuer)

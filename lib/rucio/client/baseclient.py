@@ -24,7 +24,7 @@ from urlparse import urlparse
 from ConfigParser import NoOptionError, NoSectionError
 from requests import delete, get, post, put
 from requests.auth import HTTPKerberosAuth
-from requests.status_codes import codes
+from requests.status_codes import codes, _codes
 from requests.exceptions import SSLError
 
 from rucio.common import exception
@@ -138,7 +138,7 @@ class BaseClient(object):
         except ValueError:
             LOG.debug('request_retries must be an integer. Taking default.')
 
-    def _get_exception(self, headers):
+    def _get_exception(self, headers, status_code=None):
         """
         Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
 
@@ -147,7 +147,8 @@ class BaseClient(object):
         """
         if 'ExceptionClass' not in headers:
             if 'ExceptionMessage' not in headers:
-                return getattr(exception, 'RucioException'), 'no error information passed'
+                human_http_code = _codes.get(status_code, None)
+                return getattr(exception, 'RucioException'), 'no error information passed (http status code: %(status_code)s %(human_http_code)s)' % locals()
             return getattr(exception, 'RucioException'), headers['ExceptionMessage']
 
         exc_cls = None
