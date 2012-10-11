@@ -26,6 +26,7 @@ from rucio import client as rucio_client
 from rucio import version
 from rucio.client.accountclient import AccountClient
 from rucio.client.datasetclient import DatasetClient
+from rucio.client.dataidentifierclient import DataIdentifierClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.cli.upload import upload as cli_upload
@@ -124,9 +125,13 @@ def add_replicas(args):
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
     for lfn, rse, checksum, size in zip(args.lfns, args.rses, args.checksums, args.sizes):
-        scope, name = lfn.split(':')
-        client.add_file_replica(scope=scope, name=name, rse=rse, checksum=checksum, size=size)
-
+        try:
+            scope, name = lfn.split(':')
+            client.add_file_replica(scope=scope, name=name, rse=rse, checksum=checksum, size=size)
+            print 'Added file replica %(lfn)s at %(rse)s' % locals()
+        except Exception, e:
+            print 'Failed to add file replica %(lfn)s at %(rse)s' % locals()
+            print e
     return SUCCESS
 
 
@@ -170,41 +175,58 @@ def list_replicas(args):
     List file replicas
 
     """
-    raise NotImplementedError
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
 
-def add_dataset(args):
+    for data_id in args.data_ids:
+        try:
+            scope, name = data_id.split(':')
+            replicas = client.list_replicas(scope=scope, name=name)
+            for replica in replicas:
+                rses = [r['rse'] for r in replicas[replica] if 'rse' in r]
+                rses = ','.join(rses)
+                print '%(replica)s: %(rses)s' % locals()
+        except Exception, e:
+            print 'Failed to list file replicas for %(data_id)s' % locals()
+            print e
+
+
+def add(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
-    Add dataset.
+    Add dataset/container.
 
     """
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    scope = args.scope
-    dsn = args.dsn
-    if scope is None:
-        if args.dsn.find(':') == -1:
-            print 'Error: Cannot extract scope from %s (notation: scope:dataset_name) !' % args.dsn
-            return FAILURE
-        scope, dsn = args.dsn.split(':')
+    scope, name = args.data_id.split(':')
+    sources = [{'scope': src.split(':')[0], 'name': src.split(':')[1]} for src in args.sources]
 
-    client = DatasetClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
-    try:
-        client.add_dataset(scope=scope, dsn=dsn)
-        print 'Added new dataset: %s:%s' % (scope, dsn)
-    except Exception, e:
-            print 'Failed to add dataset'
-            print e
-            return FAILURE
-    return SUCCESS
+    client.add(scope=scope, name=name, sources=sources)
+#
+#     try:
+#         client.add_dataset(scope=scope, dsn=dsn)
+#         print 'Added new dataset: %s:%s' % (scope, dsn)
+#     except Exception, e:
+#             print 'Failed to add dataset'
+#             print e
+#             return FAILURE
+#     return SUCCESS
 
 
 def add_files_to_dataset(args):
@@ -344,12 +366,24 @@ Commands:
     whoami_parser.set_defaults(which='whoami_account')
 
     # The add_replicas command
-    add_replicas_parser = subparsers.add_parser('add_replicas', help='Add file replicas')
+    add_replicas_parser = subparsers.add_parser('add-replicas', help='Add file replicas')
     add_replicas_parser.set_defaults(which='add_replicas')
     add_replicas_parser.add_argument('--lfns', dest='lfns', nargs='+', action='store', help='List of space separated LFNs', required=True)
     add_replicas_parser.add_argument('--rses', dest='rses', nargs='+', action='store', help='List of space separated Rucio Storage Element(RSE)', required=True)
     add_replicas_parser.add_argument('--sizes', dest='sizes', nargs='+', action='store', help='List of space separated file sizes', required=True)
     add_replicas_parser.add_argument('--checksums', dest='checksums', nargs='+', action='store', help='List of space separated file checksums', required=True)
+
+    # The list_replicas command
+    list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
+    list_replicas_parser.set_defaults(which='list_replicas')
+    list_replicas_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+
+    # The add command
+    add_parser = subparsers.add_parser('add', help='Add container/dataset')
+    add_parser.set_defaults(which='add')
+    add_parser.add_argument('--dest', dest='data_id', action='store', help='Container/dataset name to create', required=True)
+    add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data_ids', required=True)
+    #meta
 
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method')
@@ -417,6 +451,8 @@ Commands:
 
     commands = {'ping': ping,
                 'add_replicas': add_replicas,
+                'list_replicas': list_replicas,
+                'add': add,
                 'whoami_account': whoami_account,
                 'download': download,
                 'upload': upload}
