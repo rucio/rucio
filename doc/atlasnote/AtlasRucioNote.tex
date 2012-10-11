@@ -41,13 +41,13 @@ The new version of the ATLAS Distributed Data Management (DDM) system is called 
 
 A Rucio account can represent individual users (e.g., lgoossen, graemes, vgaronne), a group of users (e.g., bphys, higgs, susy) or an organised production activity for the whole ATLAS collaboration (e.g., prod, tzero). A Rucio account is identified by a string and is the unit of assigning privileges in Rucio.
 
-Actions in Rucio are always conducted by a Rucio account. Each account has a namespace identifier, called scope, that is included in every name assigned to a data identifier created by that account (see section \ref{overview_Dataset:data-identifiers-and-scope}). By default, Rucio accounts can only create identifiers in their own scope and not in any other.
+Actions in Rucio are always conducted by a Rucio account. Each account has a namespace identifier, called scope, that is included in every name assigned to a data identifier created by that account (see \S \ref{overview_Dataset:data-identifiers-and-scope}). By default, Rucio accounts can only create identifiers in their own scope and not in any other.
 
 A Rucio user is identified by their credentials, such as X509 certificate or Kerberos token. Credentials can map to one or more accounts (N:M mapping). Rucio checks if the credentials used are authorized to use the supplied Rucio account. Figure \ref{credentials} gives an example of the mapping between credentials and Rucio accounts:
 
-\begin{figure}[h]
+\begin{figure}[ht]
 \begin{center}
-\includegraphics[width=200pt]{accounts.pdf}
+\includegraphics[width=200pt]{accounts}
 \end{center}
 \caption{\label{credentials} Credential to Rucio account mapping}
 \end{figure}
@@ -59,9 +59,9 @@ ATLAS has a large amount of data, which is physically stored in files. For the d
 
 Files can be grouped into datasets (a named set of files) and datasets can be grouped into containers (a named set of datasets or, recursively, containers). All three types of names refer to data so the term ‘data identifier set’ (DIS) is used to mean any set of file, dataset or container identifiers. A data identifier is just the name of a single file, dataset or container. The figure below gives an example of an aggregation hierarchy:
 
-\begin{figure}[h]
+\begin{figure}[ht]
 \begin{center}
-\includegraphics[width=400pt]{aggregation_hierarchy.pdf}
+\includegraphics[width=400pt]{aggregation_hierarchy}
 \end{center}
 \caption{\label{hierarchy} Rucio aggregation hierarchy}
 \end{figure}
@@ -71,7 +71,7 @@ Files can be grouped into datasets (a named set of files) and datasets can be gr
 \subsection{Data identifiers and scope}
 \label{overview_Dataset:data-identifiers-and-scope}
 
-Files, datasets and containers follow an identical naming scheme which is composed of two strings: the scope and a name. The combination of both is called a data identifier (DI). For instance a file identifier (LFN) is composed of a scope and a file name. The scope string partitions the name space in several sub spaces. The primary use case for this is to have separate scopes for production and individual users.
+Files, datasets and containers follow an identical naming scheme which is composed of two strings: the scope and a name. The combination of both is called a data identifier (DI). For instance a file identifier (LFN) is composed of a scope and a file name. The scope string partitions the namespace in several sub spaces. The primary use case for this is to have separate scopes for production and individual users.
 
 By default accounts will have read access to all scopes and write access only to their own scope. Privileged accounts will have write access to multiple scopes, e.g., production might use scopes such as mc11, data12\_8TeV, tmp.prod.\footnote{Scopes can be marked as read-only, which will prevent the registration of new data in them.}
 
@@ -91,7 +91,7 @@ A file is LOST if there are no known replicas of the file in Rucio, while at the
 
 \item{} \texttt{suppressed}: TRUE, FALSE
 
-This is a user settable flag. It indicates that the owner of the scope no longer needs the name to be present in the scope. Files that are suppressed (by default) do not show up in search and list operations on the scope. The setting of this flag is subject to conditions, e.g., one can not suppress a file while at the same time requesting it to be replicated somewhere. This flag will be ignored when explicitly listing contents of datasets/containers.
+This is a user settable flag. It indicates that the owner of the scope no longer needs the name to be present in the scope. Files that are suppressed (by default) do not show up in search and list operations on the scope. The setting of this flag is subject to conditions, e.g., one can not suppress a file while at the same time requesting it to be replicated somewhere. This flag will be ignored when explicitly listing the contents of datasets/containers.
 \end{itemize}
 
 \subsubsection{Dataset/Container status}
@@ -103,11 +103,11 @@ The dataset/container status is reflected by a set of attributes:
 \begin{itemize}
 \item{} \texttt{open}: TRUE, FALSE
 
-If a dataset/container is open, content can be added to it. Datasets/Containers are created open and once closed, they cannot be opened again.\footnote{Datasets from which files have been lost can be repaired when replacement files are available, even if Open=False. The replacements need not be binary identical to the lost files.}
+If a dataset/container is open, content can be added to it. Datasets/containers are created open and once closed, they cannot be opened again.\footnote{Datasets from which files have been lost can be repaired when replacement files are available, even if open=FALSE. The replacements need not be binary identical to the lost files.}
 
 \item{} \texttt{monotonic}: TRUE, FALSE
 
-If the monotonic attribute is set, content cannot be removed from an open dataset/container. Datasets/Containers are, by default, created non-monotonic. Once set to monotonic, this cannot be reversed.
+If the monotonic attribute is set, content cannot be removed from an open dataset/container. Datasets/containers are, by default, created non-monotonic. Once set to monotonic, this cannot be reversed.
 
 \item{} \texttt{complete}: TRUE, FALSE
 
@@ -122,7 +122,7 @@ This attribute has the same meaning as for files.
 
 \section{Metadata attributes}
 
-Metadata associated with a data identifier is represented using attributes which are key-value pairs. The set of available attributes is restricted. Some metadata attributes are user settable, e.g., physics attributes (number of events, run number, run period, POOL GUID) or production attributes (task ID, job ID). Metadata which is not user settable includes system attributes, such as size, checksum, creation time, etc. For datasets and containers, it is possible that the value of a metadata attribute is a function of the metadata of its constituents, e.g., the total size is the sum of the sizes of the constituents. In this case it is also obviously not possible to assign a value to it.
+Metadata associated with a data identifier is represented using attributes, which are key-value pairs. The set of available attributes is restricted. Some metadata attributes are user settable, e.g., physics attributes (number of events, run number, run period, POOL GUID) or production attributes (task ID, job ID). Metadata which is not user settable includes system attributes, such as size, checksum, creation time. For datasets and containers, it is possible that the value of a metadata attribute is a function of the metadata of its constituents, e.g., the total size is the sum of the sizes of the constituents. In this case it is also obviously not possible to assign a value to it.
 
 When appropriate and requested, Rucio will check metadata values for validity, rejecting the attempt to set invalid values. This can be used to ensure that, e.g., POOL GUID is unique and that the Job ID is a positive integer.
 
@@ -137,11 +137,11 @@ A Rucio Storage Element (RSE) is a repository for physical files. It is the smal
 \item supported protocols, e.g., file, https, srm
 \item quality of service; storage type, e.g., disk, tape
 \item physical space properties, e.g., used, available, non-pledged
-\item a weight value, used for data distribution (see section \ref{sec:replica-rules})
-\item a threshold for deletion (see section \ref{sec:Datadeletion})
+\item a weight value, used for data distribution (see \S \ref{sec:replica-rules})
+\item a threshold for deletion (see \S \ref{sec:Datadeletion})
 \end{itemize}
 
-\noindent A set of RSEs can be identified directly by enumeration of their names, or indirectly by a boolean expression over their attributes. Attributes are key-value pairs, e.g., CLOUD=UK, Tier=1, T2D=True, MoUShare=15. A key whose value is ‘True’ is equivalent to a tag. RSE attributes are used to manage data with replication rules (see section \ref{sec:replica-rules}).
+\noindent A set of RSEs can be identified directly by enumeration of their names, or indirectly by a boolean expression over their attributes. Attributes are key-value pairs, e.g., CLOUD=UK, Tier=1, T2D=True, MoUShare=15. A key whose value is ‘True’ is equivalent to a tag. RSE attributes are used to manage data with replication rules (see \S \ref{sec:replica-rules}).
 
 Physical files stored on RSEs are identified by their Physical File Name (PFN). The PFN is a fully qualified path identifying a replica of a file. PFNs may take the form of file names, URIs, or any other identifier meaningful to a Rucio Storage Element. The mapping between the LFN and the PFN is a deterministic function of the LFN, RSE and protocol.
 
@@ -158,23 +158,24 @@ Rucio assigns permissions to accounts. Permissions are boolean flags designating
 \subsection{Replica Rules}
 \label{sec:replica-rules}
 
-Replica management is based on replication rules defined on data identifiers. Replication rules defined on datasets or containers will affect all contained datasets, containers and files (either directly or recursively), including content added to these datasets and containers in the future. A replication rule is owned by an account and defines the minimum number of replicas to be available on a list of RSEs.
+Replica management is based on replication rules defined on data identifier sets. Replication rules defined on datasets or containers will affect all contained datasets, containers and files (either directly or recursively), including content added to these datasets and containers in the future. A replication rule is owned by an account and defines the minimum number of replicas to be available on a list of RSEs.
 
-Rules may have a limited lifetime and can be added, removed or modified at any time. Rules may specify a grouping policy that controls which files are grouped together at the same RSEs (see section \ref{sec:replica-rules}).
+Rules may have a limited lifetime and can be added, removed or modified at any time. Rules may specify a grouping policy that controls which files are grouped together at the same RSEs (see \S \ref{sec:replica-rules}).
 
-The list of RSEs can be specified with RSE attributes (see section \ref{overview_Rucio_Storage_Element:rucio-storage-element}). RSE attributes are resolved at rule creation time to enumerate target RSEs. Post-facto changes to RSE attributes will not affect current replication rules.
+The list of RSEs can be specified with RSE attributes (see \S \ref{overview_Rucio_Storage_Element:rucio-storage-element}). RSE attributes are resolved at rule creation time to enumerate target RSEs. Post-facto changes to RSE attributes will not affect current replication rules.
 
 Sample replication rules are given below (some parameters are optional, a value in [] denotes usage of the default value):
 
 \begin{minipage}{12cm}
-\begin{tabular}{c c c p{2cm} c c c}
+\begin{tabular}{c c p{3cm} p{2cm} c c c}
 \toprule
-\textbf{Account} & \textbf{Copies} & \textbf{Data Identifier} & \textbf{RSEs} & \textbf{Weight} & \textbf{Lifetime} & \textbf{Grouping\footnote{See section \ref{sec:file-replica-grouping} }} \\
+\textbf{Account} & \textbf{Copies} & \textbf{Data Identifier Set} & \textbf{RSEs} & \textbf{Weight} & \textbf{Lifetime} & \textbf{Grouping\footnote{See \S \ref{sec:file-replica-grouping} }} \\
 \midrule
-prod & 1 & atlas:container3 & Site=CERN & [MoU] & [No] & All \\
 prod & 2 & prod:container1 & Tier=1 & [MoU] & [No] & [Dataset] \\
-mario & 1 & mario:container2 & (Cloud=US AND Tier=2) OR Site=CERN & [MoU] & 2013-01-01 & [Dataset] \\
-luc & 2 & graeme:file1 & Cloud=UK AND T2D\footnote{This is interpreted as T2D=True.} & No & [No] & None \\
+prod & 1 & atlas:container3 & Site=CERN & [MoU] & [No] & [Dataset] \\
+prod & 1 & atlas:container3, atlas:dataset6 & Tier=2 AND Cloud=DE & [MoU] & [No] & All \\
+mario & 1 & mario:dataset1, mario:dataset2 & (Cloud=US AND Tier=2) OR Site=CERN & [MoU] & 2013-01-01 & [Dataset] \\
+luc & 2 & graeme:file1, graeme:container2 & Cloud=UK AND T2D\footnote{This is interpreted as T2D=True.} & No & [No] & None \\
 \bottomrule
 \end{tabular}
 \end{minipage}
@@ -183,12 +184,12 @@ As transferring a file to a site can fail, a replication rule has a state to ref
 
 \begin{enumerate}
 \item[] \texttt{satisfied} -- rule is fulfilled by current replicas
-\item[] \texttt{replicating} -- not all replicas are made for this rule
+\item[] \texttt{replicating} -- not all replicas are yet made for this rule
 \item[] \texttt{stuck} -- replication attempts for at least one replica have failed and have reached an attempt limit
 \item[] \texttt{suspended} -- a manually set status, indicating that no further attempts should be made to satisfy the rule
 \end{enumerate}
 
-Rucio processes the replication rule(s) and creates replica locks to satisfy the rule(s) and prevent deletion of the replicas. A replica lock is defined for a replica on a specific RSE. It is owned by the account which issued the replication rule. Rucio will record the relationship between the replication rules and replica locks so that the correct locks can be removed when a replication rule is deleted.
+Rucio processes each replication rule and creates replica locks that satisfy the rule and prevent deletion of the replicas. A replica lock is defined for a replica on a specific RSE. It is owned by the account which issued the replication rule. Rucio will record the relationship between the replication rules and replica locks so that the correct locks can be removed when a replication rule is deleted.
 
 A replication rule can generate a data transfer prior to the replica lock being satisfied. Rucio will only create the minimum set of necessary transfer primitives to satisfy all rules. If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
 
@@ -217,9 +218,9 @@ Rucio uses the dataset/container hierarchy to control how files are grouped toge
 
 To illustrate this consider the following dataset hierarchy:
 
-\begin{figure}[h]
+\begin{figure}[ht]
 \begin{center}
-\includegraphics[width=400pt]{dataset_hierarchy.pdf}
+\includegraphics[width=400pt]{dataset_hierarchy}
 \end{center}
 \caption{\label{datasethierarchy} Rucio dataset hierarchy with grouping}
 \end{figure}
@@ -266,7 +267,7 @@ Subscriptions generate replication rules based on matching particular metadata a
 \midrule
 Owner & tzero \\
 Match & project=data12\_8TeV AND dataType=RAW AND stream=physics\_* AND DIType=dataset \\
-Rule & 1@Site=CERNTAPE; 1@T1TAPE; 1@T1DISK until NOW+90days; grouping=dataset \\
+Rule & 1@Site=CERNTAPE, 1@T1TAPE, 1@T1DISK until NOW+90 days; grouping=dataset \\
 \bottomrule
 \end{tabular}
 
@@ -305,13 +306,13 @@ group.phys-higgs & GLASGOW\_GROUPDISK & $< 100$ \\
 \section{Notifications}
 \label{overview_Notifications:notifications}
 
-External applications can require to synchronize on events relative to data availability and can subscribe to particular events, e.g. dataset state changes. Then Rucio will publish a messages to an external application when it detects these events.
+External applications can require to synchronize on events relative to data availability and can subscribe to particular events, e.g., dataset state changes. Then Rucio will publish a messages to an external application when it detects these events.
 
 \section*{Acknowledgments}
 \label{Acknowledgments:acknowledgments}
-We express our gratitude to our ATLAS colleagues for their help and patience when we explored requirements and use cases, especially: Markus Elsing, Beate Heinemann, Jamie Boyd, Jonas Strandberg, Solveig Albrand, Torre Wenaus, Rodney Walker, Tadashi Maeno, Paul Nilsson, Simone Campana, Johannes Elmsheuser, Daniel Van Der Ster, Junji Tojo, Ikuo Ueda, Borut Kersevan, Stephane Jezequel and Cedric Serfon.
+We express our gratitude to our ATLAS colleagues for their help and patience when we explored requirements and use cases, especially: Markus Elsing, Beate Heinemann, Jamie Boyd, Jonas Strandberg, Solveig Albrand, Torre Wenaus, Rodney Walker, Tadashi Maeno, Paul Nilsson, Simone Campana, Johannes Elmsheuser, Daniel Van Der Ster, Douglas Benjamin, Junji Tojo, Ikuo Ueda, Borut Kersevan, Stephane Jezequel and Cedric Serfon.
 
-We also thank Philippe Charpentier, Costin Grigoras, Simon Metson, Latchezar Betev, and Pablo Saiz for their input and ideas about the different distributed data management system of each LHC experiment, and their patience when answering our questions.
+We also thank Philippe Charpentier, Costin Grigoras, Simon Metson, Latchezar Betev, Dirk Duellmann and Pablo Saiz for their input and ideas about the different distributed data management system of each LHC experiment, and their patience when answering our questions.
 
 \newpage
 
