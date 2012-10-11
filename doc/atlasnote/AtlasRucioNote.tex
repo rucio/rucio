@@ -43,9 +43,14 @@ A Rucio account can represent individual users (e.g., lgoossen, graemes, vgaronn
 
 Actions in Rucio are always conducted by a Rucio account. Each account has a namespace identifier, called scope, that is included in every name assigned to a data identifier created by that account (see section \ref{overview_Dataset:data-identifiers-and-scope}). By default, Rucio accounts can only create identifiers in their own scope and not in any other.
 
-A Rucio user is identified by their credentials, such as X509 certificate or Kerberos token. Credentials can map to one or more accounts (N:M mapping). Rucio checks if the credentials used are authorized to use the supplied Rucio account. The figure below gives an example of the mapping between credentials and Rucio accounts:
+A Rucio user is identified by their credentials, such as X509 certificate or Kerberos token. Credentials can map to one or more accounts (N:M mapping). Rucio checks if the credentials used are authorized to use the supplied Rucio account. Figure \ref{credentials} gives an example of the mapping between credentials and Rucio accounts:
 
-{\hfill\scalebox{0.800000}{\includegraphics{accounts.pdf}}\hfill}
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=200pt]{accounts.pdf}
+\end{center}
+\caption{\label{credentials} Credential to Rucio account mapping}
+\end{figure}
 
 \section{Files, Datasets and Containers}
 \label{overview_Dataset:dataset}
@@ -54,7 +59,12 @@ ATLAS has a large amount of data, which is physically stored in files. For the d
 
 Files can be grouped into datasets (a named set of files) and datasets can be grouped into containers (a named set of datasets or, recursively, containers). All three types of names refer to data so the term ‘data identifier set’ (DIS) is used to mean any set of file, dataset or container identifiers. A data identifier is just the name of a single file, dataset or container. The figure below gives an example of an aggregation hierarchy:
 
-{\hfill\scalebox{0.600000}{\includegraphics{aggregation_hierarchy.pdf}}\hfill}
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=400pt]{aggregation_hierarchy.pdf}
+\end{center}
+\caption{\label{hierarchy} Rucio aggregation hierarchy}
+\end{figure}
 
 \noindent An example of a data identifier set (DIS) is: \{prod:Dataset1, prod:File3, prod:File5\}.
 
@@ -207,7 +217,12 @@ Rucio uses the dataset/container hierarchy to control how files are grouped toge
 
 To illustrate this consider the following dataset hierarchy:
 
-{\hfill\scalebox{0.600000}{\includegraphics{dataset_hierarchy.pdf}}\hfill}
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=400pt]{dataset_hierarchy.pdf}
+\end{center}
+\caption{\label{datasethierarchy} Rucio dataset hierarchy with grouping}
+\end{figure}
 
 There are 1250 files organised in 5 datasets:
 \begin{itemize}
