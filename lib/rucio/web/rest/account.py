@@ -14,7 +14,7 @@ from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
 from rucio.api.identity import add_account_identity
 from rucio.api.permission import has_permission
 from rucio.api.scope import add_scope, get_scopes
@@ -371,7 +371,22 @@ class Identities:
         raise Created()
 
     def GET(self, accountName):
-        raise BadRequest()
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            return dumps(list_identities(accountName))
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except Exception, e:
+            print e
+            raise InternalError(e)
 
     def PUT(self):
         """ update the limits for an account """

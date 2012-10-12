@@ -56,6 +56,21 @@ class TestRucioDemo:
         exitcode, out, err = execute(cmd)
         print out
 
+        cmd = 'rucio-admin identity add  --account vgaronne --id vgaronne@CERN.CH --type gss'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = "rucio-admin identity add  --account vgaronne --id '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=vgaronne/CN=614522/CN=Vincent Garonne' --type x509"
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'rucio-admin account list-identities vgaronne'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
         cmd = 'rucio-admin scope add --account vgaronne --scope vgaronne'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)

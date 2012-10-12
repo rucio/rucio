@@ -134,3 +134,19 @@ class AccountClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
+
+    def list_identities(self, accountName):
+        """
+        List all identities on an account.
+
+        :param accountName: The account name.
+        """
+        path = '/'.join([self.BASEURL, accountName, 'identities'])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url)
+        if r.status_code == codes.ok:
+            identities = loads(r.text)
+            return identities
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
