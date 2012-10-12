@@ -219,7 +219,7 @@ def add(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
         client.add(scope=scope, name=name, sources=sources)
-        print 'Added new dataset/container/content: %s:%s' % (scope, name)
+        print 'Added: %s:%s' % (scope, name)
     except Exception, e:
         print 'Failed to add dataset/container/content'
         print e
@@ -341,7 +341,6 @@ def download(args):
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
-
     rsemgr = rsemanager.RSEMgr()
     for data_id in args.data_ids:
         try:
@@ -349,7 +348,7 @@ def download(args):
             files = client.list_replicas(scope=scope, name=name)
             for file in files:
                 for replica in files[file]:
-                    rsemgr.download(replica['rse'], {'filename': name, 'scope': scope}, args.dir)
+                    rsemgr.download(rse_id=replica['rse'], files={'lfns': [{'filename': name, 'scope': scope},]},  dest_dir=args.dir)
                     break
         except Exception, e:
             print 'Failed to list file replicas for %(data_id)s' % locals()
