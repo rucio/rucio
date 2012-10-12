@@ -33,7 +33,7 @@ class TestRucioDemo:
     @classmethod
     def tearDownClass(cls):
         pass
-        destroy_database(echo=False)
+        #destroy_database(echo=False)
 
     def setUp(self):
         self.marker = '$> '
@@ -203,6 +203,8 @@ class TestRucioDemo:
         cmd = 'rucio del vgaronne:MyDataset1'
 
         # Meta-data
+        cmd = 'rucio-admin account list_identities'
+
         cmd = 'rucio-admin metadata add --key --value --type --DItypes'
         cmd = 'rucio-admin metadata del --key --value --type --DItypes'
         cmd = 'rucio-admin metadata list --filters'
