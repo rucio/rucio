@@ -65,22 +65,31 @@ class TestRseS3():
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
-        """S3 (RSE/PROTOCOLS): Get multiple files from storage (Success)"""
+        """S3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
         self.mtc.test_multi_get_mgr_ok()
 
-    def test_get_mgr_ok_single(self):
-        """S3 (RSE/PROTOCOLS): Get a single file from storage (Success)"""
-        self.mtc.test_get_mgr_ok_single()
+    def test_get_mgr_ok_single_lfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage providing LFN (Success)"""
+        self.mtc.test_get_mgr_ok_single_lfn()
+
+    def test_get_mgr_ok_single_pfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
+        self.mtc.test_get_mgr_ok_single_pfn()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
-        """S3 (RSE/PROTOCOLS): Get multiple files from storage (SourceNotFound)"""
+        """S3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
-    def test_get_mgr_SourceNotFound_single(self):
-        """S3 (RSE/PROTOCOLS): Get a single file from storage (SourceNotFound)"""
-        self.mtc.test_get_mgr_SourceNotFound_single()
+    def test_get_mgr_SourceNotFound_single_lfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
+        self.mtc.test_get_mgr_SourceNotFound_single_lfn()
+
+    @raises(exception.SourceNotFound)
+    def test_get_mgr_SourceNotFound_single_pfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
+        self.mtc.test_get_mgr_SourceNotFound_single_pfn()
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):

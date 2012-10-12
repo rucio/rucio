@@ -14,7 +14,7 @@ from rucio.rse import rsemanager
 class MgrTestCases():
     files_local = ["1_rse_local_put.raw", "2_rse_local_put.raw", "3_rse_local_put.raw", "4_rse_local_put.raw",
                    "1_rse_remote_get.raw", "2_rse_remote_get.raw", "3_rse_remote_get.raw"]
-    files_remote = ['1_rse_remote_get.raw', '2_rse_remote_get.raw',
+    files_remote = ['1_rse_remote_get.raw', '2_rse_remote_get.raw', '3_rse_remote_get.raw', '4_rse_remote_get.raw',
                     '1_rse_remote_delete.raw', '2_rse_remote_delete.raw', '3_rse_remote_delete.raw', '4_rse_remote_delete.raw',
                     '1_rse_remote_exists.raw', '2_rse_remote_exists.raw',
                     '1_rse_remote_rename.raw', '2_rse_remote_rename.raw', '3_rse_remote_rename.raw', '4_rse_remote_rename.raw', '5_rse_remote_rename.raw', '6_rse_remote_rename.raw',
@@ -27,26 +27,40 @@ class MgrTestCases():
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
-        """S3 (RSE/PROTOCOLS): Get multiple files from storage (Success)"""
-        status, details = self.mgr.download(self.rse_tag, [{'filename':'1_rse_remote_get.raw', 'scope': 'test'}, {'filename': '2_rse_remote_get.raw', 'scope': 'test'}], self.tmpdir)
-        if not (status and details['test:1_rse_remote_get.raw'] and details['test:2_rse_remote_get.raw']):
+        """S3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
+        status, details = self.mgr.download(self.rse_tag,
+                                            {'lfns': [{'filename':'1_rse_remote_get.raw', 'scope': 'test'}, {'filename': '2_rse_remote_get.raw', 'scope': 'test'}],
+                                             'pfns': ['test:3_rse_remote_get.raw', 'test:4_rse_remote_get.raw']},
+                                            self.tmpdir)
+        if not (status and details['test:1_rse_remote_get.raw'] and details['test:2_rse_remote_get.raw'] and details['test:3_rse_remote_get.raw'] and details['test:4_rse_remote_get.raw']):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
-    def test_get_mgr_ok_single(self):
-        """S3 (RSE/PROTOCOLS): Get a single file from storage (Success)"""
-        self.mgr.download(self.rse_tag, {'filename': '1_rse_remote_get.raw', 'scope': 'test'}, self.tmpdir)
+    def test_get_mgr_ok_single_lfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage provding the LFN (Success)"""
+        self.mgr.download(self.rse_tag, {'lfns': [{'filename': '1_rse_remote_get.raw', 'scope': 'test'}]}, self.tmpdir)
+
+    def test_get_mgr_ok_single_pfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage providing the PFN (Success)"""
+        self.mgr.download(self.rse_tag, {'pfns': ['test:2_rse_remote_get.raw']}, self.tmpdir)
 
     def test_get_mgr_SourceNotFound_multi(self):
-        """S3 (RSE/PROTOCOLS): Get multiple files from storage (SourceNotFound)"""
-        status, details = self.mgr.download(self.rse_tag, [{'filename': 'not_existing_data.raw', 'scope': 'test'}, {'filename': '1_rse_remote_get.raw', 'scope': 'test'}], self.tmpdir)
-        if details['test:1_rse_remote_get.raw']:
-            raise details['test:not_existing_data.raw']
+        """S3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs  and PFNs (SourceNotFound)"""
+        status, details = self.mgr.download(self.rse_tag,
+                                            {'lfns': [{'filename': '1_not_existing_data.raw', 'scope': 'test'}, {'filename': '1_rse_remote_get.raw', 'scope': 'test'}],
+                                             'pfns': ['test:2_not_existing_data.raw', 'test:2_rse_remote_get.raw']},
+                                            self.tmpdir)
+        if details['test:1_rse_remote_get.raw'] and details['test:2_rse_remote_get.raw'] and details['test:1_not_existing_data.raw'].__class__.__name__ == 'SourceNotFound' and details['test:2_not_existing_data.raw'].__class__.__name__ == 'SourceNotFound':
+            raise details['test:1_not_existing_data.raw']
         else:
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
-    def test_get_mgr_SourceNotFound_single(self):
-        """S3 (RSE/PROTOCOLS): Get a single file from storage (SourceNotFound)"""
-        self.mgr.download(self.rse_tag, {'filename': 'not_existing_data.raw', 'scope': 'test'})
+    def test_get_mgr_SourceNotFound_single_lfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
+        self.mgr.download(self.rse_tag, {'lfns': [{'filename': 'not_existing_data.raw', 'scope': 'test'}]})
+
+    def test_get_mgr_SourceNotFound_single_pfn(self):
+        """S3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
+        self.mgr.download(self.rse_tag, {'pfns': ['test:not_existing_data.raw']})
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
