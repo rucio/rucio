@@ -292,7 +292,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer):
     try:
         new_replica.save(session=session)
     except IntegrityError, e:
-        raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
         session.rollback()
+        raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
 
     session.commit()
