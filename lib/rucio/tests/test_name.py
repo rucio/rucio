@@ -14,12 +14,11 @@ from nose.tools import raises, assert_equal
 
 from rucio.common import exception
 from rucio.core.account import add_account
-from rucio.core.dataset import add_files_to_dataset, bulk_register_datasets, get_dataset_metadata, is_name_obsolete
-from rucio.core.dataset import list_files_in_dataset, obsolete_dataset, obsolete_file, obsolete_name
-from rucio.core.dataset import register_dataset, register_file, unregister_dataset, unregister_file
-from rucio.core.dataset import change_name_owner, does_name_exist, get_name_metadata, list_names
+# from rucio.core.dataset import add_files_to_dataset, bulk_register_datasets, get_dataset_metadata, is_name_obsolete
+# from rucio.core.dataset import list_files_in_dataset, obsolete_dataset, obsolete_file, obsolete_name
+# from rucio.core.dataset import register_dataset, register_file, unregister_dataset, unregister_file
+# from rucio.core.dataset import change_name_owner, does_name_exist, get_name_metadata, list_names
 from rucio.core.scope import add_scope, bulk_add_scopes
-from rucio.db.models1 import DatasetType
 from rucio.db.session import build_database, destroy_database
 from rucio.tests.common import create_tmp_dataset, create_tmp_file
 #
