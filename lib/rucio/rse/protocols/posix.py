@@ -88,7 +88,7 @@ class Default(protocol.RSEProtocol):
             scope, name = pfn.split(':')
             prefix = hashlib.sha1(name).hexdigest()[:6]
             prefix = re.sub("(.{2})", "\\1/", prefix, re.DOTALL)
-            path = '%(scope)s/%(prefix)s%(name)s' % locals()
+            #path = '%(scope)s/%(prefix)s%(name)s' % locals()
             print 'Download**' * 10
             print 'Sourcefile: %s' % src
             print 'Target: %s ' % dest
@@ -128,7 +128,6 @@ class Default(protocol.RSEProtocol):
             print 'Target: %s ' % target
             print 'Trans: %s' % self.pfn2uri(target)
             print 'Upload**' * 10
-            import sys
             path = self.pfn2uri(target)
             dirs = os.path.dirname(path)
             if not os.path.exists(dirs):
@@ -168,6 +167,8 @@ class Default(protocol.RSEProtocol):
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
         try:
+            if not os.path.exists(os.path.dirname(self.pfn2uri(new_pfn))):
+                os.makedirs(os.path.dirname(self.pfn2uri(new_pfn)))
             os.rename(self.pfn2uri(pfn), self.pfn2uri(new_pfn))
         except IOError as e:
             if e.errno == 2:
