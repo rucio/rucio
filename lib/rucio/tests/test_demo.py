@@ -33,7 +33,7 @@ class TestRucioDemo:
     @classmethod
     def tearDownClass(cls):
         pass
-        #destroy_database(echo=False)
+        destroy_database(echo=False)
 
     def setUp(self):
         self.marker = '$> '

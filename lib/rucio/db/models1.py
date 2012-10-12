@@ -250,14 +250,14 @@ class File(BASE, ModelBase):
     name = Column(String(255))
     owner = Column(String(255))
     availability = Column(String(32))
-    suppressed = Column(Boolean(name='FILES_SUPPRESSED_CHK'), server_default='0')
+    suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
     size = Column(BigInteger)
     checksum = Column(String(32))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='FILES_PK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['data_identifiers.scope', 'data_identifiers.name'], ondelete="CASCADE"),
-                   CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DATASETS_TYPE_CHK'),
-                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPPRESSED_NN'),)
+                   ForeignKeyConstraint(['scope', 'name'], ['data_identifiers.scope', 'data_identifiers.name'], name='FILES_DATA_ID_FK', ondelete="CASCADE"),
+                   CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DATA_ID_TYPE_CHK'),
+                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPP_NN'),)
 
 
 class FileKey(BASE, ModelBase):
