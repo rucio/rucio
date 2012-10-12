@@ -279,7 +279,8 @@ class RSE(object):
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
                 try:
-                    self.__protocol.get(self.__lfn2pfn(lfn['filename'], lfn['scope']), '%s/%s:%s.download' % (dest_dir, lfn['scope'], lfn['filename']))
+                    #self.__protocol.get(self.__lfn2pfn(lfn['filename'], lfn['scope']), '%s/%s:%s.download' % (dest_dir, lfn['scope'], lfn['filename']))
+                    self.__protocol.get(self.__lfn2pfn(lfn['filename'], lfn['scope']), '%s/%s:%s' % (dest_dir, lfn['scope'], lfn['filename']))
                     ret[lfn['scope'] + ':' + lfn['filename']] = True
                 except Exception as e:
                     gs = False

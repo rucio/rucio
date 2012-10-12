@@ -290,23 +290,21 @@ class FileAttribute(BASE, ModelBase):
                    Index('FILE_ATTR_KEY_IDX', 'key'),)
 
 
-# class DatasetAssociation(BASE, ModelBase):
-#     """Represents the map between datasets and files"""
-#     __tablename__ = 'dataset_contents'
-#     scope = Column(String(255))         # dataset scope
-#     name = Column(String(255))          # dataset name
-#     child_scope = Column(String(255))  # Provenance name scope
-#     child_name = Column(String(255))   # Provenance name scope
-#     type = Column(String(8))
-#     child_type = Column(String(8))
-#     obsolete = Column(Boolean(name='DATASET_CONTENTS_OBSOLETE_CHK'), server_default='0')
-#     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='DATASET_CNTS_PK'),
-#                    ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_CNTS_DSN_FK'),  # ondelete="NO ACTION" problem with Oracle
-#                    ForeignKeyConstraint(['child_scope', 'child_name'], ['datasets.scope', 'datasets.name'], ondelete="CASCADE", name='DATASET_CNTS_CHILD_FK'),
-#                    CheckConstraint("type IN ('file', 'block', 'blockset')", name='DATASET_CNTS_TYPE_CHK'),
-#                    CheckConstraint("child_type IN ('file', 'block', 'blockset')", name='DATASET_CNTS_CHILD_TYPE_CHK'),
-#                    Index('DATASETS_CNTS_CHILD_IDX', 'child_scope', 'child_name'),
-#                    )
+class DataIdentifierAssociation(BASE, ModelBase):
+    """Represents the map between containers/datasets and files"""
+    __tablename__ = 'contents'
+    scope = Column(String(255))         # dataset scope
+    name = Column(String(255))          # dataset name
+    child_scope = Column(String(255))  # Provenance name scope
+    child_name = Column(String(255))   # Provenance name scope
+    type = Column(String(8))
+    child_type = Column(String(8))
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['data_identifiers.scope', 'data_identifiers.name'], name='CONTENTS_ID_FK'),
+                   ForeignKeyConstraint(['child_scope', 'child_name'], ['data_identifiers.scope', 'data_identifiers.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
+                   CheckConstraint("type IN ('file', 'dataset', 'container')", name='CONTENTS_TYPE_CHK'),
+                   CheckConstraint("child_type IN ('file', 'dataset', 'container')", name='CONTENTS_CHILD_TYPE_CHK'),
+                   Index('DATASETS_CNTS_CHILD_IDX', 'child_scope', 'child_name'),)
 
 
 class RSE(BASE, ModelBase):
