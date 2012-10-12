@@ -12,109 +12,109 @@
 from json import dumps
 from nose.tools import raises, assert_equal, assert_false, assert_true
 from paste.fixture import TestApp
-
-from rucio.client.accountclient import AccountClient
-from rucio.client.datasetclient import DatasetClient
-from rucio.client.scopeclient import ScopeClient
+#
+# from rucio.client.accountclient import AccountClient
+# from rucio.client.datasetclient import DatasetClient
+# from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, DatasetAlreadyExists,\
     DatasetIsMonotonic, DatasetNotFound, DatasetObsolete,\
-    Duplicate, FileAlreadyExists, FileNotFound, NameNotFound,\
+    Duplicate, FileAlreadyExists, FileNotFound,\
     InputValidationError, NoPermissions, NotADataset, ScopeNotFound
-from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import add_account
-from rucio.core.identity import add_account_identity, add_identity
-from rucio.core.dataset import add_files_to_dataset, build_name_list, bulk_register_datasets, bulk_register_files, change_dataset_owner,\
-    delete_files_from_dataset, does_dataset_exist, get_dataset_metadata, get_dataset_owner, list_datasets,\
-    is_dataset_monotonic, is_dataset_obsolete, is_file_obsolete, list_files_in_dataset, obsolete_dataset, obsolete_file,\
-    register_dataset, unregister_dataset, unregister_file
-from rucio.core.scope import add_scope, bulk_add_scopes
-from rucio.db.session import build_database, destroy_database, create_root_account
-from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file, get_auth_token
-from rucio.web.rest.dataset import app as dataset_web_app
-
-
-class TestDataset_CORE:
-
-    @classmethod
-    def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
-
-    @classmethod
-    def tearDownClass(cls):
-        destroy_database(echo=False)
-
-    def setUp(self):
-        #build_database(echo=False)
-        self.user = 'test_user'
-        self.user2 = 'another_usr'
-        self.user3 = 'one_more_usr'
-        self.user_type = 'user'
-        self.scope_misc = 'misc'
-        self.invalid_user = 'invalid_user'
-        self.invalid_scope = 'invalid_scope'
-        self.invalid_dsn = 'invalid_dataset'
-        self.to_clean_files = []  # files that eventually need to be cleaned
-        self.to_clean_datasets = []  # datasets that eventually need to be cleaned
-        create_accounts([self.user, self.user2, self.user3], self.user_type)
-        try:
-            add_scope(self.scope_misc, self.user)
-        except Duplicate:
-            pass  # Scope already exists, no need to create it
-
-        # Define two group of scopes
-        self.scope_data_prefix = 'data12_'
-        self.scope_mc_prefix = 'mc12_'
-        self.scope_data_pattern = self.scope_data_prefix + '%'
-        self.scope_mc_pattern = self.scope_mc_prefix + '%'
-        self.scopes_data = [self.scope_data_prefix + str(i) for i in range(5)]
-        self.scopes_mc = [self.scope_mc_prefix + str(i) for i in range(5)]
-        bulk_add_scopes(self.scopes_mc, self.user, skipExisting=True)
-        bulk_add_scopes(self.scopes_data, self.user, skipExisting=True)
-
-        # Create two groups of datasets
-        self.dataset_data_prefix = 'data12.'
-        self.dataset_mc_prefix = 'mc12.'
-        self.dataset_data_pattern = self.dataset_data_prefix + '%'
-        self.dataset_mc_pattern = self.dataset_mc_prefix + '%'
-        self.test_data_dsts = [self.dataset_data_prefix + str(i) for i in range(4)]
-        self.test_mc_dsts = [self.dataset_mc_prefix + str(i) for i in range(4)]
-        bulk_register_datasets(self.scopes_data[0], self.test_data_dsts, self.user, skipExisting=True)
-        bulk_register_datasets(self.scopes_mc[0], self.test_mc_dsts, self.user, skipExisting=True)
-
-        # Create a group of file for dataset associations
-        self.interesting_files_prefix = 'interesting_files.'
-        self.test_interesting_files = [self.interesting_files_prefix + str(i) for i in range(20)]
-        bulk_register_files(self.scope_misc, self.test_interesting_files, self.user, skipExisting=True)
-
-    def tearDown(self):
-        self.clean_files_and_datasets()
-        for dst in self.test_mc_dsts:  # Clean mc datasets
-            unregister_dataset(self.scopes_mc[0], dst, self.user)
-        for dst in self.test_data_dsts:  # Clean data datasets
-            unregister_dataset(self.scopes_data[0], dst, self.user)
-        for file in self.test_interesting_files:  # Clean interesting files
-            unregister_file(self.scope_misc, file, self.user)
-
-    def clean_files_and_datasets(self):
-        # Clean unwanted datasets from exceptions
-        for dst in self.to_clean_datasets:  # Clean left over datasets
-            unregister_dataset(self.scope_misc, dst, self.user)
-        for lfn in self.to_clean_files:  # Clean left over files
-            unregister_file(self.scope_misc, lfn, self.user)
-
-    # Register and list datasets
-
-    def test_api_register_query_unregister_dataset(self):
-        """ DATASET (CORE): Create and query for datasets """
-        dsn = str(uuid())
-        # Test registering and quering whether datasets exists
-        register_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn), True)  # Dataset exists
-        assert_equal(does_dataset_exist(self.scope_misc, self.invalid_dsn), False)  # Invalid dataset does not exist
-        # Unregister dataset
-        unregister_dataset(self.scope_misc, dsn, self.user)
-        assert_equal(does_dataset_exist(self.scope_misc, dsn), False)  # Deleted dataset does not exist anymore
+# from rucio.common.utils import generate_uuid as uuid
+# from rucio.core.account import add_account
+# from rucio.core.identity import add_account_identity, add_identity
+# from rucio.core.dataset import add_files_to_dataset, build_name_list, bulk_register_datasets, bulk_register_files, change_dataset_owner,\
+#     delete_files_from_dataset, does_dataset_exist, get_dataset_metadata, get_dataset_owner, list_datasets,\
+#     is_dataset_monotonic, is_dataset_obsolete, is_file_obsolete, list_files_in_dataset, obsolete_dataset, obsolete_file,\
+#     register_dataset, unregister_dataset, unregister_file
+# from rucio.core.scope import add_scope, bulk_add_scopes
+# from rucio.db.session import build_database, destroy_database, create_root_account
+# from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file, get_auth_token
+# from rucio.web.rest.dataset import app as dataset_web_app
+#
+#
+# class TestDataset_CORE:
+#
+#     @classmethod
+#     def setUpClass(cls):
+#         build_database(echo=False)
+#         create_root_account()
+#
+#     @classmethod
+#     def tearDownClass(cls):
+#         destroy_database(echo=False)
+#
+#     def setUp(self):
+#         #build_database(echo=False)
+#         self.user = 'test_user'
+#         self.user2 = 'another_usr'
+#         self.user3 = 'one_more_usr'
+#         self.user_type = 'user'
+#         self.scope_misc = 'misc'
+#         self.invalid_user = 'invalid_user'
+#         self.invalid_scope = 'invalid_scope'
+#         self.invalid_dsn = 'invalid_dataset'
+#         self.to_clean_files = []  # files that eventually need to be cleaned
+#         self.to_clean_datasets = []  # datasets that eventually need to be cleaned
+#         create_accounts([self.user, self.user2, self.user3], self.user_type)
+#         try:
+#             add_scope(self.scope_misc, self.user)
+#         except Duplicate:
+#             pass  # Scope already exists, no need to create it
+#
+#         # Define two group of scopes
+#         self.scope_data_prefix = 'data12_'
+#         self.scope_mc_prefix = 'mc12_'
+#         self.scope_data_pattern = self.scope_data_prefix + '%'
+#         self.scope_mc_pattern = self.scope_mc_prefix + '%'
+#         self.scopes_data = [self.scope_data_prefix + str(i) for i in range(5)]
+#         self.scopes_mc = [self.scope_mc_prefix + str(i) for i in range(5)]
+#         bulk_add_scopes(self.scopes_mc, self.user, skipExisting=True)
+#         bulk_add_scopes(self.scopes_data, self.user, skipExisting=True)
+#
+#         # Create two groups of datasets
+#         self.dataset_data_prefix = 'data12.'
+#         self.dataset_mc_prefix = 'mc12.'
+#         self.dataset_data_pattern = self.dataset_data_prefix + '%'
+#         self.dataset_mc_pattern = self.dataset_mc_prefix + '%'
+#         self.test_data_dsts = [self.dataset_data_prefix + str(i) for i in range(4)]
+#         self.test_mc_dsts = [self.dataset_mc_prefix + str(i) for i in range(4)]
+#         bulk_register_datasets(self.scopes_data[0], self.test_data_dsts, self.user, skipExisting=True)
+#         bulk_register_datasets(self.scopes_mc[0], self.test_mc_dsts, self.user, skipExisting=True)
+#
+#         # Create a group of file for dataset associations
+#         self.interesting_files_prefix = 'interesting_files.'
+#         self.test_interesting_files = [self.interesting_files_prefix + str(i) for i in range(20)]
+#         bulk_register_files(self.scope_misc, self.test_interesting_files, self.user, skipExisting=True)
+#
+#     def tearDown(self):
+#         self.clean_files_and_datasets()
+#         for dst in self.test_mc_dsts:  # Clean mc datasets
+#             unregister_dataset(self.scopes_mc[0], dst, self.user)
+#         for dst in self.test_data_dsts:  # Clean data datasets
+#             unregister_dataset(self.scopes_data[0], dst, self.user)
+#         for file in self.test_interesting_files:  # Clean interesting files
+#             unregister_file(self.scope_misc, file, self.user)
+#
+#     def clean_files_and_datasets(self):
+#         # Clean unwanted datasets from exceptions
+#         for dst in self.to_clean_datasets:  # Clean left over datasets
+#             unregister_dataset(self.scope_misc, dst, self.user)
+#         for lfn in self.to_clean_files:  # Clean left over files
+#             unregister_file(self.scope_misc, lfn, self.user)
+#
+#     # Register and list datasets
+#
+#     def test_api_register_query_unregister_dataset(self):
+#         """ DATASET (CORE): Create and query for datasets """
+#         dsn = str(uuid())
+#         # Test registering and quering whether datasets exists
+#         register_dataset(self.scope_misc, dsn, self.user)
+#         assert_equal(does_dataset_exist(self.scope_misc, dsn), True)  # Dataset exists
+#         assert_equal(does_dataset_exist(self.scope_misc, self.invalid_dsn), False)  # Invalid dataset does not exist
+#         # Unregister dataset
+#         unregister_dataset(self.scope_misc, dsn, self.user)
+#         assert_equal(does_dataset_exist(self.scope_misc, dsn), False)  # Deleted dataset does not exist anymore
 
 #     def test_api_bulk_register_datasets(self):
 #         """ DATASET (CORE): Bulk register datasets """

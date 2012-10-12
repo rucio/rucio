@@ -18,12 +18,12 @@ from rucio.db.session import build_database, destroy_database
 class TestIdentity():
 
     def setUp(self):
-        build_database()
+        build_database(echo=False)
         self.account = str(uuid())
         add_account(self.account, 'user')
 
     def tearDown(self):
-        destroy_database()
+        destroy_database(echo=False)
 
     def test_userpass(self):
         """ IDENTITY (CORE): Test adding and removing username/password authentication """

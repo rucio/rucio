@@ -11,8 +11,8 @@ from nose.tools import raises, assert_equal
 from uuid import uuid4 as uuid
 
 from rucio.common import exception
-from rucio.core.dataset import bulk_register_files, change_file_owner, does_file_exist, get_file_metadata, is_file_obsolete, list_files, obsolete_file
-from rucio.core.dataset import register_dataset, register_file, unregister_dataset, unregister_file
+#from rucio.core.dataset import bulk_register_files, change_file_owner, does_file_exist, get_file_metadata, is_file_obsolete, list_files, obsolete_file
+#from rucio.core.dataset import register_dataset, register_file, unregister_dataset, unregister_file
 from rucio.core.scope import add_scope, bulk_add_scopes
 from rucio.db.session import build_database
 from rucio.tests.common import create_accounts, create_tmp_dataset, create_tmp_file
