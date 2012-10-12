@@ -29,6 +29,10 @@ class TestRucioDemo:
         except OSError, e:
             if e.args[0] != 2:
                 raise e
+        cmd = 'rm -rf /tmp/download/*'
+        exitcode, out, err = execute(cmd)
+        cmd = 'rm -rf /tmp/rucio_rse/*/'
+        exitcode, out, err = execute(cmd)
 
     @classmethod
     def tearDownClass(cls):
@@ -196,16 +200,8 @@ class TestRucioDemo:
         exitcode, out, err = execute(cmd)
         print out
 
-        #cmd = 'rucio upload --rse MOCK --scope vgaronne --files Myfile4'
-        #print self.marker + cmd
-        #exitcode, out, err = execute(cmd)
-        #print out
-
-        #cmd = 'rucio download --dir=/tmp/download  vgaronne:Myfile4'
-        #print self.marker + cmd
-        #exitcode, out, err = execute(cmd)
-        #print out
-
+        cmd = 'rucio upload --rse MOCK --scope vgaronne --files Myfile4'
+        cmd = 'rucio download --dir=/tmp/download  vgaronne:Myfile4'
         cmd = 'rucio-admin rse add swift.cern.ch'
         cmd = 's3cmd mb s3://RSETESTS3'
         cmd = 'rucio upload --rse swift.cern.ch  --scope vgaronne --files Myfile5'
@@ -218,8 +214,7 @@ class TestRucioDemo:
         cmd = 'rucio del vgaronne:MyDataset1'
 
         # Meta-data
-        cmd = 'rucio-admin account list_identities'
-
+        cmd = 'rucio search'
         cmd = 'rucio-admin metadata add --key --value --type --DItypes'
         cmd = 'rucio-admin metadata del --key --value --type --DItypes'
         cmd = 'rucio-admin metadata list --filters'
