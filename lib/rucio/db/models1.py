@@ -230,7 +230,7 @@ class DataIdentifier(BASE, ModelBase):
     scope = Column(String(255))
     name = Column(String(255))
     owner = Column(String(255))
-    type = Column(String(8))
+    type = Column(String(9))
     open = Column(Boolean(name='DATASETS_OPEN_CHK'))
     monotonic = Column(Boolean(name='DATASETS_MONOTONIC_CHK'), server_default='0')
     hidden = Column(Boolean(name='DATASETS_HIDDEN_CHK'), server_default='0')
@@ -297,8 +297,8 @@ class DataIdentifierAssociation(BASE, ModelBase):
     name = Column(String(255))          # dataset name
     child_scope = Column(String(255))  # Provenance name scope
     child_name = Column(String(255))   # Provenance name scope
-    type = Column(String(8))
-    child_type = Column(String(8))
+    type = Column(String(9))
+    child_type = Column(String(9))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['data_identifiers.scope', 'data_identifiers.name'], name='CONTENTS_ID_FK'),
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['data_identifiers.scope', 'data_identifiers.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
