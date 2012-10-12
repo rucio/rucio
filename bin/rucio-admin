@@ -157,6 +157,36 @@ def show_account(args):
     return SUCCESS
 
 
+def list_identities(args):
+    """
+    %(prog)s list-identities [options] <field1=value1 field2=value2 ...>
+
+    List all identities on an account.
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        identities = accountClient.list_identities(accountName=args.acnt)
+    except Exception, e:
+            print 'Failed to list identities for account %s' % args.acnt
+            print e
+            return FAILURE
+
+    for identity in identities:
+        print 'Identity: %(identity)s,\ttype: %(type)s' % identity
+
+    return SUCCESS
+
+
+
 def identity_add(args):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
@@ -476,6 +506,11 @@ Commands:
     show_account_parser.set_defaults(which='show_account')
     show_account_parser.add_argument('acnt', action='store', help='Account name')
 
+    # The list_account_identities command
+    list_account_identities_parser = account_subparser.add_parser('list-identities', help='List all identities on an account')
+    list_account_identities_parser.set_defaults(which='list_identities')
+    list_account_identities_parser.add_argument('acnt', action='store', help='Account name')
+
     # The identity subparser
     identity_parser = subparsers.add_parser('identity', help='Identity methods')
     identity_subparser = identity_parser.add_subparsers()
@@ -554,6 +589,7 @@ Commands:
                 'list_accounts': list_accounts,
                 'disable_account': disable_account,
                 'show_account': show_account,
+                'list_identities': list_identities,
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
                 'add_rse': add_rse,
