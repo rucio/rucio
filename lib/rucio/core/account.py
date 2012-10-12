@@ -136,3 +136,25 @@ def list_accounts():
         account_list.append(account.account)
 
     return account_list
+
+
+def list_identities(accountName):
+    """
+    List all identities on an account.
+
+    :param accountName: The account name.
+    """
+    identity_list = list()
+
+    query = session.query(models.Account).filter_by(account=accountName).filter_by(deleted=False)
+
+    try:
+        account = query.one()
+    except exc.NoResultFound:
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
+
+    query = session.query(models.IdentityAccountAssociation).filter_by(account=accountName)
+    for identity in query:
+        identity_list.append({'type': identity.type, 'identity': identity.identity})
+
+    return identity_list
