@@ -12,6 +12,8 @@
 Rucio utilities.
 """
 
+import zlib
+
 from urllib import urlencode
 from uuid import uuid4 as uuid
 try:
@@ -84,3 +86,25 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     data = ': '.join([exc_cls, exc_msg])
 
     return HTTPError(status, headers=headers, data=data)
+
+
+def adler32(file):
+    """
+    @since: 0.0.1
+    """
+
+    #adler starting value is _not_ 0
+    adler = 1L
+
+    try:
+        openFile = open(file, 'rb')
+        for line in openFile:
+            adler = zlib.adler32(line, adler)
+    except:
+        raise Exception('FATAL - could not get checksum of file %s' % file)
+
+    #backflip on 32bit
+    if adler < 0:
+        adler = adler + 2 ** 32
+
+    return str('%08x' % adler)  # return as hexified string, padded to 8 values
