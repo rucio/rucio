@@ -93,7 +93,6 @@ def add_identifier(scope, name, sources, issuer):
         except NoResultFound, error:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
 
-    print sources
     # Insert dataset/container
     new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=data_type)
     try:
