@@ -9,7 +9,9 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 
 
+import hashlib
 import os
+import re
 import shutil
 from subprocess import call
 
@@ -31,7 +33,11 @@ class Default(protocol.RSEProtocol):
 
             :returns: RSE specific URI of the physical file
         """
-        return self.rse['protocol']['prefix'] + pfn
+        scope, name = pfn.split(':')
+        prefix = hashlib.sha1(name).hexdigest()[:6]
+        prefix = re.sub("(.{2})", "\\1/", prefix, re.DOTALL)
+        path = '%(scope)s/%(prefix)s%(name)s' % locals()
+        return self.rse['protocol']['prefix'] + path
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
@@ -77,8 +83,17 @@ class Default(protocol.RSEProtocol):
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
          """
         try:
-            tmp = '%s%s' % (self.rse['protocol']['prefix'], pfn)
-            shutil.copy(tmp, dest)
+            src = self.pfn2uri(pfn)
+            # self.rse['protocol']['prefix'], pfn
+            scope, name = pfn.split(':')
+            prefix = hashlib.sha1(name).hexdigest()[:6]
+            prefix = re.sub("(.{2})", "\\1/", prefix, re.DOTALL)
+            path = '%(scope)s/%(prefix)s%(name)s' % locals()
+            print 'Download**' * 10
+            print 'Sourcefile: %s' % src
+            print 'Target: %s ' % dest
+            print 'Download**' * 10
+            shutil.copy(src, dest)
         except IOError as e:
             try:  # To check if the error happend local or remote
                 with open(dest, 'wb'):
@@ -108,11 +123,16 @@ class Default(protocol.RSEProtocol):
         else:
             sf = source
         try:
-            print 'Put**' * 20
-            print 'Sorucefile: %s' % sf
+            print 'Upload**' * 10
+            print 'Sourcefile: %s' % sf
             print 'Target: %s ' % target
             print 'Trans: %s' % self.pfn2uri(target)
-            print 'Put**' * 20
+            print 'Upload**' * 10
+            import sys
+            path = self.pfn2uri(target)
+            dirs = os.path.dirname(path)
+            if not os.path.exists(dirs):
+                os.makedirs(dirs)
             shutil.copy(sf, self.pfn2uri(target))
         except IOError as e:
             if e.errno == 2:

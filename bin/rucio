@@ -31,7 +31,8 @@ from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.cli.upload import upload as cli_upload
 from rucio.client.cli.download import download as cli_download
-
+from rucio.common.utils import adler32
+from rucio.rse import rsemanager
 
 SUCCESS = 0
 FAILURE = 1
@@ -216,97 +217,88 @@ def add(args):
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    client.add(scope=scope, name=name, sources=sources)
-#
-#     try:
-#         client.add_dataset(scope=scope, dsn=dsn)
-#         print 'Added new dataset: %s:%s' % (scope, dsn)
-#     except Exception, e:
-#             print 'Failed to add dataset'
-#             print e
-#             return FAILURE
-#     return SUCCESS
+    try:
+        client.add(scope=scope, name=name, sources=sources)
+        print 'Added new dataset/container/content: %s:%s' % (scope, name)
+    except Exception, e:
+        print 'Failed to add dataset/container/content'
+        print e
+        return FAILURE
+    return SUCCESS
 
 
-def add_files_to_dataset(args):
+def list(args):
     """
-    %(prog)s add [options] <field1=value1 field2=value2 ...>
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
 
-    Add files to dataset
+    list container/dataset contents.
 
     """
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    scope = args.scope
-    dsn = args.dsn
-    if scope is None:
-        if args.dsn.find(':') == -1:
-            print 'Error: Cannot extract scope from %s (notation: scope:dataset_name) !' % args.dsn
-            return FAILURE
-        scope, dsn = args.dsn.split(':')
-    lfns = list()
-    for lfn in args.lfns:
-        lfns.append(lfn.split(':'))
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
-    client = DatasetClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        report = client.add_files_to_dataset(scope=scope, dsn=dsn, lfns=lfns)
-    except Exception, e:
-            print 'Failed to add files to dataset'
+    for data_id in args.data_ids:
+        try:
+            scope, name = data_id.split(':')
+            data_ids = client.list(scope=scope, name=name)
+            for d in data_ids:
+                print '%(scope)s:%(name)s' % d
+        except Exception, e:
             print e
-            return FAILURE
 
     return SUCCESS
 
+def list_files(args):
+    """
+    %(prog)s list-files [options] <field1=value1 field2=value2 ...>
 
-def list_files_in_dataset(args):
+    list container/dataset file contents.
+
+    """
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    scope = args.scope
-    dsn = args.dsn
-    if scope is None:
-        if args.dsn.find(':') == -1:
-            print 'Error: Cannot extract scope from %s (notation: scope:dataset_name) !' % args.dsn
-            return FAILURE
-        scope, dsn = args.dsn.split(':')
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
-    client = DatasetClient(rucio_host=args.host,
-                           auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        files = client.list_files_in_dataset(scope=scope, dsn=dsn)
-    except Exception, e:
-            print 'Failed to list files in dataset'
+    for data_id in args.data_ids:
+        try:
+            scope, name = data_id.split(':')
+            files = client.list_files(scope=scope, name=name)
+            for file in files:
+                print '%(scope)s:%(name)s' % file # %(size)s\t%(checksum)s
+        except Exception, e:
             print e
-            return FAILURE
-
-    for scope, lfn in files:
-        print '%(scope)s:%(lfn)s' % locals()
 
     return SUCCESS
 
 
-def close_dataset(args):
+def close(args):
     """
     %(prog)s close [options] <field1=value1 field2=value2 ...>
 
-    Close dataset
+    Close dataset/container
 
     """
-    raise NotImplementedError
+    pass
 
+def delete(args):
+    """
+    %(prog)s del [options] <field1=value1 field2=value2 ...>
+
+    Del dataset/container or dataset/container content
+
+    """
+    pass
 
 def upload(args):
     """
@@ -315,8 +307,23 @@ def upload(args):
     Upload files into Rucio
 
     """
-    cli_upload
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
 
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    rsemgr = rsemanager.RSEMgr()
+    files = args.files
+    for file in files:
+        size = os.stat(file).st_size
+        checksum = adler32(file)
+        client.add_file_replica(scope=args.scope, name=file, rse=args.rse, checksum=checksum, size=size)
+        rsemgr.upload(args.rse, lfns=[{'filename':file, 'scope': args.scope},])
+#args.rse
 
 def download(args):
     """
@@ -325,7 +332,29 @@ def download(args):
     Download files from Rucio
 
     """
-    cli_download
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+
+    rsemgr = rsemanager.RSEMgr()
+    for data_id in args.data_ids:
+        try:
+            scope, name = data_id.split(':')
+            files = client.list_replicas(scope=scope, name=name)
+            for file in files:
+                for replica in files[file]:
+                    rsemgr.download(replica['rse'], {'filename': name, 'scope': scope}, args.dir)
+                    break
+        except Exception, e:
+            print 'Failed to list file replicas for %(data_id)s' % locals()
+            print e
+
 
 
 if __name__ == '__main__':
@@ -372,6 +401,7 @@ Commands:
     add_replicas_parser.add_argument('--rses', dest='rses', nargs='+', action='store', help='List of space separated Rucio Storage Element(RSE)', required=True)
     add_replicas_parser.add_argument('--sizes', dest='sizes', nargs='+', action='store', help='List of space separated file sizes', required=True)
     add_replicas_parser.add_argument('--checksums', dest='checksums', nargs='+', action='store', help='List of space separated file checksums', required=True)
+    add_replicas_parser.add_argument('--dest', dest='data_id', action='store', help='Dataset name to create')
 
     # The list_replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
@@ -383,69 +413,44 @@ Commands:
     add_parser.set_defaults(which='add')
     add_parser.add_argument('--dest', dest='data_id', action='store', help='Container/dataset name to create', required=True)
     add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data_ids', required=True)
-    #meta
+    # ToDo: add meta
+
+    # The list command
+    list_parser = subparsers.add_parser('list', help='List container/dataset contents')
+    list_parser.set_defaults(which='list')
+    list_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+
+    # The close command
+    close_parser = subparsers.add_parser('close', help='Close container/dataset')
+    close_parser.set_defaults(which='close')
+    close_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+
+    # The del command
+    del_parser = subparsers.add_parser('del', help='Del dataset/container or dataset/container content')
+    del_parser.set_defaults(which='del')
+    del_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+    del_parser.add_argument('--from',dest='from', action='store', help='Target dataset/container')
+
+    # The list_files command
+    list_files_parser = subparsers.add_parser('list-files', help='List container/dataset file contents')
+    list_files_parser.set_defaults(which='list_files')
+    list_files_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
 
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method')
     upload_parser.set_defaults(which='upload')
+    upload_parser.add_argument('--files', dest='files', nargs='+', action='store', help='List of space separated files', required=True)
+    upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
+    upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True) # to be optional after
+    upload_parser.add_argument('--dest', dest='data_id', action='store', help='Dataset name to create')
+
 
     # The download subparser
     download_parser = subparsers.add_parser('download', help='Download method')
     download_parser.set_defaults(which='download')
+    download_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
+    download_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
 
-# The file subparser
-#     file_parser = subparsers.add_parser('file', help='File methods')
-#     file_subparser = file_parser.add_subparsers()
-#
-#      # The add_file command
-#     add_file_parser = file_subparser.add_parser('add', help='Add file')
-#     add_file_parser.set_defaults(which='add_file')
-#     add_file_parser.add_argument('lfn', action='store', help='File name')
-#     add_file_parser.add_argument('rse', action='store', help='RSE name')
-#     add_file_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-#
-# The replica subparser
-#     replica_parser = subparsers.add_parser('replica', help='Replica methods')
-#     replica_subparser = replica_parser.add_subparsers()
-#
-# The list replica command
-#     list_replica_parser = replica_subparser.add_parser('list', help='List replica')
-#     list_replica_parser.set_defaults(which='list_replicas')
-#     list_replica_parser.add_argument('lfn', action='store', help='File name')
-#     list_replica_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-#
-# The dataset subparser
-#     dataset_parser = subparsers.add_parser('dataset', help='Dataset methods')
-#     dataset_subparser = dataset_parser.add_subparsers()
-#
-# The dataset_add command
-#     add_dataset_parser =  dataset_subparser.add_parser('add', help='Add dataset')
-#     add_dataset_parser.set_defaults(which='add_dataset')
-#     add_dataset_parser.add_argument('dsn', action='store', help='Dataset name')
-#     add_dataset_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-#
-# The close_add command
-#     close_dataset_parser =  dataset_subparser.add_parser('close', help='Close dataset')
-#     close_dataset_parser.set_defaults(which='close_dataset')
-#     close_dataset_parser.add_argument('dsn', action='store', help='Dataset name')
-#     close_dataset_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-#
-# The dataset file subparser
-#     dataset_file_parser = dataset_subparser.add_parser('file', help='Dataset file methods')
-#     dataset_file_subparser = dataset_file_parser.add_subparsers()
-#
-# The add_files_to_dataset command
-#     add_dataset_file_parser = dataset_file_subparser.add_parser('add', help='Add files to dataset')
-#     add_dataset_file_parser.set_defaults(which='add_files_to_dataset')
-#     add_dataset_file_parser.add_argument('dsn', action='store', help='Dataset name')
-#     add_dataset_file_parser.add_argument('lfns', type=str, nargs='+', action='store', help='List of filenames')
-#     add_dataset_file_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
-#
-# The list_dataset_files command
-#     list_dataset_files_parser = dataset_file_subparser.add_parser('list', help='List files in dataset')
-#     list_dataset_files_parser.set_defaults(which='list_files_in_dataset')
-#     list_dataset_files_parser.add_argument('dsn', action='store', help='Dataset name')
-#     list_dataset_files_parser.add_argument('-s', '--scope', dest='scope', default=None, help='Scope')
 
     args = oparser.parse_args(sys.argv[1:])
 
@@ -453,6 +458,10 @@ Commands:
                 'add_replicas': add_replicas,
                 'list_replicas': list_replicas,
                 'add': add,
+                'list': list,
+                'list_files': list_files,
+                'close' : close,
+                'del' : delete,
                 'whoami_account': whoami_account,
                 'download': download,
                 'upload': upload}

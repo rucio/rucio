@@ -40,5 +40,18 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
+  },
+  "MOCK":{
+    "backend_type": "POSIX",
+    "protocols": {
+      "default": "posix",
+      "prefix": "/tmp/rucio_rse/",
+      "supported": {
+        "posix": {
+          "impl": "rucio.rse.protocols.posix.Default"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
   }
 }
