@@ -9,10 +9,6 @@
 
 from os import remove
 
-import nose.tools
-import re
-
-from rucio import version
 from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.tests.common import execute
 
@@ -44,6 +40,11 @@ class TestRucioDemo:
 
     def test_rucio_demo(self):
         """ CLI(DEMO): Test the rucio demo """
+
+        cmd = 'source /afs/cern.ch/atlas/offline/external/GRID/ddm/rucio/testing/bin/activate'
+        cmd = 'cat /afs/cern.ch/atlas/offline/external/GRID/ddm/rucio/testing/etc/rucio.cfg'
+        cmd = 'curl -s  -X GET http://localhost/ping'
+        cmd = 'curl -s -X GET http://atlas-rucio.cern.ch/ping'
 
         cmd = 'rucio ping'
         print self.marker + cmd
@@ -125,12 +126,21 @@ class TestRucioDemo:
         exitcode, out, err = execute(cmd)
         print out
 
+        cmd = 'rucio-admin rse set-attr --rse MOCK2 --key GROUPDISK  --value True'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
         cmd = 'rucio-admin rse del-attr --rse MOCK2 --key CLOUD --value CERN'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
 
         cmd = 'rucio-admin rse get-attr MOCK2'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'rucio-admin account set-limits --account vgaronne --rse_expr "GROUPDISK AND tier=1" --value 1000000'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -201,15 +211,60 @@ class TestRucioDemo:
         print out
 
         cmd = 'rucio upload --rse MOCK --scope vgaronne --files Myfile4'
-        cmd = 'rucio download --dir=/tmp/download  vgaronne:Myfile4'
-        cmd = 'rucio-admin rse add swift.cern.ch'
-        cmd = 's3cmd mb s3://RSETESTS3'
-        cmd = 'rucio upload --rse swift.cern.ch  --scope vgaronne --files Myfile5'
-        cmd = 'rucio download --dir=/tmp/download  vgaronne:Myfile5'
-        cmd = 's3cmd ls  s3://RSETESTS3'
-        cmd = 's3cmd ls  s3://RSETESTS3/vgaronne'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
 
-        cmd = 'rucio download vgaronne:MyBigContainer1'
+        cmd = 'ls /tmp/download/vgaronne/'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'rucio download --dir=/tmp/download  vgaronne:Myfile4'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'ls /tmp/download/vgaronne/'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'rucio-admin rse add swift.cern.ch'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 's3cmd mb s3://RSETESTS3'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'rucio upload --rse swift.cern.ch  --scope vgaronne --files Myfile5'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'rucio download --dir=/tmp/download  vgaronne:Myfile5'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 'ls /tmp/download/vgaronne/'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 's3cmd ls  s3://RSETESTS3'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
+        cmd = 's3cmd ls  s3://RSETESTS3/vgaronne'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+
         cmd = 'rucio del vgaronne:MyDataset1 --from vgaronne:MyContainer1'
         cmd = 'rucio del vgaronne:MyDataset1'
 
@@ -226,9 +281,8 @@ class TestRucioDemo:
         cmd = 'rucio-admin account get-limits account'
         cmd = 'rucio-admin account del-limits --account ddd --rse_expr'
 
-        cmd = 'rucio list-rse-usage'
-        cmd = 'rucio list-rse-usage-history'
-        cmd = 'rucio list-account-usage-history'
-        cmd = 'rucio list-account-usage'
+        cmd = 'rucio list-rse-usage --history'
+        cmd = 'rucio list-account-usage --history'
+        cmd = 'rucio list-account-limits'
 
         cmd = 'rucio close vgaronne:MyDataset1'

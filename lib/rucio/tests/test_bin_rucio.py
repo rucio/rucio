@@ -30,7 +30,6 @@ class TestBinRucio():
         except OSError, e:
             if e.args[0] != 2:
                 raise e
-
         self.marker = '$> '
 
     def tearDown(self):

@@ -34,12 +34,12 @@ Service
 Authentication
 ==============
 
-* :ref:`GET auth/userpass`: Retrieve an auth token with an username and password
-* :ref:`GET auth/x509`: Retrieve an auth token with a x509 certificate
-* :ref:`GET auth/x509_proxy`: Retrieve an auth token with a Globus proxy
-* :ref:`GET auth/gss`: Retrieve an auth token with a gss token
-* :ref:`GET auth/validate`: Retrieve an auth token with a gss token
-* :ref:`DELETE auth/tokens/`: Revoke a  <token> ?
+* :ref:`GET /auth/userpass`: Retrieve an auth token with an username and password
+* :ref:`GET /auth/x509`: Retrieve an auth token with a x509 certificate
+* :ref:`GET /auth/x509_proxy`: Retrieve an auth token with a Globus proxy
+* :ref:`GET /auth/gss`: Retrieve an auth token with a gss token
+* :ref:`GET /auth/validate`: Retrieve an auth token with a gss token
+.. * :ref:`DELETE auth/tokens/`: Revoke a  <token> ?
 
 Rucio account
 =============

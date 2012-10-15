@@ -28,7 +28,7 @@ class TestIdentity():
     def test_userpass(self):
         """ IDENTITY (CORE): Test adding and removing username/password authentication """
 
-        add_identity('ddmlab', 'userpass', password='secret')
+        add_identity(self.account, 'userpass', password='secret')
         add_account_identity('ddmlab', 'userpass', self.account)
 
         add_identity('/ch/cern/rucio/ddmlab', 'x509')
