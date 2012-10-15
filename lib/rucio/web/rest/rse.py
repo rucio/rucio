@@ -61,9 +61,12 @@ class RSE:
 
         try:
             add_rse(rse=rseName, issuer=auth['account'])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except Exception, e:
+            print e
             raise InternalError(e)
 
         raise Created()
@@ -125,6 +128,8 @@ class RSE:
             del_rse(rse=rseName, issuer=auth['account'])
         except AccountNotFound, e:
             raise generate_http_error(404, 'RSENotFound', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
 
         raise OK()
 
