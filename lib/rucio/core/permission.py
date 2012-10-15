@@ -23,6 +23,7 @@ def has_permission(issuer, action, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     perm = {'add_account': perm_add_account,
+            'del_account': perm_del_account,
             'add_scope': perm_add_scope,
             'add_rse': perm_add_rse,
             'add_rse_attr': perm_add_rse_attr,
@@ -32,7 +33,6 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
             'add_account_identity': perm_add_account_identity, }
-
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
 
@@ -94,6 +94,17 @@ def perm_del_rse(issuer, kwargs):
 def perm_add_account(issuer, kwargs):
     """
     Checks if an account can add an account.
+
+    :param accountName: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_del_account(issuer, kwargs):
+    """
+    Checks if an account can del an account.
 
     :param accountName: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

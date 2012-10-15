@@ -9,25 +9,6 @@
 Rucio CLI Examples
 ==================
 
-``rucio`` CLI
-=============
-
-Service
-^^^^^^^
-
-.. _`rucio ping`:
-
-
-``rucio ping``
---------------
-
-Discover server version information.
-
-**Example Request**
-
-.. literalinclude:: example_outputs/success-rucio.tests.test_bin_rucio.TestBinRucio.test_rucio_ping.txt
-
-
 ``rucio-admin`` CLI
 ===================
 
@@ -46,3 +27,22 @@ Create account.
 **Example Request**
 
 .. literalinclude:: example_outputs/success-rucio.tests.test_bin_rucio.TestBinRucio.test_add_account.txt
+
+
+``rucio`` CLI
+=============
+
+Service
+^^^^^^^
+
+.. _`rucio ping`:
+
+
+``rucio ping``
+--------------
+
+Discover server version information.
+
+**Example Request**
+
+.. literalinclude:: example_outputs/success-rucio.tests.test_bin_rucio.TestBinRucio.test_rucio_ping.txt
