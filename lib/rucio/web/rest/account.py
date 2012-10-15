@@ -217,7 +217,7 @@ class AccountParameter:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account(accountName, accountType)
+            add_account(accountName, accountType, issuer=auth.get('account'))
         except Duplicate as e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccessDenied, e:
@@ -252,7 +252,7 @@ class AccountParameter:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            del_account(accountName)
+            del_account(accountName, issuer=auth.get('account'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except AccountNotFound, e:

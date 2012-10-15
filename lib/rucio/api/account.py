@@ -9,25 +9,40 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
+import rucio.api.permission
+import rucio.common.exception
+import rucio.core.identity
+
 from rucio.core import account
 
 
-def add_account(accountName, accountType):
+def add_account(accountName, accountType, issuer):
     """
     Creates an account with the provided account name, contact information, etc.
 
     :param accountName: The account name.
     :param accountType: The account type
+    :param issuer: The issuer account.
+
     """
+    kwargs = {'accountName': accountName, 'accountType': accountType}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='add_account', kwargs=kwargs):
+            raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
     account.add_account(accountName, accountType)
 
 
-def del_account(accountName):
+def del_account(accountName, issuer):
     """
     Disables an account with the provided account name.
 
     :param accountName: The account name.
+    :param issuer: The issuer account.
+
     """
+    kwargs = {'accountName': accountName}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='del_account', kwargs=kwargs):
+            raise rucio.common.exception.AccessDenied('Account %s can not delete account' % (issuer))
+
     account.del_account(accountName)
 
 
