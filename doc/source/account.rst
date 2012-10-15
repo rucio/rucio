@@ -3,7 +3,7 @@ Account Methods
 ****************
 
 .. _account:
-.. automodule:: rucio.api.account
+.. automodule:: rucio.client.accountclient
     :members:
     :undoc-members:
     :show-inheritance:

@@ -71,11 +71,12 @@ Installing Rucio
     :maxdepth: 1
 
     installing_clients
+    installing_atlas_clients
     installing_server
     overview_Deployment
 
-Rucio Core API
-==============
+Rucio Client APIs
+=================
 
 .. toctree::
     :maxdepth: 2

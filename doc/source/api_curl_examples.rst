@@ -36,10 +36,10 @@ Discover server version information.
 Authentication
 ^^^^^^^^^^^^^^
 
-.. _`GET auth/userpass`:
+.. _`GET /auth/userpass`:
 
-`GET auth/userpass`
-"""""""""""""""""""
+`GET /auth/userpass`
+""""""""""""""""""""
 
 Requesting a Rucio-Auth-Token with curl via username and password.
 
@@ -52,10 +52,10 @@ Requesting a Rucio-Auth-Token with curl via username and password.
 
 .. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_userpass.txt
 
-.. _`GET auth/x509`:
+.. _`GET /auth/x509`:
 
-`GET auth/x509`
-"""""""""""""""
+`GET /auth/x509`
+""""""""""""""""
 
 Requesting a Rucio-Auth-Token with curl via a X509 certificate.
 
@@ -69,10 +69,10 @@ Requesting a Rucio-Auth-Token with curl via a X509 certificate.
 .. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_x509.txt
 
 
-.. _`GET auth/gss`:
+.. _`GET /auth/gss`:
 
-`GET auth/gss`
-""""""""""""""
+`GET /auth/gss`
+"""""""""""""""
 
 Requesting a Rucio-Auth-Token with curl via kerberos.
 
@@ -85,10 +85,10 @@ Requesting a Rucio-Auth-Token with curl via kerberos.
 
 .. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_gss.txt
 
-.. _`GET auth/x509_proxy`:
+.. _`GET /auth/x509_proxy`:
 
-`GET auth/x509_proxy`
-"""""""""""""""""""""
+`GET /auth/x509_proxy`
+""""""""""""""""""""""
 
 Requesting a Rucio-Auth-Token with curl via a Globus proxy.
 
@@ -99,17 +99,13 @@ Requesting a Rucio-Auth-Token with curl via a Globus proxy.
 
 **Example Request**
 
-.. literalinclude:: curl_examples/get_auth_proxy.sh
-
-**Example Response**
-
-.. literalinclude:: curl_examples/get_auth_proxy.out
+.. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_x509_proxy.txt
 
 
-.. _`GET auth/validate`:
+.. _`GET /auth/validate`:
 
-`GET auth/validate`
-"""""""""""""""""""
+`GET /auth/validate`
+""""""""""""""""""""
 
 Check the validity of a authentication token. Checking the validity of a token will extend its lifetime by one hour.
 
@@ -123,10 +119,10 @@ Check the validity of a authentication token. Checking the validity of a token w
 .. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_get_auth_validate.txt
 
 
-.. _`GET auth/register_api_token`:
+.. _`GET /auth/register_api_token`:
 
-`GET auth/register_api_token`
-"""""""""""""""""""""""""""""
+`GET /auth/register_api_token`
+""""""""""""""""""""""""""""""
 
 **Responses**
 
@@ -139,10 +135,10 @@ Check the validity of a authentication token. Checking the validity of a token w
 Account
 ^^^^^^^
 
-.. _`POST accounts/{accountName}`:
+.. _`POST /accounts/{accountName}`:
 
-`POST POST accounts/{accountName}`
-""""""""""""""""""""""""""""""""""
+`POST /accounts/{accountName}`
+""""""""""""""""""""""""""""""
 
 Create account.
 
@@ -165,10 +161,10 @@ Create account.
 .. literalinclude:: example_outputs/success-rucio.tests.test_curl.TestCurlRucio.test_post_account.txt
    :lines: 2
 
-.. _`GET accounts/{accountName}`:
+.. _`GET /accounts/{accountName}`:
 
-`GET accounts/{accountName}`
-""""""""""""""""""""""""""""
+`GET /accounts/{accountName}`
+"""""""""""""""""""""""""""""
 
 Get account information.
 

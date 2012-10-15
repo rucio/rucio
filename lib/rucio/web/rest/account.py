@@ -220,6 +220,8 @@ class AccountParameter:
             add_account(accountName, accountType)
         except Duplicate as e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
@@ -251,8 +253,12 @@ class AccountParameter:
 
         try:
             del_account(accountName)
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
 
         raise OK()
 

@@ -71,11 +71,11 @@ def add_account(args):
     return SUCCESS
 
 
-def disable_account(args):
+def delete_account(args):
     """
     %(prog)s disable [options] <field1=value1 field2=value2 ...>
 
-    Disable account.
+    Delete account.
 
     """
     if args.auth_strategy == 'userpass':
@@ -186,6 +186,83 @@ def list_identities(args):
     return SUCCESS
 
 
+def set_limits(args):
+    """
+    %(prog)s set-limits [options] <field1=value1 field2=value2 ...>
+
+    Grant an identity access to an account.
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        print 'Added new limits to account: %s' % (args.acnt)
+    except Exception, e:
+            print 'Failed add limits to an account'
+            print e
+            return FAILURE
+
+    return SUCCESS
+
+def get_limits(args):
+    """
+    %(prog)s get-limits [options] <field1=value1 field2=value2 ...>
+
+    Grant an identity access to an account.
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        print 'Added new limits to account: %s' % (args.acnt)
+    except Exception, e:
+            print 'Failed add limits to an account'
+            print e
+            return FAILURE
+
+    return SUCCESS
+
+def del_limits(args):
+    """
+    %(prog)s del-limits [options] <field1=value1 field2=value2 ...>
+
+    Grant an identity access to an account.
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        print 'Added new limits to account: %s' % (args.acnt)
+    except Exception, e:
+            print 'Failed add limits to an account'
+            print e
+            return FAILURE
+
+    return SUCCESS
 
 def identity_add(args):
     """
@@ -270,9 +347,9 @@ def disable_rse(args):
                     auth_type=args.auth_strategy, creds=creds,
                     ca_cert=args.ca_certificate)
     try:
-        client.disable_rse(args.location)
+        client.disable_rse(args.rse)
     except Exception, e:
-            print 'Failed to disable account %s' % args.location
+            print 'Failed to delete RSE %s' % args.rse
             print e
             return FAILURE
     return SUCCESS
@@ -472,7 +549,7 @@ Commands:
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host."  "Default: %default")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
-    oparser.add_argument('-T', '--timeout=', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
+    oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -497,9 +574,9 @@ Commands:
     add_account_parser.add_argument('--type', dest='acnttype', default='user', help='Account Type')
 
     # The disable_account command
-    disable_account_parser = account_subparser.add_parser('disable', help='Disable Rucio account')
-    disable_account_parser.set_defaults(which='disable_account')
-    disable_account_parser.add_argument('acnt', action='store', help='Account name')
+    del_account_parser = account_subparser.add_parser('del', help='Del Rucio account')
+    del_account_parser.set_defaults(which='del_account')
+    del_account_parser.add_argument('acnt', action='store', help='Account name')
 
     # The show_account command
     show_account_parser = account_subparser.add_parser('show', help='Show detailed information about an account')
@@ -510,6 +587,24 @@ Commands:
     list_account_identities_parser = account_subparser.add_parser('list-identities', help='List all identities on an account')
     list_account_identities_parser.set_defaults(which='list_identities')
     list_account_identities_parser.add_argument('acnt', action='store', help='Account name')
+
+    # The set-account-limits command
+    set_account_limits_parser = account_subparser.add_parser('set-limits', help='Set the limits for the provided account')
+    set_account_limits_parser.set_defaults(which='set_limits')
+    set_account_limits_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    set_account_limits_parser.add_argument('--rse_expr', dest='rse_expre', action='store', help='RSE boolean expression', required=True)
+    set_account_limits_parser.add_argument('--value', dest='value', action='store', help='The total number of bytes that can be stored', required=True)
+
+    # The get-account-limits command
+    #get_account_limits_parser = account_subparser.add_parser('get-limits', help='Get the limits for the provided account')
+    #get_account_limits_parser.set_defaults(which='get_limits')
+    #get_account_limits_parser.add_argument('acnt', action='store', help='Account name')
+
+    # The del-account-limits command
+    #del_account_limits_parser = account_subparser.add_parser('del-limits', help='Delete the limits for the provided account')
+    #del_account_limits_parser.set_defaults(which='del_limits')
+    #del_account_limits_parser.add_argument('--account', 'acnt', action='store', help='Account name', required=True)
+    #del_account_limits_parser.add_argument('--rse_expr', 'rse_expre', action='store', help='RSE boolean expression', required=True)
 
     # The identity subparser
     identity_parser = subparsers.add_parser('identity', help='Identity methods')
@@ -585,10 +680,29 @@ Commands:
     list_scope_parser.set_defaults(which='list_scopes')
     list_scope_parser.add_argument('--account', dest='acnt', action='store', help='Account name')
 
+    # The metadata subparser
+    meta_parser = subparsers.add_parser('meta', help='Metadata methods')
+    meta_subparser = meta_parser.add_subparsers()
+
+    # The add_meta command
+    add_meta_parser = meta_subparser.add_parser('add', help='Add metadata')
+    add_meta_parser.set_defaults(which='add_meta')
+
+    # The del_meta command
+    del_meta_parser = meta_subparser.add_parser('del', help='Del metadata')
+    del_meta_parser.set_defaults(which='del_meta')
+
+    # The list_meta command
+    list_meta_parser = meta_subparser.add_parser('list', help='List metadata')
+    list_meta_parser.set_defaults(which='list_meta')
+
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
-                'disable_account': disable_account,
+                'del_account': delete_account,
                 'show_account': show_account,
+                'set_limits': set_limits,
+                'get_limits': get_limits,
+                'del_limits': del_limits,
                 'list_identities': list_identities,
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
