@@ -319,10 +319,17 @@ def upload(args):
     rsemgr = rsemanager.RSEMgr()
     files = args.files
     for file in files:
-        size = os.stat(file).st_size
-        checksum = adler32(file)
-        client.add_file_replica(scope=args.scope, name=file, rse=args.rse, checksum=checksum, size=size)
-        rsemgr.upload(args.rse, lfns=[{'filename':file, 'scope': args.scope},])
+        try:
+            size = os.stat(file).st_size
+            checksum = adler32(file)
+            client.add_file_replica(scope=args.scope, name=file, rse=args.rse, checksum=checksum, size=size)
+            rsemgr.upload(args.rse, lfns=[{'filename':file, 'scope': args.scope},])
+            print 'download operation for %s done' % (file)
+        except Exception, e:
+            print 'Failed to download %(file)s' % locals()
+            print e
+
+
 #args.rse
 
 def download(args):
@@ -350,8 +357,9 @@ def download(args):
                 for replica in files[file]:
                     rsemgr.download(rse_id=replica['rse'], files={'lfns': [{'filename': name, 'scope': scope},]},  dest_dir=args.dir)
                     break
+            print 'download operation for %s done' % (data_id)
         except Exception, e:
-            print 'Failed to list file replicas for %(data_id)s' % locals()
+            print 'Failed to download %(data_id)s' % locals()
             print e
 
 
@@ -375,7 +383,7 @@ Commands:
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host." "Default: %default")
     oparser.add_argument('--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
     oparser.add_argument('--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
-    oparser.add_argument('--timeout=', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
+    oparser.add_argument('--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -443,13 +451,44 @@ Commands:
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True) # to be optional after
     upload_parser.add_argument('--dsn', dest='dsn', action='store', help='Dataset name to create')
 
-
     # The download subparser
     download_parser = subparsers.add_parser('download', help='Download method')
     download_parser.set_defaults(which='download')
     download_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
     download_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
 
+    # The get-metadata subparser
+    get_metadata_parser = subparsers.add_parser('get-metadata', help='get-metadata method')
+    get_metadata_parser.set_defaults(which='get_metadata')
+
+    # The set-metadata subparser
+    set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
+    set_metadata_parser.set_defaults(which='set_metadata')
+
+    # The del-metadata subparser
+    del_metadata_parser = subparsers.add_parser('del-metadata', help='del-metadata method')
+    del_metadata_parser.set_defaults(which='del_metadata')
+
+    # The search subparser
+    search_parser = subparsers.add_parser('search', help='Search method')
+    search_parser.set_defaults(which='search')
+
+    # The list-rse-usage subparser
+    list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='list-rse-usage method')
+    list_rse_usage_parser.set_defaults(which='list_rse_usage')
+    list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name')
+    list_rse_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List rse usage history')
+
+    # The list-account-usage subparser
+    list_account_usage_parser = subparsers.add_parser('list-account-usage', help='list-account-usage method')
+    list_account_usage_parser.set_defaults(which='list_account_usage')
+    list_account_usage_parser.add_argument(dest='account', action='store', help='Account name')
+    list_account_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List account usage history')
+
+    # The list-account-limits subparser
+    list_account_limits_parser = subparsers.add_parser('list-account-limits', help='list-account-limits method')
+    list_account_limits_parser.set_defaults(which='list_account_limits')
+    list_account_limits_parser.add_argument(dest='account', action='store', help='Account name')
 
     args = oparser.parse_args(sys.argv[1:])
 

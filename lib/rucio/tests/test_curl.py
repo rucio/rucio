@@ -59,11 +59,27 @@ class TestCurlRucio():
 
     def test_get_auth_GSS(self):
         """AUTH (CURL): Test auth token retrieval with via gss"""
-        pass
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_in('Rucio-Auth-Token', out)
+        os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" --negotiate -u: -X GET https://localhost/auth/gss'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+        # nose.tools.assert_in('Rucio-Auth-Token', out)
 
-    def test_get_auth_proxy(self):
+    def test_get_auth_x509_proxy(self):
         """AUTH (CURL): Test auth token retrieval with via proxy"""
-        pass
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_in('Rucio-Auth-Token', out)
+        os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: vgaronne" --cert $X509_USER_PROXY --key $X509_USER_PROXY -X GET https://localhost/auth/x509_proxy'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out,
+        # nose.tools.assert_in('Rucio-Auth-Token', out)
 
     def test_get_auth_validate(self):
         """AUTH (CURL): Test if token is valid"""
