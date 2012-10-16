@@ -104,7 +104,8 @@ def create_root_account():
         gss_id = config_get('bootstrap', 'gss_identity')
         gss_email = config_get('bootstrap', 'gss_email')
     except:
-        print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
+        pass
+        # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
 
     session = get_session()
 

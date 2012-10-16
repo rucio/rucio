@@ -83,7 +83,7 @@ def list_rses():
 
     rse_list = []
 
-    for rse in session.query(models.RSE).order_by(models.RSE.rse):
+    for rse in session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse):
         rse_list.append(rse.rse)
 
     return rse_list
@@ -263,7 +263,7 @@ def get_rse_usage_history(rse, filters=None):
         result.append({'location': usage.location.location, 'source': usage.source, usage.name: usage.value, 'updated_at': usage.updated_at})
 
 
-def add_file_replica(rse, scope, name, size, checksum, issuer):
+def add_file_replica(rse, scope, name, size, checksum, issuer, dsn):
     """ Add File replica.
 
     :param rse: the rse name.
@@ -281,6 +281,8 @@ def add_file_replica(rse, scope, name, size, checksum, issuer):
     new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum)
     # Add optional pfn
     try:
+        new_data_id = session.merge(new_data_id)
+        new_file = session.merge(new_file)
         new_data_id.save(session=session)
         new_file.save(session=session)
     except IntegrityError, e:
@@ -292,7 +294,27 @@ def add_file_replica(rse, scope, name, size, checksum, issuer):
     try:
         new_replica.save(session=session)
     except IntegrityError, e:
+        print e
         session.rollback()
         raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
+
+    # Insert dataset and content
+    if dsn:
+        new_dsn = models.DataIdentifier(scope=dsn['scope'], name=dsn['name'], owner=issuer, type=models.DataIdType.DATASET)
+        try:
+            new_dsn = session.merge(new_dsn)
+            new_dsn.save(session=session)
+        except IntegrityError, e:
+            # needs to parse the exception string
+            print e
+            session.rollback()
+
+        new_child = models.DataIdentifierAssociation(scope=dsn['scope'], name=dsn['name'], child_scope=scope, child_name=name, type=models.DataIdType.DATASET, child_type=models.DataIdType.FILE)
+        try:
+            new_child.save(session=session)
+        except IntegrityError, e:
+           # needs to parse the exception string
+            print e
+            session.rollback()
 
     session.commit()

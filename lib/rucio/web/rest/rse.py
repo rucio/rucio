@@ -113,7 +113,6 @@ class RSE:
         """
 
         header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
 
         header('Content-Type', 'application/octet-stream')
 
@@ -126,9 +125,10 @@ class RSE:
 
         try:
             del_rse(rse=rseName, issuer=auth['account'])
-        except AccountNotFound, e:
+        except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except AccessDenied, e:
+            print e
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
 
         raise OK()
@@ -265,14 +265,15 @@ class Files:
         try:
             size = parameter['size']
             checksum = parameter['checksum']
+            dsn = parameter['dsn']
         except KeyError, e:
-            if e.args[0] == 'size' or e.args[0] == 'checksum':
+            if e.args[0] == 'size' or e.args[0] == 'checksum' or e.args[0] == 'dsn':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=auth['account'])
+            add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, dsn=dsn, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
