@@ -66,9 +66,9 @@ class BaseClient(object):
 
         try:
             if self.host is None:
-                self.host = config_get('client', 'rucio_url')
+                self.host = config_get('client', 'rucio_host')
             if self.auth_host is None:
-                self.auth_host = config_get('client', 'auth_url')
+                self.auth_host = config_get('client', 'auth_host')
         except (NoOptionError, NoSectionError), e:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % e.args[0])
 
