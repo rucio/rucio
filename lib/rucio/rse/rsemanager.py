@@ -15,16 +15,18 @@ from rucio.common import exception
 
 
 class RSEMgr(object):
-    def __init__(self, path_to_credentials_file='etc/rse-accounts.cfg'):
+    def __init__(self, path_to_credentials_file=None):
         """ Instantiates the RSEMgr.
 
             :param path_to_credentials_file Relatiuve path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed.
         """
         self.__credentials = None
-
+        if not path_to_credentials_file:
+            self.path_to_credentials_file = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
         # Load all user credentials
         try:
-            self.__credentials = json.load(open('%s/%s' % (os.environ['RUCIO_HOME'], path_to_credentials_file)))
+            print 'Loading credentials from %s' % self.path_to_credentials_file
+            self.__credentials = json.load(open(self.path_to_credentials_file))
         except Exception as e:
             raise exception.ErrorLoadingCredentials(e)
 
@@ -132,7 +134,7 @@ class RSE(object):
         GET (Download), PUT (Upload), Delete, and Rename files for RSEs.
     """
 
-    def __init__(self, rse_id, protocol=None):
+    def __init__(self, rse_id, protocol=None, path_to_repo=None):
         """  This methode instantiates a new RSE using the provided credetnials and the reffered protocol.
 
             :param rse_id       The identifier of the requested RSE
@@ -147,10 +149,14 @@ class RSE(object):
         self.__id = rse_id
         self.__props = None
         self.__connected = False
-        self.__path_to_repo = '%s/etc/rse_repository.json' % os.environ['RUCIO_HOME']  # path_to_repo: path to the RSE repository used to look-up a specific RSE
+        if not path_to_repo:
+            self.__path_to_repo = '%s/etc/rse_repository.json' % os.environ['RUCIO_HOME']  # path_to_repo: path to the RSE repository used to look-up a specific RSE
+        else:
+            self.__path_to_repo = path_to_repo
 
         # Loading repository data
         try:
+            print 'Loading repository datat from %s' % self.__path_to_repo
             f = open(self.__path_to_repo)
             repdata = json.load(f)
             f.close()
