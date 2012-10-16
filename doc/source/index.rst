@@ -83,10 +83,11 @@ Rucio Client APIs
 
     account
     scope
-    dataset
+    identity
+    rse
+    dataidentifier
     meta-data
     permission
-    identity
 ..    service_availability
     rse
     replica
@@ -104,6 +105,7 @@ Using Rucio
     api_curl_examples
     rucio_cli
     cli_examples
+    cli_admin_examples
     rucio_clients
     client_examples
 

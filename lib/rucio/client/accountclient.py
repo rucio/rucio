@@ -24,7 +24,7 @@ class AccountClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(AccountClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def create_account(self, accountName, accountType):
+    def add_account(self, accountName, accountType):
         """
         Sends the request to create a new account.
 
@@ -42,10 +42,10 @@ class AccountClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def disable_account(self, accountName):
+    def delete_account(self, accountName):
         """
         Sends the request to disable an account.
 
