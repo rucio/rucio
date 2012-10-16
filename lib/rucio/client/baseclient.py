@@ -44,7 +44,7 @@ class BaseClient(object):
 
     AUTH_RETRIES = 2
     REQUEST_RETRIES = 3
-    TOKEN_PATH = '/tmp/rucio'
+    TOKEN_PATH_PREFIX = '/tmp/.rucio_'
     TOKEN_PREFIX = 'auth_token_'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
@@ -66,9 +66,9 @@ class BaseClient(object):
 
         try:
             if self.host is None:
-                self.host = config_get('client', 'rucio_host')
+                self.host = config_get('client', 'rucio_url')
             if self.auth_host is None:
-                self.auth_host = config_get('client', 'auth_host')
+                self.auth_host = config_get('client', 'auth_url')
         except (NoOptionError, NoSectionError), e:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % e.args[0])
 
@@ -367,8 +367,8 @@ class BaseClient(object):
         :return: True if a token could be read. False if no file exists.
         """
 
-        self.token_file = self.TOKEN_PATH + '/' + self.TOKEN_PREFIX + self.account
-        self.token_file = '/tmp/rucio/auth_token_' + self.account
+        token_path = self.TOKEN_PATH_PREFIX + self.account
+        self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
 
         if not path.exists(self.token_file):
             return False
@@ -390,20 +390,20 @@ class BaseClient(object):
         Write the current auth_token to the local token file.
         """
 
-        self.token_file = self.TOKEN_PATH + '/' + self.TOKEN_PREFIX + self.account
-        self.token_file = '/tmp/rucio/auth_token_' + self.account
+        token_path = self.TOKEN_PATH_PREFIX + self.account
+        self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
 
         # check if rucio temp directory is there. If not create it with permissions only for the current user
-        if not path.isdir(self.TOKEN_PATH):
+        if not path.isdir(token_path):
             try:
-                LOG.debug('rucio token folder \'%s\' not found. Create it.' % self.TOKEN_PATH)
-                mkdir(self.TOKEN_PATH, 0700)
+                LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
+                mkdir(token_path, 0700)
             except Exception, e:
                 raise e
 
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
-            fd, fn = tempfile.mkstemp(dir=self.TOKEN_PATH)
+            fd, fn = tempfile.mkstemp(dir=token_path)
             f = os.fdopen(fd, 'w')
             f.write(self.auth_token)
             f.close()
