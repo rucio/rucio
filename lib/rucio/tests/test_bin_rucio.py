@@ -26,7 +26,7 @@ class TestBinRucio():
         build_database(echo=False)
         create_root_account()
         try:
-            remove('/tmp/rucio/auth_token_root')
+            remove('/tmp/.rucio_root/auth_token_root')
         except OSError, e:
             if e.args[0] != 2:
                 raise e
