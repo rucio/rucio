@@ -125,10 +125,13 @@ def add_replicas(args):
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
+    dsn = None
+    if args.dsn:
+        dsn = {'scope': args.dsn.split(':')[0], 'name': args.dsn.split(':')[1]}
     for lfn, rse, checksum, size in zip(args.lfns, args.rses, args.checksums, args.sizes):
         try:
             scope, name = lfn.split(':')
-            client.add_file_replica(scope=scope, name=name, rse=rse, checksum=checksum, size=size)
+            client.add_file_replica(scope=scope, name=name, rse=rse, checksum=checksum, size=size, dsn=dsn)
             print 'Added file replica %(lfn)s at %(rse)s' % locals()
         except Exception, e:
             print 'Failed to add file replica %(lfn)s at %(rse)s' % locals()
@@ -316,13 +319,17 @@ def upload(args):
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
+    dsn = None
+    if args.dsn:
+        dsn = {'scope': args.scope, 'name': args.dsn}
+
     rsemgr = rsemanager.RSEMgr()
     files = args.files
     for file in files:
         try:
             size = os.stat(file).st_size
             checksum = adler32(file)
-            client.add_file_replica(scope=args.scope, name=file, rse=args.rse, checksum=checksum, size=size)
+            client.add_file_replica(scope=args.scope, name=file, rse=args.rse, checksum=checksum, size=size, dsn=dsn)
             rsemgr.upload(args.rse, lfns=[{'filename':file, 'scope': args.scope},])
             print 'download operation for %s done' % (file)
         except Exception, e:
@@ -408,7 +415,7 @@ Commands:
     add_replicas_parser.add_argument('--rses', dest='rses', nargs='+', action='store', help='List of space separated Rucio Storage Element(RSE)', required=True)
     add_replicas_parser.add_argument('--sizes', dest='sizes', nargs='+', action='store', help='List of space separated file sizes', required=True)
     add_replicas_parser.add_argument('--checksums', dest='checksums', nargs='+', action='store', help='List of space separated file checksums', required=True)
-    add_replicas_parser.add_argument('--dsn', dest='dsn', action='store', help='Dataset name to create')
+    add_replicas_parser.add_argument('--dsn', dest='dsn', default=None, action='store', help='Dataset name to create')
 
     # The list_replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')

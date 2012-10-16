@@ -156,7 +156,7 @@ class RSE(object):
 
         # Loading repository data
         try:
-            print 'Loading repository datat from %s' % self.__path_to_repo
+            print 'Loading repository data from %s' % self.__path_to_repo
             f = open(self.__path_to_repo)
             repdata = json.load(f)
             f.close()

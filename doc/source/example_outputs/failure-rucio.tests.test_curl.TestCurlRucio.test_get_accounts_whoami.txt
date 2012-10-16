@@ -1,0 +1,45 @@
+$> curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/accounts/whoami
+HTTP/1.1 401 Unauthorized
+Date: Mon, 15 Oct 2012 10:58:26 GMT
+Server: Apache/2.2.22 (Unix) mod_ssl/2.2.22 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.15 mod_fastcgi/2.4.2
+ExceptionMessage: Cannot authenticate with given credentials
+ExceptionClass: CannotAuthenticate
+Content-Length: 62
+Content-Type: text/html
+
+CannotAuthenticate: Cannot authenticate with given credentials
+Traceback (most recent call last):
+  File "/usr/local/Cellar/python/2.7.3/lib/python2.7/unittest/case.py", line 327, in run
+    testMethod()
+  File "/Users/garonne/Lab/rucio/.venv/lib/python2.7/site-packages/nose/case.py", line 197, in runTest
+    self.test(*self.arg)
+  File "/Users/garonne/Lab/rucio/lib/rucio/tests/test_curl.py", line 110, in test_get_accounts_whoami
+    nose.tools.assert_in('303 See Other', out)
+  File "/usr/local/Cellar/python/2.7.3/lib/python2.7/unittest/case.py", line 801, in assertIn
+    self.fail(self._formatMessage(msg, standardMsg))
+  File "/usr/local/Cellar/python/2.7.3/lib/python2.7/unittest/case.py", line 408, in fail
+    raise self.failureException(msg)
+AssertionError: '303 See Other' not found in 'HTTP/1.1 401 Unauthorized\r\nDate: Mon, 15 Oct 2012 10:58:26 GMT\r\nServer: Apache/2.2.22 (Unix) mod_ssl/2.2.22 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.15 mod_fastcgi/2.4.2\r\nExceptionMessage: Cannot authenticate with given credentials\r\nExceptionClass: CannotAuthenticate\r\nContent-Length: 62\r\nContent-Type: text/html\r\n\r\nCannotAuthenticate: Cannot authenticate with given credentials'
+-------------------- >> begin captured stdout << ---------------------
+$> curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/accounts/whoami
+HTTP/1.1 401 Unauthorized
+Date: Mon, 15 Oct 2012 10:58:26 GMT
+Server: Apache/2.2.22 (Unix) mod_ssl/2.2.22 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.15 mod_fastcgi/2.4.2
+ExceptionMessage: Cannot authenticate with given credentials
+ExceptionClass: CannotAuthenticate
+Content-Length: 62
+Content-Type: text/html
+
+CannotAuthenticate: Cannot authenticate with given credentials
+
+--------------------- >> end captured stdout << ----------------------
+-------------------- >> begin captured logging << --------------------
+migrate.versioning.repository: DEBUG: Loading repository /Users/garonne/Lab/rucio/lib/rucio/db/rucio_migrate_repo...
+migrate.versioning.repository: DEBUG: Repository /Users/garonne/Lab/rucio/lib/rucio/db/rucio_migrate_repo loaded successfully
+migrate.versioning.repository: DEBUG: Config: OrderedDict([('db_settings', OrderedDict([('__name__', 'db_settings'), ('repository_id', 'rucio db migration'), ('version_table', 'migrate_version'), ('required_dbs', '[]'), ('use_timestamp_numbering', 'False')]))])
+migrate.versioning.util: DEBUG: Constructing engine
+migrate.versioning.repository: DEBUG: Loading repository /Users/garonne/Lab/rucio/lib/rucio/db/rucio_migrate_repo...
+migrate.versioning.repository: DEBUG: Repository /Users/garonne/Lab/rucio/lib/rucio/db/rucio_migrate_repo loaded successfully
+migrate.versioning.repository: DEBUG: Config: OrderedDict([('db_settings', OrderedDict([('__name__', 'db_settings'), ('repository_id', 'rucio db migration'), ('version_table', 'migrate_version'), ('required_dbs', '[]'), ('use_timestamp_numbering', 'False')]))])
+migrate.versioning.util: DEBUG: Disposing SQLAlchemy engine Engine(sqlite:////tmp/rucio.db)
+--------------------- >> end captured logging << ---------------------

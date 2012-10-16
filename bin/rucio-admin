@@ -62,7 +62,7 @@ def add_account(args):
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        accountClient.create_account(accountName=args.acnt, accountType=args.acnttype)
+        accountClient.add_account(accountName=args.acnt, accountType=args.acnttype)
         print 'Added new account: %s' % args.acnt
     except Exception, e:
             print 'Failed to create account %s' % args.acnt
@@ -89,7 +89,8 @@ def delete_account(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        accountClient.disable_account(args.acnt)
+      accountClient.delete_account(args.acnt)
+      print 'Deleted account: %s' % args.acnt
     except Exception, e:
             print 'Failed to disable account %s' % args.acnt
             print e
@@ -342,12 +343,12 @@ def disable_rse(args):
     else:
         creds = None
 
-    client = Client(host=args.host, auth_host=args.auth_host,
-                    account=args.account,
-                    auth_type=args.auth_strategy, creds=creds,
-                    ca_cert=args.ca_certificate)
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.disable_rse(args.rse)
+        client.delete_rse(args.rse)
     except Exception, e:
             print 'Failed to delete RSE %s' % args.rse
             print e
@@ -661,7 +662,7 @@ Commands:
     #listattr_rse_parser.set_defaults(which='listattr_rse')
 
     # The disable_location command
-    disable_rse_parser = rse_subparser.add_parser('disable', help='Disable RSE')
+    disable_rse_parser = rse_subparser.add_parser('del', help='Disable RSE')
     disable_rse_parser.set_defaults(which='disable_rse')
     disable_rse_parser.add_argument('rse', action='store', help='RSE name')
 

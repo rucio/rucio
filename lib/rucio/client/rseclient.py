@@ -26,11 +26,11 @@ class RSEClient(BaseClient):
 
     def add_rse(self, rse):
         """
-        Sends the request to create a new rse/location.
+        Sends the request to create a new rse.
 
         :param rse: the name of the  rse.
         :return: True if location was created successfully else False.
-        :raises Duplicate: if location already exists.
+        :raises Duplicate: if rse already exists.
         """
 
         headers = {'Rucio-Auth-Token': self.auth_token}
@@ -41,6 +41,24 @@ class RSEClient(BaseClient):
             return True
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
+
+    def delete_rse(self, rse):
+        """
+        Sends the request to delete a rse.
+
+        :param rse: the name of the rse.
+        :return: True if location was created successfully else False.
+        """
+
+        headers = {'Rucio-Auth-Token': self.auth_token}
+        path = 'rses/' + rse
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, headers, type='DEL')
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
     def list_rses(self, filters=None):
@@ -124,7 +142,7 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_file_replica(self, rse, scope, name, size, checksum):
+    def add_file_replica(self, rse, scope, name, size, checksum, dsn=None):
         """
         Add a file replica to a RSE.
 
@@ -133,14 +151,14 @@ class RSEClient(BaseClient):
         :param name: the name of the file.
         :param size: the size of the file.
         :param checksum: the checksum of the file.
+        :param dsn: the dataset name.
 
         :return: True if file was created successfully else False.
         :raises Duplicate: if file replica already exists.
         """
-        data = dumps({'size': size, 'checksum': checksum})
+        data = dumps({'size': size, 'checksum': checksum, 'dsn': dsn})
         path = '/'.join([self.BASEURL, rse, 'files', scope, name])
         url = build_url(self.host, path=path)
-
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
