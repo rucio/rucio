@@ -16,19 +16,18 @@ from sqlalchemy.exc import DisconnectionError
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.db import models1 as models, migration
+from rucio.db import models, migration
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):
-        # Hack for previous versions of sqlite3
-        try:
-            dbapi_con.execute('pragma foreign_keys=ON')
-        except AttributeError:
-            pass
+    # Hack for previous versions of sqlite3
+    try:
+        dbapi_con.execute('pragma foreign_keys=ON')
+    except AttributeError:
+        pass
 
 
-def ping_listener(dbapi_conn, connection_rec, connection_proxy):
-
+def mysql_ping_listener(dbapi_conn, connection_rec, connection_proxy):
     """
     Ensures that MySQL connections checked out of the
     pool are alive.
@@ -58,7 +57,7 @@ def get_session():
     database = config_get('database', 'default')
     engine = create_engine(database, echo=False, echo_pool=False)
     if 'mysql' in database:
-        event.listen(engine, 'checkout', ping_listener)
+        event.listen(engine, 'checkout', mysql_ping_listener)
 
     event.listen(engine, 'connect', _fk_pragma_on_connect)
     return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))

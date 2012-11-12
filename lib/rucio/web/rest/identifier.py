@@ -10,24 +10,19 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from json import dumps, loads
-from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, header, input as web_input, websafe,\
-    Created, InternalError, OK, BadRequest
+import traceback
 
+from json import dumps, loads
+from web import application, ctx, data, header, Created, InternalError, BadRequest
+
+from rucio.api.authentication import validate_auth_token
 from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files
-from rucio.core.authentication import validate_auth_token
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.utils import generate_http_error
 
-logger = getLogger("rucio.identifier.py")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
-
 urls = (
     '/(.*)/(.*)/rses', 'Replicas',
-    '/(.*)/(.*)/data_ids', 'Identifiers',
+    '/(.*)/(.*)/dids', 'Identifiers',
     '/(.*)/(.*)/files', 'Files',
     '/(.*)/(.*)', 'Identifiers',
 )
@@ -35,10 +30,21 @@ urls = (
 
 class Identifiers:
 
-    def POST(self, scope, name):
+    def POST(self, scope, did):
         """
+        Create a new data identifier.
 
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: Create the data identifier within this scope.
+        :param did: Create the data identifier with this name.
         """
+        
         header('Content-Type', 'application/json')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
@@ -51,17 +57,34 @@ class Identifiers:
         try:
             sources = loads(json_data)
         except ValueError:
-            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter list')
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_identifier(scope=scope, name=name, sources=sources, issuer=auth['account'])
+            add_identifier(scope=scope, did=did, sources=sources, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
+            traceback.print_exc()
             raise InternalError(e)
         raise Created()
 
-    def GET(self, scope, name):
+    def GET(self, scope, did):
+        """
+        Returns the contents of a data identifier.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: The scope of the data identifier.
+        :param did: The name of the data identifier.
+
+        :returns: A list with the contents.
+        """
+
         header('Content-Type', 'application/json')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
@@ -69,8 +92,9 @@ class Identifiers:
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
         try:
-            return dumps(list_content(scope=scope, name=name))
+            return dumps(list_content(scope=scope, did=did))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
@@ -87,11 +111,12 @@ class Identifiers:
 
 class Replicas:
 
-    def POST(self, scope, name):
+    def POST(self, scope, did):
         raise BadRequest()
 
-    def GET(self, scope, name):
-        """ list all replicas for a data_id.
+    def GET(self, scope, did):
+        """
+        List all replicas for a data identifier.
 
         HTTP Success:
             200 OK
@@ -100,7 +125,7 @@ class Replicas:
             401 Unauthorized
             500 InternalError
 
-        :returns: A dictionnary containing all replicas information.
+        :returns: A dictionary containing all replicas information.
         """
 
         header('Content-Type', 'application/json')
@@ -112,11 +137,10 @@ class Replicas:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_replicas(scope=scope, name=name))
+            return dumps(list_replicas(scope=scope, did=did))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
-            print e
             raise InternalError(e)
 
     def PUT(self):
@@ -130,11 +154,11 @@ class Replicas:
 
 class Files:
 
-    def POST(self, scope, name):
+    def POST(self, scope, did):
         raise BadRequest()
 
-    def GET(self, scope, name):
-        """ list all replicas for a data_id.
+    def GET(self, scope, did):
+        """ List all replicas of a data identifier.
 
         HTTP Success:
             200 OK
@@ -143,7 +167,7 @@ class Files:
             401 Unauthorized
             500 InternalError
 
-        :returns: A dictionnary containing all replicas information.
+        :returns: A dictionary containing all replicas information.
         """
 
         header('Content-Type', 'application/json')
@@ -155,11 +179,10 @@ class Files:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_files(scope=scope, name=name))
+            return dumps(list_files(scope=scope, did=did))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
-            print e
             raise InternalError(e)
 
     def PUT(self):
@@ -169,6 +192,7 @@ class Files:
     def DELETE(self):
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
+
 
 """----------------------
    Web service startup

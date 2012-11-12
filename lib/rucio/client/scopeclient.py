@@ -24,22 +24,21 @@ class ScopeClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(ScopeClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def add_scope(self, accountName, scopeName):
+    def add_scope(self, account_name, scope_name):
         """
         Sends the request to add a new scope.
 
-        :param accountName: the name of the account to add the scope to.
-        :param scopeName: the name of the new scope.
+        :param account_name: the name of the account to add the scope to.
+        :param scope_name: the name of the new scope.
         :return: True if scope was created successfully.
         :raises Duplicate: if scope already exists.
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.BASEURL, accountName, 'scopes', scopeName])
+        path = '/'.join([self.BASEURL, account_name, 'scopes', scope_name])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST')
-
         if r.status_code == codes.created:
             return True
         else:
@@ -63,17 +62,17 @@ class ScopeClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def list_scopes_for_account(self, accountName):
+    def list_scopes_for_account(self, account_name):
         """
         Sends the request to list all scopes for a rucio account.
 
-        :param accountName: the rucio account to list scopes for.
+        :param account_name: the rucio account to list scopes for.
         :return: a list containing the names of all scopes for a rucio account.
         :raises AccountNotFound: if account doesn't exist.
         :raises ScopeNotFound: if no scopes exist for account.
         """
 
-        path = '/'.join([self.BASEURL, accountName, 'scopes/'])
+        path = '/'.join([self.BASEURL, account_name, 'scopes/'])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url)

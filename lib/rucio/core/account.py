@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
 
 from rucio.common import exception
-from rucio.db import models1 as models
+from rucio.db import models
 from rucio.db.session import get_session
 
 session = get_session()
@@ -30,16 +30,16 @@ class account_status:
     not_exist = 'not_exist'
 
 
-def add_account(accountName, accountType):
+def add_account(account_name, account_type):
     """ Add an account with the given account name and type.
 
-    :param accountName: the name of the new account.
-    :param accountType: the type of the new account.
+    :param account_name: the name of the new account.
+    :param account_type: the type of the new account.
     """
 
     values = {}
-    values['account'] = accountName
-    values['type'] = accountType
+    values['account'] = account_name
+    values['type'] = account_type
     values['status'] = account_status.active
     new_account = models.Account()
 
@@ -54,71 +54,70 @@ def add_account(accountName, accountType):
     session.commit()
 
 
-def account_exists(accountName):
+def account_exists(account_name):
     """ Checks to see if account exists. This procedure does not check it's status.
 
-    :param accountName: Name of the account.
+    :param account_name: Name of the account.
     :returns: True if found, otherwise false.
     """
 
-    query = session.query(models.Account).filter_by(account=accountName)
+    query = session.query(models.Account).filter_by(account=account_name)
 
     return True if query.first() else False
 
 
-def get_account(accountName):
+def get_account(account_name):
     """ Returns an account for the given account name.
 
-    :param accountName: the name of the account.
+    :param account_name: the name of the account.
     :returns: a dict with all information for the account.
     """
 
-    query = session.query(models.Account).filter_by(account=accountName)
+    query = session.query(models.Account).filter_by(account=account_name)
 
     result = query.first()
-
     if result is None:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
     return result
 
 
-def del_account(accountName):
+def del_account(account_name):
     """ Disable an account with the given account name.
 
-    :param accountName: the account name.
+    :param account_name: the account name.
     """
 
-    query = session.query(models.Account).filter_by(account=accountName).filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(account=account_name).filter_by(deleted=False)
 
     try:
         account = query.one()
     except exc.NoResultFound:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
 
     account.delete(session=session)
     session.commit()
 
 
-def get_account_status(accountName):
+def get_account_status(account_name):
     """ Returns the state of the account.
 
-    :param accountName: Name of the account.
+    :param account_name: Name of the account.
     """
 
-    query = session.query(models.Account).filter_by(account=accountName)
+    query = session.query(models.Account).filter_by(account=account_name)
 
     acc_details = query.one()
     return acc_details.status
 
 
-def set_account_status(accountName, status):
+def set_account_status(account_name, status):
     """ Set the status of an account.
 
-    :param accountName: Name of the account.
+    :param account_name: Name of the account.
     :param status: The status for the account.
     """
 
-    session.query(models.Account).filter_by(account=accountName).update({'status': status})
+    session.query(models.Account).filter_by(account=account_name).update({'status': status})
     session.commit()
 
 
@@ -138,22 +137,22 @@ def list_accounts():
     return account_list
 
 
-def list_identities(accountName):
+def list_identities(account_name):
     """
     List all identities on an account.
 
-    :param accountName: The account name.
+    :param account_name: The account name.
     """
     identity_list = list()
 
-    query = session.query(models.Account).filter_by(account=accountName).filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(account=account_name).filter_by(deleted=False)
 
     try:
-        account = query.one()
+        query.one()
     except exc.NoResultFound:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % accountName)
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
 
-    query = session.query(models.IdentityAccountAssociation).filter_by(account=accountName)
+    query = session.query(models.IdentityAccountAssociation).filter_by(account=account_name)
     for identity in query:
         identity_list.append({'type': identity.type, 'identity': identity.identity})
 

@@ -13,15 +13,13 @@ from os import remove
 from nose.tools import raises
 
 from rucio.client.baseclient import BaseClient
-from rucio.db.session import build_database, destroy_database, create_root_account
+from rucio.client.client import Client
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported
 
 
 class TestBaseClient():
 
     def setUp(self):
-        build_database(echo=False)
-        create_root_account()
         try:
             remove('/tmp/.rucio_root/auth_token_root')
         except OSError, e:
@@ -29,7 +27,7 @@ class TestBaseClient():
                 raise e
 
     def tearDown(self):
-        destroy_database(echo=False)
+        pass
 
     def testUserpass(self):
         """ CLIENTS (BASECLIENT): authenticate with userpass."""
@@ -72,7 +70,7 @@ class TestBaseClient():
 
     @raises(CannotAuthenticate)
     def testx509NonExistingCert(self):
-        """ CLIENTS (BASECLIENT): authenticate with x509 with not existing certificate."""
+        """ CLIENTS (BASECLIENT): authenticate with x509 with missing certificate."""
         creds = {'client_cert': '/opt/rucio/etc/web/notthere.crt'}
         BaseClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
 
@@ -86,17 +84,14 @@ class TestBaseClient():
 class TestRucioClients():
 
     def setUp(self):
-        build_database(echo=False)
-        create_root_account()
         self.marker = '$> '
 
     def tearDown(self):
-        destroy_database(echo=False)
+        pass
 
     def test_ping(self):
         """ PING (CLIENT): Ping Rucio """
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        from rucio.client import Client
 
         c = Client(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 

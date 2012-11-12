@@ -11,7 +11,6 @@
 from nose.tools import assert_true, assert_false
 
 from rucio.api.permission import has_permission
-from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
 
@@ -19,24 +18,22 @@ from rucio.core.account import add_account
 class TestPermissionCoreApi():
 
     def setUp(self):
-        build_database()
-        create_root_account()
         self.usr = str(uuid())
         add_account(self.usr, 'user')
 
     def tearDown(self):
-        destroy_database()
+        pass
 
     def test_permission_add_account(self):
         """ PERMISSION(CORE): Check permission to add account """
-        assert_true(has_permission(issuer='root', action='add_account', kwargs={'accountName': 'account1'}))
-        assert_false(has_permission(issuer='self.usr', action='add_account', kwargs={'accountName': 'account1'}))
+        assert_true(has_permission(issuer='root', action='add_account', kwargs={'account_name': 'account1'}))
+        assert_false(has_permission(issuer='self.usr', action='add_account', kwargs={'account_name': 'account1'}))
 
     def test_permission_add_scope(self):
         """ PERMISSION(CORE): Check permission to add scope """
-        assert_true(has_permission(issuer='root', action='add_scope', kwargs={'accountName': 'account1'}))
-        assert_false(has_permission(issuer=self.usr, action='add_scope', kwargs={'accountName': 'root'}))
-        assert_true(has_permission(issuer=self.usr, action='add_scope', kwargs={'accountName': self.usr}))
+        assert_true(has_permission(issuer='root', action='add_scope', kwargs={'account_name': 'account1'}))
+        assert_false(has_permission(issuer=self.usr, action='add_scope', kwargs={'account_name': 'root'}))
+        assert_true(has_permission(issuer=self.usr, action='add_scope', kwargs={'account_name': self.usr}))
 
     def test_permission_get_auth_token_user_pass(self):
         """ PERMISSION(CORE): Check permission to get_auth_token_user_pass """

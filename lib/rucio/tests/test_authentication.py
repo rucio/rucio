@@ -12,18 +12,16 @@ from nose.tools import assert_equal, assert_is_not_none
 from paste.fixture import TestApp
 
 from rucio.api.authentication import get_auth_token_user_pass
-from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.authentication import app
 
 
 class TestAuthCoreApi():
 
     def setUp(self):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     def tearDown(self):
-        destroy_database(echo=False)
+        pass
 
     def test_get_auth_token_user_pass(self):
         """AUTHENTICATION (CORE): Username and password (correct credentials)."""
@@ -34,11 +32,10 @@ class TestAuthCoreApi():
 class TestAuthRestApi():
 
     def setUp(self):
-        build_database()
-        create_root_account()
+        pass
 
     def tearDown(self):
-        destroy_database()
+        pass
 
     def test_userpass_fail(self):
         """AUTHENTICATION (REST): Username and password (wrong credentials)."""
@@ -68,18 +65,3 @@ class TestAuthRestApi():
     def test_gss(self):
         """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support GSSAPI handshake. Check tools/test_auth.sh"""
         pass
-
-
-class TestPUT():
-
-    pass
-
-
-class TestPOST():
-
-    pass
-
-
-class TestDELETE():
-
-    pass

@@ -19,7 +19,7 @@ class RucioException(Exception):
     """
 
     def __init__(self, *args, **kwargs):
-        self._message = "An unknown exception occurred"
+        self._message = "An unknown exception occurred."
         self.args = args
         self.kwargs = kwargs
 
@@ -143,37 +143,37 @@ class Duplicate(RucioException):
 
 class NoAuthInformation(RucioException):
     def __init__(self, *args, **kwargs):
-        super(NoAuthInformation, self).__init__(args)
+        super(NoAuthInformation, self).__init__(args, kwargs)
         self._message = "No authentication information passed."
 
 
 class MissingClientParameter(RucioException):
     def __init__(self, *args, **kwargs):
-        super(MissingClientParameter, self).__init__(args)
+        super(MissingClientParameter, self).__init__(args, kwargs)
         self._message = "Client parameters are missing."
 
 
 class CannotAuthenticate(RucioException):
     def __init__(self, *args, **kwargs):
-        super(CannotAuthenticate, self).__init__(args)
+        super(CannotAuthenticate, self).__init__(args, kwargs)
         self._message = "Cannot authenticate."
 
 
 class ClientParameterMismatch(RucioException):
     def __init__(self, *args, **kwargs):
-        super(ClientParameterMismatch, self).__init__(args)
+        super(ClientParameterMismatch, self).__init__(args, kwargs)
         self._message = "Client parameters don\'t match."
 
 
 class ClientProtocolNotSupported(RucioException):
     def __init__(self, *args, **kwargs):
-        super(ClientProtocolNotSupported, self).__init__(args)
+        super(ClientProtocolNotSupported, self).__init__(args, kwargs)
         self._message = "Client protocol not supported."
 
 
 class IdentityError(RucioException):
     def __init__(self, *args, **kwargs):
-        super(IdentityError, self).__init__()
+        super(IdentityError, self).__init__(args, kwargs)
         self._message = "Identity error."
 
 

@@ -37,7 +37,7 @@ class Ping:
         HTTP Error:
             500 InternalError
 
-        :returns: A dictionnary with the Rucio server information.
+        :returns: A dictionary with the Rucio server information.
         """
 
         header('Content-Type', 'application/json')

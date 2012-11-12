@@ -17,7 +17,7 @@ def is_service_available(service_id):
 
     :returns: True if the service is available, otherwise False
     """
-    pass
+    raise NotImplementedError
 
 
 def add_service_downtime(service_id, start_date=None, end_date=None, author=None, comment=None):
@@ -27,12 +27,12 @@ def add_service_downtime(service_id, start_date=None, end_date=None, author=None
     :param service_id: The service identifier.
     :param start_date: The downtime start time.
     :param end_date: The downtime end time.
-    :param author: Author,e.g. external service/shifter, of the service downtime.
+    :param contact: Service/shifter who manages the downtime.
     :param comment: Comment describing the reason of the service downtime.
 
     :returns: downtime_id
     """
-    pass
+    raise NotImplementedError
 
 
 def delete_service_downtime(service_id, downtime_id):
@@ -46,7 +46,7 @@ def delete_service_downtime(service_id, downtime_id):
 
     :returns: True if the service is available, otherwise False
     """
-    pass
+    raise NotImplementedError
 
 
 def get_service_downtimes(service_id):
@@ -59,4 +59,4 @@ def get_service_downtimes(service_id):
 
     :retval Tuple containing (downtime_id,  start_date, end_date, author, comment)
     """
-    pass
+    raise NotImplementedError

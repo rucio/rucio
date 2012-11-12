@@ -9,9 +9,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
-import rucio.api.permission
-import rucio.common.exception
-import rucio.core.authentication
+from rucio.api import permission
+from rucio.common import exception
+from rucio.core import authentication
 
 
 def get_auth_token_user_pass(account, username, password, ip=None):
@@ -26,10 +26,10 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     :returns: Authentication token as a 32 character hex string."""
 
     kwargs = {'account': account, 'username': username, 'password': password}
-    if not rucio.api.permission.has_permission(issuer=account, action='get_auth_token_user_pass', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
+    if not permission.has_permission(issuer=account, action='get_auth_token_user_pass', kwargs=kwargs):
+        raise exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
 
-    return rucio.core.authentication.get_auth_token_user_pass(account, username, password, ip)
+    return authentication.get_auth_token_user_pass(account, username, password, ip)
 
 
 def get_auth_token_gss(account, gsscred, ip=None):
@@ -43,10 +43,10 @@ def get_auth_token_gss(account, gsscred, ip=None):
     :returns: Authentication token as a 32 character hex string."""
 
     kwargs = {'account': account, 'gsscred': gsscred}
-    if not rucio.api.permission.has_permission(issuer=account, action='get_auth_token_gss', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('User with identity %s can not log to account %s' % (gsscred, account))
+    if not permission.has_permission(issuer=account, action='get_auth_token_gss', kwargs=kwargs):
+        raise exception.AccessDenied('User with identity %s can not log to account %s' % (gsscred, account))
 
-    return rucio.core.authentication.get_auth_token_gss(account, gsscred, ip)
+    return authentication.get_auth_token_gss(account, gsscred, ip)
 
 
 def get_auth_token_x509(account, dn, ip=None):
@@ -60,10 +60,10 @@ def get_auth_token_x509(account, dn, ip=None):
     :returns: Authentication token as a 32 character hex string."""
 
     kwargs = {'account': account, 'dn': dn}
-    if not rucio.api.permission.has_permission(issuer=account, action='get_auth_token_x509', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
+    if not permission.has_permission(issuer=account, action='get_auth_token_x509', kwargs=kwargs):
+        raise exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
 
-    return rucio.core.authentication.get_auth_token_x509(account, dn, ip)
+    return authentication.get_auth_token_x509(account, dn, ip)
 
 
 def validate_auth_token(token):
@@ -74,22 +74,4 @@ def validate_auth_token(token):
     :param account: Account identifier.
     :param token: Authentication token as a 32 character hex string.
     :returns: Tuple(account name, Datetime(expected expiry time)) if successful, None otherwise."""
-    return rucio.core.authentication.validate_auth_token(token)
-
-
-def register_api_token(account, responsible, service_name):
-    """Register a new service with a unique, permanent API token.
-
-    :param account: Account identifier.
-    :param responsible: Email address of the service responsible as a string.
-    :param service_name: Name of the service as a string.
-    :returns: API token as an 32 character hex string."""
-    raise NotImplementedError
-
-
-def validate_api_token(account, token):
-    """Validate an API token.
-
-    :param account: Account identifier.
-    :param token: API token as a 32 character hex string."""
-    raise NotImplementedError
+    return authentication.validate_auth_token(token)
