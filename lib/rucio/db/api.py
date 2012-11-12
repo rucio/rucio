@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from rucio.db import models1 as models
+from rucio.db import models
 from rucio.common import exception
 from gettext import gettext as _
 

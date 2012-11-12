@@ -6,14 +6,16 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+
 # How to generate test outputs:
 #   nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
 
+import uuid
 import json
 import os
 import nose.tools
 
-from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.tests.common import execute
 
 
@@ -21,19 +23,18 @@ class TestCurlRucio():
 
     @classmethod
     def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        destroy_database(echo=False)
+        pass
 
     def setUp(self):
         self.marker = '$> '
 
     def test_ping(self):
         """PING (CURL): Get Version"""
-        cmd = 'curl -s  -X GET http://localhost/ping'
+        cmd = 'curl --cacert /opt/rucio/etc/web/ca.crt -s -X GET https://localhost/ping'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -43,7 +44,7 @@ class TestCurlRucio():
 
     def test_get_auth_userpass(self):
         """AUTH (CURL): Test auth token retrieval with via username and password"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt  -X GET -H "Rucio-Account: root" -H "Rucio-Username: ddmlab" -H "Rucio-Password: secret" https://localhost/auth/userpass'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -X GET -H "Rucio-Account: root" -H "Rucio-Username: ddmlab" -H "Rucio-Password: secret" https://localhost/auth/userpass'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -99,7 +100,7 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"accountType": "user"}' -X POST https://localhost/accounts/jdoe'''
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"account_type": "user"}' -X POST https://localhost/accounts/jdoe-%s''' % uuid.uuid4()
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -123,7 +124,7 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -X POST https://localhost/rses/MOCK'''
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -X POST https://localhost/rses/MOCK-%s''' % uuid.uuid4()
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out

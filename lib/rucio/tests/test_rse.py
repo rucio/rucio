@@ -9,20 +9,17 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from json import dumps, loads
-from nose.tools import raises, assert_equal, assert_true,\
-    assert_items_equal, assert_in
+from nose.tools import raises, assert_equal, assert_true, assert_in
 from paste.fixture import TestApp
 
 from rucio.client.rseclient import RSEClient
-from rucio.common.exception import Duplicate, RucioException
+from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.rse import add_rse, del_rse, list_rses,\
-    rse_exists, set_rse_usage, get_rse_usage,\
-    add_rse_attribute, get_rses, list_rse_attributes
-from rucio.db.session import build_database, destroy_database, create_root_account
+    rse_exists, set_rse_usage, get_rse_usage
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -31,12 +28,11 @@ class TestRSECoreApi():
 
     @classmethod
     def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        destroy_database(echo=False)
+        pass
 
     def test_create_and_check_for_rse(self):
         """ RSE (CORE): Test the creation, query, and deletion of a RSE """
@@ -80,12 +76,11 @@ class TestRSE():
 
     @classmethod
     def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        destroy_database(echo=False)
+        pass
 
     def test_create_rse_success(self):
         """ RSE (REST): send a POST to create a new RSE """
@@ -175,12 +170,11 @@ class TestRSEClient():
 
     @classmethod
     def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        destroy_database(echo=False)
+        pass
 
     def setUp(self):
         self.client = RSEClient()

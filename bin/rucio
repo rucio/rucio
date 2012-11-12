@@ -22,15 +22,14 @@ import sys
 import time
 
 
-from rucio import client as rucio_client
+from rucio import client
 from rucio import version
 from rucio.client.accountclient import AccountClient
-from rucio.client.datasetclient import DatasetClient
+from rucio.client.cli.download import download
+from rucio.client.cli.upload import upload
 from rucio.client.dataidentifierclient import DataIdentifierClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
-from rucio.client.cli.upload import upload as cli_upload
-from rucio.client.cli.download import download as cli_download
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager
 
@@ -47,15 +46,14 @@ def get_client(args):
     specified by the --host and --port options
     supplied to the CLI
     """
-    return rucio_client.Client(host="0.0.0.0")
+    return client.Client(host="0.0.0.0")
 
 
 def ping(args):
     """
-
     Pings a Rucio server.
-
     """
+    
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
@@ -79,8 +77,8 @@ def whoami_account(args):
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Show extended information of a given account
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -109,6 +107,7 @@ def add_replicas(args):
 
     Add file replicas.
     """
+    
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
@@ -127,11 +126,11 @@ def add_replicas(args):
 
     dsn = None
     if args.dsn:
-        dsn = {'scope': args.dsn.split(':')[0], 'name': args.dsn.split(':')[1]}
+        dsn = {'scope': args.dsn.split(':')[0], 'did': args.dsn.split(':')[1]}
     for lfn, rse, checksum, size in zip(args.lfns, args.rses, args.checksums, args.sizes):
         try:
-            scope, name = lfn.split(':')
-            client.add_file_replica(scope=scope, name=name, rse=rse, checksum=checksum, size=size, dsn=dsn)
+            scope, did = lfn.split(':')
+            client.add_file_replica(scope=scope, did=did, rse=rse, checksum=checksum, size=size, dsn=dsn)
             print 'Added file replica %(lfn)s at %(rse)s' % locals()
         except Exception, e:
             print 'Failed to add file replica %(lfn)s at %(rse)s' % locals()
@@ -144,8 +143,8 @@ def add_file(args):
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Add file.
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -154,7 +153,7 @@ def add_file(args):
     lfn = args.lfn
     if scope is None:
         if args.lfn.find(':') == -1:
-            print 'Error: Cannot extract scope from %s (notation: scope:file_name) !' % args.lfn
+            print 'Error: Cannot extract scope from %s (notation: scope:filename) !' % args.lfn
             return FAILURE
         scope, lfn = args.lfn.split(':')
 
@@ -177,8 +176,8 @@ def list_replicas(args):
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     List file replicas
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -189,16 +188,16 @@ def list_replicas(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
 
-    for data_id in args.data_ids:
+    for did in args.dids:
         try:
-            scope, name = data_id.split(':')
-            replicas = client.list_replicas(scope=scope, name=name)
+            scope, did = did.split(':')
+            replicas = client.list_replicas(scope=scope, did=did)
             for replica in replicas:
                 rses = [r['rse'] for r in replicas[replica] if 'rse' in r]
                 rses = ','.join(rses)
                 print '%(replica)s: %(rses)s' % locals()
         except Exception, e:
-            print 'Failed to list file replicas for %(data_id)s' % locals()
+            print 'Failed to list file replicas for %(did)s' % locals()
             print e
 
 
@@ -207,22 +206,22 @@ def add(args):
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
     Add dataset/container.
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    scope, name = args.data_id.split(':')
-    sources = [{'scope': src.split(':')[0], 'name': src.split(':')[1]} for src in args.sources]
+    scope, did = args.did.split(':')
+    sources = [{'scope': src.split(':')[0], 'did': src.split(':')[1]} for src in args.sources]
 
     client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.add(scope=scope, name=name, sources=sources)
-        print 'Added: %s:%s' % (scope, name)
+        client.add_identifier(scope=scope, did=did, sources=sources)
+        print 'Added: %s:%s' % (scope, did)
     except Exception, e:
         print 'Failed to add dataset/container/content'
         print e
@@ -235,8 +234,8 @@ def list(args):
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     list container/dataset contents.
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -246,12 +245,12 @@ def list(args):
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
-    for data_id in args.data_ids:
+    for did in args.dids:
         try:
-            scope, name = data_id.split(':')
-            data_ids = client.list(scope=scope, name=name)
-            for d in data_ids:
-                print '%(scope)s:%(name)s' % d
+            scope, did = did.split(':')
+            dids = client.list(scope=scope, did=did)
+            for d in dids:
+                print '%(scope)s:%(did)s' % d
         except Exception, e:
             print e
 
@@ -262,8 +261,8 @@ def list_files(args):
     %(prog)s list-files [options] <field1=value1 field2=value2 ...>
 
     list container/dataset file contents.
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -273,12 +272,12 @@ def list_files(args):
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
-    for data_id in args.data_ids:
+    for did in args.dids:
         try:
-            scope, name = data_id.split(':')
-            files = client.list_files(scope=scope, name=name)
+            scope, did = did.split(':')
+            files = client.list_files(scope=scope, did=did)
             for file in files:
-                print '%(scope)s:%(name)s' % file # %(size)s\t%(checksum)s
+                print '%(scope)s:%(did)s' % file # %(size)s\t%(checksum)s
         except Exception, e:
             print e
 
@@ -290,26 +289,25 @@ def close(args):
     %(prog)s close [options] <field1=value1 field2=value2 ...>
 
     Close dataset/container
-
     """
-    pass
+    
+    raise NotImplementedError
 
 def delete(args):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
 
     Del dataset/container or dataset/container content
-
     """
-    pass
+    raise NotImplementedError
 
 def upload(args):
     """
     %(prog)s upload [options] <field1=value1 field2=value2 ...>
 
     Upload files into Rucio
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -321,31 +319,29 @@ def upload(args):
 
     dsn = None
     if args.dsn:
-        dsn = {'scope': args.scope, 'name': args.dsn}
+        dsn = {'scope': args.scope, 'did': args.dsn}
 
     rsemgr = rsemanager.RSEMgr()
     files = args.files
-    for file in files:
+    for filename in files:
         try:
-            size = os.stat(file).st_size
-            checksum = adler32(file)
-            client.add_file_replica(scope=args.scope, name=file, rse=args.rse, checksum=checksum, size=size, dsn=dsn)
-            rsemgr.upload(args.rse, lfns=[{'filename':file, 'scope': args.scope},])
-            print 'download operation for %s done' % (file)
+            size = os.stat(filename).st_size
+            checksum = adler32(filename)
+            client.add_file_replica(scope=args.scope, did=filename, rse=args.rse, checksum=checksum, size=size, dsn=dsn)
+            rsemgr.upload(args.rse, lfns=[{'filename':filename, 'scope': args.scope},])
+            print 'download operation for %s done' % filename
         except Exception, e:
             print 'Failed to download %(file)s' % locals()
             print e
 
-
-#args.rse
 
 def download(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
 
     Download files from Rucio
-
     """
+    
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -356,17 +352,17 @@ def download(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     rsemgr = rsemanager.RSEMgr()
-    for data_id in args.data_ids:
+    for did in args.dids:
         try:
-            scope, name = data_id.split(':')
-            files = client.list_replicas(scope=scope, name=name)
+            scope, did = did.split(':')
+            files = client.list_replicas(scope=scope, did=did)
             for file in files:
                 for replica in files[file]:
-                    rsemgr.download(rse_id=replica['rse'], files={'lfns': [{'filename': name, 'scope': scope},]},  dest_dir=args.dir)
+                    rsemgr.download(rse_id=replica['rse'], files={'lfns': [{'filename': did, 'scope': scope},]},  dest_dir=args.dir)
                     break
-            print 'download operation for %s done' % (data_id)
+            print 'download operation for %s done' % (did)
         except Exception, e:
-            print 'Failed to download %(data_id)s' % locals()
+            print 'Failed to download %(did)s' % locals()
             print e
 
 
@@ -420,35 +416,35 @@ Commands:
     # The list_replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
     list_replicas_parser.set_defaults(which='list_replicas')
-    list_replicas_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+    list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The add command
     add_parser = subparsers.add_parser('add', help='Add container/dataset')
     add_parser.set_defaults(which='add')
-    add_parser.add_argument('--dest', dest='data_id', action='store', help='Container/dataset name to create', required=True)
-    add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data_ids', required=True)
+    add_parser.add_argument('--dest', dest='did', action='store', help='Container/dataset name to create', required=True)
+    add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers', required=True)
     # ToDo: add meta
 
     # The list command
     list_parser = subparsers.add_parser('list', help='List container/dataset contents')
     list_parser.set_defaults(which='list')
-    list_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+    list_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The close command
     close_parser = subparsers.add_parser('close', help='Close container/dataset')
     close_parser.set_defaults(which='close')
-    close_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+    close_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The del command
     del_parser = subparsers.add_parser('del', help='Del dataset/container or dataset/container content')
     del_parser.set_defaults(which='del')
-    del_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+    del_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     del_parser.add_argument('--from',dest='from', action='store', help='Target dataset/container')
 
     # The list_files command
     list_files_parser = subparsers.add_parser('list-files', help='List container/dataset file contents')
     list_files_parser.set_defaults(which='list_files')
-    list_files_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+    list_files_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method')
@@ -462,7 +458,7 @@ Commands:
     download_parser = subparsers.add_parser('download', help='Download method')
     download_parser.set_defaults(which='download')
     download_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
-    download_parser.add_argument(dest='data_ids', nargs='+', action='store', help='List of space separated data_ids')
+    download_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='get-metadata method')

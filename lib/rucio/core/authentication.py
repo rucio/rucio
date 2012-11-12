@@ -14,7 +14,7 @@ import hashlib
 import uuid
 
 from rucio.core.account import account_exists
-from rucio.db import models1 as models
+from rucio.db import models
 from rucio.db.session import get_session
 
 session = get_session()

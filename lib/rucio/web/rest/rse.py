@@ -11,20 +11,12 @@
 
 
 from json import dumps, loads
-from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, header, BadRequest,\
-    Created, InternalError, OK
+from web import application, ctx, data, header, BadRequest, Created, InternalError, OK
 
-from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute,\
-    list_rse_attributes, del_rse_attribute, add_file_replica
-from rucio.common.exception import Duplicate, AccountNotFound, AccessDenied, RSENotFound
+from rucio.api.authentication import validate_auth_token
+from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, del_rse_attribute, add_file_replica
+from rucio.common.exception import Duplicate, AccessDenied, RSENotFound
 from rucio.common.utils import generate_http_error
-from rucio.core.authentication import validate_auth_token
-
-logger = getLogger("rucio.rse")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
 
 urls = (
     '/(.+)/attr/', 'Attributes',
@@ -36,10 +28,10 @@ urls = (
 
 
 class RSE:
-    """ create, update, get and disable rucio location. """
+    """ Create, update, get and disable location. """
 
-    def POST(self, rseName):
-        """ create rse with given location name.
+    def POST(self, rse):
+        """ Create RSE with given location name.
 
         HTTP Success:
             201 Created
@@ -60,7 +52,7 @@ class RSE:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            add_rse(rse=rseName, issuer=auth['account'])
+            add_rse(rse, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -72,7 +64,7 @@ class RSE:
         raise Created()
 
     def GET(self):
-        """ list all RSEs.
+        """ List all RSEs.
 
         HTTP Success:
             200 OK
@@ -98,8 +90,8 @@ class RSE:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    def DELETE(self, rseName):
-        """ disable rse with given account name.
+    def DELETE(self, rse):
+        """ Disable RSE with given account name.
 
         HTTP Success:
             200 OK
@@ -109,7 +101,7 @@ class RSE:
             404 Not Found
             500 InternalError
 
-        :param rseName: RSE name.
+        :param rse: RSE name.
         """
 
         header('Content-Type', 'application/octet-stream')
@@ -124,7 +116,7 @@ class RSE:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            del_rse(rse=rseName, issuer=auth['account'])
+            del_rse(rse=rse, issuer=auth['account'])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except AccessDenied, e:
@@ -135,7 +127,7 @@ class RSE:
 
 
 class Attributes:
-    """ create, update, get and disable RSE attribute."""
+    """ Create, update, get and disable RSE attribute."""
 
     def POST(self, rse, key):
         """ create rse with given RSE name.
@@ -164,7 +156,7 @@ class Attributes:
         try:
             parameter = loads(json_data)
         except ValueError:
-            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
             value = parameter['value']
@@ -229,8 +221,9 @@ class Attributes:
 
 class Files:
 
-    def POST(self, rse, scope, name):
-        """ create a file replica with given RSE name.
+    def POST(self, rse, scope, did):
+        """
+        Create a file replica at a given RSE.
 
         HTTP Success:
             201 Created
@@ -242,7 +235,7 @@ class Files:
 
         :param rse: The RSE name.
         :param scope: the name of the scope.
-        :param name: the name of the file.
+        :param did: the data identifier.
         :param size: the size of the file.
         :param checksum: the checksum of the file.
 
@@ -260,7 +253,7 @@ class Files:
         try:
             parameter = loads(json_data)
         except ValueError:
-            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
             size = parameter['size']
@@ -270,10 +263,10 @@ class Files:
             if e.args[0] == 'size' or e.args[0] == 'checksum' or e.args[0] == 'dsn':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
-            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            raise generate_http_error(400, 'TypeError', 'Body must be a json dictionary')
 
         try:
-            add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, dsn=dsn, issuer=auth['account'])
+            add_file_replica(rse=rse, scope=scope, did=did, size=size, checksum=checksum, dsn=dsn, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:

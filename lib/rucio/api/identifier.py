@@ -6,52 +6,53 @@
 # License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-from rucio.core import identifier as identifier_core
+from rucio.core import identifier
 
 
-def list_replicas(scope, name):
+def list_replicas(scope, did):
     """
-    List file replicas for a data_id.
+    List file replicas for a data identifier.
 
-    :param scope:   The scope name.
-    :param dsn:     The name.
-
+    :param scope: The scope name.
+    :param did: The data identifier.
     """
-    return identifier_core.list_replicas(scope=scope, name=name)
+    
+    return identifier.list_replicas(scope=scope, did=did)
 
 
-def add_identifier(scope, name, sources, issuer):
+def add_identifier(scope, did, sources, issuer):
     """
-    Add dataset/container
+    Add data identifier for a dataset or container.
 
-    :param scope:   The scope name.
-    :param name:    The name.
-    :param sources: The content.
+    :param scope: The scope name.
+    :param did: The data identifier.
+    :param sources: The content as a list of data identifiers.
     :param issuer: The issuer account.
+    """
+    
+    return identifier.add_identifier(scope=scope, did=did, sources=sources, issuer=issuer)
+
+
+def list_content(scope, did):
+    """
+    List data identifier contents.
+
+    :param scope: The scope name.
+    :param did: The data identifier.
+    """
+    
+    return identifier.list_content(scope=scope, did=did)
+
+
+def list_files(scope, did):
+    """
+    List data identifier file contents.
+
+    :param scope: The scope name.
+    :param did: The data identifier.
 
     """
-    return identifier_core.add_identifier(scope=scope, name=name, sources=sources, issuer=issuer)
-
-
-def list_content(scope, name):
-    """
-    List dataset/container contents.
-
-    :param scope:   The scope name.
-    :param dsn:     The name.
-
-    """
-    return identifier_core.list_content(scope=scope, name=name)
-
-
-def list_files(scope, name):
-    """
-    List container/dataset file contents.
-
-    :param scope:   The scope name.
-    :param dsn:     The name.
-
-    """
-    return identifier_core.list_files(scope=scope, name=name)
+    return identifier.list_files(scope=scope, did=did)

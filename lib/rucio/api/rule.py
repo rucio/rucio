@@ -6,43 +6,40 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 
 def add_replication_rule(scope, lfn, rse_tag, replication_factor=1, locked=False, lifetime=None):
     """
+    Adds a replication rule.
 
+    :param scope: The scope name.
+    :param lfn: The file identifier (LFN).
+    :param rse_tag: The file location (RSE).
 
-    :param scope:   The scope name.
-    :parm  lfn:     The file identifier(lfn).
-    :parm  rse_tag: The file location(rse).
-
-    :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
     """
-    pass
+    raise NotImplementedError
 
 
 def delete_replication_rule(scope, lfn, rse_tag):
     """
+    Deletes a replication rule.
 
+    :param scope: The scope name.
+    :param lfn: The file identifier (LFN).
+    :param rse_tag: The file location (RSE).
 
-    :param scope:   The scope name.
-    :parm  lfn:     The file identifier(lfn).
-    :parm  rse_tag: The file location(rse).
-
-    :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
     """
-
-    pass
+    raise NotImplementedError
 
 
 def set_replication_rule(scope, lfn, rse_tag):
     """
+    Sets a replication rule.
 
+    :param scope: The scope name.
+    :param lfn: The file identifier (LFN).
+    :param rse_tag: The file location (RSE).
 
-    :param scope:   The scope name.
-    :parm  lfn:     The file identifier(lfn).
-    :parm  rse_tag: The file location(rse).
-
-    :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
     """
-    pass
+    raise NotImplementedError

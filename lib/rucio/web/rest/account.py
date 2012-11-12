@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 from datetime import datetime
 from json import dumps, loads
@@ -15,15 +15,12 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
+from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_account_identity
 from rucio.api.permission import has_permission
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied
 from rucio.common.utils import generate_http_error
-from rucio.core.authentication import validate_auth_token
-
-import web
-web.config.debug = True
 
 logger = getLogger("rucio.account")
 sh = StreamHandler()
@@ -41,7 +38,7 @@ urls = (
 
 
 class Scopes:
-    def GET(self, accountName):
+    def GET(self, account_name):
         """ list all scopes for an account.
 
         HTTP Success:
@@ -66,18 +63,18 @@ class Scopes:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            scopes = get_scopes(accountName)
+            scopes = get_scopes(account_name)
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
         if not len(scopes):
-            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % accountName)
+            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account_name)
 
         return dumps(scopes)
 
-    def POST(self, accountName, scopeName):
+    def POST(self, account_name, scope_name):
         """ create scope with given scope name.
 
         HTTP Success:
@@ -105,9 +102,9 @@ class Scopes:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            if not has_permission(issuer=auth.get('account'), action='add_scope', kwargs={'accountName': accountName, 'scopeName': scopeName}):
-                raise AccessDenied('Account %s can not add scope to account %s' (auth.get('account'), accountName))
-            add_scope(scopeName, accountName)
+            if not has_permission(issuer=auth.get('account'), action='add_scope', kwargs={'account_name': account_name, 'scope_name': scope_name}):
+                raise AccessDenied('Account %s can not add scope to account %s' % (auth.get('account'), account_name))
+            add_scope(scope_name, account_name)
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -123,7 +120,7 @@ class Scopes:
 class AccountParameter:
     """ create, update, get and disable rucio accounts. """
 
-    def GET(self, accountName):
+    def GET(self, account_name):
         """ get account information for given account name.
 
         HTTP Success:
@@ -149,13 +146,13 @@ class AccountParameter:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        if accountName == 'whoami':
+        if account_name == 'whoami':
             # Redirect to the account uri
             raise seeother(auth['account'])
 
         acc = None
         try:
-            acc = get_account_info(accountName)
+            acc = get_account_info(account_name)
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
 
@@ -169,12 +166,12 @@ class AccountParameter:
 
         return dumps(dict)
 
-    def PUT(self, accountName):
+    def PUT(self, account_name):
         """ update account informations for given account name """
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    def POST(self, accountName):
+    def POST(self, account_name):
         """ create account with given account name.
 
         HTTP Success:
@@ -206,18 +203,18 @@ class AccountParameter:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
-        accountType = None
+        account_type = None
 
         try:
-            accountType = parameter['accountType']
+            account_type = parameter['account_type']
         except KeyError, e:
-            if e.args[0] == 'accountType':
+            if e.args[0] == 'account_type':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account(accountName, accountType, issuer=auth.get('account'))
+            add_account(account_name, account_type, issuer=auth.get('account'))
         except Duplicate as e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccessDenied, e:
@@ -227,7 +224,7 @@ class AccountParameter:
 
         raise Created()
 
-    def DELETE(self, accountName):
+    def DELETE(self, account_name):
         """ disable account with given account name.
 
         HTTP Success:
@@ -252,7 +249,7 @@ class AccountParameter:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            del_account(accountName, issuer=auth.get('account'))
+            del_account(account_name, issuer=auth.get('account'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except AccountNotFound, e:
@@ -303,7 +300,7 @@ class Account:
 
 
 class AccountLimits:
-    def GET(self, accountName):
+    def GET(self, account_name):
         """ get the current limits for an account """
         raise BadRequest()
 
@@ -323,7 +320,7 @@ class AccountLimits:
 
 
 class Identities:
-    def POST(self, accountName):
+    def POST(self, account_name):
         """ Grant an identity access to an account.
 
         HTTP Success:
@@ -335,7 +332,7 @@ class Identities:
             409 Conflict
             500 Internal Error
 
-        :param accountName: Account identifier.
+        :param account_name: Account identifier.
         """
 
         header('Content-Type', 'application/octet-stream')
@@ -364,7 +361,7 @@ class Identities:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity=identity, type=authtype, account=accountName, issuer=auth.get('account'))
+            add_account_identity(identity_key=identity, type=authtype, account=account_name, issuer=auth.get('account'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate as e:
@@ -376,7 +373,7 @@ class Identities:
 
         raise Created()
 
-    def GET(self, accountName):
+    def GET(self, account_name):
         header('Content-Type', 'application/json')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
@@ -387,7 +384,7 @@ class Identities:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_identities(accountName))
+            return dumps(list_identities(account_name))
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:

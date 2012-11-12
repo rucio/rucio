@@ -11,11 +11,9 @@
 
 from paste.fixture import TestApp
 import subprocess
-from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.core.account import add_account
-#from rucio.core.dataset import register_dataset, register_file
 from rucio.web.rest.authentication import app as auth_app
 
 
@@ -43,35 +41,6 @@ def execute(cmd):
     exitcode = process.returncode
 
     return exitcode, out, err
-
-
-def create_tmp_dataset(scope, user, clean_list, monotonic=False):
-    """ Registers a temporary dataset and puts it in a list to be cleaned
-
-    :param scope: scope of the new dataset
-    :param user: the account creating the dataset
-    :param clean_list: the list where the name of dsn will be appended to
-    :param monotonic: the monotic state of the new dataset
-    :returns: the dataset name
-    """
-    dsn = str(uuid())
-    clean_list.append(dsn)
-    register_dataset(scope, dsn, user, monotonic=monotonic)
-    return dsn
-
-
-def create_tmp_file(scope, user, clean_list):
-    """ Registers a temporary file and puts it in a list to be cleaned
-
-    :param scope: the scope of the new file
-    :param user: the account creating the dataset
-    :param clean_list: the list where the name of the file will be appended to
-    :returns: the filename
-    """
-    label = str(uuid())
-    clean_list.append(label)
-    register_file(scope, label, user)
-    return label
 
 
 def create_accounts(account_list, user_type):

@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 
 def add_subscription(account, filter, replication_rules, transfer_requests, subscription_policy, lifetime, retroactive, dry_run):
@@ -39,8 +40,7 @@ def add_subscription(account, filter, replication_rules, transfer_requests, subs
     :returns: subscription_id
     :rtype:   String
     """
-
-    pass
+    raise NotImplementedError
 
 
 def update_subscription(subscription_id, account=None, filter=None, replication_rules=None, transfer_requests=None, subscription_policy=None, lifetime=None, retroactive=None, dry_run=None):
@@ -74,7 +74,7 @@ def update_subscription(subscription_id, account=None, filter=None, replication_
     :raises: exception.NotFound if subscription is not found
     """
 
-    pass
+    raise NotImplementedError
 
 
 def get_subscription(subscription_id):
@@ -89,7 +89,7 @@ def get_subscription(subscription_id):
     :raises: exception.NotFound if subscription is not found
     """
 
-    pass
+    raise NotImplementedError
 
 
 def delete_subscription(subscription_id):
@@ -100,7 +100,7 @@ def delete_subscription(subscription_id):
     :type subscription_id:  String
     """
 
-    pass
+    raise NotImplementedError
 
 
 class SubscriptionPolicy():
@@ -123,4 +123,4 @@ class SubscriptionPolicy():
         :rtype:   List
         """
 
-        pass
+        raise NotImplementedError

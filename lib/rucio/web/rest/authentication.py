@@ -25,7 +25,6 @@ urls = (
     '/x509', 'x509',
     '/x509_proxy', 'x509',
     '/validate', 'Validate',
-    '/register_api_token', 'APITokens'
 )
 
 
@@ -237,25 +236,6 @@ class Validate:
         web.header('Content-Type', 'application/octet-stream')
         raise web.BadRequest()
 
-
-class APITokens:
-    """Authenticate a Rucio account for interaction with the API"""
-
-    def GET(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
-
-    def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
-
-    def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
-
-    def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
 
 """----------------------
    Web service startup

@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -16,22 +17,22 @@ from rucio.common.utils import build_url
 
 class DataIdentifierClient(BaseClient):
 
-    """DataIdentifier client class for working with dataset"""
+    """DataIdentifier client class for working with data identifiers"""
 
-    BASEURL = 'data_ids'
+    BASEURL = 'ids'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(DataIdentifierClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def list_replicas(self, scope, name):
+    def list_replicas(self, scope, did):
         """
-        List file replicas for a data_id.
+        List file replicas for a data identifier.
 
-        :param scope:   The scope name.
-        :param dsn:     The name.
-
+        :param scope: The scope name.
+        :param did: The data identifier.
         """
-        path = '/'.join([self.BASEURL, scope, name, 'rses'])
+        
+        path = '/'.join([self.BASEURL, scope, did, 'rses'])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -41,16 +42,16 @@ class DataIdentifierClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add(self, scope, name, sources):
+    def add_identifier(self, scope, did, sources):
         """
-        add dataset/container
-
-        :param scope:   The scope name.
-        :param dsn:     The name.
-        :param sources  The content as a list of data_ids.
-
+        Add data identifier for a dataset or container.
+        
+        :param scope: The scope name.
+        :param did: The data identifier.
+        :param sources: The content as a list of data identifiers.
         """
-        path = '/'.join([self.BASEURL, scope, name])
+        
+        path = '/'.join([self.BASEURL, scope, did])
         url = build_url(self.host, path=path)
         data = dumps(sources)
         r = self._send_request(url, type='POST', data=data)
@@ -60,15 +61,15 @@ class DataIdentifierClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list(self, scope, name):
+    def list_content(self, scope, did):
         """
-        List dataset/container contents.
+        List data identifier contents.
 
-        :param scope:   The scope name.
-        :param dsn:     The name.
+        :param scope: The scope name.
+        :param did: The data identifier.
 
         """
-        path = '/'.join([self.BASEURL, scope, name, 'data_ids'])
+        path = '/'.join([self.BASEURL, scope, did, 'dids'])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -78,15 +79,15 @@ class DataIdentifierClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list_files(self, scope, name):
+    def list_files(self, scope, did):
         """
-        List container/dataset file contents.
+        List data identifier file contents.
 
-        :param scope:   The scope name.
-        :param dsn:     The name.
+        :param scope: The scope name.
+        :param did: The data identifier.
 
         """
-        path = '/'.join([self.BASEURL, scope, name, 'files'])
+        path = '/'.join([self.BASEURL, scope, did, 'files'])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:

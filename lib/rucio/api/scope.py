@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from rucio.core import scope
 
@@ -20,22 +21,22 @@ def list_scopes():
     return scope.list_scopes()
 
 
-def add_scope(scopeName, accountName):
+def add_scope(scope_name, account):
     """
     Creates a scope for an account.
 
-    :param accountName: The account name.
-    :param scopeName: The scope identifier.
+    :param account: The account name.
+    :param scope: The scope identifier.
     """
-    scope.add_scope(scopeName, accountName)
+    scope.add_scope(scope_name, account)
 
 
-def get_scopes(accountName):
+def get_scopes(account):
     """
     Gets a list of all scopes for an account.
 
-    :param accountName: The account name.
+    :param account: The account name.
 
     :returns: A list containing the names of all scopes for this account.
     """
-    return scope.get_scopes(accountName)
+    return scope.get_scopes(account)

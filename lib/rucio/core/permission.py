@@ -51,7 +51,7 @@ def perm_add_rse(issuer, kwargs):
     """
     Checks if an account can add a RSE.
 
-    :param accountName: Account identifier which issues the command.
+    :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
@@ -62,7 +62,7 @@ def perm_add_rse_attr(issuer, kwargs):
     """
     Checks if an account can add a RSE attribute.
 
-    :param accountName: Account identifier which issues the command.
+    :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
@@ -73,7 +73,7 @@ def perm_del_rse_attr(issuer, kwargs):
     """
     Checks if an account can delete a RSE attribute.
 
-    :param accountName: Account identifier which issues the command.
+    :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
@@ -84,7 +84,7 @@ def perm_del_rse(issuer, kwargs):
     """
     Checks if an account can delete a RSE.
 
-    :param accountName: Account identifier which issues the command.
+    :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
@@ -95,7 +95,7 @@ def perm_add_account(issuer, kwargs):
     """
     Checks if an account can add an account.
 
-    :param accountName: Account identifier which issues the command.
+    :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
@@ -106,7 +106,7 @@ def perm_del_account(issuer, kwargs):
     """
     Checks if an account can del an account.
 
-    :param accountName: Account identifier which issues the command.
+    :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
@@ -121,7 +121,7 @@ def perm_add_scope(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return issuer == 'root' or issuer == kwargs.get('accountName')
+    return issuer == 'root' or issuer == kwargs.get('account_name')
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs):
@@ -171,4 +171,4 @@ def perm_add_account_identity(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return issuer == 'root' or issuer == kwargs.get('accountName')
+    return issuer == 'root' or issuer == kwargs.get('account_name')

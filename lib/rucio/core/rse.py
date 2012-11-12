@@ -14,7 +14,7 @@ import sqlalchemy.orm
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
-from rucio.db import models1 as models
+from rucio.db import models
 from rucio.db.history import versioned_session
 from rucio.db.session import get_session
 
@@ -137,7 +137,7 @@ def add_rse_attribute(rse, key, value):
             new_rse_attr = session.merge(new_rse_attr)
             new_rse_attr.save(session=session)
             session.commit()
-        except IntegrityError, e:
+        except IntegrityError:
                 raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
     finally:
         session.rollback()
@@ -263,22 +263,23 @@ def get_rse_usage_history(rse, filters=None):
         result.append({'location': usage.location.location, 'source': usage.source, usage.name: usage.value, 'updated_at': usage.updated_at})
 
 
-def add_file_replica(rse, scope, name, size, checksum, issuer, dsn):
+def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
     """ Add File replica.
 
     :param rse: the rse name.
     :param scope: the tag name.
-    :param name: The file name.
+    :param did: The data identifier.
     :param size: the size of the file.
     :param checksum: the checksum of the file.
     :param issuer: The issuer account.
 
     :returns: True is successfull.
     """
-    new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
-    new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
+    
+    new_data_id = models.DataIdentifier(scope=scope, did=did, owner=issuer, type=models.DataIdType.FILE)
+    new_file = models.File(scope=scope, did=did, owner=issuer, size=size, checksum=checksum)
     replica_rse = get_rse(rse=rse)
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum)
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, did=did, size=size, checksum=checksum)
     # Add optional pfn
     try:
         new_data_id = session.merge(new_data_id)
@@ -300,7 +301,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn):
 
     # Insert dataset and content
     if dsn:
-        new_dsn = models.DataIdentifier(scope=dsn['scope'], name=dsn['name'], owner=issuer, type=models.DataIdType.DATASET)
+        new_dsn = models.DataIdentifier(scope=dsn['scope'], did=dsn['did'], owner=issuer, type=models.DataIdType.DATASET)
         try:
             new_dsn = session.merge(new_dsn)
             new_dsn.save(session=session)
@@ -309,7 +310,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn):
             print e
             session.rollback()
 
-        new_child = models.DataIdentifierAssociation(scope=dsn['scope'], name=dsn['name'], child_scope=scope, child_name=name, type=models.DataIdType.DATASET, child_type=models.DataIdType.FILE)
+        new_child = models.DataIdentifierAssociation(scope=dsn['scope'], did=dsn['did'], child_scope=scope, child_did=did, type=models.DataIdType.DATASET, child_type=models.DataIdType.FILE)
         try:
             new_child.save(session=session)
         except IntegrityError, e:
