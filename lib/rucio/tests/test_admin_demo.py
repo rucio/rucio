@@ -6,12 +6,14 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+
 # To generate documentation:
 #    nosetests --nocapture lib/rucio/tests/test_admin_demo.py > doc/source/cli_admin_examples.rst; python setup.py build_sphinx
 
+
 from os import remove
 
-from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.tests.common import execute
 
 
@@ -19,9 +21,6 @@ class TestRucioDemo:
 
     @classmethod
     def setUpClass(cls):
-        destroy_database(echo=False)
-        build_database(echo=False)
-        create_root_account()
         try:
             remove('/tmp/.rucio_root/auth_token_root')
         except OSError, e:
@@ -35,18 +34,17 @@ class TestRucioDemo:
     @classmethod
     def tearDownClass(cls):
         pass
-        #destroy_database(echo=False)
 
     def setUp(self):
         self.marker = '   $> '
 
     def test_rucio_demo(self):
-        """ CLI(DEMO): Test the rucio demo """
+        """ CLI(DEMO): Test the rucio admin demo """
 
         cmd = 'source /afs/cern.ch/atlas/offline/external/GRID/ddm/rucio/testing/bin/activate'
         cmd = 'cat /afs/cern.ch/atlas/offline/external/GRID/ddm/rucio/testing/etc/rucio.cfg'
-        cmd = 'curl -s  -X GET http://localhost/ping'
-        cmd = 'curl -s -X GET http://atlas-rucio.cern.ch/ping'
+        cmd = 'curl -s -X GET https://localhost/ping'
+        cmd = 'curl -s -X GET https://atlas-rucio.cern.ch/ping'
 
         cmd = 'rucio ping'
         # print self.marker + cmd

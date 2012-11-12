@@ -24,17 +24,17 @@ class AccountClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(AccountClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def add_account(self, accountName, accountType):
+    def add_account(self, account_name, account_type):
         """
         Sends the request to create a new account.
 
-        :param accountName: the name of the account.
+        :param account_name: the name of the account.
         :return: True if account was created successfully else False.
         :raises Duplicate: if account already exists.
         """
 
-        data = dumps({'accountType': accountType})
-        path = '/'.join([self.BASEURL, accountName])
+        data = dumps({'account_type': account_type})
+        path = '/'.join([self.BASEURL, account_name])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)
@@ -45,16 +45,16 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def delete_account(self, accountName):
+    def delete_account(self, account_name):
         """
         Sends the request to disable an account.
 
-        :param accountName: the name of the account.
+        :param account_name: the name of the account.
         :return: True is account was disabled successfully. False otherwise.
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.BASEURL, accountName])
+        path = '/'.join([self.BASEURL, account_name])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='DEL')
@@ -65,16 +65,16 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def get_account(self, accountName):
+    def get_account(self, account_name):
         """
         Sends the request to get information about a given account.
 
-        :param accountName: the name of the account.
+        :param account_name: the name of the account.
         :return: a list of attributes for the account. None if failure.
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.BASEURL, accountName])
+        path = '/'.join([self.BASEURL, account_name])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url)
@@ -113,18 +113,18 @@ class AccountClient(BaseClient):
         """
         return self.get_account('whoami')
 
-    def add_identity(self, accountName, identity, authtype, default=False):
+    def add_identity(self, account_name, identity, authtype, default=False):
         """
         Adds a membership association between identity and account.
 
-        :param accountName: The account name.
+        :param account_name: The account name.
         :param identity: The identity key name. For example x509 DN, or a username.
         :param authtype: The type of the authentication (x509, gss, userpass).
         :param default: If True, the account should be used by default with the provided identity.
         """
 
         data = dumps({'identity': identity, 'authtype': authtype})
-        path = '/'.join([self.BASEURL, accountName, 'identities'])
+        path = '/'.join([self.BASEURL, account_name, 'identities'])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)
@@ -135,13 +135,13 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def list_identities(self, accountName):
+    def list_identities(self, account_name):
         """
         List all identities on an account.
 
-        :param accountName: The account name.
+        :param account_name: The account name.
         """
-        path = '/'.join([self.BASEURL, accountName, 'identities'])
+        path = '/'.join([self.BASEURL, account_name, 'identities'])
         url = build_url(self.host, path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:

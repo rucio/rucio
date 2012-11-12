@@ -42,7 +42,7 @@ More specifically:
 License and Copyright
 ---------------------
 
-Every source file must have the following copyright and license statement at the top::    
+Every source file must have the following copyright and license statement at the top::
 
     # Copyright European Organization for Nuclear Research (CERN)
     #
@@ -60,21 +60,34 @@ All __init__.py files must have the same header, excluding the authors declarati
     # Licensed under the Apache License, Version 2.0 (the "License");
     # You may not use this file except in compliance with the License.
     # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-    
+
 -----------------------
 How to write test cases
 -----------------------
 
-The most important rule for API calls: ALWAYS WRITE YOUR TESTCASE AGAINST THE WEB-INTERFACE, NOT THE CORE API ITSELF!
-This is to make sure that the full call chain works:
+The most important rule for API calls: ALWAYS WRITE YOUR TESTCASE AGAINST THE WEB-INTERFACE, NOT THE CORE API ITSELF! IF POSSIBLE, WRITE IT AGAINST THE CLIENT IF ONE EXISTS! This is to make sure that the full call chain works.
 
-    1. Test cases go into either lib/rucio/tests/{functional, unit}
+    1. Test cases go into either lib/rucio/tests/
     2. Filename must start with ``test_``
     3. Classname must start with Test
     4. Test function names must start with ``test_``
     5. Do not import unittest
     6. Do not subclass from unittest.TestCase
     7. Remove the whole __name__ == '__main__' thing
-    8. Run all testcases with "nosetests -v" from the rucio main dir
+    8. Run all testcases with nosetests twice.
 
 You can selectively run test cases by giving directories or files as parameters to the nosetests executable.
+
+
+------------------------------------
+Executing unit tests the correct way
+------------------------------------
+
+    1. Open two terminals A and B, and go to ``/opt/rucio``
+    2. Use terminal A to reset the database and restart Apache
+
+        ``sudo rm -rf /tmp/rucio.db; python tools/reset_database.py; chmod 777 /tmp/rucio.db; sudo apachectl restart; tail -f /var/log/apache2/*_log /var/log/rucio/httpd_*``
+
+    3. Use terminal B to clean the development and client environment and execute the unit tests
+
+       ``rm -rf /tmp/.rucio_root/; find lib -iname *.pyc | xargs rm; nosetests -d -v --logging-filter=-sqlalchemy,-migrate,-rucio.client.baseclient; nosetests -d -v --logging-filter=-sqlalchemy,-migrate,-rucio.client.baseclient``

@@ -37,9 +37,10 @@ class TestRseSFTP():
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
         storage = rsemanager.RSE('lxplus.cern.ch')
-        # Load local creditentials from file
+        # Load local credentials from file
         data = json.load(open('etc/rse-accounts.cfg'))
         credentials = data['lxplus.cern.ch']
+        credentials['host'] = 'lxplus.cern.ch'
         lxplus = pysftp.Connection(**credentials)
         prefix = json.load(open('etc/rse_repository.json'))['lxplus.cern.ch']['protocols']['prefix']
         lxplus.execute('mkdir %s' % prefix)

@@ -14,8 +14,8 @@ from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, header, BadRequest
 
+from rucio.api.authentication import validate_auth_token
 from rucio.api.file import list_file_replicas
-from rucio.core.authentication import validate_auth_token
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.rest.file")

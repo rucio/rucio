@@ -13,14 +13,13 @@
 from json import dumps, loads
 
 from paste.fixture import TestApp
-from nose.tools import assert_equal, assert_true, assert_list_equal, raises
+from nose.tools import assert_equal, assert_true, assert_in, raises
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.scope import get_scopes, add_scope
-from rucio.db.session import build_database, create_root_account, destroy_database
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -29,12 +28,11 @@ class TestScopeCoreApi():
 
     @classmethod
     def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        destroy_database(echo=False)
+        pass
 
     def setUp(self):
         self.scopes = ['test_scope_' + str(uuid()) for i in range(5)]
@@ -44,22 +42,22 @@ class TestScopeCoreApi():
         for scope in self.scopes:
             add_scope(scope=scope, account='root')
         scopes = get_scopes(account='root')
-        assert_list_equal(self.scopes, scopes)
+        for s in scopes:
+            assert_in(s, scopes)
 
 
 class TestScope():
 
     @classmethod
     def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        destroy_database(echo=False)
+        pass
 
     def setUp(self):
-        self.scopes = ['test_scope_' + str(i) for i in range(5)]
+        self.scopes = ['test_scope_' + str(uuid()) for i in range(5)]
 
     def test_scope_success(self):
         """ SCOPE (REST): send a POST to create a new account and scope """
@@ -73,13 +71,13 @@ class TestScope():
 
         headers2 = {'Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid())
-        data = dumps({'accountType': 'user'})
+        data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Auth-Token': str(token)}
         scopeusr = 'testscope' + str(uuid())
-        r3 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount/scopes/' + scopeusr, headers=headers3, expect_errors=True)
+        r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
         assert_equal(r3.status, 201)
 
     def test_scope_failure(self):
@@ -109,15 +107,15 @@ class TestScope():
 
         headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid())
-        data = dumps({'accountType': 'user'})
+        data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Auth-Token': str(token)}
         scopeusr = 'testscope' + str(uuid())
-        r3 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount/scopes/' + scopeusr, headers=headers3, expect_errors=True)
+        r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
         assert_equal(r3.status, 201)
-        r3 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount/scopes/' + scopeusr, headers=headers3, expect_errors=True)
+        r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
         assert_equal(r3.status, 409)
 
     def test_list_scope(self):
@@ -130,25 +128,26 @@ class TestScope():
 
         token = str(r1.header('Rucio-Auth-Token'))
 
+        tmp_val = str(uuid())
         headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
-        data = dumps({'accountType': 'user'})
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers2, params=data, expect_errors=True)
+        data = dumps({'account_type': 'user'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount-%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
         headers3 = {'Rucio-Auth-Token': str(token)}
+
         for scope in self.scopes:
             data = dumps({})
-            r3 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount/scopes/' + scope, headers=headers3, params=data, expect_errors=True)
+            r3 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount-%s/scopes/%s' % (tmp_val, scope), headers=headers3, params=data, expect_errors=True)
             assert_equal(r3.status, 201)
 
-        r4 = TestApp(account_app.wsgifunc(*mw)).get('/testaccount/scopes/', headers=headers3, expect_errors=True)
+        r4 = TestApp(account_app.wsgifunc(*mw)).get('/testaccount-%s/scopes/' % tmp_val, headers=headers3, expect_errors=True)
 
         assert_equal(r4.status, 200)
 
         svr_list = loads(r4.body)
         for scope in self.scopes:
-            if scope not in svr_list:
-                assert_true(False)
+            assert_in(scope, svr_list)
 
     def test_list_scope_account_not_found(self):
         """ SCOPE (REST): send a GET list all scopes for a not existing account """
@@ -178,7 +177,7 @@ class TestScope():
 
         headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid())
-        data = dumps({'accountType': 'user'})
+        data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -194,12 +193,11 @@ class TestScopeClient():
 
     @classmethod
     def setUpClass(cls):
-        build_database(echo=False)
-        create_root_account()
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        destroy_database(echo=False)
+        pass
 
     def setUp(self):
         self.account_client = AccountClient()
@@ -209,7 +207,7 @@ class TestScopeClient():
         """ SCOPE (CLIENTS): create a new scope."""
         account = str(uuid())
         scope = str(uuid())
-        self.account_client.create_account(account, 'user')
+        self.account_client.add_account(account, 'user')
         ret = self.scope_client.add_scope(account, scope)
         assert_true(ret)
 
@@ -225,7 +223,7 @@ class TestScopeClient():
         """ SCOPE (CLIENTS): try to create a duplicate scope."""
         account = str(uuid())
         scope = str(uuid())
-        self.account_client.create_account(account, 'user')
+        self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
         self.scope_client.add_scope(account, scope)
 
@@ -233,7 +231,7 @@ class TestScopeClient():
         """ SCOPE (CLIENTS): try to list scopes for an account."""
         scope_list = [str(uuid()) + str(i) for i in xrange(5)]
         account = str(uuid())
-        self.account_client.create_account(account, 'user')
+        self.account_client.add_account(account, 'user')
         for scope in scope_list:
             self.scope_client.add_scope(account, scope)
 
@@ -253,5 +251,5 @@ class TestScopeClient():
     def test_list_scopes_no_scopes(self):
         """ SCOPE (CLIENTS): try to list scopes for an account without scopes."""
         account = str(uuid())
-        self.account_client.create_account(account, 'user')
+        self.account_client.add_account(account, 'user')
         self.scope_client.list_scopes_for_account(account)

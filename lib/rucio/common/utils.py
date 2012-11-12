@@ -82,7 +82,7 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     """
 
     status = codes[status_code]
-    headers = {'Content-Type': 'text/html', 'ExceptionClass': exc_cls, 'ExceptionMessage': exc_msg}
+    headers = {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': exc_msg}
     data = ': '.join([exc_cls, exc_msg])
 
     return HTTPError(status, headers=headers, data=data)
@@ -90,7 +90,9 @@ def generate_http_error(status_code, exc_cls, exc_msg):
 
 def adler32(file):
     """
-    @since: 0.0.1
+    An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
+
+    :returns: Hexified string, padded to 8 values.
     """
 
     #adler starting value is _not_ 0
@@ -107,4 +109,4 @@ def adler32(file):
     if adler < 0:
         adler = adler + 2 ** 32
 
-    return str('%08x' % adler)  # return as hexified string, padded to 8 values
+    return str('%08x' % adler)

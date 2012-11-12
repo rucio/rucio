@@ -6,8 +6,9 @@
 #              http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from rucio.core import permission
 
@@ -18,7 +19,7 @@ def has_permission(issuer, action, kwargs):
     execute an action with parameters.
 
     :param issuer: The Account issuer.
-    :param action:  The action(API call) called by the account.
+    :param action: The action (API call) called by the account.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """

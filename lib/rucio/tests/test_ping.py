@@ -14,7 +14,6 @@ from nose.tools import assert_true, assert_equal, assert_is_instance
 from paste.fixture import TestApp
 
 from rucio.client.pingclient import PingClient
-from rucio.db.session import build_database, destroy_database, create_root_account
 from rucio.web.rest.ping import app as ping_app
 
 
@@ -40,12 +39,10 @@ class TestPing():
 class TestPingClient():
 
     def setUp(self):
-        build_database(echo=False)
-        create_root_account()
-        self.client = PingClient('http://localhost')
+        self.client = PingClient('https://localhost')
 
     def tearDown(self):
-        destroy_database(echo=False)
+        pass
 
     def test_rucio_ping(self):
         """ RUCIO(CLIENTS): test a rucio ping """

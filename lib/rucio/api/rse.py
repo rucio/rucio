@@ -6,40 +6,40 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-import rucio.api.permission
-
-from rucio.common.exception import FileAlreadyExists
-from rucio.core import rse as rse_core
+from rucio.api import permission
+from rucio.common import exception
+from rucio.core import rse as rse_module
 
 
 def add_rse(rse, issuer):
-        """
-        Creates a new Rucio Location/RSE.
+    """
+    Creates a new Rucio Location (RSE).
 
-        :param rse: The rse name.
-        :param issuer: The issuer account.
+    :param rse: The RSE name.
+    :param issuer: The issuer account.
+    """
 
-        :returns: If the operation is successful a response code of "0" is returned. If an error occurs, a non zero response code is returned.
-        """
-        kwargs = {'rse': rse}
-        if not rucio.api.permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
-            raise rucio.common.exception.AccessDenied('Account %s can not add RSE' % (issuer))
-        return rse_core.add_rse(rse)
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
+    return rse_module.add_rse(rse)
 
 
 def del_rse(rse, issuer):
-        """
-        Disables a RSE with the provided RSE name.
+    """
+    Disables a RSE with the provided RSE name.
 
-        :param rse: The rse name.
-        :param issuer: The issuer account.
-        """
-        kwargs = {'rse': rse}
-        if not rucio.api.permission.has_permission(issuer=issuer, action='del_rse', kwargs=kwargs):
-            raise rucio.common.exception.AccessDenied('Account %s can not delete RSE' % (issuer))
+    :param rse: The RSE name.
+    :param issuer: The issuer account.
+    """
+    
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='del_rse', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not delete RSE' % (issuer))
 
-        return rse_core.del_rse(rse)
+    return rse_module.del_rse(rse)
 
 
 def list_rses(filters=None):
@@ -50,23 +50,25 @@ def list_rses(filters=None):
 
     :returns: List of all RSEs.
     """
-    return rse_core.list_rses()
+    
+    return rse.list_rses()
 
 
 def del_rse_attribute(rse, key, issuer):
     """
     Delete a RSE attribute.
 
-    :param rse: the name of the rse.
+    :param rse: the name of the rse_module.
     :param key: the attribute key.
 
-    :return: True if RSE attribute was deleted successfully else False.
+    :return: True if RSE attribute was deleted successfully, False otherwise.
     """
+    
     kwargs = {'rse': rse, 'key': key}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='del_rse_attribute', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('Account %s can not delete RSE attributes' % (issuer))
+    if not permission.has_permission(issuer=issuer, action='del_rse_attribute', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not delete RSE attributes' % (issuer))
 
-    return rse_core.del_rse_attribute(rse=rse, key=key)
+    return rse_module.del_rse_attribute(rse=rse, key=key)
 
 
 def add_rse_attribute(rse, key, value, issuer):
@@ -77,41 +79,45 @@ def add_rse_attribute(rse, key, value, issuer):
     :param value: the value name.
     :param issuer: The issuer account.
 
-
-    returns: True is successfull
+    returns: True if successful, False otherwise.
     """
+    
     kwargs = {'rse': rse, 'key': key, 'value': value}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='add_rse_attribute', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
+    if not permission.has_permission(issuer=issuer, action='add_rse_attribute', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
 
-    return rse_core.add_rse_attribute(rse=rse, key=key, value=value)
+    return rse_module.add_rse_attribute(rse=rse, key=key, value=value)
 
 
 def list_rse_attributes(rse):
-    """ List RSE attributes for a RSE.
-
-    :param rse: the rse name.
-
-    :returns: List of all RSE attributes for a RSE.
     """
-    return rse_core.list_rse_attributes(rse=rse)
+    List RSE attributes for a RSE_MODULE.
+
+    :param rse: The RSE name.
+
+    :returns: List of all RSE attributes for a RSE_MODULE.
+    """
+    
+    return rse_module.list_rse_attributes(rse=rse)
 
 
-def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None):
-    """ Add File replica.
+def add_file_replica(rse, scope, did, size, checksum, issuer, dsn=None):
+    """
+    Add File replica.
 
-    :param rse: the rse name.
-    :param scope: the tag name.
-    :param name: The file name.
-    :param size: the size of the file.
-    :param checksum: the checksum of the file.
+    :param rse: The RSE name.
+    :param scope: The scope name.
+    :param did: The data identifier.
+    :param size: The size of the file.
+    :param checksum: The checksum of the file.
     :param issuer: The issuer account.
-    :param dsn: the dataset name.
+    :param dsn: The dataset name.
 
-    :returns: True is successfull.
+    :returns: True is successful, False otherwise
     """
-    kwargs = {'rse': rse, 'scope': scope, 'name': name, 'size': size, 'checksum': checksum, 'dsn': dsn}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='scope, name, size, checksum, issuer', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
+    
+    kwargs = {'rse': rse, 'scope': scope, 'did': did, 'size': size, 'checksum': checksum, 'dsn': dsn}
+    if not permission.has_permission(issuer=issuer, action='add_file_replica', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
 
-    rse_core.add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=issuer, dsn=dsn)
+    rse_module.add_file_replica(rse=rse, scope=scope, did=did, size=size, checksum=checksum, issuer=issuer, dsn=dsn)

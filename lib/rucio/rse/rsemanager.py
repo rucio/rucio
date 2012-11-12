@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 import json
 import os
@@ -15,22 +16,28 @@ from rucio.common import exception
 
 
 class RSEMgr(object):
+
     def __init__(self, path_to_credentials_file=None):
         """ Instantiates the RSEMgr.
 
-            :param path_to_credentials_file Relatiuve path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed.
+            :param path_to_credentials_file: Relative path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed.
         """
         self.__credentials = None
+
         if not path_to_credentials_file:
-            self.path_to_credentials_file = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
-        # Load all user credentials
+            if 'RUCIO_HOME' in os.environ:
+                self.path_to_credentials_file = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
+            else:
+                self.path_to_credentials_file = '/opt/rucio/etc/rse-accounts.cfg'
+
         try:
+            # Load all user credentials
             print 'Loading credentials from %s' % self.path_to_credentials_file
             self.__credentials = json.load(open(self.path_to_credentials_file))
         except Exception as e:
             raise exception.ErrorLoadingCredentials(e)
 
-    def __create_rse__(self, rse_id, protocol=None):
+    def __create_rse(self, rse_id, protocol=None):
         """ Create the according RSE object.
 
             :param rse_id       The identifier of the requested RSE
@@ -56,7 +63,7 @@ class RSEMgr(object):
 
             :raises FileReplicaAlreadyExists, DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
         """
-        rse = self.__create_rse__(rse_id, protocol)
+        rse = self.__create_rse(rse_id, protocol)
         res = rse.put(lfns, source_dir)
         rse.close()
         return res
@@ -73,7 +80,7 @@ class RSEMgr(object):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
         """
-        rse = self.__create_rse__(rse_id, protocol)
+        rse = self.__create_rse(rse_id, protocol)
         res = rse.get(files, dest_dir)
         rse.close()
         return res
@@ -90,7 +97,7 @@ class RSEMgr(object):
 
             :raises ServiceUnavailable,  RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
         """
-        rse = self.__create_rse__(rse_id, protocol)
+        rse = self.__create_rse(rse_id, protocol)
         res = rse.delete(lfns)
         rse.close()
         return res
@@ -107,7 +114,7 @@ class RSEMgr(object):
 
             :raises SourceNotFound, FileReplicaAlreadyExists, DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
         """
-        rse = self.__create_rse__(rse_id, protocol)
+        rse = self.__create_rse(rse_id, protocol)
         res = rse.rename(lfns)
         rse.close()
         return res
@@ -122,7 +129,7 @@ class RSEMgr(object):
 
             :raises DestinationNotAccessible, ServiceUnavailable, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
         """
-        rse = self.__create_rse__(rse_id, protocol)
+        rse = self.__create_rse(rse_id, protocol)
         res = rse.exists(lfns)
         rse.close()
         return res
@@ -135,7 +142,7 @@ class RSE(object):
     """
 
     def __init__(self, rse_id, protocol=None, path_to_repo=None):
-        """  This methode instantiates a new RSE using the provided credetnials and the reffered protocol.
+        """  This method instantiates a new RSE using the provided credetnials and the reffered protocol.
 
             :param rse_id       The identifier of the requested RSE
             :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
@@ -150,7 +157,10 @@ class RSE(object):
         self.__props = None
         self.__connected = False
         if not path_to_repo:
-            self.__path_to_repo = '%s/etc/rse_repository.json' % os.environ['RUCIO_HOME']  # path_to_repo: path to the RSE repository used to look-up a specific RSE
+            if 'RUCIO_HOME' in os.environ:
+                self.__path_to_repo = '%s/etc/rse_repository.json' % os.environ['RUCIO_HOME']  # path_to_repo: path to the RSE repository used to look-up a specific RSE
+            else:
+                self.__path_to_repo = '/opt/rucio/etc/rse_repository.json'
         else:
             self.__path_to_repo = path_to_repo
 
