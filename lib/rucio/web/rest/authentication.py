@@ -7,8 +7,10 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 
+import re
 import web
 
 from rucio.api.authentication import get_auth_token_user_pass
@@ -161,8 +163,11 @@ class x509:
         # Alternative: use the SSL_CLIENT_I_DN, but that would require a separate
         # endpoint as you cannot programmatically decide, by examining the SSL variables,
         # if you got a proxy or regular certificate
-        while dn.endswith('/CN=proxy'):
-            dn = dn[:-9]
+        if dn.endswith('/CN=proxy'):
+            while dn.endswith('/CN=proxy'):
+                dn = dn[:-9]
+        elif re.search('/CN=[0-9]*$', dn):
+            dn = dn.rpartition('/')[0]
 
         try:
             result = get_auth_token_x509(account, dn, ip)
