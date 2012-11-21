@@ -31,7 +31,7 @@ class DataIdentifierClient(BaseClient):
         :param scope: The scope name.
         :param did: The data identifier.
         """
-        
+
         path = '/'.join([self.BASEURL, scope, did, 'rses'])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
@@ -45,12 +45,12 @@ class DataIdentifierClient(BaseClient):
     def add_identifier(self, scope, did, sources):
         """
         Add data identifier for a dataset or container.
-        
+
         :param scope: The scope name.
         :param did: The data identifier.
         :param sources: The content as a list of data identifiers.
         """
-        
+
         path = '/'.join([self.BASEURL, scope, did])
         url = build_url(self.host, path=path)
         data = dumps(sources)
