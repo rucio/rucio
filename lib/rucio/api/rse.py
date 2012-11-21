@@ -34,7 +34,7 @@ def del_rse(rse, issuer):
     :param rse: The RSE name.
     :param issuer: The issuer account.
     """
-    
+
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='del_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete RSE' % (issuer))
@@ -50,8 +50,8 @@ def list_rses(filters=None):
 
     :returns: List of all RSEs.
     """
-    
-    return rse.list_rses()
+
+    return rse_module.list_rses()
 
 
 def del_rse_attribute(rse, key, issuer):
@@ -63,7 +63,7 @@ def del_rse_attribute(rse, key, issuer):
 
     :return: True if RSE attribute was deleted successfully, False otherwise.
     """
-    
+
     kwargs = {'rse': rse, 'key': key}
     if not permission.has_permission(issuer=issuer, action='del_rse_attribute', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete RSE attributes' % (issuer))
@@ -81,7 +81,7 @@ def add_rse_attribute(rse, key, value, issuer):
 
     returns: True if successful, False otherwise.
     """
-    
+
     kwargs = {'rse': rse, 'key': key, 'value': value}
     if not permission.has_permission(issuer=issuer, action='add_rse_attribute', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
@@ -97,7 +97,7 @@ def list_rse_attributes(rse):
 
     :returns: List of all RSE attributes for a RSE_MODULE.
     """
-    
+
     return rse_module.list_rse_attributes(rse=rse)
 
 
@@ -115,7 +115,7 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn=None):
 
     :returns: True is successful, False otherwise
     """
-    
+
     kwargs = {'rse': rse, 'scope': scope, 'did': did, 'size': size, 'checksum': checksum, 'dsn': dsn}
     if not permission.has_permission(issuer=issuer, action='add_file_replica', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))

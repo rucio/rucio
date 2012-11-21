@@ -19,7 +19,7 @@ def list_replicas(scope, did):
     :param scope: The scope name.
     :param did: The data identifier.
     """
-    
+
     return identifier.list_replicas(scope=scope, did=did)
 
 
@@ -32,7 +32,7 @@ def add_identifier(scope, did, sources, issuer):
     :param sources: The content as a list of data identifiers.
     :param issuer: The issuer account.
     """
-    
+
     return identifier.add_identifier(scope=scope, did=did, sources=sources, issuer=issuer)
 
 
@@ -43,7 +43,7 @@ def list_content(scope, did):
     :param scope: The scope name.
     :param did: The data identifier.
     """
-    
+
     return identifier.list_content(scope=scope, did=did)
 
 
