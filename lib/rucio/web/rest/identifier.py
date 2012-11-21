@@ -44,7 +44,7 @@ class Identifiers:
         :param scope: Create the data identifier within this scope.
         :param did: Create the data identifier with this name.
         """
-        
+
         header('Content-Type', 'application/json')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')

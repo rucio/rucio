@@ -275,7 +275,7 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
 
     :returns: True is successfull.
     """
-    
+
     new_data_id = models.DataIdentifier(scope=scope, did=did, owner=issuer, type=models.DataIdType.FILE)
     new_file = models.File(scope=scope, did=did, owner=issuer, size=size, checksum=checksum)
     replica_rse = get_rse(rse=rse)
