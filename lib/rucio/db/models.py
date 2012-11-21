@@ -42,8 +42,8 @@ BASE = declarative_base()
 
 class DataIdType:
     FILE = 'file'
+    DATASET = 'dataset'
     CONTAINER = 'container'
-    DATASET = 'dataset'  # here for compatibility reason
 
 
 @event.listens_for(PrimaryKeyConstraint, "after_parent_attach")
