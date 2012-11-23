@@ -194,11 +194,9 @@ def list_replicas(args):
             scope, did = did.split(':')
             replicas = client.list_replicas(scope=scope, did=did)
             for replica in replicas:
-                rses = [r['rse'] for r in replicas[replica] if 'rse' in r]
-                rses = ','.join(rses)
-                print '%(replica)s: %(rses)s' % locals()
+                print '%(rse)s\t%(checksum)s\t%(size)s\t%(pfn)s' % replica
         except Exception, e:
-            print 'Failed to list file replicas for %(did)s' % locals()
+            print 'Failed to list file replicas for %(scope):%(did)s'
             print e
 
 
@@ -232,7 +230,7 @@ def add(args):
 
 def list(args):
     """
-    %(prog)s list [options] <field1=value1 field2=value2 ...>
+    %(prog)s list <did_1> ... <did_n>
 
     List data identifier contents.
     """
@@ -249,7 +247,7 @@ def list(args):
     for did in args.dids:
         try:
             scope, did = did.split(':')
-            dids = client.list(scope=scope, did=did)
+            dids = client.list_content(scope=scope, did=did)
             for d in dids:
                 print '%(scope)s:%(did)s' % d
         except Exception, e:
