@@ -25,7 +25,7 @@ def list_replicas(scope, did):
 
 def add_identifier(scope, did, sources, issuer):
     """
-    Add data identifier for a dataset or container.
+    Add data identifier.
 
     :param scope: The scope name.
     :param did: The data identifier.
@@ -53,6 +53,16 @@ def list_files(scope, did):
 
     :param scope: The scope name.
     :param did: The data identifier.
-
     """
+
     return identifier.list_files(scope=scope, did=did)
+
+
+def scope_list(scope):
+    """
+    List data identifiers in a scope.
+
+    :param scope: The scope name.
+    """
+
+    return identifier.scope_list(scope=scope)
