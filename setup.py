@@ -47,8 +47,8 @@ data_files = [('etc/', glob.glob('etc/*.template')),
 copy_args = sys.argv[1:]
 if '--client' in copy_args:
     name = 'rucio-clients'
-    packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common', 'rucio.client.api', 'rucio.client.api',
-                'rucio.rse.protocols', 'rucio.client.api.rse', 'rucio.rse', 'rucio.rse.protocols']
+    packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common',
+                'rucio.rse.protocols', 'rucio.rse']
     requirements_files = ['tools/pip-requires-client']
     description = "Rucio Client Lite Package"
     data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
