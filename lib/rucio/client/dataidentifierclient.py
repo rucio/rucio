@@ -19,7 +19,7 @@ class DataIdentifierClient(BaseClient):
 
     """DataIdentifier client class for working with data identifiers"""
 
-    BASEURL = 'ids'
+    BASEURL = 'dids'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(DataIdentifierClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
@@ -67,14 +67,14 @@ class DataIdentifierClient(BaseClient):
 
         :param scope: The scope name.
         :param did: The data identifier.
-
         """
+
         path = '/'.join([self.BASEURL, scope, did, 'dids'])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            data_ids = loads(r.text)
-            return data_ids
+            dids = loads(r.text)
+            return dids
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
@@ -85,14 +85,31 @@ class DataIdentifierClient(BaseClient):
 
         :param scope: The scope name.
         :param did: The data identifier.
-
         """
+
         path = '/'.join([self.BASEURL, scope, did, 'files'])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             files = loads(r.text)
             return files
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def scope_list(self, scope):
+        """
+        List data identifiers in scope.
+
+        :param scope: The scope name.
+        """
+
+        path = '/'.join([self.BASEURL, scope, ''])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            dids = loads(r.text)
+            return dids
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)

@@ -61,7 +61,7 @@ def list_replicas(scope, did):
 
 def add_identifier(scope, did, sources, issuer):
     """
-    Add dataset/container
+    Add data identifier.
 
     :param scope: The scope name.
     :param did: The data identifier.
@@ -114,12 +114,12 @@ def add_identifier(scope, did, sources, issuer):
 
 def list_content(scope, did):
     """
-    List dataset/container contents.
+    List data identifier contents.
 
     :param scope: The scope name.
     :param did: The data identifier.
-
     """
+
     query = session.query(models.DataIdentifier).filter_by(scope=scope, did=did, deleted=False)
     try:
         query.one()
@@ -135,12 +135,12 @@ def list_content(scope, did):
 
 def list_files(scope, did):
     """
-    List container/dataset file contents.
+    List data identifier file contents.
 
     :param scope: The scope name.
     :param did: The data identifier.
-
     """
+
     query = session.query(models.DataIdentifier).filter_by(scope=scope, did=did, deleted=False)
     try:
         did = query.one()
@@ -161,3 +161,23 @@ def list_files(scope, did):
                 dids.append((tmp_did.child_scope, tmp_did.child_name))
 
     return files
+
+
+def scope_list(scope):
+    """
+    List data identifiers in a scope.
+
+    :param scope: The scope name.
+    :returns: List of data identifiers dictionaries.
+    """
+
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
+
+    dids = []
+    try:
+        for did in query.all():
+            dids.append({'scope': scope, 'did': did.did, 'type': did.type})
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Scope '%(scope)s' not found" % locals())
+
+    return dids

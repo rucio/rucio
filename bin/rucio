@@ -46,6 +46,7 @@ def get_client(args):
     specified by the --host and --port options
     supplied to the CLI
     """
+
     return client.Client(host="0.0.0.0")
 
 
@@ -53,7 +54,7 @@ def ping(args):
     """
     Pings a Rucio server.
     """
-    
+
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
@@ -78,7 +79,7 @@ def whoami_account(args):
 
     Show extended information of a given account
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -107,7 +108,7 @@ def add_replicas(args):
 
     Add file replicas.
     """
-    
+
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
@@ -125,8 +126,8 @@ def add_replicas(args):
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
     dsn = None
-    if args.dsn:
-        dsn = {'scope': args.dsn.split(':')[0], 'did': args.dsn.split(':')[1]}
+    if args.did:
+        dsn = {'scope': args.did.split(':')[0], 'did': args.did.split(':')[1]}
     for lfn, rse, checksum, size in zip(args.lfns, args.rses, args.checksums, args.sizes):
         try:
             scope, did = lfn.split(':')
@@ -144,7 +145,7 @@ def add_file(args):
 
     Add file.
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -177,7 +178,7 @@ def list_replicas(args):
 
     List file replicas
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -205,9 +206,9 @@ def add(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
-    Add dataset/container.
+    Add data identifier.
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -221,9 +222,9 @@ def add(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
         client.add_identifier(scope=scope, did=did, sources=sources)
-        print 'Added: %s:%s' % (scope, did)
+        print 'Added %s:%s' % (scope, did)
     except Exception, e:
-        print 'Failed to add dataset/container/content'
+        print 'Failed to add data identifier'
         print e
         return FAILURE
     return SUCCESS
@@ -233,9 +234,9 @@ def list(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
-    list container/dataset contents.
+    List data identifier contents.
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -256,13 +257,40 @@ def list(args):
 
     return SUCCESS
 
+def scope_list(args):
+    """
+    %(prog)s scope_list <scope_name>
+
+    List all data identifiers in given scope.
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        dids = client.scope_list(scope=args.scope)
+        for d in dids:
+            print '%(scope)s:%(did)s [%(type)s]' % d
+    except Exception, e:
+        print e
+        return FAILURE
+
+    return SUCCESS
+
+
 def list_files(args):
     """
     %(prog)s list-files [options] <field1=value1 field2=value2 ...>
 
-    list container/dataset file contents.
+    List data identifier contents.
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -288,16 +316,16 @@ def close(args):
     """
     %(prog)s close [options] <field1=value1 field2=value2 ...>
 
-    Close dataset/container
+    Close data identifier.
     """
-    
+
     raise NotImplementedError
 
 def delete(args):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
 
-    Del dataset/container or dataset/container content
+    Delete data identifier.
     """
     raise NotImplementedError
 
@@ -307,7 +335,7 @@ def upload(args):
 
     Upload files into Rucio
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -318,8 +346,8 @@ def upload(args):
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
     dsn = None
-    if args.dsn:
-        dsn = {'scope': args.scope, 'did': args.dsn}
+    if args.did:
+        dsn = {'scope': args.scope, 'did': args.did}
 
     rsemgr = rsemanager.RSEMgr()
     files = args.files
@@ -341,7 +369,7 @@ def download(args):
 
     Download files from Rucio
     """
-    
+
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
@@ -411,7 +439,7 @@ Commands:
     add_replicas_parser.add_argument('--rses', dest='rses', nargs='+', action='store', help='List of space separated Rucio Storage Element(RSE)', required=True)
     add_replicas_parser.add_argument('--sizes', dest='sizes', nargs='+', action='store', help='List of space separated file sizes', required=True)
     add_replicas_parser.add_argument('--checksums', dest='checksums', nargs='+', action='store', help='List of space separated file checksums', required=True)
-    add_replicas_parser.add_argument('--dsn', dest='dsn', default=None, action='store', help='Dataset name to create')
+    add_replicas_parser.add_argument('--did', dest='did', default=None, action='store', help='Data identifier to create')
 
     # The list_replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
@@ -419,30 +447,36 @@ Commands:
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The add command
-    add_parser = subparsers.add_parser('add', help='Add container/dataset')
+    add_parser = subparsers.add_parser('add', help='Add data identifier')
     add_parser.set_defaults(which='add')
-    add_parser.add_argument('--dest', dest='did', action='store', help='Container/dataset name to create', required=True)
+    add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
     add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers', required=True)
     # ToDo: add meta
 
     # The list command
-    list_parser = subparsers.add_parser('list', help='List container/dataset contents')
+    list_parser = subparsers.add_parser('list', help='List data identifier contents')
     list_parser.set_defaults(which='list')
     list_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
+    # The scope_list command
+    scope_list_parser = subparsers.add_parser('scope_list', help='List data identifiers in a scope')
+    scope_list_parser.set_defaults(which='scope_list')
+    scope_list_parser.add_argument('--scope', dest='scope', default=None, action='store', help='Scope name', required=True)
+
+
     # The close command
-    close_parser = subparsers.add_parser('close', help='Close container/dataset')
+    close_parser = subparsers.add_parser('close', help='Close data identifier')
     close_parser.set_defaults(which='close')
     close_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The del command
-    del_parser = subparsers.add_parser('del', help='Del dataset/container or dataset/container content')
+    del_parser = subparsers.add_parser('del', help='Delete data identifier')
     del_parser.set_defaults(which='del')
     del_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-    del_parser.add_argument('--from',dest='from', action='store', help='Target dataset/container')
+    del_parser.add_argument('--from',dest='from', action='store', help='Target data identifier')
 
     # The list_files command
-    list_files_parser = subparsers.add_parser('list-files', help='List container/dataset file contents')
+    list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents')
     list_files_parser.set_defaults(which='list_files')
     list_files_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
@@ -452,7 +486,7 @@ Commands:
     upload_parser.add_argument('--files', dest='files', nargs='+', action='store', help='List of space separated files', required=True)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True) # to be optional after
-    upload_parser.add_argument('--dsn', dest='dsn', action='store', help='Dataset name to create')
+    upload_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create')
 
     # The download subparser
     download_parser = subparsers.add_parser('download', help='Download method')
@@ -501,6 +535,7 @@ Commands:
                 'add': add,
                 'list': list,
                 'list_files': list_files,
+                'scope_list': scope_list,
                 'close' : close,
                 'del' : delete,
                 'whoami_account': whoami_account,

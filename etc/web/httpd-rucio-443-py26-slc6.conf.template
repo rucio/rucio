@@ -66,7 +66,7 @@ WSGIPythonPath /opt/rucio/lib/python2.6/site-packages
 
  WSGIScriptAlias /accounts /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/account.py
  WSGIScriptAlias /auth /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/authentication.py
- WSGIScriptAlias /ids /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/identifier.py
+ WSGIScriptAlias /dids /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/identifier.py
  WSGIScriptAlias /identities /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/identity.py
  WSGIScriptAlias /ping /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/ping.py
  WSGIScriptAlias /rses /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/rse.py

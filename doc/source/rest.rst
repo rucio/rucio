@@ -27,7 +27,7 @@ Service
 =======
 
 
-* :ref:`GET /PING`: Discover server version information
+* :ref:`GET /ping`: Discover server version information
 
   - Command: :ref:`rucio ping`, method: :ref:`ping`
 
@@ -39,128 +39,100 @@ Authentication
 * :ref:`GET /auth/x509_proxy`: Retrieve an auth token with a Globus proxy
 * :ref:`GET /auth/gss`: Retrieve an auth token with a gss token
 * :ref:`GET /auth/validate`: Retrieve an auth token with a gss token
-.. * :ref:`DELETE auth/tokens/`: Revoke a  <token> ?
+* :ref:`DELETE /auth/{token}`: Revoke a token
 
 Rucio account
 =============
 
-* :ref:`POST accounts/{accountName}`: Create account
+* :ref:`POST /accounts/{account_name}`: Create account
 
   - Command: :ref:`rucio-admin account add`, method: :ref:`add_account`
 
-* :ref:`GET accounts/{accountName}`: Get account information
-* :ref:`PUT accounts/{accountName}`: Update account information
-* :ref:`GET accounts/{accountName}/usage`: Get account usage information
-* :ref:`GET accounts/{accountName}/limits`: Get limits
-* :ref:`PUT accounts/{accountName}/limits`: Set limits for a account and a value
-* :ref:`GET accounts/whoami`: Get information about account whose token is used
-* :ref:`GET accounts/`:  List available accounts
-* :ref:`DELETE accounts/{accountName}`: Disable account name
+* :ref:`GET /accounts/{account_name}`: Get account information
+* :ref:`PUT /accounts/{account_name}`: Update account information
+* :ref:`GET /accounts/{account_name}/usage`: Get account usage information
+* :ref:`GET /accounts/{account_name}/limits`: Get limits
+* :ref:`PUT /accounts/{account_name}/limits`: Set limits for a account and a value
+* :ref:`GET /accounts/whoami`: Get information about account whose token is used
+* :ref:`GET /accounts/`:  List available accounts
+* :ref:`DELETE /accounts/{account_name}`: Disable account name
 
 RSE (Rucio Storage Element)
 ============================
 
-* :ref:`POST rses/{RSEName}`: Create a RSE
+* :ref:`POST /rses/{rse_name}`: Create a RSE
 
   - Command: :ref:`rucio-admin rse add`
   - Method: :ref:`add_rse`
 
-* :ref:`GET rses/{rseName}`: Get RSE information
-* :ref:`GET rses/`: List available RSEs
-* :ref:`DELETE rses/{rseName}`: Disable a RSE
-* :ref:`GET rses/{rseName}/usage`: Get RSE usage information
-* :ref:`GET rses/{rseName}/usage/history`: Get RSE usage information history
+* :ref:`GET /rses/{rse_name}`: Get RSE information
+* :ref:`GET /rses/`: List available RSEs
+* :ref:`DELETE /rses/{rse_name}`: Disable a RSE
+* :ref:`GET /rses/{rse_name}/usage`: Get RSE usage information
+* :ref:`GET /rses/{rse_name}/usage/history`: Get RSE usage information history
 
 
 RSE  attributes
 ===============
 
-* :ref:`GET rses/{RSEName}/attr/`: List all keys of the RSE with their respective values
-* :ref:`GET rses/{rseName}/attr/{key}`: Get the value of the RSE attribute/key
-* :ref:`POST rses/{rseName}/attr/{key}/`: Create an RSE key
-* :ref:`PUT rses/{rseName}/attr/{key}/`: Update the value of a key
-* :ref:`DELETE rses/{rseName}/attr/{key}`: Remove a key from a RSE
+* :ref:`GET /rses/{rse_name}/attr/`: List all keys of the RSE with their respective values
+* :ref:`GET /rses/{rse_name}/attr/{key}`: Get the value of the RSE attribute/key
+* :ref:`POST /rses/{rse_name}/attr/{key}`: Create an RSE key
+* :ref:`PUT /rses/{rse_name}/attr/{key}`: Update the value of a key
+* :ref:`DELETE /rses/{rse_name}/attr/{key}`: Remove a key from a RSE
 
 Identity
 ========
 
-* :ref:`POST accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}`: Grant a \{userpass|x509|gss|proxy\} identity access to an account
-* :ref:`GET accounts/{accountName}/identities/`: List all identities on an account
-* :ref:`GET identities/{userpass|x509|gss|proxy}/{identityString}/accounts/`: List all account memberships of an identity
-* :ref:`DELETE accounts/{accountName}/identities/{userpass|x509|gss|proxy}/{identityString}`:  Revoke a \{userpass|x509|gss|proxy\} identity's access to an account
+* :ref:`POST /accounts/{account_name}/identities/{userpass|x509|gss|proxy}/{identityString}`: Grant a \{userpass|x509|gss|proxy\} identity access to an account
+* :ref:`GET /accounts/{account_name}/identities/`: List all identities on an account
+* :ref:`GET /identities/{userpass|x509|gss|proxy}/{identityString}/accounts/`: List all account memberships of an identity
+* :ref:`DELETE /accounts/{account_name}/identities/{userpass|x509|gss|proxy}/{identityString}`:  Revoke a \{userpass|x509|gss|proxy\} identity's access to an account
 
 Scope
 =====
 
-* :ref:`POST accounts/{accountName}/scopes/{scopeName}`: Create a scope
-* :ref:`GET accounts/{accountName}/scopes/`: List available scopes for an account
-* :ref:`GET scopes/`: List/query all scopes with filter parameter lists
-* :ref:`DELETE accounts/{accountName}/scopes/{scopeName}`: Delete a scope from an account
-
-Dataset
-=======
-
-* :ref:`POST datasets/{scopeName}/{datasetName}`: Register a dataset
-* :ref:`GET datasets/{scopeName}/{datasetName}/names/`: List dataset content
-* :ref:`GET datasets/{scopeName}/{datasetName}/files/`: List dataset file content
-* :ref:`PUT datasets/{scopeName}/{datasetName}/status/`: Update dataset status
-* :ref:`GET datasets/{scopeName}/{datasetName}/status/`: Get dataset status
-* :ref:`GET datasets/{scopeName}/{datasetName}/meta`: List all keys of the dataset with their respective values
-* :ref:`POST datasets/{scopeName}/{datasetName}/meta/{key}`:  Creation of a key for a dataset
-* :ref:`GET datasets/{scopeName}/{datasetName}/meta/{key}`: Retrieve the selected key value pair for the given dataset
-* :ref:`DELETE datasets/{scopeName}/{datasetName}/meta/{key}`: Remove a key from a dataset
-* :ref:`PUT datasets/{scopeName}/{datasetName}/meta/{key}`:  Update the value of the key
-* :ref:`GET datasets/`:  Search/list datasets with filter parameters
-* :ref:`POST datasets/{scopeName}/{datasetName}/files|names`: Add file(s)/dataset(s) to a dataset
-* :ref:`DELETE datasets/{scopeName}/{datasetName}`: Delete a dataset
-
-File
-====
-
-* :ref:`POST /rses/{RSEName}/files/{scopeName}/{fileName}`: Register a file replica
-* :ref:`GET files/{scopeName}/{datasetName}/meta`: List all keys of the dataset with their respective values
-* :ref:`GET files/{scopeName}/{fileName}/meta/{key}`: Retrieve the selected key value pair for the given file
-* :ref:`PUT files/{scopeName}/{fileName}/status`: Update file status
-* :ref:`GET files/{scopeName}/{fileName}/status`: Get file status
-* :ref:`POST files/{scopeName}/{datasetName}/meta/{key}/`:  Creation of a key for a file
-* :ref:`PUT files/{scopeName}/{fileName}/meta/{key}`: Update the value of the key
-* :ref:`DELETE files/{scopeName}/{fileName}/meta/{key}`: Remove a key from a file
-* :ref:`PUT files/{scopeName}/{fileName}/meta/{key}/`:  Set the value of the key to {value}
-* :ref:`GET files/{scopeName}/{fileName}/rses/`:  List file replicas
+* :ref:`POST /accounts/{account_name}/scopes/{scope_name}`: Create a scope
+* :ref:`GET /accounts/{account_name}/scopes/`: List available scopes for an account
+* :ref:`GET /scopes/`: List/query all scopes with filter parameter lists
+* :ref:`DELETE /accounts/{account_name}/scopes/{scope_name}`: Delete a scope from an account
 
 
-Name
-====
+Data identifiers
+================
 
-* :ref:`GET names/{scopeName}/{name}/rses/`: List file replicas for dataset|file
-* :ref:`GET names/{scopeName}/{name}/names/`: List content
-* :ref:`GET names/{scopeName}/{name}/files/`: List file content
-* :ref:`GET names/{scopeName}/{name}/meta`: List all keys of the name with their respective values
-* :ref:`GET names/{scopeName}/{name}/meta/{key}`: Retrieve the selected key value pair for the given name
-* :ref:`PUT names/{scopeName}/{name}/meta/{key}`: Set the value of the key to NULL ?
-* :ref:`DELETE /names/{scopeName}/{name}/meta/{key}`: Remove a key from a name
-* :ref:`PUT /names/{scopeName}/{name}/meta/{key}`:  Set the value of the key to {value}
-* :ref:`GET names/`:  Search names with filter parameters
+* :ref:`GET /dids/`: Search data identifiers over all scopes with filter parameters
+* :ref:`POST /dids/{scope_name}/{did}`: Create a new data identifier
+* :ref:`GET /dids/{scope_name}/`: List all data identifiers in a scope
+* :ref:`DELETE /dids/{scope_name}/{did}`: Obsolete a data identifier
+* :ref:`GET /dids/{scope_name}/{did}/rses/`: List replicas for a data identifier
+* :ref:`GET /dids/{scope_name}/{did}/`: List content of data identifier
+* :ref:`PUT /dids/{scope_name}/{did}/status`: Update data identifier status
+* :ref:`GET /dids/{scope_name}/{did}/status`: Get data identifier status
+* :ref:`GET /dids/{scope_name}/{did}/meta/`: List all keys of the data identifier with their respective values
+* :ref:`GET /dids/{scope_name}/{did}/meta/{key}`: Retrieve the selected key value pair for the given data identifier
+* :ref:`PUT /dids/{scope_name}/{did}/meta/{key}`: Set the value of the key to NULL ?
+* :ref:`DELETE /dids/{scope_name}/{did}/meta/{key}`: Remove a key from a data identifier
+* :ref:`PUT /dids/{scope_name}/{did}/meta/{key}`:  Set the value of the key of a data identifier
+* :ref:`POST /dids/{scope_name}/{did_super}/{did_sub}`: Add "sub" data identifier into "super" data identifier
+
 
 Metadata
 =========
 
-What's written below for datasets is applicable to files 1:1 (replace string 'datasets' with 'files').
-
-
-* :ref:`POST meta/datasets/{key}`: Create a new allowed key (value is NULL)
-* :ref:`GET meta/datasets`: List all allowed keys with their default values
-* :ref:`POST meta/datasets/{key}/`: Create a new allowed key with a default value
-* :ref:`DELETE meta/datasets/{key}`:  Delete an allowed key
-* :ref:`DELETE meta/datasets/{key}/{defaultvalue}`: Delete the default value of a key (change the value to NULL)
+* :ref:`POST /meta/{key}`: Create a new allowed key (value is NULL)
+* :ref:`GET /meta/`: List all allowed keys with their default values
+* :ref:`POST /meta/{key}`: Create a new allowed key with a default value
+* :ref:`DELETE /meta/{key}`:  Delete an allowed key
+* :ref:`DELETE /meta/{key}/{defaultvalue}`: Delete the default value of a key (change the value to NULL)
 
 
 Replication rule
 =================
 
-* :ref:`POST rules/{accountName}/{scopeName}/{name}`: Create a rule on a name
-* :ref:`GET rules/{accountName}/{scopeName}/{name}`: Get all the rules associated to a name
-* :ref:`DELETE rules/{accountName}/{scopeName}/{name}`: Delete a rule
+* :ref:`POST /rules/{account_name}/{scope_name}/{did}`: Create a rule on a data identifier
+* :ref:`GET /rules/{account_name}/{scope_name}/{did}`: Get all the rules associated to a data identifier
+* :ref:`DELETE /rules/{account_name}/{scope_name}/{did}`: Delete a rule
 
 
 Subscriptions
@@ -169,13 +141,13 @@ Subscriptions
 +----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
 | Resource                                                             | Description                                               | Availability |
 +======================================================================+===========================================================+==============+
-| :ref:`POST subscriptions/{accountName}/`                             | Register a subscription                                   |  No          |
+| :ref:`POST /subscriptions/{account_name}/`                             | Register a subscription                                   |  No          |
 +----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`DELETE subscriptions/{subscription_id}`                        | Delete a subscription                                     |  No          |
+| :ref:`DELETE /subscriptions/{subscription_id}`                        | Delete a subscription                                     |  No          |
 +----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET subscriptions/{subscription_id}`                           | Get subscription info                                     |  No          |
+| :ref:`GET /subscriptions/{subscription_id}`                           | Get subscription info                                     |  No          |
 +----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET subscriptions/`                                            | List all subscriptions                                    |  No          |
+| :ref:`GET /subscriptions/`                                            | List all subscriptions                                    |  No          |
 +----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
 
 

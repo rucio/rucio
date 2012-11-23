@@ -9,23 +9,67 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-
-import traceback
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from json import dumps, loads
 from web import application, ctx, data, header, Created, InternalError, BadRequest
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files
-from rucio.common.exception import DataIdentifierNotFound
+from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list
+from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound
 from rucio.common.utils import generate_http_error
 
 urls = (
-    '/(.*)/(.*)/rses', 'Replicas',
-    '/(.*)/(.*)/dids', 'Identifiers',
-    '/(.*)/(.*)/files', 'Files',
+    '/(.*)/', 'Scope',
+    '/(.*)/(.*)/rses/', 'Replicas',
+    '/(.*)/(.*)/dids/', 'Identifiers',
+    '/(.*)/(.*)/files/', 'Files',
     '/(.*)/(.*)', 'Identifiers',
 )
+
+
+class Scope:
+
+    def GET(self, scope):
+        """
+        Return all data identifiers in the given scope.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            return dumps(scope_list(scope=scope))
+        except ScopeNotFound, e:
+            raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def POST(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 class Identifiers:
@@ -64,7 +108,7 @@ class Identifiers:
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
-            traceback.print_exc()
+            print e
             raise InternalError(e)
         raise Created()
 
