@@ -25,37 +25,16 @@ def list_replicas(scope, did):
 
     :param scope: The scope name.
     :param did: The data identifier.
-
     """
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, did=did, deleted=False)
+
+    replicas = []
     try:
-        did = query.one()
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
-
-    if did.type == models.DataIdType.FILE:
-        files = [(scope, did), ]
-    else:
-        files = list()
-        dids = [(scope, did), ]
-        while dids:
-            s, n = dids.pop()
-            query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, did=n, deleted=False)
-            for tmp_did in query:
-                if tmp_did.child_type == models.DataIdType.FILE:
-                    file = (tmp_did.child_scope, tmp_did.child_name)
-                    if file not in files:
-                        files.append(file)
-                else:
-                    dids.append((tmp_did.child_scope, tmp_did.child_name))
-
-    replicas = {}
-    for s, n in files:
-        query = session.query(models.RSEFileAssociation).filter_by(scope=s, did=n, deleted=False)
-        rows = list()
+        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, did=did, deleted=False)
         for replica in query:
-            rows.append({'size': replica.size, 'rse': replica.rse.rse, 'checksum': replica.checksum, 'pfn': replica.pfn})
-        replicas['%(s)s:%(n)s' % locals()] = rows
+            replicas.append({'size': replica.size, 'rse': replica.rse.rse, 'checksum': replica.checksum, 'pfn': replica.pfn})
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found")
+
     return replicas
 
 
@@ -120,16 +99,14 @@ def list_content(scope, did):
     :param did: The data identifier.
     """
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, did=did, deleted=False)
+    dids = []
     try:
-        query.one()
+        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, did=did, deleted=False)
+        for tmp_did in query:
+            dids.append({'scope': tmp_did.child_scope, 'did': tmp_did.child_did, 'type': tmp_did.child_type})
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
 
-    dids = list()
-    query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, did=did, deleted=False)
-    for tmp_did in query:
-        dids.append({'name': tmp_did.child_name, 'scope': tmp_did.child_scope})
     return dids
 
 
@@ -141,24 +118,14 @@ def list_files(scope, did):
     :param did: The data identifier.
     """
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, did=did, deleted=False)
+    # TODO: Optional traverse hierarchy
+    files = []
     try:
-        did = query.one()
+        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, did=did, child_type=models.DataIdType.FILE, deleted=False)
+        for tmp_file in query:
+            files.append({'scope': tmp_file.child_scope, 'did': tmp_file.child_did, 'type': tmp_file.child_type})
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
-
-    files = list()
-    dids = [(scope, did), ]
-    while dids:
-        s, n = dids.pop()
-        query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, did=n, deleted=False)
-        for tmp_did in query:
-            if tmp_did.child_type == models.DataIdType.FILE:
-                file = {'scope': tmp_did.child_scope, 'name': tmp_did.child_name}
-                if file not in files:
-                    files.append(file)
-            else:
-                dids.append((tmp_did.child_scope, tmp_did.child_name))
 
     return files
 

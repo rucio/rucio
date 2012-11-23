@@ -21,9 +21,9 @@ from rucio.common.utils import generate_http_error
 
 urls = (
     '/(.*)/', 'Scope',
-    '/(.*)/(.*)/rses/', 'Replicas',
-    '/(.*)/(.*)/dids/', 'Identifiers',
-    '/(.*)/(.*)/files/', 'Files',
+    '/(.*)/(.*)/rses', 'Replicas',
+    '/(.*)/(.*)/files', 'Files',
+    '/(.*)/(.*)/dids', 'Content',
     '/(.*)/(.*)', 'Identifiers',
 )
 
@@ -74,6 +74,10 @@ class Scope:
 
 class Identifiers:
 
+    def GET(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
     def POST(self, scope, did):
         """
         Create a new data identifier.
@@ -112,6 +116,17 @@ class Identifiers:
             raise InternalError(e)
         raise Created()
 
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+
+class Content:
+
     def GET(self, scope, did):
         """
         Returns the contents of a data identifier.
@@ -143,6 +158,10 @@ class Identifiers:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
+
+    def POST(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')
