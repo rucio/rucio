@@ -113,7 +113,7 @@ class AccountClient(BaseClient):
         """
         return self.get_account('whoami')
 
-    def add_identity(self, account_name, identity, authtype, default=False):
+    def add_identity(self, account_name, identity, authtype, default=False, email=None):
         """
         Adds a membership association between identity and account.
 
@@ -121,10 +121,12 @@ class AccountClient(BaseClient):
         :param identity: The identity key name. For example x509 DN, or a username.
         :param authtype: The type of the authentication (x509, gss, userpass).
         :param default: If True, the account should be used by default with the provided identity.
+        :param email: The Email address associated with the identity.
         """
 
-        data = dumps({'identity': identity, 'authtype': authtype})
+        data = dumps({'identity': identity, 'authtype': authtype, 'default': default, 'email': email})
         path = '/'.join([self.BASEURL, account_name, 'identities'])
+
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)
