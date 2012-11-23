@@ -281,7 +281,7 @@ def identity_add(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        accountClient.add_identity(account_name=args.acnt, identity=args.identity, authtype=args.authtype)
+        accountClient.add_identity(account_name=args.acnt, identity=args.identity, authtype=args.authtype, email=args.email)
         print 'Added new identity to account: %s-%s' % (args.identity, args.acnt)
     except Exception, e:
             print 'Failed to grant an identity access to an account'
@@ -615,6 +615,8 @@ Commands:
     identity_add_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
     identity_add_parser.add_argument('--type', dest='authtype', action='store', help='Authentivation type(e.g. X509, gss)', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
+    identity_add_parser.add_argument('--email', dest='email', action='store', default=None, help='Email address associated with the identity')
+
 
     # The identity_delete command
     identity_delete_parser = identity_subparser.add_parser('delete', help="Revoke an identity's access to an account")
