@@ -111,15 +111,15 @@ def create_root_account():
     account = models.Account(account='root', type='user', status='active')
 
     identity1 = models.Identity(identity=up_id, type='userpass', password=up_pwd, salt='0', email=up_email)
-    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, default=True)
+    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, is_default=True)
 
     # X509 authentication
     identity2 = models.Identity(identity=x509_id, type='x509', email=x509_email)
-    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, default=True)
+    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, is_default=True)
 
     # GSS authentication
     identity3 = models.Identity(identity=gss_id, type='gss', email=gss_email)
-    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, type=identity3.type, account=account.account, default=True)
+    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, type=identity3.type, account=account.account, is_default=True)
 
     # Apply
     session.add_all([account, identity1, identity2, identity3])

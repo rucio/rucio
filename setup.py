@@ -150,11 +150,11 @@ def parse_dependency_links(requirements_files):
 def write_requirements():
     venv = os.environ.get('VIRTUAL_ENV', None)
     if venv is not None:
-        with open("requirements.txt", "w") as req_file:
-            output = subprocess.Popen(["pip", "freeze", "-l"],
-                                      stdout=subprocess.PIPE)
-            requirements = output.communicate()[0].strip()
-            req_file.write(requirements)
+        req_file = open("requirements.txt", "w")
+        output = subprocess.Popen(["pip", "freeze", "-l"], stdout=subprocess.PIPE)
+        requirements = output.communicate()[0].strip()
+        req_file.write(requirements)
+        req_file.close()
 
 requires = parse_requirements(requirements_files=requirements_files)
 depend_links = parse_dependency_links(requirements_files=requirements_files)

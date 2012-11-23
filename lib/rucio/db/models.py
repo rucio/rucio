@@ -175,7 +175,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
     identity = Column(String(255))
     type = Column(String(8))
     account = Column(String(255))
-    default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
+    is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
@@ -188,7 +188,7 @@ class Scope(BASE, ModelBase):
     __tablename__ = 'scopes'
     scope = Column(String(255))
     account = Column(String(255))
-    default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
+    is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
     _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
                    CheckConstraint('"default" IS NOT NULL', name='SCOPES_DEFAULT_NN'),)
