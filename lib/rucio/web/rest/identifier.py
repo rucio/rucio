@@ -15,7 +15,7 @@ from json import dumps, loads
 from web import application, ctx, data, header, Created, InternalError, BadRequest
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list
+from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list, get_did
 from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound
 from rucio.common.utils import generate_http_error
 
@@ -74,9 +74,37 @@ class Scope:
 
 class Identifiers:
 
-    def GET(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+    def GET(self, scope, did):
+        """
+        Retrieve a single data identifier.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        :param did: The data identifier.
+        """
+
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            return dumps(get_did(scope=scope, did=did))
+        except ScopeNotFound, e:
+            raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
 
     def POST(self, scope, did):
         """

@@ -148,3 +148,22 @@ def scope_list(scope):
         raise exception.DataIdentifierNotFound("Scope '%(scope)s' not found" % locals())
 
     return dids
+
+
+def get_did(scope, did):
+    """
+    Retrieve a single data identifier.
+
+    :param scope: The scope name.
+    :param did: The data identifier.
+    """
+
+    did_r = {'scope': None, 'did': None, 'type': None}
+    try:
+        r = session.query(models.DataIdentifier).filter_by(scope=scope, did=did, deleted=False).one()
+        if r:
+            did_r = {'scope': r.scope, 'did': r.did, 'type': r.type}
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
+
+    return did_r

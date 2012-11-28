@@ -66,3 +66,15 @@ def scope_list(scope):
     """
 
     return identifier.scope_list(scope=scope)
+
+
+def get_did(scope, did):
+    """
+    Retrieve a single data identifier.
+
+    :param scope: The scope name.
+    :param did: The data identifier.
+    :return did: Dictionary containing {'did', 'scope', 'type'}, Exception otherwise
+    """
+
+    return identifier.get_did(scope=scope, did=did)
