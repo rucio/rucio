@@ -113,3 +113,21 @@ class DataIdentifierClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def get_did(self, scope, did):
+        """
+        Retrieve a single data identifier.
+
+        :param scope: The scope name.
+        :param did: The data identifier.
+        """
+
+        path = '/'.join([self.BASEURL, scope, did])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            dids = loads(r.text)
+            return dids
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)

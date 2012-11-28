@@ -8,12 +8,13 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-from nose.tools import assert_in
+from nose.tools import assert_equal, assert_raises, assert_in
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.dataidentifierclient import DataIdentifierClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
 
 
@@ -24,6 +25,20 @@ class TestIdentifierClients():
         self.scope_client = ScopeClient()
         self.did_client = DataIdentifierClient()
         self.rse_client = RSEClient()
+
+    def test_exists(self):
+        """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
+        tmp_scope = 'scope_%s' % generate_uuid()
+        tmp_file = 'file_%s' % generate_uuid()
+        tmp_rse = 'rse_%s' % generate_uuid()
+
+        self.rse_client.add_rse(tmp_rse)
+        self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+
+        assert_equal(self.did_client.get_did(tmp_scope, tmp_file), {'scope': tmp_scope, 'did': tmp_file, 'type': 'file'})
+
+        with assert_raises(DataIdentifierNotFound):
+            self.did_client.get_did('i_dont_exist', 'neither_do_i')
 
     def test_scope_list(self):
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
