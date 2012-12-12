@@ -150,7 +150,7 @@ class Account(BASE, ModelBase):
     type = Column(String(10))
     status = Column(String(10))
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
-                   CheckConstraint("type IN ('user', 'group', 'atlas')", name='ACCOUNTS_TYPE_CHK'),
+                   CheckConstraint("type IN ('user', 'group', 'service')", name='ACCOUNTS_TYPE_CHK'),
                    CheckConstraint("status IN ('active', 'inactive', 'disabled')", name='ACCOUNTS_STATUS_CHK'), )
 
 
