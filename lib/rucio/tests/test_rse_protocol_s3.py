@@ -41,12 +41,13 @@ class TestRseS3():
 
         # Create test files on storage
         try:
-            subprocess.call(["s3cmd", "mb", "s3://RSETESTS3"], stdout=fnull, stderr=fnull, shell=False)
+            subprocess.call(["s3cmd", "mb", "s3://USER"], stdout=fnull, stderr=fnull, shell=False)
+            subprocess.call(["s3cmd", "mb", "s3://GROUP"], stdout=fnull, stderr=fnull, shell=False)
         except S3Error:
             pass
-        subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, storage.lfn2uri({'filename': 'data.raw', 'scope': 'test'}), "--no-progress"], stdout=fnull, stderr=fnull)
+        subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, storage.lfn2uri({'filename': 'data.raw', 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
         for f in MgrTestCases.files_remote:
-            subprocess.call(["s3cmd", "cp", storage.lfn2uri({'filename': 'data.raw', 'scope': 'test'}), storage.lfn2uri({'filename': f, 'scope': 'test'}), "--no-progress"], stdout=fnull, stderr=fnull)
+            subprocess.call(["s3cmd", "cp", storage.lfn2uri({'filename': 'data.raw', 'scope': 'user.jdoe'}), storage.lfn2uri({'filename': f, 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
         fnull.close()
 
     def setUp(self):
@@ -59,7 +60,8 @@ class TestRseS3():
         """S3 (RSE/PROTOCOLS): Removing created directories and files """
         # Remove test files from storage
         fnull = open(os.devnull, 'w')
-        subprocess.call(["s3cmd", "rb", "s3://RSETESTS3", "--no-progress", "--force"], stdout=fnull, stderr=fnull)
+        subprocess.call(["s3cmd", "del", "s3://USER/jdoe", "--recursive"], stdout=fnull, stderr=fnull)
+        subprocess.call(["s3cmd", "del", "s3://GROUP/jdoe", "--recursive"], stdout=fnull, stderr=fnull)
         shutil.rmtree(cls.tmpdir)
         fnull.close()
 

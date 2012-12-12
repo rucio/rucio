@@ -37,8 +37,16 @@ class Default(protocol.RSEProtocol):
 
             :returns: RSE specific URI of the physical file
         """
-        tmp = pfn.split(':')
-        return 's3://%s/%s/%s' % (self.rse['protocol']['prefix'], tmp[0], tmp[1])
+        # On S3 the default naming convention is not supproted
+        # It is therefore changed to bucket being either user, group, ... followed by the
+        # scope as prefix and the lfn as actual file name
+        # IMPORTANT: The prefix defined in the RSE properties are ignored due to system constraints
+        tmp = pfn.split('/')
+        bucket = tmp[0].split('.')[0].upper()
+        scope = tmp[0].split('.')[1]
+        lfn = tmp[-1]
+        print 'URI %s' % ('s3://%s/%s/%s' % (bucket, scope, lfn))
+        return 's3://%s/%s/%s' % (bucket, scope, lfn)
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
