@@ -2,7 +2,7 @@
 
 argparse
 #cx_Oracle==5.1.1        # Oracle connector
-MySQL-python==1.2.3      # MySQL connector
+#MySQL-python==1.2.3      # MySQL connector
 SQLAlchemy==0.7.8        # db backend
 sqlalchemy-migrate       # To deal with database schema changes
 #Jinja2>=2.3             # Template engine
