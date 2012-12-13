@@ -357,7 +357,7 @@ def upload(args):
             rsemgr.upload(args.rse, lfns=[{'filename':filename, 'scope': args.scope},])
             print 'download operation for %s done' % filename
         except Exception, e:
-            print 'Failed to download %(file)s' % locals()
+            print 'Failed to download %(files)s' % locals()
             print e
 
 
@@ -383,8 +383,7 @@ def download(args):
             scope, did = did.split(':')
             files = client.list_replicas(scope=scope, did=did)
             for file in files:
-                for replica in files[file]:
-                    rsemgr.download(rse_id=replica['rse'], files={'lfns': [{'filename': did, 'scope': scope},]},  dest_dir=args.dir)
+                    rsemgr.download(rse_id=file['rse'], files={'lfns': [{'filename': did, 'scope': scope},]},  dest_dir=args.dir)
                     break
             print 'download operation for %s done' % (did)
         except Exception, e:
