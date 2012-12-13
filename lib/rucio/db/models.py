@@ -260,34 +260,35 @@ class File(BASE, ModelBase):
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPP_NN'),)
 
 
-class FileKey(BASE, ModelBase):
-    """Represents file property keys"""
-    __tablename__ = 'file_keys'
+class DIDKey(BASE, ModelBase):
+    """Represents Data IDentifier property keys"""
+    __tablename__ = 'did_keys'
     key = Column(String(255))
     type = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('key', name='FILE_KEYS_PK'),)
+    regexp = Column(String(255))
+    _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),)
 
 
-class FileKeyValueAssociation(BASE, ModelBase):
-    """Represents file property key/values"""
-    __tablename__ = 'file_key_map'
+class DIDKeyValueAssociation(BASE, ModelBase):
+    """Represents Data IDentifier property key/values"""
+    __tablename__ = 'did_key_map'
     key = Column(String(255))
     value = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('key', 'value', name='FILE_KEY_MAP_PK'),
-                   ForeignKeyConstraint(['key'], ['file_keys.key'], name='FILE_MAP_KEYS_FK'),)
+    _table_args = (PrimaryKeyConstraint('key', 'value', name='DID_KEY_MAP_PK'),
+                   ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_MAP_KEYS_FK'),)
 
 
-class FileAttribute(BASE, ModelBase):
-    """Represents file  properties"""
-    __tablename__ = 'file_attributes'
+class DIDAttribute(BASE, ModelBase):
+    """Represents Data IDentifier  properties"""
+    __tablename__ = 'did_attributes'
     scope = Column(String(255))
     did = Column(String(255))
     key = Column(String(255))
     value = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('scope', 'did', 'key', name='FILES_ATTR_PK'),
-                   ForeignKeyConstraint(['scope', 'did'], ['files.scope', 'files.did'], name='FILES_ATTR_SCOPE_NAME_FK'),
-                   ForeignKeyConstraint(['key'], ['file_keys.key'], name='FILE_ATTR_KEYS_FK'),
-                   Index('FILE_ATTR_KEY_IDX', 'key'),)
+    _table_args = (PrimaryKeyConstraint('scope', 'did', 'key', name='DID_ATTR_PK'),
+                   ForeignKeyConstraint(['scope', 'did'], ['data_identifiers.scope', 'data_identifiers.did'], name='DID_ATTR_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_ATTR_KEYS_FK'),
+                   Index('DID_ATTR_KEY_IDX', 'key'),)
 
 
 class DataIdentifierAssociation(BASE, ModelBase):
@@ -498,7 +499,9 @@ def register_models(engine):
               Scope,
               DataIdentifier,
               File,
-              FileAttribute,
+              DIDKey,
+              DIDKeyValueAssociation,
+              DIDAttribute,
               RSE,
               RSEAttribute,
               RSEUsage,
@@ -523,8 +526,10 @@ def unregister_models(engine):
               IdentityAccountAssociation,
               Scope,
               DataIdentifier,
+              DIDKey,
+              DIDKeyValueAssociation,
+              DIDAttribute,
               File,
-              FileAttribute,
               RSE,
               RSEAttribute,
               RSEUsage,

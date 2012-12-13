@@ -58,6 +58,8 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
  WSGIScriptAlias /ping /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/ping.py
  WSGIScriptAlias /rses /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
  WSGIScriptAlias /scopes /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
+ WSGIScriptAlias /meta /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/meta.py
+
 
  # Valid client certificates required only for x509 authentication
  <LocationMatch /identity/.+/x509>
