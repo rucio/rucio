@@ -115,14 +115,11 @@ class Default(protocol.RSEProtocol):
         try:
             self.__connection.put(sf, self.pfn2uri(target))
         except IOError as e:
-            if not self.exists(self.rse['protocol']['prefix']):
-                cmd = 'mkdir '
-                for p in self.rse['protocol']['prefix'].split('/'):
-                    cmd += p + '/'
-                    self.__connection.execute(cmd)
-                self.__connection.put(source, self.pfn2uri(source))
-            else:
-                raise exception.DestinationNotAccessible(e)
+                try:
+                    self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2uri(target).split('/')[0:-1]))
+                    self.__connection.put(sf, self.pfn2uri(source))
+                except Exception, e:
+                    raise exception.DestinationNotAccessible(e)
         except OSError as e:
             if e.errno == 2:
                 raise exception.SourceNotFound(e)
@@ -154,9 +151,11 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        cmd = 'mv %s %s' % (self.pfn2uri(pfn), self.pfn2uri(new_pfn))
         try:
-            self.__connection.execute(cmd)
+            self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2uri(new_pfn).split('/')[0:-1]))
+            print 'mkdir -p %s' % '/'.join(self.pfn2uri(new_pfn).split('/')[0:-1])
+            self.__connection.execute('mv %s %s' % (self.pfn2uri(pfn), self.pfn2uri(new_pfn)))
+            print 'mv %s %s' % (self.pfn2uri(pfn), self.pfn2uri(new_pfn))
         except IOError as e:
             if e.errno == 2:
                 if self.exists(self.pfn2uri(pfn)):

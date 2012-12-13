@@ -29,6 +29,7 @@ class TestRseSFTP():
         """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
+        storage = rsemanager.RSE('lxplus.cern.ch')
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
@@ -36,7 +37,6 @@ class TestRseSFTP():
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSE('lxplus.cern.ch')
         # Load local credentials from file
         data = json.load(open('etc/rse-accounts.cfg'))
         credentials = data['lxplus.cern.ch']
@@ -46,7 +46,9 @@ class TestRseSFTP():
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         for f in MgrTestCases.files_remote:
-            lxplus.execute('ln -s %s/data.raw %s' % (prefix, storage.lfn2uri({'filename': f, 'scope': 'test'})))
+            uri = storage.lfn2uri({'filename': f, 'scope': 'user.jdoe'})
+            lxplus.execute('mkdir -p %s' % ('/'.join(uri.split('/')[0:-1])))
+            lxplus.execute('ln -s %s/data.raw %s' % (prefix, uri))
         lxplus.close()
 
     @classmethod
@@ -97,7 +99,7 @@ class TestRseSFTP():
         """SFTP (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_pfn()
 
-    # Mgr-Tests: PUT
+   # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
         """SFTP (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
         self.mtc.test_put_mgr_ok_multi()
