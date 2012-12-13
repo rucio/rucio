@@ -16,7 +16,7 @@ from web import application, ctx, data, header, Created, InternalError, BadReque
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list, get_did
-from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound
+from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, AccessDenied
 from rucio.common.utils import generate_http_error
 
 urls = (
@@ -139,6 +139,8 @@ class Identifiers:
             add_identifier(scope=scope, did=did, sources=sources, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Exception, e:
             print e
             raise InternalError(e)

@@ -109,3 +109,13 @@ def check_scope(scope_to_check):
     """
 
     return True if session.query(models.Scope).filter_by(scope=scope_to_check).first() else False
+
+
+def is_scope_owner(scope, account):
+    """ check to see if account owns the scope.
+
+    :param scope: the scope to check
+    :param account: the account to check
+    :returns: True or false
+    """
+    return True if session.query(models.Scope).filter_by(scope=scope, account=account).first() else False
