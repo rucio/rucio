@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 
 
 import pysftp
@@ -117,7 +118,7 @@ class Default(protocol.RSEProtocol):
         except IOError as e:
                 try:
                     self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2uri(target).split('/')[0:-1]))
-                    self.__connection.put(sf, self.pfn2uri(source))
+                    self.__connection.put(sf, self.pfn2uri(target))
                 except Exception, e:
                     raise exception.DestinationNotAccessible(e)
         except OSError as e:
