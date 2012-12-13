@@ -313,3 +313,9 @@ class DatabaseMigrationError(RucioException):
     def __init__(self, *args, **kwargs):
         super(DatabaseMigrationError, self).__init__(args, kwargs)
         self._message = "Error when migrating the database."
+
+
+class KeyNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(KeyNotFound, self).__init__(args, kwargs)
+        self._message = "Key does not exist."
