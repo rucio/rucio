@@ -22,9 +22,9 @@ import time
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.client import Client
+from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
-
 
 from rucio import version
 
@@ -475,7 +475,7 @@ def delattr_rse(args):
 
 def add_scope(args):
     """
-    %(prog)s list [options] <field1=value1 field2=value2 ...>
+    %(prog)s add [options] <field1=value1 field2=value2 ...>
 
     Add scope.
 
@@ -526,6 +526,111 @@ def list_scopes(args):
         print scope
 
     return SUCCESS
+
+
+def add_meta_key(args):
+    """
+    %(prog)s add [options] <field1=value1 field2=value2 ...>
+
+    Add a key.
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.add_key(key=args.key, type=args.type, regexp=args.regexp)
+        print 'Added new key: %s' % (args.key)
+    except Exception, e:
+            print 'Failed to add key'
+            print e
+            return FAILURE
+    return SUCCESS
+
+
+def list_meta_keys(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List keys.
+
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        keys = client.list_keys()
+    except Exception, e:
+            print 'Failed to list keys'
+            print e
+            return FAILURE
+
+    for key in keys:
+        print key
+
+    return SUCCESS
+
+
+def list_meta_values(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List all values to a list.
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        values = client.list_values(key=args.key)
+    except Exception, e:
+            print 'Failed to list values for a key'
+            print e
+            return FAILURE
+    for value in values:
+        print value
+
+    return SUCCESS
+
+
+def add_meta_value(args):
+    """
+    %(prog)s add [options] <field1=value1 field2=value2 ...>
+
+    Add a default value to a key.
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.add_value(key=args.key, value=args.value)
+    except Exception, e:
+            print 'Failed to add an default value to a key'
+            print e
+            return FAILURE
+
 
 if __name__ == '__main__':
     usage = """
@@ -686,8 +791,11 @@ Commands:
     meta_subparser = meta_parser.add_subparsers()
 
     # The add_meta command
-    add_meta_parser = meta_subparser.add_parser('add', help='Add metadata')
-    add_meta_parser.set_defaults(which='add_meta')
+    add_meta_parser = meta_subparser.add_parser('add', help='Add a new allowed key')
+    add_meta_parser.set_defaults(which='add_meta_key')
+    add_meta_parser.add_argument('key', action='store', help='Key name')
+    add_meta_parser.add_argument('--type', dest='type', action='store', help='Type of the values')
+    add_meta_parser.add_argument('--regexp', dest='regexp', action='store', help='the regular expression that values should match')
 
     # The del_meta command
     del_meta_parser = meta_subparser.add_parser('del', help='Del metadata')
@@ -695,7 +803,18 @@ Commands:
 
     # The list_meta command
     list_meta_parser = meta_subparser.add_parser('list', help='List metadata')
-    list_meta_parser.set_defaults(which='list_meta')
+    list_meta_parser.set_defaults(which='list_meta_keys')
+
+    # The add_meta_value command
+    add_meta_value_parser = meta_subparser.add_parser('add_value', help='Add value for a key')
+    add_meta_value_parser.set_defaults(which='add_meta_value')
+    add_meta_value_parser.add_argument('--key', dest='key', action='store', help='Key', required=True)
+    add_meta_value_parser.add_argument('--value', dest='value', action='store', help='Add a default value', required=True)
+
+    # The list_meta command
+    list_meta_values_parser = meta_subparser.add_parser('list_values', help='List values for a key')
+    list_meta_values_parser.set_defaults(which='list_meta_values')
+    list_meta_values_parser.add_argument('key', action='store', help='Key')
 
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
@@ -714,7 +833,12 @@ Commands:
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
-                'list_scopes': list_scopes}
+                'list_scopes': list_scopes,
+                'add_meta_key': add_meta_key,
+                'list_meta_keys': list_meta_keys,
+                'add_meta_value': add_meta_value,
+                'list_meta_values': list_meta_values,
+                }
 
     args = oparser.parse_args(sys.argv[1:])
 
