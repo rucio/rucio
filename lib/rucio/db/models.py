@@ -180,7 +180,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
                    CheckConstraint("type IN ('x509', 'gss', 'userpass')", name='ACCOUNT_MAP_TYPE_CHK'),
-                   CheckConstraint('"default" IS NOT NULL', name='ACCOUNT_MAP_DEFAULT_NN'),)
+                   CheckConstraint('is_default IS NOT NULL', name='ACCOUNT_MAP_IS_DEFAULT_NN'),)
 
 
 class Scope(BASE, ModelBase):
@@ -191,7 +191,7 @@ class Scope(BASE, ModelBase):
     is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
     _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
-                   CheckConstraint('"default" IS NOT NULL', name='SCOPES_DEFAULT_NN'),)
+                   CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),)
 
 
 # class DatasetKey(BASE, ModelBase):
