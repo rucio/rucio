@@ -19,7 +19,7 @@ from rucio.client.accountclient import AccountClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.scope import get_scopes, add_scope
+from rucio.core.scope import get_scopes, add_scope, is_scope_owner
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -44,6 +44,13 @@ class TestScopeCoreApi():
         scopes = get_scopes(account='root')
         for s in scopes:
             assert_in(s, scopes)
+
+    def test_is_scope_owner(self):
+        """ SCOPE (CORE): Is scope owner """
+        scope = 'test_scope_' + str(uuid())
+        add_scope(scope=scope, account='root')
+        anwser = is_scope_owner(scope=scope, account='root')
+        assert_equal(anwser, True)
 
 
 class TestScope():

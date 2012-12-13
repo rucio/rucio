@@ -9,6 +9,8 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
+import rucio.api.permission
+
 from rucio.core import identifier
 
 
@@ -32,7 +34,9 @@ def add_identifier(scope, did, sources, issuer):
     :param sources: The content as a list of data identifiers.
     :param issuer: The issuer account.
     """
-
+    kwargs = {'scope': scope, 'did': did, 'sources': sources, 'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='add_identifier', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
     return identifier.add_identifier(scope=scope, did=did, sources=sources, issuer=issuer)
 
 
