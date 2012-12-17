@@ -1,0 +1,69 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+
+from nose.tools import assert_equal, assert_in, raises
+
+from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.common.exception import InvalidValueForKey
+from rucio.client.metaclient import MetaClient
+from rucio.client.rseclient import RSEClient
+from rucio.client.scopeclient import ScopeClient
+from rucio.common.utils import generate_uuid as uuid
+
+
+class TestMetaDIDClient():
+
+    def setUp(self):
+        self.did_client = DataIdentifierClient()
+        self.meta_client = MetaClient()
+        self.rse_client = RSEClient()
+        self.scope_client = ScopeClient()
+
+    @raises(InvalidValueForKey)
+    def test_add_list_meta(self):
+        """ META DID (CLIENTS):  Add metadata to a data identifier"""
+        # Add a scope
+        tmp_scope = 'scope_%s' % uuid()
+        self.scope_client.add_scope('root', tmp_scope)
+
+        # Add a RSE
+        tmp_rse = 'rse_%s' % uuid()
+        self.rse_client.add_rse(tmp_rse)
+
+        # Add a file replica
+        tmp_file = 'file_%s' % uuid()
+        self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+
+        # Add a dataset
+        tmp_dataset = 'dataset_' + str(uuid())
+        files = [{'scope':tmp_scope, 'did': tmp_file}, ]
+        self.did_client.add_identifier(scope=tmp_scope, did=tmp_dataset, sources=files)
+
+        # Add a key
+        key = 'key_' + str(uuid())
+        self.meta_client.add_key(key=key)
+
+        value = 'value_' + str(uuid())
+        self.did_client.set_metadata(scope=tmp_scope, did=tmp_dataset, key=key, value=value)
+
+        meta = self.did_client.get_metadata(scope=tmp_scope, did=tmp_dataset)
+        assert_in(key, meta)
+        assert_equal(meta[key], value)
+
+        # Add a new key with a value
+        key2 = 'key_' + str(uuid())
+        value2 = 'value_' + str(uuid())
+        self.meta_client.add_key(key=key2)
+        self.meta_client.add_value(key=key2, value=value2)
+
+        # Try a add a wrong value
+        self.did_client.set_metadata(scope=tmp_scope, did=tmp_dataset, key=key2, value='Nimportnawak')
+
+        #self.did_client.delete_metadata(scope=tmp_scope, did=tmp_dataset, key=key)

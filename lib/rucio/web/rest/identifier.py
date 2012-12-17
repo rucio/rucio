@@ -12,11 +12,11 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from json import dumps, loads
-from web import application, ctx, data, header, Created, InternalError, BadRequest
+from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list, get_did
-from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, AccessDenied
+from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list, get_did, set_metadata, get_metadata
+from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey
 from rucio.common.utils import generate_http_error
 
 urls = (
@@ -24,6 +24,8 @@ urls = (
     '/(.*)/(.*)/rses', 'Replicas',
     '/(.*)/(.*)/files', 'Files',
     '/(.*)/(.*)/dids', 'Content',
+    '/(.*)/(.*)/meta/(.*)', 'Meta',
+    '/(.*)/(.*)/meta', 'Meta',
     '/(.*)/(.*)', 'Identifiers',
 )
 
@@ -286,6 +288,89 @@ class Files:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
+
+class Meta:
+
+    def GET(self, scope, did):
+        """
+        List all meta of a data identifier.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: The scope name.
+        :param did: The data identifier.
+
+        :returns: A dictionary containing all meta.
+        """
+
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        return dumps(get_metadata(scope=scope, did=did))
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self, scope, did, key):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def POST(self, scope, did, key):
+        """
+        Add metadata to a data identifier.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param scope: The scope name.
+        :param did: The data identifier.
+        :param key: the key.
+
+        """
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+
+        json_data = data()
+        try:
+            params = loads(json_data)
+            value = params['value']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        try:
+            set_metadata(scope=scope, did=did, key=key, value=value, issuer=auth['account'])
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
+        except KeyNotFound, e:
+            raise generate_http_error(400, 'KeyNotFound', e[0][0])
+        except InvalidValueForKey, e:
+            raise generate_http_error(400, 'InvalidValueForKey', e[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise Created()
 
 """----------------------
    Web service startup
