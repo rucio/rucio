@@ -11,7 +11,7 @@
 
 import json
 import os
-import md5
+import hashlib
 
 from rucio.common import exception
 
@@ -30,10 +30,11 @@ class RSEMgr(object):
                 self.path_to_credentials_file = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
             else:
                 self.path_to_credentials_file = '/opt/rucio/etc/rse-accounts.cfg'
+        else:
+            self.path_to_credentials_file = path_to_credentials_file
 
         try:
             # Load all user credentials
-            print 'Loading credentials from %s' % self.path_to_credentials_file
             self.__credentials = json.load(open(self.path_to_credentials_file))
         except Exception as e:
             raise exception.ErrorLoadingCredentials(e)
@@ -167,7 +168,6 @@ class RSE(object):
 
         # Loading repository data
         try:
-            print 'Loading repository data from %s' % self.__path_to_repo
             f = open(self.__path_to_repo)
             repdata = json.load(f)
             f.close()
@@ -229,21 +229,12 @@ class RSE(object):
 
             :returns: The physical filen name (including scope)
         """
-        # Do some magic to transform LFN to PFN
-        # Agreed naming convention: [scope]/[first_two_hash]/[second_two_hash]/[lfn]
-        hstr = md5.new('%s:%s' % (scope, lfn)).hexdigest()
-        return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], lfn)
+        # Agreed naming convention: [scope1]/[scope2]/[first_two_hash]/[second_two_hash]/[lfn]
+        # e.g. user/jdoe/fb/6a/4_rse_remote_get.raw
+        hstr = hashlib.md5('%s:%s' % (scope, lfn)).hexdigest()
+        return '%s/%s/%s/%s/%s' % (scope.split('.')[0], scope.split('.')[1], hstr[0:2], hstr[2:4], lfn)
 
-    def __pfn2lfn(self, pfn):
-        """ Transforms the physical file name into the logical file name consiting of 'scope' and 'file'.
-
-            :param pfn The physical file name
-
-            :returns: A list where the first item ist the scope and the second is the file name
-        """
-        return pfn.split('/')[0], pfn.split('/')[-1]
-
-    def exists(self, lfns, new=False):
+    def exists(self, files):
         """ Checks if the provided LFN is known by the connected RSE.
             Providing a list of LFNs indicates the bulk mode.
 
@@ -257,20 +248,25 @@ class RSE(object):
         ret = {}
         gs = True
         if self.__connected:
-            lfns = [lfns] if not type(lfns) is list else lfns
-            for lfn in lfns:
+            files = [files] if not type(files) is list else files
+            for f in files:
                 exists = None
-                if new:
-                    exists = self.__protocol.exists(self.__lfn2pfn(lfn['new_filename'], lfn['new_scope']))
+                if type(f) is str:
+                    exists = self.__protocol.exists(f)
+                    ret[f] = exists
+                elif 'scope' in f:  # a LFN is provided
+                    exists = self.__protocol.exists(self.__lfn2pfn(f['filename'], f['scope']))
+                    ret[f['scope'] + ':' + f['filename']] = exists
                 else:
-                    exists = self.__protocol.exists(self.__lfn2pfn(lfn['filename'], lfn['scope']))
-                ret[lfn['scope'] + ':' + lfn['filename']] = exists
+                    exists = self.__protocol.exists(f['filename'])
+                    ret[f['filename']] = exists
                 if not exists:
                     gs = False
         else:
             raise exception.RSENotConnected()
         if len(ret) == 1:
-            return ret[lfns[0]['scope'] + ':' + lfns[0]['filename']]
+            for x in ret:
+                return ret[x]
         return [gs, ret]
 
     def connect(self, credentials):
@@ -302,22 +298,18 @@ class RSE(object):
         ret = {}
         gs = True
         if self.__connected:
-            pfns = files['pfns'] if 'pfns' in files else []
-            if 'lfns' in files:
-                for lfn in files['lfns']:
-                    pfns.append(self.__lfn2pfn(lfn['filename'], lfn['scope']))
-            for pfn in pfns:
-                scope = ''
-                filename = ''
+            files = [files] if not type(files) is list else files
+            for f in files:
+                pfn = f['pfn'] if 'pfn' in f else self.__lfn2pfn(f['filename'], f['scope'])
                 try:
-                    scope, filename = self.__pfn2lfn(pfn)
-                    if not os.path.exists('%s/%s' % (dest_dir, scope)):
-                        os.makedirs('%s/%s' % (dest_dir, scope))
-                    self.__protocol.get(pfn, '%s/%s/%s' % (dest_dir, scope, filename))
-                    ret['%s:%s' % (scope, filename)] = True
+                    if not os.path.exists('%s/%s' % (dest_dir, f['scope'])):
+                        os.makedirs('%s/%s' % (dest_dir, f['scope']))
+                    # Each scope is stored into a separate folder
+                    self.__protocol.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['filename']))
+                    ret['%s:%s' % (f['scope'], f['filename'])] = True
                 except Exception as e:
                     gs = False
-                    ret['%s:%s' % (scope, filename)] = e
+                    ret['%s:%s' % (f['scope'], f['filename'])] = e
         else:
             raise exception.RSENotConnected()
         if len(ret) == 1:
@@ -383,14 +375,12 @@ class RSE(object):
         if self.__connected:
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
-                filename = lfn['filename']
-                scope = lfn['scope']
-                pfn = self.__lfn2pfn(filename, scope)
+                pfn = self.__lfn2pfn(lfn['filename'], lfn['scope'])
                 try:
                     self.__protocol.delete(pfn)
-                    ret['%s:%s' % (scope, filename)] = True
+                    ret['%s:%s' % (lfn['scope'], lfn['filename'])] = True
                 except Exception as e:
-                    ret['%s:%s' % (scope, filename)] = e
+                    ret['%s:%s' % (lfn['scope'], lfn['filename'])] = e
                     gs = False
         else:
             raise exception .RSENotConnected()
@@ -402,7 +392,7 @@ class RSE(object):
                     return ret[x]
         return [gs, ret]
 
-    def rename(self, lfns):
+    def rename(self, files):
         """ Rename files stored on the connected RSE.
             Providing a list of LFNs indicates the bulk mode.
 
@@ -414,31 +404,40 @@ class RSE(object):
         """
         ret = {}
         gs = True
+        files = [files] if not type(files) is list else files
         if self.__connected:
-            lfns = [lfns] if not type(lfns) is list else lfns
-            for lfn in lfns:
-                filename = lfn['filename']
-                scope = lfn['scope']
-                if not 'new_filename' in lfn:
-                    lfn['new_filename'] = lfn['filename']
-                if not 'new_scope' in lfn:
-                    lfn['new_scope'] = lfn['scope']
-                pfn = self.__lfn2pfn(filename, scope)
-                pfn_new = self.__lfn2pfn(lfn['new_filename'], lfn['new_scope'])
+            for f in files:
+                pfn = None
+                new_pfn = None
+                key = None
+                if 'scope' in f:  # LFN is provided
+                    key = '%s:%s' % (f['scope'], f['filename'])
+                    # Check if new filename is provided
+                    if not 'new_filename' in f:
+                        f['new_filename'] = f['filename']
+                    # Check if new scope is provided
+                    if not 'new_scope' in f:
+                        f['new_scope'] = f['scope']
+                    pfn = self.__lfn2pfn(f['filename'], f['scope'])
+                    new_pfn = self.__lfn2pfn(f['new_filename'], f['new_scope'])
+                else:
+                    pfn = f['filename']
+                    new_pfn = f['new_filename']
+                    key = f['filename']
                 # Check if source is on storage
-                if not self.exists(lfn):
-                    ret['%s:%s' % (scope, filename)] = exception.SourceNotFound('File %s in scope %s is not found on storage' % (lfn['filename'], lfn['scope']))
+                if not self.exists(pfn):
+                    ret[key] = exception.SourceNotFound('File %s not found on storage' % (pfn))
                     gs = False
                 # Check if target is not on storage
-                elif self.exists(lfn, True):
-                    ret['%s:%s' % (scope, filename)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (lfn['new_filename'], lfn['new_scope']))
+                elif self.exists(new_pfn):
+                    ret[key] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % (new_pfn))
                     gs = False
                 else:
                     try:
-                        self.__protocol.rename(pfn, pfn_new)
-                        ret['%s:%s' % (scope, filename)] = True
+                        self.__protocol.rename(pfn, new_pfn)
+                        ret[key] = True
                     except Exception as e:
-                        ret['%s:%s' % (scope, filename)] = e
+                        ret[key] = e
                         gs = False
         else:
             raise exception.RSENotConnected()
