@@ -34,7 +34,8 @@ def list_values(key):
 
 
 def add_key(key, issuer, type=None, regexp=None):
-    """ add a new allowed key.
+    """
+    Add a new allowed key.
 
     :param key: the name for the new key.
     :param issuer: The issuer account.
@@ -48,7 +49,8 @@ def add_key(key, issuer, type=None, regexp=None):
 
 
 def add_value(key, value, issuer):
-    """ add a new value to a key.
+    """
+    Add a new value to a key.
 
     :param key: the name for the key.
     :param value: the value.

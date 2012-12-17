@@ -9,13 +9,13 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
-from json import dumps
+from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, header, BadRequest, Created, InternalError, HTTPError, Unauthorized
+from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.meta import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType
 from rucio.common.utils import generate_http_error
 
 
@@ -34,6 +34,12 @@ class Meta:
     """ REST APIs for data identifier attribute keys. """
 
     def GET(self):
+        """
+        List all keys.
+
+        HTTP Success:
+            200 Success
+        """
 
         header('Content-Type', 'application/octet-stream')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
@@ -48,7 +54,8 @@ class Meta:
         raise BadRequest()
 
     def POST(self, key):
-        """ Create a new allowed key (value is NULL).
+        """
+        Create a new allowed key (value is NULL).
 
         HTTP Success:
             201 Created
@@ -88,6 +95,8 @@ class Meta:
             add_key(key=key, type=type, regexp=regexp, issuer=auth['account'])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
+        except UnsupportedValueType, e:
+            raise generate_http_error(400, 'UnsupportedValueType', e[0][0])
         except Exception, e:
             raise InternalError(e)
 
@@ -101,6 +110,12 @@ class Values:
     """ REST APIs for data identifier attribute values. """
 
     def GET(self, key):
+        """
+        List all values for a key.
+
+        HTTP Success:
+            200 Success
+        """
 
         header('Content-Type', 'application/octet-stream')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
@@ -113,8 +128,9 @@ class Values:
     def PUT(self):
         raise BadRequest()
 
-    def POST(self, key, value):
-        """ Create a new value for a key.
+    def POST(self, key):
+        """
+        Create a new value for a key.
 
         HTTP Success:
             201 Created
@@ -131,7 +147,6 @@ class Values:
         """
 
         header('Content-Type', 'application/octet-stream')
-
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
@@ -139,10 +154,21 @@ class Values:
         if auth is None:
             raise Unauthorized()
 
+        json_data = data()
+        try:
+            params = loads(json_data)
+            value = params['value']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
         try:
             add_value(key=key, value=value, issuer=auth['account'])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
+        except InvalidValueForKey, e:
+            raise generate_http_error(400, 'InvalidValueForKey', e[0][0])
+        except KeyNotFound, e:
+            raise generate_http_error(400, 'KeyNotFound', e[0][0])
         except Exception, e:
             raise InternalError(e)
 

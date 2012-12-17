@@ -28,6 +28,7 @@ from rucio.client.accountclient import AccountClient
 from rucio.client.cli.download import download
 from rucio.client.cli.upload import upload
 from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
 from rucio.common.utils import adler32
@@ -391,6 +392,69 @@ def download(args):
             print e
 
 
+def get_metadata(args):
+    """
+    %(prog)s get_metadata [options] <field1=value1 field2=value2 ...>
+
+    Get data identifier metadata
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    for did in args.dids:
+        try:
+            scope, did = did.split(':')
+            meta = client.get_metadata(scope=scope, did=did)
+            for k in meta:
+                print '%s: %s' % (k, meta[k])
+        except Exception, e:
+            print 'Failed to get metadata for %(scope)s:%(did)s' % locals()
+            print e
+
+def set_metadata(args):
+    """
+    %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
+
+    Set data identifier metadata
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        client.set_metadata(scope=args.scope, did=args.did, key=args.key, value=args.value)
+    except Exception, e:
+            print 'Failed to set metadata'
+            print e
+
+
+def del_metadata(args):
+    """
+    %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
+
+    Delete data identifier metadata
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
 
 if __name__ == '__main__':
     usage = """
@@ -494,10 +558,15 @@ Commands:
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='get-metadata method')
     get_metadata_parser.set_defaults(which='get_metadata')
+    get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
     set_metadata_parser.set_defaults(which='set_metadata')
+    set_metadata_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True) # to be optional after
+    set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create')
+    set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
     # The del-metadata subparser
     del_metadata_parser = subparsers.add_parser('del-metadata', help='del-metadata method')
@@ -537,7 +606,10 @@ Commands:
                 'del' : delete,
                 'whoami_account': whoami_account,
                 'download': download,
-                'upload': upload}
+                'upload': upload,
+                'get_metadata': get_metadata,
+                'set_metadata': set_metadata,
+                'del_metadata': del_metadata,}
 
     try:
         start_time = time.time()

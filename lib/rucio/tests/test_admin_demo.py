@@ -233,20 +233,44 @@ Account
         print 'Meta-data'
         print '^^^^^^^^^'
 
-        print '``rucio-admin metadata add``'
+        print '``rucio-admin meta add``'
         print '----------------------------'
         print 'Create a new allowed key(with default values if specified)::\n'
-        cmd = 'rucio-admin metadata add --key --value --type --DItypes'
+        cmd = 'rucio-admin meta add project'
         print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        for l in out.split('\n'):
+            print '   ' + l
 
-        print '``rucio-admin metadata del``'
+        print '``rucio-admin meta del``'
         print '----------------------------'
         print 'Delete an allowed key or key/value::\n'
         cmd = 'rucio-admin metadata del --key --value --type --DItypes'
         print self.marker + cmd
 
-        print '``rucio-admin metadata list``'
+        print '``rucio-admin meta list``'
         print '-----------------------------'
         print 'List all allowed keys with their default values::\n'
-        cmd = 'rucio-admin metadata list'
+        cmd = 'rucio-admin meta list'
         print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        for l in out.split('\n'):
+            print '   ' + l
+
+        print '``rucio-admin meta add_value``'
+        print '-----------------------------'
+        print 'Create a new allowed value for a key::\n'
+        cmd = 'rucio-admin meta add_value --key=project --value=data12'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        for l in out.split('\n'):
+            print '   ' + l
+
+        print '``rucio-admin meta list_values``'
+        print '-----------------------------'
+        print 'List all allowed values for a key::\n'
+        cmd = 'rucio-admin meta list_values project'
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        for l in out.split('\n'):
+            print '   ' + l
