@@ -9,10 +9,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <vincent.garonne@cern.ch>, 2012
 
+from re import match
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common import exception
+from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.db import models
 from rucio.db.session import get_session
 
@@ -167,3 +170,64 @@ def get_did(scope, did):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
 
     return did_r
+
+
+def set_metadata(scope, did, key, value):
+    """
+    Add metadata to data identifier.
+
+    :param scope: The scope name.
+    :param did: The data identifier.
+    :param key: the key.
+    :param value: the value.
+    """
+    new_meta = models.DIDAttribute(scope=scope, did=did, key=key, value=value)
+    try:
+        new_meta.save(session=session)
+    except IntegrityError, e:
+        session.rollback()
+        print e.args[0]
+        if e.args[0] == "(IntegrityError) foreign key constraint failed":
+            raise exception.KeyNotFound("Key '%(key)s' not found" % locals())
+        if e.args[0] == "(IntegrityError) columns scope, did, key are not unique":
+            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists!' % locals())
+        raise e
+
+    # Check enum types
+    enum = session.query(models.DIDKeyValueAssociation).filter_by(key=key, deleted=False).first()
+    if enum:
+        try:
+            session.query(models.DIDKeyValueAssociation).filter_by(key=key, deleted=False, value=value).one()
+        except NoResultFound:
+            session.rollback()
+            raise exception.InvalidValueForKey('The value %(value)s is invalid for the key %(key)s' % locals())
+
+    # Check constraints
+    k = session.query(models.DIDKey).filter_by(key=key).one()
+
+    # Check value against regexp, if defined
+    if k.regexp and not match(k.regexp, value):
+        session.rollback()
+        raise exception.InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.regexp))
+
+    # Check value type, if defined
+    type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
+    if k.type and not isinstance(value, type_map.get(k.type)):
+            session.rollback()
+            raise exception.InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.type))
+
+    session.commit()
+
+
+def get_metadata(scope, did):
+    """
+    Get data identifier metadata
+
+    :param scope: The scope name.
+    :param did: The data identifier.
+    """
+    meta = {}
+    query = session.query(models.DIDAttribute).filter_by(scope=scope, did=did, deleted=False)
+    for row in query:
+        meta[row.key] = row.value
+    return meta

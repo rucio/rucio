@@ -10,6 +10,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
+from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
+
 
 class RucioException(Exception):
     """
@@ -319,3 +321,15 @@ class KeyNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(KeyNotFound, self).__init__(args, kwargs)
         self._message = "Key does not exist."
+
+
+class InvalidValueForKey(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidValueForKey, self).__init__(args, kwargs)
+        self._message = "Invalid value for the key."
+
+
+class UnsupportedValueType(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedValueType, self).__init__(args, kwargs)
+        self._message = "Unsupported type for the value. List of supported types: %s." % str(AUTHORIZED_VALUE_TYPES)

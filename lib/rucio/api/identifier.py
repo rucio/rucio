@@ -82,3 +82,29 @@ def get_did(scope, did):
     """
 
     return identifier.get_did(scope=scope, did=did)
+
+
+def set_metadata(scope, did, key, value, issuer):
+    """
+    Add metadata to data identifier.
+
+    :param scope: The scope name.
+    :param did: The data identifier.
+    :param key: the key.
+    :param value: the value.
+    :param issuer: The issuer account.
+    """
+    kwargs = {'scope': scope, 'did': did, 'key': key, 'value': value, 'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not add metadate to data identifier %s:%s' % (issuer, scope, did))
+    return identifier.set_metadata(scope=scope, did=did, key=key, value=value)
+
+
+def get_metadata(scope, did):
+    """
+    Get data identifier metadata
+
+    :param scope: The scope name.
+    :param did: The data identifier.
+    """
+    return identifier.get_metadata(scope=scope, did=did)

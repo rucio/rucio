@@ -8,9 +8,11 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
+from re import match
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.exception import Duplicate, RucioException, KeyNotFound
+from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
+from rucio.common.exception import Duplicate, RucioException, KeyNotFound, InvalidValueForKey, UnsupportedValueType
 from rucio.db import models
 from rucio.db.session import get_session
 
@@ -18,14 +20,19 @@ session = get_session()
 
 
 def add_key(key, type=None, regexp=None):
-    """ add a new allowed key.
+    """
+    Adds a new allowed key.
 
     :param key: the name for the new key.
     :param type: the type of the value, if defined.
     :param regexp: the regular expression that values should match, if defined.
     """
 
-    new_key = models.DIDKey(key=key, type=type, regexp=regexp)
+    # Check if type is supported
+    if type and type not in [str(t) for t in AUTHORIZED_VALUE_TYPES]:
+        raise UnsupportedValueType('The type \'%(type)s\' is not supported for values!' % locals())
+
+    new_key = models.DIDKey(key=key, type=type and str(type), regexp=regexp)
     try:
         new_key.save(session=session)
     except IntegrityError, e:
@@ -34,8 +41,16 @@ def add_key(key, type=None, regexp=None):
             raise Duplicate('key \'%(key)s\' already exists!' % locals())
         else:
             raise RucioException(e.args[0])
-
     session.commit()
+
+
+def del_key(key):
+    """
+    Deletes a key.
+
+    :param key: the name for the key.
+    """
+    pass
 
 
 def list_keys():
@@ -52,7 +67,8 @@ def list_keys():
 
 
 def add_value(key, value):
-    """ add a new value to a key.
+    """
+    Adds a new value to a key.
 
     :param key: the name for the key.
     :param value: the value.
@@ -68,6 +84,20 @@ def add_value(key, value):
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
         else:
             raise RucioException(e.args[0])
+
+    k = session.query(models.DIDKey).filter_by(key=key).one()
+
+    # Check value against regexp, if defined
+    if k.regexp and not match(k.regexp, value):
+        session.rollback()
+        raise InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.regexp))
+
+    # Check value type, if defined
+    type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
+    if k.type and not isinstance(value, type_map.get(k.type)):
+            session.rollback()
+            raise InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.type))
+
     session.commit()
 
 

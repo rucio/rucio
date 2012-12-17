@@ -131,3 +131,57 @@ class DataIdentifierClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def get_metadata(self, scope, did):
+        """
+        Get data identifier metadata
+
+        :param scope: The scope name.
+        :param did: The data identifier.
+        """
+        path = '/'.join([self.BASEURL, scope, did, 'meta'])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            meta = loads(r.text)
+            return meta
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def set_metadata(self, scope, did, key, value):
+        """
+        Set data identifier metadata
+
+        :param scope: The scope name.
+        :param did: The data identifier.
+        :param key: the key.
+        :param value: the value.
+        """
+        path = '/'.join([self.BASEURL, scope, did, 'meta', key])
+        url = build_url(self.host, path=path)
+        data = dumps({'value': value})
+        r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def delete_metadata(self, scope, did, key):
+        """
+        Delete data identifier metadata
+
+        :param scope: The scope name.
+        :param did: The data identifier.
+        :param key: the key.
+        """
+        path = '/'.join([self.BASEURL, scope, did, 'meta', key])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='DEL')
+
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)

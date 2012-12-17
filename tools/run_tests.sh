@@ -16,7 +16,7 @@ find lib -iname *.pyc | xargs rm
 # Cleanup old token
 rm -rf /tmp/.rucio_*/
 
- ./tools/reset_database.py 
+ ./tools/reset_database.py
 
 # Run nosetests
 nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient

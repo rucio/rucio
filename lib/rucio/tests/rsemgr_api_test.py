@@ -49,7 +49,10 @@ class MgrTestCases():
                                             {'lfns': [{'filename': '1_not_existing_data.raw', 'scope': 'user.jdoe'}, {'filename': '1_rse_remote_get.raw', 'scope': 'user.jdoe'}],
                                              'pfns': ['user.jdoe/no/ex/2_not_existing_data.raw', 'user.jdoe/d7/bc/2_rse_remote_get.raw']},
                                             self.tmpdir)
-        if details['user.jdoe:1_rse_remote_get.raw'] and details['user.jdoe:2_rse_remote_get.raw'] and details['user.jdoe:1_not_existing_data.raw'].__class__.__name__ == 'SourceNotFound' and details['user.jdoe:2_not_existing_data.raw'].__class__.__name__ == 'SourceNotFound':
+        if (details['user.jdoe:1_rse_remote_get.raw']
+                and details['user.jdoe:2_rse_remote_get.raw']
+                and details['user.jdoe:1_not_existing_data.raw'].__class__.__name__ == 'SourceNotFound'
+                and details['user.jdoe:2_not_existing_data.raw'].__class__.__name__ == 'SourceNotFound'):
             raise details['user.jdoe:1_not_existing_data.raw']
         else:
             raise Exception('Return not as expected: %s, %s' % (status, details))

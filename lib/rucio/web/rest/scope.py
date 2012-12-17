@@ -36,6 +36,13 @@ class Scope:
     """ create new rucio scopes. """
 
     def GET(self):
+        """
+        List all scopes.
+
+        HTTP Success:
+            200 Success
+        """
+
         header('Content-Type', 'application/octet-stream')
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
@@ -49,7 +56,8 @@ class Scope:
         raise BadRequest()
 
     def POST(self, account_name, scope_name):
-        """ create scope with given scope name.
+        """
+        Creates scope with given scope name.
 
         HTTP Success:
             201 Created
@@ -99,7 +107,8 @@ class ScopeList:
     """ list scopes """
 
     def GET(self, account_name):
-        """ list all scopes for an account.
+        """
+        List all scopes for an account.
 
         HTTP Success:
             200 OK
