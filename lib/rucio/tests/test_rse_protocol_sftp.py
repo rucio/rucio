@@ -152,26 +152,38 @@ class TestRseSFTP():
         """SFTP (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
         self.mtc.test_exists_mgr_ok_multi()
 
-    def test_exists_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Check a single file on storage (Success)"""
-        self.mtc.test_exists_mgr_ok_single()
+    def test_exists_mgr_ok_single_lfn(self):
+        """SFTP (RSE/PROTOCOLS): Check a single file on storage using LFN (Success)"""
+        self.mtc.test_exists_mgr_ok_single_lfn()
+
+    def test_exists_mgr_ok_single_pfn(self):
+        """SFTP (RSE/PROTOCOLS): Check a single file on storage using PFN (Success)"""
+        self.mtc.test_exists_mgr_ok_single_pfn()
 
     def test_exists_mgr_false_multi(self):
         """SFTP (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
         self.mtc.test_exists_mgr_false_multi()
 
-    def test_exists_mgr_fals_single(self):
-        """SFTP (RSE/PROTOCOLS): Check a single file on storage (Fail)"""
-        self.mtc.test_exists_mgr_fals_single()
+    def test_exists_mgr_false_single_lfn(self):
+        """SFTP (RSE/PROTOCOLS): Check a single file on storage using LFN (Fail)"""
+        self.mtc.test_exists_mgr_false_single_lfn()
+
+    def test_exists_mgr_false_single_pfn(self):
+        """SFTP (RSE/PROTOCOLS): Check a single file on storage using PFN (Fail)"""
+        self.mtc.test_exists_mgr_false_single_pfn()
 
     # MGR-Tests: RENAME
     def test_rename_mgr_ok_multi(self):
         """SFTP (RSE/PROTOCOLS): Rename multiple files on storage (Success)"""
         self.mtc.test_rename_mgr_ok_multi()
 
-    def test_rename_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Rename a single file on storage (Success)"""
-        self.mtc.test_rename_mgr_ok_single()
+    def test_rename_mgr_ok_single_lfn(self):
+        """SFTP (RSE/PROTOCOLS): Rename a single file on storage using LFN (Success)"""
+        self.mtc.test_rename_mgr_ok_single_lfn()
+
+    def test_rename_mgr_ok_single_pfn(self):
+        """SFTP (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
+        self.mtc.test_rename_mgr_ok_single_pfn()
 
     @raises(exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
@@ -179,9 +191,14 @@ class TestRseSFTP():
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
 
     @raises(exception.FileReplicaAlreadyExists)
-    def test_rename_mgr_FileReplicaAlreadyExists_single(self):
-        """SFTP (RSE/PROTOCOLS): Rename a single file on storage (FileReplicaAlreadyExists)"""
-        self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single()
+    def test_rename_mgr_FileReplicaAlreadyExists_single_lfn(self):
+        """SFTP (RSE/PROTOCOLS): Rename a single file on storage using LFN (FileReplicaAlreadyExists)"""
+        self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
+
+    @raises(exception.FileReplicaAlreadyExists)
+    def test_rename_mgr_FileReplicaAlreadyExists_single_pfn(self):
+        """SFTP (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
+        self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
 
     @raises(exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_multi(self):
@@ -189,10 +206,19 @@ class TestRseSFTP():
         self.mtc.test_rename_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
-    def test_rename_mgr_SourceNotFound_single(self):
-        """SFTP (RSE/PROTOCOLS): Rename a single file on storage (SourceNotFound)"""
-        self.mtc.test_rename_mgr_SourceNotFound_single()
+    def test_rename_mgr_SourceNotFound_single_lfn(self):
+        """SFTP (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
+        self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
 
-    def test_change_scope_mgr_ok_single(self):
-        """SFTP (RSE/PROTOCOLS): Change the scope of a single file on storage (Success)"""
-        self.mtc.test_change_scope_mgr_ok_single()
+    @raises(exception.SourceNotFound)
+    def test_rename_mgr_SourceNotFound_single_pfn(self):
+        """SFTP (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
+        self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
+
+    def test_change_scope_mgr_ok_single_lfn(self):
+        """SFTP (RSE/PROTOCOLS): Change the scope of a single file on storage using LFN (Success)"""
+        self.mtc.test_change_scope_mgr_ok_single_lfn()
+
+    def test_change_scope_mgr_ok_single_pfn(self):
+        """SFTP (RSE/PROTOCOLS): Change the scope of a single file on storage using PFN (Success)"""
+        self.mtc.test_change_scope_mgr_ok_single_pfn()
