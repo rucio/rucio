@@ -232,7 +232,8 @@ class RSE(object):
         # Agreed naming convention: [scope1]/[scope2]/[first_two_hash]/[second_two_hash]/[lfn]
         # e.g. user/jdoe/fb/6a/4_rse_remote_get.raw
         hstr = hashlib.md5('%s:%s' % (scope, lfn)).hexdigest()
-        return '%s/%s/%s/%s/%s' % (scope.split('.')[0], scope.split('.')[1], hstr[0:2], hstr[2:4], lfn)
+        correctedscope = "/".join(scope.split('.'))
+        return '%s/%s/%s/%s' % (correctedscope, hstr[0:2], hstr[2:4], lfn)
 
     def exists(self, files):
         """ Checks if the provided LFN is known by the connected RSE.
