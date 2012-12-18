@@ -53,5 +53,33 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
+  },
+  "TAIWAN-LCG2_PPSSCRATCHDISK":{
+    "backend_type": "DPM",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://t-dpm.grid.sinica.edu.tw"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "DESY-ZN_SCRATCHDISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/testWebDAV/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://lcg-se0.ifh.de:2880"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
   }
 }
