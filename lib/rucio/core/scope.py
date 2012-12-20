@@ -11,6 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
+from re import match
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
@@ -32,22 +33,16 @@ def add_scope(scope, account):
     if result is None:
         raise AccountNotFound('Account ID \'%s\' does not exist' % account)
 
-    values = {}
-    values['scope'] = scope
-    values['account'] = account
-
-    new_scope = models.Scope()
-
-    new_scope.update(values)
-
+    new_scope = models.Scope(scope=scope, account=account)
     try:
         new_scope.save(session=session)
     except IntegrityError, e:
         session.rollback()
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]):
+            raise Duplicate('Scope \'%s\' already exists!' % scope)
         if e.args[0] == "(IntegrityError) column scope is not unique":
-            raise Duplicate('Scope \'%s\' already exists!' % values['scope'])
-        else:
-            raise RucioException(e.args[0])
+            raise Duplicate('Scope \'%s\' already exists!' % scope)
+        raise RucioException(e.args[0])
 
     session.commit()
 

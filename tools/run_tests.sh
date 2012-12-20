@@ -7,7 +7,28 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+
+
+function usage {
+  echo "Usage: $0 [OPTION]..."
+  echo "Run Rucio's test suite(s)"
+  echo ""
+  echo "  --skip-rse-tests              Skip RSE tests."
+  exit
+}
+
+function process_option {
+  case "$1" in
+    -h|--help) usage;;
+    --skip-rse-tests) noseopts="--exclude=.*test_rse_protocol_.*";;
+  esac
+}
+
+for arg in "$@"; do
+  process_option $arg
+done
+
 
 # Cleanup *pyc
 echo "cleaning *.pyc files"
@@ -16,8 +37,8 @@ find lib -iname *.pyc | xargs rm
 # Cleanup old token
 rm -rf /tmp/.rucio_*/
 
- ./tools/reset_database.py
+./tools/reset_database.py
 
 # Run nosetests
-nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient
-nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient
+nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
+nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts

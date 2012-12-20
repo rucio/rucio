@@ -18,6 +18,10 @@ python-dateutil==1.5     # Extensions to the standard datetime module
 ordereddict==1.1         # Ordered Dictionary
 amqplib==1.0.2           # AMQP Client Library
 
+# For the rucio daemons
+supervisor==3.0b1        # Supervisor is a client/server system that allows its users to monitor and control a number of processes on UNIX-like operating systems.
+meld3==0.6.10            # an HTML/XML templating system for Python 2.3+
+
 # This must be installed before matplotlib !!!
 numpy==1.6.1             # Numerical Python libs
 pysftp                   # forces installation of paramikoi and pycrypto

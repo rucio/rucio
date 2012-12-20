@@ -37,7 +37,6 @@ class ScopeClient(BaseClient):
 
         path = '/'.join([self.BASEURL, account_name, 'scopes', scope_name])
         url = build_url(self.host, path=path)
-
         r = self._send_request(url, type='POST')
         if r.status_code == codes.created:
             return True

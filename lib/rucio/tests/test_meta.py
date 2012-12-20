@@ -25,7 +25,6 @@ class TestMetaClient():
         key = 'key_' + str(uuid())
         ret = self.meta_client.add_key(key=key)
         assert_true(ret)
-
         keys = self.meta_client.list_keys()
         assert_is_instance(keys, list)
         assert_in(key, keys)

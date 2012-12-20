@@ -78,12 +78,18 @@ def add_value(key, value):
         new_value.save(session=session)
     except IntegrityError, e:
         session.rollback()
+        print e.args[0]
         if e.args[0] == "(IntegrityError) columns key, value are not unique":
             raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
+
         if e.args[0] == "(IntegrityError) foreign key constraint failed":
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
-        else:
-            raise RucioException(e.args[0])
+        if match('.*IntegrityError.*ORA-02291: integrity constraint.*DID_MAP_KEYS_FK.*violated.*', e.args[0]):
+            raise KeyNotFound("key '%(key)s' does not exist!" % locals())
+        if e.args[0] == "(IntegrityError) (1452, 'Cannot add or update a child row: a foreign key constraint fails (`rucio`.`did_key_map`, CONSTRAINT `DID_MAP_KEYS_FK` FOREIGN KEY (`key`) REFERENCES `did_keys` (`key`))')":
+            raise KeyNotFound("key '%(key)s' does not exist!" % locals())
+
+        raise RucioException(e.args[0])
 
     k = session.query(models.DIDKey).filter_by(key=key).one()
 
