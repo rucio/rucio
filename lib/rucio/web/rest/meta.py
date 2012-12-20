@@ -15,7 +15,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.meta import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, AccessDenied
 from rucio.common.utils import generate_http_error
 
 
@@ -98,6 +98,7 @@ class Meta:
         except UnsupportedValueType, e:
             raise generate_http_error(400, 'UnsupportedValueType', e[0][0])
         except Exception, e:
+            print e
             raise InternalError(e)
 
         raise Created()

@@ -564,7 +564,7 @@ Commands:
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
     set_metadata_parser.set_defaults(which='set_metadata')
     set_metadata_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True) # to be optional after
-    set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create')
+    set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create', required=True)
     set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 

@@ -56,6 +56,7 @@ def get_session():
 
     database = config_get('database', 'default')
     engine = create_engine(database, echo=False, echo_pool=False)
+    # , pool_reset_on_return='rollback'
     if 'mysql' in database:
         event.listen(engine, 'checkout', mysql_ping_listener)
 
@@ -68,6 +69,7 @@ def build_database(echo=True):
 
     sql_connection = config_get('database', 'default')
     engine = create_engine(sql_connection, echo=echo)
+    models.BASE.metadata.schema = 'ATLAS_RUCIO_TEST'
     models.register_models(engine)
     try:
         migration.version_control(sql_connection=sql_connection)

@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+
+"""
+Conveyor is a daemon to manage file transfers
+"""
+
+import argparse
+import signal
+import sys
+import time
+import traceback
+
+from logging import getLogger, StreamHandler, DEBUG
+
+from rucio.daemons.Conveyor import run_once, stop
+
+logger = getLogger("rucio.daemons.Conveyor")
+sh = StreamHandler()
+sh.setLevel(DEBUG)
+logger.addHandler(sh)
+
+SUCCESS = 0
+FAILURE = 1
+
+
+if __name__ == "__main__":
+
+    # Bind our callback to the SIGTERM signal and run the daemon:
+    signal.signal(signal.SIGTERM, stop)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
+    args = parser.parse_args()
+
+    print 'Start Conveyor'
+    if args.run_once:
+        run_once()
+        sys.exit(SUCCESS)
+
+    while True:
+        try:
+            run_once()
+            time.sleep(0.1)
+        except KeyboardInterrupt:
+            raise
+        except:
+            errno, errstr = sys.exc_info()[:2]
+            trcbck        = traceback.format_exc()
+            print 'Conveyor interrupted processing with %s %s %s.' % (errno, errstr, trcbck)

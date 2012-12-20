@@ -32,9 +32,10 @@ def list_replicas(scope, did):
 
     replicas = []
     try:
-        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, did=did, deleted=False)
+        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, did=did, state='AVAILABLE', deleted=False)
         for replica in query:
-            replicas.append({'size': replica.size, 'rse': replica.rse.rse, 'checksum': replica.checksum, 'pfn': replica.pfn})
+            replicas.append({'scope': replica.scope, 'did': replica.did, 'size': replica.size,
+                             'rse': replica.rse.rse, 'checksum': replica.checksum, 'pfn': replica.pfn})
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found")
 
@@ -70,7 +71,6 @@ def add_identifier(scope, did, sources, issuer):
             elif tmp_did.type == models.DataIdType.CONTAINER:
                 source['type'] = models.DataIdType.CONTAINER
                 data_type = models.DataIdType.CONTAINER
-
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % source)
 
@@ -80,7 +80,12 @@ def add_identifier(scope, did, sources, issuer):
         new_did.save(session=session)
     except IntegrityError, e:
         session.rollback()
-        raise e
+        if e.args[0] == "(IntegrityError) columns scope, did are not unique":
+            pass
+            # Check the DI types
+            #raise exception.DataIdentifierAlreadyExists('The data identifier %(scope)s:%(did)s' % locals())
+        else:
+            raise e
 
     # Insert content with correct type
     for source in sources:
@@ -89,6 +94,8 @@ def add_identifier(scope, did, sources, issuer):
             new_child.save(session=session)
         except IntegrityError, e:
             session.rollback()
+            if e.args[0] == '(IntegrityError) columns scope, did, child_scope, child_did are not unique':
+                raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][did]} has been already added to {0[scope]}:{0[did]}.'.format(locals()))
             raise e
 
     session.commit()

@@ -19,7 +19,7 @@ from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_account_identity
 from rucio.api.permission import has_permission
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.account")

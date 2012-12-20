@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 
@@ -25,17 +25,7 @@ from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 from rucio.db.history import Versioned
-
-# FIXME: Breaks unit test
-#@compiles(Binary, "oracle")
-#def compile_binary_oracle(type_, compiler, **kw):
-#    return "RAW(16)"
-
-# FIXME: Breaks with Oracle
-#@compiles(Boolean, "oracle")
-#def compile_binary_oracle(type_, compiler, **kw):
-#    return "CHAR(1)"
-
+from rucio.db.types import GUID
 
 BASE = declarative_base()
 
@@ -87,17 +77,16 @@ def _add_created_col(table, metadata):
 class ModelBase(object):
     """Base class for Rucio Models"""
     __table_args__ = {'mysql_engine': 'InnoDB'}
-
     __table_initialized__ = False
     __protected_attributes__ = set([
         "created_at", "updated_at", "deleted_at", "deleted"])
 
     @declared_attr
     def __table_args__(cls):
-        return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
-                                  CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
-                                  CheckConstraint('"DELETED" IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
-                                  CheckConstraint('deleted IN (0, 1)', name=cls.__tablename__.upper() + '_DELETED_CHK'),)
+        return  cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
+                                   CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
+                                   CheckConstraint('"DELETED" IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
+                                   CheckConstraint('"DELETED" IN (0, 1)', name=cls.__tablename__.upper() + '_DELETED_CHK'),)
 
     def save(self, session=None):
         """Save this object"""
@@ -194,53 +183,23 @@ class Scope(BASE, ModelBase):
                    CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),)
 
 
-# class DatasetKey(BASE, ModelBase):
-#     """Represents dataset property keys"""
-#     __tablename__ = 'dataset_keys'
-#     key = Column(String(255))
-#     type = Column(String(255))
-#     _table_args = (PrimaryKeyConstraint('key', name='DATASET_KEYS_PK'),)
-#
-#
-# class DatasetKeyValueAssociation(BASE, ModelBase):
-#     """Represents dataset property key/values"""
-#     __tablename__ = 'dataset_key_map'
-#     key = Column(String(255))
-#     value = Column(String(255))
-#     _table_args = (PrimaryKeyConstraint('key', 'value', name='DATASET_KEY_MAP_PK'),
-#                    ForeignKeyConstraint(['key'], ['dataset_keys.key'], name='DATASET_MAP_KEYS_FK'), )
-#
-#
-# class DatasetAttribute(BASE, ModelBase):
-#     """Represents dataset attributes"""
-#     __tablename__ = 'dataset_attributes'
-#     scope = Column(String(255))
-#     name = Column(String(255))
-#     key = Column(String(255))
-#     value = Column(Text)
-#     _table_args = (PrimaryKeyConstraint('scope', 'name', 'key', name='DATASET_ATTR_PK'),
-#                    ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_ATTR_FK'),
-#                    ForeignKeyConstraint(['key'], ['dataset_keys.key'], name='DATASET_ATTR_KEYS_FK'),
-#                    Index('DATASET_ATTR_KEY_IDX', 'key'),)
-
-
 class DataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
-    __tablename__ = 'data_identifiers'
+    __tablename__ = 'dids'
     scope = Column(String(255))
     did = Column(String(255))
     owner = Column(String(255))
     type = Column(String(9))
-    open = Column(Boolean(name='DATASETS_OPEN_CHK'))
-    monotonic = Column(Boolean(name='DATASETS_MONOTONIC_CHK'), server_default='0')
-    hidden = Column(Boolean(name='DATASETS_HIDDEN_CHK'), server_default='0')
-    obsolete = Column(Boolean(name='DATASETS_OBSOLETE_CHK'), server_default='0')
-    complete = Column(Boolean(name='DATASETS_COMPLETE_CHK'))
-    _table_args = (PrimaryKeyConstraint('scope', 'did', name='DATASETS_PK'),
-                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DATASETS_ACCOUNT_FK'),
-                   CheckConstraint('"MONOTONIC" IS NOT NULL', name='DATASETS_MONOTONIC_NN'),
-                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='DATASETS_OBSOLETE_NN'),
-                   CheckConstraint("type IN ('file', 'dataset', 'container')", name='DATASETS_TYPE_CHK'),)
+    open = Column(Boolean(name='DIDS_OPEN_CHK'))
+    monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
+    hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
+    obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
+    complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
+    _table_args = (PrimaryKeyConstraint('scope', 'did', name='DIDS_PK'),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
+                   CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
+                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
+                   CheckConstraint("TYPE IN ('file', 'dataset', 'container')", name='DIDS_TYPE_CHK'),)
 
 
 class File(BASE, ModelBase):
@@ -253,11 +212,13 @@ class File(BASE, ModelBase):
     suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
     size = Column(BigInteger)
     checksum = Column(String(32))
+    guid = Column(GUID())
     _table_args = (PrimaryKeyConstraint('scope', 'did', name='FILES_PK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['scope', 'did'], ['data_identifiers.scope', 'data_identifiers.did'], name='FILES_DATA_ID_FK', ondelete="CASCADE"),
+                   ForeignKeyConstraint(['scope', 'did'], ['dids.scope', 'dids.did'], name='FILES_DATA_ID_FK', ondelete="CASCADE"),
                    CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DATA_ID_TYPE_CHK'),
-                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPP_NN'),)
+                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPP_NN'),
+                   UniqueConstraint('guid', name='FILES_GUID_UQ'),)
 
 
 class DIDKey(BASE, ModelBase):
@@ -286,7 +247,7 @@ class DIDAttribute(BASE, ModelBase):
     key = Column(String(255))
     value = Column(String(255))
     _table_args = (PrimaryKeyConstraint('scope', 'did', 'key', name='DID_ATTR_PK'),
-                   ForeignKeyConstraint(['scope', 'did'], ['data_identifiers.scope', 'data_identifiers.did'], name='DID_ATTR_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['scope', 'did'], ['dids.scope', 'dids.did'], name='DID_ATTR_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_ATTR_KEYS_FK'),
                    Index('DID_ATTR_KEY_IDX', 'key'),)
 
@@ -295,14 +256,14 @@ class DataIdentifierAssociation(BASE, ModelBase):
     """Represents the map between containers/datasets and files"""
     __tablename__ = 'contents'
     scope = Column(String(255))         # dataset scope
-    did = Column(String(255))          # dataset name
-    child_scope = Column(String(255))  # Provenance name scope
-    child_did = Column(String(255))   # Provenance name scope
+    did = Column(String(255))           # dataset name
+    child_scope = Column(String(255))   # Provenance name scope
+    child_did = Column(String(255))     # Provenance name scope
     type = Column(String(9))
     child_type = Column(String(9))
     _table_args = (PrimaryKeyConstraint('scope', 'did', 'child_scope', 'child_did', name='CONTENTS_PK'),
-                   ForeignKeyConstraint(['scope', 'did'], ['data_identifiers.scope', 'data_identifiers.did'], name='CONTENTS_ID_FK'),
-                   ForeignKeyConstraint(['child_scope', 'child_did'], ['data_identifiers.scope', 'data_identifiers.did'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
+                   ForeignKeyConstraint(['scope', 'did'], ['dids.scope', 'dids.did'], name='CONTENTS_ID_FK'),
+                   ForeignKeyConstraint(['child_scope', 'child_did'], ['dids.scope', 'dids.did'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
                    CheckConstraint("type IN ('file', 'dataset', 'container')", name='CONTENTS_TYPE_CHK'),
                    CheckConstraint("child_type IN ('file', 'dataset', 'container')", name='CONTENTS_CHILD_TYPE_CHK'),
                    Index('DATASETS_CNTS_CHILD_IDX', 'child_scope', 'child_did'),)
@@ -311,23 +272,25 @@ class DataIdentifierAssociation(BASE, ModelBase):
 class RSE(BASE, ModelBase):
     """Represents a Rucio Location"""
     __tablename__ = 'rses'
-    id = Column(String(36), default=utils.generate_uuid)  # in waiting to use the binary
+    id = Column(GUID(), default=utils.generate_uuid)
     rse = Column(String(255))
     type = Column(String(255), default='disk')
     watermark = Column(BigInteger)
     path = Column(Text)
+    volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    file_replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint("type IN ('disk')", name='RSES_TYPE_CHK'),)
+                   CheckConstraint("type IN ('disk','tape')", name='RSES_TYPE_CHK'),)
 
 
 class RSEUsage(BASE, ModelBase, Versioned):
     """Represents location usage"""
     __tablename__ = 'rse_usage'
-    rse_id = Column(String(255))
+    rse_id = Column(GUID())
+#    rse_id = Column(String(255))
     source = Column(String(255))
     total = Column(BigInteger)
     free = Column(BigInteger)
@@ -348,11 +311,12 @@ class RSEAttribute(BASE, ModelBase):
 class RSEAttrAssociation(BASE, ModelBase):
     """Represents the map between RSEs and tags"""
     __tablename__ = 'rse_attr_map'
-    rse_id = Column(String(36))
+#    rse_id = Column(String(36))
+    rse_id = Column(GUID())
     key = Column(String(255))
     value = Column(String(255))
     rse = relationship("RSE", backref=backref('rse_attr_map', order_by=rse_id))
-    tag = relationship("RSEAttribute", backref=backref('rse_attr_map', order_by=rse_id))
+    attr = relationship("RSEAttribute", backref=backref('rse_attr_map', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
                    ForeignKeyConstraint(['key', 'value'], ['rse_attributes.key', 'rse_attributes.value'], name='RSE_ATTR_MAP_ATTR_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'), )
@@ -373,7 +337,8 @@ class AccountUsage(BASE, ModelBase, Versioned):
     """Represents account usage"""
     __tablename__ = 'account_usage'
     account = Column(String(255))
-    rse_id = Column(String(36))
+#    rse_id = Column(String(36))
+    rse_id = Column(GUID())
     name = Column(String(255))
     value = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'name', name='ACCOUNT_USAGE_PK'),
@@ -384,74 +349,64 @@ class AccountUsage(BASE, ModelBase, Versioned):
 class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'file_replicas'
-    rse_id = Column(String(36))
+#    rse_id = Column(String(36))
+    rse_id = Column(GUID())
     scope = Column(String(255))
     did = Column(String(255))
     size = Column(BigInteger)
     checksum = Column(String(32))
     pfn = Column(String(1024))
-    status = Column(String(255))
+    state = Column(String(255), default='UNAVAILABLE')
     rse = relationship("RSE", backref=backref('file_replicas', order_by="RSE.id"))
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'did', name='FILE_REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'did'], ['files.scope', 'files.did'], name='FILE_REPLICAS_LFN_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'), )
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'),
+                   CheckConstraint("state IN ('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD')", name='FILE_REPLICAS_STATE_CHK'),)
 #                  CheckConstraint('"PFN" IS NOT NULL', name='FILE_REPLICAS_PFN_NN'), # for latter...
+#                   ForeignKeyConstraint(['rse_id', 'scope', 'did'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.did'], name='FILE_REPLICAS_RULE_FK'),
 
 
-# class DatasetReplicationRule(BASE, ModelBase):
-#     """Represents dataset replication rules"""
-#     __tablename__ = 'dataset_rules'
-#     account = Column(String(255))
-#     scope = Column(String(255))
-#     name = Column(String(255))
-#     rse_expression = Column(String(255))
-#     rses = Column(String(255))
-#     replication_factor = Column(Integer(), default=1)
-#     expired_at = Column(DateTime)
-#     locked = Column(Boolean(name='DATASET_RULES_LOCKED_CHK'), default=False)
-#     group = Column(String(512))
-#     block = Column(String(512))
-#     _table_args = (PrimaryKeyConstraint('account', 'scope', 'name', 'rse_expression', name='DATASET_RULES_PK'),
-#                    ForeignKeyConstraint(['scope', 'name'], ['datasets.scope', 'datasets.name'], name='DATASET_RULES_DSN_FK'),
-#                    ForeignKeyConstraint(['account'], ['accounts.account'], name='DATASET_RULES_ACCOUNT_FK'),
-#                    CheckConstraint('"REPLICATION_FACTOR" IS NOT NULL', name='DATASET_RULES_REP_FACTOR_NN'),
-#                    CheckConstraint('"LOCKED" IS NOT NULL', name='DATASET_RULES_LOCKED_NN'),)
-
-
-class FileReplicationRule(BASE, ModelBase):
-    """Represents file replication rules"""
-    __tablename__ = 'file_rules'
+class ReplicationRule(BASE, ModelBase):
+    """Represents data identifier replication rules"""
+    __tablename__ = 'did_rules'
+    id = Column(GUID(), default=utils.generate_uuid)
     account = Column(String(255))
+    state = Column(String(255), default='waiting')
     scope = Column(String(255))
     did = Column(String(255))
     rse_expression = Column(String(255))
     rses = Column(String(255))
-    replication_factor = Column(Integer(), default=1)
+    copies = Column(Integer(), default=1)
     expired_at = Column(DateTime)
     locked = Column(Boolean(name='FILE_RULES_LOCKED_CHK'), default=False)
-    parent_scope = Column(String(255))  # File replication rule can be generated by a dataset
-    parent_name = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('account', 'scope', 'did', 'rse_expression', name='FILE_RULES_PK'),
-                   ForeignKeyConstraint(['scope', 'did'], ['files.scope', 'files.did'], name='FILE_RULES_SCOPE_NAME_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='FILE_RULES_ACCOUNT_FK'),
-                   CheckConstraint('"REPLICATION_FACTOR" IS NOT NULL', name='FILE_RULES_REP_FACTOR_NN'),
-                   CheckConstraint('"LOCKED" IS NOT NULL', name='FILE_RULES_LOCKED_NN'),)
+    grouping = Column(Boolean(name='FILE_RULES_GROUPING_CHK'), default=False)
+
+    _table_args = (PrimaryKeyConstraint('scope', 'did', 'id', name='DID_RULES_PK'),
+                   ForeignKeyConstraint(['scope', 'did'], ['dids.scope', 'dids.did'], name='DID_RULES_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DID_RULES_ACCOUNT_FK'),
+                   CheckConstraint('"STATE" IS NOT NULL', name='DID_RULES_STATE_NN'),
+                   CheckConstraint('"COPIES" IS NOT NULL', name='DID_RULES_COPIES_NN'),
+                   CheckConstraint('"LOCKED" IS NOT NULL', name='DID_RULES_LOCKED_NN'),)
 #                   ForeignKeyConstraint(['account', 'rse_tag_id', 'parent_scope', 'parent_dsn'],
 #                   ['dataset_rules.account', 'dataset_rules.rse_tag_id', 'dataset_rules.scope', 'dataset_rules.dsn'],
 #                   name='FILE_DATASET_RULES_FK'),
 
 
-class FileReplicaLock(BASE, ModelBase):
-    """Represents file replica locks"""
-    __tablename__ = 'file_replica_locks'
-    rse_id = Column(String(36))
+class ReplicaLock(BASE, ModelBase):
+    """Represents replica locks"""
+    __tablename__ = 'replica_locks'
+    rse_id = Column(GUID())
+#    rse_id = Column(String(36))
+    rule_id = Column(String(36))
     scope = Column(String(255))
     did = Column(String(255))
     account = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'did', 'account', name='FILE_REPLICA_LOCKS_PK'),
-                   ForeignKeyConstraint(['scope', 'did', 'rse_id'], ['file_replicas.scope', 'file_replicas.did', 'file_replicas.rse_id'], name='FILE_REPLICAS_FK'), )
-#                   ForeignKeyConstraint(['scope', 'lfn', 'account', 'rse_tag_id'], ['file_rules.scope', 'file_rules.lfn', 'file_rules.account', 'file_rules.rse_tag_id'], name='FILE_REPLICAS_RULE_FK'),
-#                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICA_LOCKS_RSE_ID_FK'),)
+    # type = Column(String(9)) Duplication of the type for partionning ?
+    _table_args = (PrimaryKeyConstraint('rule_id', 'rse_id', 'scope', 'did', name='REPLICA_LOCKS_PK'),
+                   ForeignKeyConstraint(['scope', 'did'], ['dids.scope', 'dids.did'], name='REPLICAS_DID_FK'),
+                   # ForeignKeyConstraint(['rule_id', 'scope', 'did'], ['did_rules.id', 'did_rules.scope', 'did_rules.did'], name='REPLICAS_LOCKS_RULE_ID_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='REPLICA_LOCKS_ACCOUNT_FK'),
+                   )
 
 
 class Subscription(BASE, ModelBase):
@@ -509,7 +464,8 @@ def register_models(engine):
               AccountUsage,
               RSEAttrAssociation,
               RSEFileAssociation,
-              FileReplicationRule,
+              ReplicationRule,
+              ReplicaLock,
               Subscription,
               Authentication,
               APIToken)
@@ -537,9 +493,11 @@ def unregister_models(engine):
               AccountUsage,
               RSEAttrAssociation,
               RSEFileAssociation,
-              FileReplicationRule,
+              ReplicationRule,
+              ReplicaLock,
               Subscription,
               Authentication,
               APIToken)
+
     for model in models:
         model.metadata.drop_all(engine)

@@ -23,7 +23,8 @@ session = get_session()
 
 
 def add_rse(rse):
-    """ Add a rse with the given location name.
+    """
+    Add a rse with the given location name.
 
     :param rse: the name of the new rse.
     """
@@ -41,7 +42,8 @@ def add_rse(rse):
 
 
 def rse_exists(rse):
-    """ Checks to see if RSE exists. This procedure does not check its status.
+    """
+    Checks to see if RSE exists. This procedure does not check its status.
 
     :param rse: Name of the rse.
     :returns: True if found, otherwise false.
@@ -51,7 +53,8 @@ def rse_exists(rse):
 
 
 def del_rse(rse):
-    """ Disable a rse with the given rse name.
+    """
+    Disable a rse with the given rse name.
 
     :param rse: the rse name.
     """
@@ -66,7 +69,9 @@ def del_rse(rse):
 
 
 def get_rse(rse):
-    """Get a RSE or raise if it does not exist."""
+    """
+    Get a RSE or raise if it does not exist.
+    """
     try:
         query = session.query(models.RSE).filter_by(rse=rse)
         location = query.one()
@@ -75,16 +80,36 @@ def get_rse(rse):
     return location
 
 
-def list_rses():
-    """ Returns a list of all RSE names.
+def list_rses(filters={}):
+    """
+    Returns a list of all RSE names.
+
+    :param filters: dictionary of attributes by which the results should be filtered.
 
     returns: a list of all RSE names.
     """
 
     rse_list = []
 
-    for rse in session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse):
-        rse_list.append(rse.rse)
+    if filters:
+        query = session.query(models.RSEAttrAssociation).\
+            join(models.RSE, models.RSE.id == models.RSEAttrAssociation.rse_id).\
+            filter_by(deleted=False)
+        for (k, v) in filters.items():
+            if hasattr(models.RSE, k):
+                query = query.filter(getattr(models.RSE, k) == v)
+            else:
+                query = query.filter(models.RSEAttrAssociation.key == k)
+                query = query.filter(models.RSEAttrAssociation.value == v)
+
+        for row in query:
+            if row.rse.rse not in rse_list:
+                rse_list.append(row.rse.rse)
+    else:
+
+        query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
+        for row in query:
+            rse_list.append(row.rse)
 
     return rse_list
 
@@ -179,7 +204,8 @@ def list_rse_attributes(rse):
 
 
 def get_rses(filters=None):
-    """ Gets the list of RSEs
+    """
+    Gets the list of RSEs
 
     :param filters: dictionary of attributes by which the results should be filtered.
 
@@ -202,7 +228,8 @@ def get_rses(filters=None):
 
 
 def set_rse_usage(rse, source, total, free):
-    """ Set RSE usage information.
+    """
+    Set RSE usage information.
 
     :param rse: the location name.
     :param source: the information source, e.g. srm.
@@ -224,7 +251,8 @@ def set_rse_usage(rse, source, total, free):
 
 
 def get_rse_usage(rse, filters=None):
-    """ get rse usage information.
+    """
+    get rse usage information.
 
     :param rse: the rse name.
     :param filters: dictionary of attributes by which the results should be filtered
@@ -250,7 +278,8 @@ def get_rse_usage(rse, filters=None):
 
 
 def get_rse_usage_history(rse, filters=None):
-    """ get location usage history information.
+    """
+    get location usage history information.
 
     :param location: The location name.
     :param filters: dictionary of attributes by which the results should be filtered.
@@ -264,7 +293,8 @@ def get_rse_usage_history(rse, filters=None):
 
 
 def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
-    """ Add File replica.
+    """
+    Add File replica.
 
     :param rse: the rse name.
     :param scope: the tag name.
@@ -279,7 +309,7 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
     new_data_id = models.DataIdentifier(scope=scope, did=did, owner=issuer, type=models.DataIdType.FILE)
     new_file = models.File(scope=scope, did=did, owner=issuer, size=size, checksum=checksum)
     replica_rse = get_rse(rse=rse)
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, did=did, size=size, checksum=checksum)
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, did=did, size=size, checksum=checksum, state='AVAILABLE')
     # Add optional pfn
     try:
         new_data_id = session.merge(new_data_id)
@@ -307,7 +337,6 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
             new_dsn.save(session=session)
         except IntegrityError, e:
             # needs to parse the exception string
-            print e
             session.rollback()
 
         new_child = models.DataIdentifierAssociation(scope=dsn['scope'], did=dsn['did'], child_scope=scope, child_did=did, type=models.DataIdType.DATASET, child_type=models.DataIdType.FILE)
@@ -315,7 +344,45 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
             new_child.save(session=session)
         except IntegrityError, e:
            # needs to parse the exception string
-            print e
             session.rollback()
 
+    session.commit()
+
+
+def list_replicas(rse, filters={}):
+    """
+    List RSE File replicas.
+
+    :param rse: the rse name.
+    :param filters: dictionary of attributes by which the results should be filtered.
+
+    :returns: a list of dictionary replica.
+    """
+
+    rse = session.query(models.RSE).filter_by(rse=rse).one()
+
+    query = session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id)
+    if filters:
+        for (k, v) in filters.items():
+            query = query.filter(getattr(models.RSEFileAssociation, k) == v)
+
+    for row in query:
+        d = {}
+        for column in row.__table__.columns:
+            d[column.name] = getattr(row, column.name)
+        yield d
+
+
+def update_file_replica_state(rse, scope, did, state):
+    """
+    Update File replica information and state.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param did: The data identifier.
+    :param state: The state.
+    """
+
+    rse = session.query(models.RSE).filter_by(rse=rse).one()
+    session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id, scope=scope, did=did).update({'state': state})
     session.commit()
