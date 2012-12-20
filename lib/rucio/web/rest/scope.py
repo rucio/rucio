@@ -72,7 +72,6 @@ class Scope:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-
         header('Content-Type', 'application/octet-stream')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')

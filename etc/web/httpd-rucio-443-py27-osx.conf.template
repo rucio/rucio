@@ -57,6 +57,7 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
  WSGIScriptAlias /identities /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/identity.py
  WSGIScriptAlias /meta /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/meta.py
  WSGIScriptAlias /ping /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/ping.py
+ WSGIScriptAlias /rules /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rule.py
  WSGIScriptAlias /rses /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/rse.py
  WSGIScriptAlias /scopes /opt/rucio/.venv/lib/python2.7/site-packages/rucio/web/rest/scope.py
 

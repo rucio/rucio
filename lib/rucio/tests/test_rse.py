@@ -19,7 +19,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.rse import add_rse, del_rse, list_rses,\
-    rse_exists, set_rse_usage, get_rse_usage
+    rse_exists, set_rse_usage, get_rse_usage, add_rse_attribute
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -56,7 +56,8 @@ class TestRSECoreApi():
         rse = u'MOCK_' + str(uuid())
         add_rse(rse)
         assert_equal(rse_exists(rse), True)
-        rses = list_rses()
+        add_rse_attribute(rse=rse, key='tier', value='1')
+        rses = list_rses(filters={'tier': '1'})
         assert_in(rse, rses)
         del_rse(rse)
 

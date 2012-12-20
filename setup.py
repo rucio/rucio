@@ -42,6 +42,8 @@ requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
 data_files = [('etc/', glob.glob('etc/*.template')),
               ('etc/web', glob.glob('etc/web/*.template')),
               ('tools/', glob.glob('tools/*'))]
+scripts = ['bin/rucio', 'bin/rucio-admin', 'bin/rucio-conveyor', 'bin/rucio-reaper', 'bin/rucio-transmogrifier']
+
 
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
@@ -53,6 +55,7 @@ if '--client' in copy_args:
     description = "Rucio Client Lite Package"
     data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
                   ('tools/', ['tools/pip-requires-client', ]), ]
+    scripts = ['bin/rucio', 'bin/rucio-admin']
     if os.path.exists('build/'):
         shutil.rmtree('build/')
     if os.path.exists('lib/rucio_clients.egg-info/'):
@@ -197,7 +200,7 @@ setup(
     script_args=copy_args,
     cmdclass=cmdclass,
     include_package_data=True,
-    scripts=['bin/rucio', 'bin/rucio-admin'],
+    scripts=scripts,
     # doc=cmdclass,
     author="Vincent Garonne",
     author_email="vincent.garonne@cern.ch",

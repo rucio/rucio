@@ -122,7 +122,19 @@ class FileNotFound(RucioException):
 class DataIdentifierNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(DataIdentifierNotFound, self).__init__(args, kwargs)
-        self._message = "Data identifier not found"
+        self._message = "Data identifier not found."
+
+
+class DuplicateContent(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DuplicateContent, self).__init__(args, kwargs)
+        self._message = "Data identifier already added to the destination content."
+
+
+class DataIdentifierAlreadyExists(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DataIdentifierAlreadyExists, self).__init__(args, kwargs)
+        self._message = "Data Identifier Already Exists."
 
 
 class NameTypeError(RucioException):

@@ -134,6 +134,7 @@ def validate_auth_token(token):
     q = session.query(models.Authentication.account, models.Authentication.lifetime).filter(models.Authentication.token == token, models.Authentication.lifetime > datetime.datetime.utcnow())
 
     r = q.all()
+    session.close()
 
     if r is not None and r != []:
         return {'account': r[0][0], 'lifetime': r[0][1]}

@@ -67,6 +67,7 @@ class TestBinRucio():
         tmp_val = str(uuid.uuid4())
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         exitcode, out, err = execute(cmd)
+        nose.tools.assert_equal('Added new account: jdoe-%s\n' % tmp_val, out)
         cmd = 'rucio-admin identity add --account jdoe-%s --type gss --id jdoe@CERN.CH' % tmp_val
         print  self.marker + cmd
         exitcode, out, err = execute(cmd)
