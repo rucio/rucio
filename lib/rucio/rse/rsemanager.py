@@ -19,9 +19,13 @@ from rucio.common import exception
 class RSEMgr(object):
 
     def __init__(self, path_to_credentials_file=None):
-        """ Instantiates the RSEMgr.
+        """
+            Instantiates the RSEMgr.
 
-            :param path_to_credentials_file: Relative path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed.
+            :param path_to_credentials_file:    relative path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed
+
+            :raises ErrorLoadingCredentials:    user credentials could not be loaded
+
         """
         self.__credentials = None
 
@@ -40,12 +44,18 @@ class RSEMgr(object):
             raise exception.ErrorLoadingCredentials(e)
 
     def __create_rse(self, rse_id, protocol=None):
-        """ Create the according RSE object.
+        """
+            Create the according RSE object.
 
-            :param rse_id       The identifier of the requested RSE
-            :param protocol     The identifier of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost, ...
+            :param rse_id:      identifier of the requested storage
+            :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
-            :returns: an instance of the according RSE object
+            :returns:           an instance of the according RSE object
+
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+            :raises SwitchProtocol: if the specified protocol is not supported by the provided storage (protocol)
+            :raises RSEAccessDenied: storage refuses to establish a connection
         """
         # If we go for connection pooling, this would be the place to do so
         rse = RSE(rse_id, protocol)
@@ -53,17 +63,24 @@ class RSEMgr(object):
         return rse
 
     def upload(self, rse_id, lfns, source_dir='.', protocol=None):
-        """ Uploads a file to the connected RSE
+        """
+            Uploads files to the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param rse_id       The identifier of the requested RSE
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
-            :param source_dir  Path to the local directory including the source files
-            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+            :param rse_id:      identifier of the requested storage
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
+            :param source_dir:  path to the local directory including the source files. Default is the current working directory
+            :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
 
-            :raises FileReplicaAlreadyExists, DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+            :raises SwitchProtocol: if the specified protocol is not supported by the provided storage (protocol)
+            :raises RSEAccessDenied: storage refuses to establish a connection
+            :raises SourceNotFound: local source file can not be found
+            :raises DestinationNotAccessible: remote destination directory is not accessible
+            :raises ServiceUnavailable: for any other reason
         """
         rse = self.__create_rse(rse_id, protocol)
         res = rse.put(lfns, source_dir)
@@ -71,16 +88,24 @@ class RSEMgr(object):
         return res
 
     def download(self, rse_id, files, dest_dir='.', protocol=None):
-        """ Downloads files from the connected RSE to the local file system.
+        """
+            Downloads files from the connected storage to the local file system.
+            Providing a list indicates the bulk mode.
 
-            :param rse_id       The identifier of the requested RSE
-            :param files        A dict with the following structure: {'lfns': [{'scope': '', 'filename': ''}], 'pfns': []}
-            :param dest_dir     Path where the downloaded file(s) will be stored
-            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+            :param rse_id:      identifier of the requested storage
+            :param files:       a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are provided and additional 'pfn' if PFNs are provided. E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
+            :param dest_dir:    path where the downloaded file(s) will be stored. Default is the current working directory
+            :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+            :raises SwitchProtocol: if the specified protocol is not supported by the provided storage (protocol)
+            :raises RSEAccessDenied: storage refuses to establish a connection
+            :raises SourceNotFound: remote source file can not be found on storage
+            :raises DestinationNotAccessible: local destination directory is not accessible
+            :raises ServiceUnavailable: for any other reason
         """
         rse = self.__create_rse(rse_id, protocol)
         res = rse.get(files, dest_dir)
@@ -88,70 +113,93 @@ class RSEMgr(object):
         return res
 
     def delete(self, rse_id, lfns, protocol=None):
-        """ Deletes a file from the connected RSE.
+        """
+            Deletes a file from the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param rse_id       The identifier of the requested RSE
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
-            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+            :param rse_id:      identifier of the requested storage
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
+            :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
 
-            :raises ServiceUnavailable,  RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+            :raises SwitchProtocol: if the specified protocol is not supported by the provided storage (protocol)
+            :raises RSEAccessDenied: storage refuses to establish a connection
+            :raises SourceNotFound: remote source file can not be found on storage
+            :raises ServiceUnavailable: for any other reason
         """
         rse = self.__create_rse(rse_id, protocol)
         res = rse.delete(lfns)
         rse.close()
         return res
 
-    def rename(self, rse_id, lfns, protocol=None):
-        """ Rename files stored on the connected RSE.
+    def rename(self, rse_id, files, protocol=None):
+        """
+            Rename files stored on the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param rse_id       The identifier of the requested RSE
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
-            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+            :param rse_id:      identifier of the requested storage
+            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename' if LFNs are used or only 'filename' and 'new_filename' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used. E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'}, {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
+            :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
 
-            :raises SourceNotFound, FileReplicaAlreadyExists, DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+            :raises SwitchProtocol: if the specified protocol is not supported by the provided storage (protocol)
+            :raises RSEAccessDenied: storage refuses to establish a connection
+            :raises SourceNotFound: remote source file can not be found on storage
+            :raises DestinationNotAccessible: remote destination directory is not accessible
+            :raises ServiceUnavailable: for any other reason
         """
         rse = self.__create_rse(rse_id, protocol)
-        res = rse.rename(lfns)
+        res = rse.rename(files)
         rse.close()
         return res
 
-    def exists(self, rse_id, lfns, protocol=None):
-        """ Checks if the referred file is known by the connected RSE.
+    def exists(self, rse_id, files, protocol=None):
+        """
+            Checks if the referred file is known by the connected storage.
             Providing a list of indicates the bulk mode.
 
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
+            :param rse_id:      identifier of the requested storage
+            :param files:        a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are used and only 'filename' if PFNs are used. E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+            :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
 
-            :raises DestinationNotAccessible, ServiceUnavailable, RSENotFound, RSEAccessDenied, RSERepositoryNotFound, ErrorLoadingCredentials
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+            :raises SwitchProtocol: if the specified protocol is not supported by the provided storage (protocol)
+            :raises RSEAccessDenied: storage refuses to establish a connection
         """
         rse = self.__create_rse(rse_id, protocol)
-        res = rse.exists(lfns)
+        res = rse.exists(files)
         rse.close()
         return res
 
 
 class RSE(object):
-    """ This class is a  wrapper for all registered RSEs. Its intention is to provide generic access to
+    """
+        This class is a  wrapper for all registered storage. Its intention is to provide generic access to
         whatever RSE is referred during the instantiation. It further provides the basic methods
         GET (Download), PUT (Upload), Delete, and Rename files for RSEs.
     """
 
     def __init__(self, rse_id, protocol=None, path_to_repo=None):
-        """  This method instantiates a new RSE using the provided credetnials and the reffered protocol.
+        """
+            This method instantiates a new RSE using the provided credetnials and the reffered protocol.
 
-            :param rse_id       The identifier of the requested RSE
-            :param protocol     The name of the protocol to use. If this is not given the defined default protocol of the RSE will be used.
+            :param rse_id:      identifier of the requested storage
+            :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
+            :param path_to_repo: path to the RSE-repository file. If not given the file '/opt/rucio/etc/rse_repository.json' will be used
 
-            :raises SwitchProtocol          If the referred protocol is not supported by the referred RSE
-            :raises RSENotFound             If the referred RSE is not found insode the RSERepository
-            :raises RSERepositoryNotFound   If the RSERepository can be accessed
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+            :raises SwitchProtocol: if the specified protocol is not supported by the provided storage (protocol)
+
         """
 
         self.__protocol = None
@@ -205,12 +253,14 @@ class RSE(object):
         self.__protocol = m(self.__props)
 
     def lfn2uri(self, lfns):
-        """ Transforms the logical file name (LFN) into the RSE specific URI of the file on the connected RSE.
-            Providing a list of LFNs indicates the bulk mode.
+        """
+            Transforms the logical file name (LFN) into the storage specific URI of the file on the connected storage.
+            Providing a list indicates the bulk mode.
 
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. {'filename': '1_rse_remote.raw', 'scope': 'user.jdoe'}
 
-            :returns: URI of the physical file or a dict object with LFN (key) and the URI (value) in bulk mode
+            :returns: URI for a single file or a dict object with scope:filename as keys and the URI for each file in bulk mode
+
         """
         ret = {}
         lfns = [lfns] if not type(lfns) is list else lfns
@@ -222,12 +272,13 @@ class RSE(object):
         return ret
 
     def __lfn2pfn(self, lfn, scope):
-        """ Transforms the logical file name into the physical file name.
+        """
+            Transforms the logical file name into the physical file name.
 
-            :param lfn The logical file name
-            :param scope The selected user scope
+            :param lfn:     logical file name
+            :param scope:   scope
 
-            :returns: The physical filen name (including scope)
+            :returns: physical file name (PFN)
         """
         # Agreed naming convention: [scope1]/[scope2]/[first_two_hash]/[second_two_hash]/[lfn]
         # e.g. user/jdoe/fb/6a/4_rse_remote_get.raw
@@ -236,15 +287,16 @@ class RSE(object):
         return '%s/%s/%s/%s' % (correctedscope, hstr[0:2], hstr[2:4], lfn)
 
     def exists(self, files):
-        """ Checks if the provided LFN is known by the connected RSE.
-            Providing a list of LFNs indicates the bulk mode.
+        """
+            Checks if a file is present at the connected storage.
+            Providing a list indicates the bulk mode.
 
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
-            :param new         Checkes if the properties filename/scope are used (False) or new_filename/new_scope (True)
+            :param files: a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are used and only 'filename' if PFNs are used. E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
 
-            :raises RSENotConnected         If the connection to the RSE has not yet been established
+            :raises RSENotConnected: no connection to a specific storage has been established
+
         """
         ret = {}
         gs = True
@@ -271,30 +323,41 @@ class RSE(object):
         return [gs, ret]
 
     def connect(self, credentials):
-        """ Establishes the connection to the referred storage system.
+        """
+            Establishes the connection to the referred storage system.
 
-            :param  credentials         User credentials to use when connecting to the referred storage system. Note that the content of this object depends on the referred protocol to use.
+            :param  credentials:  credentials to establish a connection to the storage. Note that the content of this object depends on the referred protocol
 
-            :raises RSEAccessDenied     If access to the RSE is denied
+            :raises RSEAccessDenied: storage refuses to establish a connection
+
         """
         if not self.__connected:
             self.__protocol.connect(credentials)
             self.__connected = True
 
     def close(self):
-        """ Closes the connection to the storage system """
+        """
+            Closes the connection to the storage system
+        """
         if self.__connected:
             self.__protocol.close()
 
     def get(self, files, dest_dir='.'):
-        """ Copy a file (LFN) from the connected RSE to the local file system.
+        """
+            Copy a file from the connected storage to the local file system.
+            Providing a list indicates the bulk mode.
 
-            :param files       A dict with the following structure: {'lfns': [{'scope': '', 'filename': ''}], 'pfns': []}
-            :param dest_dir     Path where the downloaded file(s) will be stored
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :param files:       a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are provided and additional 'pfn' if PFNs are provided. E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
+            :param dest_dir:    path to the directory where the downloaded files will be stored. For each scope a seperate subdirectory is created
 
-            :raises RSENotConnected, SourceNotFound, DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
+
+            :raises RSENotConnected: no connection to a specific storage has been established
+            :raises SourceNotFound: remote source file can not be found on storage
+            :raises DestinationNotAccessible: local destination directory is not accessible
+            :raises ServiceUnavailable: for any other reason
+
         """
         ret = {}
         gs = True
@@ -322,15 +385,20 @@ class RSE(object):
         return [gs, ret]
 
     def put(self, lfns, source_dir=None):
-        """ Uploads a file (LFN) to the connected RSE
-            Providing a list of LFNs indicates the bulk mode.
+        """
+            Uploads a file to the connected storage.
+            Providing a list indicates the bulk mode.
 
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
-            :param source_dir  Path to the local directory including the source files
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
+            :param source_dir:  path to the local directory including the source files
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
 
-            :raises FileReplicaAlreadyExists, RSENotConnected, SourceNotFound, DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises RSENotConnected: no connection to a specific storage has been established
+            :raises SourceNotFound: local source file can not be found
+            :raises DestinationNotAccessible: remote destination directory is not accessible
+            :raises ServiceUnavailable: for any other reason
+
         """
         ret = {}
         gs = True
@@ -362,14 +430,18 @@ class RSE(object):
         return [gs, ret]
 
     def delete(self, lfns):
-        """ Delete a file (LFN) from the connected RSE.
-            Providing a list of LFNs indicates the bulk mode.
+        """
+            Delete a file from the connected storage.
+            Providing a list indicates the bulk mode.
 
-            :param lfns        A single LFN as dict or a list object with dicts. Each dict has 'scope' and 'filename' as attributes
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
 
-            :raises RSENotConnected, SourceNotFound
+            :raises RSENotConnected: no connection to a specific storage has been established
+            :raises SourceNotFound: remote source file can not be found on storage
+            :raises ServiceUnavailable: for any other reason
+
         """
         ret = {}
         gs = True
@@ -394,14 +466,18 @@ class RSE(object):
         return [gs, ret]
 
     def rename(self, files):
-        """ Rename files stored on the connected RSE.
-            Providing a list of LFNs indicates the bulk mode.
+        """
+            Rename files stored on the connected storage.
+            Providing a list indicates the bulk mode.
 
-            :param lfns       A list of dict object with the current filename (filename), the current scope (scope) in a dict and the new filename (new_filename) and optional the new scope (new_scope)
+            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename' if LFNs are used or only 'filename' and 'new_filename' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used. E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'}, {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
 
-            :returns: True/False for a the file or a dict object with LFN (key) and True/False (value) in bulk mode
+            :returns: True/False for a single file or a dict object with LFN (key) and True/False (value) in bulk mode
 
-            :raises FileReplicaAlreadyExists, RSENotConnected, SourceNotFound
+            :raises RSENotConnected: no connection to a specific storage has been established
+            :raises SourceNotFound: remote source file can not be found on storage
+            :raises DestinationNotAccessible: remote destination directory is not accessible
+            :raises ServiceUnavailable: for any other reason
         """
         ret = {}
         gs = True
@@ -420,7 +496,7 @@ class RSE(object):
                     if not 'new_scope' in f:
                         f['new_scope'] = f['scope']
                     pfn = self.__lfn2pfn(f['filename'], f['scope'])
-                    new_pfn = self.__lfn2pfn(f['new_filename'], f['new_scope'])
+                    new_pfn = self. __lfn2pfn(f['new_filename'], f['new_scope'])
                 else:
                     pfn = f['filename']
                     new_pfn = f['new_filename']
