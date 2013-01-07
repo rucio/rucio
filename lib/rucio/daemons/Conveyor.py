@@ -48,14 +48,14 @@ def run_once():
         replicas = rse_core.list_replicas(rse=rse, filters={'state': 'UNAVAILABLE'})  # grouping options, fairshare
         for replica in replicas:
             print
-            print 'Destination: %(scope)s:%(did)s' % replica
+            print 'Destination: %(scope)s:%(name)s' % replica
             # Get source and select one randomly
-            sources = identifier_core.list_replicas(scope=replica['scope'], did=replica['did'])
+            sources = identifier_core.list_replicas(scope=replica['scope'], name=replica['name'])
             if not sources:
-                print 'No source replica found for: %(scope)s:%(did)s' % replica
+                print 'No source replica found for: %(scope)s:%(name)s' % replica
                 continue
 
             source = choice(sources)
-            print 'Tranfer file  %(scope)s:%(did)s from RSE %(rse)s' % source
-            # transfer_id = transfer (src=source, dest=rse, file={scope:  , did:, pfn=}) # pfn ?,
-            rse_core.update_file_replica_state(rse=rse, scope=replica['scope'], did=replica['did'], state='COPYING')
+            print 'Tranfer file  %(scope)s:%(name)s from RSE %(rse)s' % source
+            # transfer_id = transfer (src=source, dest=rse, file={scope:  , name:, pfn=}) # pfn ?,
+            rse_core.update_file_replica_state(rse=rse, scope=replica['scope'], name=replica['name'], state='COPYING')

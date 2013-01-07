@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from nose.tools import assert_equal, assert_in, raises
 
@@ -43,17 +44,17 @@ class TestMetaDIDClient():
 
         # Add a dataset
         tmp_dataset = 'dataset_' + str(uuid())
-        files = [{'scope':tmp_scope, 'did': tmp_file}, ]
-        self.did_client.add_identifier(scope=tmp_scope, did=tmp_dataset, sources=files)
+        files = [{'scope':tmp_scope, 'name': tmp_file}, ]
+        self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
 
         # Add a key
         key = 'key_' + str(uuid())
         self.meta_client.add_key(key=key)
 
         value = 'value_' + str(uuid())
-        self.did_client.set_metadata(scope=tmp_scope, did=tmp_dataset, key=key, value=value)
+        self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key, value=value)
 
-        meta = self.did_client.get_metadata(scope=tmp_scope, did=tmp_dataset)
+        meta = self.did_client.get_metadata(scope=tmp_scope, name=tmp_dataset)
         assert_in(key, meta)
         assert_equal(meta[key], value)
 
@@ -64,6 +65,6 @@ class TestMetaDIDClient():
         self.meta_client.add_value(key=key2, value=value2)
 
         # Try a add a wrong value
-        self.did_client.set_metadata(scope=tmp_scope, did=tmp_dataset, key=key2, value='Nimportnawak')
+        self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key2, value='Nimportnawak')
 
-        #self.did_client.delete_metadata(scope=tmp_scope, did=tmp_dataset, key=key)
+        #self.did_client.delete_metadata(scope=tmp_scope, name=tmp_dataset, key=key)

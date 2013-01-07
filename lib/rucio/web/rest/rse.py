@@ -221,7 +221,7 @@ class Attributes:
 
 class Files:
 
-    def POST(self, rse, scope, did):
+    def POST(self, rse, scope, name):
         """
         Create a file replica at a given RSE.
 
@@ -235,7 +235,7 @@ class Files:
 
         :param rse: The RSE name.
         :param scope: the name of the scope.
-        :param did: the data identifier.
+        :param name: the data identifier name.
         :param size: the size of the file.
         :param checksum: the checksum of the file.
 
@@ -266,7 +266,7 @@ class Files:
             raise generate_http_error(400, 'TypeError', 'Body must be a json dictionary')
 
         try:
-            add_file_replica(rse=rse, scope=scope, did=did, size=size, checksum=checksum, dsn=dsn, issuer=auth['account'])
+            add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, dsn=dsn, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:

@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import re
 
@@ -53,9 +54,9 @@ class TestIdentifierClients():
             # Add file replicas
             tmp_file = 'file_%s' % uuid()
             self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
-            files = [{'scope': tmp_scope, 'did': tmp_file}, ]
-            self.did_client.add_identifier(scope=tmp_scope, did=tmp_dataset, sources=files)
-            dsns.append({'scope': tmp_scope, 'did': tmp_dataset})
+            files = [{'scope': tmp_scope, 'name': tmp_file}, ]
+            self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
+            dsns.append({'scope': tmp_scope, 'name': tmp_dataset})
 
         ret = self.rule_client.add_replication_rule(dids=dsns, copies=2, rse_expression='Tier=1')
         assert_is_instance(ret, dict)

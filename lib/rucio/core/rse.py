@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -292,13 +293,13 @@ def get_rse_usage_history(rse, filters=None):
         result.append({'location': usage.location.location, 'source': usage.source, usage.name: usage.value, 'updated_at': usage.updated_at})
 
 
-def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
+def add_file_replica(rse, scope, name, size, checksum, issuer, dsn):
     """
     Add File replica.
 
     :param rse: the rse name.
     :param scope: the tag name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     :param size: the size of the file.
     :param checksum: the checksum of the file.
     :param issuer: The issuer account.
@@ -306,10 +307,11 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
     :returns: True is successfull.
     """
 
-    new_data_id = models.DataIdentifier(scope=scope, did=did, owner=issuer, type=models.DataIdType.FILE)
-    new_file = models.File(scope=scope, did=did, owner=issuer, size=size, checksum=checksum)
+    new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
+    new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
     replica_rse = get_rse(rse=rse)
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, did=did, size=size, checksum=checksum, state='AVAILABLE')
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, state='AVAILABLE')
+
     # Add optional pfn
     try:
         new_data_id = session.merge(new_data_id)
@@ -331,7 +333,7 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
 
     # Insert dataset and content
     if dsn:
-        new_dsn = models.DataIdentifier(scope=dsn['scope'], did=dsn['did'], owner=issuer, type=models.DataIdType.DATASET)
+        new_dsn = models.DataIdentifier(scope=dsn['scope'], name=dsn['name'], owner=issuer, type=models.DataIdType.DATASET)
         try:
             new_dsn = session.merge(new_dsn)
             new_dsn.save(session=session)
@@ -339,7 +341,7 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn):
             # needs to parse the exception string
             session.rollback()
 
-        new_child = models.DataIdentifierAssociation(scope=dsn['scope'], did=dsn['did'], child_scope=scope, child_did=did, type=models.DataIdType.DATASET, child_type=models.DataIdType.FILE)
+        new_child = models.DataIdentifierAssociation(scope=dsn['scope'], name=dsn['name'], child_scope=scope, child_name=name, type=models.DataIdType.DATASET, child_type=models.DataIdType.FILE)
         try:
             new_child.save(session=session)
         except IntegrityError, e:
@@ -373,16 +375,16 @@ def list_replicas(rse, filters={}):
         yield d
 
 
-def update_file_replica_state(rse, scope, did, state):
+def update_file_replica_state(rse, scope, name, state):
     """
     Update File replica information and state.
 
     :param rse: the rse name.
     :param scope: the tag name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     :param state: The state.
     """
 
     rse = session.query(models.RSE).filter_by(rse=rse).one()
-    session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id, scope=scope, did=did).update({'state': state})
+    session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id, scope=scope, name=name).update({'state': state})
     session.commit()

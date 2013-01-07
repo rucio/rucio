@@ -9,7 +9,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from json import dumps, loads
 from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized
@@ -76,7 +76,7 @@ class Scope:
 
 class Identifiers:
 
-    def GET(self, scope, did):
+    def GET(self, scope, name):
         """
         Retrieve a single data identifier.
 
@@ -88,7 +88,7 @@ class Identifiers:
             404 Not Found
 
         :param scope: The scope name.
-        :param did: The data identifier.
+        :param name: The data identifier name.
         """
 
         header('Content-Type', 'application/json')
@@ -100,7 +100,7 @@ class Identifiers:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(get_did(scope=scope, did=did))
+            return dumps(get_did(scope=scope, name=name))
         except ScopeNotFound, e:
             raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
         except DataIdentifierNotFound, e:
@@ -108,7 +108,7 @@ class Identifiers:
         except Exception, e:
             raise InternalError(e)
 
-    def POST(self, scope, did):
+    def POST(self, scope, name):
         """
         Create a new data identifier.
 
@@ -120,7 +120,7 @@ class Identifiers:
             500 InternalError
 
         :param scope: Create the data identifier within this scope.
-        :param did: Create the data identifier with this name.
+        :param name: Create the data identifier with this name.
         """
 
         header('Content-Type', 'application/json')
@@ -138,7 +138,7 @@ class Identifiers:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_identifier(scope=scope, did=did, sources=sources, issuer=auth['account'])
+            add_identifier(scope=scope, name=name, sources=sources, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -163,7 +163,7 @@ class Identifiers:
 
 class Content:
 
-    def GET(self, scope, did):
+    def GET(self, scope, name):
         """
         Returns the contents of a data identifier.
 
@@ -175,7 +175,7 @@ class Content:
             500 InternalError
 
         :param scope: The scope of the data identifier.
-        :param did: The name of the data identifier.
+        :param name: The name of the data identifier.
 
         :returns: A list with the contents.
         """
@@ -189,7 +189,7 @@ class Content:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_content(scope=scope, did=did))
+            return dumps(list_content(scope=scope, name=name))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
@@ -210,10 +210,10 @@ class Content:
 
 class Replicas:
 
-    def POST(self, scope, did):
+    def POST(self, scope, name):
         raise BadRequest()
 
-    def GET(self, scope, did):
+    def GET(self, scope, name):
         """
         List all replicas for a data identifier.
 
@@ -236,7 +236,7 @@ class Replicas:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_replicas(scope=scope, did=did))
+            return dumps(list_replicas(scope=scope, name=name))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
@@ -253,10 +253,10 @@ class Replicas:
 
 class Files:
 
-    def POST(self, scope, did):
+    def POST(self, scope, name):
         raise BadRequest()
 
-    def GET(self, scope, did):
+    def GET(self, scope, name):
         """ List all replicas of a data identifier.
 
         HTTP Success:
@@ -278,7 +278,7 @@ class Files:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_files(scope=scope, did=did))
+            return dumps(list_files(scope=scope, name=name))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
@@ -295,7 +295,7 @@ class Files:
 
 class Meta:
 
-    def GET(self, scope, did):
+    def GET(self, scope, name):
         """
         List all meta of a data identifier.
 
@@ -307,7 +307,7 @@ class Meta:
             500 InternalError
 
         :param scope: The scope name.
-        :param did: The data identifier.
+        :param name: The data identifier name.
 
         :returns: A dictionary containing all meta.
         """
@@ -320,17 +320,17 @@ class Meta:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        return dumps(get_metadata(scope=scope, did=did))
+        return dumps(get_metadata(scope=scope, name=name))
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    def DELETE(self, scope, did, key):
+    def DELETE(self, scope, name, key):
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    def POST(self, scope, did, key):
+    def POST(self, scope, name, key):
         """
         Add metadata to a data identifier.
 
@@ -344,7 +344,7 @@ class Meta:
             500 Internal Error
 
         :param scope: The scope name.
-        :param did: The data identifier.
+        :param name: The data identifier name.
         :param key: the key.
 
         """
@@ -364,7 +364,7 @@ class Meta:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            set_metadata(scope=scope, did=did, key=key, value=value, issuer=auth['account'])
+            set_metadata(scope=scope, name=name, key=key, value=value, issuer=auth['account'])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except KeyNotFound, e:

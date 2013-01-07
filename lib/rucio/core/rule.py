@@ -45,7 +45,7 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters):
     rule_id = generate_uuid()
     for did in dids:
         # Insert the replication rule
-        new_rule = models.ReplicationRule(id=rule_id, account=account, did=did['did'], scope=did['scope'], copies=copies, rse_expression=rse_expression)
+        new_rule = models.ReplicationRule(id=rule_id, account=account, name=did['name'], scope=did['scope'], copies=copies, rse_expression=rse_expression)
         try:
             new_rule.save(session=session)
         except IntegrityError, e:
@@ -60,7 +60,7 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters):
         for i in xrange(copies):
             selected_rse = choice(rses_tmp)
             rses_tmp.remove(selected_rse)
-            did_lock = {'id': rule_id, 'scope': did['scope'], 'did': did['did'], 'rse': selected_rse, 'account': account}
+            did_lock = {'id': rule_id, 'scope': did['scope'], 'name': did['name'], 'rse': selected_rse, 'account': account}
             did_locks.append(did_lock)
         add_replica_locks(locks=did_locks)
 
@@ -97,18 +97,18 @@ def add_replica_locks(locks):
     for lock in locks:
         rse = session.query(models.RSE).filter_by(rse=lock['rse']).one()
         # add the replica locks for datasets and containers
-        new_lock = models.ReplicaLock(rule_id=lock['id'], rse_id=rse.id, scope=lock['scope'], did=lock['did'], account=lock['account'])
+        new_lock = models.ReplicaLock(rule_id=lock['id'], rse_id=rse.id, scope=lock['scope'], name=lock['name'], account=lock['account'])
         new_lock.save(session=session)
 
         # Get did content
-        files = identifier.list_files(scope=lock['scope'], did=lock['did'])
+        files = identifier.list_files(scope=lock['scope'], name=lock['name'])
         # Generate the replica locks for file, and eventually the transfer request
         for file in files:
-            new_lock = models.ReplicaLock(rule_id=lock['id'], rse_id=rse.id, scope=file['scope'], did=file['did'], account=lock['account'])
+            new_lock = models.ReplicaLock(rule_id=lock['id'], rse_id=rse.id, scope=file['scope'], name=file['name'], account=lock['account'])
             # If replica doesn't exist, add a replica with the state UNAVAILABLE
             # which will be picked up by the conveyor daemon
             # Optionally extended with a submission to gearman in the future
-            new_replica = models.RSEFileAssociation(rse_id=rse.id, scope=file['scope'], did=file['did'])
+            new_replica = models.RSEFileAssociation(rse_id=rse.id, scope=file['scope'], name=file['name'])
             new_replica = session.merge(new_replica)
             new_lock.save(session=session)
             new_replica.save(session=session)

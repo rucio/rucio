@@ -7,6 +7,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -142,13 +143,13 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_file_replica(self, rse, scope, did, size, checksum, dsn=None):
+    def add_file_replica(self, rse, scope, name, size, checksum, dsn=None):
         """
         Add a file replica to a RSE.
 
         :param rse: the name of the rse.
         :param scope: the name of the scope.
-        :param did: the data identifier.
+        :param name: the data identifier name.
         :param size: the size of the file.
         :param checksum: the checksum of the file.
         :param dsn: the dataset name.
@@ -157,7 +158,7 @@ class RSEClient(BaseClient):
         :raises Duplicate: if file replica already exists.
         """
         data = dumps({'size': size, 'checksum': checksum, 'dsn': dsn})
-        path = '/'.join([self.BASEURL, rse, 'files', scope, did])
+        path = '/'.join([self.BASEURL, rse, 'files', scope, name])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
