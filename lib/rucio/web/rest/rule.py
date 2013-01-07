@@ -68,6 +68,7 @@ class Rule:
         try:
             rule_id = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, parameters=params, issuer=auth['account'])
         except Exception, e:
+            print e
             raise InternalError(e)
 
         raise Created(dumps({'rule_id': rule_id}))

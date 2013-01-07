@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from nose.tools import assert_equal, assert_raises, assert_in
 
@@ -35,7 +35,7 @@ class TestIdentifierClients():
         self.rse_client.add_rse(tmp_rse)
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 
-        assert_equal(self.did_client.get_did(tmp_scope, tmp_file), {'scope': tmp_scope, 'did': tmp_file, 'type': 'file'})
+        assert_equal(self.did_client.get_did(tmp_scope, tmp_file), {'scope': tmp_scope, 'name': tmp_file, 'type': 'file'})
 
         with assert_raises(DataIdentifierNotFound):
             self.did_client.get_did('i_dont_exist', 'neither_do_i')
@@ -61,13 +61,13 @@ class TestIdentifierClients():
         # put files in datasets
         for i in xrange(10):
             for j in xrange(10):
-                files = [{'scope': self.tmp_scopes[j], 'did': self.tmp_files[j]}]
+                files = [{'scope': self.tmp_scopes[j], 'name': self.tmp_files[j]}]
                 self.did_client.add_identifier(self.tmp_scopes[i], self.tmp_datasets[j], files)
 
         # put datasets in containers
         for i in xrange(10):
             for j in xrange(10):
-                datasets = [{'scope': self.tmp_scopes[j], 'did': self.tmp_datasets[j]}]
+                datasets = [{'scope': self.tmp_scopes[j], 'name': self.tmp_datasets[j]}]
                 self.did_client.add_identifier(self.tmp_scopes[i], self.tmp_containers[j], datasets)
 
         # reverse check if everything is in order
@@ -75,7 +75,7 @@ class TestIdentifierClients():
             result = self.did_client.scope_list(self.tmp_scopes[i])
             assert_in(result[0]['scope'], self.tmp_scopes[i])
 
-            r_dids = [r['did'] for r in result]
+            r_dids = [r['name'] for r in result]
             for j in xrange(10):
                 assert_in(self.tmp_files[i], r_dids)
                 assert_in(self.tmp_datasets[j], r_dids)

@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from rucio.api import permission
 from rucio.common import exception
@@ -101,13 +101,13 @@ def list_rse_attributes(rse):
     return rse_module.list_rse_attributes(rse=rse)
 
 
-def add_file_replica(rse, scope, did, size, checksum, issuer, dsn=None):
+def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None):
     """
     Add File replica.
 
     :param rse: The RSE name.
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     :param size: The size of the file.
     :param checksum: The checksum of the file.
     :param issuer: The issuer account.
@@ -116,8 +116,8 @@ def add_file_replica(rse, scope, did, size, checksum, issuer, dsn=None):
     :returns: True is successful, False otherwise
     """
 
-    kwargs = {'rse': rse, 'scope': scope, 'did': did, 'size': size, 'checksum': checksum, 'dsn': dsn}
+    kwargs = {'rse': rse, 'scope': scope, 'name': name, 'size': size, 'checksum': checksum, 'dsn': dsn}
     if not permission.has_permission(issuer=issuer, action='add_file_replica', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
 
-    rse_module.add_file_replica(rse=rse, scope=scope, did=did, size=size, checksum=checksum, issuer=issuer, dsn=dsn)
+    rse_module.add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=issuer, dsn=dsn)
