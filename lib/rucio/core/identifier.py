@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <vincent.garonne@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from re import match
 
@@ -22,32 +22,32 @@ from rucio.db.session import get_session
 session = get_session()
 
 
-def list_replicas(scope, did):
+def list_replicas(scope, name):
     """
     List file replicas for a data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
 
     replicas = []
     try:
-        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, did=did, state='AVAILABLE', deleted=False)
+        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE', deleted=False)
         for replica in query:
-            replicas.append({'scope': replica.scope, 'did': replica.did, 'size': replica.size,
+            replicas.append({'scope': replica.scope, 'name': replica.name, 'size': replica.size,
                              'rse': replica.rse.rse, 'checksum': replica.checksum, 'pfn': replica.pfn})
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found")
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found")
 
     return replicas
 
 
-def add_identifier(scope, did, sources, issuer):
+def add_identifier(scope, name, sources, issuer):
     """
     Add data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     :param sources: The content.
     :param issuer: The issuer account.
     """
@@ -59,7 +59,7 @@ def add_identifier(scope, did, sources, issuer):
     # TODO: Disallow putting files into containers
     #
     for source in sources:
-        query = session.query(models.DataIdentifier).filter_by(scope=source['scope'], did=source['did'], deleted=False)
+        query = session.query(models.DataIdentifier).filter_by(scope=source['scope'], name=source['name'], deleted=False)
         try:
             tmp_did = query.one()
             if tmp_did.type == models.DataIdType.FILE:
@@ -72,70 +72,70 @@ def add_identifier(scope, did, sources, issuer):
                 source['type'] = models.DataIdType.CONTAINER
                 data_type = models.DataIdType.CONTAINER
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % source)
+            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
 
     # Insert new data identifier with correct type
-    new_did = models.DataIdentifier(scope=scope, did=did, owner=issuer, type=data_type)
+    new_did = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=data_type)
     try:
         new_did.save(session=session)
     except IntegrityError, e:
         session.rollback()
-        if e.args[0] == "(IntegrityError) columns scope, did are not unique":
+        if e.args[0] == "(IntegrityError) columns scope, name are not unique":
             pass
             # Check the DI types
-            #raise exception.DataIdentifierAlreadyExists('The data identifier %(scope)s:%(did)s' % locals())
+            #raise exception.DataIdentifierAlreadyExists('The data identifier %(scope)s:%(name)s' % locals())
         else:
             raise e
 
     # Insert content with correct type
     for source in sources:
         try:
-            new_child = models.DataIdentifierAssociation(scope=scope, did=did, child_scope=source['scope'], child_did=source['did'], type=data_type, child_type=source['type'])
+            new_child = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=data_type, child_type=source['type'])
             new_child.save(session=session)
         except IntegrityError, e:
             session.rollback()
-            if e.args[0] == '(IntegrityError) columns scope, did, child_scope, child_did are not unique':
-                raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][did]} has been already added to {0[scope]}:{0[did]}.'.format(locals()))
+            if e.args[0] == '(IntegrityError) columns scope, name, child_scope, child_name are not unique':
+                raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
             raise e
 
     session.commit()
 
 
-def list_content(scope, did):
+def list_content(scope, name):
     """
     List data identifier contents.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
 
     dids = []
     try:
-        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, did=did, deleted=False)
+        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, deleted=False)
         for tmp_did in query:
-            dids.append({'scope': tmp_did.child_scope, 'did': tmp_did.child_did, 'type': tmp_did.child_type})
+            dids.append({'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type})
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     return dids
 
 
-def list_files(scope, did):
+def list_files(scope, name):
     """
     List data identifier file contents.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
 
     # TODO: Optional traverse hierarchy
     files = []
     try:
-        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, did=did, child_type=models.DataIdType.FILE, deleted=False)
+        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, child_type=models.DataIdType.FILE, deleted=False)
         for tmp_file in query:
-            files.append({'scope': tmp_file.child_scope, 'did': tmp_file.child_did, 'type': tmp_file.child_type})
+            files.append({'scope': tmp_file.child_scope, 'name': tmp_file.child_name, 'type': tmp_file.child_type})
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     return files
 
@@ -153,42 +153,42 @@ def scope_list(scope):
     dids = []
     try:
         for did in query.all():
-            dids.append({'scope': scope, 'did': did.did, 'type': did.type})
+            dids.append({'scope': scope, 'name': did.name, 'type': did.type})
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Scope '%(scope)s' not found" % locals())
 
     return dids
 
 
-def get_did(scope, did):
+def get_did(scope, name):
     """
     Retrieve a single data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
 
-    did_r = {'scope': None, 'did': None, 'type': None}
+    did_r = {'scope': None, 'name': None, 'type': None}
     try:
-        r = session.query(models.DataIdentifier).filter_by(scope=scope, did=did, deleted=False).one()
+        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).one()
         if r:
-            did_r = {'scope': r.scope, 'did': r.did, 'type': r.type}
+            did_r = {'scope': r.scope, 'name': r.name, 'type': r.type}
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(did)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     return did_r
 
 
-def set_metadata(scope, did, key, value):
+def set_metadata(scope, name, key, value):
     """
     Add metadata to data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     :param key: the key.
     :param value: the value.
     """
-    new_meta = models.DIDAttribute(scope=scope, did=did, key=key, value=value)
+    new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value)
     try:
         new_meta.save(session=session)
     except IntegrityError, e:
@@ -196,7 +196,7 @@ def set_metadata(scope, did, key, value):
         print e.args[0]
         if e.args[0] == "(IntegrityError) foreign key constraint failed":
             raise exception.KeyNotFound("Key '%(key)s' not found" % locals())
-        if e.args[0] == "(IntegrityError) columns scope, did, key are not unique":
+        if e.args[0] == "(IntegrityError) columns scope, name, key are not unique":
             raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists!' % locals())
         raise e
 
@@ -226,15 +226,15 @@ def set_metadata(scope, did, key, value):
     session.commit()
 
 
-def get_metadata(scope, did):
+def get_metadata(scope, name):
     """
     Get data identifier metadata
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
     meta = {}
-    query = session.query(models.DIDAttribute).filter_by(scope=scope, did=did, deleted=False)
+    query = session.query(models.DIDAttribute).filter_by(scope=scope, name=name, deleted=False)
     for row in query:
         meta[row.key] = row.value
     return meta

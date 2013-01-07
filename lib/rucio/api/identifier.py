@@ -7,59 +7,59 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 import rucio.api.permission
 
 from rucio.core import identifier
 
 
-def list_replicas(scope, did):
+def list_replicas(scope, name):
     """
     List file replicas for a data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
 
-    return identifier.list_replicas(scope=scope, did=did)
+    return identifier.list_replicas(scope=scope, name=name)
 
 
-def add_identifier(scope, did, sources, issuer):
+def add_identifier(scope, name, sources, issuer):
     """
     Add data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     :param sources: The content as a list of data identifiers.
     :param issuer: The issuer account.
     """
-    kwargs = {'scope': scope, 'did': did, 'sources': sources, 'issuer': issuer}
+    kwargs = {'scope': scope, 'name': name, 'sources': sources, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
-    return identifier.add_identifier(scope=scope, did=did, sources=sources, issuer=issuer)
+    return identifier.add_identifier(scope=scope, name=name, sources=sources, issuer=issuer)
 
 
-def list_content(scope, did):
+def list_content(scope, name):
     """
     List data identifier contents.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
 
-    return identifier.list_content(scope=scope, did=did)
+    return identifier.list_content(scope=scope, name=name)
 
 
-def list_files(scope, did):
+def list_files(scope, name):
     """
     List data identifier file contents.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
 
-    return identifier.list_files(scope=scope, did=did)
+    return identifier.list_files(scope=scope, name=name)
 
 
 def scope_list(scope):
@@ -72,39 +72,39 @@ def scope_list(scope):
     return identifier.scope_list(scope=scope)
 
 
-def get_did(scope, did):
+def get_did(scope, name):
     """
     Retrieve a single data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
-    :return did: Dictionary containing {'did', 'scope', 'type'}, Exception otherwise
+    :param name: The data identifier name.
+    :return did: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
     """
 
-    return identifier.get_did(scope=scope, did=did)
+    return identifier.get_did(scope=scope, name=name)
 
 
-def set_metadata(scope, did, key, value, issuer):
+def set_metadata(scope, name, key, value, issuer):
     """
     Add metadata to data identifier.
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     :param key: the key.
     :param value: the value.
     :param issuer: The issuer account.
     """
-    kwargs = {'scope': scope, 'did': did, 'key': key, 'value': value, 'issuer': issuer}
+    kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('Account %s can not add metadate to data identifier %s:%s' % (issuer, scope, did))
-    return identifier.set_metadata(scope=scope, did=did, key=key, value=value)
+        raise rucio.common.exception.AccessDenied('Account %s can not add metadate to data identifier %s:%s' % (issuer, scope, name))
+    return identifier.set_metadata(scope=scope, name=name, key=key, value=value)
 
 
-def get_metadata(scope, did):
+def get_metadata(scope, name):
     """
     Get data identifier metadata
 
     :param scope: The scope name.
-    :param did: The data identifier.
+    :param name: The data identifier name.
     """
-    return identifier.get_metadata(scope=scope, did=did)
+    return identifier.get_metadata(scope=scope, name=name)
