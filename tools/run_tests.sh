@@ -1,4 +1,3 @@
-
 #!/bin/bash
 # Copyright European Organization for Nuclear Research (CERN)
 #
@@ -38,6 +37,11 @@ find lib -iname *.pyc | xargs rm
 rm -rf /tmp/.rucio_*/
 
 ./tools/reset_database.py
+if [ $? != 0 ]; then
+    echo 'Failed to reset the database'
+    exit
+fi
+
 
 # Run nosetests
 nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts

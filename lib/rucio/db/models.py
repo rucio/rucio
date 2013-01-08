@@ -18,16 +18,15 @@ import datetime
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy import event
 from sqlalchemy import UniqueConstraint
-from sqlalchemy.ext.declarative import declared_attr, declarative_base
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import object_mapper, relationship, backref
 from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint, Table
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 from rucio.db.history import Versioned
+from rucio.db.session import BASE
 from rucio.db.types import GUID
-
-BASE = declarative_base()
 
 
 class DataIdType:
@@ -290,7 +289,6 @@ class RSEUsage(BASE, ModelBase, Versioned):
     """Represents location usage"""
     __tablename__ = 'rse_usage'
     rse_id = Column(GUID())
-#    rse_id = Column(String(255))
     source = Column(String(255))
     total = Column(BigInteger)
     free = Column(BigInteger)
@@ -311,7 +309,6 @@ class RSEAttribute(BASE, ModelBase):
 class RSEAttrAssociation(BASE, ModelBase):
     """Represents the map between RSEs and tags"""
     __tablename__ = 'rse_attr_map'
-#    rse_id = Column(String(36))
     rse_id = Column(GUID())
     key = Column(String(255))
     value = Column(String(255))
@@ -337,7 +334,6 @@ class AccountUsage(BASE, ModelBase, Versioned):
     """Represents account usage"""
     __tablename__ = 'account_usage'
     account = Column(String(255))
-#    rse_id = Column(String(36))
     rse_id = Column(GUID())
     name = Column(String(255))
     value = Column(BigInteger)
@@ -349,7 +345,6 @@ class AccountUsage(BASE, ModelBase, Versioned):
 class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'file_replicas'
-#    rse_id = Column(String(36))
     rse_id = Column(GUID())
     scope = Column(String(255))
     did = Column(String(255))
@@ -396,8 +391,7 @@ class ReplicaLock(BASE, ModelBase):
     """Represents replica locks"""
     __tablename__ = 'replica_locks'
     rse_id = Column(GUID())
-#    rse_id = Column(String(36))
-    rule_id = Column(String(36))
+    rule_id = Column(GUID())
     scope = Column(String(255))
     did = Column(String(255))
     account = Column(String(255))
@@ -412,7 +406,7 @@ class ReplicaLock(BASE, ModelBase):
 class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
-    id = Column(String(16), default=utils.generate_uuid_bytes)
+    id = Column(GUID(), default=utils.generate_uuid)
     account = Column(String(255))
     retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
     expired_at = Column(DateTime)
