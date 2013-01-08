@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2013
 
 # Run this once to set up the database.
 #   PYTHONPATH=/opt/rucio/.venv/lib/python2.7/site-packages/rucio python tools/bootstrap.py
@@ -14,7 +15,7 @@
 # Verify for default SQLite:
 #   for i in `sqlite3 /tmp/rucio.db ".tables"`; do echo $i:; sqlite3 /tmp/rucio.db "select * from $i"; echo; done
 
-from rucio.db.session import build_database, destroy_database, create_root_account
+from rucio.db.util import build_database, destroy_database, create_root_account
 
 if __name__ == '__main__':
     build_database()
