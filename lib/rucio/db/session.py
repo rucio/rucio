@@ -65,6 +65,16 @@ def get_engine(echo=True):
     return engine
 
 
+def get_dump_engine(echo=True):
+    """ Creates a dump engine to a specific database.
+        :returns: engine """
+    def dump(sql, *multiparams, **params):
+        print sql.compile(dialect=engine.dialect), ';'
+    sql_connection = config_get('database', 'default')
+    engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
+    return engine
+
+
 def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
         :returns: session """

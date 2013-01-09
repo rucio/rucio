@@ -9,13 +9,16 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
-# Run this once to set up the database.
-#   PYTHONPATH=/opt/rucio/.venv/lib/python2.7/site-packages/rucio python tools/bootstrap.py
-#
-# Verify for default SQLite:
-#   for i in `sqlite3 /tmp/rucio.db ".tables"`; do echo $i:; sqlite3 /tmp/rucio.db "select * from $i"; echo; done
+import argparse
 
-from rucio.db.util import destroy_database
+from rucio.db.util import destroy_database, drop_everything
 
 if __name__ == '__main__':
-    destroy_database()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--drop-everything", action="store_true", default=False, help='Drop all tables+constraints')
+    args = parser.parse_args()
+    if args.drop_everything:
+        drop_everything()
+    else:
+        destroy_database()
