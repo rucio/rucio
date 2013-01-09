@@ -7,6 +7,9 @@
 # Authors:
 # - Vincent Garonne,  <vincent.garonne@cern.ch>, 2013
 
+from sqlalchemy.engine import reflection
+from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
+
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.db import session, migration
@@ -25,11 +28,57 @@ def build_database(echo=True):
         pass
 
 
+def dump_schema():
+    """ Creates a schema dump to a specific database. """
+    engine = session.get_dump_engine()
+    models.register_models(engine)
+
+
 def destroy_database(echo=True):
     """ Removes the schema from the database. Only useful for test cases or malicious intents. """
-
     engine = session.get_engine(echo=echo)
     models.unregister_models(engine)
+
+
+def drop_everything(echo=True):
+    """ Pre-gather all named constraints and table names, and drop everything. This is better than using metadata.reflect();
+        metadata.drop_all() as it handles cyclical constraints between tables.
+        Ref. http://www.sqlalchemy.org/trac/wiki/UsageRecipes/DropEverything
+    """
+    engine = session.get_engine(echo=echo)
+    conn = engine.connect()
+
+    # the transaction only applies if the DB supports
+    # transactional DDL, i.e. Postgresql, MS SQL Server
+    trans = conn.begin()
+
+    inspector = reflection.Inspector.from_engine(engine)
+
+    # gather all data first before dropping anything.
+    # some DBs lock after things have been dropped in
+    # a transaction.
+    metadata = MetaData()
+
+    tbs = []
+    all_fks = []
+
+    for table_name in inspector.get_table_names():
+        fks = []
+        for fk in inspector.get_foreign_keys(table_name):
+            if not fk['name']:
+                continue
+            fks.append(ForeignKeyConstraint((), (), name=fk['name']))
+        t = Table(table_name, metadata, *fks)
+        tbs.append(t)
+        all_fks.extend(fks)
+
+    for fkc in all_fks:
+        conn.execute(DropConstraint(fkc))
+
+    for table in tbs:
+        conn.execute(DropTable(table))
+
+    trans.commit()
 
 
 def create_root_account():
