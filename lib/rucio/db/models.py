@@ -55,22 +55,24 @@ def _fk_constraint_name(const, table):
 def _unique_constraint_name(const, table):
     const.name = "uq_%s_%s" % (table.name, list(const.columns)[0].name)
 
-#@event.listens_for(CheckConstraint, "after_parent_attach")
-#def _ck_constraint_name(const, table):
-#    column = str(const.sqltext).split()[0].replace('"','')
-#    if const.name is not None:
-#        const.name = "%s_%s_CHK" % (
-#            table.name.upper(),
-#            const.name.upper()
-#        )
+
+@event.listens_for(CheckConstraint, "after_parent_attach")
+def _ck_constraint_name(const, table):
+    if const.name is None:
+        if 'DELETED' in str(const.sqltext).upper():
+            if len(table.name) > 20:
+                const.name = "%s_DEL_CHK" % (table.name.upper())
+            else:
+                const.name = "%s_DELETED_CHK" % (table.name.upper())
 
 
 @event.listens_for(Table, "after_parent_attach")
 def _add_created_col(table, metadata):
-    table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow()))
-    table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow(), onupdate=datetime.datetime.utcnow()))
-    table.append_column(Column("deleted_at", DateTime))
-    table.append_column(Column("deleted", Boolean, default=False))
+    if not table.name.upper().endswith('_HISTORY'):
+        table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow()))
+        table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow(), onupdate=datetime.datetime.utcnow()))
+        table.append_column(Column("deleted_at", DateTime))
+        table.append_column(Column("deleted", Boolean, default=False))
 
 
 class ModelBase(object):
@@ -84,8 +86,7 @@ class ModelBase(object):
     def __table_args__(cls):
         return  cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                    CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
-                                   CheckConstraint('"DELETED" IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
-                                   CheckConstraint('"DELETED" IN (0, 1)', name=cls.__tablename__.upper() + '_DELETED_CHK'),)
+                                   CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),)
 
     def save(self, session=None):
         """Save this object"""
@@ -275,7 +276,7 @@ class RSE(BASE, ModelBase):
     rse = Column(String(255))
     type = Column(String(255), default='disk')
     watermark = Column(BigInteger)
-    path = Column(Text)
+    path = Column(String(1024))
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    file_replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")

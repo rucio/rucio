@@ -46,10 +46,8 @@ def run_command(cmd, redirect_output=True, check_exit_code=True):
 
 HAS_EASY_INSTALL = bool(run_command(['which', 'easy_install'],
                                     check_exit_code=False).strip())
-HAS_VIRTUALENV = bool(run_command(['which', 'virtualenv'],
-                                    check_exit_code=False).strip())
-HAS_PIP = bool(run_command(['which', 'easy_install'],
-                                    check_exit_code=False).strip())
+HAS_VIRTUALENV = bool(run_command(['which', 'virtualenv'], check_exit_code=False).strip())
+HAS_PIP = bool(run_command(['which', 'easy_install'], check_exit_code=False).strip())
 
 
 def check_dependencies():
