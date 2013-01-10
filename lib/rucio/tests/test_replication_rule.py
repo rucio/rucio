@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import re
@@ -19,7 +19,6 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.daemons.Conveyor import run_once as Conveyor_run
-from rucio.daemons.RRResolver import run_once as RRResolver_run
 
 
 class TestIdentifierClients():

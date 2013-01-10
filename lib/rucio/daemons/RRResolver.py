@@ -7,14 +7,14 @@
 # Replication Rule Resolver Daemon
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from logging import getLogger, StreamHandler, DEBUG
-from random import choice
+#from random import choice
 from sys import exit
 
-from rucio.core import rule
-from rucio.core import rse
+#from rucio.core import rule
+#from rucio.core import rse
 
 logger = getLogger("rucio.daemons.RRResolver")
 sh = StreamHandler()
