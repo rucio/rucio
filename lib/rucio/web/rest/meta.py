@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
@@ -15,7 +15,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.meta import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, AccessDenied
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType
 from rucio.common.utils import generate_http_error
 
 

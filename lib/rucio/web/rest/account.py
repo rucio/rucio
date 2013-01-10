@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from datetime import datetime
 from json import dumps, loads
@@ -19,7 +19,7 @@ from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_account_identity
 from rucio.api.permission import has_permission
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.account")
@@ -273,10 +273,10 @@ class Account:
 
         :param Rucio-Account: Account identifier.
         :param Rucio-Auth-Token: as an 32 character hex string.
-        :returns: A list containing all account names.
+        :returns: A list containing all account names as dict.
         """
 
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
@@ -284,7 +284,9 @@ class Account:
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-        return dumps(list_accounts())
+
+        for account in list_accounts():
+            yield dumps(account) + "\n"
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')

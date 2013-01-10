@@ -65,7 +65,7 @@ def get_engine(echo=True):
     return engine
 
 
-def get_dump_engine(echo=True):
+def get_dump_engine(echo=False):
     """ Creates a dump engine to a specific database.
         :returns: engine """
     def dump(sql, *multiparams, **params):

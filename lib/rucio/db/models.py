@@ -266,7 +266,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
                    CheckConstraint("type IN ('file', 'dataset', 'container')", name='CONTENTS_TYPE_CHK'),
                    CheckConstraint("child_type IN ('file', 'dataset', 'container')", name='CONTENTS_CHILD_TYPE_CHK'),
-                   Index('DATASETS_CNTS_CHILD_IDX', 'child_scope', 'child_name'),)
+                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name'),)
 
 
 class RSE(BASE, ModelBase):
