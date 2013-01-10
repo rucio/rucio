@@ -9,7 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
@@ -127,14 +127,10 @@ def list_accounts():
     returns: a list of all account names.
     """
 
-    account_list = []
-
     query = session.query(models.Account).filter_by(deleted=False)
 
-    for account in query.order_by(models.Account.account):
-        account_list.append(account.account)
-
-    return account_list
+    for row in query.order_by(models.Account.account):
+        yield {'account': row.account, 'type': row.type}
 
 
 def list_identities(account_name):

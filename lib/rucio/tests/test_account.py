@@ -9,11 +9,11 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from json import dumps, loads
 
-from nose.tools import assert_equal, assert_true, assert_not_equal, raises
+from nose.tools import assert_equal, assert_true, raises
 from paste.fixture import TestApp
 
 from rucio.api.account import add_account, account_exists, del_account
@@ -233,20 +233,6 @@ class TestAccountRestApi():
         r2 = TestApp(account_app.wsgifunc(*mw)).get('/whoami', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 303)
 
-    def test_list_account(self):
-        """ ACCOUNT (REST): Send a GET to list all accounts."""
-        mw = []
-
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(r1.status, 200)
-        token = str(r1.header('Rucio-Auth-Token'))
-
-        headers2 = {'Rucio-Auth-Token': str(token)}
-        r2 = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-        svr_list = loads(r2.body)
-        assert_not_equal(len(svr_list), 0)
-
 
 class TestAccountClient():
 
@@ -295,7 +281,7 @@ class TestAccountClient():
         for account in acc_list:
             self.client.add_account(account, 'user')
 
-        svr_list = self.client.list_accounts()
+        svr_list = [a['account'] for a in self.client.list_accounts()]
 
         for account in acc_list:
             if account not in svr_list:

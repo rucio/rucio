@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -89,17 +89,23 @@ class AccountClient(BaseClient):
         """
         Sends the request to list all rucio accounts.
 
-        :return: a list containing the names of all rucio accounts.
+        :return: a list containing account info dictionary for all rucio accounts.
         :raises AccountNotFound: if account doesn't exist.
         """
-
         path = '/'.join([self.BASEURL, ''])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url)
+
         if r.status_code == codes.ok:
-            accounts = loads(r.text)
-            return accounts
+            if 'content-type' in r.headers and r.headers['content-type'] == 'application/x-json-stream':
+                for line in r.iter_lines():
+                    if line:
+                        yield loads(line)
+            elif 'content-type' in r.headers and r.headers['content-type'] == 'application/json':
+                yield loads(r.text)
+            else:  # Exception ?
+                yield r.text
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
