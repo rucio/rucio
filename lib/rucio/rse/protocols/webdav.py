@@ -214,7 +214,7 @@ class Default(protocol.RSEProtocol):
                 self.mkdir(upper_directory)
         try:
             f = open(full_name, 'rb')
-            result = self.session.put(path, verify=False, files={full_name: f})
+            result = self.session.put(path, data=f.read(), verify=False, allow_redirects=True)
             if result.status_code in [409, ]:
                 raise exception.FileReplicaAlreadyExists()
             else:
