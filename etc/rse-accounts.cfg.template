@@ -13,4 +13,13 @@
     "skip_existing": "False"
   },
   "posix": {}
+  "DESY-ZN_SCRATCHDISK": {
+    "auth_type": "cert",
+    "timeout":300
+  },
+  "TAIWAN-LCG2_PPSSCRATCHDISK": {
+    "cert": ["/tmp/x509up","/tmp/x509up"],
+    "auth_type": "cert",
+    "timeout":300
+  }
 }
