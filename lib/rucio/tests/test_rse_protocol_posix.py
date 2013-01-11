@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 
 import json
 import os
@@ -37,7 +37,7 @@ class TestRsePOSIX():
 
         storage = rsemanager.RSE('posix')
         data = json.load(open('etc/rse_repository.json'))
-        prefix = data['posix']['protocols']['prefix']
+        prefix = data['posix']['protocols']['supported']['posix']['prefix']
         try:
             os.mkdir(prefix)
         except Exception, e:
@@ -54,7 +54,7 @@ class TestRsePOSIX():
     def tearDownClass(cls):
         """POSIX (RSE/PROTOCOLS): Removing created directorie s and files """
         data = json.load(open('etc/rse_repository.json'))
-        prefix = data['posix']['protocols']['prefix']
+        prefix = data['posix']['protocols']['supported']['posix']['prefix']
         shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)
 
