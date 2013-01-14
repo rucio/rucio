@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 #
 # Notabene:
 #
@@ -64,13 +65,7 @@ WSGIPythonPath /opt/rucio/lib/python2.6/site-packages
  ErrorLog /var/log/rucio/httpd_error_log
  TransferLog /var/log/rucio/httpd_access_log
 
- WSGIScriptAlias /accounts /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/account.py
- WSGIScriptAlias /auth /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/authentication.py
- WSGIScriptAlias /dids /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/identifier.py
- WSGIScriptAlias /identities /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/identity.py
- WSGIScriptAlias /ping /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/ping.py
- WSGIScriptAlias /rses /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/rse.py
- WSGIScriptAlias /scopes /opt/rucio/lib/python2.6/site-packages/rucio/web/rest/scope.py
+ Include /opt/rucio/etc/web/aliases.conf
 
  # Kerberos authentication via mod_auth_kerb
  <LocationMatch /auth/gss>
