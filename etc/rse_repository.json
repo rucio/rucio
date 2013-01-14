@@ -32,9 +32,10 @@
     "backend_type": "POSIX",
     "protocols": {
       "default": "posix",
-      "prefix": "remote_folder/",
+      "prefix": "/FAILS/NO/PERMISSIONS/USE/PROTOCOL/SPECIFIC/INSTEAD",
       "supported": {
         "posix": {
+          "prefix": "remote_folder/",
           "impl": "rucio.rse.protocols.posix.Default"
         }
       }
