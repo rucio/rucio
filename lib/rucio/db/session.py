@@ -13,8 +13,9 @@
 from ConfigParser import NoOptionError
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.exc import DisconnectionError
+from sqlalchemy.exc import DisconnectionError, OperationalError, DBAPIError
 from sqlalchemy.ext.declarative import declarative_base
+from time import sleep
 
 from rucio.common.config import config_get
 
@@ -60,8 +61,18 @@ def get_engine(echo=True):
     """ Creates a engine to a specific database.
         :returns: engine """
 
-    sql_connection = config_get('database', 'default')
-    engine = create_engine(sql_connection, echo=echo)
+    database = config_get('database', 'default')
+
+    engine = create_engine(database, echo=False, echo_pool=False)
+    # , pool_reset_on_return='rollback', pool_recycle
+    if 'mysql' in database:
+        event.listen(engine, 'checkout', mysql_ping_listener)
+    if 'sqlite' in database:
+        event.listen(engine, 'connect', _fk_pragma_on_connect)
+    # Override engine.connect method with db error wrapper
+    # To have auto_reconnect (will come in next sqlalchemy releases)
+    engine.connect = wrap_db_error(engine.connect)
+    engine.connect()
     return engine
 
 
@@ -75,15 +86,54 @@ def get_dump_engine(echo=False):
     return engine
 
 
+def is_db_connection_error(args):
+    """Return True if error in connecting to db."""
+    conn_err_codes = (  # MySQL
+                        '2002', '2003', '2006',
+                        # Oracle
+                        'ORA-00028',  # session has been killed
+                        'ORA-01012',  # not logged on
+                        'ORA-03113',  # end-of-file on communication channel
+                        'ORA-03114',  # not connected to ORACLE
+                        'ORA-03135',  # connection lost contact
+                        'ORA-25408')  # can not safely replay call
+    for err_code in conn_err_codes:
+        if args.find(err_code) != -1:
+            return True
+    return False
+
+
+def wrap_db_error(f):
+    """Retry DB connection."""
+    def _wrap(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except OperationalError, e:
+            if not is_db_connection_error(e.args[0]):
+                raise
+
+            # To Do: Should come from the configuration
+            remaining_attempts = 10
+            retry_interval = 0.5
+            while True:
+                print 'SQL connection failed. %d attempts left.' % remaining_attempts
+                remaining_attempts -= 1
+                sleep(retry_interval)
+                try:
+                    return f(*args, **kwargs)
+                except OperationalError, e:
+                    if (remaining_attempts == 0 or not is_db_connection_error(e.args[0])):
+                        raise
+                except DBAPIError:
+                    raise
+        except DBAPIError:
+            raise
+    _wrap.func_name = f.func_name
+    return _wrap
+
+
 def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
         :returns: session """
-
-    database = config_get('database', 'default')
-    engine = create_engine(database, echo=False, echo_pool=False)
-    # , pool_reset_on_return='rollback'
-    if 'mysql' in database:
-        event.listen(engine, 'checkout', mysql_ping_listener)
-
-    event.listen(engine, 'connect', _fk_pragma_on_connect)
+    engine = get_engine(echo=True)
     return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
