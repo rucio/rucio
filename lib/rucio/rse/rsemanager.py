@@ -8,6 +8,7 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 import json
 import os
@@ -93,7 +94,9 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param files:       a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are provided and additional 'pfn' if PFNs are provided. E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
+            :param files:       a single dict or a list with dicts containing 'scope' and 'filename'
+                                if LFNs are provided and additional 'pfn' if PFNs are provided.
+                                E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
             :param dest_dir:    path where the downloaded file(s) will be stored. Default is the current working directory
             :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
@@ -141,7 +144,10 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename' if LFNs are used or only 'filename' and 'new_filename' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used. E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'}, {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
+            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename'
+                          if LFNs are used or only 'filename' and 'new_filename' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used.
+                          E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
+                                {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
             :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
             :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
@@ -165,7 +171,9 @@ class RSEMgr(object):
             Providing a list of indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param files:        a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are used and only 'filename' if PFNs are used. E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+            :param files:       a single dict or a list with dicts containing 'scope' and 'filename'
+                                if LFNs are used and only 'filename' if PFNs are used.
+                                E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
             :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
 
             :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
@@ -291,7 +299,9 @@ class RSE(object):
             Checks if a file is present at the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param files: a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are used and only 'filename' if PFNs are used. E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+            :param files: a single dict or a list with dicts containing 'scope' and 'filename'
+                          if LFNs are used and only 'filename' if PFNs are used.
+                          E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
 
             :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -348,7 +358,10 @@ class RSE(object):
             Providing a list indicates the bulk mode.
 
 
-            :param files:       a single dict or a list with dicts containing 'scope' and 'filename' if LFNs are provided and additional 'pfn' if PFNs are provided. E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
+            :param files:       a single dict or a list with dicts containing 'scope' and 'filename'
+                                if LFNs are provided and additional 'pfn' if PFNs are provided.
+                                E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
+                                       {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
             :param dest_dir:    path to the directory where the downloaded files will be stored. For each scope a seperate subdirectory is created
 
             :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
@@ -470,7 +483,11 @@ class RSE(object):
             Rename files stored on the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename' if LFNs are used or only 'filename' and 'new_filename' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used. E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'}, {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
+            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename'
+                          if LFNs are used or only 'filename' and 'new_filename' if PFNs are used.
+                          If 'new_scope' or 'new_filename' are not provided, the current one is used.
+                          E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
+                                {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
 
             :returns: True/False for a single file or a dict object with LFN (key) and True/False (value) in bulk mode
 
