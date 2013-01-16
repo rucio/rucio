@@ -5,10 +5,10 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
-from json import dumps, loads
+from json import dumps
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -79,8 +79,8 @@ class AccountClient(BaseClient):
 
         r = self._send_request(url)
         if r.status_code == codes.ok:
-            acc = loads(r.text)
-            return acc
+            acc = self._load_json_data(r)
+            return acc.next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
@@ -98,14 +98,8 @@ class AccountClient(BaseClient):
         r = self._send_request(url)
 
         if r.status_code == codes.ok:
-            if 'content-type' in r.headers and r.headers['content-type'] == 'application/x-json-stream':
-                for line in r.iter_lines():
-                    if line:
-                        yield loads(line)
-            elif 'content-type' in r.headers and r.headers['content-type'] == 'application/json':
-                yield loads(r.text)
-            else:  # Exception ?
-                yield r.text
+            accounts = self._load_json_data(r)
+            return accounts
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
@@ -153,7 +147,7 @@ class AccountClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
-            identities = loads(r.text)
+            identities = self._load_json_data(r)
             return identities
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)

@@ -6,19 +6,19 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 
 
 """
 Client class for callers of the Rucio system
 """
 
-import os
 import shutil
 import tempfile
 
+from json import loads
 from logging import getLogger, StreamHandler, ERROR
-from os import chmod, environ, mkdir, path
+from os import chmod, environ, fdopen, mkdir, path
 from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
@@ -158,6 +158,21 @@ class BaseClient(object):
             return getattr(exception, 'RucioException'), headers['ExceptionMessage']
 
         return exc_cls, headers['ExceptionMessage']
+
+    def _load_json_data(self, response):
+        """
+        Helper method to correctly load json data based on the content type of the http response.
+
+        :param response: the response received from the server.
+        """
+        if 'content-type' in response.headers and response.headers['content-type'] == 'application/x-json-stream':
+            for line in response.iter_lines():
+                if line:
+                    yield loads(line)
+        elif 'content-type' in response.headers and response.headers['content-type'] == 'application/json':
+            yield loads(response.text)
+        else:  # Exception ?
+            yield response.text
 
     def _send_request(self, url, headers=None, type='GET', data=None):
         """
@@ -404,7 +419,7 @@ class BaseClient(object):
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
             fd, fn = tempfile.mkstemp(dir=token_path)
-            f = os.fdopen(fd, 'w')
+            f = fdopen(fd, 'w')
             f.write(self.auth_token)
             f.close()
             shutil.move(fn, self.token_file)
