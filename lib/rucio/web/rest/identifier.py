@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
@@ -46,7 +46,7 @@ class Scope:
         :param scope: The scope name.
         """
 
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
@@ -55,7 +55,8 @@ class Scope:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(scope_list(scope=scope))
+            for did in scope_list(scope=scope):
+                yield dumps(did) + '\n'
         except ScopeNotFound, e:
             raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
         except Exception, e:
