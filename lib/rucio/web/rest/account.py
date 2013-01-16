@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from datetime import datetime
@@ -376,7 +376,7 @@ class Identities:
         raise Created()
 
     def GET(self, account_name):
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
@@ -386,7 +386,8 @@ class Identities:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_identities(account_name))
+            for identity in list_identities(account_name):
+                yield dumps(identity) + "\n"
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:

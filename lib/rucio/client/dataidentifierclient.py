@@ -7,8 +7,9 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Thomas Beermann, <thomas.beermann@cern.ch> 2013
 
-from json import dumps, loads
+from json import dumps
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -36,8 +37,8 @@ class DataIdentifierClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            replicas = loads(r.text)
-            return replicas
+            replicas = self._load_json_data(r)
+            return replicas.next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
@@ -73,8 +74,8 @@ class DataIdentifierClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            dids = loads(r.text)
-            return dids
+            dids = self._load_json_data(r)
+            return dids.next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
@@ -91,8 +92,8 @@ class DataIdentifierClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            files = loads(r.text)
-            return files
+            files = self._load_json_data(r)
+            return files.next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
@@ -108,7 +109,7 @@ class DataIdentifierClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            dids = loads(r.text)
+            dids = self._load_json_data(r)
             return dids
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
@@ -126,8 +127,8 @@ class DataIdentifierClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            dids = loads(r.text)
-            return dids
+            did = self._load_json_data(r)
+            return did.next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
@@ -143,8 +144,8 @@ class DataIdentifierClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            meta = loads(r.text)
-            return meta
+            meta = self._load_json_data(r)
+            return meta.next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
