@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
@@ -29,7 +29,6 @@ class RSEMgr(object):
 
         """
         self.__credentials = None
-
         if not path_to_credentials_file:
             if 'RUCIO_HOME' in os.environ:
                 self.path_to_credentials_file = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
@@ -314,7 +313,7 @@ class RSE(object):
             files = [files] if not type(files) is list else files
             for f in files:
                 exists = None
-                if type(f) is str:
+                if type(f) is str or (type(f) is unicode):
                     exists = self.__protocol.exists(f)
                     ret[f] = exists
                 elif 'scope' in f:  # a LFN is provided
@@ -518,13 +517,13 @@ class RSE(object):
                     pfn = f['filename']
                     new_pfn = f['new_filename']
                     key = f['filename']
-                # Check if source is on storage
-                if not self.exists(pfn):
-                    ret[key] = exception.SourceNotFound('File %s not found on storage' % (pfn))
-                    gs = False
                 # Check if target is not on storage
-                elif self.exists(new_pfn):
+                if self.exists(new_pfn):
                     ret[key] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % (new_pfn))
+                    gs = False
+                # Check if source is on storage
+                elif not self.exists(pfn):
+                    ret[key] = exception.SourceNotFound('File %s not found on storage' % (pfn))
                     gs = False
                 else:
                     try:
