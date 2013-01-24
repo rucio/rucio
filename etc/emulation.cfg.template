@@ -1,0 +1,11 @@
+{
+  "global": {
+    "seconds_per_timeframe": 15,
+    "workload_multiplier": 20,
+    "operation_mode": "verbose",
+    "rucio_server": "localhost"
+  },
+  "gearman": {
+    "gearman_server": ["localhost", "not-localhost"]
+  }
+}
