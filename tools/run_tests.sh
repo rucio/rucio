@@ -42,6 +42,8 @@ if [ $? != 0 ]; then
     exit
 fi
 
+echo 'Sync rse_repository with Rucio core'
+./tools/sync_rses.py
 
 # Run nosetests
 nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts

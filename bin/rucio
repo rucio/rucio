@@ -190,14 +190,18 @@ def list_replicas(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
 
+    protocols = None
+    if args.protocols:
+        protocols = args.protocols.split(',')
+
     for did in args.dids:
         try:
             scope, name = did.split(':')
-            replicas = client.list_replicas(scope=scope, name=name)
+            replicas = client.list_replicas(scope=scope, name=name, protocols=protocols)
             for replica in replicas:
-                print '%(rse)s\t%(checksum)s\t%(size)s\t%(pfn)s' % replica
+                print '%(rse)s\t%(checksum)s\t%(size)s\t%(pfns)s' % replica
         except Exception, e:
-            print 'Failed to list file replicas for %(scope):%(name)s'
+            print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
             print e
 
 
@@ -505,6 +509,7 @@ Commands:
     # The list_replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
     list_replicas_parser.set_defaults(which='list_replicas')
+    list_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The add command

@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 
 
@@ -174,7 +174,7 @@ class BaseClient(object):
         else:  # Exception ?
             yield response.text
 
-    def _send_request(self, url, headers=None, type='GET', data=None):
+    def _send_request(self, url, headers=None, type='GET', data=None, params=None):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
@@ -182,6 +182,7 @@ class BaseClient(object):
         :param headers: additional http headers to send.
         :param type: the http request type to use.
         :param data: post data.
+        :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :return: the HTTP return body.
         """
 
@@ -195,7 +196,7 @@ class BaseClient(object):
         while retry < self.request_retries:
             try:
                 if type == 'GET':
-                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
+                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params)
                 elif type == 'PUT':
                     r = put(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':

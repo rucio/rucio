@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from re import match
@@ -18,28 +18,37 @@ from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.db import models
 from rucio.db.session import get_session
+from rucio.rse import rsemanager
 
 session = get_session()
 
 
-def list_replicas(scope, name):
+def list_replicas(scope, name, protocols=None):
     """
     List file replicas for a data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param protocols: A list of protocols to filter the replicas."
     """
 
-    replicas = []
+    rsemgr = rsemanager.RSEMgr()
     try:
         query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE', deleted=False)
-        for replica in query:
-            replicas.append({'scope': replica.scope, 'name': replica.name, 'size': replica.size,
-                             'rse': replica.rse.rse, 'checksum': replica.checksum, 'pfn': replica.pfn})
+        for row in query:
+            try:
+                pfns = list()
+                for protocol in rsemgr.list_protocols(rse_id=row.rse.rse):
+                    if not protocols or protocol in protocols:
+                        pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, scope=scope, lfn=name, protocol=protocol))
+
+                if pfns:
+                    yield {'scope': row.scope, 'name': row.name, 'size': row.size,
+                           'rse': row.rse.rse, 'checksum': row.checksum, 'pfns': pfns}
+            except (exception.RSENotFound, exception.SwitchProtocol):
+                pass
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found")
-
-    return replicas
 
 
 def add_identifier(scope, name, sources, issuer):

@@ -187,6 +187,37 @@ class RSEMgr(object):
         rse.close()
         return res
 
+    def lfn2pfn(self, rse_id, lfn, scope, protocol):
+        """
+            Convert the lfn to a pfn
+
+            :param rse_id:   identifier of the requested storage
+            :param lfn:      logical file name
+            :param scope:    scope
+            :param protocol: protocol
+
+            :returns: A list of supported protocols.
+
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+        """
+        rse = self.__create_rse(rse_id, protocol=protocol)
+        return rse.lfn2uri(lfns=[{'scope': scope, 'filename': lfn}, ])
+
+    def list_protocols(self, rse_id):
+        """
+            List the supported protocols by the RSE.
+
+            :param rse_id:      identifier of the requested storage
+
+            :returns: A list of supported protocols.
+
+            :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
+            :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
+        """
+        rse = self.__create_rse(rse_id)
+        return rse.list_protocols()
+
 
 class RSE(object):
     """
@@ -258,6 +289,21 @@ class RSE(object):
         for comp in parts[1:]:
             m = getattr(m, comp)
         self.__protocol = m(self.__props)
+
+    def list_protocols(self):
+        """
+            List the supported protocols by the RSE.
+
+            :returns: A list of supported protocols.
+        """
+        protocols = list()
+        if 'default' in self.__props['protocols']:
+            protocols.append(self.__props['protocols']['default'])
+        if 'supported' in self.__props['protocols']:
+            for protocol in self.__props['protocols']['supported']:
+                if protocol not in protocols:
+                    protocols.append(protocol)
+        return protocols
 
     def lfn2uri(self, lfns):
         """
