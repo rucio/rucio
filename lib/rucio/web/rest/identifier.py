@@ -8,10 +8,11 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from json import dumps, loads
+from urlparse import parse_qs
 from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized
 
 from rucio.api.authentication import validate_auth_token
@@ -234,7 +235,7 @@ class Replicas:
         :returns: A dictionary containing all replicas information.
         """
 
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
@@ -242,12 +243,18 @@ class Replicas:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
+        protocols = list()
+        if ctx.query:
+            filters = parse_qs(ctx.query[1:])
+            if 'protocols' in filters:
+                protocols = [item for sublist in filters['protocols'] for item in sublist.split(',')]
         try:
-            return dumps(list_replicas(scope=scope, name=name))
+            for replica in list_replicas(scope=scope, name=name, protocols=protocols):
+                yield dumps(replica) + '\n'
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
+        #except Exception, e:
+        #    raise InternalError(e)
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')

@@ -50,7 +50,7 @@ def run_once():
             print
             print 'Destination: %(scope)s:%(name)s' % replica
             # Get source and select one randomly
-            sources = identifier_core.list_replicas(scope=replica['scope'], name=replica['name'])
+            sources = [src for src in identifier_core.list_replicas(scope=replica['scope'], name=replica['name'])]
             if not sources:
                 print 'No source replica found for: %(scope)s:%(name)s' % replica
                 continue
