@@ -17,6 +17,7 @@ from web import application, ctx, data, header, Created, InternalError, BadReque
 from rucio.api.authentication import validate_auth_token
 from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list, get_did, set_metadata, get_metadata
 from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, DataIdentifierAlreadyExists, DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey
+from rucio.common.log import log
 from rucio.common.utils import generate_http_error
 
 urls = (
@@ -32,6 +33,7 @@ urls = (
 
 class Scope:
 
+    @log
     def GET(self, scope):
         """
         Return all data identifiers in the given scope.
@@ -77,6 +79,7 @@ class Scope:
 
 class Identifiers:
 
+    @log
     def GET(self, scope, name):
         """
         Retrieve a single data identifier.
@@ -109,6 +112,7 @@ class Identifiers:
         except Exception, e:
             raise InternalError(e)
 
+    @log
     def POST(self, scope, name):
         """
         Create a new data identifier.
@@ -164,6 +168,7 @@ class Identifiers:
 
 class Content:
 
+    @log
     def GET(self, scope, name):
         """
         Returns the contents of a data identifier.
@@ -214,6 +219,7 @@ class Replicas:
     def POST(self, scope, name):
         raise BadRequest()
 
+    @log
     def GET(self, scope, name):
         """
         List all replicas for a data identifier.
@@ -257,6 +263,7 @@ class Files:
     def POST(self, scope, name):
         raise BadRequest()
 
+    @log
     def GET(self, scope, name):
         """ List all replicas of a data identifier.
 
@@ -296,6 +303,7 @@ class Files:
 
 class Meta:
 
+    @log
     def GET(self, scope, name):
         """
         List all meta of a data identifier.
@@ -331,6 +339,7 @@ class Meta:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
+    @log
     def POST(self, scope, name, key):
         """
         Add metadata to a data identifier.
