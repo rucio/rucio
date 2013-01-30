@@ -6,13 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 import sqlalchemy
 import sqlalchemy.orm
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from rucio.common import exception
 from rucio.db import models
@@ -100,8 +101,10 @@ def list_rses(filters={}):
             if hasattr(models.RSE, k):
                 query = query.filter(getattr(models.RSE, k) == v)
             else:
-                query = query.filter(models.RSEAttrAssociation.key == k)
-                query = query.filter(models.RSEAttrAssociation.value == v)
+                t = aliased(models.RSEAttrAssociation)
+                query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
+                query = query.filter(t.key == k)
+                query = query.filter(t.value == v)
 
         for row in query:
             if row.rse.rse not in rse_list:
