@@ -84,15 +84,16 @@ def add_identifier(scope, name, sources, issuer):
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
 
     # Insert new data identifier with correct type
-    new_did = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=data_type)
+    new_did = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=data_type, open=True)
     try:
         new_did.save(session=session)
     except IntegrityError, e:
         session.rollback()
         if e.args[0] == "(IntegrityError) columns scope, name are not unique":
-            pass
+            di = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+            if not di.open:
+                raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % locals())
             # Check the DI types
-            #raise exception.DataIdentifierAlreadyExists('The data identifier %(scope)s:%(name)s' % locals())
         else:
             raise e
 
@@ -181,7 +182,10 @@ def get_did(scope, name):
     try:
         r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).one()
         if r:
-            did_r = {'scope': r.scope, 'name': r.name, 'type': r.type}
+            did_r = {'scope': r.scope, 'name': r.name, 'type': r.type,
+                     'owner': r.owner, 'open': r.open}
+            #  To add:  created_at, updated_at, deleted_at, deleted, monotonic, hidden, obsolete, complete
+            #  ToDo: Add json encoder for datetime
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
@@ -247,3 +251,35 @@ def get_metadata(scope, name):
     for row in query:
         meta[row.key] = row.value
     return meta
+
+
+def set_status(scope, name, **kwargs):
+    """
+    Set data identifier status
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param kwargs:  Keyword arguments of the form status_name=value.
+    """
+    statuses = ['open', ]
+
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False)
+    values = {}
+    for k in kwargs:
+        if k not in statuses:
+            raise exception.UnsupportedStatus("The status %(k)s is not a valid data identifier status." % locals())
+        if k == 'open':
+            query = query.filter(models.DataIdentifier.type != "file", models.DataIdentifier.open == True)
+            values['open'] = False
+
+    rowcount = query.update(values)
+
+    if not rowcount:
+        query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)
+        try:
+            query.one()
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.UnsupportedOperation("The status of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
+
+    session.commit()

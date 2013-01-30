@@ -198,7 +198,7 @@ class BaseClient(object):
                 if type == 'GET':
                     r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params)
                 elif type == 'PUT':
-                    r = put(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
+                    r = put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
                     r = post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'DEL':
