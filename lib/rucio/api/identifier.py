@@ -6,7 +6,7 @@
 # License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 import rucio.api.permission
@@ -109,3 +109,17 @@ def get_metadata(scope, name):
     :param name: The data identifier name.
     """
     return identifier.get_metadata(scope=scope, name=name)
+
+
+def set_status(scope, name, issuer, **kwargs):
+    """
+    Set data identifier status
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param issuer: The issuer account.
+    :param kwargs:  Keyword arguments of the form status_name=value.
+    """
+    if not rucio.api.permission.has_permission(issuer=issuer, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}):
+        raise rucio.common.exception.AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
+    return identifier.set_status(scope=scope, name=name, **kwargs)

@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -34,7 +34,8 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
             'add_account_identity': perm_add_account_identity,
-            'add_identifier': perm_add_identifier}
+            'add_identifier': perm_add_identifier,
+            'set_status': perm_set_status}
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
 
@@ -180,6 +181,17 @@ def perm_add_account_identity(issuer, kwargs):
 def perm_add_identifier(issuer, kwargs):
     """
     Checks if an account can add an data identifier to a scope.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+
+
+def perm_set_status(issuer, kwargs):
+    """
+    Checks if an account can set status on an data identifier.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
