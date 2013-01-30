@@ -13,11 +13,17 @@
 
 from json import dumps, loads
 from urlparse import parse_qs
-from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized
+from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized, OK
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.identifier import list_replicas, add_identifier, list_content, list_files, scope_list, get_did, set_metadata, get_metadata
-from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, DataIdentifierAlreadyExists, DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey
+from rucio.api.identifier import (list_replicas, add_identifier, list_content,
+                                  list_files, scope_list, get_did, set_metadata,
+                                  get_metadata, set_status)
+from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
+                                    DataIdentifierAlreadyExists, DuplicateContent,
+                                    AccessDenied, KeyNotFound,
+                                    Duplicate, InvalidValueForKey,
+                                    UnsupportedStatus, UnsupportedOperation)
 from rucio.common.log import log
 from rucio.common.utils import generate_http_error
 
@@ -28,6 +34,7 @@ urls = (
     '/(.*)/(.*)/dids', 'Content',
     '/(.*)/(.*)/meta/(.*)', 'Meta',
     '/(.*)/(.*)/meta', 'Meta',
+    '/(.*)/(.*)/status', 'Identifiers',
     '/(.*)/(.*)', 'Identifiers',
 )
 
@@ -142,7 +149,6 @@ class Identifiers:
             sources = loads(json_data)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-
         try:
             add_identifier(scope=scope, name=name, sources=sources, issuer=auth['account'])
         except DataIdentifierNotFound, e:
@@ -153,14 +159,54 @@ class Identifiers:
             raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
         except Exception, e:
-            print e
             raise InternalError(e)
         raise Created()
 
-    def PUT(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+    def PUT(self, scope, name):
+        """
+        Update data identifier status.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: data identifier scope.
+        :param name: data identifier name.
+        """
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        json_data = data()
+        try:
+            kwargs = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json data parameter')
+
+        try:
+            set_status(scope=scope, name=name, issuer=auth['account'], **kwargs)
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except UnsupportedStatus, e:
+            raise generate_http_error(409, 'UnsupportedStatus', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise OK()
 
     def DELETE(self):
         header('Content-Type', 'application/octet-stream')
@@ -253,8 +299,8 @@ class Replicas:
                 yield dumps(replica) + '\n'
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        #except Exception, e:
-        #    raise InternalError(e)
+        except Exception, e:
+            raise InternalError(e)
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')

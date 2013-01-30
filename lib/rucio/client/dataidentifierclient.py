@@ -175,6 +175,24 @@ class DataIdentifierClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
+    def set_status(self, scope, name, **kwargs):
+        """
+        Set data identifier status
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param kwargs:  Keyword arguments of the form status_name=value.
+        """
+        path = '/'.join([self.BASEURL, scope, name, 'status'])
+        url = build_url(self.host, path=path)
+        data = dumps(kwargs)
+        r = self._send_request(url, type='PUT', data=data)
+        if r.status_code == codes.ok or r.status_code == codes.no_content:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
     def delete_metadata(self, scope, name, key):
         """
         Delete data identifier metadata

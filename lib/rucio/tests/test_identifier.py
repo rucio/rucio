@@ -8,15 +8,18 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
-from nose.tools import assert_equal, assert_raises, assert_in
+
+from nose.tools import assert_equal, assert_raises, assert_in, raises
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.dataidentifierclient import DataIdentifierClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.common.exception import DataIdentifierNotFound
+from rucio.common.exception import (DataIdentifierNotFound, UnsupportedOperation,
+                                    UnsupportedStatus)
 from rucio.common.utils import generate_uuid
 
 
@@ -38,7 +41,10 @@ class TestIdentifierClients():
         self.rse_client.add_rse(tmp_rse)
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 
-        assert_equal(self.did_client.get_did(tmp_scope, tmp_file), {'scope': tmp_scope, 'name': tmp_file, 'type': 'file'})
+        did = self.did_client.get_did(tmp_scope, tmp_file)
+
+        assert_equal(did['scope'], tmp_scope)
+        assert_equal(did['name'], tmp_file)
 
         with assert_raises(DataIdentifierNotFound):
             self.did_client.get_did('i_dont_exist', 'neither_do_i')
@@ -168,3 +174,40 @@ class TestIdentifierClients():
         datasets_s = [d['name'] for d in contents]
         assert_in(dataset1, datasets_s)
         assert_in(dataset2, datasets_s)
+
+    @raises(UnsupportedOperation)
+    def test_close(self):
+        """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""
+
+        # Add a scope
+        tmp_scope = 'scope_%s' % generate_uuid()
+        self.scope_client.add_scope('root', tmp_scope)
+
+        # Add a RSE
+        tmp_rse = 'rse_%s' % generate_uuid()
+        self.rse_client.add_rse(tmp_rse)
+
+        # Add dataset
+        tmp_dataset = 'dsn_%s' % generate_uuid()
+
+        # Add file replica
+        tmp_file = 'file_%s' % generate_uuid()
+        self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+
+        # Add file to dataset
+        files = [{'scope': tmp_scope, 'name': tmp_file}, ]
+        self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
+
+        # Close dataset
+        with assert_raises(UnsupportedStatus):
+            self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, close=False)
+
+        self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=False)
+
+        # Add a second file replica
+        tmp_file = 'file_%s' % generate_uuid()
+        self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+
+        # Add file to dataset
+        files = [{'scope': tmp_scope, 'name': tmp_file}, ]
+        self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)

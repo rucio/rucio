@@ -8,7 +8,8 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch> , 2012
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
+
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 
@@ -345,3 +346,15 @@ class UnsupportedValueType(RucioException):
     def __init__(self, *args, **kwargs):
         super(UnsupportedValueType, self).__init__(args, kwargs)
         self._message = "Unsupported type for the value. List of supported types: %s." % str(AUTHORIZED_VALUE_TYPES)
+
+
+class UnsupportedStatus(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedStatus, self).__init__(args, kwargs)
+        self._message = "Unsupported data identifier status."
+
+
+class UnsupportedOperation(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedOperation, self).__init__(args, kwargs)
+        self._message = "The resource doesn't support the requested operation."

@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 """
@@ -321,8 +321,48 @@ def close(args):
 
     Close data identifier.
     """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
 
-    raise NotImplementedError
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    for did in args.dids:
+        try:
+            scope, name = did.split(':')
+            client.set_status(scope=scope, name=name, open=False)
+            print '%(scope)s:%(name)s has been closed.' % locals()
+        except Exception, e:
+            print e
+
+    return SUCCESS
+
+def stat(args):
+    """
+    %(prog)s stat [options] <field1=value1 field2=value2 ...>
+
+    List attributes and statuses about data identifiers..
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    for did in args.dids:
+        try:
+            scope, name = did.split(':')
+            info = client.get_did(scope=scope, name=name)
+            for k,v in info.iteritems():
+                print '%(k)s: %(v)s' % locals()
+        except Exception, e:
+            print e
+
+    return SUCCESS
 
 def delete(args):
     """
@@ -525,15 +565,19 @@ Commands:
     list_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The scope_list command
-    scope_list_parser = subparsers.add_parser('scope_list', help='List data identifiers in a scope')
+    scope_list_parser = subparsers.add_parser('list-scopes', help='List data identifiers in a scope')
     scope_list_parser.set_defaults(which='scope_list')
     scope_list_parser.add_argument('--scope', dest='scope', default=None, action='store', help='Scope name', required=True)
-
 
     # The close command
     close_parser = subparsers.add_parser('close', help='Close data identifier')
     close_parser.set_defaults(which='close')
     close_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+
+    # The stat command
+    stat_parser = subparsers.add_parser('stat', help='List attributes and statuses about data identifiers.')
+    stat_parser.set_defaults(which='stat')
+    stat_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The del command
     del_parser = subparsers.add_parser('del', help='Delete data identifier')
@@ -607,8 +651,9 @@ Commands:
                 'list': list,
                 'list_files': list_files,
                 'scope_list': scope_list,
-                'close' : close,
-                'del' : delete,
+                'close': close,
+                'stat': stat,
+                'del': delete,
                 'whoami_account': whoami_account,
                 'download': download,
                 'upload': upload,
