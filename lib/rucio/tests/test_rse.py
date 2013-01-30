@@ -10,6 +10,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from json import dumps, loads
 from nose.tools import raises, assert_equal, assert_true, assert_in
@@ -58,6 +59,17 @@ class TestRSECoreApi():
         assert_equal(rse_exists(rse), True)
         add_rse_attribute(rse=rse, key='tier', value='1')
         rses = list_rses(filters={'tier': '1'})
+        assert_in(rse, rses)
+        del_rse(rse)
+
+    def test_list_rses2(self):
+        """ RSE (CORE): Test the listing of all RSEs with multiple filters"""
+        rse = u'MOCK_' + str(uuid())
+        add_rse(rse)
+        assert_equal(rse_exists(rse), True)
+        add_rse_attribute(rse=rse, key='tier', value='1')
+        add_rse_attribute(rse=rse, key='country', value='us')
+        rses = list_rses(filters={'tier': '1', 'country': 'us'})
         assert_in(rse, rses)
         del_rse(rse)
 
