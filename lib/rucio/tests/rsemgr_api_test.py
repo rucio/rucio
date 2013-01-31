@@ -29,10 +29,10 @@ class MgrTestCases():
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
         """(RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
-        status, details = self.mgr.download(self.rse_tag, [{'filename':'1_rse_remote_get.raw', 'scope': 'user.jdoe'},
+        status, details = self.mgr.download(self.rse_tag, [{'filename': '1_rse_remote_get.raw', 'scope': 'user.jdoe'},
                                                            {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
-                                                           {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'},
-                                                           {'filename':'4_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/fb/6a/4_rse_remote_get.raw'}], self.tmpdir)
+                                                           {'filename': '3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'},
+                                                           {'filename': '4_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/fb/6a/4_rse_remote_get.raw'}], self.tmpdir)
         if not (status and details['user.jdoe:1_rse_remote_get.raw'] and details['user.jdoe:2_rse_remote_get.raw'] and details['user.jdoe:3_rse_remote_get.raw'] and details['user.jdoe:4_rse_remote_get.raw']):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 
