@@ -269,7 +269,7 @@ def set_status(scope, name, **kwargs):
         if k not in statuses:
             raise exception.UnsupportedStatus("The status %(k)s is not a valid data identifier status." % locals())
         if k == 'open':
-            query = query.filter(models.DataIdentifier.type != "file", models.DataIdentifier.open == True)
+            query = query.filter_by(open=True).filter(models.DataIdentifier.type != "file")
             values['open'] = False
 
     rowcount = query.update(values)

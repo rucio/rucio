@@ -42,14 +42,14 @@ class TestBinRucio():
     def test_rucio_ping(self):
         """PING (CLI): Rucio ping"""
         cmd = 'rucio --host https://localhost ping'
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
 
     def test_add_account(self):
         """ACCOUNT (CLI): Add account"""
         tmp_val = str(uuid.uuid4())
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_equal('Added new account: jdoe-%s\n' % tmp_val, out)
@@ -57,7 +57,7 @@ class TestBinRucio():
     def test_whoami(self):
         """ACCOUNT (CLI): Test whoami"""
         cmd = 'rucio whoami'
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_regexp_matches(out, re.compile('.*account.*'))
@@ -69,7 +69,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_equal('Added new account: jdoe-%s\n' % tmp_val, out)
         cmd = 'rucio-admin identity add --account jdoe-%s --type gss --id jdoe@CERN.CH' % tmp_val
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-jdoe-%s\n' % tmp_val, out)
@@ -80,7 +80,7 @@ class TestBinRucio():
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin identity add --account jdoe-%s --type gss --id jdoe@CERN.CH' % tmp_val
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-jdoe-%s\n' % tmp_val, out)
@@ -89,7 +89,7 @@ class TestBinRucio():
         """RSE (CLI): Add RSE"""
         tmp_val = str(uuid.uuid4())
         cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_equal('Added new RSE: MOCK-%s\n' % tmp_val, out)
@@ -100,7 +100,7 @@ class TestBinRucio():
         cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin rse list'
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
         nose.tools.assert_regexp_matches(out, re.compile('.*MOCK-%s.*' % tmp_val))
@@ -111,13 +111,13 @@ class TestBinRucio():
         cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio upload'
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
 
     def test_download(self):
         """RSE (CLI): Download"""
         cmd = 'rucio download'
-        print  self.marker + cmd
+        print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,

@@ -10,7 +10,7 @@
 try:
     from rucio.vcsversion import version_info
 except ImportError:
-    version_info = {'branch_nick': u'LOCALBRANCH',
+    version_info = {'branch_nick': u'LOCALBRANCH',     # NOQA
                     'revision_id': u'LOCALREVISION',
                     'version': u'VERSION',
                     'final': False,

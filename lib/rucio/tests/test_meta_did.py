@@ -44,7 +44,7 @@ class TestMetaDIDClient():
 
         # Add a dataset
         tmp_dataset = 'dataset_' + str(uuid())
-        files = [{'scope':tmp_scope, 'name': tmp_file}, ]
+        files = [{'scope': tmp_scope, 'name': tmp_file}, ]
         self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
 
         # Add a key
