@@ -113,7 +113,7 @@ class BaseClient(object):
         if (auth_scheme != 'http' and auth_scheme != 'https'):
             raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
 
-        if  (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
+        if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
@@ -147,7 +147,7 @@ class BaseClient(object):
         """
         if 'ExceptionClass' not in headers:
             if 'ExceptionMessage' not in headers:
-                human_http_code = _codes.get(status_code, None)
+                human_http_code = _codes.get(status_code, None)  # NOQA
                 return getattr(exception, 'RucioException'), 'no error information passed (http status code: %(status_code)s %(human_http_code)s)' % locals()
             return getattr(exception, 'RucioException'), headers['ExceptionMessage']
 
@@ -393,7 +393,7 @@ class BaseClient(object):
             token_file_handler = open(self.token_file, 'r')
             self.auth_token = token_file_handler.readline()
             self.headers['Rucio-Auth-Token'] = self.auth_token
-        except IOError as (errno, strerror):
+        except IOError as (errno, strerror):  # NOQA
             print("I/O error({0}): {1}".format(errno, strerror))
         except Exception, e:
             raise e
@@ -425,7 +425,7 @@ class BaseClient(object):
             f.close()
             shutil.move(fn, self.token_file)
             chmod(self.token_file, 0700)
-        except IOError as (errno, strerror):
+        except IOError as (errno, strerror):  # NOQA
             print("I/O error({0}): {1}".format(errno, strerror))
         except Exception, e:
             raise e

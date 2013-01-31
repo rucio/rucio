@@ -98,8 +98,8 @@ class TestScope():
 
         token = str(r1.header('Rucio-Auth-Token'))
         headers2 = {'Rucio-Auth-Token': str(token)}
-        scopeusr = 'testscope' + str(uuid())
-        acntusr = 'user' + str(uuid())
+        scopeusr = 'testscope' + str(uuid())  # NOQA
+        acntusr = 'user' + str(uuid())  # NOQA
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/%(scopeusr)s/scopes/%(scopeusr)s' % locals(), headers=headers2, expect_errors=True)
         assert_equal(r2.status, 404)
 

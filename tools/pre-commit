@@ -37,13 +37,9 @@ def main():
             os.makedirs(filepath)
         with file(filename, 'w') as f:
             system('git', 'show', ':' + name, stdout=f)
-    output = system('pep8', '--repeat', '--ignore=E501', '.', cwd=tempdir)
-    output2 = system('pyflakes', '.', cwd=tempdir)
+    output = system('flake8', '.', cwd=tempdir)
     if output:
         print output,
-        sys.exit(1)
-    if output2:
-        print output2,
         sys.exit(1)
 
 if __name__ == '__main__':

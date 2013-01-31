@@ -18,6 +18,7 @@ import datetime
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String
 from sqlalchemy import event
 from sqlalchemy import UniqueConstraint
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import object_mapper, relationship, backref
 from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint, Table
@@ -33,6 +34,11 @@ class DataIdType:
     FILE = 'file'
     DATASET = 'dataset'
     CONTAINER = 'container'
+
+
+@compiles(Boolean, "oracle")
+def compile_binary_oracle(type_, compiler, **kw):
+    return "NUMBER(1)"
 
 
 @event.listens_for(PrimaryKeyConstraint, "after_parent_attach")
@@ -84,9 +90,9 @@ class ModelBase(object):
 
     @declared_attr
     def __table_args__(cls):
-        return  cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
-                                   CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
-                                   CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),)
+        return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
+                                  CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
+                                  CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),)
 
     def save(self, session=None):
         """Save this object"""
