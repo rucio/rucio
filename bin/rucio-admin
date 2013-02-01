@@ -15,6 +15,7 @@
     Rucio Administration Utility
 """
 
+import argcomplete
 import argparse
 import os
 import sys
@@ -841,6 +842,7 @@ Commands:
                 'list_meta_values': list_meta_values,
                 }
 
+    argcomplete.autocomplete(oparser)
     args = oparser.parse_args(sys.argv[1:])
 
     try:
