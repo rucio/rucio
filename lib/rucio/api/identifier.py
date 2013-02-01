@@ -41,6 +41,21 @@ def add_identifier(scope, name, sources, issuer):
     return identifier.add_identifier(scope=scope, name=name, sources=sources, issuer=issuer)
 
 
+def append_identifier(scope, name, sources, issuer):
+    """
+    Append content to data identifier.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param sources: The content as a list of data identifiers.
+    :param issuer: The issuer account.
+    """
+    kwargs = {'scope': scope, 'name': name, 'sources': sources, 'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='append_identifier', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
+    return identifier.append_identifier(scope=scope, name=name, sources=sources, issuer=issuer)
+
+
 def list_content(scope, name):
     """
     List data identifier contents.

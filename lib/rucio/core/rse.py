@@ -296,7 +296,7 @@ def get_rse_usage_history(rse, filters=None):
         result.append({'location': usage.location.location, 'source': usage.source, usage.name: usage.value, 'updated_at': usage.updated_at})
 
 
-def add_file_replica(rse, scope, name, size, checksum, issuer, dsn):
+def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=None, meta=None, rules=None):
     """
     Add File replica.
 
@@ -306,10 +306,12 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn):
     :param size: the size of the file.
     :param checksum: the checksum of the file.
     :param issuer: The issuer account.
+    :param pfn: Physical file name (for nondeterministic rse).
+    :meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
+    :rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
 
     :returns: True is successfull.
     """
-
     new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
     new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
     replica_rse = get_rse(rse=rse)

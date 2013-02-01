@@ -18,7 +18,7 @@ from web import application, ctx, data, header, Created, InternalError, BadReque
 from rucio.api.authentication import validate_auth_token
 from rucio.api.identifier import (list_replicas, add_identifier, list_content,
                                   list_files, scope_list, get_did, set_metadata,
-                                  get_metadata, set_status)
+                                  get_metadata, set_status, append_identifier)
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
                                     AccessDenied, KeyNotFound,
@@ -120,7 +120,7 @@ class Identifiers:
         except Exception, e:
             raise InternalError(e)
 
-    @log
+    #@log
     def POST(self, scope, name):
         """
         Create a new data identifier.
@@ -144,9 +144,11 @@ class Identifiers:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        json_data = data()
+        sources = list()
         try:
-            sources = loads(json_data)
+            json_data = loads(data())
+            if 'sources' in json_data:
+                sources = json_data['sources']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
@@ -248,9 +250,50 @@ class Content:
         except Exception, e:
             raise InternalError(e)
 
-    def POST(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+    @log
+    def POST(self, scope, name):
+        """
+        Append data identifiers to data identifiers.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: Create the data identifier within this scope.
+        :param name: Create the data identifier with this name.
+        """
+
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        sources = list()
+        try:
+            json_data = loads(data())
+            if 'sources' in json_data:
+                sources = json_data['sources']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        try:
+            append_identifier(scope=scope, name=name, sources=sources, issuer=auth['account'])
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except DuplicateContent, e:
+            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+        raise Created()
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')
