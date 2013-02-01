@@ -31,7 +31,7 @@ done
 
 # Cleanup *pyc
 echo "cleaning *.pyc files"
-find lib -iname *.pyc | xargs rm
+find lib -iname '*.pyc' | xargs rm
 
 # Cleanup old token
 rm -rf /tmp/.rucio_*/
@@ -44,6 +44,9 @@ fi
 
 echo 'Sync rse_repository with Rucio core'
 ./tools/sync_rses.py
+
+echo 'Sync metadata keys'
+./tools/sync_meta.py
 
 # Run nosetests
 nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts

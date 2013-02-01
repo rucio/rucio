@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from json import dumps, loads
 from requests.status_codes import codes
@@ -18,7 +18,7 @@ class MetaClient(BaseClient):
 
     """Meta client class for working with data identifier attributes"""
 
-    BASEURL = 'meta'
+    META_BASEURL = 'meta'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(MetaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
@@ -35,7 +35,7 @@ class MetaClient(BaseClient):
         :raises Duplicate: if key already exists.
         """
 
-        path = '/'.join([self.BASEURL, key])
+        path = '/'.join([self.META_BASEURL, key])
         url = build_url(self.host, path=path)
         data = dumps({'type': type and str(type), 'regexp': regexp})
 
@@ -53,7 +53,7 @@ class MetaClient(BaseClient):
 
         :return: a list containing the names of all keys.
         """
-        path = self.BASEURL + '/'
+        path = self.META_BASEURL + '/'
         url = build_url(self.host, path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
@@ -69,7 +69,7 @@ class MetaClient(BaseClient):
 
         :return: a list containing the names of all values for a key.
         """
-        path = self.BASEURL + '/' + key + '/'
+        path = self.META_BASEURL + '/' + key + '/'
         url = build_url(self.host, path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
@@ -90,7 +90,7 @@ class MetaClient(BaseClient):
         :raises Duplicate: if valid already exists.
         """
 
-        path = self.BASEURL + '/' + key + '/'
+        path = self.META_BASEURL + '/' + key + '/'
         data = dumps({'value': value})
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='POST', data=data)

@@ -16,9 +16,11 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
+from rucio.core.rse import add_file_replica
 from rucio.db import models
 from rucio.db.session import get_session
 from rucio.rse import rsemanager
+
 
 session = get_session()
 
@@ -60,28 +62,35 @@ def add_identifier(scope, name, sources, issuer):
     :param sources: The content.
     :param issuer: The issuer account.
     """
-
+    # session.begin(subtransactions=True)
     data_type = None
 
     # Get the correct child data type
     #
     # TODO: Disallow putting files into containers
     #
+
+    data_type = None
+    child_type = None
     for source in sources:
         query = session.query(models.DataIdentifier).filter_by(scope=source['scope'], name=source['name'], deleted=False)
         try:
             tmp_did = query.one()
             if tmp_did.type == models.DataIdType.FILE:
-                source['type'] = models.DataIdType.FILE
+                child_type = models.DataIdType.FILE
                 data_type = models.DataIdType.DATASET
             elif tmp_did.type == models.DataIdType.DATASET:
-                source['type'] = models.DataIdType.DATASET
+                child_type = models.DataIdType.DATASET
                 data_type = models.DataIdType.CONTAINER
             elif tmp_did.type == models.DataIdType.CONTAINER:
-                source['type'] = models.DataIdType.CONTAINER
+                child_type = models.DataIdType.CONTAINER
                 data_type = models.DataIdType.CONTAINER
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
+            data_type = models.DataIdType.DATASET
+            child_type = models.DataIdType.FILE
+            if 'rse' not in source:
+                raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
+            add_file_replica(issuer=issuer, **source)
 
     # Insert new data identifier with correct type
     new_did = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=data_type, open=True)
@@ -90,24 +99,64 @@ def add_identifier(scope, name, sources, issuer):
     except IntegrityError, e:
         session.rollback()
         if e.args[0] == "(IntegrityError) columns scope, name are not unique":
-            di = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
-            if not di.open:
-                raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % locals())
-            # Check the DI types
+            raise exception.DataIdentifierAlreadyExists('Data identifier %(scope)s:%(name)s already exists!' % locals())
+        # msg for oracle / mysql
         else:
             raise e
 
     # Insert content with correct type
     for source in sources:
         try:
-            new_child = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=data_type, child_type=source['type'])
+            new_child = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=data_type, child_type=child_type)
+            new_child.save(session=session)
+        except IntegrityError, e:
+            session.rollback()
+            if e.args[0] == '(IntegrityError) columns scope, name, child_scope, child_name are not unique':
+                raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
+            raise
+
+    session.commit()
+
+
+def append_identifier(scope, name, sources, issuer):
+    """
+    Append data identifier.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param sources: The content.
+    :param issuer: The issuer account.
+    """
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False)
+    try:
+        did = query.one()
+        if not did.open:
+            raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % locals())
+        if did.type == models.DataIdType.FILE:
+            raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % locals())
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+    child_type = models.DataIdType.FILE
+    for source in sources:
+        query = session.query(models.DataIdentifier).filter_by(scope=source['scope'], name=source['name'], deleted=False)
+        try:
+            query.one()
+            # check the types...
+        except NoResultFound:
+            child_type = models.DataIdType.FILE
+            if 'rse' not in source:
+                raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
+            add_file_replica(issuer=issuer, **source)
+
+        try:
+            new_child = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=did.type, child_type=child_type)
             new_child.save(session=session)
         except IntegrityError, e:
             session.rollback()
             if e.args[0] == '(IntegrityError) columns scope, name, child_scope, child_name are not unique':
                 raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
             raise e
-
     session.commit()
 
 

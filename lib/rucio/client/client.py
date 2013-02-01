@@ -13,12 +13,13 @@ Client class for callers of the Rucio system
 """
 
 from rucio.client.accountclient import AccountClient
+from rucio.client.metaclient import MetaClient
+from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.client.pingclient import PingClient
 
 
-class Client(AccountClient, RSEClient, ScopeClient, PingClient):
+class Client(AccountClient, MetaClient, PingClient, RSEClient, ScopeClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
