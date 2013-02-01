@@ -13,7 +13,7 @@ from json import dumps
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, render_json
 
 
 class DataIdentifierClient(BaseClient):
@@ -49,19 +49,48 @@ class DataIdentifierClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add_identifier(self, scope, name, sources):
+    def add_identifier(self, scope, name, sources, statuses=None, meta=None, rules=None):
         """
         Add data identifier for a dataset or container.
 
         :param scope: The scope name.
         :param name: The data identifier name.
         :param sources: The content as a list of data identifiers.
+        :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
+        :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         """
-
         path = '/'.join([self.BASEURL, scope, name])
         url = build_url(self.host, path=path)
-        data = dumps(sources)
-        r = self._send_request(url, type='POST', data=data)
+        # Build json
+        data = dict()
+        if sources:
+            data['sources'] = sources
+        if statuses:
+            data['statuses'] = statuses
+        if meta:
+            data['meta'] = meta
+        if rules:
+            data['rules'] = rules
+        r = self._send_request(url, type='POST', data=render_json(**data))
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def append_identifier(self, scope, name, sources):
+        """
+        Append data identifier.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param sources: The content.
+        """
+        path = '/'.join([self.BASEURL, scope, name, 'dids'])
+        url = build_url(self.host, path=path)
+        data = {'sources': sources}
+        r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
         else:

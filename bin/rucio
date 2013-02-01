@@ -217,7 +217,9 @@ def add(args):
         creds = {'username': args.username, 'password': args.password}
 
     scope, name = args.did.split(':')
-    sources = [{'scope': src.split(':')[0], 'name': src.split(':')[1]} for src in args.sources]
+    sources = []
+    if args.sources:
+        sources = [{'scope': src.split(':')[0], 'name': src.split(':')[1]} for src in args.sources]
 
     client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
@@ -556,7 +558,7 @@ Commands:
     add_parser = subparsers.add_parser('add', help='Add data identifier')
     add_parser.set_defaults(which='add')
     add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
-    add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers', required=True)
+    add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers') #, required=True)
     # ToDo: add meta
 
     # The list command

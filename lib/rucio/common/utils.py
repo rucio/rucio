@@ -5,13 +5,16 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 """
 Rucio utilities.
 """
 
+import datetime
+import json
+import re
 import zlib
 
 from urllib import urlencode
@@ -47,6 +50,9 @@ codes = {
     503: '503 Service Unavailable',
     504: '504 Gateway Timeout'
 }
+
+# RFC 1123 (ex RFC 822)
+DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
 def build_url(url, path=None, params=None):
@@ -110,3 +116,60 @@ def adler32(file):
         adler = adler + 2 ** 32
 
     return str('%08x' % adler)
+
+
+def str_to_date(string):
+    """ Converts a RFC-1123 string to the corresponding datetime value.
+
+    :param string: the RFC-1123 string to convert to datetime value.
+    """
+    return datetime.strptime(string, DATE_FORMAT) if string else None
+
+
+def date_to_str(date):
+    """ Converts a datetime value to the corresponding RFC-1123 string.
+
+    :param date: the datetime value to convert.
+    """
+    return datetime.strftime(date, DATE_FORMAT) if date else None
+
+
+class APIEncoder(json.JSONEncoder):
+    """ Propretary JSONEconder subclass used by the json render function.
+    This is needed to address the encoding of special values.
+    """
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            # convert any datetime to RFC 1123 format
+            return date_to_str(obj)
+        elif isinstance(obj, (datetime.time, datetime.date)):
+            # should not happen since the only supported date-like format
+            # supported at dmain schema level is 'datetime' .
+            return obj.isoformat()
+        elif isinstance(obj, datetime.timedelta):
+            return obj.days * 24 * 60 * 60 + obj.seconds
+        return json.JSONEncoder.default(self, obj)
+
+
+def render_json(**data):
+    """ JSON render function
+    """
+    return json.dumps(data, cls=APIEncoder)
+
+
+def datetime_parser(dct):
+    """ datetime parser
+    """
+    for k, v in dct.items():
+        if isinstance(v, basestring) and re.search(" UTC", v):
+            try:
+                dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
+            except:
+                pass
+    return dct
+
+
+def parse_response(**data):
+    """ JSON render function
+    """
+    return json.loads(data, object_hook=datetime_parser)

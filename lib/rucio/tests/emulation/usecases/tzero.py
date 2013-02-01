@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 '''
 tzero use case:
@@ -17,6 +18,8 @@ tzero use case:
 #(5)                    dq2-freeze-dataset -x <DSN> [#calls = O(200/day)]
 '''
 import uuid
+
+from datetime import timedelta
 from random import choice
 from random import randrange
 from random import gauss
@@ -40,7 +43,17 @@ class UseCaseDefinition(UCEmulator):
         """
         self.dataset_meta['run_number'] = str(uuid.uuid4())
         dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % self.dataset_meta
-        self.did_client.add_identifier(self.scope, dsn, [])
+        sources = list()
+        for i in xrange(int(round(gauss(30, 10)))):
+            lfn = '%(dsn)s.' % locals() + str(uuid.uuid4())
+            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
+            pfn += '%(dsn)s/%(lfn)s' % locals()
+            file_meta = {'guid': str(uuid.uuid4())}
+            sources.append({'scope': self.scope, 'name': lfn,
+                            'size': 724963570L, 'checksum': '0cc737eb',
+                            'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
+        rules = [{'copies': 1, 'rse_expression': 'rse==CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        self.did_client.add_identifier(scope=self.scope, name=dsn, sources=sources, statuses={'monotonic': True}, meta=self.dataset_meta, rules=rules)
         self.datasets['open'].append(dsn)
         if self.cfg['global']['operation_mode'] == 'verbose' and tse:
             print 'UC_DQ2_REGISTER_NEW\tadd_identifier\t%s' % dsn
@@ -58,6 +71,7 @@ class UseCaseDefinition(UCEmulator):
         files = [dsn + '.' + str(uuid.uuid4()) for i in xrange(int(round(gauss(tse['no_of_files'], 10))))]
         if self.cfg['global']['operation_mode'] == 'verbose':
             print 'UC_DQ2_REGISTER_APPEND\tadd_file_replica\t%s' % len(files)
+        # self.did_client.append_identifier(scope=self.scope, name=dsn, sources=sources)
 
     @UCEmulator.UseCase
     def UC_TZ_FREEZE_DATASET(self, tse):
@@ -67,7 +81,7 @@ class UseCaseDefinition(UCEmulator):
         # close
         if len(self.datasets['open']) > 1:
             self.datasets['open'].remove(choice(self.datasets['open']))
-        pass
+        # self.did_client.set_status(scope=self.scope, name=dsn, open=False)
 
     def setup(self, cfg):
         """
@@ -78,7 +92,7 @@ class UseCaseDefinition(UCEmulator):
         """
         self.cfg = cfg
         self.account = 'rucio'
-        self.rse = 'MOCK'
+        self.rse = 'CERN-PROD_TZERO'
         self.scope = 'data13_hip'
         self.datasets = {}
         self.datasets['open'] = []
