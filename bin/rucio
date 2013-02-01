@@ -568,17 +568,17 @@ Commands:
     help <command>  Output help for one of the commands below
 
 """
-    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=False)
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
     subparsers = oparser.add_subparsers()
 
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
-    oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host." "Default: %default")
-    oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host." "Default: %default")
-    oparser.add_argument('--account', dest="account", metavar="ACCOUNT", help="Rucio account to use. " "Default: %default")
-    oparser.add_argument('--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
-    oparser.add_argument('--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
+    oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host")
+    oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host")
+    oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use")
+    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -636,7 +636,7 @@ Commands:
     close_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The stat command
-    stat_parser = subparsers.add_parser('stat', help='List attributes and statuses about data identifiers.')
+    stat_parser = subparsers.add_parser('stat', help='List attributes and statuses about data identifiers')
     stat_parser.set_defaults(which='stat')
     stat_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
@@ -704,6 +704,11 @@ Commands:
     list_account_limits_parser.add_argument(dest='account', action='store', help='Account name')
 
     argcomplete.autocomplete(oparser)
+
+    if len(sys.argv) == 1:
+        oparser.print_help()
+        sys.exit(FAILURE)
+
     args = oparser.parse_args(sys.argv[1:])
 
     commands = {'ping': ping,
