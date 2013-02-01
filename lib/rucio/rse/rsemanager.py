@@ -18,7 +18,6 @@ from rucio.common import exception
 
 
 class RSEMgr(object):
-
     def __init__(self, path_to_credentials_file=None):
         """
             Instantiates the RSEMgr.
@@ -28,27 +27,15 @@ class RSEMgr(object):
             :raises ErrorLoadingCredentials:    user credentials could not be loaded
 
         """
-        self.__credentials = None
-        if not path_to_credentials_file:
-            if 'RUCIO_HOME' in os.environ:
-                self.path_to_credentials_file = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
-            else:
-                self.path_to_credentials_file = '/opt/rucio/etc/rse-accounts.cfg'
-        else:
-            self.path_to_credentials_file = path_to_credentials_file
+        self.__credentials_file = path_to_credentials_file
 
-        try:
-            # Load all user credentials
-            self.__credentials = json.load(open(self.path_to_credentials_file))
-        except Exception as e:
-            raise exception.ErrorLoadingCredentials(e)
-
-    def __create_rse(self, rse_id, protocol=None):
+    def __create_rse(self, rse_id, protocol=None, auto_connect=True):
         """
             Create the according RSE object.
 
             :param rse_id:      identifier of the requested storage
             :param protocol:    identifier (class name) of the preferred protocol e.g. S3.Default, S3.Swift, SFTP.Localhost. If not given the default for the storage will be used
+            :param auto_connect: indicates if the connection to the RSE should be established automatically (True) or not (False)
 
             :returns:           an instance of the according RSE object
 
@@ -59,7 +46,8 @@ class RSEMgr(object):
         """
         # If we go for connection pooling, this would be the place to do so
         rse = RSE(rse_id, protocol)
-        rse.connect(self.__credentials[rse_id])
+        if auto_connect:
+            rse.connect(self.__credentials_file)
         return rse
 
     def upload(self, rse_id, lfns, source_dir='.', protocol=None):
@@ -201,7 +189,7 @@ class RSEMgr(object):
             :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
         """
-        rse = self.__create_rse(rse_id, protocol=protocol)
+        rse = self.__create_rse(rse_id, protocol=protocol, auto_connect=False)
         return rse.lfn2uri(lfns=[{'scope': scope, 'filename': lfn}, ])
 
     def list_protocols(self, rse_id):
@@ -377,17 +365,35 @@ class RSE(object):
                 return ret[x]
         return [gs, ret]
 
-    def connect(self, credentials):
+    def connect(self, path_to_credentials_file=None):
         """
             Establishes the connection to the referred storage system.
 
-            :param  credentials:  credentials to establish a connection to the storage. Note that the content of this object depends on the referred protocol
+            :param path_to_credentials_file:    relative path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed
 
             :raises RSEAccessDenied: storage refuses to establish a connection
 
         """
+        if self.__connected:
+            return
+        self.__credentials = None
+        path = ''
+        if path_to_credentials_file:  # Use specific file for this connect
+            path = path_to_credentials_file
+        else:  # Use file defined in th RSEMgr
+            if 'RUCIO_HOME' in os.environ:
+                path = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
+            else:
+                path = '/opt/rucio/etc/rse-accounts.cfg'
+        try:
+            # Load all user credentials
+            self.__credentials = json.load(open(path))
+        except Exception as e:
+            raise exception.ErrorLoadingCredentials(e)
+        if not self.__id in self.__credentials:
+            self.__credentials[self.__id] = dict()
         if not self.__connected:
-            self.__protocol.connect(credentials)
+            self.__protocol.connect(self.__credentials[self.__id])
             self.__connected = True
 
     def close(self):
