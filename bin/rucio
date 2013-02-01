@@ -31,6 +31,7 @@ from rucio.client.dataidentifierclient import DataIdentifierClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
+from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager
 
@@ -246,19 +247,74 @@ def list(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    if not args.dids:
+        if not args.scope:  # list scopes
+            client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
+                                 account=args.account,
+                                 auth_type=args.auth_strategy, creds=creds,
+                                 ca_cert=args.ca_certificate, timeout=args.timeout)
+            try:
+                scopes = client.list_scopes()
+                for scope in scopes:
+                    print scope
+            except Exception, e:
+                print 'Failed to list scopes'
+                print e
+                return FAILURE
+        else: # list dids in a scope
+            client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                          account=args.account,
+                                          auth_type=args.auth_strategy, creds=creds,
+                                          ca_cert=args.ca_certificate, timeout=args.timeout)
 
-    for did in args.dids:
-        try:
-            scope, name = did.split(':')
-            dids = client.list_content(scope=scope, name=name)
-            for d in dids:
-                print '%(scope)s:%(name)s' % d
-        except Exception, e:
+            try:
+                dids = client.scope_list(scope=args.scope)
+                for d in dids:
+                    print '%(scope)s:%(name)s [%(type)s]' % d
+            except Exception, e:
+                print e
+                return FAILURE
+    else:
+        client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                      account=args.account,
+                                      auth_type=args.auth_strategy, creds=creds,
+                                      ca_cert=args.ca_certificate, timeout=args.timeout)
+        for did in args.dids:
+            try:
+                scope, name = did.split(':')
+                dids = client.list_content(scope=scope, name=name)
+                for d in dids:
+                    print '%(scope)s:%(name)s' % d
+            except Exception, e:
+                print e
+
+    return SUCCESS
+
+
+def list_scopes(args):
+    """
+    %(prog)s list-scopes <scope_name>
+
+    List scopes.
+    """
+    # For the moment..
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        scopes = client.list_scopes()
+    except Exception, e:
+            print 'Failed to list scopes'
             print e
+            return FAILURE
+
+    for scope in scopes:
+        print scope
 
     return SUCCESS
 
@@ -564,12 +620,14 @@ Commands:
     # The list command
     list_parser = subparsers.add_parser('list', help='List data identifier contents')
     list_parser.set_defaults(which='list')
-    list_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+    list_parser.add_argument('--scope', dest='scope', action='store', default=None, help='Scope name')
+    list_parser.add_argument('--level', dest='level', action='store', default=0, help='Hierarchical namespace level. O(default) means only the top level will be printed. all will print the all hierarchy.')
+    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value another_key=next_value`')
+    list_parser.add_argument(dest='dids', nargs='*', action='store', default=None, help='List of space separated data identifiers')
 
-    # The scope_list command
+    # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List data identifiers in a scope')
-    scope_list_parser.set_defaults(which='scope_list')
-    scope_list_parser.add_argument('--scope', dest='scope', default=None, action='store', help='Scope name', required=True)
+    scope_list_parser.set_defaults(which='list_scopes')
 
     # The close command
     close_parser = subparsers.add_parser('close', help='Close data identifier')
@@ -652,7 +710,7 @@ Commands:
                 'add': add,
                 'list': list,
                 'list_files': list_files,
-                'scope_list': scope_list,
+                'list_scopes': list_scopes,
                 'close': close,
                 'stat': stat,
                 'del': delete,
