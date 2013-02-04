@@ -35,31 +35,26 @@ class UseCaseDefinition(UCEmulator):
     """
 
     @UCEmulator.UseCase
-    def UC_DQ2_REGISTER_NEW(self, tse):
+    def UC_TZ_REGISTER_NEW(self, tse):
         """
-            Registers a new dataset using the add_identifier method.
+            Registers a new empty dataset using the add_identifier method.
 
             :param tse: time series element of the current time frame
         """
         self.dataset_meta['run_number'] = str(uuid.uuid4())
-        dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % self.dataset_meta
-        sources = list()
-        for i in xrange(int(round(gauss(30, 10)))):
-            lfn = '%(dsn)s.' % locals() + str(uuid.uuid4())
-            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
-            pfn += '%(dsn)s/%(lfn)s' % locals()
-            file_meta = {'guid': str(uuid.uuid4())}
-            sources.append({'scope': self.scope, 'name': lfn,
-                            'size': 724963570L, 'checksum': '0cc737eb',
-                            'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
-        rules = [{'copies': 1, 'rse_expression': 'rse==CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
-        self.did_client.add_identifier(scope=self.scope, name=dsn, sources=sources, statuses={'monotonic': True}, meta=self.dataset_meta, rules=rules)
-        self.datasets['open'].append(dsn)
+        tmp_dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % self.dataset_meta
+        rules = [{'copies': 1, 'rse_expression': 'rse=%s' % self.rse, 'lifetime': timedelta(days=2)}]
+        self.did_client.add_identifier(scope=self.scope, name=tmp_dsn, sources=[], statuses={'monotonic': True}, meta=self.dataset_meta, rules=rules)
+        try:
+            self.datasets['open'].append(tmp_dsn)
+        except Exception, e:
+            print 'UC_TZ_REGISTER_NEW: Unable to register a dataset'
+            print e
         if self.cfg['global']['operation_mode'] == 'verbose' and tse:
-            print 'UC_DQ2_REGISTER_NEW\tadd_identifier\t%s' % dsn
+            print 'UC_TZ_REGISTER_NEW\tdid_client.add_identifier\t%s' % tmp_dsn
 
     @UCEmulator.UseCase
-    def UC_DQ2_REGISTER_APPEND(self, tse):
+    def UC_TZ_REGISTER_APPEND(self, tse):
         """
             Registers file replicas for a dataset. The number of files is provided
             as 'no_of_files' in the tse object. This number applied to a gauss-distribution
@@ -67,11 +62,25 @@ class UseCaseDefinition(UCEmulator):
 
             :param tse: time series element of the current time frame
         """
-        dsn = choice(self.datasets['open'])
-        files = [dsn + '.' + str(uuid.uuid4()) for i in xrange(int(round(gauss(tse['no_of_files'], 10))))]
+        tmp_dsn = choice(self.datasets['open'])
+        self.dataset_meta['run_number'] = str(uuid.uuid4())
+        sources = []
+        # Creating Files to append to a dataset
+        for i in xrange(int(round(gauss(tse['no_of_files'], 10)))):
+            lfn = '%(tmp_dsn)s.' % locals() + str(uuid.uuid4())
+            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
+            pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
+            file_meta = {'guid': str(uuid.uuid4())}
+            sources.append({'scope': self.scope, 'name': lfn,
+                            'size': 724963570L, 'checksum': '0cc737eb',
+                            'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
+        try:
+            self.did_client.append_identifier(scope=self.scope, name=tmp_dsn, sources=sources)
+        except Exception, e:
+            print 'UC_TZ_REGISTER_APPEND: Unable to append files to a dataset'
+            print e
         if self.cfg['global']['operation_mode'] == 'verbose':
-            print 'UC_DQ2_REGISTER_APPEND\tadd_file_replica\t%s' % len(files)
-        # self.did_client.append_identifier(scope=self.scope, name=dsn, sources=sources)
+            print 'UC_TZ_REGISTER_APPEND\tdid_client.add_file_replica\t%s' % len(sources)
 
     @UCEmulator.UseCase
     def UC_TZ_FREEZE_DATASET(self, tse):
@@ -80,23 +89,29 @@ class UseCaseDefinition(UCEmulator):
         """
         # close
         if len(self.datasets['open']) > 1:
-            self.datasets['open'].remove(choice(self.datasets['open']))
-        # self.did_client.set_status(scope=self.scope, name=dsn, open=False)
+            tmp_dsn = choice(self.datasets['open'])
+            self.datasets['open'].remove(tmp_dsn)
+            try:
+                self.did_client.set_status(scope=self.scope, name=tmp_dsn, open=False)
+            except Exception, e:
+                print 'UC_TZ_FREEZE_DATASET: Unable to close dataset'
+                print e
+            if self.cfg['global']['operation_mode'] == 'verbose':
+                print 'UC_TZ_FREEZE_DATASET\tdid_client.set_statuses\t%s' % len(tmp_dsn)
 
     def setup(self, cfg):
         """
             Sets up shared information/objects between the use cases and creates between one
-            and ten empty datasets for the UC_TZ_DQ2_REGISTER_APPEND use case.
+            and ten empty datasets for the UC_TZ_REGISTER_APPEND use case.
 
             :param cfg: the context of etc/emulation.cfg
         """
         self.cfg = cfg
         self.account = 'rucio'
-        self.rse = 'CERN-PROD_TZERO'
+        self.rse = 'MOCK'
         self.scope = 'data13_hip'
         self.datasets = {}
         self.datasets['open'] = []
-        self.datasets['closed'] = []
         self.did_client = DataIdentifierClient()
         self.rse_client = RSEClient()
         self.dataset_meta = {'project': 'data13_hip',
@@ -109,4 +124,4 @@ class UseCaseDefinition(UCEmulator):
         # Adding between one and ten datasets assumed to be defined before the time series started
         count = randrange(1, 10)
         for i in range(0, count):
-            self.UC_DQ2_REGISTER_NEW(None)
+            self.UC_TZ_REGISTER_NEW(None)
