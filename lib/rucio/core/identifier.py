@@ -54,81 +54,51 @@ def list_replicas(scope, name, protocols=None, session=None):
 
 
 @transactional_session
-def add_identifier(scope, name, sources, issuer, session=None):
+def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[], session=None):
     """
     Add data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param sources: The content.
+    :param type: The data identifier type.
     :param issuer: The issuer account.
+    :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
+    :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+    :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     :param session: The database session in use.
-
     """
-    # session.begin(subtransactions=True)
-    data_type = None
+    if type == models.DataIdType.FILE:
+        raise exception.UnsupportedOperation("Only dataset/container can be registered." % locals())
 
-    # Get the correct child data type
-    #
-    # TODO: Disallow putting files into containers
-    #
-
-    data_type = None
-    child_type = None
-    for source in sources:
-        query = session.query(models.DataIdentifier).filter_by(scope=source['scope'], name=source['name'], deleted=False)
-        try:
-            tmp_did = query.one()
-            if tmp_did.type == models.DataIdType.FILE:
-                child_type = models.DataIdType.FILE
-                data_type = models.DataIdType.DATASET
-            elif tmp_did.type == models.DataIdType.DATASET:
-                child_type = models.DataIdType.DATASET
-                data_type = models.DataIdType.CONTAINER
-            elif tmp_did.type == models.DataIdType.CONTAINER:
-                child_type = models.DataIdType.CONTAINER
-                data_type = models.DataIdType.CONTAINER
-        except NoResultFound:
-            data_type = models.DataIdType.DATASET
-            child_type = models.DataIdType.FILE
-            if 'rse' not in source:
-                raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
-            add_file_replica(issuer=issuer, **source)
-
-    # Insert new data identifier with correct type
-    new_did = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=data_type, open=True)
+    # Insert new data identifier
+    new_did = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=type, monotonic=statuses.get('monotonic', False), open=True)
     try:
         new_did.save(session=session)
     except IntegrityError, e:
-        session.rollback()
         if e.args[0] == "(IntegrityError) columns scope, name are not unique":
             raise exception.DataIdentifierAlreadyExists('Data identifier %(scope)s:%(name)s already exists!' % locals())
         # msg for oracle / mysql
         else:
             raise e
 
-    # Insert content with correct type
-    for source in sources:
-        try:
-            new_child = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=data_type, child_type=child_type)
-            new_child.save(session=session)
-        except IntegrityError, e:
-            session.rollback()
-            if e.args[0] == '(IntegrityError) columns scope, name, child_scope, child_name are not unique':
-                raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
-            raise
+    # Add meta-data
+    for key in meta:
+        set_metadata(scope=scope, name=name, key=key, value=meta[key], session=session)
 
-    session.commit()
+    # Add rules
+    # for rule in rules:
+    #    add_replication_rule(dids=[{'scope': scope, 'name': name}, ], account=issuer, copies=rule['copies'],
+    #                         rse_expression=rule['rse_expression'], parameters={}, session=session)  # lifetime + grouping
 
 
 @transactional_session
-def append_identifier(scope, name, sources, issuer, session=None):
+def append_identifier(scope, name, dids, issuer, session=None):
     """
     Append data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param sources: The content.
+    :param dids: The content.
     :param issuer: The issuer account.
     :param session: The database session in use.
     """
@@ -139,30 +109,27 @@ def append_identifier(scope, name, sources, issuer, session=None):
             raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % locals())
         if did.type == models.DataIdType.FILE:
             raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % locals())
+        elif did.type == models.DataIdType.DATASET:
+            child_type = models.DataIdType.FILE
+        elif did.type == models.DataIdType.CONTAINER:
+            child_type = models.DataIdType.DATASET
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    child_type = models.DataIdType.FILE
-    for source in sources:
-        query = session.query(models.DataIdentifier).filter_by(scope=source['scope'], name=source['name'], deleted=False)
-        try:
-            query.one()
-            # check the types...
-        except NoResultFound:
-            child_type = models.DataIdType.FILE
-            if 'rse' not in source:
-                raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % source)
-            add_file_replica(issuer=issuer, **source)
-
+    for source in dids:
+        if 'rse' in source:
+            add_file_replica(issuer=issuer, session=session, **source)
         try:
             new_child = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=did.type, child_type=child_type)
             new_child.save(session=session)
         except IntegrityError, e:
-            session.rollback()
             if e.args[0] == '(IntegrityError) columns scope, name, child_scope, child_name are not unique':
                 raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
-            raise e
-    session.commit()
+            raise
+
+        if 'meta' in source:
+            for key in source['meta']:
+                set_metadata(scope=source['scope'], name=source['name'], key=key, value=source['meta'][key], session=session)
 
 
 @read_session
@@ -244,8 +211,12 @@ def get_did(scope, name, session=None):
     try:
         r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).one()
         if r:
-            did_r = {'scope': r.scope, 'name': r.name, 'type': r.type,
-                     'owner': r.owner, 'open': r.open}
+            if r.type == models.DataIdType.FILE:
+                did_r = {'scope': r.scope, 'name': r.name, 'type': r.type, 'owner': r.owner}
+            else:
+                did_r = {'scope': r.scope, 'name': r.name, 'type': r.type,
+                         'owner': r.owner, 'open': r.open, 'monotonic': r.monotonic}
+
             #  To add:  created_at, updated_at, deleted_at, deleted, monotonic, hidden, obsolete, complete
             #  ToDo: Add json encoder for datetime
     except NoResultFound:
@@ -265,42 +236,42 @@ def set_metadata(scope, name, key, value, session=None):
     :param value: the value.
     :param session: The database session in use.
     """
-    new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value)
-    try:
-        new_meta.save(session=session)
-    except IntegrityError, e:
-        session.rollback()
-        print e.args[0]
-        if e.args[0] == "(IntegrityError) foreign key constraint failed":
-            raise exception.KeyNotFound("Key '%(key)s' not found" % locals())
-        if e.args[0] == "(IntegrityError) columns scope, name, key are not unique":
-            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists!' % locals())
-        raise e
-
     # Check enum types
     enum = session.query(models.DIDKeyValueAssociation).filter_by(key=key, deleted=False).first()
     if enum:
         try:
             session.query(models.DIDKeyValueAssociation).filter_by(key=key, deleted=False, value=value).one()
         except NoResultFound:
-            session.rollback()
             raise exception.InvalidValueForKey('The value %(value)s is invalid for the key %(key)s' % locals())
 
     # Check constraints
     k = session.query(models.DIDKey).filter_by(key=key).one()
 
     # Check value against regexp, if defined
-    if k.regexp and not match(k.regexp, value):
-        session.rollback()
+    if k.regexp and not match(k.regexp, str(value)):
         raise exception.InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.regexp))
 
     # Check value type, if defined
     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
     if k.type and not isinstance(value, type_map.get(k.type)):
-            session.rollback()
             raise exception.InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.type))
 
-    session.commit()
+    if key == 'guid':
+        try:
+            session.query(models.File).filter_by(scope=scope, name=name, deleted=False).update({'guid': value})
+        except IntegrityError, e:
+            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
+    else:
+        new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value)
+        try:
+            new_meta.save(session=session)
+        except IntegrityError, e:
+            print e.args[0]
+            if e.args[0] == "(IntegrityError) foreign key constraint failed":
+                raise exception.KeyNotFound("Key '%(key)s' not found" % locals())
+            if e.args[0] == "(IntegrityError) columns scope, name, key are not unique":
+                raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists!' % locals())
+            raise
 
 
 @read_session
@@ -312,10 +283,21 @@ def get_metadata(scope, name, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
+    try:
+        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
     meta = {}
     query = session.query(models.DIDAttribute).filter_by(scope=scope, name=name, deleted=False)
     for row in query:
         meta[row.key] = row.value
+
+    if r.type == models.DataIdType.FILE:
+        row = session.query(models.File).filter_by(scope=scope, name=name, deleted=False).first()
+        if row.guid:
+            meta['guid'] = row.guid
+
     return meta
 
 
@@ -349,5 +331,3 @@ def set_status(scope, name, session=None, **kwargs):
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
         raise exception.UnsupportedOperation("The status of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
-
-    session.commit()

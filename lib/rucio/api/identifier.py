@@ -26,34 +26,37 @@ def list_replicas(scope, name, protocols=None):
     return identifier.list_replicas(scope=scope, name=name, protocols=protocols)
 
 
-def add_identifier(scope, name, sources, issuer):
+def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[]):
     """
     Add data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param sources: The content as a list of data identifiers.
+    :param type: The data identifier type.
     :param issuer: The issuer account.
+    :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
+    :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+    :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     """
-    kwargs = {'scope': scope, 'name': name, 'sources': sources, 'issuer': issuer}
+    kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'statuses': statuses, 'meta': meta, 'rules': rules}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
-    return identifier.add_identifier(scope=scope, name=name, sources=sources, issuer=issuer)
+    return identifier.add_identifier(scope=scope, name=name, type=type, issuer=issuer, statuses=statuses, meta=meta, rules=rules)
 
 
-def append_identifier(scope, name, sources, issuer):
+def append_identifier(scope, name, dids, issuer):
     """
     Append content to data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param sources: The content as a list of data identifiers.
+    :param dids: The content as a list of data identifiers.
     :param issuer: The issuer account.
     """
-    kwargs = {'scope': scope, 'name': name, 'sources': sources, 'issuer': issuer}
+    kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='append_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
-    return identifier.append_identifier(scope=scope, name=name, sources=sources, issuer=issuer)
+    return identifier.append_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
 
 
 def list_content(scope, name):

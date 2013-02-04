@@ -34,10 +34,10 @@ def add_rse(rse, session=None):
     try:
         new_rse.save(session=session)
     except IntegrityError:
-        session.rollback()
         raise exception.Duplicate('RSE \'%(rse)s\' already exists!' % locals())
 
-    session.commit()
+    # Add rse name as a RSE-Tag
+    add_rse_attribute(rse=rse, key=rse, value=True, session=session)
 
     return new_rse.id
 
@@ -68,9 +68,8 @@ def del_rse(rse, session=None):
         old_rse = session.query(models.RSE).filter_by(rse=rse).one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
-
     old_rse.delete(session)
-    session.commit()
+    del_rse_attribute(rse=rse, key=rse, session=session)
 
 
 @read_session
@@ -139,24 +138,20 @@ def add_rse_attribute(rse, key, value, session=None):
 
     returns: True is successfull
     """
+    # Check location
+    l = get_rse(rse=rse, session=session)
+
+    query = session.query(models.RSEAttribute).filter(models.RSEAttribute.key == key).filter(models.RSEAttribute.value == value)
+    if not query.count():
+        new_attr = models.RSEAttribute(key=key, value=value)
+        new_attr.save(session=session)
+
     try:
-        # Check location
-        l = get_rse(rse=rse, session=session)
-
-        query = session.query(models.RSEAttribute).filter(models.RSEAttribute.key == key).filter(models.RSEAttribute.value == value)
-        if not query.count():
-            new_attr = models.RSEAttribute(key=key, value=value)
-            new_attr.save(session=session)
-
-        try:
-            new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value, deleted=False)
-            new_rse_attr = session.merge(new_rse_attr)
-            new_rse_attr.save(session=session)
-            session.commit()
-        except IntegrityError:
-                raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
-    finally:
-        session.rollback()
+        new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value, deleted=False)
+        new_rse_attr = session.merge(new_rse_attr)
+        new_rse_attr.save(session=session)
+    except IntegrityError:
+        raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
 
 
 @transactional_session
@@ -172,12 +167,8 @@ def del_rse_attribute(rse, key, session=None):
     """
     l = get_rse(rse=rse, session=session)
     query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id, deleted=False).filter(models.RSEAttrAssociation.key == key)
-    try:
-        rse_attr = query.one()
-        rse_attr.delete(session=session)
-        session.commit()
-    except:
-        pass
+    rse_attr = query.one()
+    rse_attr.delete(session=session)
 
 
 @read_session
@@ -220,7 +211,6 @@ def set_rse_usage(rse, source, total, free, session=None):
     merged_rse_usage = session.merge(rse_usage)
     merged_rse_usage.save(session=session)
 
-    session.commit()
     return True
 
 
@@ -288,48 +278,21 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
 
     :returns: True is successfull.
     """
-    new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
-    new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
     replica_rse = get_rse(rse=rse, session=session)
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, state='AVAILABLE')
-
-    # Add optional pfn
-    try:
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name,  type=models.DataIdType.FILE, deleted=False)
+    if not query.first():
+        new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
+        new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
         new_data_id = session.merge(new_data_id)
         new_file = session.merge(new_file)
         new_data_id.save(session=session)
         new_file.save(session=session)
-    except IntegrityError, e:
-        'columns scope, name are not unique'
-        # needs to parse the exception string
-        print e
-        session.rollback()
 
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, state='AVAILABLE')
     try:
         new_replica.save(session=session)
-    except IntegrityError, e:
-        print e
-        session.rollback()
+    except IntegrityError:
         raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
-
-    # Insert dataset and content
-    if dsn:
-        new_dsn = models.DataIdentifier(scope=dsn['scope'], name=dsn['name'], owner=issuer, type=models.DataIdType.DATASET)
-        try:
-            new_dsn = session.merge(new_dsn)
-            new_dsn.save(session=session)
-        except IntegrityError, e:
-            # needs to parse the exception string
-            session.rollback()
-
-        new_child = models.DataIdentifierAssociation(scope=dsn['scope'], name=dsn['name'], child_scope=scope, child_name=name, type=models.DataIdType.DATASET, child_type=models.DataIdType.FILE)
-        try:
-            new_child.save(session=session)
-        except IntegrityError, e:
-           # needs to parse the exception string
-            session.rollback()
-
-    session.commit()
 
 
 @read_session
@@ -372,4 +335,3 @@ def update_file_replica_state(rse, scope, name, state, session=None):
 
     rse = session.query(models.RSE).filter_by(rse=rse).one()
     session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id, scope=scope, name=name).update({'state': state})
-    session.commit()

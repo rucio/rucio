@@ -616,6 +616,13 @@ Commands:
     add_parser.set_defaults(which='add')
     add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
     add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers') #, required=True)
+
+    # The add_dataset command
+    # add_parser = subparsers.add_parser('add-dataset', help='Add data identifier')
+    # add_parser.set_defaults(which='add')
+    # add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
+    # add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers') #, required=True)
+
     # ToDo: add meta
 
     # The list command

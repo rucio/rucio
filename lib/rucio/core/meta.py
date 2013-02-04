@@ -36,12 +36,9 @@ def add_key(key, type=None, regexp=None, session=None):
     try:
         new_key.save(session=session)
     except IntegrityError, e:
-        session.rollback()
         if e.args[0] == "(IntegrityError) column key is not unique":
             raise Duplicate('key \'%(key)s\' already exists!' % locals())
-        else:
-            raise RucioException(e.args[0])
-    session.commit()
+        raise
 
 
 @transactional_session
@@ -84,7 +81,6 @@ def add_value(key, value, session=None):
     try:
         new_value.save(session=session)
     except IntegrityError, e:
-        session.rollback()
         print e.args[0]
         if e.args[0] == "(IntegrityError) columns key, value are not unique":
             raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
@@ -102,16 +98,12 @@ def add_value(key, value, session=None):
 
     # Check value against regexp, if defined
     if k.regexp and not match(k.regexp, value):
-        session.rollback()
         raise InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.regexp))
 
     # Check value type, if defined
     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
     if k.type and not isinstance(value, type_map.get(k.type)):
-            session.rollback()
             raise InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.type))
-
-    session.commit()
 
 
 @read_session
