@@ -291,8 +291,8 @@ class Content:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
+        #except Exception, e:
+        #    raise InternalError(e)
         raise Created()
 
     def PUT(self):
