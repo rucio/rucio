@@ -15,13 +15,11 @@ from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
 from rucio.core import identifier, rse
 from rucio.db import models
-from rucio.db.session import get_session
+from rucio.db.session import read_session, transactional_session
 
 
-session = get_session()
-
-
-def add_replication_rule(dids, account, copies, rse_expression, parameters):
+@transactional_session
+def add_replication_rule(dids, account, copies, rse_expression, parameters, session=None):
     """
     Adds a replication rule.
     :param dids:            The data identifier set.
@@ -33,6 +31,7 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters):
                             dataset - All files in the same dataset will be replicated to the same RSE;
                             none - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
     :param account:         The account.
+    :param session: The database session in use.
     """
 
     # Resolve the rse_expression in a list of RSE
@@ -40,7 +39,7 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters):
     for exp in rse_expression.split('and'):
         k, v = exp.split('=')
         filters[k] = v
-    rses = rse.list_rses(filters=filters)
+    rses = rse.list_rses(filters=filters, session=session)
 
     rule_id = generate_uuid()
     for did in dids:
@@ -62,17 +61,19 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters):
             rses_tmp.remove(selected_rse)
             did_lock = {'id': rule_id, 'scope': did['scope'], 'name': did['name'], 'rse': selected_rse, 'account': account}
             did_locks.append(did_lock)
-        add_replica_locks(locks=did_locks)
+        add_replica_locks(locks=did_locks, session=session)
 
     session.commit()
     return rule_id
 
 
-def list_replication_rules(filters={}):
+@read_session
+def list_replication_rules(filters={}, session=None):
     """
     List replication rules.
 
     :param filters: dictionary of attributes by which the results should be filtered.
+    :param session: The database session in use.
     """
 
     query = session.query(models.ReplicationRule)
@@ -87,11 +88,13 @@ def list_replication_rules(filters={}):
         yield d
 
 
-def add_replica_locks(locks):
+@transactional_session
+def add_replica_locks(locks, session=None):
     """
     Add replica locks and replicas.
 
     :param locks: List of dictionary replica locks.
+    :param session: The database session in use.
     """
 
     for lock in locks:
@@ -101,7 +104,7 @@ def add_replica_locks(locks):
         new_lock.save(session=session)
 
         # Get did content
-        files = identifier.list_files(scope=lock['scope'], name=lock['name'])
+        files = identifier.list_files(scope=lock['scope'], name=lock['name'], session=session)
         # Generate the replica locks for file, and eventually the transfer request
         for file in files:
             new_lock = models.ReplicaLock(rule_id=lock['id'], rse_id=rse.id, scope=file['scope'], name=file['name'], account=lock['account'])

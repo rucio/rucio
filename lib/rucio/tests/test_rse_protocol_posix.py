@@ -36,7 +36,8 @@ class TestRsePOSIX():
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
         storage = rsemanager.RSE('posix')
-        data = json.load(open('etc/rse_repository.json'))
+        with open('etc/rse_repository.json') as f:
+            data = json.load(f)
         prefix = data['posix']['protocols']['supported']['posix']['prefix']
         try:
             os.mkdir(prefix)
@@ -53,7 +54,8 @@ class TestRsePOSIX():
     @classmethod
     def tearDownClass(cls):
         """POSIX (RSE/PROTOCOLS): Removing created directorie s and files """
-        data = json.load(open('etc/rse_repository.json'))
+        with open('etc/rse_repository.json') as f:
+            data = json.load(f)
         prefix = data['posix']['protocols']['supported']['posix']['prefix']
         shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)

@@ -35,7 +35,7 @@
       "prefix": "/FAILS/NO/PERMISSIONS/USE/PROTOCOL/SPECIFIC/INSTEAD",
       "supported": {
         "posix": {
-          "prefix": "remote_folder/",
+          "prefix": "/tmp/rucio_rse/",
           "impl": "rucio.rse.protocols.posix.Default"
         }
       }

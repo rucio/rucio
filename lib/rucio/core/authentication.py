@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 import datetime
 import hashlib
@@ -15,17 +15,18 @@ import uuid
 
 from rucio.core.account import account_exists
 from rucio.db import models
-from rucio.db.session import get_session
-
-session = get_session()
+from rucio.db.session import read_session, transactional_session
 
 
-def exist_identity_account(identity, type, account):
+@read_session
+def exist_identity_account(identity, type, account, session=None):
     """ Check if a identity is mapped to an account.
 
     :param identity: The user identity.
     :param type: The type of identity, e.g. userpass, x509, gss...
     :param account: The account name.
+    :param session: The database session in use.
+
     :returns: True if identity is mapped to account, otherwise False
 
     """
@@ -34,7 +35,8 @@ def exist_identity_account(identity, type, account):
     return result is not None
 
 
-def get_auth_token_user_pass(account, username, password, ip=None):
+@transactional_session
+def get_auth_token_user_pass(account, username, password, ip=None, session=None):
     """Authenticate a Rucio account temporarily via username and password.
 
     The tokens initial lifetime is 1 hour.
@@ -43,6 +45,8 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     :param username: Username as a string.
     :param password: SHA1 hash of the password as a string.
     :param ip: IP address of the client.
+    :param session: The database session in use.
+
     :returns: Authentication token as a 32 character hex string."""
 
     # Make sure the account exists
@@ -70,7 +74,8 @@ def get_auth_token_user_pass(account, username, password, ip=None):
     return token
 
 
-def get_auth_token_x509(account, dn, ip=None):
+@transactional_session
+def get_auth_token_x509(account, dn, ip=None, session=None):
     """Authenticate a Rucio account temporarily via an x509 certificate.
 
     The tokens initial lifetime is 1 hour.
@@ -78,6 +83,8 @@ def get_auth_token_x509(account, dn, ip=None):
     :param account: Account identifier.
     :param dn: Client certificate distinguished name string, as extracted by Apache/mod_ssl.
     :param ip: IP address of the client.
+    :param session: The database session in use.
+
     :returns: Authentication token as a 32 character hex string."""
 
     # Make sure the account exists
@@ -95,7 +102,8 @@ def get_auth_token_x509(account, dn, ip=None):
     return token
 
 
-def get_auth_token_gss(account, gsstoken, ip=None):
+@transactional_session
+def get_auth_token_gss(account, gsstoken, ip=None, session=None):
     """Authenticate a Rucio account temporarily via a GSS token.
 
     The tokens initial lifetime is 1 hour.
@@ -103,6 +111,8 @@ def get_auth_token_gss(account, gsstoken, ip=None):
     :param account: Account identifier.
     :param gsscred: GSS principal@REALM
     :param ip: IP address of the client.
+    :param session: The database session in use.
+
     :returns: Authentication token as a 32 character hex string."""
 
     # Make sure the account exists
@@ -120,11 +130,14 @@ def get_auth_token_gss(account, gsstoken, ip=None):
     return token
 
 
-def validate_auth_token(token):
+@read_session
+def validate_auth_token(token, session=None):
     """Validate an authentication token.
 
     :param account: Account identifier.
     :param token: Authentication token as a 32 character hex string.
+    :param session: The database session in use.
+
     :returns: Tuple(account name, Datetime(expected expiry time)) if successful, None otherwise."""
 
     # Be gentle with bash variables, there can be whitespace

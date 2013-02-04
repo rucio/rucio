@@ -9,23 +9,23 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from re import match
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.db import models
-from rucio.db.session import get_session
-
-session = get_session()
+from rucio.db.session import read_session, transactional_session
 
 
-def add_scope(scope, account):
+@transactional_session
+def add_scope(scope, account, session=None):
     """ add a scope for the given account name.
 
     :param scope: the name for the new scope.
     :param account: the account to add the scope to.
+    :param session: The database session in use.
     """
 
     result = session.query(models.Account).filter_by(account=account).first()
@@ -47,16 +47,18 @@ def add_scope(scope, account):
     session.commit()
 
 
-def bulk_add_scopes(scopes, account, skipExisting=False):
+@read_session
+def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
     """ add a group of scopes, this call should not be exposed to users.
 
     :param scopes: a list of scopes to be added.
     :param account: the account associated to the scopes.
+    :param session: The database session in use.
     """
 
     for scope in scopes:
         try:
-            add_scope(scope, account)
+            add_scope(scope, account, session=session)
         except Duplicate:
             if skipExisting:
                 pass
@@ -64,9 +66,12 @@ def bulk_add_scopes(scopes, account, skipExisting=False):
                 raise
 
 
-def list_scopes():
+@read_session
+def list_scopes(session=None):
     """
     Lists all scopes.
+
+    :param session: The database session in use.
 
     :returns: A list containing all scopes.
     """
@@ -77,10 +82,13 @@ def list_scopes():
     return scope_list
 
 
-def get_scopes(account):
+@read_session
+def get_scopes(account, session=None):
     """ get all scopes defined for an account.
 
     :param account: the account name to list the scopes of.
+    :param session: The database session in use.
+
     :returns: a list of all scope names for this account.
     """
 
@@ -97,21 +105,27 @@ def get_scopes(account):
     return scope_list
 
 
-def check_scope(scope_to_check):
+@read_session
+def check_scope(scope_to_check, session=None):
     """ check to see if scope exists.
 
-    :param scope: the scope to check
+    :param scope: the scope to check.
+    :param session: The database session in use.
+
     :returns: True or false
     """
 
     return True if session.query(models.Scope).filter_by(scope=scope_to_check).first() else False
 
 
-def is_scope_owner(scope, account):
+@read_session
+def is_scope_owner(scope, account, session=None):
     """ check to see if account owns the scope.
 
-    :param scope: the scope to check
-    :param account: the account to check
+    :param scope: the scope to check.
+    :param account: the account to check.
+    :param session: The database session in use.
+
     :returns: True or false
     """
     return True if session.query(models.Scope).filter_by(scope=scope, account=account).first() else False

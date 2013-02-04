@@ -42,7 +42,8 @@ class TestRseWebDAV():
             print '%s/%s' % (cls.tmpdir, f)
 
         # Load local credentials from file
-        data = json.load(open('etc/rse-accounts.cfg'))
+        with open('etc/rse-accounts.cfg') as f:
+            data = json.load(f)
         credentials = data[site]
 
         print credentials
@@ -63,7 +64,8 @@ class TestRseWebDAV():
         site = 'TAIWAN-LCG2_PPSSCRATCHDISK'
         credentials = {}
         # Load local credentials from file
-        data = json.load(open('etc/rse-accounts.cfg'))
+        with open('etc/rse-accounts.cfg') as f:
+            data = json.load(f)
         storage = rsemanager.RSE(site)
         credentials = data[site]
         props = storage._RSE__props

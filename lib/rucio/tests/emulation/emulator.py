@@ -26,7 +26,8 @@ import rucio.tests.emulation.usecases
 """
 
 if __name__ == '__main__':
-    cfg = json.load(open('/opt/rucio/etc/emulation.cfg'))
+    with open('/opt/rucio/etc/emulation.cfg') as f:
+        cfg = json.load(f)
 
     if cfg['global']['operation_mode'] == 'verbose':
         print '=' * 80
