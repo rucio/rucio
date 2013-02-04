@@ -13,21 +13,19 @@ function usage {
   echo "Usage: $0 [OPTION]..."
   echo "Run Rucio's test suite(s)"
   echo ""
-  echo "  --skip-rse-tests              Skip RSE tests."
+  echo "  -s, --skip-rse-tests              Skip RSE tests."
+  echo "  -c, --class                       Include only named class."
   exit
 }
 
-function process_option {
-  case "$1" in
-    -h|--help) usage;;
-    --skip-rse-tests) noseopts="--exclude=.*test_rse_protocol_.*";;
+while getopts hsc: opt
+do
+  case "$opt" in
+    h|help) usage;;
+    s|skip-rse-tests) noseopts="--exclude=.*test_rse_protocol_.*";;
+    c|class) noseopts=$OPTARG;;
   esac
-}
-
-for arg in "$@"; do
-  process_option $arg
 done
-
 
 # Cleanup *pyc
 echo "cleaning *.pyc files"
