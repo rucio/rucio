@@ -34,18 +34,10 @@ class TestMetaDIDClient():
         tmp_scope = 'scope_%s' % uuid()
         self.scope_client.add_scope('root', tmp_scope)
 
-        # Add a RSE
-        tmp_rse = 'rse_%s' % uuid()
-        self.rse_client.add_rse(tmp_rse)
-
-        # Add a file replica
-        tmp_file = 'file_%s' % uuid()
-        self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
-
         # Add a dataset
-        tmp_dataset = 'dataset_' + str(uuid())
-        files = [{'scope': tmp_scope, 'name': tmp_file}, ]
-        self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
+        tmp_dataset = 'dsn_%s' % uuid()
+
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
 
         # Add a key
         key = 'key_' + str(uuid())

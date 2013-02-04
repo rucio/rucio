@@ -22,17 +22,30 @@ OK = 0
 
 if __name__ == '__main__':
 
-    meta_keys = ['project', 'run_number', 'stream_name',
-                 'prod_step', 'datatype', 'version', 'guid']
+    meta_keys = [('project', None, ['data13_hip', ]),
+                 ('run_number', None, []),
+                 ('stream_name', None, []),
+                 ('prod_step', None, []),
+                 ('datatype', None, []),
+                 ('version', None, []),
+                 ('guid', '[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}', []),
+                 ('events', '^\d+$', [])]
 
     c = Client()
-    for key in meta_keys:
+    for key, regexp, values in meta_keys:
         try:
-            c.add_key(key=key)
-        except Duplicate:
-            print '%(key)s already added' % locals()
+            try:
+                c.add_key(key=key, regexp=regexp)
+            except Duplicate:
+                print '%(key)s already added' % locals()
+            for value in values:
+                try:
+                    c.add_value(key=key, value=value)
+                except Duplicate:
+                    print '%(key)s:%(value)s already added' % locals()
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
             print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+
     sys.exit(OK)

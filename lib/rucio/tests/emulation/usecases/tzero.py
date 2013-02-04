@@ -44,7 +44,7 @@ class UseCaseDefinition(UCEmulator):
         self.dataset_meta['run_number'] = str(uuid.uuid4())
         tmp_dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % self.dataset_meta
         rules = [{'copies': 1, 'rse_expression': 'rse=%s' % self.rse, 'lifetime': timedelta(days=2)}]
-        self.did_client.add_identifier(scope=self.scope, name=tmp_dsn, sources=[], statuses={'monotonic': True}, meta=self.dataset_meta, rules=rules)
+        self.did_client.add_dataset(scope=self.scope, name=tmp_dsn, statuses={'monotonic': True}, meta=self.dataset_meta, rules=rules)
         try:
             self.datasets['open'].append(tmp_dsn)
         except Exception, e:
@@ -70,12 +70,13 @@ class UseCaseDefinition(UCEmulator):
             lfn = '%(tmp_dsn)s.' % locals() + str(uuid.uuid4())
             pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
-            file_meta = {'guid': str(uuid.uuid4())}
+            file_meta = {'guid': str(uuid.uuid4()),
+                         'events': 10}
             sources.append({'scope': self.scope, 'name': lfn,
                             'size': 724963570L, 'checksum': '0cc737eb',
                             'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
         try:
-            self.did_client.append_identifier(scope=self.scope, name=tmp_dsn, sources=sources)
+            self.did_client.add_files_to_dataset(scope=self.scope, name=tmp_dsn, files=sources)
         except Exception, e:
             print 'UC_TZ_REGISTER_APPEND: Unable to append files to a dataset'
             print e
@@ -92,7 +93,7 @@ class UseCaseDefinition(UCEmulator):
             tmp_dsn = choice(self.datasets['open'])
             self.datasets['open'].remove(tmp_dsn)
             try:
-                self.did_client.set_status(scope=self.scope, name=tmp_dsn, open=False)
+                self.did_client.close(scope=self.scope, name=tmp_dsn)
             except Exception, e:
                 print 'UC_TZ_FREEZE_DATASET: Unable to close dataset'
                 print e

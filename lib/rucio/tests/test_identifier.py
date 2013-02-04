@@ -41,7 +41,6 @@ class TestIdentifierClients():
 
         self.scope_client.add_scope('root', tmp_scope)
         self.rse_client.add_rse(tmp_rse)
-
         dataset_meta = {'project': 'data13_hip',
                         'run_number': str(generate_uuid()),
                         'stream_name': 'physics_CosmicCalo',
@@ -49,44 +48,35 @@ class TestIdentifierClients():
                         'datatype': 'NTUP_TRIG',
                         'version': 'f392_m927',
                         }
-        sources = []
+        rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
+
+        files = []
+        for i in xrange(5):
+            lfn = 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid())
+            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
+            file_meta = {'guid': str(generate_uuid()), 'events': 10}
+            files.append({'scope': tmp_scope, 'name': lfn,
+                          'size': 724963570L, 'checksum': '0cc737eb',
+                          'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
+
+        rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files)
+
+        files = []
         for i in xrange(5):
             lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
             pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
-            file_meta = {'guid': str(generate_uuid())}
-            sources.append({'scope': tmp_scope, 'name': lfn,
-                            'size': 724963570L, 'checksum': '0cc737eb',
-                            'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
+            file_meta = {'guid': str(generate_uuid()), 'events': 100}
+            files.append({'scope': tmp_scope, 'name': lfn,
+                          'size': 724963570L, 'checksum': '0cc737eb',
+                          'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
         rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
-        self.did_client.add_identifier(scope=tmp_scope, name=tmp_dsn, sources=sources, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
+        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files)
 
-        sources = []
-        for i in xrange(5):
-            lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
-            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
-            pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
-            file_meta = {'guid': str(generate_uuid())}
-            sources.append({'scope': tmp_scope, 'name': lfn,
-                            'size': 724963570L, 'checksum': '0cc737eb',
-                            'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
-        rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
-
-        # self.did_client.append_identifier(scope=tmp_scope, name=tmp_dsn, sources=sources)
-        self.did_client.set_status(scope=tmp_scope, name=tmp_dsn, open=False)
-
-        # to test nested transaction (for latter)
-        #sources = []
-        #lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
-        #pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
-        #pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
-        #file_meta = {'guid': str(generate_uuid())}
-        #sources.append({'scope': tmp_scope, 'name': lfn,
-        #                'size': 724963570L, 'checksum': '0cc737eb',
-        #                'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
-        #with assert_raises(DataIdentifierAlreadyExists):
-        #    self.did_client.add_identifier(scope=tmp_scope, name=tmp_dsn, sources=sources, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
-        #did = self.did_client.get_did(tmp_scope, lfn)
+        self.did_client.close(scope=tmp_scope, name=tmp_dsn)
 
     def test_exists(self):
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
@@ -127,13 +117,15 @@ class TestIdentifierClients():
         for i in xrange(10):
             for j in xrange(10):
                 files = [{'scope': self.tmp_scopes[j], 'name': self.tmp_files[j]}]
-                self.did_client.add_identifier(self.tmp_scopes[i], self.tmp_datasets[j], files)
+                self.did_client.add_dataset(self.tmp_scopes[i], self.tmp_datasets[j])
+                self.did_client.add_files_to_dataset(self.tmp_scopes[i], self.tmp_datasets[j], files)
 
         # put datasets in containers
         for i in xrange(10):
             for j in xrange(10):
                 datasets = [{'scope': self.tmp_scopes[j], 'name': self.tmp_datasets[j]}]
-                self.did_client.add_identifier(self.tmp_scopes[i], self.tmp_containers[j], datasets)
+                self.did_client.add_container(self.tmp_scopes[i], self.tmp_containers[j])
+                self.did_client.add_datasets_to_container(self.tmp_scopes[i], self.tmp_containers[j], datasets)
 
         # reverse check if everything is in order
         for i in xrange(10):
@@ -219,10 +211,15 @@ class TestIdentifierClients():
             self.rse_client.add_file_replica(rse, scope, files1[i]['name'], 1L, 1L)
             self.rse_client.add_file_replica(rse, scope, files2[i]['name'], 1L, 1L)
 
-        self.did_client.add_identifier(scope, dataset1, files1)
-        self.did_client.add_identifier(scope, dataset2, files2)
+        self.did_client.add_dataset(scope, dataset1)
+        self.did_client.add_files_to_dataset(scope, dataset1, files1)
+
+        self.did_client.add_dataset(scope, dataset2)
+        self.did_client.add_files_to_dataset(scope, dataset2, files2)
+
         datasets = [{'scope': scope, 'name': dataset1}, {'scope': scope, 'name': dataset2}]
-        self.did_client.add_identifier(scope, container, datasets)
+        self.did_client.add_container(scope, container)
+        self.did_client.add_datasets_to_container(scope, container, datasets)
 
         contents = self.did_client.list_content(scope, container)
 
@@ -249,16 +246,19 @@ class TestIdentifierClients():
         tmp_file = 'file_%s' % generate_uuid()
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 
-        # Add file to dataset
+        # Add dataset
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
+
+        # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file}, ]
-        self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
+        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Add a second file replica
         tmp_file = 'file_%s' % generate_uuid()
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file}, ]
-        self.did_client.append_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
+        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Close dataset
         with assert_raises(UnsupportedStatus):
@@ -270,4 +270,4 @@ class TestIdentifierClients():
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file}, ]
-        self.did_client.append_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
+        self.did_client.append_identifier(scope=tmp_scope, name=tmp_dataset, dids=files)

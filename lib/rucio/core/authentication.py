@@ -50,7 +50,7 @@ def get_auth_token_user_pass(account, username, password, ip=None, session=None)
     :returns: Authentication token as a 32 character hex string."""
 
     # Make sure the account exists
-    if not account_exists(account):
+    if not account_exists(account, session=session):
         return None
 
     result = session.query(models.Identity).filter_by(identity=username, type='userpass').first()
@@ -69,7 +69,6 @@ def get_auth_token_user_pass(account, username, password, ip=None, session=None)
     token = str(uuid.uuid4()).replace('-', '')
 
     session.add(models.Authentication(account=db_account, token=token, ip=ip))
-    session.commit()
 
     return token
 
@@ -88,7 +87,7 @@ def get_auth_token_x509(account, dn, ip=None, session=None):
     :returns: Authentication token as a 32 character hex string."""
 
     # Make sure the account exists
-    if not account_exists(account):
+    if not account_exists(account, session=session):
         return None
 
     session.query(models.Identity).filter_by(identity=dn, type='x509').first()
@@ -97,7 +96,6 @@ def get_auth_token_x509(account, dn, ip=None, session=None):
     token = str(uuid.uuid4()).replace('-', '')
 
     session.add(models.Authentication(account=account, token=token, ip=ip))
-    session.commit()
 
     return token
 
@@ -116,7 +114,7 @@ def get_auth_token_gss(account, gsstoken, ip=None, session=None):
     :returns: Authentication token as a 32 character hex string."""
 
     # Make sure the account exists
-    if not account_exists(account):
+    if not account_exists(account, session=session):
         return None
 
     session.query(models.Identity).filter_by(identity=gsstoken, type='gsstoken').first()
@@ -125,7 +123,6 @@ def get_auth_token_gss(account, gsstoken, ip=None, session=None):
     token = str(uuid.uuid4()).replace('-', '')
 
     session.add(models.Authentication(account=account, token=token, ip=ip))
-    session.commit()
 
     return token
 
@@ -147,7 +144,6 @@ def validate_auth_token(token, session=None):
     q = session.query(models.Authentication.account, models.Authentication.lifetime).filter(models.Authentication.token == token, models.Authentication.lifetime > datetime.datetime.utcnow())
 
     r = q.all()
-    session.close()
 
     if r is not None and r != []:
         return {'account': r[0][0], 'lifetime': r[0][1]}

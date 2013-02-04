@@ -37,14 +37,11 @@ def add_scope(scope, account, session=None):
     try:
         new_scope.save(session=session)
     except IntegrityError, e:
-        session.rollback()
         if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
         if e.args[0] == "(IntegrityError) column scope is not unique":
             raise Duplicate('Scope \'%s\' already exists!' % scope)
         raise RucioException(e.args[0])
-
-    session.commit()
 
 
 @read_session
@@ -60,9 +57,7 @@ def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
         try:
             add_scope(scope, account, session=session)
         except Duplicate:
-            if skipExisting:
-                pass
-            else:
+            if not skipExisting:
                 raise
 
 

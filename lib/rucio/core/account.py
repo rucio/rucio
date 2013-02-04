@@ -16,7 +16,7 @@ from sqlalchemy.orm import exc
 
 from rucio.common import exception
 from rucio.db import models
-from rucio.db.session import read_session, transactional_session
+from rucio.db.session import read_session, transactional_session, in_transaction
 
 
 class account_status:
@@ -28,7 +28,7 @@ class account_status:
     not_exist = 'not_exist'
 
 
-@transactional_session
+@in_transaction(nested=False)
 def add_account(account_name, account_type, session=None):
     """ Add an account with the given account name and type.
 
@@ -48,10 +48,7 @@ def add_account(account_name, account_type, session=None):
     try:
         new_account.save(session=session)
     except IntegrityError:
-        session.rollback()
         raise exception.Duplicate('Account ID \'%s\' already exists!' % values['account'])
-
-    session.commit()
 
 
 @read_session
@@ -103,7 +100,6 @@ def del_account(account_name, session=None):
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
 
     account.delete(session=session)
-    session.commit()
 
 
 @read_session
@@ -129,9 +125,7 @@ def set_account_status(account_name, status, session=None):
     :param status: The status for the account.
     :param session: the database session in use.
     """
-
     session.query(models.Account).filter_by(account=account_name).update({'status': status})
-    session.commit()
 
 
 @read_session

@@ -12,6 +12,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from json import dumps, loads
+from traceback import format_exc
 from urlparse import parse_qs
 from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized, OK
 
@@ -23,7 +24,8 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
                                     AccessDenied, KeyNotFound,
                                     Duplicate, InvalidValueForKey,
-                                    UnsupportedStatus, UnsupportedOperation)
+                                    UnsupportedStatus, UnsupportedOperation,
+                                    RSENotFound, RucioException)
 from rucio.common.log import log
 from rucio.common.utils import generate_http_error
 
@@ -117,7 +119,10 @@ class Identifiers:
             raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
     #@log
@@ -144,15 +149,20 @@ class Identifiers:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        sources = list()
+        statuses, meta, rules = {}, [], []
         try:
             json_data = loads(data())
-            if 'sources' in json_data:
-                sources = json_data['sources']
+            type = json_data['type']
+            if 'statuses' in json_data:
+                statuses = json_data['statuses']
+            if 'meta' in json_data:
+                meta = json_data['meta']
+            if 'rules' in json_data:
+                rules = json_data['rules']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            add_identifier(scope=scope, name=name, sources=sources, issuer=auth['account'])
+            add_identifier(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -163,7 +173,10 @@ class Identifiers:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
         raise Created()
 
@@ -205,7 +218,10 @@ class Identifiers:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
         raise OK()
@@ -247,7 +263,10 @@ class Content:
             return dumps(list_content(scope=scope, name=name))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
     @log
@@ -274,15 +293,14 @@ class Content:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        sources = list()
         try:
             json_data = loads(data())
-            if 'sources' in json_data:
-                sources = json_data['sources']
+            if 'dids' in json_data:
+                dids = json_data['dids']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            append_identifier(scope=scope, name=name, sources=sources, issuer=auth['account'])
+            append_identifier(scope=scope, name=name, dids=dids, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -291,8 +309,14 @@ class Content:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
-        #except Exception, e:
-        #    raise InternalError(e)
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
         raise Created()
 
     def PUT(self):
@@ -342,7 +366,10 @@ class Replicas:
                 yield dumps(replica) + '\n'
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
     def PUT(self):
@@ -425,7 +452,13 @@ class Meta:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        return dumps(get_metadata(scope=scope, name=name))
+        try:
+            return dumps(get_metadata(scope=scope, name=name))
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')
@@ -477,7 +510,10 @@ class Meta:
             raise generate_http_error(400, 'KeyNotFound', e[0][0])
         except InvalidValueForKey, e:
             raise generate_http_error(400, 'InvalidValueForKey', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
         raise Created()

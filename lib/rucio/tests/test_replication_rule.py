@@ -54,7 +54,8 @@ class TestIdentifierClients():
             tmp_file = 'file_%s' % uuid()
             self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
             files = [{'scope': tmp_scope, 'name': tmp_file}, ]
-            self.did_client.add_identifier(scope=tmp_scope, name=tmp_dataset, sources=files)
+            self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
+            self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
             dsns.append({'scope': tmp_scope, 'name': tmp_dataset})
 
         ret = self.rule_client.add_replication_rule(dids=dsns, copies=2, rse_expression='Tier=1')
