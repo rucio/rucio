@@ -82,5 +82,19 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "CERN-PROD_TZERO":{
+    "backend_type": "Castor",
+    "protocols": {
+      "default": "castor",
+      "prefix": "/castor/cern.ch/grid/atlas/tzero/",
+      "supported": {
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://srm-atlas.cern.ch:8443/srm/managerv2"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
   }
 }

@@ -53,10 +53,7 @@ def add_identity(identity, type, password=None, session=None):
     try:
         new_id.save(session=session)
     except IntegrityError:
-        session.rollback()
         raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
-
-    session.commit()
 
 
 @transactional_session
@@ -70,12 +67,9 @@ def del_identity(identity, type, session=None):
     """
 
     id = session.query(models.Identity).filter_by(identity=identity, type=type).first()
-
     if id is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
-
     id.delete(session)
-    session.commit()
 
 
 @transactional_session
@@ -92,21 +86,17 @@ def add_account_identity(identity, type, account, default=False, session=None):
     if not account_exists(account, session=session):
         raise exception.AccountNotFound('Account \'%s\' does not exist.' % account)
 
-    id = models.Identity(identity=identity, type=type)
-    iaa = models.IdentityAccountAssociation(identity=id.identity, type=id.type, account=account)
-
-    try:
+    id = session.query(models.Identity).filter_by(identity=identity, type=type).first()
+    if id is None:
+        id = models.Identity(identity=identity, type=type)
         id.save(session=session)
-    except IntegrityError:
-        session.rollback()
+
+    iaa = models.IdentityAccountAssociation(identity=id.identity, type=id.type, account=account)
 
     try:
         iaa.save(session=session)
     except IntegrityError:
-        session.rollback()
         raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
-
-    session.commit()
 
 
 @transactional_session
@@ -119,14 +109,10 @@ def del_account_identity(identity, type, account, session=None):
     :param account: The account name.
     :param session: The database session in use.
     """
-
     aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account).first()
-
     if aid is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
-
     aid.delete(session)
-    session.commit()
 
 
 @read_session

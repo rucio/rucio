@@ -6,14 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from random import choice
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
-from rucio.core import identifier, rse
+from rucio.core.identifier import list_files
+from rucio.core.rse import list_rses
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 
@@ -39,7 +39,7 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters, sess
     for exp in rse_expression.split('and'):
         k, v = exp.split('=')
         filters[k] = v
-    rses = rse.list_rses(filters=filters, session=session)
+    rses = list_rses(filters=filters, session=session)
 
     rule_id = generate_uuid()
     for did in dids:
@@ -49,8 +49,7 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters, sess
             new_rule.save(session=session)
         except IntegrityError, e:
             print e
-            session.rollback()
-            raise RucioException(e.args[0])
+            raise
 
         # Insert the locks
         # Apply the weight ? disk space ? quotas ? grouping (dataset for now) ?
@@ -63,7 +62,6 @@ def add_replication_rule(dids, account, copies, rse_expression, parameters, sess
             did_locks.append(did_lock)
         add_replica_locks(locks=did_locks, session=session)
 
-    session.commit()
     return rule_id
 
 
@@ -104,7 +102,7 @@ def add_replica_locks(locks, session=None):
         new_lock.save(session=session)
 
         # Get did content
-        files = identifier.list_files(scope=lock['scope'], name=lock['name'], session=session)
+        files = list_files(scope=lock['scope'], name=lock['name'], session=session)
         # Generate the replica locks for file, and eventually the transfer request
         for file in files:
             new_lock = models.ReplicaLock(rule_id=lock['id'], rse_id=rse.id, scope=file['scope'], name=file['name'], account=lock['account'])

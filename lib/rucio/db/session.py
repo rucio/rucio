@@ -194,3 +194,36 @@ def transactional_session(function):
         return result
     new_funct.__doc__ = function.__doc__
     return new_funct
+
+
+def in_transaction(nested=False):
+    '''
+    decorator that set the session variable to use inside a function.
+    With that decorator it's possible to use the session variable like if a global variable session is declared.
+
+    session is a sqlalchemy session, and you can get one calling get_session().
+    '''
+    def decorator(function):
+        @wraps(function)
+        def new_funct(*args, **kwargs):
+            s = kwargs.get('session', None)
+            if not s:
+                session = get_session()
+                if nested:
+                    session.begin(subtransactions=True)
+                try:
+                    kwargs['session'] = session
+                    result = function(*args, **kwargs)
+                except:
+                    session.rollback()
+                    raise
+                else:
+                    session.commit()
+                finally:
+                    session.close()
+            else:
+                result = function(*args, **kwargs)
+            return result
+        new_funct.__doc__ = function.__doc__
+        return new_funct
+    return decorator

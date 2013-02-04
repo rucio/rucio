@@ -58,7 +58,7 @@ def log(fn):
             logData['responseHeader'] = dumps(ctx.headers)
             logger.info('', extra=logData)
             return ret
-        except Exception, e:
+        except Exception:
             duration = time() - start
             logData = extractLogData(ctx)
             logData['duration'] = duration
@@ -68,7 +68,7 @@ def log(fn):
                 logger.info('', extra=logData)
             else:
                 logger.error('', extra=logData)
-            raise e
+            raise
     return wrapped
 
 
