@@ -20,12 +20,13 @@ class TestRseRepository():
     def test_storage_success(self):
         """ RSE (RSE): Repository => Using a defined storage """
         credentials = {}
-        data = json.load(open('etc/rse-accounts.cfg'))
+        with open('etc/rse-accounts.cfg') as f:
+            data = json.load(f)
         credentials['username'] = str(data['lxplus.cern.ch']['username'])
         credentials['password'] = str(data['lxplus.cern.ch']['password'])
         credentials['host'] = 'lxplus.cern.ch'
         self.storage = rsemanager.RSE('lxplus.cern.ch')
-        self.storage.connect(credentials)
+        self.storage.connect()
         self.storage.close()
 
     @raises(exception.RSENotFound)

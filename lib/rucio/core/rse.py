@@ -18,17 +18,16 @@ from sqlalchemy.orm import aliased
 from rucio.common import exception
 from rucio.db import models
 from rucio.db.history import versioned_session
-from rucio.db.session import get_session
+from rucio.db.session import read_session, transactional_session
 
 
-session = get_session()
-
-
-def add_rse(rse):
+@transactional_session
+def add_rse(rse, session=None):
     """
     Add a rse with the given location name.
 
     :param rse: the name of the new rse.
+    :param session: The database session in use.
     """
 
     new_rse = models.RSE(rse=rse)
@@ -43,22 +42,26 @@ def add_rse(rse):
     return new_rse.id
 
 
-def rse_exists(rse):
+@read_session
+def rse_exists(rse, session=None):
     """
     Checks to see if RSE exists. This procedure does not check its status.
 
     :param rse: Name of the rse.
+    :param session: The database session in use.
+
     :returns: True if found, otherwise false.
     """
-
     return True if session.query(models.RSE).filter_by(rse=rse).first() else False
 
 
-def del_rse(rse):
+@transactional_session
+def del_rse(rse, session=None):
     """
     Disable a rse with the given rse name.
 
     :param rse: the rse name.
+    :param session: The database session in use.
     """
 
     try:
@@ -70,9 +73,13 @@ def del_rse(rse):
     session.commit()
 
 
-def get_rse(rse):
+@read_session
+def get_rse(rse, session=None):
     """
     Get a RSE or raise if it does not exist.
+
+    :param rse: the rse name.
+    :param session: The database session in use.
     """
     try:
         query = session.query(models.RSE).filter_by(rse=rse)
@@ -82,11 +89,13 @@ def get_rse(rse):
     return location
 
 
-def list_rses(filters={}):
+@read_session
+def list_rses(filters={}, session=None):
     """
     Returns a list of all RSE names.
 
     :param filters: dictionary of attributes by which the results should be filtered.
+    :param session: The database session in use.
 
     returns: a list of all RSE names.
     """
@@ -118,43 +127,21 @@ def list_rses(filters={}):
     return rse_list
 
 
-def get_rse_tag(tag):
-    """Get a rse tag or raise if it does not exist."""
-    try:
-        query = session.query(models.RSETag).filter_by(tag=tag)
-        rse = query.one()
-        return rse
-    except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSETagNotFound('RSE Tag \'%s\' cannot be found' % tag)
-
-
-def add_tag(tag, description=None):
-    """ Add a RSE tag.
-
-    :param tag: The RSE tag  name.
-    :param description: The description of the RSE tag.
-    """
-    try:
-        new_rse_tag = models.RSETag(tag=tag, description=description)
-        new_rse_tag.save(session=session)
-    except IntegrityError:
-        session.rollback()
-    return new_rse_tag
-
-
-def add_rse_attribute(rse, key, value):
+@transactional_session
+def add_rse_attribute(rse, key, value, session=None):
     """ Adds a RSE attribute.
 
     :param rse: the rse name.
     :param key: the key name.
     :param value: the value name.
     :param issuer: The issuer account.
+    :param session: The database session in use.
 
     returns: True is successfull
     """
     try:
         # Check location
-        l = get_rse(rse=rse)
+        l = get_rse(rse=rse, session=session)
 
         query = session.query(models.RSEAttribute).filter(models.RSEAttribute.key == key).filter(models.RSEAttribute.value == value)
         if not query.count():
@@ -172,16 +159,18 @@ def add_rse_attribute(rse, key, value):
         session.rollback()
 
 
-def del_rse_attribute(rse, key):
+@transactional_session
+def del_rse_attribute(rse, key, session=None):
     """
     Delete a RSE attribute.
 
     :param rse: the name of the rse.
     :param key: the attribute key.
+    :param session: The database session in use.
 
     :return: True if RSE attribute was deleted successfully else False.
     """
-    l = get_rse(rse=rse)
+    l = get_rse(rse=rse, session=session)
     query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id, deleted=False).filter(models.RSEAttrAssociation.key == key)
     try:
         rse_attr = query.one()
@@ -191,15 +180,17 @@ def del_rse_attribute(rse, key):
         pass
 
 
-def list_rse_attributes(rse):
+@read_session
+def list_rse_attributes(rse, session=None):
     """ List RSE attributes for a RSE.
 
     :param rse: the rse name.
+    :param session: The database session in use.
 
     :returns: A dictionary with RSE attributes for a RSE.
     """
     rse_attrs = {}
-    l = get_rse(rse=rse)
+    l = get_rse(rse=rse, session=session)
 
     query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id, deleted=False)
     for attr in query:
@@ -207,31 +198,8 @@ def list_rse_attributes(rse):
     return rse_attrs
 
 
-def get_rses(filters=None):
-    """
-    Gets the list of RSEs
-
-    :param filters: dictionary of attributes by which the results should be filtered.
-
-    returns: List of locations.
-    """
-    query = session.query(models.RSETagAssociation).\
-        join(models.RSE, models.RSE.id == models.RSETagAssociation.rse_id).\
-        join(models.RSETag, models.RSETag.id == models.RSETagAssociation.rse_tag_id)
-
-    if filters:
-        for (k, v) in filters.items():
-            if hasattr(models.RSE, k):
-                query = query.filter(getattr(models.RSE, k) == v)
-            if hasattr(models.RSETag, k):
-                query = query.filter(getattr(models.RSETag, k) == v)
-    tags = list()
-    for tag in query:
-        tags.append({'rse': tag.rse.rse, 'tag': tag.tag.tag})
-    return tags
-
-
-def set_rse_usage(rse, source, total, free):
+@transactional_session
+def set_rse_usage(rse, source, total, free, session=None):
     """
     Set RSE usage information.
 
@@ -239,6 +207,8 @@ def set_rse_usage(rse, source, total, free):
     :param source: the information source, e.g. srm.
     :param total: the total space in bytes.
     :param free: the free in bytes.
+    :param session: The database session in use.
+
     :returns: True if successfull, otherwise false.
     """
 
@@ -254,12 +224,14 @@ def set_rse_usage(rse, source, total, free):
     return True
 
 
-def get_rse_usage(rse, filters=None):
+@read_session
+def get_rse_usage(rse, filters=None, session=None):
     """
     get rse usage information.
 
     :param rse: the rse name.
     :param filters: dictionary of attributes by which the results should be filtered
+    :param session: The database session in use.
 
     :returns: True if successfull, otherwise false.
     """
@@ -281,12 +253,14 @@ def get_rse_usage(rse, filters=None):
     return result
 
 
-def get_rse_usage_history(rse, filters=None):
+@read_session
+def get_rse_usage_history(rse, filters=None, session=None):
     """
     get location usage history information.
 
     :param location: The location name.
     :param filters: dictionary of attributes by which the results should be filtered.
+    :param session: The database session in use.
 
     :returns:  list of locations.
     """
@@ -296,7 +270,8 @@ def get_rse_usage_history(rse, filters=None):
         result.append({'location': usage.location.location, 'source': usage.source, usage.name: usage.value, 'updated_at': usage.updated_at})
 
 
-def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=None, meta=None, rules=None):
+@transactional_session
+def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=None, meta=None, rules=None, session=None):
     """
     Add File replica.
 
@@ -309,12 +284,13 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     :param pfn: Physical file name (for nondeterministic rse).
     :meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
     :rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :param session: The database session in use.
 
     :returns: True is successfull.
     """
     new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
     new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
-    replica_rse = get_rse(rse=rse)
+    replica_rse = get_rse(rse=rse, session=session)
     new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, state='AVAILABLE')
 
     # Add optional pfn
@@ -356,12 +332,14 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     session.commit()
 
 
-def list_replicas(rse, filters={}):
+@read_session
+def list_replicas(rse, filters={}, session=None):
     """
     List RSE File replicas.
 
     :param rse: the rse name.
     :param filters: dictionary of attributes by which the results should be filtered.
+    :param session: The database session in use.
 
     :returns: a list of dictionary replica.
     """
@@ -380,7 +358,8 @@ def list_replicas(rse, filters={}):
         yield d
 
 
-def update_file_replica_state(rse, scope, name, state):
+@transactional_session
+def update_file_replica_state(rse, scope, name, state, session=None):
     """
     Update File replica information and state.
 
@@ -388,6 +367,7 @@ def update_file_replica_state(rse, scope, name, state):
     :param scope: the tag name.
     :param name: The data identifier name.
     :param state: The state.
+    :param session: The database session in use.
     """
 
     rse = session.query(models.RSE).filter_by(rse=rse).one()

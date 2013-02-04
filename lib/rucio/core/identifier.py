@@ -18,20 +18,20 @@ from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.core.rse import add_file_replica
 from rucio.db import models
-from rucio.db.session import get_session
+from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
 
-session = get_session()
-
-
-def list_replicas(scope, name, protocols=None):
+@read_session
+def list_replicas(scope, name, protocols=None, session=None):
     """
     List file replicas for a data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param protocols: A list of protocols to filter the replicas."
+    :param protocols: A list of protocols to filter the replicas.
+    :param session: The database session in use.
+
     """
 
     rsemgr = rsemanager.RSEMgr()
@@ -53,7 +53,8 @@ def list_replicas(scope, name, protocols=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found")
 
 
-def add_identifier(scope, name, sources, issuer):
+@transactional_session
+def add_identifier(scope, name, sources, issuer, session=None):
     """
     Add data identifier.
 
@@ -61,6 +62,8 @@ def add_identifier(scope, name, sources, issuer):
     :param name: The data identifier name.
     :param sources: The content.
     :param issuer: The issuer account.
+    :param session: The database session in use.
+
     """
     # session.begin(subtransactions=True)
     data_type = None
@@ -118,7 +121,8 @@ def add_identifier(scope, name, sources, issuer):
     session.commit()
 
 
-def append_identifier(scope, name, sources, issuer):
+@transactional_session
+def append_identifier(scope, name, sources, issuer, session=None):
     """
     Append data identifier.
 
@@ -126,6 +130,7 @@ def append_identifier(scope, name, sources, issuer):
     :param name: The data identifier name.
     :param sources: The content.
     :param issuer: The issuer account.
+    :param session: The database session in use.
     """
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False)
     try:
@@ -160,12 +165,14 @@ def append_identifier(scope, name, sources, issuer):
     session.commit()
 
 
-def list_content(scope, name):
+@read_session
+def list_content(scope, name, session=None):
     """
     List data identifier contents.
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param session: The database session in use.
     """
 
     dids = []
@@ -179,12 +186,14 @@ def list_content(scope, name):
     return dids
 
 
-def list_files(scope, name):
+@read_session
+def list_files(scope, name, session=None):
     """
     List data identifier file contents.
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param session: The database session in use.
     """
 
     # TODO: Optional traverse hierarchy
@@ -199,12 +208,14 @@ def list_files(scope, name):
     return files
 
 
-def scope_list(scope):
+@read_session
+def scope_list(scope, session=None):
     """
     List data identifiers in a scope.
 
     :param scope: The scope name.
     :returns: List of data identifiers dictionaries.
+    :param session: The database session in use.
     """
 
     query = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
@@ -219,12 +230,14 @@ def scope_list(scope):
     return dids
 
 
-def get_did(scope, name):
+@read_session
+def get_did(scope, name, session=None):
     """
     Retrieve a single data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param session: The database session in use.
     """
 
     did_r = {'scope': None, 'name': None, 'type': None}
@@ -241,7 +254,8 @@ def get_did(scope, name):
     return did_r
 
 
-def set_metadata(scope, name, key, value):
+@transactional_session
+def set_metadata(scope, name, key, value, session=None):
     """
     Add metadata to data identifier.
 
@@ -249,6 +263,7 @@ def set_metadata(scope, name, key, value):
     :param name: The data identifier name.
     :param key: the key.
     :param value: the value.
+    :param session: The database session in use.
     """
     new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value)
     try:
@@ -288,12 +303,14 @@ def set_metadata(scope, name, key, value):
     session.commit()
 
 
-def get_metadata(scope, name):
+@read_session
+def get_metadata(scope, name, session=None):
     """
     Get data identifier metadata
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param session: The database session in use.
     """
     meta = {}
     query = session.query(models.DIDAttribute).filter_by(scope=scope, name=name, deleted=False)
@@ -302,12 +319,14 @@ def get_metadata(scope, name):
     return meta
 
 
-def set_status(scope, name, **kwargs):
+@transactional_session
+def set_status(scope, name, session=None, **kwargs):
     """
     Set data identifier status
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param session: The database session in use.
     :param kwargs:  Keyword arguments of the form status_name=value.
     """
     statuses = ['open', ]

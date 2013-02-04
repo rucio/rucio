@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from re import match
 from sqlalchemy.exc import IntegrityError
@@ -14,18 +14,18 @@ from sqlalchemy.exc import IntegrityError
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.common.exception import Duplicate, RucioException, KeyNotFound, InvalidValueForKey, UnsupportedValueType
 from rucio.db import models
-from rucio.db.session import get_session
-
-session = get_session()
+from rucio.db.session import read_session, transactional_session
 
 
-def add_key(key, type=None, regexp=None):
+@transactional_session
+def add_key(key, type=None, regexp=None, session=None):
     """
     Adds a new allowed key.
 
     :param key: the name for the new key.
     :param type: the type of the value, if defined.
     :param regexp: the regular expression that values should match, if defined.
+    :param session: The database session in use.
     """
 
     # Check if type is supported
@@ -44,18 +44,23 @@ def add_key(key, type=None, regexp=None):
     session.commit()
 
 
-def del_key(key):
+@transactional_session
+def del_key(key, session=None):
     """
     Deletes a key.
 
     :param key: the name for the key.
+    :param session: The database session in use.
     """
     pass
 
 
-def list_keys():
+@read_session
+def list_keys(session=None):
     """
     Lists all keys.
+
+    :param session: The database session in use.
 
     :returns: A list containing all keys.
     """
@@ -66,12 +71,14 @@ def list_keys():
     return key_list
 
 
-def add_value(key, value):
+@transactional_session
+def add_value(key, value, session=None):
     """
     Adds a new value to a key.
 
     :param key: the name for the key.
     :param value: the value.
+    :param session: The database session in use.
     """
     new_value = models.DIDKeyValueAssociation(key=key, value=value)
     try:
@@ -107,12 +114,13 @@ def add_value(key, value):
     session.commit()
 
 
-def list_values(key):
+@read_session
+def list_values(key, session=None):
     """
     Lists all values for a key.
 
     :param key: the name for the key.
-
+    :param session: The database session in use.
 
     :returns: A list containing all values.
     """

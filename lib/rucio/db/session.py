@@ -11,6 +11,7 @@
 
 
 from ConfigParser import NoOptionError
+from functools import wraps
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import DisconnectionError, OperationalError, DBAPIError
@@ -137,3 +138,59 @@ def get_session():
         :returns: session """
     engine = get_engine(echo=True)
     return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
+
+
+def read_session(function):
+    '''
+    decorator that set the session variable to use inside a function.
+    With that decorator it's possible to use the session variable like if a global variable session is declared.
+
+    session is a sqlalchemy session, and you can get one calling get_session().
+    This is useful if only SELECTs and the like are being done; anything involving
+    INSERTs, UPDATEs etc should use transactional_session.
+    '''
+    @wraps(function)
+    def new_funct(*args, **kwargs):
+        s = kwargs.get('session', '')
+        if not s:
+            session = get_session()
+            try:
+                kwargs['session'] = session
+                result = function(*args, **kwargs)
+            finally:
+                session.close()
+        else:
+            result = function(*args, **kwargs)
+        return result
+    new_funct.__doc__ = function.__doc__
+    return new_funct
+
+
+def transactional_session(function):
+    '''
+    decorator that set the session variable to use inside a function.
+    With that decorator it's possible to use the session variable like if a global variable session is declared.
+
+    session is a sqlalchemy session, and you can get one calling get_session().
+    '''
+    @wraps(function)
+    def new_funct(*args, **kwargs):
+        s = kwargs.get('session', '')
+        if not s:
+            session = get_session()
+            # session.begin(subtransactions=True)
+            try:
+                kwargs['session'] = session
+                result = function(*args, **kwargs)
+            except:
+                session.rollback()
+                raise
+            else:
+                session.commit()
+            finally:
+                session.close()
+        else:
+            result = function(*args, **kwargs)
+        return result
+    new_funct.__doc__ = function.__doc__
+    return new_funct
