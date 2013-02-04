@@ -38,11 +38,13 @@ class TestRseSFTP():
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
         # Load local credentials from file
-        data = json.load(open('etc/rse-accounts.cfg'))
+        with open('etc/rse-accounts.cfg') as f:
+            data = json.load(f)
         credentials = data['lxplus.cern.ch']
         credentials['host'] = 'lxplus.cern.ch'
         lxplus = pysftp.Connection(**credentials)
-        prefix = json.load(open('etc/rse_repository.json'))['lxplus.cern.ch']['protocols']['prefix']
+        with open('etc/rse_repository.json') as f:
+            prefix = json.load(f)['lxplus.cern.ch']['protocols']['prefix']
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         for f in MgrTestCases.files_remote:
@@ -56,12 +58,14 @@ class TestRseSFTP():
         """SFTP (RSE/PROTOCOLS): Removing created directorie s and files """
         # Load local creditentials from file
         credentials = {}
-        data = json.load(open('etc/rse-accounts.cfg'))
+        with open('etc/rse-accounts.cfg') as f:
+            data = json.load(f)
         credentials['username'] = str(data['lxplus.cern.ch']['username'])
         credentials['password'] = str(data['lxplus.cern.ch']['password'])
         credentials['host'] = 'lxplus.cern.ch'
         lxplus = pysftp.Connection(**credentials)
-        prefix = json.load(open('etc/rse_repository.json'))['lxplus.cern.ch']['protocols']['prefix']
+        with open('etc/rse_repository.json') as f:
+            prefix = json.load(f)['lxplus.cern.ch']['protocols']['prefix']
         lxplus.execute('rm -rf %s' % prefix)
         lxplus.close()
         shutil.rmtree(cls.tmpdir)

@@ -16,9 +16,7 @@ from sqlalchemy.orm import exc
 
 from rucio.common import exception
 from rucio.db import models
-from rucio.db.session import get_session
-
-session = get_session()
+from rucio.db.session import read_session, transactional_session
 
 
 class account_status:
@@ -30,11 +28,13 @@ class account_status:
     not_exist = 'not_exist'
 
 
-def add_account(account_name, account_type):
+@transactional_session
+def add_account(account_name, account_type, session=None):
     """ Add an account with the given account name and type.
 
     :param account_name: the name of the new account.
     :param account_type: the type of the new account.
+    :param session: the database session in use.
     """
 
     values = {}
@@ -54,10 +54,13 @@ def add_account(account_name, account_type):
     session.commit()
 
 
-def account_exists(account_name):
+@read_session
+def account_exists(account_name, session=None):
     """ Checks to see if account exists. This procedure does not check it's status.
 
     :param account_name: Name of the account.
+    :param session: the database session in use.
+
     :returns: True if found, otherwise false.
     """
 
@@ -66,10 +69,13 @@ def account_exists(account_name):
     return True if query.first() else False
 
 
-def get_account(account_name):
+@read_session
+def get_account(account_name, session=None):
     """ Returns an account for the given account name.
 
     :param account_name: the name of the account.
+    :param session: the database session in use.
+
     :returns: a dict with all information for the account.
     """
 
@@ -81,10 +87,12 @@ def get_account(account_name):
     return result
 
 
-def del_account(account_name):
+@transactional_session
+def del_account(account_name, session=None):
     """ Disable an account with the given account name.
 
     :param account_name: the account name.
+    :param session: the database session in use.
     """
 
     query = session.query(models.Account).filter_by(account=account_name).filter_by(deleted=False)
@@ -98,10 +106,13 @@ def del_account(account_name):
     session.commit()
 
 
-def get_account_status(account_name):
+@read_session
+def get_account_status(account_name, session=None):
     """ Returns the state of the account.
 
     :param account_name: Name of the account.
+    :param session: the database session in use.
+
     """
 
     query = session.query(models.Account).filter_by(account=account_name)
@@ -110,19 +121,24 @@ def get_account_status(account_name):
     return acc_details.status
 
 
-def set_account_status(account_name, status):
+@transactional_session
+def set_account_status(account_name, status, session=None):
     """ Set the status of an account.
 
     :param account_name: Name of the account.
     :param status: The status for the account.
+    :param session: the database session in use.
     """
 
     session.query(models.Account).filter_by(account=account_name).update({'status': status})
     session.commit()
 
 
-def list_accounts():
+@read_session
+def list_accounts(session=None):
     """ Returns a list of all account names.
+
+    :param session: the database session in use.
 
     returns: a list of all account names.
     """
@@ -133,11 +149,13 @@ def list_accounts():
         yield {'account': row.account, 'type': row.type}
 
 
-def list_identities(account_name):
+@read_session
+def list_identities(account_name, session=None):
     """
     List all identities on an account.
 
     :param account_name: The account name.
+    :param session: the database session in use.
     """
     identity_list = list()
 

@@ -50,7 +50,8 @@ class UCEmulator(object):
         # Check what methods are decorated to be use case definition
         if 'setup' in dir(self):  # Calls setup-method of child class to support the implementation of correlated use cases
             self.setup(cfg)
-        tmp_json = json.load(open('/opt/rucio/lib/rucio/tests/emulation/timeseries/%s.json' % timeseries_file))
+        with open('/opt/rucio/lib/rucio/tests/emulation/timeseries/%s.json' % timeseries_file) as f:
+            tmp_json = json.load(f)
         for uc in self.__ucs:
             if uc in tmp_json:
                 self.__timeseries[uc] = tmp_json[uc]

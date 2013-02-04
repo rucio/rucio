@@ -370,6 +370,7 @@ class RSE(object):
             Establishes the connection to the referred storage system.
 
             :param path_to_credentials_file:    relative path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed
+            :param credentials:   Credentials
 
             :raises RSEAccessDenied: storage refuses to establish a connection
 
@@ -387,9 +388,11 @@ class RSE(object):
                 path = '/opt/rucio/etc/rse-accounts.cfg'
         try:
             # Load all user credentials
-            self.__credentials = json.load(open(path))
+            with open(path) as f:
+                self.__credentials = json.load(f)
         except Exception as e:
             raise exception.ErrorLoadingCredentials(e)
+
         if not self.__id in self.__credentials:
             self.__credentials[self.__id] = dict()
         if not self.__connected:
