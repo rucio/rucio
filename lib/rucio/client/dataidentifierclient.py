@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2013
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 
 from json import dumps
 from requests.status_codes import codes
@@ -185,15 +186,23 @@ class DataIdentifierClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def scope_list(self, scope):
+    def scope_list(self, scope, name=None, recursive=False):
         """
-        List data identifiers in scope.
+        List data identifiers in a scope.
 
         :param scope: The scope name.
+        :param name: The data identifier name.
+        :param recursive: boolean, True or False.
         """
 
+        payload = {}
         path = '/'.join([self.DIDS_BASEURL, scope, ''])
-        url = build_url(self.host, path=path)
+        if name:
+            payload['name'] = name
+        if recursive:
+            payload['recursive'] = True
+        url = build_url(self.host, path=path, params=payload)
+
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             dids = self._load_json_data(r)

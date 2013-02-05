@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 
 """
     Rucio CLI.
@@ -191,7 +192,6 @@ def list_replicas(args):
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
-
     protocols = None
     if args.protocols:
         protocols = args.protocols.split(',')
@@ -262,16 +262,19 @@ def list(args):
                 print 'Failed to list scopes'
                 print e
                 return FAILURE
-        else: # list dids in a scope
+        else:  # list dids in a scope
             client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
                                           account=args.account,
                                           auth_type=args.auth_strategy, creds=creds,
                                           ca_cert=args.ca_certificate, timeout=args.timeout)
 
             try:
-                dids = client.scope_list(scope=args.scope)
+                dids = client.scope_list(scope=args.scope, recursive=args.recursive)
                 for d in dids:
-                    print '%(scope)s:%(name)s [%(type)s]' % d
+                    if d['level'] == 0:
+                        print '%(scope)s:%(name)s [%(type)s]' % d
+                    else:
+                        print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
             except Exception, e:
                 print e
                 return FAILURE
@@ -283,9 +286,12 @@ def list(args):
         for did in args.dids:
             try:
                 scope, name = did.split(':')
-                dids = client.list_content(scope=scope, name=name)
+                dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
                 for d in dids:
-                    print '%(scope)s:%(name)s' % d
+                    if d['level'] == 0:
+                        print '%(scope)s:%(name)s [%(type)s]' % d
+                    else:
+                        print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
             except Exception, e:
                 print e
 
@@ -318,6 +324,7 @@ def list_scopes(args):
         print scope
 
     return SUCCESS
+
 
 def scope_list(args):
     """
@@ -367,7 +374,7 @@ def list_files(args):
             scope, name = did.split(':')
             files = client.list_files(scope=scope, name=name)
             for file in files:
-                print '%(scope)s:%(name)s' % file # %(size)s\t%(checksum)s
+                print '%(scope)s:%(name)s' % file  # %(size)s\t%(checksum)s
         except Exception, e:
             print e
 
@@ -398,6 +405,7 @@ def close(args):
 
     return SUCCESS
 
+
 def stat(args):
     """
     %(prog)s stat [options] <field1=value1 field2=value2 ...>
@@ -416,12 +424,13 @@ def stat(args):
         try:
             scope, name = did.split(':')
             info = client.get_did(scope=scope, name=name)
-            for k,v in info.iteritems():
+            for k, v in info.iteritems():
                 print '%(k)s: %(v)s' % locals()
         except Exception, e:
             print e
 
     return SUCCESS
+
 
 def delete(args):
     """
@@ -430,6 +439,7 @@ def delete(args):
     Delete data identifier.
     """
     raise NotImplementedError
+
 
 def upload(args):
     """
@@ -458,7 +468,7 @@ def upload(args):
             size = os.stat(filename).st_size
             checksum = adler32(filename)
             client.add_file_replica(scope=args.scope, name=filename, rse=args.rse, checksum=checksum, size=size, dsn=dsn)
-            rsemgr.upload(args.rse, lfns=[{'filename':filename, 'scope': args.scope},])
+            rsemgr.upload(args.rse, lfns=[{'filename': filename, 'scope': args.scope}, ])
             print 'download operation for %s done' % filename
         except Exception, e:
             print 'Failed to download %(files)s' % locals()
@@ -487,7 +497,7 @@ def download(args):
             scope, name = did.split(':')
             files = client.list_replicas(scope=scope, name=name)
             for file in files:
-                    rsemgr.download(rse_id=file['rse'], files={'lfns': [{'filename': name, 'scope': scope},]},  dest_dir=args.dir)
+                    rsemgr.download(rse_id=file['rse'], files={'lfns': [{'filename': name, 'scope': scope}, ]}, dest_dir=args.dir)
                     break
             print 'download operation for %s done' % (name)
         except Exception, e:
@@ -519,6 +529,7 @@ def get_metadata(args):
         except Exception, e:
             print 'Failed to get metadata for %(scope)s:%(name)s' % locals()
             print e
+
 
 def set_metadata(args):
     """
@@ -555,9 +566,9 @@ def del_metadata(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.account,
-                         auth_type=args.auth_strategy, creds=creds,
-                         ca_cert=args.ca_certificate, timeout=args.timeout)
+                        account=args.account,
+                        auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
 if __name__ == '__main__':
     usage = """
@@ -615,13 +626,13 @@ Commands:
     add_parser = subparsers.add_parser('add', help='Add data identifier')
     add_parser.set_defaults(which='add')
     add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
-    add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers') #, required=True)
+    add_parser.add_argument('--srcs', dest='sources', nargs='+', action='store', help='List of space separated data identifiers')  # , required=True)
 
     # The add_dataset command
     # add_parser = subparsers.add_parser('add-dataset', help='Add data identifier')
     # add_parser.set_defaults(which='add')
     # add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
-    # add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers') #, required=True)
+    # add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers')  # , required=True)
 
     # ToDo: add meta
 
@@ -629,7 +640,8 @@ Commands:
     list_parser = subparsers.add_parser('list', help='List data identifier contents')
     list_parser.set_defaults(which='list')
     list_parser.add_argument('--scope', dest='scope', action='store', default=None, help='Scope name')
-    list_parser.add_argument('--level', dest='level', action='store', default=0, help='Hierarchical namespace level. O(default) means only the top level will be printed. all will print the all hierarchy.')
+    list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively')
+    list_parser.add_argument('--flat', dest='flat', action='store_true', default=False, help='Flatl (unique) listing')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value another_key=next_value`')
     list_parser.add_argument(dest='dids', nargs='*', action='store', default=None, help='List of space separated data identifiers')
 
@@ -651,7 +663,7 @@ Commands:
     del_parser = subparsers.add_parser('del', help='Delete data identifier')
     del_parser.set_defaults(which='del')
     del_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-    del_parser.add_argument('--from',dest='from', action='store', help='Target data identifier')
+    del_parser.add_argument('--from', dest='from', action='store', help='Target data identifier')
 
     # The list_files command
     list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents')
@@ -663,7 +675,7 @@ Commands:
     upload_parser.set_defaults(which='upload')
     upload_parser.add_argument('--files', dest='files', nargs='+', action='store', help='List of space separated files', required=True)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
-    upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True) # to be optional after
+    upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)  # to be optional after
     upload_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create')
 
     # The download subparser
@@ -680,7 +692,7 @@ Commands:
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
     set_metadata_parser.set_defaults(which='set_metadata')
-    set_metadata_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True) # to be optional after
+    set_metadata_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)  # to be optional after
     set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create', required=True)
     set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
@@ -733,7 +745,7 @@ Commands:
                 'upload': upload,
                 'get_metadata': get_metadata,
                 'set_metadata': set_metadata,
-                'del_metadata': del_metadata,}
+                'del_metadata': del_metadata, }
 
     try:
         start_time = time.time()

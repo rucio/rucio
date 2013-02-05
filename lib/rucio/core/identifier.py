@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 
 from re import match
 
@@ -178,25 +179,67 @@ def list_files(scope, name, session=None):
 
 
 @read_session
-def scope_list(scope, session=None):
+def scope_list(scope, name=None, recursive=False, session=None):
     """
     List data identifiers in a scope.
 
     :param scope: The scope name.
-    :returns: List of data identifiers dictionaries.
     :param session: The database session in use.
+    :param name: The data identifier name.
+    :param recursive: boolean, True or False.
     """
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
-
-    dids = []
     try:
-        for did in query.all():
-            dids.append({'scope': scope, 'name': did.name, 'type': did.type})
+        query_all = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
+        query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, deleted=False)
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Scope '%(scope)s' not found" % locals())
+        raise exception.ScopeNotFound("Scope '%(scope)s' not found" % scope)
 
-    return dids
+    def __topdids(scope):
+        topdids = []
+        for row in query_all:
+            topdids.append({'scope': scope, 'name': row.name, 'type': row.type, 'parent': None, 'level': 0})
+        for row in query_associ:
+            did = {'scope': row.child_scope, 'name': row.child_name, 'type': row.child_type, 'parent': None, 'level': 0}
+            if topdids.count(did):
+                topdids.remove(did)
+        return topdids
+
+    def __didtree(topdids, parent=None, level=0, depth=-1):
+        # depth > 0 for limited recursive, -1 for complete recursive
+        dids = []
+        for pdid in topdids:
+            dids.append({'scope': pdid['scope'], 'name': pdid['name'], 'type': pdid['type'], 'parent': parent, 'level': level})
+            if pdid['type'] != models.DataIdType.FILE and (depth > 0 or depth == -1):
+                if depth != -1:
+                    depth -= 1
+                try:
+                    for row in query_associ.filter_by(name=pdid['name']):
+                        cdid = {'scope': row.child_scope, 'name': row.child_name, 'type': row.child_type}
+                        dids.extend(__didtree([cdid], parent={'scope': row.scope, 'name': row.name}, level=level + 1, depth=depth))
+                except NoResultFound:
+                    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        return dids
+
+    if name:
+        try:
+            topdids = query_all.filter_by(name=name).one()
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        topdids = [{'scope': topdids.scope, 'name': topdids.name, 'type': topdids.type}]
+        if recursive:
+            response = __didtree(topdids)
+        else:
+            response = __didtree(topdids, depth=1)
+    else:
+        topdids = __topdids(scope)
+        if recursive:
+            response = __didtree(topdids)
+        else:
+            response = topdids
+
+    for did in response:
+        yield did
 
 
 @read_session

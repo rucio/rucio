@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 
 import rucio.api.permission
 
@@ -81,14 +82,16 @@ def list_files(scope, name):
     return identifier.list_files(scope=scope, name=name)
 
 
-def scope_list(scope):
+def scope_list(scope, name=None, recursive=False):
     """
     List data identifiers in a scope.
 
     :param scope: The scope name.
+    :param name: The data identifier name.
+    :param recursive: boolean, True or False.
     """
 
-    return identifier.scope_list(scope=scope)
+    return identifier.scope_list(scope, name=name, recursive=recursive)
 
 
 def get_did(scope, name):
