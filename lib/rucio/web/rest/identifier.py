@@ -10,6 +10,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 
 from json import dumps, loads
 from traceback import format_exc
@@ -66,8 +67,17 @@ class Scope:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
+        name = None
+        recursive = False
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'name' in params:
+                name = params['name'][0]
+            if 'recursive' in params:
+                recursive = True
+
         try:
-            for did in scope_list(scope=scope):
+            for did in scope_list(scope=scope, name=name, recursive=recursive):
                 yield dumps(did) + '\n'
         except ScopeNotFound, e:
             raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
