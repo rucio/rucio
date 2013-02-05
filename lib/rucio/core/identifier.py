@@ -77,6 +77,8 @@ def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[], se
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique":
             raise exception.DataIdentifierAlreadyExists('Data identifier %(scope)s:%(name)s already exists!' % locals())
+        elif e.args[0] == "(IntegrityError) foreign key constraint failed":
+            raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
         # msg for oracle / mysql
         else:
             raise e
