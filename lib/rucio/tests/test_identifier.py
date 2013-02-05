@@ -9,10 +9,11 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 
 
 from datetime import timedelta
-from nose.tools import assert_equal, assert_raises, assert_in, raises
+from nose.tools import assert_equal, assert_raises, assert_in, assert_not_in, raises
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.dataidentifierclient import DataIdentifierClient
@@ -130,21 +131,24 @@ class TestIdentifierClients():
 
         # reverse check if everything is in order
         for i in xrange(10):
-            result = self.did_client.scope_list(self.tmp_scopes[i])
+            result = self.did_client.scope_list(self.tmp_scopes[i], recursive=True)
 
-            r_dids = []
-            r_scope = None
+            r_topdids = []
+            r_otherscopedids = []
+            r_scope = []
             for r in result:
-                r_dids.append(r['name'])
-                if r_scope is None:
-                    r_scope = r['scope']
+                if r['level'] == 0:
+                    r_topdids.append(r['scope'] + ':' + r['name'])
+                    r_scope.append(r['scope'])
+                if r['scope'] != self.tmp_scopes[i]:
+                    r_otherscopedids.append(r['scope'] + ':' + r['name'])
+                    assert_in(r['level'], [1, 2])
 
-            assert_in(r_scope, self.tmp_scopes[i])
-
-            for did in result:
-                assert_in(self.tmp_files[i], r_dids)
-                assert_in(self.tmp_datasets[j], r_dids)
-                assert_in(self.tmp_containers[j], r_dids)
+            for j in xrange(10):
+                assert_equal(self.tmp_scopes[i], r_scope[j])
+                if j != i:
+                    assert_in(self.tmp_scopes[j] + ':' + self.tmp_files[j], r_otherscopedids)
+            assert_not_in(self.tmp_scopes[i] + ':' + self.tmp_files[i], r_topdids)
 
     def test_get_did(self):
         """ DATA IDENTIFIERS (CLIENT): add a new data identifier and try to retrieve it back"""
