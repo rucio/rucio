@@ -17,6 +17,44 @@ from rucio.common import exception
 from rucio.rse.protocols import protocol
 
 
+class uploadInChunks(object):
+    def __init__(self, filename, chunksize):
+        self.__totalsize = os.path.getsize(filename)
+        self.__readsofar = 0
+        self.__filename = filename
+        self.__chunksize = chunksize
+
+    def __iter__(self):
+        try:
+            with open(self.__filename, 'rb') as file:
+                while True:
+                    data = file.read(self.__chunksize)
+                    if not data:
+                        stdout.write("\n")
+                        break
+                    self.__readsofar += len(data)
+                    percent = self.__readsofar * 100 / self.__totalsize
+                    stdout.write("\r{percent:3.0f}%".format(percent=percent))
+                    yield data
+        except OSError, e:
+            raise exception.SourceNotFound(e)
+
+    def __len__(self):
+        return self.__totalsize
+
+
+class IterableToFileAdapter(object):
+    def __init__(self, iterable):
+        self.iterator = iter(iterable)
+        self.length = len(iterable)
+
+    def read(self, size=-1):   # TBD: add buffer for `len(data) > size` case
+        return next(self.iterator, b'')
+
+    def __len__(self):
+        return self.length
+
+
 class Parser:
 
     """ Parser to parse XML output for PROPFIND ."""
@@ -107,7 +145,6 @@ class Default(protocol.RSEProtocol):
             self.timeout = credentials['timeout']
         except KeyError:
             self.timeout = 300
-
         #self.session=requests.session(auth_type=self.auth_type, timeout=self.timeout, cert=self.cert)
         self.session = requests.session(timeout=self.timeout, cert=self.cert)
 
@@ -143,7 +180,6 @@ class Default(protocol.RSEProtocol):
         """
         path = self.pfn2uri(pfn)
         #print 'Checking existence of '+path
-        print path
         try:
             result = self.session.request('HEAD', path, verify=False)
             if (result.status_code == 200):
@@ -151,9 +187,8 @@ class Default(protocol.RSEProtocol):
             elif result.status_code in [404, ]:
                 return False
             else:
-                # catchall exception should be sent here
-                print result.status_code
-                pass
+                # catchall exception
+                raise exception.RucioException(result.status_code, result.text)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
@@ -170,8 +205,7 @@ class Default(protocol.RSEProtocol):
         #print 'Will get %s' %(path)
         try:
             result = self.session.get(path, verify=False, prefetch=False)
-            print result.status_code
-            if result:
+            if result and result.status_code in [200, ]:
                 length = int(result.headers['content-length'])
                 totnchunk = int(length / chunksize) + 1
                 progressbar_width = 100
@@ -186,12 +220,11 @@ class Default(protocol.RSEProtocol):
                     stdout.flush()
                 stdout.write('\n')
                 f.close()
-            if result.status_code in [404, 403]:
+            elif result.status_code in [404, 403]:
                 raise exception.SourceNotFound()
             else:
-                # catchall exception should be sent here
-                print result.status_code
-                pass
+                # catchall exception
+                raise exception.RucioException(result.status_code, result.text)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
@@ -213,14 +246,17 @@ class Default(protocol.RSEProtocol):
             if not self.exists(upper_directory):
                 self.mkdir(upper_directory)
         try:
-            f = open(full_name, 'rb')
-            result = self.session.put(path, data=f.read(), verify=False, allow_redirects=True)
+            if not os.path.exists(full_name):
+                raise exception.SourceNotFound()
+            it = uploadInChunks(full_name, 10000000)
+            result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True)
+            if result.status_code in [201, ]:
+                return
             if result.status_code in [409, ]:
                 raise exception.FileReplicaAlreadyExists()
             else:
-                # catchall exception should be sent here
-                pass
-                print result.status_code, result.text
+                # catchall exception
+                raise exception.RucioException(result.status_code, result.text)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
         except IOError, e:
@@ -253,11 +289,13 @@ class Default(protocol.RSEProtocol):
         headers = {'Destination': new_path}
         try:
             result = self.session.request('MOVE', path, verify=False, headers=headers)
-            if result.status_code in [404, ]:
+            if result.status_code == 201:
+                return
+            elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
             else:
-                # catchall exception should be sent here
-                pass
+                # catchall exception
+                raise exception.RucioException(result.status_code, result.text)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
@@ -274,12 +312,13 @@ class Default(protocol.RSEProtocol):
         if (listfiles == []):
             try:
                 result = self.session.delete(path, verify=False)
-                if result.status_code in [404, ]:
+                if result.status_code in [204, ]:
+                    return
+                elif result.status_code in [404, ]:
                     raise exception.SourceNotFound()
                 else:
-                    # catchall exception should be sent here
-                    print result.status_code
-                    pass
+                    # catchall exception
+                    raise exception.RucioException(result.status_code, result.text)
             except requests.exceptions.ConnectionError, e:
                 raise exception.ServiceUnavailable(e)
         else:
@@ -296,12 +335,13 @@ class Default(protocol.RSEProtocol):
         #print 'Will create %s' % (path)
         try:
             result = self.session.request('MKCOL', path, verify=False)
-            if result.status_code in [404, ]:
+            if result.status_code in [201, ]:
+                return
+            elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
-            #else:
-            #    print result.text
-            #else:
-            #    return result.status_code
+            else:
+                # catchall exception
+                raise exception.RucioException(result.status_code, result.text)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
