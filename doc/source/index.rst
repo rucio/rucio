@@ -108,6 +108,7 @@ Using Rucio
     cli_admin_examples
     rucio_clients
     client_examples
+    replication_rules_examples
 
 
 Appendices
