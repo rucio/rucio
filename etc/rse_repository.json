@@ -63,7 +63,13 @@
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
-          "host": "https://t-dpm.grid.sinica.edu.tw"
+          "host": "https://t-dpm.grid.sinica.edu.tw",
+          "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://t-dpm.grid.sinica.edu.tw",
+          "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/"
         }
       }
     },
@@ -77,7 +83,193 @@
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
-          "host": "https://lcg-se0.ifh.de:2880"
+          "host": "https://lcg-se0.ifh.de:2880",
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://lcg-se0.ifh.de",
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "DESY-ZN_DATADISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://lcg-se0.ifh.de:2880",
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://lcg-se0.ifh.de",
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "DESY-HH_SCRATCHDISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/dq2/atlasscratchdisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://dcache-door-atlas12.desy.de:2880",
+          "prefix": "/dq2/atlasscratchdisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://dcache-se-atlas.desy.de",
+          "prefix": "/pnfs/desy.de/atlas/dq2/atlasscratchdisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "DESY-HH_DATADISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/dq2/atlasdatadisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://dcache-door-atlas12.desy.de:2880",
+          "prefix": "/dq2/atlasdatadisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://dcache-se-atlas.desy.de",
+          "prefix": "/pnfs/desy.de/atlas/dq2/atlasdatadisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "LRZ-LMU_SCRATCHDISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://lcg-lrz-dc66.grid.lrz.de",
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://lcg-lrz-se.lrz-muenchen.de",
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "LRZ-LMU_DATADISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://lcg-lrz-dc66.grid.lrz.de",
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://lcg-lrz-se.lrz-muenchen.de",
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "LRZ-LMU_RUCIO":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://lcg-lrz-dc66.grid.lrz.de",
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://lcg-lrz-se.lrz-muenchen.de",
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "FZK-LCG2_SCRATCHDISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/disk-only/atlasscratchdisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://f01-060-114-e.gridka.de:2880",
+          "prefix": "/disk-only/atlasscratchdisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://atlassrm-fzk.gridka.de",
+          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "FZK-LCG2_DATADISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/disk-only/atlasdatadisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://f01-060-114-e.gridka.de:2880",
+          "prefix": "/disk-only/atlasdatadisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://atlassrm-fzk.gridka.de",
+          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasdatadisk/"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "NDGF-T1_DATADISK":{
+    "backend_type": "dCache",
+    "protocols": {
+      "default": "webdav",
+      "prefix": "/atlas/disk/atlasdatadisk/",
+      "supported": {
+        "webdav": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "host": "https://fozzie.ndgf.org:2881",
+          "prefix": "/atlas/disk/atlasdatadisk/"
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "host": "srm://srm.ndgf.org",
+          "prefix": "/atlas/disk/atlasdatadisk/"
         }
       }
     },
@@ -97,4 +289,5 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
   }
+
 }

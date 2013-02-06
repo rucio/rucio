@@ -27,7 +27,7 @@ class TestRseWebDAV():
     @classmethod
     def setUpClass(cls):
         """WebDAV (RSE/PROTOCOLS): Creating necessary directories and files """
-        site = 'TAIWAN-LCG2_PPSSCRATCHDISK'
+        site = 'FZK-LCG2_SCRATCHDISK'
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
         storage = rsemanager.RSE(site)
@@ -60,8 +60,8 @@ class TestRseWebDAV():
 
     @classmethod
     def tearDownClass(cls):
-        """WebDAV (RSE/PROTOCOLS): Removing created directorie s and files """
-        site = 'TAIWAN-LCG2_PPSSCRATCHDISK'
+        """WebDAV (RSE/PROTOCOLS): Removing created directories and files """
+        site = 'FZK-LCG2_SCRATCHDISK'
         credentials = {}
         # Load local credentials from file
         with open('etc/rse-accounts.cfg') as f:
@@ -97,7 +97,7 @@ class TestRseWebDAV():
     def setUp(self):
         """WebDAV (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseWebDAV.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'TAIWAN-LCG2_PPSSCRATCHDISK')
+        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK')
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
