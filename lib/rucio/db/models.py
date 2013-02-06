@@ -203,6 +203,7 @@ class DataIdentifier(BASE, ModelBase):
     complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint("TYPE IN ('file', 'dataset', 'container')", name='DIDS_TYPE_CHK'),)
@@ -222,6 +223,7 @@ class File(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='FILES_PK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='FILES_DATA_ID_FK', ondelete="CASCADE"),
+                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='FILES_SCOPE_FK'),
                    CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DATA_ID_TYPE_CHK'),
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPP_NN'),
                    UniqueConstraint('guid', name='FILES_GUID_UQ'),)
@@ -254,6 +256,7 @@ class DIDAttribute(BASE, ModelBase):
     value = Column(String(255))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'key', name='DID_ATTR_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_ATTR_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DID_ATTR_SCOPE_FK'),
                    ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_ATTR_KEYS_FK'),
                    Index('DID_ATTR_KEY_IDX', 'key'),)
 
