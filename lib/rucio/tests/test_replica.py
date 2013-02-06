@@ -32,6 +32,7 @@ class TestReplica():
         """ REPLICA (CLIENT): Add and list file replica """
         tmp_scope = 'scope_%s' % generate_uuid()
         tmp_file = 'file_%s' % generate_uuid()
+        self.scope_client.add_scope('root', tmp_scope)
         self.rse_client.add_file_replica('MOCK', tmp_scope, tmp_file, 1L, 1L)
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
         assert_equal(len(replicas), 1)

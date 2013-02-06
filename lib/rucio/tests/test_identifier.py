@@ -61,7 +61,7 @@ class TestIdentifierClients():
                           'size': 724963570L, 'checksum': '0cc737eb',
                           'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
 
-        rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files)
 
         files = []
@@ -73,7 +73,7 @@ class TestIdentifierClients():
             files.append({'scope': tmp_scope, 'name': lfn,
                           'size': 724963570L, 'checksum': '0cc737eb',
                           'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
-        rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files)
 
         self.did_client.close(scope=tmp_scope, name=tmp_dsn)
@@ -84,6 +84,7 @@ class TestIdentifierClients():
         tmp_file = 'file_%s' % generate_uuid()
         tmp_rse = 'rse_%s' % generate_uuid()
 
+        self.scope_client.add_scope('root', tmp_scope)
         self.rse_client.add_rse(tmp_rse)
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 

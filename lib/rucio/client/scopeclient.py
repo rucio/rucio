@@ -19,7 +19,7 @@ class ScopeClient(BaseClient):
 
     """Scope client class for working with rucio scopes"""
 
-    BASEURL = 'accounts'
+    SCOPE_BASEURL = 'accounts'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(ScopeClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
@@ -35,7 +35,7 @@ class ScopeClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.BASEURL, account_name, 'scopes', scope_name])
+        path = '/'.join([self.SCOPE_BASEURL, account_name, 'scopes', scope_name])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='POST')
         if r.status_code == codes.created:
@@ -71,7 +71,7 @@ class ScopeClient(BaseClient):
         :raises ScopeNotFound: if no scopes exist for account.
         """
 
-        path = '/'.join([self.BASEURL, account_name, 'scopes/'])
+        path = '/'.join([self.SCOPE_BASEURL, account_name, 'scopes/'])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url)
