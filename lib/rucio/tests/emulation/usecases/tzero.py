@@ -17,8 +17,6 @@ tzero use case:
 #(4)             if there will be no more files arriving for this dataset do:
 #(5)                    dq2-freeze-dataset -x <DSN> [#calls = O(200/day)]
 '''
-import uuid
-
 from datetime import timedelta
 from random import choice
 from random import randrange
@@ -27,6 +25,7 @@ from random import gauss
 from rucio.tests.emulation.ucemulator import UCEmulator
 from rucio.client.dataidentifierclient import DataIdentifierClient
 from rucio.client.rseclient import RSEClient
+from rucio.common.utils import generate_uuid
 
 
 class UseCaseDefinition(UCEmulator):
@@ -41,9 +40,9 @@ class UseCaseDefinition(UCEmulator):
 
             :param tse: time series element of the current time frame
         """
-        self.dataset_meta['run_number'] = str(uuid.uuid4())
+        self.dataset_meta['run_number'] = str(generate_uuid())
         tmp_dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % self.dataset_meta
-        rules = [{'copies': 1, 'rse_expression': 'rse=%s' % self.rse, 'lifetime': timedelta(days=2)}]
+        rules = [{'copies': 1, 'rse_expression': '%s' % self.rse, 'lifetime': timedelta(days=2)}]
         self.did_client.add_dataset(scope=self.scope, name=tmp_dsn, statuses={'monotonic': True}, meta=self.dataset_meta, rules=rules)
         try:
             self.datasets['open'].append(tmp_dsn)
@@ -63,14 +62,14 @@ class UseCaseDefinition(UCEmulator):
             :param tse: time series element of the current time frame
         """
         tmp_dsn = choice(self.datasets['open'])
-        self.dataset_meta['run_number'] = str(uuid.uuid4())
+        self.dataset_meta['run_number'] = str(generate_uuid())
         sources = []
         # Creating Files to append to a dataset
         for i in xrange(int(round(gauss(tse['no_of_files'], 10)))):
-            lfn = '%(tmp_dsn)s.' % locals() + str(uuid.uuid4())
+            lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
             pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
-            file_meta = {'guid': str(uuid.uuid4()),
+            file_meta = {'guid': str(generate_uuid()),
                          'events': 10}
             sources.append({'scope': self.scope, 'name': lfn,
                             'size': 724963570L, 'checksum': '0cc737eb',
@@ -116,7 +115,7 @@ class UseCaseDefinition(UCEmulator):
         self.did_client = DataIdentifierClient()
         self.rse_client = RSEClient()
         self.dataset_meta = {'project': 'data13_hip',
-                             'run_number': str(uuid.uuid4()),  # is going to be overwritten each time a new dataset is registered
+                             'run_number': str(generate_uuid()),  # is going to be overwritten each time a new dataset is registered
                              'stream_name': 'physics_CosmicCalo',
                              'prod_step': 'merge',
                              'datatype': 'NTUP_TRIG',

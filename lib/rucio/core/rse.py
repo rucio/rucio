@@ -281,12 +281,17 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     replica_rse = get_rse(rse=rse, session=session)
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name,  type=models.DataIdType.FILE, deleted=False)
     if not query.first():
-        new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
-        new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
-        new_data_id = session.merge(new_data_id)
-        new_file = session.merge(new_file)
-        new_data_id.save(session=session)
-        new_file.save(session=session)
+        try:
+            new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
+            new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
+            new_data_id = session.merge(new_data_id)
+            new_file = session.merge(new_file)
+            new_data_id.save(session=session)
+            new_file.save(session=session)
+        except IntegrityError, e:
+            if e.args[0] == "(IntegrityError) foreign key constraint failed":
+                raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
+            raise
 
     new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, state='AVAILABLE')
     try:
