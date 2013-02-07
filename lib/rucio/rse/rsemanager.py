@@ -190,7 +190,7 @@ class RSEMgr(object):
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
         """
         rse = self.__create_rse(rse_id, protocol=protocol, auto_connect=False)
-        return rse.lfn2uri(lfns=[{'scope': scope, 'filename': lfn}, ])
+        return rse.lfn2pfn(lfns=[{'scope': scope, 'filename': lfn}, ])
 
     def list_protocols(self, rse_id):
         """
@@ -293,7 +293,7 @@ class RSE(object):
                     protocols.append(protocol)
         return protocols
 
-    def lfn2uri(self, lfns):
+    def lfn2pfn(self, lfns):
         """
             Transforms the logical file name (LFN) into the storage specific URI of the file on the connected storage.
             Providing a list indicates the bulk mode.
@@ -306,13 +306,13 @@ class RSE(object):
         ret = {}
         lfns = [lfns] if not type(lfns) is list else lfns
         for lfn in lfns:
-            pfn = self.__lfn2pfn(lfn['filename'], lfn['scope'])
+            pfn = self.__deterministic_lfn(lfn['filename'], lfn['scope'])
             ret[lfn['scope'] + ':' + lfn['filename']] = self.__protocol.pfn2uri(pfn)
         if len(ret) == 1:
             return ret[lfns[0]['scope'] + ':' + lfns[0]['filename']]
         return ret
 
-    def __lfn2pfn(self, lfn, scope):
+    def __deterministic_lfn(self, lfn, scope):
         """
             Transforms the logical file name into the physical file name.
 
@@ -351,7 +351,7 @@ class RSE(object):
                     exists = self.__protocol.exists(f)
                     ret[f] = exists
                 elif 'scope' in f:  # a LFN is provided
-                    exists = self.__protocol.exists(self.__lfn2pfn(f['filename'], f['scope']))
+                    exists = self.__protocol.exists(self.__deterministic_lfn(f['filename'], f['scope']))
                     ret[f['scope'] + ':' + f['filename']] = exists
                 else:
                     exists = self.__protocol.exists(f['filename'])
@@ -431,7 +431,7 @@ class RSE(object):
         if self.__connected:
             files = [files] if not type(files) is list else files
             for f in files:
-                pfn = f['pfn'] if 'pfn' in f else self.__lfn2pfn(f['filename'], f['scope'])
+                pfn = f['pfn'] if 'pfn' in f else self.__deterministic_lfn(f['filename'], f['scope'])
                 try:
                     if not os.path.exists('%s/%s' % (dest_dir, f['scope'])):
                         os.makedirs('%s/%s' % (dest_dir, f['scope']))
@@ -475,7 +475,7 @@ class RSE(object):
                 filename = lfn['filename']
                 scope = lfn['scope']
                 # Check if file replica is already on the storage system
-                pfn = self.__lfn2pfn(filename, scope)
+                pfn = self.__deterministic_lfn(filename, scope)
                 if self.exists(lfn):
                     ret['%s:%s' % (scope, filename)] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % lfn['filename'])
                     gs = False
@@ -515,7 +515,7 @@ class RSE(object):
         if self.__connected:
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
-                pfn = self.__lfn2pfn(lfn['filename'], lfn['scope'])
+                pfn = self.__deterministic_lfn(lfn['filename'], lfn['scope'])
                 try:
                     self.__protocol.delete(pfn)
                     ret['%s:%s' % (lfn['scope'], lfn['filename'])] = True
@@ -566,8 +566,8 @@ class RSE(object):
                     # Check if new scope is provided
                     if not 'new_scope' in f:
                         f['new_scope'] = f['scope']
-                    pfn = self.__lfn2pfn(f['filename'], f['scope'])
-                    new_pfn = self. __lfn2pfn(f['new_filename'], f['new_scope'])
+                    pfn = self.__deterministic_lfn(f['filename'], f['scope'])
+                    new_pfn = self. __deterministic_lfn(f['new_filename'], f['new_scope'])
                 else:
                     pfn = f['filename']
                     new_pfn = f['new_filename']
