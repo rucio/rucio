@@ -45,9 +45,9 @@ class TestRseS3():
             subprocess.call(["s3cmd", "mb", "s3://GROUP"], stdout=fnull, stderr=fnull, shell=False)
         except S3Error:
             pass
-        subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, storage.lfn2uri({'filename': 'data.raw', 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
+        subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, storage.lfn2pfn({'filename': 'data.raw', 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
         for f in MgrTestCases.files_remote:
-            subprocess.call(["s3cmd", "cp", storage.lfn2uri({'filename': 'data.raw', 'scope': 'user.jdoe'}), storage.lfn2uri({'filename': f, 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
+            subprocess.call(["s3cmd", "cp", storage.lfn2pfn({'filename': 'data.raw', 'scope': 'user.jdoe'}), storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
         fnull.close()
 
     def setUp(self):

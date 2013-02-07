@@ -45,11 +45,11 @@ class TestRsePOSIX():
             print e
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         for f in MgrTestCases.files_remote:
-            path = storage.lfn2uri({'filename': f, 'scope': 'user.jdoe'})
+            path = storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'})
             dirs = os.path.dirname(path)
             if not os.path.exists(dirs):
                 os.makedirs(dirs)
-            shutil.copy('%s/data.raw' % prefix, storage.lfn2uri({'filename': f, 'scope': 'user.jdoe'}))
+            shutil.copy('%s/data.raw' % prefix, storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'}))
 
     @classmethod
     def tearDownClass(cls):
