@@ -50,7 +50,7 @@ class TestRseWebDAV():
         storage._RSE__protocol.connect(credentials)
         for f in MgrTestCases.files_remote:
             print f
-            uri = storage.lfn2uri({'filename': f, 'scope': 'user.jdoe'})
+            uri = storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'})
             print uri
             try:
                 storage._RSE__protocol.put('%s/data.raw' % (cls.tmpdir), uri)

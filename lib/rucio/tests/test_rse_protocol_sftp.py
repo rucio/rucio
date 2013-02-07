@@ -48,7 +48,7 @@ class TestRseSFTP():
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         for f in MgrTestCases.files_remote:
-            uri = storage.lfn2uri({'filename': f, 'scope': 'user.jdoe'})
+            uri = storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'})
             lxplus.execute('mkdir -p %s' % ('/'.join(uri.split('/')[0:-1])))
             lxplus.execute('ln -s %s/data.raw %s' % (prefix, uri))
         lxplus.close()
