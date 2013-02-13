@@ -14,6 +14,7 @@ import re
 import string
 
 from rucio.common.exception import InvalidRSEExpression
+from rucio.common.exception import RSENotFound
 from rucio.core import rse
 
 
@@ -162,6 +163,7 @@ class BaseExpressionElement:
 
         :returns:  Set of RSEs
         :rtype:    Set of Strings
+        :raises:   RSENotFound
         """
         pass
 
@@ -182,7 +184,10 @@ class RSEAttribute(BaseExpressionElement):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        return set(rse.list_rses({self.key: self.value}))
+        output = rse.list_rses({self.key: self.value})
+        if not output:
+            raise RSENotFound(self.key)
+        return set(output)
 
 
 class BaseRSEOperator(BaseExpressionElement):
