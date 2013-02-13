@@ -13,7 +13,7 @@
 
 
 from datetime import timedelta
-from nose.tools import assert_equal, assert_raises, assert_in, assert_not_in, raises
+from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_in, assert_not_in, raises
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.dataidentifierclient import DataIdentifierClient
@@ -96,6 +96,35 @@ class TestIdentifierClients():
 
         with assert_raises(DataIdentifierNotFound):
             self.did_client.get_did('i_dont_exist', 'neither_do_i')
+
+    def test_did_hierarchy(self):
+        """ DATA IDENTIFIERS (CLIENT): Check did hierarchy rule """
+
+        self.account_client.add_account('jdoe', 'user')
+        self.scope_client.add_scope('jdoe', 'user.jdoe')
+        self.rse_client.add_rse('myse')
+        for i in range(10):
+            self.rse_client.add_file_replica('myse', 'user.jdoe', 'file' + str(i), 1, 1)
+        for i in range(4):
+            self.did_client.add_identifier('user.jdoe', 'dst' + str(i), 'dataset', statuses=None, meta=None, rules=None)
+        for i in range(2):
+            self.did_client.add_identifier('user.jdoe', 'cnt' + str(i), 'container', statuses=None, meta=None, rules=None)
+        for i in range(4):
+            self.did_client.add_files_to_dataset('user.jdoe', 'dst' + str(i), [{'scope': 'user.jdoe', 'name': 'file' + str(2 * i)}])
+            self.did_client.add_files_to_dataset('user.jdoe', 'dst' + str(i), [{'scope': 'user.jdoe', 'name': 'file' + str(2 * i + 1)}])
+        self.did_client.add_containers_to_container('user.jdoe', 'cnt1', [{'scope': 'user.jdoe', 'name': 'dst2'}])
+        self.did_client.add_containers_to_container('user.jdoe', 'cnt1', [{'scope': 'user.jdoe', 'name': 'dst3'}])
+        self.did_client.add_datasets_to_container('user.jdoe', 'cnt0', [{'scope': 'user.jdoe', 'name': 'dst1'}])
+        self.did_client.add_datasets_to_container('user.jdoe', 'cnt0', [{'scope': 'user.jdoe', 'name': 'cnt1'}])
+        result = self.did_client.scope_list('user.jdoe', recursive=True)
+        for r in result:
+            if r['name'] == 'cnt1':
+                assert_equal(r['type'], 'container')
+                assert_equal(r['level'], 1)
+            if (r['name'] == 'cnt0') or (r['name'] == 'dst0') or (r['name'] == 'file8') or (r['name'] == 'file9'):
+                assert_equal(r['level'], 0)
+            else:
+                assert_not_equal(r['level'], 0)
 
     def test_scope_list(self):
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
