@@ -120,7 +120,15 @@ def append_identifier(scope, name, dids, issuer, session=None):
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
+    query_all = session.query(models.DataIdentifier)
     for source in dids:
+        if did.type == models.DataIdType.CONTAINER:
+            try:
+                query = query_all.filter_by(scope=source['scope'], name=source['name'], deleted=False)
+                child = query.one()
+                child_type = child.type
+            except NoResultFound:
+                raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
         if 'rse' in source:
             add_file_replica(issuer=issuer, session=session, **source)
         try:
