@@ -9,6 +9,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
@@ -302,16 +303,22 @@ class RSENotFound(RucioException):
         self._message = "RSE does not exist."
 
 
+class RSEProtocolNotSupported(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSEProtocolNotSupported, self).__init__(args, kwargs)
+        self._message = "RSE does not support requested protocol."
+
+
+class RSEOperationNotSupported(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSEOperationNotSupported, self).__init__(args, kwargs)
+        self._message = "RSE does not support requested operation."
+
+
 class RSEOverQuota(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEOverQuota, self).__init__(args, kwargs)
         self._message = "Quota of referrenced RSE is exceeded."
-
-
-class RSERepositoryNotFound(RucioException):
-    def __init__(self, *args, **kwargs):
-        super(RSERepositoryNotFound, self).__init__(args, kwargs)
-        self._message = "Unable to locate RSE-Repository."
 
 
 class RSETagNotFound(RucioException):

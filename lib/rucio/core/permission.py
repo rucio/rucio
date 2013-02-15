@@ -9,6 +9,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -28,6 +29,9 @@ def has_permission(issuer, action, kwargs):
             'del_account': perm_del_account,
             'add_scope': perm_add_scope,
             'add_rse': perm_add_rse,
+            'add_protocol': perm_add_protocol,
+            'del_protocol': perm_del_protocol,
+            'update_protocol': perm_update_protocol,
             'add_rse_attr': perm_add_rse_attr,
             'del_rse_attr': perm_del_rse_attr,
             'del_rse': perm_del_rse,
@@ -223,3 +227,36 @@ def perm_set_status(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+
+
+def perm_add_protocol(issuer, kwargs):
+    """
+    Checks if an account can add a protocol to an RSE.
+
+    :param account_name: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_del_protocol(issuer, kwargs):
+    """
+    Checks if an account can delete protocols from an RSE.
+
+    :param account_name: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_update_protocol(issuer, kwargs):
+    """
+    Checks if an account can update protocols of an RSE.
+
+    :param account_name: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
