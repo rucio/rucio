@@ -8,6 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 import json
 import sys
@@ -43,4 +44,15 @@ if __name__ == '__main__':
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
             print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
-    sys.exit(OK)
+        for p_id in repo_data[rse]['protocols']['supported']:
+            try:
+                c.add_protocol(rse, p_id, repo_data[rse]['protocols']['supported'][p_id])
+            except ValueError, e:
+                print e
+            except Duplicate, e:
+                print e
+            except Exception, e:
+                errno, errstr = sys.exc_info()[:2]
+                trcbck = traceback.format_exc()
+                print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+                sys.exit(CRITICAL)

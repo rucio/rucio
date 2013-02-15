@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -286,7 +287,6 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     :returns: True is successfull.
     """
     replica_rse = get_rse(rse=rse, session=session)
-
     path = None
     if not replica_rse.deterministic:
         if not pfn:
@@ -301,7 +301,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
         if pfn:
             raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name,  type=models.DataIdType.FILE, deleted=False)
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False)
     if not query.first():
         try:
             new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
@@ -360,5 +360,216 @@ def update_file_replica_state(rse, scope, name, state, session=None):
     :param session: The database session in use.
     """
 
-    rse = session.query(models.RSE).filter_by(rse=rse).one()
-    session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id, scope=scope, name=name).update({'state': state})
+    rid = get_rse(rse=rse, session=session).id
+    session.query(models.RSEFileAssociation).filter_by(rse_id=rid, scope=scope, name=name).update({'state': state})
+
+
+@transactional_session
+def add_protocol(rse, parameter, session=None):
+    """
+    Add a protocol to an existing RSE. If entries with equal or less priority for
+    an operation exist, the existing one will be reorded (i.e. +1).
+
+    :param rse: the name of the new rse.
+    :param parameter: parameters of the new protocol entry.
+    :param session: The database session in use.
+
+    :raises RSENotFound: If RSE is not found.
+    :raises Duplicate: If protocol with identifier, hostname and port already exists
+                       for the given RSE.
+    """
+
+    rid = get_rse(rse=rse, session=session).id
+    if not rid:
+        raise exception.RSENotFound('RSE \'%s\' not found')
+    # Inster new protocol entry
+    parameter['rse_id'] = rid
+    try:
+        new_protocol = models.RSEProtocols()
+        new_protocol.update(parameter)
+        new_protocol.save(session=session)
+        # Updated priority numbers
+        for op in ['read', 'write', 'delete']:
+            if (op in parameter) and (parameter[op] != -1):
+                f = sqlalchemy.and_(getattr(models.RSEProtocols, op) >= parameter[op], models.RSEProtocols.rse_id == rid)
+                query = session.query(models.RSEProtocols).filter(f)
+                for row in query:
+                    setattr(row, op, getattr(row, op) + 1)
+        __fill_gaps(rid, session)
+    except IntegrityError, e:
+        if 'not unique' in e.args[0]:
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['protocol'], parameter['port'], rse, parameter['hostname']))
+        elif 'may not be NULL' in e.args[0]:
+            raise exception.InvalidObject('Invalid values: %s' % e.args[0])
+        else:
+            raise e
+    return new_protocol
+
+
+@read_session
+def get_protocols(rse, operation=None, default=False, protocol=None, session=None):
+    """
+    Returns protocol information. Parameter comibantions are: (operation OR default) XOR protocol.
+
+    :param rse: The name of the rse.
+    :param operation: The name of the requested operation (read, write, or delete).
+                      If None, all operations are queried.
+    :param default: Indicates if only the default operations should be returned.
+    :param protocol: The name of the requested protocol.
+    :param session: The database session.
+
+    :returns: A list with details about each matching protocol.
+
+    :raises RSENotFound: If RSE is not found.
+    :raises RSEProtocolNotSupported: If no macthing protocol was found for the given RSE.
+    :raises RSEOperationNotSupported: If no protocol supported the requested operation for the given RSE.
+    """
+
+    rid = get_rse(rse=rse, session=session).id
+    if not rid:
+        raise exception.RSENotFound('RSE \'%s\' not found')
+    query = None
+    if protocol:
+        query = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                                          models.RSEProtocols.protocol == protocol))
+    else:
+        if operation:
+            if default:
+                query = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                                                  getattr(models.RSEProtocols, operation) == 1))
+            else:
+                query = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                                                  getattr(models.RSEProtocols, operation) > 0)
+                                                                  ).order_by(getattr(models.RSEProtocols, operation))
+        else:
+            if default:
+                query = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                                                                                  sqlalchemy.or_(models.RSEProtocols.read == 1,
+                                                                                                 models.RSEProtocols.write == 1,
+                                                                                                 models.RSEProtocols.delete == 1
+                                                                                                 )))
+            else:
+                query = session.query(models.RSEProtocols).filter(models.RSEProtocols.rse_id == rid)
+    protocols = list()
+    for row in query:
+        protocols.append({'hostname': row.hostname,
+                          'protocol': row.protocol,
+                          'port': row.port,
+                          'prefix': row.prefix,
+                          'impl': row.impl,
+                          'read': row.read,
+                          'write': row.write,
+                          'delete': row.write,
+                          'extended_attributes': row.extended_attributes
+                          })
+    if not protocols:
+        if operation:
+            raise exception.RSEOperationNotSupported('RSE \'%s\' has no protocol defined for operation \'%s\'' % (rse, operation))
+        else:
+            raise exception.RSEProtocolNotSupported('RSE \'%s\' does not support protocol \'%s\'' % (rse, protocol))
+    return protocols
+
+
+@transactional_session
+def update_protocols(rse, protocol, data, hostname=None, port=None, session=None):
+    """
+    Updates an existing protocol entry for an RSE. If necessary, priorities for read,
+    write, and delete operations of other protocol entires will be updated too.
+
+    :param rse: the name of the new rse.
+    :param protocol: Protocol identifer.
+    :param data: Dict with new values (keys must match column names in the database).
+    :param hostname: Hostname defined for the protocol, used if more than one protocol
+                     is registered with the same identifier.
+    :param port: The port registered for the hostename, used if more than one protocol
+                 is regsitered with the same identifier and hostname.
+    :param session: The database session in use.
+
+    :raises RSENotFound: If RSE is not found.
+    :raises RSEProtocolNotSupported: If no macthing protocol was found for the given RSE.
+    :raises KeyNotFound: Invalid data for update provided.
+    :raises Duplicate: If protocol with identifier, hostname and port already exists
+                       for the given RSE.
+    """
+
+    rid = get_rse(rse=rse, session=session).id
+    if not rid:
+        raise exception.RSENotFound('RSE \'%s\' not found')
+
+    f = sqlalchemy.and_(models.RSEProtocols.rse_id == rid, models.RSEProtocols.protocol == protocol)
+    if hostname:
+        f = sqlalchemy.and_(f, models.RSEProtocols.hostname == hostname)
+        if port:
+            f = sqlalchemy.and_(f, models.RSEProtocols.port == port)
+    try:
+        updated = session.query(models.RSEProtocols).filter(f).update(data)
+        if not updated:
+            msg = 'RSE \'%s\' does not support protocol \'%s\'' % (rse, protocol)
+            msg += ' for hostname \'%s\'' % hostname if hostname else ''
+            msg += ' on port \'%s\'' % port if port else ''
+            raise exception.RSEProtocolNotSupported(msg)
+        __fill_gaps(rid, session)
+    except IntegrityError, e:
+        if 'not unique' in e.args[0]:
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (protocol, port, rse, hostname))
+        elif 'may not be NULL' in e.args[0]:
+            raise exception.InvalidObject('Invalid values: %s' % e.args[0])
+        else:
+            raise e
+
+
+@transactional_session
+def del_protocols(rse, protocol, hostname=None, port=None, session=None):
+    """
+    Deletes an existing protocol entry for an RSE.
+
+    :param rse: the name of the new rse.
+    :param protocol: Protocol identifer.
+    :param hostname: Hostname defined for the protocol, used if more than one protocol
+                     is registered with the same identifier.
+    :param port: The port registered for the hostename, used if more than one protocol
+                     is regsitered with the same identifier and hostname.
+    :param session: The database session in use.
+
+    :raises RSENotFound: If RSE is not found.
+    :raises RSEProtocolNotSupported: If no macthing protocol was found for the given RSE.
+    """
+
+    rid = get_rse(rse=rse, session=session).id
+    if not rid:
+        raise exception.RSENotFound('RSE \'%s\' not found')
+    f = sqlalchemy.and_(models.RSEProtocols.rse_id == rid, models.RSEProtocols.protocol == protocol)
+    if hostname:
+        f = sqlalchemy.and_(f, models.RSEProtocols.hostname == hostname)
+        if port:
+            f = sqlalchemy.and_(f, models.RSEProtocols.port == port)
+    p = session.query(models.RSEProtocols).filter(f)
+
+    if not p.all():
+        msg = 'RSE \'%s\' does not support protocol \'%s\'' % (rse, protocol)
+        msg += ' for hostname \'%s\'' % hostname if hostname else ''
+        msg += ' on port \'%s\'' % port if port else ''
+        raise exception.RSEProtocolNotSupported(msg)
+
+    p.delete()
+
+
+# Helper Functions
+
+
+def __fill_gaps(rse_id, session):
+    """
+    Helper method to check if the priorities for the read, write, delete
+    operations in the protocols are correct.
+
+    :param rse_id: The database id of the requested RSE.
+    :param session: The databiase session.
+    """
+
+    for op in ['read', 'write', 'delete']:
+        i = 1
+        query = session.query(models.RSEProtocols).filter(sqlalchemy.and_(getattr(models.RSEProtocols, op) != -1, models.RSEProtocols.rse_id == rse_id)).order_by(getattr(models.RSEProtocols, op))
+        for row in query:
+            if getattr(row, op) != i:
+                setattr(row, op, i)
+            i += 1

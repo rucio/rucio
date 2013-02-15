@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 from rucio.api import permission
 from rucio.common import exception
@@ -127,3 +128,69 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, pfn=None, dsn=Non
         raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
 
     rse_module.add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=issuer, pfn=pfn, dsn=dsn)
+
+
+def add_protocol(rse, issuer, **data):
+    """
+    Creates a new protocol entry for an existing RSE.
+
+    :param rse: The RSE name.
+    :param issuer: The issuer account.
+    :param data: Parameters (protocol identifier, port, hostname, ...) provided by the request.
+    """
+
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='add_protocol', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not add protocols to RSE %s' % (issuer, rse))
+    rse_module.add_protocol(rse, data['data'])
+
+
+def get_protocols(rse, issuer, operation=None, default=False, protocol=None):
+    """
+    Returns all matching protocols (including detailed information) for the given RSE.
+
+    :param rse: The name of the rse.
+    :param issuer: The issuer account.
+    :param operation: The name of the requested operation (read, write, or delete).
+                      If None, all operations are queried.
+    :param default: Indicates if all or only the default protocols should be returned.
+    :param protocol: The protocol identifier.
+
+    :returns: A dict with all supported protocols and their attibutes.
+    """
+    return rse_module.get_protocols(rse, operation=operation, protocol=protocol, default=default)
+
+
+def del_protocols(rse, issuer, protocol, hostname=None, port=None):
+    """
+    Deletes all matching protocol entries for the given RSE..
+
+    :param rse: The name of the rse.
+    :param issuer: The issuer account.
+    :param protocol: The protocol identifier.
+    :param hostname: The hostname (to be used if more then one protocol using the
+                     same identifier are present)
+    :param port: The port (to be used if more than one protocol using the same
+                 identifier and hostname are present)
+    """
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='del_protocol', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not delete protocols from RSE %s' % (issuer, rse))
+    rse_module.del_protocols(rse, protocol=protocol, hostname=hostname, port=port)
+
+
+def update_protocols(rse, issuer, protocol, data, hostname=None, port=None):
+    """
+    Updates all provided attributes for all matching protocol entries of the given RSE..
+
+    :param rse: The name of the rse.
+    :param issuer: The issuer account.
+    :param protocol: The protocol identifier.
+    :param data: A dict including the attributes of the protocol to be updated. Keys must match the column names in the database.
+    :param hostname: The hostname (to be used if more then one protocol using the same identifier are present)
+    :param port: The port (to be used if more than one protocol using the same identifier and hostname are present)
+    """
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='update_protocol', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update protocols from RSE %s' % (issuer, rse))
+    rse_module.update_protocols(rse, protocol=protocol, hostname=hostname, port=port, data=data)
