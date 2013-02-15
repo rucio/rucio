@@ -1,41 +1,51 @@
 {
-  "swift.cern.ch": {
+  "SWIFT": {
     "backend_type": "S3",
     "protocols": {
       "default": "s3",
-      "prefix": "SOME-PATH",
       "supported": {
         "s3": {
           "impl": "rucio.rse.protocols.s3.Default",
           "prefix": "RSETESTS3",
+          "port": 443,
+          "read": 1,
+          "write": 1,
+          "delete": 1,
           "host": "swift.cern.ch"
         }
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.s3.Default.getSpace"
   },
-  "lxplus.cern.ch":{
+  "LXPLUS":{
     "backend_type": "SFTP",
     "protocols": {
       "default": "sftp",
-      "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test_run/",
       "supported": {
         "sftp": {
           "impl": "rucio.rse.protocols.sftp.Default",
+          "port": 22,
+          "read": 1,
+          "write": 1,
+          "delete": 1,
+          "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test_run/",
           "host": "lxplus.cern.ch"
         }
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.sftp.Default.getSpace"
   },
-  "posix":{
+  "POSIX":{
     "backend_type": "POSIX",
     "protocols": {
       "default": "posix",
-      "prefix": "/FAILS/NO/PERMISSIONS/USE/PROTOCOL/SPECIFIC/INSTEAD",
       "supported": {
-        "posix": {
+        "file": {
           "prefix": "/tmp/rucio_rse/",
+          "host": "localhost",
+          "read": 1,
+          "write": 1,
+          "delete": 1,
           "impl": "rucio.rse.protocols.posix.Default"
         }
       }
@@ -46,10 +56,22 @@
     "backend_type": "POSIX",
     "protocols": {
       "default": "posix",
-      "prefix": "/tmp/rucio_rse/",
       "supported": {
         "posix": {
-          "impl": "rucio.rse.protocols.posix.Default"
+          "impl": "rucio.rse.protocols.posix.Default",
+          "host": "localhost",
+          "read": 1,
+          "write": 1,
+          "prefix": "/tmp/rucio_rse/"
+        },
+        "sftp": {
+          "impl": "rucio.rse.protocols.sftp.Default",
+          "port": 22,
+          "read": 1,
+          "write": 1,
+          "delete": -1,
+          "prefix": "/afs/cern.ch/user/d/ddmlab/somethingelse/",
+          "host": "lxplus.cern.ch"
         }
       }
     },
@@ -73,7 +95,6 @@
     "backend_type": "DPM",
     "protocols": {
       "default": "webdav",
-      "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
@@ -93,7 +114,6 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/testWebDAV/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
@@ -295,7 +315,6 @@
     "prefix": "/castor/cern.ch/grid/atlas/tzero/",
     "protocols": {
       "default": "castor",
-      "prefix": "/castor/cern.ch/grid/atlas/tzero/",
       "supported": {
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
@@ -303,11 +322,17 @@
         },
         "rfio": {
           "impl": "rucio.rse.protocols.rfio.Default",
-          "host": "rfio://castoratlas.cern.ch:9002"
+          "host": "rfio://castoratlas.cern.ch:9002",
+          "port": 8443,
+          "prefix": "/castor/cern.ch/grid/atlas/tzero/",
+          "read": 1,
+          "write": 1,
+          "delete": 1,
+          "host": "srm://srm-atlas.cern.ch",
+          "extended_attributes": "{'The One After the Port': '/srm/managerv2'}"
         }
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
   }
-
 }

@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 """
 SQLAlchemy models for rucio data
@@ -327,6 +328,26 @@ class RSEAttribute(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('key', 'value', name='RSE_ATTR_PK'), )
 
 
+class RSEProtocols(BASE, ModelBase):
+    """Represents supported protocols of RSEs (Rucio Storage Elements)"""
+    __tablename__ = 'rse_protocols'
+    rse_id = Column(GUID())
+    protocol = Column(String(255))
+    hostname = Column(String(255), default='localhost')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as beeing default
+    port = Column(Integer, default=0)  # like host, for local protocol the port 0 is assumed to be default
+    prefix = Column(String(1024), nullable=True)
+    impl = Column(String(255), nullable=False)
+    read = Column(Integer, default=-1)  # if no value is provided, -1 i.e. not supported is assumed as default value
+    write = Column(Integer, default=-1)  # if no value is provided, -1 i.e. not supported is assumed as default value
+    delete = Column(Integer, default=-1)  # if no value is provided, -1 i.e. not supported is assumed as default value
+    extended_attributes = Column(String(1024), nullable=True)
+    rses = relationship("RSE", backref="rse_protocols")
+    _table_args = (PrimaryKeyConstraint('rse_id', 'protocol', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
+                   CheckConstraint('"IMPL" IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'),
+                   )
+
+
 class RSEAttrAssociation(BASE, ModelBase):
     """Represents the map between RSEs and tags"""
     __tablename__ = 'rse_attr_map'
@@ -474,6 +495,7 @@ def register_models(engine):
               RSE,
               RSEAttribute,
               RSEUsage,
+              RSEProtocols,
               AccountLimit,
               AccountUsage,
               RSEAttrAssociation,
@@ -502,6 +524,7 @@ def unregister_models(engine):
               File,
               RSE,
               RSEAttribute,
+              RSEProtocols,
               RSEUsage,
               AccountLimit,
               AccountUsage,
