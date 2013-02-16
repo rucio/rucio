@@ -110,11 +110,31 @@ class DataIdentifierClient(BaseClient):
         :param name: The data identifier name.
         :param dids: The content.
         """
+
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
         url = build_url(self.host, path=path)
         data = {'dids': dids}
         r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def detach_identifier(self, scope, name, dids):
+        """
+        Detach data identifier
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param dids: The content.
+        """
+
+        path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
+        url = build_url(self.host, path=path)
+        data = {'dids': dids}
+        r = self._send_request(url, type='DEL', data=render_json(**data))
+        if r.status_code == codes.ok:
             return True
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
