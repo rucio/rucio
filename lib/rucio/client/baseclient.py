@@ -202,7 +202,7 @@ class BaseClient(object):
                 elif type == 'POST':
                     r = post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'DEL':
-                    r = delete(url, headers=hds, verify=self.ca_cert, timeout=self.timeout)
+                    r = delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
             except SSLError:

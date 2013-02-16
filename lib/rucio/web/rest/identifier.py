@@ -20,7 +20,7 @@ from web import application, ctx, data, header, Created, InternalError, BadReque
 from rucio.api.authentication import validate_auth_token
 from rucio.api.identifier import (list_replicas, add_identifier, list_content,
                                   list_files, scope_list, get_did, set_metadata,
-                                  get_metadata, set_status, append_identifier)
+                                  get_metadata, set_status, append_identifier, detach_identifier)
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
                                     AccessDenied, KeyNotFound,
@@ -333,9 +333,48 @@ class Content:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+    @log
+    def DELETE(self, scope, name):
+        """
+        Detach data identifiers from data identifiers.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: Detach the data identifier from this scope.
+        :param name: Detach the data identifier from this name.
+        """
+
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            json_data = loads(data())
+            if 'dids' in json_data:
+                dids = json_data['dids']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            detach_identifier(scope=scope, name=name, dids=dids, issuer=auth['account'])
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+        raise OK()
 
 
 class Replicas:
