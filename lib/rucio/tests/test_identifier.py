@@ -100,31 +100,77 @@ class TestIdentifierClients():
     def test_did_hierarchy(self):
         """ DATA IDENTIFIERS (CLIENT): Check did hierarchy rule """
 
-        self.account_client.add_account('jdoe', 'user')
-        self.scope_client.add_scope('jdoe', 'user.jdoe')
-        self.rse_client.add_rse('myse')
+        account = 'user-%s' % generate_uuid().lower()[:20]
+        rse = 'RSE_%s' % generate_uuid().upper()[:20]
+        scope = 'scope_%s' % generate_uuid()[:20]
+        file = ['file_%s' % generate_uuid() for i in range(10)]
+        dst = ['dst_%s' % generate_uuid() for i in range(4)]
+        cnt = ['cnt_%s' % generate_uuid() for i in range(2)]
+
+        self.account_client.add_account(account, 'user')
+        self.scope_client.add_scope(account, scope)
+        self.rse_client.add_rse(rse)
+
         for i in range(10):
-            self.rse_client.add_file_replica('myse', 'user.jdoe', 'file' + str(i), 1, 1)
+            self.rse_client.add_file_replica(rse, scope, file[i], 1, 1)
         for i in range(4):
-            self.did_client.add_identifier('user.jdoe', 'dst' + str(i), 'dataset', statuses=None, meta=None, rules=None)
+            self.did_client.add_identifier(scope, dst[i], 'dataset', statuses=None, meta=None, rules=None)
         for i in range(2):
-            self.did_client.add_identifier('user.jdoe', 'cnt' + str(i), 'container', statuses=None, meta=None, rules=None)
+            self.did_client.add_identifier(scope, cnt[i], 'container', statuses=None, meta=None, rules=None)
+
         for i in range(4):
-            self.did_client.add_files_to_dataset('user.jdoe', 'dst' + str(i), [{'scope': 'user.jdoe', 'name': 'file' + str(2 * i)}])
-            self.did_client.add_files_to_dataset('user.jdoe', 'dst' + str(i), [{'scope': 'user.jdoe', 'name': 'file' + str(2 * i + 1)}])
-        self.did_client.add_containers_to_container('user.jdoe', 'cnt1', [{'scope': 'user.jdoe', 'name': 'dst2'}])
-        self.did_client.add_containers_to_container('user.jdoe', 'cnt1', [{'scope': 'user.jdoe', 'name': 'dst3'}])
-        self.did_client.add_datasets_to_container('user.jdoe', 'cnt0', [{'scope': 'user.jdoe', 'name': 'dst1'}])
-        self.did_client.add_datasets_to_container('user.jdoe', 'cnt0', [{'scope': 'user.jdoe', 'name': 'cnt1'}])
-        result = self.did_client.scope_list('user.jdoe', recursive=True)
+            self.did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i]}, {'scope': scope, 'name': file[2 * i + 1]}])
+
+        self.did_client.add_containers_to_container(scope, cnt[1], [{'scope': scope, 'name': dst[2]}, {'scope': scope, 'name': dst[3]}])
+        self.did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': cnt[1]}])
+
+        result = self.did_client.scope_list(scope, recursive=True)
         for r in result:
-            if r['name'] == 'cnt1':
+            if r['name'] == cnt[1]:
                 assert_equal(r['type'], 'container')
                 assert_equal(r['level'], 1)
-            if (r['name'] == 'cnt0') or (r['name'] == 'dst0') or (r['name'] == 'file8') or (r['name'] == 'file9'):
+            if (r['name'] == cnt[0]) or (r['name'] == dst[0]) or (r['name'] == file[8]) or (r['name'] == file[9]):
                 assert_equal(r['level'], 0)
             else:
                 assert_not_equal(r['level'], 0)
+
+    def test_detach_did(self):
+        """ DATA IDENTIFIERS (CLIENT): Detach dids from a did"""
+
+        account = 'user-%s' % generate_uuid().lower()[:20]
+        rse = 'RSE_%s' % generate_uuid().upper()[:20]
+        scope = 'scope_%s' % generate_uuid()[:24]
+        file = ['file_%s' % generate_uuid() for i in range(10)]
+        dst = ['dst_%s' % generate_uuid() for i in range(4)]
+        cnt = ['cnt_%s' % generate_uuid() for i in range(2)]
+
+        self.account_client.add_account(account, 'user')
+        self.scope_client.add_scope(account, scope)
+        self.rse_client.add_rse(rse)
+
+        for i in range(10):
+            self.rse_client.add_file_replica(rse, scope, file[i], 1, 1)
+        for i in range(4):
+            self.did_client.add_identifier(scope, dst[i], 'dataset', statuses=None, meta=None, rules=None)
+        for i in range(2):
+            self.did_client.add_identifier(scope, cnt[i], 'container', statuses=None, meta=None, rules=None)
+
+        for i in range(4):
+            self.did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i]}, {'scope': scope, 'name': file[2 * i + 1]}])
+
+        self.did_client.add_containers_to_container(scope, cnt[1], [{'scope': scope, 'name': dst[2]}, {'scope': scope, 'name': dst[3]}])
+        self.did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': cnt[1]}])
+        self.did_client.detach_identifier(scope, cnt[0], [{'scope': scope, 'name': dst[1]}])
+        self.did_client.detach_identifier(scope, dst[3], [{'scope': scope, 'name': file[6]}, {'scope': scope, 'name': file[7]}])
+        result = self.did_client.scope_list(scope, recursive=True)
+        for r in result:
+            if r['name'] == dst[1]:
+                assert_equal(r['level'], 0)
+            if r['type'] is 'file':
+                if (r['name'] in file[6:9]):
+                    assert_equal(r['level'], 0)
+                else:
+                    assert_not_equal(r['level'], 0)
 
     def test_scope_list(self):
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """

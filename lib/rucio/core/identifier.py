@@ -106,6 +106,7 @@ def append_identifier(scope, name, dids, issuer, session=None):
     :param issuer: The issuer account.
     :param session: The database session in use.
     """
+    #TODO: should judge target did's status: open, monotonic, close.
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False)
     try:
         did = query.one()
@@ -121,27 +122,53 @@ def append_identifier(scope, name, dids, issuer, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     query_all = session.query(models.DataIdentifier)
+    query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, type=did.type)
     for source in dids:
         if did.type == models.DataIdType.CONTAINER:
-            try:
-                query = query_all.filter_by(scope=source['scope'], name=source['name'], deleted=False)
-                child = query.one()
-                child_type = child.type
-            except NoResultFound:
+            child = query_all.filter_by(scope=source['scope'], name=source['name'], deleted=False).first()
+            if child is None:
                 raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+            child_type = child.type
         if 'rse' in source:
             add_file_replica(issuer=issuer, session=session, **source)
-        try:
-            new_child = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=did.type, child_type=child_type)
-            new_child.save(session=session)
-        except IntegrityError, e:
-            if e.args[0] == '(IntegrityError) columns scope, name, child_scope, child_name are not unique':
+
+        append_did = query_associ.filter_by(child_scope=source['scope'], child_name=source['name'], child_type=child_type).first()
+        if append_did is None:
+            models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=did.type, child_type=child_type).save(session=session)
+        else:
+            if append_did.deleted:
+                append_did.update({'deleted': False})
+            else:
                 raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
-            raise
 
         if 'meta' in source:
             for key in source['meta']:
                 set_metadata(scope=source['scope'], name=source['name'], key=key, value=source['meta'][key], session=session)
+
+
+@transactional_session
+def detach_identifier(scope, name, dids, issuer, session=None):
+    """
+    Detach data identifier
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param dids: The content.
+    :param issuer: The issuer account.
+    :param session: The database session in use.
+    """
+
+    #TODO: should judge target did's status: open, monotonic, close.
+    query_all = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, deleted=False)
+    if query_all.first() is None:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    for source in dids:
+        child_scope = source['scope']
+        child_name = source['name']
+        associ_did = query_all.filter_by(child_scope=child_scope, child_name=child_name).first()
+        if associ_did is None:
+            raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
+        associ_did.delete(session=session)
 
 
 @read_session

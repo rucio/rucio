@@ -237,6 +237,37 @@ def add(args):
     return SUCCESS
 
 
+def detach(args):
+    """
+    %(prog)s detach [options] <field1=value1 field2=value2 ...>
+
+    Detach data identifier.
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
+        scope, name = args.fromdid.split(':')
+    except Exception, e:
+        print e
+
+    try:
+        client.detach_identifier(scope=scope, name=name, dids=dids)
+    except Exception, e:
+        print 'Failed to detach data identifier'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
 def list(args):
     """
     %(prog)s list <did_1> ... <did_n>
@@ -635,6 +666,12 @@ Commands:
 
     # ToDo: add meta
 
+    # The detach command
+    detach_parser = subparsers.add_parser('detach', help='Detach data identifier')
+    detach_parser.set_defaults(which='detach')
+    detach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+    detach_parser.add_argument('--from', dest='fromdid', default=None, action='store', help='Target data identifier', required=True)
+
     # The list command
     list_parser = subparsers.add_parser('list', help='List data identifier contents')
     list_parser.set_defaults(which='list')
@@ -662,7 +699,7 @@ Commands:
     del_parser = subparsers.add_parser('del', help='Delete data identifier')
     del_parser.set_defaults(which='del')
     del_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-    del_parser.add_argument('--from', dest='from', action='store', help='Target data identifier')
+    del_parser.add_argument('--from', dest='from', default=None, action='store', help='Target data identifier')
 
     # The list_files command
     list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents')
@@ -733,6 +770,7 @@ Commands:
                 'add_replicas': add_replicas,
                 'list_replicas': list_replicas,
                 'add': add,
+                'detach': detach,
                 'list': list,
                 'list_files': list_files,
                 'list_scopes': list_scopes,

@@ -39,6 +39,7 @@ def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[]):
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
     :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     """
+
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'statuses': statuses, 'meta': meta, 'rules': rules}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
@@ -54,10 +55,28 @@ def append_identifier(scope, name, dids, issuer):
     :param dids: The content as a list of data identifiers.
     :param issuer: The issuer account.
     """
+
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='append_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
     return identifier.append_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
+
+
+def detach_identifier(scope, name, dids, issuer):
+    """
+    Detach data identifier
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param dids: The content.
+    :param issuer: The issuer account.
+    """
+
+    kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
+    #TODO: append and detach should share same permission rule
+    if not rucio.api.permission.has_permission(issuer=issuer, action='detach_identifier', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
+    return identifier.detach_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
 
 
 def list_content(scope, name):
@@ -116,6 +135,7 @@ def set_metadata(scope, name, key, value, issuer):
     :param value: the value.
     :param issuer: The issuer account.
     """
+
     kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadate to data identifier %s:%s' % (issuer, scope, name))
@@ -141,6 +161,7 @@ def set_status(scope, name, issuer, **kwargs):
     :param issuer: The issuer account.
     :param kwargs:  Keyword arguments of the form status_name=value.
     """
+
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}):
         raise rucio.common.exception.AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
     return identifier.set_status(scope=scope, name=name, **kwargs)
