@@ -16,6 +16,7 @@ import string
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.exception import RSENotFound
 from rucio.core import rse
+from rucio.db.session import transactional_session
 
 
 DEFAULT_RSE_ATTRIBUTE = r'([A-Z0-9]+([_-][A-Z0-9]+)*)'
@@ -29,11 +30,13 @@ COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
 PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 
-def parse_expression(expression):
+@transactional_session
+def parse_expression(expression, session=None):
     """
     Parse a RSE expression and return the list of RSEs
 
     :param expression:  RSE expression, e.g: 'CERN|BNL'
+    :param session:     Database session in use
     :return:            A dictionary
     :raises:            InvalidRSEExpression
     """
@@ -58,7 +61,7 @@ def parse_expression(expression):
         if match.group() != expression:
             raise InvalidRSEExpression()
 
-    result = list(resolve_term_expression(expression)[0].resolve_elements())
+    result = list(resolve_term_expression(expression)[0].resolve_elements(session=session))
     random.shuffle(result)
     return result
 
@@ -157,13 +160,14 @@ class BaseExpressionElement:
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def resolve_elements(self):
+    def resolve_elements(self, session):
         """
         Resolve the ExpressionElement and return a set of RSE's
 
-        :returns:  Set of RSEs
-        :rtype:    Set of Strings
-        :raises:   RSENotFound
+        :param session:  Database session in use
+        :returns:        Set of RSEs
+        :rtype:          Set of Strings
+        :raises:         RSENotFound
         """
         pass
 
@@ -180,11 +184,11 @@ class RSEAttribute(BaseExpressionElement):
         self.key = key
         self.value = value
 
-    def resolve_elements(self):
+    def resolve_elements(self, session):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        output = rse.list_rses({self.key: self.value})
+        output = rse.list_rses({self.key: self.value}, session=session)
         if not output:
             raise RSENotFound(self.key)
         return set(output)
@@ -237,11 +241,11 @@ class ComplementOperator(BaseRSEOperator):
         """
         self.right_term = right_term
 
-    def resolve_elements(self):
+    def resolve_elements(self, session):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        return self.left_term.resolve_elements() - self.right_term.resolve_elements()
+        return self.left_term.resolve_elements(session=session) - self.right_term.resolve_elements(session=session)
 
 
 class UnionOperator(BaseRSEOperator):
@@ -269,11 +273,11 @@ class UnionOperator(BaseRSEOperator):
         """
         self.right_term = right_term
 
-    def resolve_elements(self):
+    def resolve_elements(self, session):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        return self.left_term.resolve_elements() | self.right_term.resolve_elements()
+        return self.left_term.resolve_elements(session=session) | self.right_term.resolve_elements(session=session)
 
 
 class IntersectOperator(BaseRSEOperator):
@@ -301,8 +305,8 @@ class IntersectOperator(BaseRSEOperator):
         """
         self.right_term = right_term
 
-    def resolve_elements(self):
+    def resolve_elements(self, session):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        return self.left_term.resolve_elements() & self.right_term.resolve_elements()
+        return self.left_term.resolve_elements(session=session) & self.right_term.resolve_elements(session=session)
