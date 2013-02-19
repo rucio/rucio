@@ -74,6 +74,12 @@ class ClientProtocolNotSupported(RucioException):
         self._message = "Client protocol not supported."
 
 
+class ConfigurationError(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ConfigurationError, self).__init__(args, kwargs)
+        self._message = "Error during configuration."
+
+
 class DatasetAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(DatasetAccessDenied, self).__init__(args, kwargs)
@@ -210,6 +216,12 @@ class InvalidMetadata(RucioException):
     def __init__(self, *args, **kwargs):
         super(InvalidMetadata, self).__init__(args, kwargs)
         self._message = "Provided metadata is considered invalid."
+
+
+class InvalidObject(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidObject, self).__init__(args, kwargs)
+        self._message = "Provided object does not match schema."
 
 
 class InvalidReplicationRule(RucioException):

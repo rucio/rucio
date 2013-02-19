@@ -87,7 +87,7 @@ class TestBinRucio():
 
     def test_add_rse(self):
         """RSE (CLI): Add RSE"""
-        tmp_val = str(uuid.uuid4())
+        tmp_val = str(uuid.uuid4()).upper()
         cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
@@ -96,7 +96,7 @@ class TestBinRucio():
 
     def test_list_rses(self):
         """RSE (CLI): List RSEs"""
-        tmp_val = str(uuid.uuid4())
+        tmp_val = str(uuid.uuid4()).upper()
         cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin rse list'

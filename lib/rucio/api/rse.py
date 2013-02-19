@@ -5,11 +5,12 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 from rucio.api import permission
 from rucio.common import exception
+from rucio.common.schema import validate_schema
 from rucio.core import rse as rse_module
 
 
@@ -20,6 +21,7 @@ def add_rse(rse, issuer):
     :param rse: The RSE name.
     :param issuer: The issuer account.
     """
+    validate_schema(name='rse', obj=rse)
 
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
