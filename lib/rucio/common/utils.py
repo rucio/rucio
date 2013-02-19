@@ -71,7 +71,7 @@ def build_url(url, path=None, params=None):
 
 
 def generate_uuid():
-    return str(uuid()).replace('-', '').lower()
+    return str(uuid()).replace('-', '').upper()
 
 
 def generate_uuid_bytes():
