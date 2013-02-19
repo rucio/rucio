@@ -124,7 +124,7 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -X POST https://localhost/rses/MOCK-%s''' % uuid.uuid4()
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -X POST https://localhost/rses/MOCK-%s''' % str(uuid.uuid4()).upper()
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out

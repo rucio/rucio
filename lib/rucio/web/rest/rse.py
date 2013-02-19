@@ -15,7 +15,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, del_rse_attribute, add_file_replica
-from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException
+from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, InvalidObject
 from rucio.common.utils import generate_http_error
 
 urls = (
@@ -57,6 +57,10 @@ class RSE:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
+        except InvalidObject, e:
+            raise generate_http_error(400, 'InvalidObject', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
             print e
             raise InternalError(e)

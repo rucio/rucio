@@ -7,10 +7,12 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 """
 Get the configuration file from /opt/rucio/etc/rucio.cfg
 If it is not there, get it from $RUCIO_HOME
+If it is not there, get it from $VIRTUAL_ENV
 If it is not there, except.
 """
 
@@ -37,6 +39,30 @@ def config_get_float(section, option):
 def config_get_bool(section, option):
     """Return the boolean value for a given option in a section"""
     return __config.getboolean(section, option)
+
+
+def get_config_dir():
+    """Return the rucio configuration directory"""
+    configdirs = ['/opt/rucio/etc/', ]
+
+    if 'RUCIO_HOME' in os.environ:
+        configdirs.append('%s/etc/' % os.environ['RUCIO_HOME'])
+
+    if 'VIRTUAL_ENV' in os.environ:
+        configdirs.append('%s/etc/' % os.environ['VIRTUAL_ENV'])
+
+    for configdir in configdirs:
+        if os.path.exists(configdir):
+            return configdir
+
+
+def get_schema_dir():
+    """Return the rucio json schema directory"""
+    configdir = get_config_dir()
+    if configdir:
+        jsonschemadir = '%s/schemas/' % configdir
+        if os.path.exists(jsonschemadir):
+            return jsonschemadir
 
 
 __config = ConfigParser.ConfigParser()

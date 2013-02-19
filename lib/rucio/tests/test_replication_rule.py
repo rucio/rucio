@@ -37,12 +37,12 @@ class TestIdentifierClients():
         self.scope_client.add_scope('root', tmp_scope)
 
         # Add a RSE
-        tmp_rse = 'rse_%s' % uuid()
+        tmp_rse = 'RSE_%s' % uuid()
         self.rse_client.add_rse(tmp_rse)
 
         # Add 10 Tiers1 RSEs
         for i in xrange(5):
-            tmp_rse_t1 = 'rse_%s' % uuid()
+            tmp_rse_t1 = 'RSE_%s' % uuid()
             self.rse_client.add_rse(tmp_rse_t1)
             self.rse_client.add_rse_attribute(rse=tmp_rse_t1, key='Tier', value='1')
 
@@ -60,6 +60,6 @@ class TestIdentifierClients():
 
         ret = self.rule_client.add_replication_rule(dids=dsns, copies=2, rse_expression='Tier=1')
         assert_is_instance(ret, dict)
-        assert_regexp_matches(ret['rule_id'], re.compile('[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}'))
+        assert_regexp_matches(ret['rule_id'], re.compile('^(\{){0,1}[0-9a-fA-F]{8}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{12}(\}){0,1}$'))
 
         Conveyor_run()

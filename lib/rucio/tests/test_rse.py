@@ -17,7 +17,7 @@ from nose.tools import raises, assert_equal, assert_true, assert_in
 from paste.fixture import TestApp
 
 from rucio.client.rseclient import RSEClient
-from rucio.common.exception import Duplicate
+from rucio.common.exception import Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.rse import add_rse, del_rse, list_rses,\
     rse_exists, set_rse_usage, get_rse_usage, add_rse_attribute
@@ -192,11 +192,14 @@ class TestRSEClient():
     def setUp(self):
         self.client = RSEClient()
 
+    @raises(InvalidObject)
     def test_add_rse(self):
         """ RSE (CLIENTS): add a new rse."""
         rse = 'MOCK_' + str(uuid())
         ret = self.client.add_rse(rse)
         assert_true(ret)
+        bad_rse = 'MOCK_$*&##@!'
+        ret = self.client.add_rse(bad_rse)
 
     @raises(Duplicate)
     def test_add_rse_duplicate(self):

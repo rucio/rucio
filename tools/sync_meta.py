@@ -28,7 +28,7 @@ if __name__ == '__main__':
                  ('prod_step', None, []),
                  ('datatype', None, []),
                  ('version', None, []),
-                 ('guid', '[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}', []),
+                 ('guid', '^(\{){0,1}[0-9a-fA-F]{8}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{12}(\}){0,1}$', []),
                  ('events', '^\d+$', [])]
 
     c = Client()

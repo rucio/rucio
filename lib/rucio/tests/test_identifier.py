@@ -37,7 +37,7 @@ class TestIdentifierClients():
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
         tmp_scope = 'scope_%s' % generate_uuid()
-        tmp_rse = 'rse_%s' % generate_uuid()
+        tmp_rse = 'RSE_%s' % generate_uuid()
         tmp_dsn = 'dsn_%s' % generate_uuid()
 
         self.scope_client.add_scope('root', tmp_scope)
@@ -83,7 +83,7 @@ class TestIdentifierClients():
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
         tmp_scope = 'scope_%s' % generate_uuid()
         tmp_file = 'file_%s' % generate_uuid()
-        tmp_rse = 'rse_%s' % generate_uuid()
+        tmp_rse = 'RSE_%s' % generate_uuid()
 
         self.scope_client.add_scope('root', tmp_scope)
         self.rse_client.add_rse(tmp_rse)
@@ -103,7 +103,7 @@ class TestIdentifierClients():
         # create some dummy data
         self.tmp_accounts = ['account_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_scopes = ['scope_%s' % generate_uuid() for i in xrange(10)]
-        self.tmp_rses = ['rse_%s' % generate_uuid() for i in xrange(10)]
+        self.tmp_rses = ['RSE_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_containers = ['container_%s' % generate_uuid() for i in xrange(10)]
@@ -241,7 +241,7 @@ class TestIdentifierClients():
         self.scope_client.add_scope('root', tmp_scope)
 
         # Add a RSE
-        tmp_rse = 'rse_%s' % generate_uuid()
+        tmp_rse = 'RSE_%s' % generate_uuid()
         self.rse_client.add_rse(tmp_rse)
 
         # Add dataset
