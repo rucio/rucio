@@ -33,7 +33,7 @@ class TestIdentifierClients():
         """ REPLICATION RULE (CLIENT): Add a replication rule """
 
         # Add a scope
-        tmp_scope = 'scope_%s' % uuid()
+        tmp_scope = 'scope_%s' % uuid()[:22]
         self.scope_client.add_scope('root', tmp_scope)
 
         # Add a RSE

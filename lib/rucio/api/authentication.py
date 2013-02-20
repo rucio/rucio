@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
 
 from rucio.api import permission
 from rucio.common import exception

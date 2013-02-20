@@ -141,12 +141,15 @@ class ModelBase(object):
 class Account(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
-    account = Column(String(255))
+    account = Column(String(30))
     type = Column(String(10))
     status = Column(String(10))
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
                    CheckConstraint("type IN ('user', 'group', 'service')", name='ACCOUNTS_TYPE_CHK'),
-                   CheckConstraint("status IN ('active', 'inactive', 'disabled')", name='ACCOUNTS_STATUS_CHK'), )
+                   CheckConstraint("status IN ('active', 'inactive', 'disabled')", name='ACCOUNTS_STATUS_CHK'),
+                   CheckConstraint('"TYPE" IS NOT NULL', name='ACCOUNT_TYPE_NN'),
+                   CheckConstraint('"STATUS" IS NOT NULL', name='ACCOUNT_STATUS_NN')
+                   )
 
 
 class Identity(BASE, ModelBase):
@@ -169,7 +172,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
     __tablename__ = 'account_map'
     identity = Column(String(255))
     type = Column(String(8))
-    account = Column(String(255))
+    account = Column(String(30))
     is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
@@ -181,18 +184,20 @@ class IdentityAccountAssociation(BASE, ModelBase):
 class Scope(BASE, ModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
-    scope = Column(String(255))
-    account = Column(String(255))
+    scope = Column(String(30))
+    account = Column(String(30))
     is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
     _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
-                   CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),)
+                   CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),
+                   CheckConstraint('account IS NOT NULL', name='SCOPES_ACCOUNT_NN')
+                   )
 
 
 class DataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'dids'
-    scope = Column(String(255))
+    scope = Column(String(30))
     name = Column(String(255))
     owner = Column(String(255))
     type = Column(String(9))
@@ -212,7 +217,7 @@ class DataIdentifier(BASE, ModelBase):
 class File(BASE, ModelBase):
     """Represents a file"""
     __tablename__ = 'files'
-    scope = Column(String(255))
+    scope = Column(String(30))
     name = Column(String(255))
     owner = Column(String(255))
     availability = Column(String(32))
@@ -250,7 +255,7 @@ class DIDKeyValueAssociation(BASE, ModelBase):
 class DIDAttribute(BASE, ModelBase):
     """Represents Data IDentifier  properties"""
     __tablename__ = 'did_attributes'
-    scope = Column(String(255))
+    scope = Column(String(30))
     name = Column(String(255))
     key = Column(String(255))
     value = Column(String(255))
@@ -264,9 +269,9 @@ class DIDAttribute(BASE, ModelBase):
 class DataIdentifierAssociation(BASE, ModelBase):
     """Represents the map between containers/datasets and files"""
     __tablename__ = 'contents'
-    scope = Column(String(255))         # dataset scope
+    scope = Column(String(30))         # dataset scope
     name = Column(String(255))          # dataset name
-    child_scope = Column(String(255))   # Provenance scope
+    child_scope = Column(String(30))   # Provenance scope
     child_name = Column(String(255))    # Provenance name
     type = Column(String(9))
     child_type = Column(String(9))
@@ -332,7 +337,7 @@ class RSEAttrAssociation(BASE, ModelBase):
 class AccountLimit(BASE, ModelBase):
     """Represents account limits"""
     __tablename__ = 'account_limits'
-    account = Column(String(255))
+    account = Column(String(30))
     rse_expression = Column(String(255))
     name = Column(String(255))
     value = Column(BigInteger)
@@ -343,7 +348,7 @@ class AccountLimit(BASE, ModelBase):
 class AccountUsage(BASE, ModelBase, Versioned):
     """Represents account usage"""
     __tablename__ = 'account_usage'
-    account = Column(String(255))
+    account = Column(String(30))
     rse_id = Column(GUID())
     name = Column(String(255))
     value = Column(BigInteger)
@@ -356,7 +361,7 @@ class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'file_replicas'
     rse_id = Column(GUID())
-    scope = Column(String(255))
+    scope = Column(String(30))
     name = Column(String(255))
     size = Column(BigInteger)
     checksum = Column(String(32))
@@ -375,9 +380,9 @@ class ReplicationRule(BASE, ModelBase):
     """Represents data identifier replication rules"""
     __tablename__ = 'did_rules'
     id = Column(GUID(), default=utils.generate_uuid)
-    account = Column(String(255))
+    account = Column(String(30))
     state = Column(String(255), default='waiting')
-    scope = Column(String(255))
+    scope = Column(String(30))
     name = Column(String(255))
     rse_expression = Column(String(255))
     rses = Column(String(255))
@@ -402,9 +407,9 @@ class ReplicaLock(BASE, ModelBase):
     __tablename__ = 'replica_locks'
     rse_id = Column(GUID())
     rule_id = Column(GUID())
-    scope = Column(String(255))
+    scope = Column(String(30))
     name = Column(String(255))
-    account = Column(String(255))
+    account = Column(String(30))
     # type = Column(String(9)) Duplication of the type for partionning ?
     _table_args = (PrimaryKeyConstraint('rule_id', 'rse_id', 'scope', 'name', name='REPLICA_LOCKS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_DID_FK'),
@@ -417,7 +422,7 @@ class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
     id = Column(GUID(), default=utils.generate_uuid)
-    account = Column(String(255))
+    account = Column(String(30))
     retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
     expired_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', 'account', name='SUBSCRIPTIONS_PK'),
@@ -429,7 +434,7 @@ class Authentication(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'authentication'
     token = Column(String(32))
-    account = Column(String(255))
+    account = Column(String(30))
     lifetime = Column(DateTime, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(16), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', 'account', name='AUTH_TOKEN_ACCOUNT_PK'),

@@ -12,14 +12,15 @@
 from datetime import datetime
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
+from traceback import format_exc
 from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK
+
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
 from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_account_identity
-from rucio.api.permission import has_permission
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.account")
@@ -102,16 +103,17 @@ class Scopes:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            if not has_permission(issuer=auth.get('account'), action='add_scope', kwargs={'account_name': account_name, 'scope_name': scope_name}):
-                raise AccessDenied('Account %s can not add scope to account %s' % (auth.get('account'), account_name))
-            add_scope(scope_name, account_name)
+            add_scope(scope_name, account_name, issuer=auth.get('account'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
         raise Created()
@@ -219,7 +221,10 @@ class AccountParameter:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
         raise Created()
