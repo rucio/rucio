@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
@@ -15,7 +15,7 @@ import rucio.common.exception
 import rucio.core.identity
 
 from rucio.core import account
-
+from rucio.common.schema import validate_schema
 
 # Expose status through API
 account_status = account.account_status
@@ -30,6 +30,9 @@ def add_account(account_name, account_type, issuer):
     :param issuer: The issuer account.
 
     """
+
+    validate_schema(name='account', obj=account_name)
+
     kwargs = {'account_name': account_name, 'account_type': account_type}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
