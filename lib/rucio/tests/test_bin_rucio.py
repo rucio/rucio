@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
@@ -47,7 +47,7 @@ class TestBinRucio():
 
     def test_add_account(self):
         """ACCOUNT (CLI): Add account"""
-        tmp_val = str(uuid.uuid4())
+        tmp_val = str(uuid.uuid4()).lower()[:20]
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
@@ -64,7 +64,7 @@ class TestBinRucio():
 
     def test_add_identity(self):
         """ACCOUNT (CLI): Test add identity"""
-        tmp_val = str(uuid.uuid4())
+        tmp_val = str(uuid.uuid4()).lower()[:20]
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         nose.tools.assert_equal('Added new account: jdoe-%s\n' % tmp_val, out)
@@ -76,7 +76,7 @@ class TestBinRucio():
 
     def test_add_scope(self):
         """ACCOUNT (CLI): Test add identity"""
-        tmp_val = str(uuid.uuid4())
+        tmp_val = str(uuid.uuid4()).lower()[:20]
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin identity add --account jdoe-%s --type gss --id jdoe@CERN.CH' % tmp_val

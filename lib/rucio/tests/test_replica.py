@@ -30,7 +30,7 @@ class TestReplica():
 
     def test_add_list_replica(self):
         """ REPLICA (CLIENT): Add and list file replica """
-        tmp_scope = 'scope_%s' % generate_uuid()
+        tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_file = 'file_%s' % generate_uuid()
         self.scope_client.add_scope('root', tmp_scope)
         self.rse_client.add_file_replica('MOCK', tmp_scope, tmp_file, 1L, 1L)

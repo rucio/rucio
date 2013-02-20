@@ -290,7 +290,10 @@ def set_metadata(scope, name, key, value, session=None):
             raise exception.InvalidValueForKey('The value %(value)s is invalid for the key %(key)s' % locals())
 
     # Check constraints
-    k = session.query(models.DIDKey).filter_by(key=key).one()
+    try:
+        k = session.query(models.DIDKey).filter_by(key=key).one()
+    except NoResultFound:
+        raise exception.KeyNotFound('%(key)s not found.' % locals())
 
     # Check value against regexp, if defined
     if k.regexp and not match(k.regexp, str(value)):
