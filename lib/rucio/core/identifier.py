@@ -45,6 +45,7 @@ def list_replicas(scope, name, protocols=None, session=None):
                     if not protocols or protocol in protocols:
                         pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, scope=scope, lfn=name, protocol=protocol))
 
+                # ToDo: add support for non determistic rse path -> pfn conversion
                 if pfns:
                     yield {'scope': row.scope, 'name': row.name, 'size': row.size,
                            'rse': row.rse.rse, 'checksum': row.checksum, 'pfns': pfns}

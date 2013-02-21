@@ -14,19 +14,22 @@ from rucio.common.schema import validate_schema
 from rucio.core import rse as rse_module
 
 
-def add_rse(rse, issuer):
+def add_rse(rse, issuer, prefix=None, deterministic=True, volatile=False):
     """
     Creates a new Rucio Location (RSE).
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
+    :param prefix: the base path of the rse.
+    :param deterministic: Boolean to know if the pfn is generated deterministically.
+    :param volatile: Boolean for RSE cache.
     """
     validate_schema(name='rse', obj=rse)
 
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
-    return rse_module.add_rse(rse)
+    return rse_module.add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
 
 
 def del_rse(rse, issuer):
@@ -103,7 +106,7 @@ def list_rse_attributes(rse):
     return rse_module.list_rse_attributes(rse=rse)
 
 
-def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None):
+def add_file_replica(rse, scope, name, size, checksum, issuer, pfn=None, dsn=None):
     """
     Add File replica.
 
@@ -113,6 +116,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None):
     :param size: The size of the file.
     :param checksum: The checksum of the file.
     :param issuer: The issuer account.
+    :param pfn: the physical file name for non deterministic rse.
     :param dsn: The dataset name.
 
     :returns: True is successful, False otherwise
@@ -122,4 +126,4 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None):
     if not permission.has_permission(issuer=issuer, action='add_file_replica', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
 
-    rse_module.add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=issuer, dsn=dsn)
+    rse_module.add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, issuer=issuer, pfn=pfn, dsn=dsn)

@@ -22,15 +22,18 @@ from rucio.db.session import read_session, transactional_session
 
 
 @transactional_session
-def add_rse(rse, session=None):
+def add_rse(rse, prefix=None, deterministic=True, volatile=False, session=None):
     """
     Add a rse with the given location name.
 
     :param rse: the name of the new rse.
+    :param prefix: the base path of the rse.
+    :param deterministic: Boolean to know if the pfn is generated deterministically.
+    :param volatile: Boolean for RSE cache.
     :param session: The database session in use.
     """
 
-    new_rse = models.RSE(rse=rse)
+    new_rse = models.RSE(rse=rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
     try:
         new_rse.save(session=session)
     except IntegrityError:
@@ -279,6 +282,21 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     :returns: True is successfull.
     """
     replica_rse = get_rse(rse=rse, session=session)
+
+    path = None
+    if not replica_rse.deterministic:
+        if not pfn:
+            raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
+
+        # Needs to add the parsing of the pfn to check if it matches a supported protocol
+        # if the syntax is correct
+        # extract the path
+        path = ''
+
+    else:
+        if pfn:
+            raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
+
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name,  type=models.DataIdType.FILE, deleted=False)
     if not query.first():
         try:
@@ -293,7 +311,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
                 raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
             raise
 
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, state='AVAILABLE')
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, path=path, state='AVAILABLE')
     try:
         new_replica.save(session=session)
     except IntegrityError:
