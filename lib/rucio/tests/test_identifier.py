@@ -41,7 +41,7 @@ class TestIdentifierClients():
         tmp_dsn = 'dsn_%s' % generate_uuid()
 
         self.scope_client.add_scope('root', tmp_scope)
-        self.rse_client.add_rse(tmp_rse)
+        self.rse_client.add_rse(tmp_rse, deterministic=False)
         dataset_meta = {'project': 'data13_hip',
                         'run_number': str(generate_uuid()),
                         'stream_name': 'physics_CosmicCalo',

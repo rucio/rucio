@@ -289,8 +289,8 @@ class RSE(BASE, ModelBase):
     id = Column(GUID(), default=utils.generate_uuid)
     rse = Column(String(255))
     type = Column(String(255), default='disk')
-    watermark = Column(BigInteger)
-    path = Column(String(1024))
+    prefix = Column(String(1024))
+    deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    file_replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
@@ -365,14 +365,13 @@ class RSEFileAssociation(BASE, ModelBase):
     name = Column(String(255))
     size = Column(BigInteger)
     checksum = Column(String(32))
-    pfn = Column(String(1024))
+    path = Column(String(1024))
     state = Column(String(255), default='UNAVAILABLE')
     rse = relationship("RSE", backref=backref('file_replicas', order_by="RSE.id"))
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='FILE_REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['files.scope', 'files.name'], name='FILE_REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'),
                    CheckConstraint("state IN ('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD')", name='FILE_REPLICAS_STATE_CHK'),)
-#                   CheckConstraint('"PFN" IS NOT NULL', name='FILE_REPLICAS_PFN_NN'), # for later...
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='FILE_REPLICAS_RULE_FK'),
 
 

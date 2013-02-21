@@ -6,14 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from json import dumps, loads
-from nose.tools import raises, assert_equal, assert_true, assert_in
+from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
 
 from rucio.client.rseclient import RSEClient
@@ -192,21 +192,18 @@ class TestRSEClient():
     def setUp(self):
         self.client = RSEClient()
 
-    @raises(InvalidObject)
     def test_add_rse(self):
         """ RSE (CLIENTS): add a new rse."""
         rse = 'MOCK_' + str(uuid())
         ret = self.client.add_rse(rse)
         assert_true(ret)
-        bad_rse = 'MOCK_$*&##@!'
-        ret = self.client.add_rse(bad_rse)
 
-    @raises(Duplicate)
-    def test_add_rse_duplicate(self):
-        """ RSE (CLIENTS): create a duplicate rse."""
-        rse = 'MOCK_' + str(uuid())
-        self.client.add_rse(rse)
-        self.client.add_rse(rse)
+        with assert_raises(Duplicate):
+            self.client.add_rse(rse)
+
+        bad_rse = 'MOCK_$*&##@!'
+        with assert_raises(InvalidObject):
+            ret = self.client.add_rse(bad_rse)
 
     def test_list_rses(self):
         """ RSE (CLIENTS): try to list rses."""
