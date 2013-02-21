@@ -22,20 +22,20 @@ OK = 0
 
 if __name__ == '__main__':
 
-    meta_keys = [('project', None, ['data13_hip', ]),
-                 ('run_number', None, []),
-                 ('stream_name', None, []),
-                 ('prod_step', None, []),
-                 ('datatype', None, []),
-                 ('version', None, []),
-                 ('guid', '^(\{){0,1}[0-9a-fA-F]{8}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{12}(\}){0,1}$', []),
-                 ('events', '^\d+$', [])]
+    meta_keys = [('project', 'all', None, ['data13_hip', ]),
+                 ('run_number', 'all', None, []),
+                 ('stream_name', 'all', None, []),
+                 ('prod_step', 'all', None, []),
+                 ('datatype', 'all', None, []),
+                 ('version', 'all', None, []),
+                 ('guid', 'file', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
+                 ('events', 'derived', '^\d+$', [])]
 
     c = Client()
-    for key, regexp, values in meta_keys:
+    for key, key_type, value_regexp, values in meta_keys:
         try:
             try:
-                c.add_key(key=key, regexp=regexp)
+                c.add_key(key=key, key_type=key_type, value_regexp=value_regexp)
             except Duplicate:
                 print '%(key)s already added' % locals()
 

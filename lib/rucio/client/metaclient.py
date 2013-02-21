@@ -23,13 +23,14 @@ class MetaClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(MetaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def add_key(self, key, type=None, regexp=None):
+    def add_key(self, key, key_type, value_type=None, value_regexp=None):
         """
         Sends the request to add a new key.
 
         :param key: the name for the new key.
-        :param type: the type of the value, if defined.
-        :param regexp: the regular expression that values should match, if defined.
+        :param key_type: the type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
+        :param value_type: the type of the value, if defined.
+        :param value_regexp: the regular expression that values should match, if defined.
 
         :return: True if key was created successfully.
         :raises Duplicate: if key already exists.
@@ -37,7 +38,9 @@ class MetaClient(BaseClient):
 
         path = '/'.join([self.META_BASEURL, key])
         url = build_url(self.host, path=path)
-        data = dumps({'type': type and str(type), 'regexp': regexp})
+        data = dumps({'value_type': value_type and str(value_type),
+                      'value_regexp': value_regexp,
+                      'key_type': key_type})
 
         r = self._send_request(url, type='POST', data=data)
 
