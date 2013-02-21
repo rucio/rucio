@@ -15,7 +15,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.meta import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException
 from rucio.common.utils import generate_http_error
 
 
@@ -84,19 +84,23 @@ class Meta:
         json_data = data()
         try:
             params = json_data and loads(json_data)
-            if params and 'type' in params:
-                type = params['type']
-            if params and 'regexp' in params:
-                regexp = params['regexp']
+            if params and 'value_type' in params:
+                value_type = params['value_type']
+            if params and 'value_regexp' in params:
+                value_regexp = params['value_regexp']
+            if params and 'key_type' in params:
+                key_type = params['key_type']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_key(key=key, type=type, regexp=regexp, issuer=auth['account'])
+            add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, issuer=auth['account'])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except UnsupportedValueType, e:
             raise generate_http_error(400, 'UnsupportedValueType', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
             print e
             raise InternalError(e)
@@ -170,7 +174,10 @@ class Values:
             raise generate_http_error(400, 'InvalidValueForKey', e[0][0])
         except KeyNotFound, e:
             raise generate_http_error(400, 'KeyNotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print e
             raise InternalError(e)
 
         raise Created()

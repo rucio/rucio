@@ -18,21 +18,22 @@ from rucio.db.session import read_session, transactional_session
 
 
 @transactional_session
-def add_key(key, type=None, regexp=None, session=None):
+def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
     """
     Adds a new allowed key.
 
     :param key: the name for the new key.
-    :param type: the type of the value, if defined.
-    :param regexp: the regular expression that values should match, if defined.
+    :param key_type: the type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
+    :param value_type: the type of the value, if defined.
+    :param value_regexp: the regular expression that values should match, if defined.
     :param session: The database session in use.
     """
 
-    # Check if type is supported
-    if type and type not in [str(t) for t in AUTHORIZED_VALUE_TYPES]:
-        raise UnsupportedValueType('The type \'%(type)s\' is not supported for values!' % locals())
+    # Check if value_type is supported
+    if value_type and value_type not in [str(t) for t in AUTHORIZED_VALUE_TYPES]:
+        raise UnsupportedValueType('The type \'%(value_type)s\' is not supported for values!' % locals())
 
-    new_key = models.DIDKey(key=key, type=type and str(type), regexp=regexp)
+    new_key = models.DIDKey(key=key, value_type=value_type and str(value_type), value_regexp=value_regexp, key_type=key_type)
     try:
         new_key.save(session=session)
     except IntegrityError, e:
@@ -97,13 +98,13 @@ def add_value(key, value, session=None):
     k = session.query(models.DIDKey).filter_by(key=key).one()
 
     # Check value against regexp, if defined
-    if k.regexp and not match(k.regexp, value):
-        raise InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.regexp))
+    if k.value_regexp and not match(k.value_regexp, value):
+        raise InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.value_regexp))
 
     # Check value type, if defined
     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
-    if k.type and not isinstance(value, type_map.get(k.type)):
-            raise InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.type))
+    if k.value_type and not isinstance(value, type_map.get(k.value_type)):
+            raise InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.value_type))
 
 
 @read_session

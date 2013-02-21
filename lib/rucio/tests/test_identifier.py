@@ -186,7 +186,7 @@ class TestIdentifierClients():
         self.rse_client.add_rse(rse)
         self.rse_client.add_file_replica(rse, scope, file, 1L, 1L)
         for i in xrange(10):
-            self.meta_client.add_key(keys[i])
+            self.meta_client.add_key(keys[i], key_type='all')
             self.did_client.set_metadata(scope, file, keys[i], values[i])
 
         meta = self.did_client.get_metadata(scope, file)
