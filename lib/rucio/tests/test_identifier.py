@@ -232,6 +232,39 @@ class TestIdentifierClients():
         assert_in(dataset1, datasets_s)
         assert_in(dataset2, datasets_s)
 
+    def test_list_files(self):
+        """ DATA IDENTIFIERS (CLIENT): test to list all files for a container"""
+        account = generate_uuid().lower()[:30]
+        scope = generate_uuid()[:30]
+        rse = generate_uuid().upper()
+        dataset1 = generate_uuid()
+        dataset2 = generate_uuid()
+        container = generate_uuid()
+        files1 = []
+        files2 = []
+        for i in xrange(10):
+            files1.append({'scope': scope, 'name': generate_uuid()})
+            files2.append({'scope': scope, 'name': generate_uuid()})
+
+        self.account_client.add_account(account, 'user')
+        self.scope_client.add_scope(account, scope)
+        self.rse_client.add_rse(rse)
+        for i in xrange(10):
+            self.rse_client.add_file_replica(rse, scope, files1[i]['name'], 1L, 1L)
+            self.rse_client.add_file_replica(rse, scope, files2[i]['name'], 1L, 1L)
+
+        self.did_client.add_dataset(scope, dataset1)
+        self.did_client.add_files_to_dataset(scope, dataset1, files1)
+
+        self.did_client.add_dataset(scope, dataset2)
+        self.did_client.add_files_to_dataset(scope, dataset2, files2)
+        datasets = [{'scope': scope, 'name': dataset1}, {'scope': scope, 'name': dataset2}]
+        self.did_client.add_container(scope, container)
+        self.did_client.add_datasets_to_container(scope, container, datasets)
+
+        for d in self.did_client.list_files(scope, container):
+            assert_in(d, files1+files2)
+
     @raises(UnsupportedOperation)
     def test_close(self):
         """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""

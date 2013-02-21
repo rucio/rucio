@@ -167,15 +167,17 @@ def list_files(scope, name, session=None):
     """
 
     # TODO: Optional traverse hierarchy
-    files = []
-    try:
-        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, child_type=models.DataIdType.FILE, deleted=False)
-        for tmp_file in query:
-            files.append({'scope': tmp_file.child_scope, 'name': tmp_file.child_name, 'type': tmp_file.child_type})
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    return files
+    dids = [(scope, name), ]
+    while dids:
+        s, n = dids.pop()
+        query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, name=n, deleted=False)
+        #  raise exception.DataIdentifierNotFound("Data identifier '%(s)s:%(n)s' not found" % locals())
+        for tmp_did in query:
+            if tmp_did.child_type == models.DataIdType.FILE:
+                yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name}
+            else:
+                dids.append((tmp_did.child_scope, tmp_did.child_name))
 
 
 @read_session

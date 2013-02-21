@@ -372,8 +372,7 @@ def list_files(args):
     for did in args.dids:
         try:
             scope, name = did.split(':')
-            files = client.list_files(scope=scope, name=name)
-            for file in files:
+            for file in client.list_files(scope=scope, name=name):
                 print '%(scope)s:%(name)s' % file  # %(size)s\t%(checksum)s
         except Exception, e:
             print e
