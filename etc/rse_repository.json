@@ -55,6 +55,20 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
   },
+  "MOCK2":{
+    "backend_type": "POSIX",
+    "deterministic": false,
+    "protocols": {
+      "default": "posix",
+      "prefix": "/tmp/rucio_rse/",
+      "supported": {
+        "posix": {
+          "impl": "rucio.rse.protocols.posix.Default"
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
+  },
   "TAIWAN-LCG2_PPSSCRATCHDISK":{
     "backend_type": "DPM",
     "protocols": {
@@ -277,6 +291,8 @@
   },
   "CERN-PROD_TZERO":{
     "backend_type": "Castor",
+    "deterministic": false,
+    "prefix": "/castor/cern.ch/grid/atlas/tzero/",
     "protocols": {
       "default": "castor",
       "prefix": "/castor/cern.ch/grid/atlas/tzero/",
@@ -284,6 +300,10 @@
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "host": "srm://srm-atlas.cern.ch:8443/srm/managerv2"
+        },
+        "rfio": {
+          "impl": "rucio.rse.protocols.rfio.Default",
+          "host": "rfio://castoratlas.cern.ch:9002"
         }
       }
     },

@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
 
@@ -51,8 +51,21 @@ class RSE:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
+        prefix, deterministic, volatile = None, True, False
+        json_data = data()
         try:
-            add_rse(rse, issuer=auth['account'])
+            parameter = json_data and loads(json_data)
+            if parameter and 'prefix' in parameter:
+                prefix = parameter['prefix']
+            if parameter and 'deterministic' in parameter:
+                deterministic = parameter['deterministic']
+            if parameter and 'volatile' in parameter:
+                volatile = parameter['volatile']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+
+        try:
+            add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -263,6 +276,7 @@ class Files:
             size = parameter['size']
             checksum = parameter['checksum']
             dsn = parameter['dsn']
+            pfn = parameter['pfn']
         except KeyError, e:
             if e.args[0] == 'size' or e.args[0] == 'checksum' or e.args[0] == 'dsn':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
@@ -270,7 +284,7 @@ class Files:
             raise generate_http_error(400, 'TypeError', 'Body must be a json dictionary')
 
         try:
-            add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, dsn=dsn, issuer=auth['account'])
+            add_file_replica(rse=rse, scope=scope, name=name, size=size, checksum=checksum, pfn=pfn, dsn=dsn, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:

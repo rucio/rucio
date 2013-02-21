@@ -33,7 +33,10 @@ if __name__ == '__main__':
     c = Client()
     for rse in repo_data:
         try:
-            c.add_rse(rse)
+            prefix = repo_data[rse].get('prefix', None)
+            deterministic = repo_data[rse].get('deterministic', True)
+            volatile = repo_data[rse].get('volatile', False)
+            c.add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
         except Duplicate:
             print '%(rse)s already added' % locals()
         except:
