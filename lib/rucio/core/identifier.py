@@ -87,7 +87,7 @@ def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[], se
 
     # Add meta-data
     for key in meta:
-        set_metadata(scope=scope, name=name, key=key, value=meta[key], session=session)
+        set_metadata(scope=scope, name=name, key=key, value=meta[key], did=new_did, session=session)
 
     # Add rules
     # for rule in rules:
@@ -274,7 +274,7 @@ def get_did(scope, name, session=None):
 
 
 @transactional_session
-def set_metadata(scope, name, key, value, session=None):
+def set_metadata(scope, name, key, value, did=None, session=None):
     """
     Add metadata to data identifier.
 
@@ -282,6 +282,7 @@ def set_metadata(scope, name, key, value, session=None):
     :param name: The data identifier name.
     :param key: the key.
     :param value: the value.
+    :paran did: The data identifier info.
     :param session: The database session in use.
     """
     # Check enum types
@@ -299,13 +300,22 @@ def set_metadata(scope, name, key, value, session=None):
         raise exception.KeyNotFound('%(key)s not found.' % locals())
 
     # Check value against regexp, if defined
-    if k.regexp and not match(k.regexp, str(value)):
-        raise exception.InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.regexp))
+    if k.value_regexp and not match(k.value_regexp, str(value)):
+        raise exception.InvalidValueForKey('The value %s for the key %s does not match the regular expression %s' % (value, key, k.value_regexp))
 
     # Check value type, if defined
     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
-    if k.type and not isinstance(value, type_map.get(k.type)):
-            raise exception.InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.type))
+    if k.value_type and not isinstance(value, type_map.get(k.value_type)):
+            raise exception.InvalidValueForKey('The value %s for the key %s does not match the required type %s' % (value, key, k.value_type))
+
+    if not did:
+        did = get_did(scope=scope, name=name, session=session)
+
+    # Check key_type
+    if k.key_type in ('file', 'derived') and did['type'] != 'file':
+        raise exception.UnsupportedOperation("The key %(key)s cannot be applied on data identifier with type != file" % locals())
+    elif k.key_type == 'collection' and did['type'] not in ('dataset', 'container'):
+        raise exception.UnsupportedOperation("The key %(key)s cannot be applied on data identifier with type != dataset|container" % locals())
 
     if key == 'guid':
         try:

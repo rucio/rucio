@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
@@ -33,19 +33,20 @@ def list_values(key):
     return meta.list_values(key=key)
 
 
-def add_key(key, issuer, type=None, regexp=None):
+def add_key(key, issuer, key_type, value_type=None, value_regexp=None):
     """
     Add a new allowed key.
 
     :param key: the name for the new key.
     :param issuer: The issuer account.
-    :param type: the type of the value, if defined.
-    :param regexp: the regular expression that values should match, if defined.
+    :param key_type: the type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
+    :param value_type: the type of the value, if defined.
+    :param value_regexp: the regular expression that values should match, if defined.
     """
-    kwargs = {'key': key, 'type': type, 'regexp': regexp}
+    kwargs = {'key': key, 'key_type': key_type, 'value_type': value_type, 'value_regexp': value_regexp}
     if not has_permission(issuer=issuer, action='add_key', kwargs=kwargs):
         raise AccessDenied('Account %s can not add key' % (issuer))
-    return meta.add_key(key=key, type=type, regexp=regexp)
+    return meta.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp)
 
 
 def add_value(key, value, issuer):

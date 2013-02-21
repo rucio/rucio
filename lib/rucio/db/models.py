@@ -238,9 +238,12 @@ class DIDKey(BASE, ModelBase):
     """Represents Data IDentifier property keys"""
     __tablename__ = 'did_keys'
     key = Column(String(255))
-    type = Column(String(255))
-    regexp = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),)
+    key_type = Column(String(255))
+    value_type = Column(String(255))
+    value_regexp = Column(String(255))
+    _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),
+                   CheckConstraint('key_type IS NOT NULL', name='DID_KEYS_KEY_TYPE_NN'),
+                   CheckConstraint("key_type IN ('all', 'collection', 'file', 'derived')", name='DID_KEYS_KEY_TYPE_CHK'),)
 
 
 class DIDKeyValueAssociation(BASE, ModelBase):
