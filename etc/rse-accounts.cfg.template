@@ -12,7 +12,7 @@
     "progress_meter": "False",
     "skip_existing": "False"
   },
-  "posix": {}
+  "posix": {},
   "DESY-ZN_SCRATCHDISK": {
     "auth_type": "cert",
     "timeout":300
