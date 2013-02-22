@@ -36,7 +36,7 @@ class TestIdentifierClients():
 
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
-        tmp_scope = 'scope_%s' % generate_uuid()
+        tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_rse = 'RSE_%s' % generate_uuid()
         tmp_dsn = 'dsn_%s' % generate_uuid()
 
@@ -81,7 +81,7 @@ class TestIdentifierClients():
 
     def test_exists(self):
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
-        tmp_scope = 'scope_%s' % generate_uuid()
+        tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_file = 'file_%s' % generate_uuid()
         tmp_rse = 'RSE_%s' % generate_uuid()
 
@@ -101,8 +101,8 @@ class TestIdentifierClients():
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
 
         # create some dummy data
-        self.tmp_accounts = ['account_%s' % generate_uuid() for i in xrange(10)]
-        self.tmp_scopes = ['scope_%s' % generate_uuid() for i in xrange(10)]
+        self.tmp_accounts = ['account-%s' % generate_uuid().lower()[:20] for i in xrange(10)]
+        self.tmp_scopes = ['scope_%s' % generate_uuid()[:22] for i in xrange(10)]
         self.tmp_rses = ['RSE_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(10)]
@@ -153,8 +153,8 @@ class TestIdentifierClients():
     def test_get_did(self):
         """ DATA IDENTIFIERS (CLIENT): add a new data identifier and try to retrieve it back"""
 
-        account = generate_uuid()
-        scope = generate_uuid()
+        account = generate_uuid().lower()[:30]
+        scope = generate_uuid()[:30]
         rse = generate_uuid()
         file = generate_uuid()
 
@@ -171,8 +171,8 @@ class TestIdentifierClients():
     def test_get_meta(self):
         """ DATA IDENTIFIERS (CLIENT): add a new meta data for an identifier and try to retrieve it back"""
 
-        account = generate_uuid()
-        scope = generate_uuid()
+        account = generate_uuid().lower()[:20]
+        scope = generate_uuid()[:30]
         rse = generate_uuid()
         file = generate_uuid()
         keys = []
@@ -197,8 +197,8 @@ class TestIdentifierClients():
     def test_list_contents(self):
         """ DATA IDENTIFIERS (CLIENT): test to list contents for an identifier"""
 
-        account = generate_uuid()
-        scope = generate_uuid()
+        account = generate_uuid().lower()[:20]
+        scope = generate_uuid()[:22]
         rse = generate_uuid()
         dataset1 = generate_uuid()
         dataset2 = generate_uuid()
@@ -237,7 +237,7 @@ class TestIdentifierClients():
         """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""
 
         # Add a scope
-        tmp_scope = 'scope_%s' % generate_uuid()
+        tmp_scope = 'scope_%s' % generate_uuid()[:22]
         self.scope_client.add_scope('root', tmp_scope)
 
         # Add a RSE

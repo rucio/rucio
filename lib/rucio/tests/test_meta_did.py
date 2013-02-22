@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from nose.tools import assert_equal, assert_in, raises
@@ -31,7 +31,7 @@ class TestMetaDIDClient():
     def test_add_list_meta(self):
         """ META DID (CLIENTS):  Add metadata to a data identifier"""
         # Add a scope
-        tmp_scope = 'scope_%s' % uuid()
+        tmp_scope = 'scope_%s' % uuid()[:22]
         self.scope_client.add_scope('root', tmp_scope)
 
         # Add a dataset
