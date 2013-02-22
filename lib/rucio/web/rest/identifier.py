@@ -410,7 +410,7 @@ class Files:
         :returns: A dictionary containing all replicas information.
         """
 
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
@@ -419,10 +419,14 @@ class Files:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_files(scope=scope, name=name))
+            for file in list_files(scope=scope, name=name):
+                yield dumps(file) + "\n"
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
     def PUT(self):
