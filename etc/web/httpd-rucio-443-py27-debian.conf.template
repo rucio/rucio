@@ -1,0 +1,60 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+#
+# Notabene:
+#
+# This file configures a local SSLised Apache 2.2 for testing.
+#
+# Usage:
+#   sudo apachectl restart
+#   tail -f /var/log/apache2/*_log /var/log/rucio/httpd_*
+#
+# We are relying on some features of mod_ssl of the Apache project,
+# therefore we cannot use another backend server for now.
+#
+# This configuration is for Ubuntu, with mod_wsgi
+# installed from ubuntu repositories
+#
+# If Apache throws a "Cannot follow symlink" error, check the
+# permissions of /opt/rucio; the apache user must be able to
+# access it.
+#
+
+WSGIPythonHome /opt/rucio/.venv/
+WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
+
+Listen 443
+<VirtualHost localhost:443>
+ ServerName localhost:443
+ ServerAdmin ph-adp-ddm-lab@cern.ch
+
+ SSLEngine on
+ SSLCertificateFile /opt/rucio/etc/web/localhost.crt
+ SSLCACertificateFile /opt/rucio/etc/web/ca.crt
+
+ LogLevel debug
+
+ Include /opt/rucio/etc/web/aliases.conf
+
+ # Valid client certificates required only for x509 authentication
+ <LocationMatch /identity/.+/x509>
+  SSLVerifyClient require
+  SSLVerifyDepth 10
+  SSLOptions +StdEnvVars
+ </LocationMatch>
+
+ <LocationMatch auth/x509>
+  SSLVerifyClient require
+  SSLVerifyDepth 10
+  SSLOptions +StdEnvVars
+ </LocationMatch>
+</VirtualHost>
