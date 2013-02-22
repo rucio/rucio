@@ -5,11 +5,15 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
-from rucio.core import scope
+import rucio.api.permission
+import rucio.common.exception
+
+from rucio.core import scope as core_scope
+from rucio.common.schema import validate_schema
 
 
 def list_scopes():
@@ -18,17 +22,25 @@ def list_scopes():
 
     :returns: A list containing all scopes.
     """
-    return scope.list_scopes()
+    return core_scope.list_scopes()
 
 
-def add_scope(scope_name, account):
+def add_scope(scope, account, issuer):
     """
     Creates a scope for an account.
 
     :param account: The account name.
     :param scope: The scope identifier.
+    :param issuer: The issuer account.
     """
-    scope.add_scope(scope_name, account)
+
+    validate_schema(name='scope', obj=scope)
+
+    kwargs = {'scope_name': scope, 'account_name': account}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='add_scope', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not add scope' % (issuer))
+
+    core_scope.add_scope(scope, account)
 
 
 def get_scopes(account):
@@ -39,4 +51,4 @@ def get_scopes(account):
 
     :returns: A list containing the names of all scopes for this account.
     """
-    return scope.get_scopes(account)
+    return core_scope.get_scopes(account)

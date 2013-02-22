@@ -13,13 +13,13 @@
 
 from json import dumps, loads
 
-from nose.tools import assert_equal, assert_true, raises
+from nose.tools import assert_equal, assert_true, assert_raises, raises
 from paste.fixture import TestApp
 
 from rucio.api.account import add_account, account_exists, del_account
 from rucio.api.account import get_account_status, set_account_status, account_status
 from rucio.client.accountclient import AccountClient
-from rucio.common.exception import AccountNotFound, Duplicate
+from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
@@ -37,8 +37,8 @@ class TestAccountCoreApi():
 
     def test_create_and_check_for_user(self):
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
-        usr = str(uuid())
-        invalid_usr = str(uuid())
+        usr = str(uuid()).lower()[0:30]
+        invalid_usr = str(uuid()).lower()[0:30]
         add_account(usr, 'user', 'root')
         assert_equal(account_exists(usr), True)
         assert_equal(account_exists(invalid_usr), False)
@@ -46,7 +46,7 @@ class TestAccountCoreApi():
 
     def test_account_status(self):
         """ ACCOUNT (CORE): Test changing and quering account status """
-        usr = str(uuid())
+        usr = str(uuid()).lower()[0:30]
         add_account(usr, 'user', 'root')
         assert_equal(get_account_status(usr), account_status.active)  # Should be active by default
         set_account_status(usr, account_status.inactive)
@@ -76,7 +76,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        acntusr = 'user' + str(uuid())
+        acntusr = 'user' + str(uuid()).lower()[0:20]
         headers2 = {'Rucio-Auth-Token': str(token)}
         data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
@@ -156,7 +156,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        acntusr = 'user' + str(uuid())
+        acntusr = 'user' + str(uuid()).lower()[0:20]
         headers2 = {'Rucio-Auth-Token': str(token)}
         data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
@@ -190,7 +190,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('Rucio-Auth-Token'))
 
-        acntusr = 'user' + str(uuid())
+        acntusr = 'user' + str(uuid()).lower()[0:20]
         headers2 = {'Rucio-Auth-Token': str(token)}
         data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
@@ -250,20 +250,23 @@ class TestAccountClient():
 
     def test_add_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account."""
-        ret = self.client.add_account(str(uuid()), 'user')
+        account = str(uuid()).lower()[0:30]
+        type = 'user'
+        ret = self.client.add_account(account, type)
         assert_true(ret)
 
-    @raises(Duplicate)
-    def test_add_account_duplicate(self):
-        """ ACCOUNT (CLIENTS): try to create a duplicate account."""
-        account = str(uuid())
-        type = 'user'
-        self.client.add_account(account, type)
-        self.client.add_account(account, type)
+        with assert_raises(Duplicate):
+            self.client.add_account(account, type)
+
+        with assert_raises(InvalidObject):
+            self.client.add_account('BAD_ACCOUNT_NAME', type)
+
+        with assert_raises(InvalidObject):
+            self.client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type)
 
     def test_get_account(self):
         """ ACCOUNT (CLIENTS): get information about account."""
-        account = str(uuid())
+        account = str(uuid()).lower()[0:30]
         self.client.add_account(account, 'user')
         acc_info = self.client.get_account(account)
         assert_equal(acc_info['account'], account)
@@ -276,7 +279,7 @@ class TestAccountClient():
 
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
-        acc_list = [str(uuid()) + str(i) for i in xrange(5)]
+        acc_list = [str(uuid()).lower()[0:20] + str(i) for i in xrange(5)]
 
         for account in acc_list:
             self.client.add_account(account, 'user')
