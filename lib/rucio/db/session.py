@@ -159,6 +159,7 @@ def read_session(function):
                 result = function(*args, **kwargs)
             finally:
                 session.close()
+                session.remove()
         else:
             result = function(*args, **kwargs)
         return result
@@ -189,6 +190,7 @@ def transactional_session(function):
                 session.commit()
             finally:
                 session.close()
+                session.remove()
         else:
             result = function(*args, **kwargs)
         return result
