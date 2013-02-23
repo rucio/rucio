@@ -96,15 +96,18 @@ class ModelBase(object):
 
     def save(self, session=None):
         """Save this object"""
-        session = session
         session.add(self)
         session.flush()
 
-    def delete(self, session=None):
+    def delete(self, soft=True, session=None):
         """Delete this object"""
-        self.deleted = True
-        self.deleted_at = datetime.datetime.utcnow()
-        self.save(session=session)
+        if soft:
+            self.deleted = True
+            self.deleted_at = datetime.datetime.utcnow()
+            self.save(session=session)
+        else:
+            session.delete(self)
+            session.flush()
 
     def update(self, values):
         """dict.update() behaviour."""

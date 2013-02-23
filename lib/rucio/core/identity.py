@@ -69,7 +69,7 @@ def del_identity(identity, type, session=None):
     id = session.query(models.Identity).filter_by(identity=identity, type=type).first()
     if id is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
-    id.delete(session)
+    id.delete(session=session)
 
 
 @transactional_session
@@ -112,7 +112,7 @@ def del_account_identity(identity, type, account, session=None):
     aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account).first()
     if aid is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
-    aid.delete(session)
+    aid.delete(session=session)
 
 
 @read_session
