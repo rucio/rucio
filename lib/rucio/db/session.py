@@ -64,8 +64,8 @@ def get_engine(echo=True):
 
     database = config_get('database', 'default')
 
-    engine = create_engine(database, echo=False, echo_pool=False)
-    # , pool_reset_on_return='rollback', pool_recycle
+    engine = create_engine(database, echo=False, echo_pool=False, convert_unicode=True, pool_recycle=3600)
+    # , pool_reset_on_return='rollback',
     if 'mysql' in database:
         event.listen(engine, 'checkout', mysql_ping_listener)
     if 'sqlite' in database:

@@ -202,18 +202,24 @@ def list_files(scope, name, session=None):
     :param session: The database session in use.
     """
 
-    # TODO: Optional traverse hierarchy
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False)
+    try:
+        did = query.one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    dids = [(scope, name), ]
-    while dids:
-        s, n = dids.pop()
-        query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, name=n, deleted=False)
-        #  raise exception.DataIdentifierNotFound("Data identifier '%(s)s:%(n)s' not found" % locals())
-        for tmp_did in query:
-            if tmp_did.child_type == models.DataIdType.FILE:
-                yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name}
-            else:
-                dids.append((tmp_did.child_scope, tmp_did.child_name))
+    if did.type == models.DataIdType.FILE:
+        yield {'scope': did.scope, 'name': did.name}
+    else:
+        dids = [(scope, name), ]
+        while dids:
+            s, n = dids.pop()
+            query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, name=n, deleted=False)
+            for tmp_did in query:
+                if tmp_did.child_type == models.DataIdType.FILE:
+                    yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name}
+                else:
+                    dids.append((tmp_did.child_scope, tmp_did.child_name))
 
 
 @read_session
