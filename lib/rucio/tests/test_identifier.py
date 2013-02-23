@@ -337,8 +337,17 @@ class TestIdentifierClients():
         self.did_client.add_container(scope, container)
         self.did_client.add_datasets_to_container(scope, container, datasets)
 
+        # List file content
+        for d in self.did_client.list_files(scope, files1[i]['name']):
+            assert_equal(d, files1[i])
+
+        # List container content
         for d in self.did_client.list_files(scope, container):
             assert_in(d, files1+files2)
+
+        # List non-existing data identifier content
+        with assert_raises(DataIdentifierNotFound):
+            self.did_client.list_files(scope, 'Nimportnawak')
 
     @raises(UnsupportedOperation)
     def test_close(self):
