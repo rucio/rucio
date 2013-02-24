@@ -241,12 +241,11 @@ def scope_list(scope, name=None, recursive=False, session=None):
 
     def __topdids(scope):
         topdids = []
-        for row in query_all:
+        q = session.query(models.DataIdentifier.name, models.DataIdentifier.type).filter_by(scope=scope, deleted=False)
+        a = session.query(models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type).filter_by(scope=scope, deleted=False)
+        s = q.except_(a)
+        for row in s.all():
             topdids.append({'scope': scope, 'name': row.name, 'type': row.type, 'parent': None, 'level': 0})
-        for row in query_associ:
-            did = {'scope': row.child_scope, 'name': row.child_name, 'type': row.child_type, 'parent': None, 'level': 0}
-            if topdids.count(did):
-                topdids.remove(did)
         return topdids
 
     def __didtree(topdids, parent=None, level=0, depth=-1):
