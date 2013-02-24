@@ -178,7 +178,7 @@ class TestIdentifierClients():
         # create some dummy data
         self.tmp_accounts = ['account-%s' % generate_uuid().lower()[:20] for i in xrange(10)]
         self.tmp_scopes = ['scope_%s' % generate_uuid()[:22] for i in xrange(10)]
-        self.tmp_rses = ['RSE_%s' % generate_uuid() for i in xrange(10)]
+        self.tmp_rses = ['RSE_%s' % generate_uuid()[:20] for i in xrange(10)]
         self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(10)]
         self.tmp_containers = ['container_%s' % generate_uuid() for i in xrange(10)]
@@ -343,7 +343,7 @@ class TestIdentifierClients():
 
         # List container content
         for d in self.did_client.list_files(scope, container):
-            assert_in(d, files1+files2)
+            assert_in(d, files1 + files2)
 
         # List non-existing data identifier content
         with assert_raises(DataIdentifierNotFound):
