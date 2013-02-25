@@ -124,6 +124,8 @@ def append_identifier(scope, name, dids, issuer, session=None):
     query_all = session.query(models.DataIdentifier)
     query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, type=did.type)
     for source in dids:
+        if (scope == source['scope']) and (name == source['name']):
+            raise exception.UnsupportedOperation('Self-append is not valid.')
         if did.type == models.DataIdType.CONTAINER:
             child = query_all.filter_by(scope=source['scope'], name=source['name'], deleted=False).first()
             if child is None:
@@ -161,8 +163,10 @@ def detach_identifier(scope, name, dids, issuer, session=None):
     #TODO: should judge target did's status: open, monotonic, close.
     query_all = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, deleted=False)
     if query_all.first() is None:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' has no child data identifiers." % locals())
     for source in dids:
+        if (scope == source['scope']) and (name == source['name']):
+            raise exception.UnsupportedOperation('Self-detach is not valid.')
         child_scope = source['scope']
         child_name = source['name']
         associ_did = query_all.filter_by(child_scope=child_scope, child_name=child_name).first()
