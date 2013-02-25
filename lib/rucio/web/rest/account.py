@@ -55,6 +55,9 @@ class Scopes:
         :returns: A list containing all scope names for an account.
         """
         header('Content-Type', 'application/json')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
@@ -140,6 +143,9 @@ class AccountParameter:
         """
 
         header('Content-Type', 'application/json')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
@@ -282,6 +288,9 @@ class Account:
         """
 
         header('Content-Type', 'application/x-json-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
@@ -382,6 +391,9 @@ class Identities:
 
     def GET(self, account_name):
         header('Content-Type', 'application/x-json-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
         auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
