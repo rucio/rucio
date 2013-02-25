@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 import glob
@@ -41,7 +41,9 @@ IsRelease = False
 requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
 data_files = [('etc/', glob.glob('etc/*.template')),
               ('etc/web', glob.glob('etc/web/*.template')),
+              ('etc/schemas', glob.glob('etc/schemas/*.json')),
               ('tools/', glob.glob('tools/*'))]
+
 scripts = ['bin/rucio', 'bin/rucio-admin', 'bin/rucio-conveyor', 'bin/rucio-reaper', 'bin/rucio-transmogrifier']
 
 
