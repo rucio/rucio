@@ -27,6 +27,9 @@ except NoOptionError:
     pass
 
 
+_SESSION = None
+
+
 def _fk_pragma_on_connect(dbapi_con, con_record):
     # Hack for previous versions of sqlite3
     try:
@@ -136,8 +139,11 @@ def wrap_db_error(f):
 def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
         :returns: session """
-    engine = get_engine(echo=True)
-    return scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
+    global _SESSION
+    if not _SESSION:
+        engine = get_engine(echo=True)
+        _SESSION = scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
+    return _SESSION
 
 
 def read_session(function):
@@ -158,8 +164,8 @@ def read_session(function):
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
             finally:
-                session.close()
-                session.remove()
+                if session.bind.dialect.name == 'mysql':
+                    session.close()
         else:
             result = function(*args, **kwargs)
         return result
@@ -189,8 +195,8 @@ def transactional_session(function):
             else:
                 session.commit()
             finally:
-                session.close()
-                session.remove()
+                if session.bind.dialect.name == 'mysql':
+                    session.close()
         else:
             result = function(*args, **kwargs)
         return result
@@ -222,7 +228,8 @@ def in_transaction(nested=False):
                 else:
                     session.commit()
                 finally:
-                    session.close()
+                    if session.bind.dialect.name == 'mysql':
+                        session.close()
             else:
                 result = function(*args, **kwargs)
             return result
