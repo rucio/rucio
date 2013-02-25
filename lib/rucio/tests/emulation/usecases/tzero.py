@@ -67,7 +67,7 @@ class UseCaseDefinition(UCEmulator):
         # Creating Files to append to a dataset
         for i in xrange(int(round(gauss(tse['no_of_files'], 10)))):
             lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
-            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
+            pfn = 'rfio:///castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()),
                          'events': 10}
@@ -108,7 +108,7 @@ class UseCaseDefinition(UCEmulator):
         """
         self.cfg = cfg
         self.account = 'rucio'
-        self.rse = 'MOCK'
+        self.rse = 'CERN-PROD_TZERO'
         self.scope = 'data13_hip'
         self.datasets = {}
         self.datasets['open'] = []
