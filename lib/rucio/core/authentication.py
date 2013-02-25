@@ -68,7 +68,8 @@ def get_auth_token_user_pass(account, username, password, ip=None, session=None)
     # create new rucio-auth-token for account
     token = str(uuid.uuid4()).replace('-', '')
 
-    session.add(models.Authentication(account=db_account, token=token, ip=ip))
+    new_token = models.Authentication(account=db_account, token=token, ip=ip)
+    new_token.save(session=session)
 
     return token
 
@@ -95,7 +96,8 @@ def get_auth_token_x509(account, dn, ip=None, session=None):
     # create new rucio-auth-token for account
     token = str(uuid.uuid4()).replace('-', '')
 
-    session.add(models.Authentication(account=account, token=token, ip=ip))
+    new_token = models.Authentication(account=account, token=token, ip=ip)
+    new_token.save(session=session)
 
     return token
 
@@ -122,7 +124,8 @@ def get_auth_token_gss(account, gsstoken, ip=None, session=None):
     # create new rucio-auth-token for account
     token = str(uuid.uuid4()).replace('-', '')
 
-    session.add(models.Authentication(account=account, token=token, ip=ip))
+    new_token = models.Authentication(account=account, token=token, ip=ip)
+    new_token.save(session=session)
 
     return token
 
