@@ -375,6 +375,8 @@ class Content:
 
         try:
             detach_identifier(scope=scope, name=name, dids=dids, issuer=auth['account'])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except AccessDenied, e:

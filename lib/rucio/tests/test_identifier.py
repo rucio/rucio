@@ -172,6 +172,9 @@ class TestIdentifierClients():
                 else:
                     assert_not_equal(r['level'], 0)
 
+        with assert_raises(UnsupportedOperation):
+            self.did_client.detach_identifier(scope=scope, name=cnt[0], dids=[{'scope': scope, 'name': cnt[0]}])
+
     def test_scope_list(self):
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
 
