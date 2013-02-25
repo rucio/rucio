@@ -73,7 +73,6 @@ def detach_identifier(scope, name, dids, issuer):
     """
 
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
-    #TODO: append and detach should share same permission rule
     if not rucio.api.permission.has_permission(issuer=issuer, action='detach_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
     return identifier.detach_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
