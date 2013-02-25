@@ -71,7 +71,7 @@ def del_rse(rse, session=None):
         old_rse = session.query(models.RSE).filter_by(rse=rse).one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
-    old_rse.delete(session)
+    old_rse.delete(session=session)
     del_rse_attribute(rse=rse, key=rse, session=session)
 
 
