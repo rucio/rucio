@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 
 import re
@@ -46,6 +46,10 @@ class UserPass:
         """
 
         web.header('Content-Type', 'application/octet-stream')
+        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
+        web.header('Pragma', 'no-cache')
+
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         username = web.ctx.env.get('HTTP_RUCIO_USERNAME')
         password = web.ctx.env.get('HTTP_RUCIO_PASSWORD')
@@ -99,6 +103,9 @@ class GSS:
         """
 
         web.header('Content-Type', 'application/octet-stream')
+        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
+        web.header('Pragma', 'no-cache')
 
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         gsscred = web.ctx.env.get('REMOTE_USER')
@@ -151,6 +158,10 @@ class x509:
         """
 
         web.header('Content-Type', 'application/octet-stream')
+        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
+        web.header('Pragma', 'no-cache')
+
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         dn = web.ctx.env.get('SSL_CLIENT_S_DN')
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
@@ -212,6 +223,9 @@ class Validate:
         """
 
         web.header('Content-Type', 'application/octet-stream')
+        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
+        web.header('Pragma', 'no-cache')
 
         token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
 
