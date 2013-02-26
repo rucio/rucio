@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 from uuid import uuid4 as uuid
 
@@ -18,7 +19,7 @@ from rucio.core.identity import add_identity, del_identity, add_account_identity
 class TestIdentity():
 
     def setUp(self):
-        self.account = str(uuid())
+        self.account = str(uuid()).lower()[:30]
         add_account(self.account, 'user')
 
     def tearDown(self):

@@ -11,6 +11,7 @@
 
 
 from json import dumps, loads
+from traceback import format_exc
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK
 
 from rucio.api.authentication import validate_auth_token
@@ -76,6 +77,7 @@ class RSE:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
             print e
+            print format_exc()
             raise InternalError(e)
 
         raise Created()
