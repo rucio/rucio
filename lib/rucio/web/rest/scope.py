@@ -11,11 +11,11 @@
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, header, BadRequest, Created, InternalError, HTTPError, Unauthorized
+from web import application, ctx, header, BadRequest, Created, InternalError, Unauthorized
 
 from rucio.api.scope import add_scope, get_scopes, list_scopes
 from rucio.api.authentication import validate_auth_token
-from rucio.common.exception import AccountNotFound, Duplicate
+from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.common.utils import generate_http_error
 
 
@@ -88,15 +88,11 @@ class Scope:
         try:
             add_scope(scope_name, account_name)
         except Duplicate, e:
-            status = '409 Conflict'
-            headers = {'ExceptionClass': 'Duplicate', 'ExceptionMessage': e[0][0]}
-            data = ' '.join(['Duplicate:', str(e)])
-            raise HTTPError(status, headers=headers, data=data)
+            raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccountNotFound, e:
-            status = '404 Not Found'
-            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
-            data = ' '.join(['AccountNotFound:', str(e)])
-            raise HTTPError(status, headers=headers, data=data)
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
@@ -140,19 +136,12 @@ class ScopeList:
         try:
             scopes = get_scopes(account_name)
         except AccountNotFound, e:
-            status = '404 Not Found'
-            headers = {'ExceptionClass': 'AccountNotFound', 'ExceptionMessage': e[0][0]}
-            data = ' '.join(['AccountNotFound:', str(e)])
-            raise HTTPError(status, headers=headers, data=data)
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
         if not len(scopes):
-            errmsg = 'no scopes found for account ID \'%s\'' % account_name
-            status = '404 Not Found'
-            headers = {'ExceptionClass': 'ScopeNotFound', 'ExceptionMessage': errmsg}
-            data = ' '.join(['ScopeNotFound:', errmsg])
-            raise HTTPError(status, headers=headers, data=data)
+            raise generate_http_error(404, 'ScopeNotFound',  'no scopes found for account ID \'%s\'' % account_name)
 
         return dumps(scopes)
 
