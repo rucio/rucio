@@ -18,7 +18,7 @@ from rucio.core.account import add_account
 class TestPermissionCoreApi():
 
     def setUp(self):
-        self.usr = str(uuid())
+        self.usr = str(uuid()).lower()[:30]
         add_account(self.usr, 'user')
 
     def tearDown(self):

@@ -144,11 +144,15 @@ def add_rse_attribute(rse, key, value, session=None):
     # Check location
     l = get_rse(rse=rse, session=session)
 
-    query = session.query(models.RSEAttribute).filter(models.RSEAttribute.key == key).filter(models.RSEAttribute.value == value)
-    if not query.count():
+    try:
+        if type(value) == bool:
+            v = str(int(value))
+        else:
+            v = str(value)
+        session.query(models.RSEAttribute).filter(models.RSEAttribute.key == key).filter(models.RSEAttribute.value == v).one()
+    except sqlalchemy.orm.exc.NoResultFound:
         new_attr = models.RSEAttribute(key=key, value=value)
         new_attr.save(session=session)
-
     try:
         new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value, deleted=False)
         new_rse_attr = session.merge(new_rse_attr)
