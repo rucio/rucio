@@ -207,11 +207,11 @@ def list_replicas(args):
             print e
 
 
-def add(args):
+def create(args):
     """
-    %(prog)s add [options] <field1=value1 field2=value2 ...>
+    %(prog)s create [options] <did>
 
-    Add data identifier.
+    Create a data identifier.
     """
 
     creds = None
@@ -219,16 +219,68 @@ def add(args):
         creds = {'username': args.username, 'password': args.password}
 
     scope, name = args.did.split(':')
-    sources = []
-    if args.sources:
-        sources = [{'scope': src.split(':')[0], 'name': src.split(':')[1]} for src in args.sources]
 
     client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.add_identifier(scope=scope, name=name, sources=sources)
+        if args.dataset:
+            client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
+        elif args.container:
+            client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
+        print 'Added %s:%s' % (scope, name)
+    except Exception, e:
+        print 'Failed to add data identifier'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def create_dataset(args):
+    """
+    %(prog)s create-dataset [options] <dsn>
+
+    Create a dataset identifier.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    scope, name = args.did.split(':')
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
+        print 'Added %s:%s' % (scope, name)
+    except Exception, e:
+        print 'Failed to add data identifier'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def create_container(args):
+    """
+    %(prog)s create-container [options] <dsn>
+
+    Create a container identifier.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    scope, name = args.did.split(':')
+
+    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
         print 'Added %s:%s' % (scope, name)
     except Exception, e:
         print 'Failed to add data identifier'
@@ -644,7 +696,6 @@ Commands:
     add_replicas_parser.add_argument('--rses', dest='rses', nargs='+', action='store', help='List of space separated Rucio Storage Element(RSE)', required=True)
     add_replicas_parser.add_argument('--sizes', dest='sizes', nargs='+', action='store', help='List of space separated file sizes', required=True)
     add_replicas_parser.add_argument('--checksums', dest='checksums', nargs='+', action='store', help='List of space separated file checksums', required=True)
-    add_replicas_parser.add_argument('--did', dest='did', default=None, action='store', help='Data identifier to create')
 
     # The list_replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
@@ -652,19 +703,38 @@ Commands:
     list_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
-    # The add command
-    add_parser = subparsers.add_parser('add', help='Add data identifier')
-    add_parser.set_defaults(which='add')
-    add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
-    add_parser.add_argument('--srcs', dest='sources', nargs='+', action='store', help='List of space separated data identifiers')  # , required=True)
+    # The create command
+    create_parser = subparsers.add_parser('create', help='Create data identifier')
+    create_parser.set_defaults(which='create')
+    create_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
+    group = create_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--dataset', action='store_true', help='Create dataset')
+    group.add_argument('--container', action='store_true', help='Create container')
+    create_parser.add_argument(dest='did', action='store', help='Data identifier to create')
 
-    # The add_dataset command
-    # add_parser = subparsers.add_parser('add-dataset', help='Add data identifier')
-    # add_parser.set_defaults(which='add')
-    # add_parser.add_argument('--dest', dest='did', action='store', help='Data identifier to create', required=True)
-    # add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers')  # , required=True)
+    # The create-dataset command
+    create_dataset_parser = subparsers.add_parser('create-dataset', help='Create dataset')
+    create_dataset_parser.set_defaults(which='create_dataset')
+    create_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
+    create_dataset_parser.add_argument(dest='did', action='store', help='Dataset name to create')
 
-    # ToDo: add meta
+    # The create-container command
+    create_container_parser = subparsers.add_parser('create-container', help='Create container')
+    create_container_parser.set_defaults(which='create_container')
+    create_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
+    create_container_parser.add_argument(dest='did', action='store', help='Container name to create')
+
+
+    # TODO:
+    # add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers') #, required=True)
+    # delete
+    # The add-files-to-dataset command
+    # The add-datasets-to-container command
+    # The add-containers-to-container command
+    # The list-rses
+    #   --rse_expression=<RSE_expression>
+    # regexp to validate a rse attribute key / value
+    # add meta
 
     # The detach command
     detach_parser = subparsers.add_parser('detach', help='Detach data identifier')
@@ -769,14 +839,18 @@ Commands:
     commands = {'ping': ping,
                 'add_replicas': add_replicas,
                 'list_replicas': list_replicas,
-                'add': add,
                 'detach': detach,
+                'create': create,
+                'create_dataset': create_dataset,
+                'create_container': create_container,
+                'delete': delete,
+                # 'delete_dataset': delete_dataset,
+                # 'delete_container': delete_container,
                 'list': list,
                 'list_files': list_files,
                 'list_scopes': list_scopes,
                 'close': close,
                 'stat': stat,
-                'del': delete,
                 'whoami_account': whoami_account,
                 'download': download,
                 'upload': upload,
