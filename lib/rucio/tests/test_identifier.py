@@ -395,4 +395,4 @@ class TestIdentifierClients():
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file}, ]
-        self.did_client.append_identifier(scope=tmp_scope, name=tmp_dataset, dids=files)
+        self.did_client.attach_identifier(scope=tmp_scope, name=tmp_dataset, dids=files)
