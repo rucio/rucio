@@ -76,8 +76,8 @@ def _ck_constraint_name(const, table):
 @event.listens_for(Table, "after_parent_attach")
 def _add_created_col(table, metadata):
     if not table.name.upper().endswith('_HISTORY'):
-        table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow()))
-        table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow(), onupdate=datetime.datetime.utcnow()))
+        table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow))
+        table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
         table.append_column(Column("deleted_at", DateTime))
         table.append_column(Column("deleted", Boolean, default=False))
 
@@ -461,7 +461,7 @@ class Authentication(BASE, ModelBase):
     __tablename__ = 'authentication'
     token = Column(String(32))
     account = Column(String(30))
-    lifetime = Column(DateTime, default=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
+    lifetime = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(16), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', 'account', name='AUTH_TOKEN_ACCOUNT_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='AUTH_ACCOUNT_FK'),
