@@ -14,6 +14,7 @@
 
 from os import remove
 
+from rucio.common.config import config_get
 from rucio.tests.common import execute
 
 
@@ -37,13 +38,15 @@ class TestRucioDemo:
 
     def setUp(self):
         self.marker = '   $> '
+        self.host = config_get('client', 'rucio_host')
+        self.auth_host = config_get('client', 'auth_host')
 
     def test_rucio_demo(self):
         """ CLI(DEMO): Test the rucio admin demo """
 
         cmd = 'source /afs/cern.ch/atlas/offline/external/GRID/ddm/rucio/testing/bin/activate'
         cmd = 'cat /afs/cern.ch/atlas/offline/external/GRID/ddm/rucio/testing/etc/rucio.cfg'
-        cmd = 'curl -s -X GET https://localhost/ping'
+        cmd = 'curl -s -X GET %s/ping' % self.host
         cmd = 'curl -s -X GET https://atlas-rucio.cern.ch/ping'
 
         cmd = 'rucio ping'

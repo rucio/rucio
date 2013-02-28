@@ -16,6 +16,7 @@ import json
 import os
 import nose.tools
 
+from rucio.common.config import config_get
 from rucio.tests.common import execute
 
 
@@ -30,11 +31,13 @@ class TestCurlRucio():
         pass
 
     def setUp(self):
+        self.host = config_get('client', 'rucio_host')
+        self.auth_host = config_get('client', 'auth_host')
         self.marker = '$> '
 
     def test_ping(self):
         """PING (CURL): Get Version"""
-        cmd = 'curl --cacert /opt/rucio/etc/web/ca.crt -s -X GET https://localhost/ping'
+        cmd = 'curl --cacert /opt/rucio/etc/web/ca.crt -s -X GET %s/ping' % self.host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -44,7 +47,7 @@ class TestCurlRucio():
 
     def test_get_auth_userpass(self):
         """AUTH (CURL): Test auth token retrieval with via username and password"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -X GET -H "Rucio-Account: root" -H "Rucio-Username: ddmlab" -H "Rucio-Password: secret" https://localhost/auth/userpass'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -X GET -H "Rucio-Account: root" -H "Rucio-Username: ddmlab" -H "Rucio-Password: secret" %s/auth/userpass' % self.auth_host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -52,7 +55,7 @@ class TestCurlRucio():
 
     def test_get_auth_x509(self):
         """AUTH  (CURL): Test auth token retrieval with via x509"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET %s/auth/x509' % self.auth_host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -60,11 +63,11 @@ class TestCurlRucio():
 
     def test_get_auth_GSS(self):
         """AUTH (CURL): Test auth token retrieval with via gss"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET %s/auth/x509 | grep Rucio-Auth-Token' % self.auth_host
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" --negotiate -u: -X GET https://localhost/auth/gss'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" --negotiate -u: -X GET %s/auth/gss' % self.auth_host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -72,11 +75,11 @@ class TestCurlRucio():
 
     def test_get_auth_x509_proxy(self):
         """AUTH (CURL): Test auth token retrieval with via proxy"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET %s/auth/x509 | grep Rucio-Auth-Token' % self.auth_host
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: vgaronne" --cert $X509_USER_PROXY --key $X509_USER_PROXY -X GET https://localhost/auth/x509_proxy'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: vgaronne" --cert $X509_USER_PROXY --key $X509_USER_PROXY -X GET %s/auth/x509_proxy' % self.auth_host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -84,11 +87,11 @@ class TestCurlRucio():
 
     def test_get_auth_validate(self):
         """AUTH (CURL): Test if token is valid"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET %s/auth/x509 | grep Rucio-Auth-Token' % self.auth_host
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt  -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/auth/validate'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt  -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET %s/auth/validate' % self.auth_host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -96,11 +99,11 @@ class TestCurlRucio():
 
     def test_post_account(self):
         """ACCOUNT (CURL): add account"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET %s/auth/x509 | grep Rucio-Auth-Token' % self.auth_host
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"account_type": "user"}' -X POST https://localhost/accounts/jdoe-%s''' % str(uuid.uuid4()).lower()[:24]
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"account_type": "user"}' -X POST %s/accounts/jdoe-%s''' % (self.host, str(uuid.uuid4()).lower()[:24])
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -108,11 +111,11 @@ class TestCurlRucio():
 
     def test_get_accounts_whoami(self):
         """ACCOUNT (CURL): Test whoami method"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET %s/auth/x509 | grep Rucio-Auth-Token' % self.auth_host
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/accounts/whoami'''
+        cmd = '''curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET %s/accounts/whoami''' % self.host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -120,11 +123,11 @@ class TestCurlRucio():
 
     def test_post_rse(self):
         """RSE (CURL): add RSE"""
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET https://localhost/auth/x509 | grep Rucio-Auth-Token'
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: root" -E /opt/rucio/etc/web/client.crt -X GET %s/auth/x509 | grep Rucio-Auth-Token' % self.auth_host
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -X POST https://localhost/rses/MOCK-%s''' % str(uuid.uuid4()).upper()
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -X POST %s/rses/MOCK-%s''' % (self.host, str(uuid.uuid4()).upper())
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out

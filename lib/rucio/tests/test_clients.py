@@ -32,47 +32,36 @@ class TestBaseClient():
     def testUserpass(self):
         """ CLIENTS (BASECLIENT): authenticate with userpass."""
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        BaseClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        BaseClient(account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     @raises(CannotAuthenticate)
     def testUserpassWrongCreds(self):
         """ CLIENTS (BASECLIENT): try to authenticate with wrong username."""
         creds = {'username': 'wrong', 'password': 'secret'}
-        BaseClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
-
-#    @raises(NoAuthInformation)
-#    def testUserpassNoCreds(self):
-#        """ CLIENTS (BASECLIENT): try to authenticate without userpass credentials."""
-#        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass')
-
-#    @raises(NoAuthInformation)
-#    def testUserpassNoAuthType(self):
-#        """ CLIENTS (BASECLIENT): try to authenticate without auth_type."""
-#        creds = {'username': 'wrong', 'password': 'secret'}
-#        BaseClient(rucio_host='localhost', auth_host='localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', creds=creds)
+        BaseClient(account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
     @raises(CannotAuthenticate)
     def testUserpassNoCACert(self):
         """ CLIENTS (BASECLIENT): authenticate with userpass without ca cert."""
         creds = {'username': 'wrong', 'password': 'secret'}
-        BaseClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', auth_type='userpass', creds=creds)
+        BaseClient(account='root', auth_type='userpass', creds=creds)
 
     def testx509(self):
         """ CLIENTS (BASECLIENT): authenticate with x509."""
         creds = {'client_cert': '/opt/rucio/etc/web/client.crt'}
-        BaseClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
+        BaseClient(account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
 
     @raises(CannotAuthenticate)
     def testx509WrongCert(self):
         """ CLIENTS (BASECLIENT): try authenticate with userpass and wrong certificate."""
         creds = {'client_cert': '/opt/rucio/etc/web/ca.crt'}
-        BaseClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
+        BaseClient(account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
 
     @raises(CannotAuthenticate)
     def testx509NonExistingCert(self):
         """ CLIENTS (BASECLIENT): authenticate with x509 with missing certificate."""
         creds = {'client_cert': '/opt/rucio/etc/web/notthere.crt'}
-        BaseClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
+        BaseClient(account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
 
     @raises(ClientProtocolNotSupported)
     def testClientProtocolNotSupported(self):
@@ -93,6 +82,6 @@ class TestRucioClients():
         """ PING (CLIENT): Ping Rucio """
         creds = {'username': 'ddmlab', 'password': 'secret'}
 
-        c = Client(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        c = Client(account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
 
         print c.ping()
