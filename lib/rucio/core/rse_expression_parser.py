@@ -15,13 +15,13 @@ import string
 
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.exception import RSENotFound
-from rucio.core import rse
+from rucio.core.rse import get_rse, list_rses
 from rucio.db.session import transactional_session
 
 
 DEFAULT_RSE_ATTRIBUTE = r'([A-Z0-9]+([_-][A-Z0-9]+)*)'
 RSE_ATTRIBUTE = r'([A-Za-z0-9\.]+=[A-Za-z0-9]+)'
-PRIMITIVE = r'(\(*(%s|%s)\)*)' % (DEFAULT_RSE_ATTRIBUTE, RSE_ATTRIBUTE)
+PRIMITIVE = r'(\(*(%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE)
 
 UNION = r'(\|%s)' % (PRIMITIVE)
 INTERSECTION = r'(\&%s)' % (PRIMITIVE)
@@ -33,11 +33,11 @@ PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 @transactional_session
 def parse_expression(expression, session=None):
     """
-    Parse a RSE expression and return the list of RSEs
+    Parse a RSE expression and return the list of RSE-ids
 
     :param expression:  RSE expression, e.g: 'CERN|BNL'
     :param session:     Database session in use
-    :return:            A dictionary
+    :return:            A list of rse_ids
     :raises:            InvalidRSEExpression
     """
     #Evaluate the correctness of the parantheses
@@ -162,10 +162,10 @@ class BaseExpressionElement:
     @abc.abstractmethod
     def resolve_elements(self, session):
         """
-        Resolve the ExpressionElement and return a set of RSE's
+        Resolve the ExpressionElement and return a set of RSE ids
 
         :param session:  Database session in use
-        :returns:        Set of RSEs
+        :returns:        Set of RSE ids
         :rtype:          Set of Strings
         :raises:         RSENotFound
         """
@@ -188,10 +188,10 @@ class RSEAttribute(BaseExpressionElement):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        output = rse.list_rses({self.key: self.value}, session=session)
+        output = list_rses({self.key: self.value}, session=session)
         if not output:
             raise RSENotFound(self.key)
-        return set(output)
+        return set([get_rse(rse).id for rse in output])
 
 
 class BaseRSEOperator(BaseExpressionElement):

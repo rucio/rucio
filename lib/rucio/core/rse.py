@@ -15,7 +15,6 @@ from re import match
 
 import sqlalchemy
 import sqlalchemy.orm
-
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
@@ -143,7 +142,7 @@ def add_rse_attribute(rse, key, value, session=None):
     :param issuer: The issuer account.
     :param session: The database session in use.
 
-    returns: True is successfull
+    :returns: True is successfull
     """
     # Check location
     l = get_rse(rse=rse, session=session)
@@ -173,16 +172,22 @@ def del_rse_attribute(rse, key, session=None):
 
 
 @read_session
-def list_rse_attributes(rse, session=None):
-    """ List RSE attributes for a RSE.
+def list_rse_attributes(rse, rse_id=None, session=None):
+    """
+    List RSE attributes for a RSE.
+    If both rse and rse_id is set, the rse_id will be used for the lookup.
 
-    :param rse: the rse name.
+    :param rse:     the rse name.
+    :param rse_id:  The RSE id.
     :param session: The database session in use.
 
     :returns: A dictionary with RSE attributes for a RSE.
     """
     rse_attrs = {}
-    l = get_rse(rse=rse, session=session)
+    if rse_id is None:
+        l = get_rse(rse=rse, session=session).id
+    else:
+        l = rse_id
 
     query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id)
     for attr in query:

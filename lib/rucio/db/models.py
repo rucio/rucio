@@ -10,13 +10,13 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 """
 SQLAlchemy models for rucio data
 """
 
 import datetime
-
 from uuid import uuid4 as uuid
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Integer, String as _String, event, UniqueConstraint
@@ -422,41 +422,44 @@ class ReplicationRule(BASE, ModelBase):
     """Represents data identifier replication rules"""
     __tablename__ = 'did_rules'
     id = Column(GUID(), default=utils.generate_uuid)
+    subscription_id = Column(GUID())
     account = Column(String(30))
-    state = Column(String(255), default='waiting')
     scope = Column(String(30))
     name = Column(String(255))
+    state = Column(Enum('WAITING', 'OK'), default='WAITING', name='DID_RULES_STATE_CHK')
     rse_expression = Column(String(255))
-    rses = Column(String(255))
     copies = Column(Integer(), default=1)
-    expired_at = Column(DateTime)
-    locked = Column(Boolean(name='FILE_RULES_LOCKED_CHK'), default=False)
-    grouping = Column(Boolean(name='FILE_RULES_GROUPING_CHK'), default=False)
+    expires_at = Column(DateTime)
+    weight = Column(String(255))
+    locked = Column(Boolean(name='DID_RULES_LOCKED_CHK'), default=False)
+    grouping = Column(Enum('ALL', 'DATASET', 'NONE'), default="ALL", name='DID_RULES_GROUPING_CHK')
 
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'id', name='DID_RULES_PK'),
+    _table_args = (PrimaryKeyConstraint('id', name='DID_RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='DID_RULES_ACCOUNT_FK'),
+                   #ForeignKeyConstraint(['subscription_id'], ['accounts.account'], name='DID_RULES_ACCOUNT_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='DID_RULES_STATE_NN'),
+                   CheckConstraint('"GROUPING" IS NOT NULL', name='DID_RULES_GROUPING_NN'),
                    CheckConstraint('"COPIES" IS NOT NULL', name='DID_RULES_COPIES_NN'),
-                   CheckConstraint('"LOCKED" IS NOT NULL', name='DID_RULES_LOCKED_NN'),)
-#                   ForeignKeyConstraint(['account', 'rse_tag_id', 'parent_scope', 'parent_dsn'],
-#                   ['dataset_rules.account', 'dataset_rules.rse_tag_id', 'dataset_rules.scope', 'dataset_rules.dsn'],
-#                   name='FILE_DATASET_RULES_FK'),
+                   CheckConstraint('"LOCKED" IS NOT NULL', name='DID_RULES_LOCKED_NN'),
+                   UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='DID_RULES_UQ'),)
 
 
 class ReplicaLock(BASE, ModelBase):
     """Represents replica locks"""
     __tablename__ = 'replica_locks'
-    rse_id = Column(GUID())
-    rule_id = Column(GUID())
     scope = Column(String(30))
     name = Column(String(255))
+    rule_id = Column(GUID())
+    rse_id = Column(GUID())
     account = Column(String(30))
-    # type = Column(String(9)) Duplication of the type for partionning ?
-    _table_args = (PrimaryKeyConstraint('rule_id', 'rse_id', 'scope', 'name', name='REPLICA_LOCKS_PK'),
+    state = Column(Enum('WAITING', 'OK'), default='WAITING', name='REPLICA_LOCKS_STATE_CHK')
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='REPLICA_LOCKS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_DID_FK'),
-                   # ForeignKeyConstraint(['rule_id', 'scope', 'name'], ['did_rules.id', 'did_rules.scope', 'did_rules.name'], name='REPLICAS_LOCKS_RULE_ID_FK'),
+                   ForeignKeyConstraint(['rule_id'], ['did_rules.id'], name='REPLICAS_LOCKS_RULE_ID_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='REPLICA_LOCKS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICA_LOCKS_RSES_FK'),
+                   CheckConstraint('"STATE" IS NOT NULL', name='REPLICA_LOCKS_STATE_NN'),
                    )
 
 

@@ -10,8 +10,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
+# - Martin Baristis, <martin.barisits@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
-
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 
@@ -214,6 +214,12 @@ class InputValidationError(RucioException):
         self._message = "There is an error with one of the input parameters."
 
 
+class InsufficientQuota(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InsufficientQuota, self).__init__(args, kwargs)
+        self._message = "There is not enough quota to fulfil the operation."
+
+
 class InvalidMetadata(RucioException):
     def __init__(self, *args, **kwargs):
         super(InvalidMetadata, self).__init__(args, kwargs)
@@ -224,6 +230,12 @@ class InvalidObject(RucioException):
     def __init__(self, *args, **kwargs):
         super(InvalidObject, self).__init__(args, kwargs)
         self._message = "Provided object does not match schema."
+
+
+class InvalidReplicaLock(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidReplicaLock, self).__init__(args, kwargs)
+        self._message = "Provided replica lock is considered invalid."
 
 
 class InvalidReplicationRule(RucioException):
