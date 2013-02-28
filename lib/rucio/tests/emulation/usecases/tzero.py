@@ -43,14 +43,15 @@ class UseCaseDefinition(UCEmulator):
         self.dataset_meta['run_number'] = str(generate_uuid())
         tmp_dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % self.dataset_meta
         rules = [{'copies': 1, 'rse_expression': '%s' % self.rse, 'lifetime': timedelta(days=2)}]
-        self.did_client.add_dataset(scope=self.scope, name=tmp_dsn, statuses={'monotonic': True}, meta=self.dataset_meta, rules=rules)
+        t = None
         try:
+            t = self.log(self.did_client.add_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'statuses': {'monotonic': True}, 'meta': self.dataset_meta, 'rules': rules})
             self.datasets['open'].append(tmp_dsn)
         except Exception, e:
             print 'UC_TZ_REGISTER_NEW: Unable to register a dataset'
             print e
         if self.cfg['global']['operation_mode'] == 'verbose' and tse:
-            print 'UC_TZ_REGISTER_NEW\tdid_client.add_identifier\t%s' % tmp_dsn
+            print 'UC_TZ_REGISTER_NEW\tdid_client.add_dataset\t%s\t%s' % (tmp_dsn, t)
 
     @UCEmulator.UseCase
     def UC_TZ_REGISTER_APPEND(self, tse):
@@ -74,13 +75,14 @@ class UseCaseDefinition(UCEmulator):
             sources.append({'scope': self.scope, 'name': lfn,
                             'size': 724963570L, 'checksum': '0cc737eb',
                             'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
+        t = None
         try:
-            self.did_client.add_files_to_dataset(scope=self.scope, name=tmp_dsn, files=sources)
+            t = self.log(self.did_client.add_files_to_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'files': sources})
         except Exception, e:
             print 'UC_TZ_REGISTER_APPEND: Unable to append files to a dataset'
             print e
         if self.cfg['global']['operation_mode'] == 'verbose':
-            print 'UC_TZ_REGISTER_APPEND\tdid_client.add_file_replica\t%s' % len(sources)
+            print 'UC_TZ_REGISTER_APPEND\tdid_client.add_files_to_dataset\t%s\t%s' % (len(sources), t)
 
     @UCEmulator.UseCase
     def UC_TZ_FREEZE_DATASET(self, tse):
@@ -91,13 +93,14 @@ class UseCaseDefinition(UCEmulator):
         if len(self.datasets['open']) > 1:
             tmp_dsn = choice(self.datasets['open'])
             self.datasets['open'].remove(tmp_dsn)
+            t = None
             try:
-                self.did_client.close(scope=self.scope, name=tmp_dsn)
+                t = self.log(self.did_client.close, kwargs={'scope': self.scope, 'name': tmp_dsn})
             except Exception, e:
                 print 'UC_TZ_FREEZE_DATASET: Unable to close dataset'
                 print e
             if self.cfg['global']['operation_mode'] == 'verbose':
-                print 'UC_TZ_FREEZE_DATASET\tdid_client.set_statuses\t%s' % len(tmp_dsn)
+                print 'UC_TZ_FREEZE_DATASET\tdid_client.close\t%s\t%s' % (len(tmp_dsn), t)
 
     def setup(self, cfg):
         """
