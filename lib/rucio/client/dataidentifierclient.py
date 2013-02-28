@@ -102,9 +102,9 @@ class DataIdentifierClient(BaseClient):
         """
         return self.add_identifier(scope=scope, name=name, type='container', statuses=statuses, meta=meta, rules=rules)
 
-    def append_identifier(self, scope, name, dids):
+    def attach_identifier(self, scope, name, dids):
         """
-        Append data identifier.
+        Attach data identifier.
 
         :param scope: The scope name.
         :param name: The data identifier name.
@@ -148,7 +148,7 @@ class DataIdentifierClient(BaseClient):
         :param name: The dataset name.
         :param files: The content.
         """
-        return self.append_identifier(scope=scope, name=name, dids=files)
+        return self.attach_identifier(scope=scope, name=name, dids=files)
 
     def add_datasets_to_container(self, scope, name, dsns):
         """
@@ -158,7 +158,7 @@ class DataIdentifierClient(BaseClient):
         :param name: The dataset name.
         :param dsns: The content.
         """
-        return self.append_identifier(scope=scope, name=name, dids=dsns)
+        return self.attach_identifier(scope=scope, name=name, dids=dsns)
 
     def add_containers_to_container(self, scope, name, cnts):
         """
@@ -168,7 +168,7 @@ class DataIdentifierClient(BaseClient):
         :param name: The dataset name.
         :param dsns: The content.
         """
-        return self.append_identifier(scope=scope, name=name, dids=cnts)
+        return self.attach_identifier(scope=scope, name=name, dids=cnts)
 
     def list_content(self, scope, name):
         """
