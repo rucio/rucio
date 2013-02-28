@@ -18,7 +18,6 @@
 
 import argcomplete
 import argparse
-import itertools
 import os
 import sys
 import time
@@ -27,8 +26,6 @@ import time
 from rucio import client
 from rucio import version
 from rucio.client.accountclient import AccountClient
-from rucio.client.cli.download import download
-from rucio.client.cli.upload import upload
 from rucio.client.dataidentifierclient import DataIdentifierClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
@@ -647,10 +644,10 @@ def del_metadata(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account,
-                        auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    MetaClient(rucio_host=args.host, auth_host=args.auth_host,
+               account=args.account,
+               auth_type=args.auth_strategy, creds=creds,
+               ca_cert=args.ca_certificate, timeout=args.timeout)
 
 if __name__ == '__main__':
     usage = """
@@ -723,7 +720,6 @@ Commands:
     create_container_parser.set_defaults(which='create_container')
     create_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
     create_container_parser.add_argument(dest='did', action='store', help='Container name to create')
-
 
     # TODO:
     # add_parser.add_argument('--srcs',dest='sources', nargs='+', action='store', help='List of space separated data identifiers') #, required=True)
