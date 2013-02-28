@@ -17,6 +17,7 @@ import nose.tools
 import re
 
 from rucio import version
+from rucio.common.config import config_get
 from rucio.tests.common import execute
 
 
@@ -29,6 +30,8 @@ class TestBinRucio():
             if e.args[0] != 2:
                 raise e
         self.marker = '$> '
+        self.host = config_get('client', 'rucio_host')
+        self.auth_host = config_get('client', 'auth_host')
 
     def tearDown(self):
         pass
@@ -41,7 +44,7 @@ class TestBinRucio():
 
     def test_rucio_ping(self):
         """PING (CLI): Rucio ping"""
-        cmd = 'rucio --host https://localhost ping'
+        cmd = 'rucio --host %s ping' % self.host
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
 

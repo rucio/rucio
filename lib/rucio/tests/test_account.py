@@ -245,8 +245,7 @@ class TestAccountClient():
         pass
 
     def setUp(self):
-        creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.client = AccountClient(rucio_host='https://localhost', auth_host='https://localhost', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.client = AccountClient()
 
     def test_add_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account."""
