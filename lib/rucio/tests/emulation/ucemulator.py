@@ -11,6 +11,11 @@
 import json
 import time
 import threading
+import socket
+import os
+
+from timeit import Timer
+from functools import partial
 
 
 class UCEmulator(object):
@@ -31,8 +36,8 @@ class UCEmulator(object):
             time series file and the operation mode for the emulation (both defined in etc/emulation.cfg).
 
             The name of time series file should be the same as the module defining the use cases and the files
-            must be stored in /opt/rucio/lib/rucio/tests/emulation/timeseries leading to filenames like
-            /opt/rucio/lib/rucio/tests/emulation/timeseries/{modulename}.json.
+            must be stored either in /opt/rucio/lib/rucio/tests/emulation/timeseries/{modulename}.json or in
+            $RUCIO_HOME/lib/rucio/tests/emulation/timeseries/{modulename}.json.
 
             The operation mode supports 'verbose' and 'threaded'. In 'verbose' mode, only one thread per module is used
             and a lot of debugging information is written to the console. This mode is intended to be used during the development
@@ -43,18 +48,40 @@ class UCEmulator(object):
         """
         self.__factor = cfg['global']['workload_multiplier']
         self.__operation_mode = cfg['global']['operation_mode']
+        self.__carbon_server = None
+        self.__carbon_user = ''
+        if 'carbon' in cfg:
+            try:
+                self.__carbon_server = socket.socket()
+                self.__carbon_server.connect((cfg['carbon']['CARBON_SERVER'], cfg['carbon']['CARBON_PORT']))
+                self.__carbon_user = cfg['carbon']['USER_SCOPE']
+            except Exception, e:
+                print 'Unable to connect to Carbon-Server'
+                print e
+                self.__carbon_server = None
         self.__timeseries = {}
         self.__intervals = {}
         self.__current_timeframe = 0
         self.__running = False
+        self.__call_methods = dict()
         # Check what methods are decorated to be use case definition
         if 'setup' in dir(self):  # Calls setup-method of child class to support the implementation of correlated use cases
             self.setup(cfg)
-        with open('/opt/rucio/lib/rucio/tests/emulation/timeseries/%s.json' % timeseries_file) as f:
+
+        path = None
+        if 'RUCIO_HOME' in os.environ:
+            path = '%s/lib/rucio/tests/emulation/timeseries/%s.json' % (os.environ['RUCIO_HOME'], timeseries_file)
+        else:
+            path = '/opt/rucio/lib/rucio/tests/emulation/timeseries/%s.json' % timeseries_file
+
+        with open(path) as f:
             tmp_json = json.load(f)
         for uc in self.__ucs:
             if uc in tmp_json:
                 self.__timeseries[uc] = tmp_json[uc]
+        # Prepare method references
+        for call in self.__ucs:
+            self.__call_methods[call] = getattr(self, call)
         # Apply factor to number of calls
         for ser in self.__timeseries:
             for tf in self.__timeseries[ser]:
@@ -124,27 +151,44 @@ class UCEmulator(object):
         """
         self.__running = True
         self.__event = event
+        # Making this assignement outside of the loop saves computing time by avoiding the if inside the loop
+        if self.__operation_mode == 'threaded':
+            do_it = self.run_threaded
+        elif self.__operation_mode == 'verbose':
+            do_it = self.run_verbose
+        elif self.__operation_mode == 'gearman':
+            raise NotImplemented
+        else:
+            raise Exception("Unknown operation mode set")
         for call in self:
-            if (not call) or (not self.__running):
-                break
-            if self.__operation_mode == 'threaded':
-                uc_method = getattr(self, call)
-                t = threading.Thread(target=uc_method, args=[self.__timeseries[call][self.__current_timeframe]])
-                t.start()
-            elif self.__operation_mode == 'verbose':
-                print '%f\t%s\t%s' % (time.time(), call, threading.active_count())
-                uc_method = getattr(self, call)
-                uc_method(self.__timeseries[call][self.__current_timeframe])
-            elif self.__operation_mode == 'gearman':
-                raise NotImplemented
-            else:
-                raise Exception("Unknown operation mode set")
+            if call and self.__running:
+                do_it(call)
         return
+
+    def run_threaded(self, call):
+        """
+            Starts use case in a new thread.
+
+            :param call: Name of use case.
+        """
+        # TODO: Later consider to create a pool of threads for each 'call' and re-use them to potentially save time?
+        t = threading.Thread(target=self.__call_methods[call], args=[self.__timeseries[call][self.__current_timeframe]])
+        t.start()
+
+    def run_verbose(self, call):
+        """
+            Executes use case in current thread and prints log data to console.
+
+            :param call: Name of use case.
+        """
+        print '%f\t%s\t%s' % (time.time(), call, threading.active_count())
+        self.__call_methods[call](self.__timeseries[call][self.__current_timeframe])
 
     def stop(self):
         """
             Stops the emulation.
         """
+        self.__carbon_server.close()
         self.__running = False
 
     def get_defined_usecases(self):
@@ -154,6 +198,20 @@ class UCEmulator(object):
             :returns: list with use case IDs
         """
         return self.__timeseries.keys()
+
+    def log(self, fn, args=[], kwargs={}):
+        """
+            Automatically logs the execution time of the provided operation.
+
+            :param function: A reference to the operation.
+            :param args: Arguments used to execute the operation as dict
+
+            :returns: Execution time in ms
+        """
+        resp_time = round(Timer(partial(fn, *args, **kwargs)).timeit(1), 5)
+        if self.__carbon_server:
+            self.__carbon_server.sendall('emulation.rucio.%s.%s.resp_time %s %s\n' % (self.__carbon_user, fn.__name__, resp_time, int(time.time())))
+        return resp_time
 
     @classmethod
     def UseCase(cls, func):
