@@ -16,6 +16,8 @@ SQLAlchemy models for rucio data
 
 import datetime
 
+from uuid import uuid4 as uuid
+
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String
 from sqlalchemy import event
 from sqlalchemy import UniqueConstraint
@@ -293,7 +295,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
 class RSE(BASE, ModelBase):
     """Represents a Rucio Location"""
     __tablename__ = 'rses'
-    id = Column(GUID(), default=utils.generate_uuid)
+    id = Column(GUID(), default=lambda: str(uuid()))
     rse = Column(String(255))
     type = Column(String(255), default='disk')
     prefix = Column(String(1024))
