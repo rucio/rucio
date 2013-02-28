@@ -10,10 +10,13 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
+
+from re import match
+
 import sqlalchemy
 import sqlalchemy.orm
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
 from rucio.common import exception
@@ -399,10 +402,13 @@ def add_protocol(rse, parameter, session=None):
     except IntegrityError, e:
         if 'not unique' in e.args[0]:
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['protocol'], parameter['port'], rse, parameter['hostname']))
+        elif match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]):
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['protocol'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in e.args[0]:
             raise exception.InvalidObject('Invalid values: %s' % e.args[0])
-        else:
-            raise e
+        elif match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]):
+            raise exception.InvalidObject('Invalid values!')
+        raise e
     return new_protocol
 
 
@@ -514,8 +520,10 @@ def update_protocols(rse, protocol, data, hostname=None, port=None, session=None
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (protocol, port, rse, hostname))
         elif 'may not be NULL' in e.args[0]:
             raise exception.InvalidObject('Invalid values: %s' % e.args[0])
-        else:
-            raise e
+        raise e
+    except DatabaseError, e:
+        if match('.*DatabaseError.*ORA-01407: cannot update .*RSE_PROTOCOLS.*IMPL.*to NULL.*', e.args[0]):
+            raise exception.InvalidObject('Invalid values!')
 
 
 @transactional_session

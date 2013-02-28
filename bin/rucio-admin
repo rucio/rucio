@@ -197,10 +197,10 @@ def set_limits(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                  account=args.account,
+                  auth_type=args.auth_strategy, creds=creds,
+                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         print 'Added new limits to account: %s' % (args.acnt)
@@ -224,10 +224,10 @@ def get_limits(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                  account=args.account,
+                  auth_type=args.auth_strategy, creds=creds,
+                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         print 'Added new limits to account: %s' % (args.acnt)
@@ -251,10 +251,10 @@ def del_limits(args):
     else:
         creds = None
 
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                  account=args.account,
+                  auth_type=args.auth_strategy, creds=creds,
+                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         print 'Added new limits to account: %s' % (args.acnt)
