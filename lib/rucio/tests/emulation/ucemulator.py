@@ -210,7 +210,7 @@ class UCEmulator(object):
         """
         resp_time = round(Timer(partial(fn, *args, **kwargs)).timeit(1), 5)
         if self.__carbon_server:
-            self.__carbon_server.sendall('emulation.rucio.%s.%s.resp_time %s %s\n' % (self.__carbon_user, fn.__name__, resp_time, int(time.time())))
+            self.__carbon_server.sendall('emulation.%s.rucio.resp_time.%s %s %s\n' % (self.__carbon_user, fn.__name__, resp_time, int(time.time())))
         return resp_time
 
     @classmethod
