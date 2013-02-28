@@ -39,7 +39,7 @@ class TestPing():
 class TestPingClient():
 
     def setUp(self):
-        self.client = PingClient('https://localhost')
+        self.client = PingClient()
 
     def tearDown(self):
         pass
