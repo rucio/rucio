@@ -7,5 +7,10 @@
   },
   "gearman": {
     "gearman_server": ["localhost", "not-localhost"]
+  },
+  "carbon": {
+    "CARBON_SERVER": "voatlas70.cern.ch",
+    "CARBON_PORT": 2003,
+    "USER_SCOPE": "DefineUserScopeForLogging"
   }
 }
