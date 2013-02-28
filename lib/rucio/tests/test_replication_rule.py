@@ -8,20 +8,72 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-import re
 
-from nose.tools import assert_is_instance, assert_regexp_matches
+from nose.tools import assert_is_instance, assert_not_in
 
 from rucio.client.didclient import DIDClient
 from rucio.client.replicationruleclient import ReplicationRuleClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.daemons.Conveyor import run_once as Conveyor_run
+from rucio.core.did import add_identifier, append_identifier
+from rucio.core.lock import get_replica_locks
+from rucio.core.rse import add_rse, add_rse_attribute, add_file_replica
+from rucio.core.rule import add_replication_rule
+from rucio.core.scope import add_scope
 
 
-class TestIdentifierClients():
+class TestReplicationRuleCore():
+
+    def setup(self):
+        #Add test scope
+        self.tmp_scope = 'scope_%s' % uuid()
+        add_scope(self.tmp_scope, 'root')
+
+        #Add test RSE
+        self.rse1 = str(uuid())
+        self.rse2 = str(uuid())
+        self.rse3 = str(uuid())
+        self.rse4 = str(uuid())
+        self.rse5 = str(uuid())
+        self.rse1_id = add_rse(self.rse1)
+        self.rse2_id = add_rse(self.rse2)
+        self.rse3_id = add_rse(self.rse3)
+        self.rse4_id = add_rse(self.rse4)
+        self.rse5_id = add_rse(self.rse5)
+
+        #Add Tags
+        add_rse_attribute(self.rse1, "T1", True)
+        add_rse_attribute(self.rse2, "T1", True)
+        add_rse_attribute(self.rse3, "T1", True)
+        add_rse_attribute(self.rse4, "T2", True)
+        add_rse_attribute(self.rse5, "T1", True)
+
+        #Add dataset
+        self.tmp_dataset = 'dataset_' + str(uuid())
+        add_identifier(self.tmp_scope, self.tmp_dataset, 'dataset', 'root')
+
+        #Add files
+        self.tmp_files = []
+        for i in xrange(5):
+            tmp_file = 'file_%s' % uuid()
+            self.tmp_files.append(tmp_file)
+            add_file_replica(rse=self.rse1, scope=self.tmp_scope, name=tmp_file, size=1000000, issuer='root')
+            files = [{'scope': self.tmp_scope, 'name': tmp_file}, ]
+            append_identifier(self.tmp_scope, self.tmp_dataset, files, 'root')
+
+    def test_add_replication_rule(self):
+        """ REPLICATION RULE (CORE): Add a replication rule """
+        add_replication_rule(dids=[{'scope': self.tmp_scope, 'name': self.tmp_dataset}], account='root', copies=2, rse_expression='T1', grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+        #Add a second rule and check if the right locks are created
+        add_replication_rule(dids=[{'scope': self.tmp_scope, 'name': self.tmp_dataset}], account='root', copies=2, rse_expression='T1|T2', grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+        for file in self.tmp_files:
+            assert_not_in(self.rse4_id, get_replica_locks(scope=self.tmp_scope, name=file))
+
+
+class TestReplicationRuleClients():
 
     def setup(self):
         self.did_client = DIDClient()
@@ -37,12 +89,12 @@ class TestIdentifierClients():
         self.scope_client.add_scope('root', tmp_scope)
 
         # Add a RSE
-        tmp_rse = 'RSE_%s' % uuid()
+        tmp_rse = str(uuid())
         self.rse_client.add_rse(tmp_rse)
 
         # Add 10 Tiers1 RSEs
         for i in xrange(5):
-            tmp_rse_t1 = 'RSE_%s' % uuid()
+            tmp_rse_t1 = str(uuid())
             self.rse_client.add_rse(tmp_rse_t1)
             self.rse_client.add_rse_attribute(rse=tmp_rse_t1, key='Tier', value='1')
 
@@ -58,8 +110,5 @@ class TestIdentifierClients():
             self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
             dsns.append({'scope': tmp_scope, 'name': tmp_dataset})
 
-        ret = self.rule_client.add_replication_rule(dids=dsns, copies=2, rse_expression='Tier=1')
-        assert_is_instance(ret, dict)
-        assert_regexp_matches(ret['rule_id'], re.compile('^(\{){0,1}[0-9a-fA-F]{8}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{4}[0-9a-fA-F]{12}(\}){0,1}$'))
-
-        Conveyor_run()
+        ret = self.rule_client.add_replication_rule(dids=dsns, account="root", copies=2, rse_expression='Tier=1', grouping='NONE')
+        assert_is_instance(ret, list)
