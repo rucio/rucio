@@ -7,14 +7,16 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
+from json import dumps, loads
+
 from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rule import add_replication_rule
-
+from rucio.common.exception import InsufficientQuota
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.rule")
@@ -42,6 +44,7 @@ class Rule:
             201 Created
 
         HTTP Error:
+            400 Bad Request
             401 Unauthorized
             404 Not Found
             409 Conflict
@@ -60,18 +63,26 @@ class Rule:
         try:
             params = loads(json_data)
             dids = params['dids']
+            account = params['account']
             copies = params['copies']
             rse_expression = params['rse_expression']
+            grouping = params['grouping']
+            weight = params['weight']
+            lifetime = params['lifetime']
+            locked = params['locked']
+            subscription_id = params['subscription_id']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            rule_id = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, parameters=params, issuer=auth['account'])
+            rule_ids = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, weight=weight, lifetime=lifetime, grouping=grouping, account=account, locked=locked, subscription_id=subscription_id, issuer=auth['account'])
+        #TODO: Add all other error cases here
+        except InsufficientQuota, e:
+            raise generate_http_error(409, 'InsufficientQuota', e.args[0][0])
         except Exception, e:
-            print e
             raise InternalError(e)
 
-        raise Created(dumps({'rule_id': rule_id}))
+        raise Created(dumps(rule_ids))
 
     def DELETE(self):
         raise BadRequest()

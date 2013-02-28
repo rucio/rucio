@@ -10,6 +10,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 
 from datetime import timedelta
@@ -345,7 +346,7 @@ class TestDIDClients():
             assert_equal(d, files1[i])
 
         # List container content
-        for d in self.did_client.list_files(scope, container):
+        for d in [{'name': x['name'], 'scope': x['scope']} for x in self.did_client.list_files(scope, container)]:
             assert_in(d, files1 + files2)
 
         # List non-existing data identifier content

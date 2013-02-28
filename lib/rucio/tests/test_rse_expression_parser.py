@@ -8,39 +8,61 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
+from random import choice
+from string import ascii_uppercase, digits, ascii_lowercase
+
 from nose.tools import assert_equal, raises
+
 from rucio.core import rse
 from rucio.core import rse_expression_parser
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.exception import RSENotFound
 
 
-class TestESEExpressionParserCore():
+def rse_name_generator(size=10):
+    return ''.join(choice(ascii_uppercase) for x in xrange(size))
 
-    @classmethod
-    def setUpClass(cls):
-        try:
-            rse.add_rse("TEST_RSE1")
-            rse.add_rse("TEST_RSE2")
-            rse.add_rse("TEST_RSE3")
-            rse.add_rse("TEST_RSE4")
-            rse.add_rse("TEST_RSE5")
 
-            #Add Attributes
-            rse.add_rse_attribute("TEST_RSE1", "country", "at")
-            rse.add_rse_attribute("TEST_RSE2", "country", "de")
-            rse.add_rse_attribute("TEST_RSE3", "country", "fr")
-            rse.add_rse_attribute("TEST_RSE4", "country", "uk")
-            rse.add_rse_attribute("TEST_RSE5", "country", "us")
+def tag_generator(size_s=10, size_d=2):
+    return ''.join(choice(ascii_uppercase) for x in xrange(size_s)).join(choice(digits) for x in xrange(size_d))
 
-            #Add Tags
-            rse.add_rse_attribute("TEST_RSE1", "T1", True)
-            rse.add_rse_attribute("TEST_RSE2", "T1", True)
-            rse.add_rse_attribute("TEST_RSE3", "T1", True)
-            rse.add_rse_attribute("TEST_RSE4", "T2", True)
-            rse.add_rse_attribute("TEST_RSE5", "T2", True)
-        except:
-            pass
+
+def attribute_name_generator(size=10):
+    return ''.join(choice(ascii_uppercase)).join(choice(ascii_lowercase) for x in xrange(size-1))
+
+
+class TestRSEExpressionParserCore():
+
+    def setup(self):
+        self.rse1 = rse_name_generator()
+        self.rse2 = rse_name_generator()
+        self.rse3 = rse_name_generator()
+        self.rse4 = rse_name_generator()
+        self.rse5 = rse_name_generator()
+
+        self.rse1_id = rse.add_rse(self.rse1)
+        self.rse2_id = rse.add_rse(self.rse2)
+        self.rse3_id = rse.add_rse(self.rse3)
+        self.rse4_id = rse.add_rse(self.rse4)
+        self.rse5_id = rse.add_rse(self.rse5)
+
+        #Add Attributes
+        self.attribute = attribute_name_generator()
+
+        rse.add_rse_attribute(self.rse1, self.attribute, "at")
+        rse.add_rse_attribute(self.rse2, self.attribute, "de")
+        rse.add_rse_attribute(self.rse3, self.attribute, "fr")
+        rse.add_rse_attribute(self.rse4, self.attribute, "uk")
+        rse.add_rse_attribute(self.rse5, self.attribute, "us")
+
+        #Add Tags
+        self.tag1 = tag_generator()
+        self.tag2 = tag_generator()
+        rse.add_rse_attribute(self.rse1, self.tag1, True)
+        rse.add_rse_attribute(self.rse2, self.tag1, True)
+        rse.add_rse_attribute(self.rse3, self.tag1, True)
+        rse.add_rse_attribute(self.rse4, self.tag2, True)
+        rse.add_rse_attribute(self.rse5, self.tag2, True)
 
     @raises(InvalidRSEExpression)
     def test_invalid_expression_unconnected_operator(self):
@@ -59,41 +81,41 @@ class TestESEExpressionParserCore():
 
     def test_simple_rse_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE reference """
-        assert_equal(rse_expression_parser.parse_expression("TEST_RSE1"), ['TEST_RSE1'])
+        assert_equal(rse_expression_parser.parse_expression(self.rse1), [self.rse1_id])
 
     def test_attribute_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE attribute reference """
-        assert_equal(rse_expression_parser.parse_expression("country=uk"), ['TEST_RSE4'])
+        assert_equal(rse_expression_parser.parse_expression("%s=uk" % self.attribute), [self.rse4_id])
 
     def test_tag_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE tag reference """
-        assert_equal(sorted(rse_expression_parser.parse_expression("T1")), sorted(['TEST_RSE1', 'TEST_RSE2', 'TEST_RSE3']))
+        assert_equal(sorted(rse_expression_parser.parse_expression(self.tag1)), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
 
     def test_parantheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test parantheses """
-        assert_equal(sorted(rse_expression_parser.parse_expression("(T1)")), sorted(['TEST_RSE1', 'TEST_RSE2', 'TEST_RSE3']))
+        assert_equal(sorted(rse_expression_parser.parse_expression("(%s)" % self.tag1)), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
 
     def test_union(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test union operator """
-        assert_equal(sorted(rse_expression_parser.parse_expression("T1|T2")), sorted(['TEST_RSE1', 'TEST_RSE2', 'TEST_RSE3', 'TEST_RSE4', 'TEST_RSE5']))
+        assert_equal(sorted(rse_expression_parser.parse_expression("%s|%s" % (self.tag1, self.tag2))), sorted([self.rse1_id, self.rse2_id, self.rse3_id, self.rse4_id, self.rse5_id]))
 
     def test_complement(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test complement operator """
-        assert_equal(sorted(rse_expression_parser.parse_expression("T1\\TEST_RSE3")), sorted(['TEST_RSE1', 'TEST_RSE2']))
+        assert_equal(sorted(rse_expression_parser.parse_expression("%s\\%s" % (self.tag1, self.rse3))), sorted([self.rse1_id, self.rse2_id]))
 
     def test_intersect(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test intersect operator """
-        assert_equal(rse_expression_parser.parse_expression("T2&country=uk"), ['TEST_RSE4'])
+        assert_equal(rse_expression_parser.parse_expression("%s&%s=uk" % (self.tag2, self.attribute)), [self.rse4_id])
 
     def test_order_of_operations(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test order of operations """
-        assert_equal(sorted(rse_expression_parser.parse_expression("T1\\TEST_RSE3|country=fr")), sorted(['TEST_RSE1', 'TEST_RSE2', 'TEST_RSE3']))
-        assert_equal(sorted(rse_expression_parser.parse_expression("T1\\(TEST_RSE3|country=fr)")), sorted(['TEST_RSE1', 'TEST_RSE2']))
+        assert_equal(sorted(rse_expression_parser.parse_expression("%s\\%s|%s=fr" % (self.tag1, self.rse3, self.attribute))), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        assert_equal(sorted(rse_expression_parser.parse_expression("%s\\(%s|%s=fr)" % (self.tag1, self.rse3, self.attribute))), sorted([self.rse1_id, self.rse2_id]))
 
     def test_complicated_expression_1(self):
-        """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression """
-        assert_equal(sorted(rse_expression_parser.parse_expression("(T1|T2)\\T2|T2&T1")), sorted(['TEST_RSE1', 'TEST_RSE2', 'TEST_RSE3']))
+        """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
+        assert_equal(sorted(rse_expression_parser.parse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
 
     def test_complicated_expression_2(self):
-        """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression """
-        assert_equal(sorted(rse_expression_parser.parse_expression("(((((T1))))|country=us)&T2|(country=at|country=de)")), sorted(['TEST_RSE1', 'TEST_RSE2', 'TEST_RSE5']))
+        """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 2"""
+        assert_equal(sorted(rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))), sorted([self.rse1_id, self.rse2_id, self.rse5_id]))

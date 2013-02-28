@@ -201,9 +201,9 @@ def list_files(scope, name, session=None):
     """
     List data identifier file contents.
 
-    :param scope: The scope name.
-    :param name: The data identifier name.
-    :param session: The database session in use.
+    :param scope:      The scope name.
+    :param name:       The data identifier name.
+    :param session:    The database session in use.
     """
 
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False)
@@ -221,7 +221,7 @@ def list_files(scope, name, session=None):
             query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, name=n)
             for tmp_did in query:
                 if tmp_did.child_type == models.DataIdType.FILE:
-                    yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name}
+                    yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'size': 100000}  # TODO Change this to the proper filesize [RUCIO-199]
                 else:
                     dids.append((tmp_did.child_scope, tmp_did.child_name))
 
