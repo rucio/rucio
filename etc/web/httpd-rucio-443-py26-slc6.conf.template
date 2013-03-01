@@ -30,10 +30,6 @@
 #
 
 # Built-in modules
-LoadModule authz_host_module /usr/lib64/httpd/modules/mod_authz_host.so
-LoadModule authz_user_module /usr/lib64/httpd/modules/mod_authz_user.so
-LoadModule log_config_module /usr/lib64/httpd/modules/mod_log_config.so
-LoadModule rewrite_module /usr/lib64/httpd/modules/mod_rewrite.so
 LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
 
 # External modules
@@ -43,12 +39,12 @@ LoadModule gridsite_module /usr/lib64/httpd/modules/mod_gridsite.so
 
 Listen 443
 
-WSGIPythonHome /opt/rucio/
-WSGIPythonPath /opt/rucio/lib/python2.6/site-packages
+WSGIPythonHome /opt/rucio/.venv
+WSGIPythonPath /opt/rucio/.venv/lib/python2.6/site-packages
 
-<VirtualHost voatlas298:443>
+<VirtualHost voatlas67.cern.ch:443>
 
- ServerName voatlas298.cern.ch:443
+ ServerName voatlas67.cern.ch:443
  ServerAdmin ph-adp-ddm-lab@cern.ch
 
  SSLEngine on
@@ -65,14 +61,14 @@ WSGIPythonPath /opt/rucio/lib/python2.6/site-packages
  ErrorLog /var/log/rucio/httpd_error_log
  TransferLog /var/log/rucio/httpd_access_log
 
- Include /opt/rucio/etc/web/aliases.conf
+ Include /opt/rucio/etc/web/aliases-py26.conf
 
  # Kerberos authentication via mod_auth_kerb
  <LocationMatch /auth/gss>
   AuthType Kerberos
   Require valid-user
   KrbAuthRealms CERN.CH
-  KrbServiceName HTTP/voatlas298.cern.ch@CERN.CH
+  KrbServiceName HTTP/voatlas67.cern.ch@CERN.CH
   Krb5KeyTab /etc/krb5.keytab.rucio
   KrbSaveCredentials on
   KrbMethodNegotiate on

@@ -42,7 +42,7 @@ WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
 
  LogLevel debug
 
- Include /opt/rucio/etc/web/aliases.conf
+ Include /opt/rucio/etc/web/aliases-py27.conf
 
  # Valid client certificates required only for x509 authentication
  <LocationMatch /identity/.+/x509>
