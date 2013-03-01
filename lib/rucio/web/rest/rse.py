@@ -421,8 +421,11 @@ class Protocol:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except InvalidObject, e:
             raise generate_http_error(400, 'InvalidObject', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
             print e
+            print format_exc()
             raise InternalError(e)
         raise Created()
 
@@ -496,6 +499,13 @@ class Protocol:
             raise generate_http_error(404, 'RSEProtocolNotSupported', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print e
+            print format_exc()
+            raise InternalError(e)
+
         raise OK()
 
     def DELETE(self, rse, protocol, hostname=None, port=None):
@@ -524,6 +534,13 @@ class Protocol:
             raise generate_http_error(404, 'RSEProtocolNotSupported', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print e
+            print format_exc()
+            raise InternalError(e)
+
         raise OK()
 
 """----------------------
