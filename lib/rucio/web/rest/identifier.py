@@ -27,7 +27,6 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     Duplicate, InvalidValueForKey,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException)
-from rucio.common.log import log
 from rucio.common.utils import generate_http_error
 
 urls = (
@@ -44,7 +43,6 @@ urls = (
 
 class Scope:
 
-    @log
     def GET(self, scope):
         """
         Return all data identifiers in the given scope.
@@ -102,7 +100,6 @@ class Scope:
 
 class Identifiers:
 
-    @log
     def GET(self, scope, name):
         """
         Retrieve a single data identifier.
@@ -141,7 +138,6 @@ class Identifiers:
             print format_exc()
             raise InternalError(e)
 
-    #@log
     def POST(self, scope, name):
         """
         Create a new data identifier.
@@ -249,7 +245,6 @@ class Identifiers:
 
 class Content:
 
-    @log
     def GET(self, scope, name):
         """
         Returns the contents of a data identifier.
@@ -288,7 +283,6 @@ class Content:
             print format_exc()
             raise InternalError(e)
 
-    @log
     def POST(self, scope, name):
         """
         Append data identifiers to data identifiers.
@@ -342,7 +336,6 @@ class Content:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    @log
     def DELETE(self, scope, name):
         """
         Detach data identifiers from data identifiers.
@@ -393,7 +386,6 @@ class Replicas:
     def POST(self, scope, name):
         raise BadRequest()
 
-    @log
     def GET(self, scope, name):
         """
         List all replicas for a data identifier.
@@ -449,7 +441,6 @@ class Files:
     def POST(self, scope, name):
         raise BadRequest()
 
-    @log
     def GET(self, scope, name):
         """ List all replicas of a data identifier.
 
@@ -496,7 +487,6 @@ class Files:
 
 class Meta:
 
-    @log
     def GET(self, scope, name):
         """
         List all meta of a data identifier.
@@ -541,7 +531,6 @@ class Meta:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    @log
     def POST(self, scope, name, key):
         """
         Add metadata to a data identifier.
