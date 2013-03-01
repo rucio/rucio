@@ -45,5 +45,5 @@ if __name__ == "__main__":
             raise
         except:
             errno, errstr = sys.exc_info()[:2]
-            trcbck        = traceback.format_exc()
+            trcbck = traceback.format_exc()
             print 'Transmogrifier interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
