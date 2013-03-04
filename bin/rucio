@@ -201,11 +201,11 @@ def list_replicas(args):
             print e
 
 
-def create(args):
+def add(args):
     """
-    %(prog)s create [options] <did>
+    %(prog)s add [options] <did>
 
-    Create a data identifier.
+    Add a data identifier.
     """
 
     creds = None
@@ -231,11 +231,11 @@ def create(args):
     return SUCCESS
 
 
-def create_dataset(args):
+def add_dataset(args):
     """
-    %(prog)s create-dataset [options] <dsn>
+    %(prog)s add-dataset [options] <dsn>
 
-    Create a dataset identifier.
+    Add a dataset identifier.
     """
     creds = None
     if args.auth_strategy == 'userpass':
@@ -257,11 +257,11 @@ def create_dataset(args):
     return SUCCESS
 
 
-def create_container(args):
+def add_container(args):
     """
-    %(prog)s create-container [options] <dsn>
+    %(prog)s add-container [options] <dsn>
 
-    Create a container identifier.
+    Add a container identifier.
     """
     creds = None
     if args.auth_strategy == 'userpass':
@@ -728,26 +728,26 @@ Commands:
     list_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
-    # The create command
-    create_parser = subparsers.add_parser('create', help='Create data identifier')
-    create_parser.set_defaults(which='create')
-    create_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
-    group = create_parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--dataset', action='store_true', help='Create dataset')
-    group.add_argument('--container', action='store_true', help='Create container')
-    create_parser.add_argument(dest='did', action='store', help='Data identifier to create')
+    # The add command
+    add_parser = subparsers.add_parser('add', help='Add data identifier')
+    add_parser.set_defaults(which='add')
+    add_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
+    group = add_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--dataset', action='store_true', help='Add dataset')
+    group.add_argument('--container', action='store_true', help='Add container')
+    add_parser.add_argument(dest='did', action='store', help='Data identifier to add')
 
-    # The create-dataset command
-    create_dataset_parser = subparsers.add_parser('create-dataset', help='Create dataset')
-    create_dataset_parser.set_defaults(which='create_dataset')
-    create_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
-    create_dataset_parser.add_argument(dest='did', action='store', help='Dataset name to create')
+    # The add-dataset command
+    add_dataset_parser = subparsers.add_parser('add-dataset', help='Add dataset')
+    add_dataset_parser.set_defaults(which='add_dataset')
+    add_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
+    add_dataset_parser.add_argument(dest='did', action='store', help='Dataset name to add')
 
-    # The create-container command
-    create_container_parser = subparsers.add_parser('create-container', help='Create container')
-    create_container_parser.set_defaults(which='create_container')
-    create_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
-    create_container_parser.add_argument(dest='did', action='store', help='Container name to create')
+    # The add-container command
+    add_container_parser = subparsers.add_parser('add-container', help='Add container')
+    add_container_parser.set_defaults(which='add_container')
+    add_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
+    add_container_parser.add_argument(dest='did', action='store', help='Container name to add')
 
     # TODO:
     # delete
@@ -808,7 +808,7 @@ Commands:
     upload_parser.add_argument('--files', dest='files', nargs='+', action='store', help='List of space separated files', required=True)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)  # to be optional after
-    upload_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create')
+    upload_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add')
 
     # The download subparser
     download_parser = subparsers.add_parser('download', help='Download method')
@@ -825,7 +825,7 @@ Commands:
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
     set_metadata_parser.set_defaults(which='set_metadata')
     set_metadata_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)  # to be optional after
-    set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to create', required=True)
+    set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
     set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
@@ -867,9 +867,9 @@ Commands:
                 'list_replicas': list_replicas,
                 'attach': attach,
                 'detach': detach,
-                'create': create,
-                'create_dataset': create_dataset,
-                'create_container': create_container,
+                'add': add,
+                'add_dataset': add_dataset,
+                'add_container': add_container,
                 'delete': delete,
                 # 'delete_dataset': delete_dataset,
                 # 'delete_container': delete_container,
