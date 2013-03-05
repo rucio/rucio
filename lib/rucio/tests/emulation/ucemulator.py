@@ -11,11 +11,9 @@
 import json
 import time
 import threading
-import socket
 import os
 
-from timeit import Timer
-from functools import partial
+from pystatsd import Client
 
 
 class UCEmulator(object):
@@ -28,7 +26,7 @@ class UCEmulator(object):
         implementing the UseCase decorator) in a frequency according to the current time frame
         defined in the related time series.
     """
-    __ucs = []
+    __ucs = {}
 
     def __init__(self, timeseries_file, cfg):
         """
@@ -49,16 +47,12 @@ class UCEmulator(object):
         self.__factor = cfg['global']['workload_multiplier']
         self.__operation_mode = cfg['global']['operation_mode']
         self.__carbon_server = None
-        self.__carbon_user = ''
         if 'carbon' in cfg:
             try:
-                self.__carbon_server = socket.socket()
-                self.__carbon_server.connect((cfg['carbon']['CARBON_SERVER'], cfg['carbon']['CARBON_PORT']))
-                self.__carbon_user = cfg['carbon']['USER_SCOPE']
+                self.__carbon_server = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
             except Exception, e:
                 print 'Unable to connect to Carbon-Server'
                 print e
-                self.__carbon_server = None
         self.__timeseries = {}
         self.__intervals = {}
         self.__current_timeframe = 0
@@ -76,24 +70,35 @@ class UCEmulator(object):
 
         with open(path) as f:
             tmp_json = json.load(f)
-        for uc in self.__ucs:
-            if uc in tmp_json:
+        for uc in self.__ucs[self.__module__.split('.')[-1]]:
+            if uc not in tmp_json:
+                print '== !WARNING! No timeseries found for use case %s.' % uc
+            else:
                 self.__timeseries[uc] = tmp_json[uc]
         # Prepare method references
-        for call in self.__ucs:
-            self.__call_methods[call] = getattr(self, call)
+        for call in self.__ucs[self.__module__.split('.')[-1]]:
+            try:
+                self.__call_methods[call] = getattr(self, call)
+            except Exception, e:
+                print e
         # Apply factor to number of calls
         for ser in self.__timeseries:
             for tf in self.__timeseries[ser]:
-                tf['calls'] = round(self.__factor * tf['calls'])  # Calls must always be integer
+                if 'calls' in tf:
+                    tf['hz'] = self.__factor * (tf['calls'] / 3600.0)  # Convert calls per hour to hz
+                    del(tf['calls'])
+                elif 'hz' in tf:
+                    tf['hz'] = self.__factor * tf['hz']
+                else:
+                    tf['hz'] = 1  # Fallback if no frequency is given
         self.__calc_timeframe__()
 
     def __calc_timeframe__(self):
         """
-            Calculates the frequency (calls per second) for each use case  in the current time frame.
+            Updates the frequency (calls per second) for each use case  in the current time frame.
         """
         for uc in self.__timeseries:
-            self.__intervals[uc] = 3600 / (self.__timeseries[uc][self.__current_timeframe]['calls'] + 1)  # +1 to avoid every UC starting at time zero
+            self.__intervals[uc] = 1.0 / self.__timeseries[uc][self.__current_timeframe]['hz']
 
     def next_timeframe(self):
         """
@@ -172,7 +177,7 @@ class UCEmulator(object):
             :param call: Name of use case.
         """
         # TODO: Later consider to create a pool of threads for each 'call' and re-use them to potentially save time?
-        t = threading.Thread(target=self.__call_methods[call], args=[self.__timeseries[call][self.__current_timeframe]])
+        t = threading.Thread(target=self.time_it, kwargs={'fn': self.__call_methods[call], 'kwargs': self.__timeseries[call][self.__current_timeframe]})
         t.start()
 
     def run_verbose(self, call):
@@ -181,14 +186,16 @@ class UCEmulator(object):
 
             :param call: Name of use case.
         """
-        print '%f\t%s\t%s' % (time.time(), call, threading.active_count())
-        self.__call_methods[call](self.__timeseries[call][self.__current_timeframe])
+        print '%f\t%s' % (time.time(), call)
+        try:
+            self.time_it(self.__call_methods[call], self.__timeseries[call][self.__current_timeframe])
+        except Exception, e:
+            self.inc('exceptions.%' % e.__class__.__name__)
 
     def stop(self):
         """
             Stops the emulation.
         """
-        self.__carbon_server.close()
         self.__running = False
 
     def get_defined_usecases(self):
@@ -199,24 +206,55 @@ class UCEmulator(object):
         """
         return self.__timeseries.keys()
 
-    def log(self, fn, args=[], kwargs={}):
+    def time_it(self, fn, args=[], kwargs={}):
         """
-            Automatically logs the execution time of the provided operation.
+            Automatically logs the execution time of t he provided operation.
 
             :param function: A reference to the operation.
-            :param args: Arguments used to execute the operation as dict
+            :param args: Arguments used to execute the operation as list
+            :param kwargs: Arguments used to execute the operation as dict
 
-            :returns: Execution time in ms
+            :returns: Execution time
         """
-        resp_time = round(Timer(partial(fn, *args, **kwargs)).timeit(1), 5)
+        start = time.time()
+        if kwargs:
+            fn(**kwargs)
+        elif args:
+            fn(*args)
+        else:
+            fn()
+        fin = time.time()
+        resp = (fin - start) * 1000
         if self.__carbon_server:
-            self.__carbon_server.sendall('emulation.%s.rucio.resp_time.%s %s %s\n' % (self.__carbon_user, fn.__name__, resp_time, int(time.time())))
-        return resp_time
+            self.__carbon_server.timing(fn.__name__, resp)
+        return resp
+
+    def inc(self, metric, value=1):
+        """
+            Increments the referred metric by value.
+        """
+        if self.__carbon_server:
+            self.__carbon_server.update_stats(metric, value)
 
     @classmethod
     def UseCase(cls, func):
         """
             Decorator to help identifying all use cases defined within a module.
         """
-        cls.__ucs.append(func.__name__)
-        return func
+        # Register method as use case
+        mod = func.__module__.split('.')[-1]
+        if mod not in cls.__ucs:
+            cls.__ucs[mod] = []
+        cls.__ucs[mod].append(func.__name__)
+
+        # Wrap function for exception handling
+        def execute(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except Exception, e:
+                self.inc('%s.%s.%s' % (self.__module__.split('.')[-1], func.__name__, e.__class__.__name__))
+                if self.__operation_mode == 'verbose':
+                    print 'Error in: %s.%s' % (self.__module__.split('.')[-1], func.__name__)
+                    print e.__class__.__name__
+                    print e
+        return execute

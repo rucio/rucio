@@ -1,6 +1,6 @@
 {
   "global": {
-    "seconds_per_timeframe": 15,
+    "seconds_per_timeframe": 5,
     "workload_multiplier": 20,
     "operation_mode": "verbose",
     "rucio_server": "localhost"
@@ -10,7 +10,7 @@
   },
   "carbon": {
     "CARBON_SERVER": "voatlas70.cern.ch",
-    "CARBON_PORT": 2003,
+    "CARBON_PORT": 8125,
     "USER_SCOPE": "DefineUserScopeForLogging"
   }
 }
