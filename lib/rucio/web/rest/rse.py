@@ -51,7 +51,7 @@ class RSE:
         """
         header('Content-Type', 'application/octet-stream')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -105,7 +105,7 @@ class RSE:
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -132,7 +132,7 @@ class RSE:
         """
 
         header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -168,7 +168,7 @@ class Attributes:
 
         """
         header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -216,7 +216,7 @@ class Attributes:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -230,7 +230,7 @@ class Attributes:
 
     def DELETE(self, rse, key):
         header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -269,7 +269,7 @@ class Files:
         """
         header('Content-Type', 'application/octet-stream')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -342,7 +342,7 @@ class Protocols:
         """
         header('Content-Type', 'application/json')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -395,7 +395,7 @@ class Protocol:
 
         """
         header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -444,7 +444,7 @@ class Protocol:
 
         header('Content-Type', 'application/json')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -478,7 +478,7 @@ class Protocol:
         """
 
         header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -522,7 +522,7 @@ class Protocol:
         """
 
         header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:

@@ -188,7 +188,7 @@ class BaseClient(object):
 
         r = None
         retry = 0
-        hds = {'Rucio-Auth-Token': self.auth_token, 'Rucio-Account': self.account, 'Rucio-Appid': ''}
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': ''}
 
         if headers is not None:
             hds.update(headers)
@@ -227,7 +227,7 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'Rucio-Account': self.account, 'Rucio-Username': self.creds['username'], 'Rucio-Password': self.creds['password']}
+        headers = {'X-Rucio-Account': self.account, 'X-Rucio-Username': self.creds['username'], 'X-Rucio-Password': self.creds['password']}
         url = build_url(self.auth_host, path='auth/userpass')
 
         retry = 0
@@ -250,7 +250,7 @@ class BaseClient(object):
         if r.status_code != codes.ok:
             raise RucioException('unknown error')
 
-        self.auth_token = r.headers['rucio-auth-token']
+        self.auth_token = r.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
@@ -261,7 +261,7 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': self.account}
 
         client_cert = None
         client_key = None
@@ -308,7 +308,7 @@ class BaseClient(object):
         if r.status_code != codes.ok:
             raise RucioException('unknown error')
 
-        self.auth_token = r.headers['rucio-auth-token']
+        self.auth_token = r.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
@@ -319,7 +319,7 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': self.account}
         url = build_url(self.auth_host, path='auth/gss')
 
         retry = 0
@@ -342,7 +342,7 @@ class BaseClient(object):
         if r.status_code != codes.ok:
             raise RucioException('unknown error')
 
-        self.auth_token = r.headers['rucio-auth-token']
+        self.auth_token = r.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
@@ -368,7 +368,7 @@ class BaseClient(object):
 
             if self.auth_token is not None:
                 self.__write_token()
-                self.headers['Rucio-Auth-Token'] = self.auth_token
+                self.headers['X-Rucio-Auth-Token'] = self.auth_token
                 break
 
             retry += 1
@@ -392,7 +392,7 @@ class BaseClient(object):
         try:
             token_file_handler = open(self.token_file, 'r')
             self.auth_token = token_file_handler.readline()
-            self.headers['Rucio-Auth-Token'] = self.auth_token
+            self.headers['X-Rucio-Auth-Token'] = self.auth_token
         except IOError as (errno, strerror):  # NOQA
             print("I/O error({0}): {1}".format(errno, strerror))
         except Exception, e:

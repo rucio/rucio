@@ -48,7 +48,7 @@ class Scope:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
@@ -78,7 +78,7 @@ class Scope:
         """
         header('Content-Type', 'application/octet-stream')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -126,7 +126,7 @@ class ScopeList:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -141,7 +141,7 @@ class ScopeList:
             raise InternalError(e)
 
         if not len(scopes):
-            raise generate_http_error(404, 'ScopeNotFound',  'no scopes found for account ID \'%s\'' % account_name)
+            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account_name)
 
         return dumps(scopes)
 
