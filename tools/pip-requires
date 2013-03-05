@@ -31,3 +31,4 @@ paramiko
 pycrypto
 s3cmd                    # Package built from http://s3tools.org/download
 python-magic             # Dependency for S3, but unfortunately not installed by it automiatically
+pystatsd==0.1.7          # Needed to log into graphite with more than 1 Hz
