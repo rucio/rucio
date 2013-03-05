@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -42,7 +43,11 @@ def has_permission(issuer, action, kwargs):
             'add_identifier': perm_add_identifier,
             'append_identifier': perm_append_identifier,
             'detach_identifier': perm_detach_identifier,
-            'set_status': perm_set_status}
+            'set_status': perm_set_status,
+            'submit_rse_transfer': perm_submit_rse_transfer,
+            'submit_transfer': perm_submit_transfer,
+            'query_transfer': perm_query_transfer,
+            'cancel_transfer': perm_cancel_transfer}
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
 
@@ -256,6 +261,50 @@ def perm_update_protocol(issuer, kwargs):
     Checks if an account can update protocols of an RSE.
 
     :param account_name: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_submit_rse_transfer(issuer, kwargs):
+    """
+    Checks if an account can submit a transfer to an RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_submit_transfer(issuer, kwargs):
+    """
+    Checks if an account can submit a transfer to a transfertool.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_query_transfer(issuer, kwargs):
+    """
+    Checks if an account can query a transfer.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_cancel_transfer(issuer, kwargs):
+    """
+    Checks if an account can cancel a transfer.
+
+    :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
