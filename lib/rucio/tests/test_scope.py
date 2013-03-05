@@ -71,19 +71,19 @@ class TestScope():
         """ SCOPE (REST): send a POST to create a new account and scope """
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
 
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Auth-Token': str(token)}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid()).lower()[:20]
         data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Auth-Token': str(token)}
+        headers3 = {'X-Rucio-Auth-Token': str(token)}
         scopeusr = 'testscope' + str(uuid())[:20]
         r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
         assert_equal(r3.status, 201)
@@ -92,12 +92,12 @@ class TestScope():
         """ SCOPE (REST): send a POST to create a new scope for a not existing account to test the error"""
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
 
-        token = str(r1.header('Rucio-Auth-Token'))
-        headers2 = {'Rucio-Auth-Token': str(token)}
+        token = str(r1.header('X-Rucio-Auth-Token'))
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
         scopeusr = 'testscope' + str(uuid())[:20]  # NOQA
         acntusr = 'user' + str(uuid())  # NOQA
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/%(scopeusr)s/scopes/%(scopeusr)s' % locals(), headers=headers2, expect_errors=True)
@@ -107,19 +107,19 @@ class TestScope():
         """ SCOPE (REST): send a POST to create a already existing scope to test the error"""
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
 
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Type': 'user', 'X-Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid()).lower()[:20]
         data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Auth-Token': str(token)}
+        headers3 = {'X-Rucio-Auth-Token': str(token)}
         scopeusr = 'testscope' + str(uuid())[:20]
         r3 = TestApp(account_app.wsgifunc(*mw)).post('/%s/scopes/%s' % (acntusr, scopeusr), headers=headers3, expect_errors=True)
         assert_equal(r3.status, 201)
@@ -130,19 +130,19 @@ class TestScope():
         """ SCOPE (REST): send a GET list all scopes for one account """
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
 
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
         tmp_val = str(uuid()).lower()[:15]
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Account': 'root', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount-%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Auth-Token': str(token)}
+        headers3 = {'X-Rucio-Auth-Token': str(token)}
 
         for scope in self.scopes:
             data = dumps({})
@@ -161,13 +161,13 @@ class TestScope():
         """ SCOPE (REST): send a GET list all scopes for a not existing account """
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
 
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
-        headers3 = {'Rucio-Auth-Token': str(token)}
+        headers3 = {'X-Rucio-Auth-Token': str(token)}
         r3 = TestApp(account_app.wsgifunc(*mw)).get('/testaccount/scopes', headers=headers3, expect_errors=True)
 
         assert_equal(r3.status, 404)
@@ -177,19 +177,19 @@ class TestScope():
         """ SCOPE (REST): send a GET list all scopes for one account without scopes """
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
 
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'Rucio-Auth-Token': str(token)}
+        headers2 = {'Rucio-Type': 'user', 'X-Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid()).lower()[:20]
         data = dumps({'account_type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
-        headers3 = {'Rucio-Auth-Token': str(token)}
+        headers3 = {'X-Rucio-Auth-Token': str(token)}
 
         r4 = TestApp(account_app.wsgifunc(*mw)).get('/%(acntusr)s/scopes/' % locals(), headers=headers3, params=data, expect_errors=True)
 

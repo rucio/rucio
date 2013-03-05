@@ -55,10 +55,10 @@ class UserPass:
         web.header('Cache-Control', 'post-check=0, pre-check=0', False)
         web.header('Pragma', 'no-cache')
 
-        account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
-        username = web.ctx.env.get('HTTP_RUCIO_USERNAME')
-        password = web.ctx.env.get('HTTP_RUCIO_PASSWORD')
-        appid = web.ctx.env.get('HTTP_RUCIO_APPID')
+        account = web.ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+        username = web.ctx.env.get('HTTP_X_RUCIO_USERNAME')
+        password = web.ctx.env.get('HTTP_X_RUCIO_PASSWORD')
+        appid = web.ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
             appid = 'unknown'
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
@@ -76,7 +76,7 @@ class UserPass:
         if result is None:
             raise web.Unauthorized()
         else:
-            web.header('Rucio-Auth-Token', result)
+            web.header('X-Rucio-Auth-Token', result)
             return str()
 
         raise web.BadRequest()
@@ -119,9 +119,9 @@ class GSS:
         web.header('Cache-Control', 'post-check=0, pre-check=0', False)
         web.header('Pragma', 'no-cache')
 
-        account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        account = web.ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         gsscred = web.ctx.env.get('REMOTE_USER')
-        appid = web.ctx.env.get('HTTP_RUCIO_APPID')
+        appid = web.ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
             appid = 'unknown'
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
@@ -138,7 +138,7 @@ class GSS:
         if result is None:
             raise web.Unauthorized()
         else:
-            web.header('Rucio-Auth-Token', result)
+            web.header('X-Rucio-Auth-Token', result)
             return str()
 
         raise web.BadRequest()
@@ -181,9 +181,9 @@ class x509:
         web.header('Cache-Control', 'post-check=0, pre-check=0', False)
         web.header('Pragma', 'no-cache')
 
-        account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
+        account = web.ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         dn = web.ctx.env.get('SSL_CLIENT_S_DN')
-        appid = web.ctx.env.get('HTTP_RUCIO_APPID')
+        appid = web.ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
             appid = 'unknown'
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
@@ -211,7 +211,7 @@ class x509:
         if result is None:
             raise web.Unauthorized()
         else:
-            web.header('Rucio-Auth-Token', result)
+            web.header('X-Rucio-Auth-Token', result)
             return str()
 
         raise web.BadRequest()
@@ -252,7 +252,7 @@ class Validate:
         web.header('Cache-Control', 'post-check=0, pre-check=0', False)
         web.header('Pragma', 'no-cache')
 
-        token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         result = validate_auth_token(token)
 
         if result is None:

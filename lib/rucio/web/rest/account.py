@@ -59,7 +59,7 @@ class Scopes:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -98,7 +98,7 @@ class Scopes:
 
         header('Content-Type', 'application/octet-stream')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -147,7 +147,7 @@ class AccountParameter:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -197,7 +197,7 @@ class AccountParameter:
         """
         header('Content-Type', 'application/octet-stream')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -252,7 +252,7 @@ class AccountParameter:
 
         header('Content-Type', 'application/octet-stream')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -292,7 +292,7 @@ class Account:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -353,7 +353,7 @@ class Identities:
 
         header('Content-Type', 'application/octet-stream')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -395,7 +395,7 @@ class Identities:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 

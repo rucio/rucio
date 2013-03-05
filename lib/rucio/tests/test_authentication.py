@@ -41,7 +41,7 @@ class TestAuthRestApi():
         """AUTHENTICATION (REST): Username and password (wrong credentials)."""
 
         mw = []
-        headers = {'Rucio-Account': 'wrong', 'Rucio-Username': 'wrong', 'Rucio-Password': 'wrong'}
+        headers = {'X-Rucio-Account': 'wrong', 'X-Rucio-Username': 'wrong', 'X-Rucio-Password': 'wrong'}
         r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 401)
 
@@ -49,10 +49,10 @@ class TestAuthRestApi():
         """AUTHENTICATION (REST): Username and password (correct credentials)."""
 
         mw = []
-        headers = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
-        assert_greater(len(r.header('Rucio-Auth-Token')), 32)
+        assert_greater(len(r.header('X-Rucio-Auth-Token')), 32)
 
     def test_x509(self):
         """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support SSL handshake. Check tools/test_auth.sh"""
