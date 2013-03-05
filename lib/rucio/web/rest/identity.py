@@ -47,15 +47,15 @@ class UserPass:
 
         web.header('Content-Type', 'application/octet-stream')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise web.Unauthorized()
 
-        username = web.ctx.env.get('HTTP_RUCIO_USERNAME')
-        password = web.ctx.env.get('HTTP_RUCIO_PASSWORD')
+        username = web.ctx.env.get('HTTP_X_RUCIO_USERNAME')
+        password = web.ctx.env.get('HTTP_X_RUCIO_PASSWORD')
 
         if username is None or password is None:
             raise web.BadRequest('Username and Password must be set.')
@@ -109,7 +109,7 @@ class x509:
 
         web.header('Content-Type', 'application/octet-stream')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -167,7 +167,7 @@ class GSS:
 
         web.header('Content-Type', 'application/octet-stream')
 
-        auth_token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 

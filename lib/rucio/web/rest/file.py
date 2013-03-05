@@ -46,7 +46,7 @@ class Replicas:
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:

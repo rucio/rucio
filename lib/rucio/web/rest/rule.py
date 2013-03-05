@@ -49,7 +49,7 @@ class Rule:
         """
 
         header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
