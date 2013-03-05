@@ -363,7 +363,7 @@ def set_metadata(scope, name, key, value, did=None, session=None):
 
     if key == 'guid':
         try:
-            session.query(models.File).filter_by(scope=scope, name=name, deleted=False).update({'guid': value})
+            session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).update({'guid': value})
         except IntegrityError, e:
             raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
     else:
@@ -399,9 +399,8 @@ def get_metadata(scope, name, session=None):
         meta[row.key] = row.value
 
     if r.type == models.DataIdType.FILE:
-        row = session.query(models.File).filter_by(scope=scope, name=name, deleted=False).first()
-        if row.guid:
-            meta['guid'] = row.guid
+        if r.guid:
+            meta['guid'] = r.guid
 
     return meta
 
