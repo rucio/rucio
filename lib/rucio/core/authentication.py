@@ -70,7 +70,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     db_account = result['account']
 
     # create new rucio-auth-token for account
-    tuid = str(uuid.uuid4()).replace('-', '')
+    tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
     token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
 
     new_token = models.Authentication(account=db_account, token=token, ip=ip)
@@ -102,7 +102,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     session.query(models.Identity).filter_by(identity=dn, type='x509').first()
 
     # create new rucio-auth-token for account
-    tuid = str(uuid.uuid4()).replace('-', '')
+    tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
     token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
 
     new_token = models.Authentication(account=account, token=token, ip=ip)
@@ -134,7 +134,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     session.query(models.Identity).filter_by(identity=gsstoken, type='gsstoken').first()
 
     # create new rucio-auth-token for account
-    tuid = str(uuid.uuid4()).replace('-', '')
+    tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
     token = '%(account)s-%(gsstoken)s-%(appid)s-%(token)s' % locals()
 
     new_token = models.Authentication(account=account, token=token, ip=ip)

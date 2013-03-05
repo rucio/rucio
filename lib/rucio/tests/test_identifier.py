@@ -59,7 +59,7 @@ class TestIdentifierClients():
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 10}
             files.append({'scope': tmp_scope, 'name': lfn,
-                          'size': 724963570L, 'checksum': '0cc737eb',
+                          'size': 724963570L, 'adler32': '0cc737eb',
                           'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
 
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
@@ -72,7 +72,7 @@ class TestIdentifierClients():
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 100}
             files.append({'scope': tmp_scope, 'name': lfn,
-                          'size': 724963570L, 'checksum': '0cc737eb',
+                          'size': 724963570L, 'adler32': '0cc737eb',
                           'rse': tmp_rse, 'pfn': pfn, 'meta': file_meta})
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files)
