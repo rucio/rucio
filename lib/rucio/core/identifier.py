@@ -37,7 +37,7 @@ def list_replicas(scope, name, protocols=None, session=None):
 
     rsemgr = rsemanager.RSEMgr()
     try:
-        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE', deleted=False)
+        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE')
         for row in query:
             try:
                 pfns = list()
@@ -127,7 +127,7 @@ def append_identifier(scope, name, dids, issuer, session=None):
         if (scope == source['scope']) and (name == source['name']):
             raise exception.UnsupportedOperation('Self-append is not valid.')
         if did.type == models.DataIdType.CONTAINER:
-            child = query_all.filter_by(scope=source['scope'], name=source['name'], deleted=False).first()
+            child = query_all.filter_by(scope=source['scope'], name=source['name']).first()
             if child is None:
                 raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
             child_type = child.type
@@ -161,7 +161,7 @@ def detach_identifier(scope, name, dids, issuer, session=None):
     """
 
     #TODO: should judge target did's status: open, monotonic, close.
-    query_all = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, deleted=False)
+    query_all = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name)
     if query_all.first() is None:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' has no child data identifiers." % locals())
     for source in dids:
@@ -187,7 +187,7 @@ def list_content(scope, name, session=None):
 
     dids = []
     try:
-        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, deleted=False)
+        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name)
         for tmp_did in query:
             dids.append({'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type})
     except NoResultFound:
@@ -218,7 +218,7 @@ def list_files(scope, name, session=None):
         dids = [(scope, name), ]
         while dids:
             s, n = dids.pop()
-            query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, name=n, deleted=False)
+            query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, name=n)
             for tmp_did in query:
                 if tmp_did.child_type == models.DataIdType.FILE:
                     yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name}
@@ -239,14 +239,14 @@ def scope_list(scope, name=None, recursive=False, session=None):
 
     try:
         query_all = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
-        query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, deleted=False)
+        query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope)
     except NoResultFound:
         raise exception.ScopeNotFound("Scope '%(scope)s' not found" % scope)
 
     def __topdids(scope):
         topdids = []
         q = session.query(models.DataIdentifier.name, models.DataIdentifier.type).filter_by(scope=scope, deleted=False)
-        a = session.query(models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type).filter_by(scope=scope, deleted=False)
+        a = session.query(models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type).filter_by(scope=scope)
         s = q.except_(a)
         for row in s.all():
             topdids.append({'scope': scope, 'name': row.name, 'type': row.type, 'parent': None, 'level': 0})
@@ -330,10 +330,10 @@ def set_metadata(scope, name, key, value, did=None, session=None):
     :param session: The database session in use.
     """
     # Check enum types
-    enum = session.query(models.DIDKeyValueAssociation).filter_by(key=key, deleted=False).first()
+    enum = session.query(models.DIDKeyValueAssociation).filter_by(key=key).first()
     if enum:
         try:
-            session.query(models.DIDKeyValueAssociation).filter_by(key=key, deleted=False, value=value).one()
+            session.query(models.DIDKeyValueAssociation).filter_by(key=key, value=value).one()
         except NoResultFound:
             raise exception.InvalidValueForKey('The value %(value)s is invalid for the key %(key)s' % locals())
 
@@ -394,7 +394,7 @@ def get_metadata(scope, name, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     meta = {}
-    query = session.query(models.DIDAttribute).filter_by(scope=scope, name=name, deleted=False)
+    query = session.query(models.DIDAttribute).filter_by(scope=scope, name=name)
     for row in query:
         meta[row.key] = row.value
 

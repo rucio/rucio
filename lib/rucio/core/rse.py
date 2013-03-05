@@ -148,7 +148,7 @@ def add_rse_attribute(rse, key, value, session=None):
     # Check location
     l = get_rse(rse=rse, session=session)
     try:
-        new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value, deleted=False)
+        new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value)
         new_rse_attr = session.merge(new_rse_attr)
         new_rse_attr.save(session=session)
     except IntegrityError:
@@ -167,7 +167,7 @@ def del_rse_attribute(rse, key, session=None):
     :return: True if RSE attribute was deleted successfully else False.
     """
     l = get_rse(rse=rse, session=session)
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id, deleted=False).filter(models.RSEAttrAssociation.key == key)
+    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id).filter(models.RSEAttrAssociation.key == key)
     rse_attr = query.one()
     rse_attr.delete(session=session)
 
@@ -184,7 +184,7 @@ def list_rse_attributes(rse, session=None):
     rse_attrs = {}
     l = get_rse(rse=rse, session=session)
 
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id, deleted=False)
+    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id)
     for attr in query:
         rse_attrs[attr.key] = attr.value
     return rse_attrs
