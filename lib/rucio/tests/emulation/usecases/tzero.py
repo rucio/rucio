@@ -78,7 +78,7 @@ class UseCaseDefinition(UCEmulator):
             file_meta = {'guid': str(generate_uuid()),
                          'events': 10}
             sources.append({'scope': self.scope, 'name': lfn,
-                            'size': 724963570L, 'checksum': '0cc737eb',
+                            'size': 724963570L, 'adler32': '0cc737eb',
                             'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
         t = None
         try:

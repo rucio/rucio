@@ -48,7 +48,7 @@ def list_replicas(scope, name, protocols=None, session=None):
                 # ToDo: add support for non determistic rse path -> pfn conversion
                 if pfns:
                     yield {'scope': row.scope, 'name': row.name, 'size': row.size,
-                           'rse': row.rse.rse, 'checksum': row.checksum, 'pfns': pfns}
+                           'rse': row.rse.rse, 'md5': row.md5, 'adler32': row.adler32, 'pfns': pfns}
             except (exception.RSENotFound, exception.SwitchProtocol):
                 pass
     except NoResultFound:
