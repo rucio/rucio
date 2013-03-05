@@ -150,7 +150,7 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_file_replica(self, rse, scope, name, size, checksum, pfn=None, dsn=None):
+    def add_file_replica(self, rse, scope, name, size,  adler32=None, md5=None, pfn=None, dsn=None):
         """
         Add a file replica to a RSE.
 
@@ -158,15 +158,15 @@ class RSEClient(BaseClient):
         :param scope: the name of the scope.
         :param name: the data identifier name.
         :param size: the size of the file.
-        :param checksum: the checksum of the file.
+        :param md5: The md5 checksum.
+        :param adler32: The adler32 checksum.
         :param pfn: the physical file name for non deterministic rse.
-
         :param dsn: the dataset name.
 
         :return: True if file was created successfully else False.
         :raises Duplicate: if file replica already exists.
         """
-        data = dumps({'size': size, 'checksum': checksum, 'pfn': pfn, 'dsn': dsn})
+        data = dumps({'size': size, 'md5': md5, 'adler32': adler32, 'pfn': pfn, 'dsn': dsn})
         path = '/'.join([self.RSE_BASEURL, rse, 'files', scope, name])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='POST', data=data)

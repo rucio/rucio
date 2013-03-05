@@ -37,15 +37,15 @@ class TestReplica():
 
         self.scope_client.add_scope('root', tmp_scope)
 
-        self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, checksum=1L)
+        self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
 
 #        with assert_raises(UnsupportedOperation):
-#            self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, checksum=1L, pfn=tmp_pfn)
+#            self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
         with assert_raises(UnsupportedOperation):
-            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, checksum=1L)
+            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
 
-        self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, checksum=1L, pfn=tmp_pfn)
+        self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
         assert_equal(len(replicas), 2)

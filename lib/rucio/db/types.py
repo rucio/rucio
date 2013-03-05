@@ -15,10 +15,12 @@ from sqlalchemy.types import TypeDecorator, CHAR
 
 
 class GUID(TypeDecorator):
-    """Platform-independent GUID type.
+    """
+    Platform-independent GUID type.
 
-    Uses Postgresql's UUID type, otherwise uses
-    CHAR(32), storing as stringified hex values.
+    Uses Postgresql's UUID type,
+    Uses Oracle's RAW type,
+    otherwise uses CHAR(32), storing as stringified hex values.
 
     """
     impl = CHAR

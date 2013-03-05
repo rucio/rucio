@@ -262,7 +262,7 @@ def get_rse_usage_history(rse, filters=None, session=None):
 
 
 @transactional_session
-def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=None, meta=None, rules=None, session=None):
+def add_file_replica(rse, scope, name, size, issuer, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, session=None):
     """
     Add File replica.
 
@@ -270,8 +270,9 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     :param scope: the tag name.
     :param name: The data identifier name.
     :param size: the size of the file.
-    :param checksum: the checksum of the file.
     :param issuer: The issuer account.
+    :param md5: The md5 checksum.
+    :param adler32: The adler32 checksum.
     :param pfn: Physical file name (for nondeterministic rse).
     :meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
     :rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
@@ -297,7 +298,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False)
     if not query.first():
         try:
-            new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE, size=size)
+            new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
             new_data_id = session.merge(new_data_id)
             new_data_id.save(session=session)
         except IntegrityError, e:
@@ -305,7 +306,7 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
                 raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
             raise
 
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, checksum=checksum, path=path, state='AVAILABLE')
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, path=path, state='AVAILABLE', md5=md5, adler32=adler32)
     try:
         new_replica.save(session=session)
     except IntegrityError:

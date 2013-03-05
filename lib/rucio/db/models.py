@@ -18,7 +18,7 @@ import datetime
 
 from uuid import uuid4 as uuid
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Integer, String
 from sqlalchemy import event
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
@@ -161,11 +161,9 @@ class Account(BASE,  SoftModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
     account = Column(String(30))
-    type = Column(String(10))
-    status = Column(String(10))
+    type = Column(Enum('user', 'group', 'service', name='ACCOUNTS_TYPE_CHK'))
+    status = Column(Enum('active', 'inactive', 'disabled', name='ACCOUNTS_STATUS_CHK'))
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
-                   CheckConstraint("type IN ('user', 'group', 'service')", name='ACCOUNTS_TYPE_CHK'),
-                   CheckConstraint("status IN ('active', 'inactive', 'disabled')", name='ACCOUNTS_STATUS_CHK'),
                    CheckConstraint('"TYPE" IS NOT NULL', name='ACCOUNT_TYPE_NN'),
                    CheckConstraint('"STATUS" IS NOT NULL', name='ACCOUNT_STATUS_NN')
                    )
@@ -175,13 +173,13 @@ class Identity(BASE, ModelBase):
     """Represents an identity"""
     __tablename__ = 'identities'
     identity = Column(String(255))
-    type = Column(String(8))
+    type = Column(Enum('x509', 'gss', 'userpass', name='IDENTITIES_TYPE_CHK'))  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
     username = Column(String(255))
     password = Column(String(255))
     salt = Column(LargeBinary(255))
     email = Column(String(255))
     _table_args = (PrimaryKeyConstraint('identity', 'type', name='IDENTITIES_PK'),
-                   CheckConstraint("type IN ('x509', 'gss', 'userpass')", name='IDENTITIES_TYPE_CHK'),  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
+                   CheckConstraint('"TYPE" IS NOT NULL', name='IDENTITIES_TYPE_NN'),
                    #CheckConstraint('"EMAIL" IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
                    )
 
@@ -190,14 +188,15 @@ class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity"""
     __tablename__ = 'account_map'
     identity = Column(String(255))
-    type = Column(String(8))
+    type = Column(Enum('x509', 'gss', 'userpass', name='ACCOUNT_MAP_TYPE_CHK'))
     account = Column(String(30))
     is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'type'], ['identities.identity', 'identities.type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
-                   CheckConstraint("type IN ('x509', 'gss', 'userpass')", name='ACCOUNT_MAP_TYPE_CHK'),
-                   CheckConstraint('is_default IS NOT NULL', name='ACCOUNT_MAP_IS_DEFAULT_NN'),)
+                   CheckConstraint('is_default IS NOT NULL', name='ACCOUNT_MAP_IS_DEFAULT_NN'),
+                   CheckConstraint('"TYPE" IS NOT NULL', name='ACCOUNT_MAP_TYPE_NN'),
+                   )
 
 
 class Scope(BASE, SoftModelBase):
@@ -219,24 +218,23 @@ class DataIdentifier(BASE, SoftModelBase):
     scope = Column(String(30))
     name = Column(String(255))
     owner = Column(String(255))
-    type = Column(String(9))
+    type = Column(Enum('file', 'dataset', 'container', name='DIDS_TYPE_CHK'))
     open = Column(Boolean(name='DIDS_OPEN_CHK'))
     monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
     hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
     obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
     complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
-    availability = Column(String(32))
+    availability = Column(Enum('lost', 'deleted', 'available', name='DIDS_AVAILABILITY_CHK'))
     suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
     size = Column(BigInteger)
-    checksum = Column(String(32))
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
     guid = Column(GUID())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
-                   CheckConstraint("TYPE IN ('file', 'dataset', 'container')", name='DIDS_TYPE_CHK'),
-                   CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DIDS_AVAILABILITY_CHK'),
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
                    UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    )
@@ -246,12 +244,12 @@ class DIDKey(BASE, ModelBase):
     """Represents Data IDentifier property keys"""
     __tablename__ = 'did_keys'
     key = Column(String(255))
-    key_type = Column(String(255))
+    key_type = Column(Enum('all', 'collection', 'file', 'derived', name='DID_KEYS_KEY_TYPE_CHK'))
     value_type = Column(String(255))
     value_regexp = Column(String(255))
     _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),
                    CheckConstraint('key_type IS NOT NULL', name='DID_KEYS_KEY_TYPE_NN'),
-                   CheckConstraint("key_type IN ('all', 'collection', 'file', 'derived')", name='DID_KEYS_KEY_TYPE_CHK'),)
+                   )
 
 
 class DIDKeyValueAssociation(BASE, ModelBase):
@@ -284,13 +282,16 @@ class DataIdentifierAssociation(BASE, ModelBase):
     name = Column(String(255))          # dataset name
     child_scope = Column(String(30))   # Provenance scope
     child_name = Column(String(255))    # Provenance name
-    type = Column(String(9))
-    child_type = Column(String(9))
+    type = Column(Enum('file', 'dataset', 'container', name='CONTENTS_TYPE_CHK'))
+    child_type = Column(Enum('file', 'dataset', 'container', name='CONTENTS_CHILD_TYPE_CHK'))
+    size = Column(BigInteger)
+    adler32 = Column(String(8))
+    md5 = Column(String(32))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
-                   CheckConstraint("type IN ('file', 'dataset', 'container')", name='CONTENTS_TYPE_CHK'),
-                   CheckConstraint("child_type IN ('file', 'dataset', 'container')", name='CONTENTS_CHILD_TYPE_CHK'),
+                   CheckConstraint('"TYPE" IS NOT NULL', name='CONTENTS_TYPE_NN'),
+                   CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name'),)
 
 
@@ -299,7 +300,7 @@ class RSE(BASE, SoftModelBase):
     __tablename__ = 'rses'
     id = Column(GUID(), default=lambda: str(uuid()))
     rse = Column(String(255))
-    type = Column(String(255), default='disk')
+    type = Column(Enum('disk', 'tape', name='RSES_TYPE_CHK'), default='disk')
     prefix = Column(String(1024))
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
@@ -308,7 +309,8 @@ class RSE(BASE, SoftModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint("type IN ('disk','tape')", name='RSES_TYPE_CHK'),)
+                   CheckConstraint('"TYPE" IS NOT NULL', name='RSES_TYPE_NN'),
+                   )
 
 
 class RSEUsage(BASE, ModelBase, Versioned):
@@ -384,14 +386,16 @@ class RSEFileAssociation(BASE, ModelBase):
     scope = Column(String(30))
     name = Column(String(255))
     size = Column(BigInteger)
-    checksum = Column(String(32))
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
     path = Column(String(1024))
-    state = Column(String(255), default='UNAVAILABLE')
+    state = Column(Enum('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD', name='FILE_REPLICAS_STATE_CHK'), default='UNAVAILABLE')
     rse = relationship("RSE", backref=backref('file_replicas', order_by="RSE.id"))
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='FILE_REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='FILE_REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'),
-                   CheckConstraint("state IN ('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD')", name='FILE_REPLICAS_STATE_CHK'),)
+                   CheckConstraint('"STATE" IS NOT NULL', name='FILE_REPLICAS_STATE_NN'),
+                   )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='FILE_REPLICAS_RULE_FK'),
 
 
