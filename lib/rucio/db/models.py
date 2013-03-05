@@ -321,13 +321,15 @@ class RSEUsage(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
 
 
-class RSEAttribute(BASE, ModelBase):
-    """Represents RSE(Rucio Storage Element) attributes"""
-    __tablename__ = 'rse_attributes'
+class RSEAttrAssociation(BASE, ModelBase):
+    """Represents the map between RSEs and tags"""
+    __tablename__ = 'rse_attr_map'
+    rse_id = Column(GUID())
     key = Column(String(255))
     value = Column(String(255))
-    rses = relationship("RSEAttrAssociation", order_by="RSEAttrAssociation.rse_id", backref="rse_attributes")
-    _table_args = (PrimaryKeyConstraint('key', 'value', name='RSE_ATTR_PK'), )
+    rse = relationship("RSE", backref=backref('rse_attr_map', order_by=rse_id))
+    _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'), )
 
 
 class RSEProtocols(BASE, ModelBase):
@@ -348,19 +350,6 @@ class RSEProtocols(BASE, ModelBase):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
                    CheckConstraint('"IMPL" IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'),
                    )
-
-
-class RSEAttrAssociation(BASE, ModelBase):
-    """Represents the map between RSEs and tags"""
-    __tablename__ = 'rse_attr_map'
-    rse_id = Column(GUID())
-    key = Column(String(255))
-    value = Column(String(255))
-    rse = relationship("RSE", backref=backref('rse_attr_map', order_by=rse_id))
-    attr = relationship("RSEAttribute", backref=backref('rse_attr_map', order_by=rse_id))
-    _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
-                   ForeignKeyConstraint(['key', 'value'], ['rse_attributes.key', 'rse_attributes.value'], name='RSE_ATTR_MAP_ATTR_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'), )
 
 
 class AccountLimit(BASE, ModelBase):
@@ -484,7 +473,6 @@ def register_models(engine):
               DIDKeyValueAssociation,
               DIDAttribute,
               RSE,
-              RSEAttribute,
               RSEUsage,
               RSEProtocols,
               AccountLimit,
@@ -513,7 +501,6 @@ def unregister_models(engine):
               DIDAttribute,
               File,
               RSE,
-              RSEAttribute,
               RSEProtocols,
               RSEUsage,
               AccountLimit,
