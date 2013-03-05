@@ -172,7 +172,7 @@ def detach_identifier(scope, name, dids, issuer, session=None):
         associ_did = query_all.filter_by(child_scope=child_scope, child_name=child_name).first()
         if associ_did is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
-        associ_did.delete(soft=False, session=session)
+        associ_did.delete(session=session)
 
 
 @read_session
