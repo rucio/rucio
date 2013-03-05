@@ -461,24 +461,13 @@ class Subscription(BASE, ModelBase):
 class Authentication(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'authentication'
-    token = Column(String(32))
+    token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(String(30))
     lifetime = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(16), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', 'account', name='AUTH_TOKEN_ACCOUNT_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='AUTH_ACCOUNT_FK'),
                    CheckConstraint('"LIFETIME" IS NOT NULL', name='AUTH_LIFETIME_NN'),)
-
-
-class APIToken(BASE, ModelBase):
-    """Represents valid API clients"""
-    __tablename__ = 'api_tokens'
-    token = Column(String(32))
-    responsible = Column(String(255))
-    service_name = Column(String(255))
-    call_limit = Column(Integer(), default=0)
-    _table_args = (PrimaryKeyConstraint('token', name='API_TOKENS_TOKEN_PK'),
-                   ForeignKeyConstraint(['responsible'], ['accounts.account'], name='API_TOKENS_ACCOUNT_FK'),)
 
 
 def register_models(engine):
@@ -505,8 +494,7 @@ def register_models(engine):
               ReplicationRule,
               ReplicaLock,
               Subscription,
-              Authentication,
-              APIToken)
+              Authentication)
     for model in models:
         model.metadata.create_all(engine)
 
@@ -535,8 +523,7 @@ def unregister_models(engine):
               ReplicationRule,
               ReplicaLock,
               Subscription,
-              Authentication,
-              APIToken)
+              Authentication)
 
     for model in models:
         model.metadata.drop_all(engine)
