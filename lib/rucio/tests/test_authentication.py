@@ -8,7 +8,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
 
-from nose.tools import assert_equal, assert_is_not_none
+from nose.tools import assert_equal, assert_is_not_none, assert_greater
 from paste.fixture import TestApp
 
 from rucio.api.authentication import get_auth_token_user_pass
@@ -25,7 +25,7 @@ class TestAuthCoreApi():
 
     def test_get_auth_token_user_pass(self):
         """AUTHENTICATION (CORE): Username and password (correct credentials)."""
-        result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', ip='127.0.0.1')
+        result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1')
         assert_is_not_none(result)
 
 
@@ -52,7 +52,7 @@ class TestAuthRestApi():
         headers = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
         r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
-        assert_equal(len(r.header('Rucio-Auth-Token')), 32)
+        assert_greater(len(r.header('Rucio-Auth-Token')), 32)
 
     def test_x509(self):
         """AUTHENTICATION (REST): Placeholder for now, as unittest/nose/paste do not support SSL handshake. Check tools/test_auth.sh"""

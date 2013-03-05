@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 
@@ -30,7 +30,9 @@ urls = (
 
 
 class UserPass:
-    """Authenticate a Rucio account temporarily via username and password."""
+    """
+    Authenticate a Rucio account temporarily via username and password.
+    """
 
     @log
     def GET(self):
@@ -41,10 +43,11 @@ class UserPass:
         HTTP Error:
             401 Unauthorized
 
-        :param Rucio-Account: Account identifier.
+        :param Rucio-Account: Account identifier as a string.
         :param Rucio-Username: Username as a string.
         :param Rucio-Password: SHA1 hash of the password as a string.
-        :returns: "Rucio-Auth-Token" as an 32 character hex string header.
+        :param Rucio-AppID: Application identifier as a string.
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
 
         web.header('Content-Type', 'application/octet-stream')
@@ -55,12 +58,15 @@ class UserPass:
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         username = web.ctx.env.get('HTTP_RUCIO_USERNAME')
         password = web.ctx.env.get('HTTP_RUCIO_PASSWORD')
+        appid = web.ctx.env.get('HTTP_RUCIO_APPID')
+        if appid is None:
+            appid = 'unknown'
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = web.ctx.ip
 
         try:
-            result = get_auth_token_user_pass(account, username, password, ip)
+            result = get_auth_token_user_pass(account, username, password, appid, ip)
         except AccessDenied as e:
             exc = web.Unauthorized()
             exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
@@ -89,7 +95,9 @@ class UserPass:
 
 
 class GSS:
-    """Authenticate a Rucio account temporarily via a GSS token."""
+    """
+    Authenticate a Rucio account temporarily via a GSS token.
+    """
 
     @log
     def GET(self):
@@ -100,9 +108,10 @@ class GSS:
         HTTP Error:
             401 Unauthorized
 
-        :param Rucio-Account: Account identifier.
+        :param Rucio-Account: Account identifier as a string.
+        :param Rucio-AppID: Application identifier as a string.
         :param SavedCredentials: Apache mod_auth_kerb SavedCredentials.
-        :returns: "Rucio-Auth-Token" as an 32 character hex string header.
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
 
         web.header('Content-Type', 'application/octet-stream')
@@ -112,12 +121,15 @@ class GSS:
 
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         gsscred = web.ctx.env.get('REMOTE_USER')
+        appid = web.ctx.env.get('HTTP_RUCIO_APPID')
+        if appid is None:
+            appid = 'unknown'
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = web.ctx.ip
 
         try:
-            result = get_auth_token_gss(account, gsscred, ip)
+            result = get_auth_token_gss(account, gsscred, appid, ip)
         except AccessDenied as e:
             exc = web.Unauthorized()
             exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
@@ -145,7 +157,9 @@ class GSS:
 
 
 class x509:
-    """Authenticate a Rucio account temporarily via an x509 certificate."""
+    """
+    Authenticate a Rucio account temporarily via an x509 certificate.
+    """
 
     @log
     def GET(self):
@@ -156,9 +170,10 @@ class x509:
         HTTP Error:
             401 Unauthorized
 
-        :param Rucio-Account: Account identifier.
+        :param Rucio-Account: Account identifier as a string.
+        :param Rucio-AppID: Application identifier as a string.
         :param SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
-        :returns: "Rucio-Auth-Token" as an 32 character hex string header.
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
 
         web.header('Content-Type', 'application/octet-stream')
@@ -168,6 +183,9 @@ class x509:
 
         account = web.ctx.env.get('HTTP_RUCIO_ACCOUNT')
         dn = web.ctx.env.get('SSL_CLIENT_S_DN')
+        appid = web.ctx.env.get('HTTP_RUCIO_APPID')
+        if appid is None:
+            appid = 'unknown'
         ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = web.ctx.ip
@@ -184,7 +202,7 @@ class x509:
             dn = dn.rpartition('/')[0]
 
         try:
-            result = get_auth_token_x509(account, dn, ip)
+            result = get_auth_token_x509(account, dn, appid, ip)
         except AccessDenied as e:
             exc = web.Unauthorized()
             exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
@@ -212,7 +230,9 @@ class x509:
 
 
 class Validate:
-    """Validate a Rucio Auth Token"""
+    """
+    Validate a Rucio Auth Token.
+    """
 
     @log
     def GET(self):
@@ -223,8 +243,8 @@ class Validate:
         HTTP Error:
             401 Unauthorized
 
-        :param Rucio-Auth-Token: as an 32 character hex string.
-        :returns: Tuple(Account name, Expected current lifetime of the token).
+        :param Rucio-Auth-Token: as a variable-length string.
+        :returns: Tuple(account name, token lifetime).
         """
 
         web.header('Content-Type', 'application/octet-stream')
@@ -233,7 +253,6 @@ class Validate:
         web.header('Pragma', 'no-cache')
 
         token = web.ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
-
         result = validate_auth_token(token)
 
         if result is None:
