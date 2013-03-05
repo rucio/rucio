@@ -95,15 +95,17 @@ class ModelBase(object):
                                   CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   {'mysql_engine': 'InnoDB'})
 
-    def save(self, session=None):
+    def save(self, flush=True, session=None):
         """Save this object"""
         session.add(self)
-        session.flush()
+        if flush:
+            session.flush()
 
-    def delete(self, soft=True, session=None):
+    def delete(self, flush=True, session=None):
         """Delete this object"""
         session.delete(self)
-        session.flush()
+        if flush:
+            session.flush()
 
     def update(self, values):
         """dict.update() behaviour."""
