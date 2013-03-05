@@ -80,22 +80,20 @@ def _add_created_col(table, metadata):
     if not table.name.upper().endswith('_HISTORY'):
         table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow))
         table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
-        table.append_column(Column("deleted_at", DateTime))
-        table.append_column(Column("deleted", Boolean, default=False))
+        if table.info.get('soft_delete', False):
+            table.append_column(Column("deleted", Boolean, default=False))
+            table.append_column(Column("deleted_at", DateTime))
 
 
 class ModelBase(object):
     """Base class for Rucio Models"""
-    __table_args__ = {'mysql_engine': 'InnoDB'}
     __table_initialized__ = False
-    __protected_attributes__ = set([
-        "created_at", "updated_at", "deleted_at", "deleted"])
 
     @declared_attr
     def __table_args__(cls):
         return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
-                                  CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),)
+                                  {'mysql_engine': 'InnoDB'})
 
     def save(self, session=None):
         """Save this object"""
@@ -104,13 +102,8 @@ class ModelBase(object):
 
     def delete(self, soft=True, session=None):
         """Delete this object"""
-        if soft:
-            self.deleted = True
-            self.deleted_at = datetime.datetime.utcnow()
-            self.save(session=session)
-        else:
-            session.delete(self)
-            session.flush()
+        session.delete(self)
+        session.flush()
 
     def update(self, values):
         """dict.update() behaviour."""
@@ -144,7 +137,25 @@ class ModelBase(object):
         return self.__dict__.copy()
 
 
-class Account(BASE, ModelBase):
+class SoftModelBase(ModelBase):
+    """Base class for Rucio Models with soft-deletion support"""
+    __table_initialized__ = False
+
+    @declared_attr
+    def __table_args__(cls):
+        return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
+                                  CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
+                                  CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
+                                  {'mysql_engine': 'InnoDB', 'info': {'soft_delete': True}})
+
+    def delete(self, session=None):
+        """Delete this object"""
+        self.deleted = True
+        self.deleted_at = datetime.datetime.utcnow()
+        self.save(session=session)
+
+
+class Account(BASE,  SoftModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
     account = Column(String(30))
@@ -187,7 +198,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
                    CheckConstraint('is_default IS NOT NULL', name='ACCOUNT_MAP_IS_DEFAULT_NN'),)
 
 
-class Scope(BASE, ModelBase):
+class Scope(BASE, SoftModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
     scope = Column(String(30))
@@ -200,7 +211,7 @@ class Scope(BASE, ModelBase):
                    )
 
 
-class DataIdentifier(BASE, ModelBase):
+class DataIdentifier(BASE, SoftModelBase):
     """Represents a dataset"""
     __tablename__ = 'dids'
     scope = Column(String(30))
@@ -220,7 +231,7 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint("TYPE IN ('file', 'dataset', 'container')", name='DIDS_TYPE_CHK'),)
 
 
-class File(BASE, ModelBase):
+class File(BASE, SoftModelBase):
     """Represents a file"""
     __tablename__ = 'files'
     scope = Column(String(30))
@@ -292,7 +303,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name'),)
 
 
-class RSE(BASE, ModelBase):
+class RSE(BASE, SoftModelBase):
     """Represents a Rucio Location"""
     __tablename__ = 'rses'
     id = Column(GUID(), default=lambda: str(uuid()))
