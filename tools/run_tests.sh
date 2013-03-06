@@ -22,7 +22,7 @@ while getopts hsc: opt
 do
   case "$opt" in
     h|help) usage;;
-    s|skip-rse-tests) noseopts="--exclude=.*test_rse_protocol_.*";;
+    s|skip-rse-tests) noseopts="--exclude=.*test_rse_protocol_.* ";;
     c|class) noseopts=$OPTARG;;
   esac
 done
