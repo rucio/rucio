@@ -223,32 +223,21 @@ class DataIdentifier(BASE, SoftModelBase):
     hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
     obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
     complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
-    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
-                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
-                   CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
-                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
-                   CheckConstraint("TYPE IN ('file', 'dataset', 'container')", name='DIDS_TYPE_CHK'),)
-
-
-class File(BASE, SoftModelBase):
-    """Represents a file"""
-    __tablename__ = 'files'
-    scope = Column(String(30))
-    name = Column(String(255))
-    owner = Column(String(255))
     availability = Column(String(32))
     suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
     size = Column(BigInteger)
     checksum = Column(String(32))
     guid = Column(GUID())
-    _table_args = (PrimaryKeyConstraint('scope', 'name', name='FILES_PK'),
-                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='FILES_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='FILES_DATA_ID_FK', ondelete="CASCADE"),
-                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='FILES_SCOPE_FK'),
-                   CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DATA_ID_TYPE_CHK'),
-                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='FILES_SUPP_NN'),
-                   UniqueConstraint('guid', name='FILES_GUID_UQ'),)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
+                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
+                   CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
+                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
+                   CheckConstraint("TYPE IN ('file', 'dataset', 'container')", name='DIDS_TYPE_CHK'),
+                   CheckConstraint("availability IN ('lost', 'deleted', 'available')", name='DIDS_AVAILABILITY_CHK'),
+                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
+                   UniqueConstraint('guid', name='DIDS_GUID_UQ'),
+                   )
 
 
 class DIDKey(BASE, ModelBase):
@@ -398,7 +387,7 @@ class RSEFileAssociation(BASE, ModelBase):
     state = Column(String(255), default='UNAVAILABLE')
     rse = relationship("RSE", backref=backref('file_replicas', order_by="RSE.id"))
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='FILE_REPLICAS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['files.scope', 'files.name'], name='FILE_REPLICAS_LFN_FK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='FILE_REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'),
                    CheckConstraint("state IN ('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD')", name='FILE_REPLICAS_STATE_CHK'),)
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='FILE_REPLICAS_RULE_FK'),
@@ -479,7 +468,6 @@ def register_models(engine):
               IdentityAccountAssociation,
               Scope,
               DataIdentifier,
-              File,
               DIDKey,
               DIDKeyValueAssociation,
               DIDAttribute,
@@ -510,7 +498,6 @@ def unregister_models(engine):
               DIDKey,
               DIDKeyValueAssociation,
               DIDAttribute,
-              File,
               RSE,
               RSEProtocols,
               RSEUsage,
