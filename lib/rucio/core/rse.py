@@ -297,12 +297,9 @@ def add_file_replica(rse, scope, name, size, checksum, issuer, dsn=None, pfn=Non
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False)
     if not query.first():
         try:
-            new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE)
-            new_file = models.File(scope=scope, name=name, owner=issuer, size=size, checksum=checksum)
+            new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE, size=size)
             new_data_id = session.merge(new_data_id)
-            new_file = session.merge(new_file)
             new_data_id.save(session=session)
-            new_file.save(session=session)
         except IntegrityError, e:
             if e.args[0] == "(IntegrityError) foreign key constraint failed":
                 raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
