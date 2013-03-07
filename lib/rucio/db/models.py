@@ -18,9 +18,7 @@ import datetime
 
 from uuid import uuid4 as uuid
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Integer, String
-from sqlalchemy import event
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Integer, String as _String, event, UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import object_mapper, relationship, backref
@@ -31,6 +29,26 @@ from rucio.common import utils
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
 from rucio.db.types import GUID
+
+
+# Recipe to for str instead if unicode
+# https://groups.google.com/forum/#!msg/sqlalchemy/8Xn31vBfGKU/bAGLNKapvSMJ
+def String(*arg, **kw):
+    kw['convert_unicode'] = 'force'
+    return _String(*arg, **kw)
+
+#class String(_String):
+#    def bind_processor(self, dialect):
+#        if dialect.name == 'oracle':
+#            encoder = codecs.getencoder(dialect.encoding)
+#            def process(value):
+#                if isinstance(value, unicode):
+#                    return encoder(value, self.unicode_error)[0]
+#                else:
+#                    return value
+#            return process
+#        else:
+#            return super(String, self).bind_processor(dialect)
 
 
 class DataIdType:

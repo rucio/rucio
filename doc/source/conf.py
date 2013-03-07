@@ -17,10 +17,7 @@ import os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path = [os.path.abspath('../../lib'),
-            os.path.abspath('../..'),
-            os.path.abspath('../../bin')
-           ] + sys.path
+sys.path = [os.path.abspath('../../lib'), os.path.abspath('../..'), os.path.abspath('../../bin')] + sys.path
 
 # -- General configuration -----------------------------------------------------
 
@@ -60,7 +57,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Rucio'
-copyright = u'2012, CERN'
+copyright = u'2013, CERN'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -198,8 +195,7 @@ htmlhelp_basename = 'Ruciodoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'index.tex', u'Rucio Documentation',
-   u'Vincent Garonne', 'manual'),
+    ('index', 'index.tex', u'Rucio Documentation', u'Vincent Garonne', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
