@@ -34,7 +34,7 @@ class UseCaseDefinition(UCEmulator):
     """
 
     @UCEmulator.UseCase
-    def UC_TZ_REGISTER_NEW(self, tse):
+    def UC_TZ_REGISTER_NEW(self, hz):
         """
             Registers a new empty dataset using the add_identifier method.
 
@@ -45,16 +45,16 @@ class UseCaseDefinition(UCEmulator):
         rules = [{'copies': 1, 'rse_expression': '%s' % self.rse, 'lifetime': timedelta(days=2)}]
         t = None
         try:
-            t = self.log(self.did_client.add_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'statuses': {'monotonic': True}, 'meta': self.dataset_meta, 'rules': rules})
+            t = self.time_it(self.did_client.add_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'statuses': {'monotonic': True}, 'meta': self.dataset_meta, 'rules': rules})
             self.datasets['open'].append(tmp_dsn)
         except Exception, e:
             print 'UC_TZ_REGISTER_NEW: Unable to register a dataset'
             print e
-        if self.cfg['global']['operation_mode'] == 'verbose' and tse:
+        if self.cfg['global']['operation_mode'] == 'verbose':
             print 'UC_TZ_REGISTER_NEW\tdid_client.add_dataset\t%s\t%s' % (tmp_dsn, t)
 
     @UCEmulator.UseCase
-    def UC_TZ_REGISTER_APPEND(self, tse):
+    def UC_TZ_REGISTER_APPEND(self, hz, no_of_files):
         """
             Registers file replicas for a dataset. The number of files is provided
             as 'no_of_files' in the tse object. This number applied to a gauss-distribution
@@ -62,11 +62,16 @@ class UseCaseDefinition(UCEmulator):
 
             :param tse: time series element of the current time frame
         """
-        tmp_dsn = choice(self.datasets['open'])
+        tmp_dsn = None
+        try:
+            tmp_dsn = choice(self.datasets['open'])
+        except IndexError:
+            print 'FAILED: No open datasets found'
+            return
         self.dataset_meta['run_number'] = str(generate_uuid())
         sources = []
         # Creating Files to append to a dataset
-        for i in xrange(int(round(gauss(tse['no_of_files'], 10)))):
+        for i in xrange(int(round(gauss(no_of_files, 10)))):
             lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
             pfn = 'rfio:///castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
@@ -77,7 +82,8 @@ class UseCaseDefinition(UCEmulator):
                             'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
         t = None
         try:
-            t = self.log(self.did_client.add_files_to_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'files': sources})
+            t = self.time_it(self.did_client.add_files_to_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'files': sources})
+            self.inc('UC_TZ_REGISTER_APPEND.added_files', len(sources))
         except Exception, e:
             print 'UC_TZ_REGISTER_APPEND: Unable to append files to a dataset'
             print e
@@ -85,7 +91,7 @@ class UseCaseDefinition(UCEmulator):
             print 'UC_TZ_REGISTER_APPEND\tdid_client.add_files_to_dataset\t%s\t%s' % (len(sources), t)
 
     @UCEmulator.UseCase
-    def UC_TZ_FREEZE_DATASET(self, tse):
+    def UC_TZ_FREEZE_DATASET(self, hz):
         """
             Closes a dataset using the 'set_status' method.
         """
@@ -95,7 +101,7 @@ class UseCaseDefinition(UCEmulator):
             self.datasets['open'].remove(tmp_dsn)
             t = None
             try:
-                t = self.log(self.did_client.close, kwargs={'scope': self.scope, 'name': tmp_dsn})
+                t = self.time_it(self.did_client.close, kwargs={'scope': self.scope, 'name': tmp_dsn})
             except Exception, e:
                 print 'UC_TZ_FREEZE_DATASET: Unable to close dataset'
                 print e
