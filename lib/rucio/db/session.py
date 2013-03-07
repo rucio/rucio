@@ -12,11 +12,12 @@
 
 from ConfigParser import NoOptionError
 from functools import wraps
+from time import sleep
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import DisconnectionError, OperationalError, DBAPIError
 from sqlalchemy.ext.declarative import declarative_base
-from time import sleep
 
 from rucio.common.config import config_get
 
@@ -67,8 +68,7 @@ def get_engine(echo=True):
 
     database = config_get('database', 'default')
 
-    engine = create_engine(database, echo=False, echo_pool=False, convert_unicode=True, pool_recycle=3600)
-    # , pool_reset_on_return='rollback',
+    engine = create_engine(database, echo=False, echo_pool=False, pool_recycle=3600, pool_reset_on_return='rollback')
     if 'mysql' in database:
         event.listen(engine, 'checkout', mysql_ping_listener)
     if 'sqlite' in database:
@@ -163,6 +163,9 @@ def read_session(function):
             try:
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
+            except:
+                session.rollback()
+                raise
             finally:
                 if session.bind.dialect.name == 'mysql':
                     session.close()
