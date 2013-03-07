@@ -19,13 +19,13 @@ tzero use case:
 '''
 from datetime import timedelta
 from random import choice
-from random import randrange
 from random import gauss
+from random import randrange
 
-from rucio.tests.emulation.ucemulator import UCEmulator
-from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.client.didclient import DIDClient
 from rucio.client.rseclient import RSEClient
 from rucio.common.utils import generate_uuid
+from rucio.tests.emulation.ucemulator import UCEmulator
 
 
 class UseCaseDefinition(UCEmulator):
@@ -43,15 +43,14 @@ class UseCaseDefinition(UCEmulator):
         self.dataset_meta['run_number'] = str(generate_uuid())
         tmp_dsn = '%(project)s.%(run_number)s.%(stream_name)s.%(prod_step)s.%(datatype)s.%(version)s' % self.dataset_meta
         rules = [{'copies': 1, 'rse_expression': '%s' % self.rse, 'lifetime': timedelta(days=2)}]
-        t = None
         try:
-            t = self.time_it(self.did_client.add_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'statuses': {'monotonic': True}, 'meta': self.dataset_meta, 'rules': rules})
+            self.time_it(self.did_client.add_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'statuses': {'monotonic': True}, 'meta': self.dataset_meta, 'rules': rules})
             self.datasets['open'].append(tmp_dsn)
-        except Exception, e:
+        except:
             print 'UC_TZ_REGISTER_NEW: Unable to register a dataset'
-            print e
+            raise
         if self.cfg['global']['operation_mode'] == 'verbose':
-            print 'UC_TZ_REGISTER_NEW\tdid_client.add_dataset\t%s\t%s' % (tmp_dsn, t)
+            print 'UC_TZ_REGISTER_NEW\tdid_client.add_dataset\t%s' % (tmp_dsn)
 
     @UCEmulator.UseCase
     def UC_TZ_REGISTER_APPEND(self, hz, no_of_files):
@@ -67,7 +66,7 @@ class UseCaseDefinition(UCEmulator):
             tmp_dsn = choice(self.datasets['open'])
         except IndexError:
             print 'FAILED: No open datasets found'
-            return
+            raise
         self.dataset_meta['run_number'] = str(generate_uuid())
         sources = []
         # Creating Files to append to a dataset
@@ -80,15 +79,14 @@ class UseCaseDefinition(UCEmulator):
             sources.append({'scope': self.scope, 'name': lfn,
                             'size': 724963570L, 'adler32': '0cc737eb',
                             'rse': self.rse, 'pfn': pfn, 'meta': file_meta})
-        t = None
         try:
-            t = self.time_it(self.did_client.add_files_to_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'files': sources})
-            self.inc('UC_TZ_REGISTER_APPEND.added_files', len(sources))
-        except Exception, e:
+            self.time_it(self.did_client.add_files_to_dataset, kwargs={'scope': self.scope, 'name': tmp_dsn, 'files': sources})
+            self.inc('tzero.UC_TZ_REGISTER_APPEND.added_files', len(sources))
+        except:
             print 'UC_TZ_REGISTER_APPEND: Unable to append files to a dataset'
-            print e
+            raise
         if self.cfg['global']['operation_mode'] == 'verbose':
-            print 'UC_TZ_REGISTER_APPEND\tdid_client.add_files_to_dataset\t%s\t%s' % (len(sources), t)
+            print 'UC_TZ_REGISTER_APPEND\tdid_client.add_files_to_dataset\t%s' % (len(sources))
 
     @UCEmulator.UseCase
     def UC_TZ_FREEZE_DATASET(self, hz):
@@ -99,14 +97,13 @@ class UseCaseDefinition(UCEmulator):
         if len(self.datasets['open']) > 1:
             tmp_dsn = choice(self.datasets['open'])
             self.datasets['open'].remove(tmp_dsn)
-            t = None
             try:
-                t = self.time_it(self.did_client.close, kwargs={'scope': self.scope, 'name': tmp_dsn})
-            except Exception, e:
+                self.time_it(self.did_client.close, kwargs={'scope': self.scope, 'name': tmp_dsn})
+            except:
                 print 'UC_TZ_FREEZE_DATASET: Unable to close dataset'
-                print e
+                raise
             if self.cfg['global']['operation_mode'] == 'verbose':
-                print 'UC_TZ_FREEZE_DATASET\tdid_client.close\t%s\t%s' % (len(tmp_dsn), t)
+                print 'UC_TZ_FREEZE_DATASET\tdid_client.close\t%s' % (len(tmp_dsn))
 
     def setup(self, cfg):
         """
@@ -121,7 +118,7 @@ class UseCaseDefinition(UCEmulator):
         self.scope = 'data13_hip'
         self.datasets = {}
         self.datasets['open'] = []
-        self.did_client = DataIdentifierClient()
+        self.did_client = DIDClient()
         self.rse_client = RSEClient()
         self.dataset_meta = {'project': 'data13_hip',
                              'run_number': str(generate_uuid()),  # is going to be overwritten each time a new dataset is registered
