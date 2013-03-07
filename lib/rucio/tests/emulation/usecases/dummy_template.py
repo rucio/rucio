@@ -38,7 +38,7 @@ class UseCaseDefinition(UCEmulator):
         self.time_it(self.some_method, kwargs={'arg1': some_other_information, 'arg2': some_more})
         pass
 
-    @UCEmulator.UseCase
+    #@UCEmulator.UseCase
     def DUMMY_UC3(self, hz):
         """
             Registers file replicas for a dataset. The number of files is provided
