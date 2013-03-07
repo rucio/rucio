@@ -29,34 +29,31 @@ if __name__ == '__main__':
     with open('/opt/rucio/etc/emulation.cfg') as f:
         cfg = json.load(f)
 
-    if cfg['global']['operation_mode'] == 'verbose':
-        print '=' * 80
-        print '=' * 35 + ' SETTINGS ' + '=' * 35
-        # Printing configuration for testrun
-        for settings_group in cfg:
-            for setting in cfg[settings_group]:
-                print '= %s -> %s:\t %s' % (settings_group, setting, cfg[settings_group][setting])
-        print '=' * 31 + ' INCLUDED USECASES ' + '=' * 30
+    print '=' * 80
+    print '=' * 35 + ' SETTINGS ' + '=' * 35
+    # Printing configuration for testrun
+    for settings_group in cfg:
+        for setting in cfg[settings_group]:
+            print '= %s -> %s:\t %s' % (settings_group, setting, cfg[settings_group][setting])
+    print '=' * 31 + ' INCLUDED USECASES ' + '=' * 30
 
     # Load and print list of included use cases
     uc_array = []
     m = None
     for module_name in rucio.tests.emulation.usecases.__all__:
-        if cfg['global']['operation_mode'] == 'verbose':
-            print'= Loaded module: \t%s' % module_name
+        print'= Loaded module: \t%s' % module_name
         obj = __import__('rucio.tests.emulation.usecases.%s' % module_name)
         for mn in ['tests', 'emulation', 'usecases', module_name, 'UseCaseDefinition']:
             obj = getattr(obj, mn)
         obj = obj(module_name, cfg)
         for uc in obj.get_defined_usecases():
-            if cfg['global']['operation_mode'] == 'verbose':
-                print '== Added use case:\t\t%s' % uc
+            print '== Added use case:\t\t%s' % uc
         uc_array.append(obj)
     print '=' * 80
 
     if len(uc_array) == 0:
         print 'No use case definition found.'
-        exit(0)
+        exit(1)
 
     # Starting all defined use cases
     start = time.time()
@@ -75,17 +72,18 @@ if __name__ == '__main__':
                 break
             for uc in uc_array:
                 uc.next_timeframe()
-            if cfg['global']['operation_mode'] == 'verbose':
-                print '%f\ttime frame\t%d' % (time.time(), tf_counter)
-                tf_counter += 1
-                for uc in uc_array:
-                    print '%f\t%s' % (time.time(), uc.get_intervals())
+            tf_counter += 1
+            msg = ''
+            for uc in uc_array:
+                intervals = uc.get_intervals()
+                for i in intervals:
+                    msg += '%s:%.5f\t' % (i, 1.0 / intervals[i])
+            print '%f\ttime_frame\t%d\t%s' % (time.time(), tf_counter, msg)
 
         for uc in uc_array:
             uc.stop()
         event.set()
         print 'Finished in %f seconds' % (time.time() - start)
-        exit(0)
 
     except KeyboardInterrupt:
         print '%f\tKeyboardInterrupt' % (time.time())
@@ -99,4 +97,3 @@ if __name__ == '__main__':
         for uc in uc_array:
             uc.stop()
         exit(2)
-    exit(0)
