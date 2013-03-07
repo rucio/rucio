@@ -12,6 +12,7 @@ import json
 import time
 import threading
 import os
+import traceback
 
 from pystatsd import Client
 
@@ -53,6 +54,7 @@ class UCEmulator(object):
             except Exception, e:
                 print 'Unable to connect to Carbon-Server'
                 print e
+                print traceback.format_exc()
         self.__timeseries = {}
         self.__intervals = {}
         self.__current_timeframe = 0
@@ -81,6 +83,7 @@ class UCEmulator(object):
                 self.__call_methods[call] = getattr(self, call)
             except Exception, e:
                 print e
+                print traceback.format_exc()
         # Apply factor to number of calls
         for ser in self.__timeseries:
             for tf in self.__timeseries[ser]:
@@ -190,7 +193,7 @@ class UCEmulator(object):
         try:
             self.time_it(self.__call_methods[call], self.__timeseries[call][self.__current_timeframe])
         except Exception, e:
-            self.inc('exceptions.%' % e.__class__.__name__)
+            self.inc('exceptions.%s' % e.__class__.__name__)
 
     def stop(self):
         """
@@ -206,7 +209,7 @@ class UCEmulator(object):
         """
         return self.__timeseries.keys()
 
-    def time_it(self, fn, args=[], kwargs={}):
+    def time_it(self, fn, kwargs=None):
         """
             Automatically logs the execution time of t he provided operation.
 
@@ -214,20 +217,24 @@ class UCEmulator(object):
             :param args: Arguments used to execute the operation as list
             :param kwargs: Arguments used to execute the operation as dict
 
-            :returns: Execution time
+            :returns: function return
         """
+        res = None
         start = time.time()
-        if kwargs:
-            fn(**kwargs)
-        elif args:
-            fn(*args)
+        if kwargs is not None:
+            res = fn(**kwargs)
         else:
-            fn()
+            res = fn()
         fin = time.time()
         resp = (fin - start) * 1000
         if self.__carbon_server:
-            self.__carbon_server.timing(fn.__name__, resp)
-        return resp
+            if (fn.__name__ == '__execute__'):  # a wrapped use case is executed, if res is False, an exception occurred and was already reported by the wrapper
+                if res:
+                    self.__carbon_server.timing(res[0], resp)
+                    res = res[1]
+            else:
+                self.__carbon_server.timing(fn.__name__, resp)
+        return res
 
     def inc(self, metric, value=1):
         """
@@ -248,13 +255,13 @@ class UCEmulator(object):
         cls.__ucs[mod].append(func.__name__)
 
         # Wrap function for exception handling
-        def execute(self, *args, **kwargs):
+        def __execute__(self, *args, **kwargs):
             try:
-                return func(self, *args, **kwargs)
+                res = func(self, *args, **kwargs)
+                return [func.__name__, res]
             except Exception, e:
-                self.inc('%s.%s.%s' % (self.__module__.split('.')[-1], func.__name__, e.__class__.__name__))
-                if self.__operation_mode == 'verbose':
-                    print 'Error in: %s.%s' % (self.__module__.split('.')[-1], func.__name__)
-                    print e.__class__.__name__
-                    print e
-        return execute
+                self.inc('exceptions.%s.%s.%s' % (self.__module__.split('.')[-1], func.__name__, e.__class__.__name__))
+                print 'Error in: %s.%s: %s' % (self.__module__.split('.')[-1], func.__name__, e)
+                print traceback.format_exc()
+                return False
+        return __execute__
