@@ -18,7 +18,6 @@ from rucio.api.authentication import get_auth_token_gss
 from rucio.api.authentication import get_auth_token_x509
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import AccessDenied
-from rucio.common.log import log
 
 urls = (
     '/userpass', 'UserPass',
@@ -34,7 +33,6 @@ class UserPass:
     Authenticate a Rucio account temporarily via username and password.
     """
 
-    @log
     def GET(self):
         """
         HTTP Success:
@@ -99,7 +97,6 @@ class GSS:
     Authenticate a Rucio account temporarily via a GSS token.
     """
 
-    @log
     def GET(self):
         """
         HTTP Success:
@@ -161,7 +158,6 @@ class x509:
     Authenticate a Rucio account temporarily via an x509 certificate.
     """
 
-    @log
     def GET(self):
         """
         HTTP Success:
@@ -234,7 +230,6 @@ class Validate:
     Validate a Rucio Auth Token.
     """
 
-    @log
     def GET(self):
         """
         HTTP Success:
