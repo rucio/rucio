@@ -13,12 +13,15 @@
 Client class for callers of the Rucio system
 """
 
+import os
 import shutil
 import tempfile
 
+
+from getpass import getuser
 from json import loads
 from logging import getLogger, StreamHandler, ERROR
-from os import chmod, environ, fdopen, mkdir, path
+from os import environ, fdopen, path
 from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
@@ -44,7 +47,7 @@ class BaseClient(object):
 
     AUTH_RETRIES = 2
     REQUEST_RETRIES = 3
-    TOKEN_PATH_PREFIX = '/tmp/.rucio_'
+    TOKEN_PATH_PREFIX = '/tmp/' + getuser() + '/.rucio_'
     TOKEN_PREFIX = 'auth_token_'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
@@ -213,7 +216,7 @@ class BaseClient(object):
 
             if r.status_code == codes.unauthorized:
                 self.__get_token()
-                hds['Rucio-Auth-Token'] = self.auth_token
+                hds['X-Rucio-Auth-Token'] = self.auth_token
                 retry += 1
             else:
                 break
@@ -413,18 +416,16 @@ class BaseClient(object):
         if not path.isdir(token_path):
             try:
                 LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
-                mkdir(token_path, 0700)
+                os.makedirs(token_path, 0700)
             except Exception, e:
                 raise e
 
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
             fd, fn = tempfile.mkstemp(dir=token_path)
-            f = fdopen(fd, 'w')
-            f.write(self.auth_token)
-            f.close()
+            with fdopen(os.open(fn, os.O_WRONLY | os.O_CREAT, 0700), 'w') as f:
+                f.write(self.auth_token)
             shutil.move(fn, self.token_file)
-            chmod(self.token_file, 0700)
         except IOError as (errno, strerror):  # NOQA
             print("I/O error({0}): {1}".format(errno, strerror))
         except Exception, e:
