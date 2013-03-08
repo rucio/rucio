@@ -8,7 +8,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
+from getpass import getuser
 from os import remove
+
 
 from nose.tools import raises
 
@@ -21,7 +23,7 @@ class TestBaseClient():
 
     def setUp(self):
         try:
-            remove('/tmp/.rucio_root/auth_token_root')
+            remove('/tmp/' + getuser() + '/.rucio_root/auth_token_root')
         except OSError, e:
             if e.args[0] != 2:
                 raise e
