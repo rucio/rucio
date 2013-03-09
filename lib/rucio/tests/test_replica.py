@@ -12,7 +12,7 @@ from nose.tools import assert_equal, assert_raises
 from urlparse import urlparse
 
 from rucio.client.accountclient import AccountClient
-from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
@@ -26,7 +26,7 @@ class TestReplica():
         self.account_client = AccountClient()
         self.scope_client = ScopeClient()
         self.meta_client = MetaClient()
-        self.did_client = DataIdentifierClient()
+        self.did_client = DIDClient()
         self.rse_client = RSEClient()
 
     def test_add_list_replica(self):

@@ -12,7 +12,7 @@ from random import choice
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.utils import generate_uuid
-from rucio.core.identifier import list_files
+from rucio.core.did import list_files
 from rucio.core.rse import list_rses
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session

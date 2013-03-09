@@ -11,7 +11,7 @@
 
 from nose.tools import assert_equal, assert_in, assert_raises
 
-from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.client.didclient import DIDClient
 from rucio.common.exception import InvalidValueForKey, UnsupportedOperation
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
@@ -22,7 +22,7 @@ from rucio.common.utils import generate_uuid as uuid
 class TestMetaDIDClient():
 
     def setUp(self):
-        self.did_client = DataIdentifierClient()
+        self.did_client = DIDClient()
         self.meta_client = MetaClient()
         self.rse_client = RSEClient()
         self.scope_client = ScopeClient()

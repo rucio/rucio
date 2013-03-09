@@ -16,7 +16,7 @@ from datetime import timedelta
 from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_in, assert_not_in, raises
 
 from rucio.client.accountclient import AccountClient
-from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
@@ -25,13 +25,13 @@ from rucio.common.exception import (DataIdentifierNotFound, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 
 
-class TestIdentifierClients():
+class TestDIDClients():
 
     def setup(self):
         self.account_client = AccountClient()
         self.scope_client = ScopeClient()
         self.meta_client = MetaClient()
-        self.did_client = DataIdentifierClient()
+        self.did_client = DIDClient()
         self.rse_client = RSEClient()
 
     def test_add_did(self):
