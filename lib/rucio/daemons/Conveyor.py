@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 '''
 Conveyor is a daemon to manage file transfers
@@ -15,7 +15,7 @@ from logging import getLogger, StreamHandler, DEBUG
 from random import choice
 from sys import exit
 
-from rucio.core import identifier as identifier_core
+from rucio.core import did as did_core
 from rucio.core import rse as rse_core
 
 logger = getLogger("rucio.daemons.Conveyor")
@@ -50,7 +50,7 @@ def run_once():
             print
             print 'Destination: %(scope)s:%(name)s' % replica
             # Get source and select one randomly
-            sources = [src for src in identifier_core.list_replicas(scope=replica['scope'], name=replica['name'])]
+            sources = [src for src in did_core.list_replicas(scope=replica['scope'], name=replica['name'])]
             if not sources:
                 print 'No source replica found for: %(scope)s:%(name)s' % replica
                 continue

@@ -26,7 +26,7 @@ import time
 from rucio import client
 from rucio import version
 from rucio.client.accountclient import AccountClient
-from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
@@ -181,7 +181,7 @@ def list_replicas(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -214,7 +214,7 @@ def add(args):
 
     scope, name = args.did.split(':')
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -243,7 +243,7 @@ def add_dataset(args):
 
     scope, name = args.did.split(':')
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -269,7 +269,7 @@ def add_container(args):
 
     scope, name = args.did.split(':')
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -294,7 +294,7 @@ def attach(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -325,7 +325,7 @@ def detach(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -371,7 +371,7 @@ def list(args):
                 print e
                 return FAILURE
         else:  # list dids in a scope
-            client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+            client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                           account=args.account,
                                           auth_type=args.auth_strategy, creds=creds,
                                           ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -387,7 +387,7 @@ def list(args):
                 print e
                 return FAILURE
     else:
-        client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                       account=args.account,
                                       auth_type=args.auth_strategy, creds=creds,
                                       ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -445,7 +445,7 @@ def scope_list(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -472,7 +472,7 @@ def list_files(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -498,7 +498,7 @@ def close(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -523,7 +523,7 @@ def stat(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -593,7 +593,7 @@ def download(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -623,7 +623,7 @@ def get_metadata(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
@@ -649,7 +649,7 @@ def set_metadata(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DataIdentifierClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.account,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
