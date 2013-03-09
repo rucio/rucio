@@ -13,7 +13,7 @@ import re
 
 from nose.tools import assert_is_instance, assert_regexp_matches
 
-from rucio.client.dataidentifierclient import DataIdentifierClient
+from rucio.client.didclient import DIDClient
 from rucio.client.replicationruleclient import ReplicationRuleClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
@@ -24,7 +24,7 @@ from rucio.daemons.Conveyor import run_once as Conveyor_run
 class TestIdentifierClients():
 
     def setup(self):
-        self.did_client = DataIdentifierClient()
+        self.did_client = DIDClient()
         self.rule_client = ReplicationRuleClient()
         self.rse_client = RSEClient()
         self.scope_client = ScopeClient()

@@ -18,9 +18,9 @@ from urlparse import parse_qs
 from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized, OK
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.identifier import (list_replicas, add_identifier, list_content,
-                                  list_files, scope_list, get_did, set_metadata,
-                                  get_metadata, set_status, append_identifier, detach_identifier)
+from rucio.api.did import (list_replicas, add_identifier, list_content,
+                           list_files, scope_list, get_did, set_metadata,
+                           get_metadata, set_status, append_identifier, detach_identifier)
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
                                     AccessDenied, KeyNotFound,
@@ -36,8 +36,8 @@ urls = (
     '/(.*)/(.*)/dids', 'Content',
     '/(.*)/(.*)/meta/(.*)', 'Meta',
     '/(.*)/(.*)/meta', 'Meta',
-    '/(.*)/(.*)/status', 'Identifiers',
-    '/(.*)/(.*)', 'Identifiers',
+    '/(.*)/(.*)/status', 'DIDs',
+    '/(.*)/(.*)', 'DIDs',
 )
 
 
@@ -98,7 +98,7 @@ class Scope:
         raise BadRequest()
 
 
-class Identifiers:
+class DIDs:
 
     def GET(self, scope, name):
         """

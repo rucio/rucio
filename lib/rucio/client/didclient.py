@@ -17,14 +17,14 @@ from rucio.client.baseclient import BaseClient
 from rucio.common.utils import build_url, render_json
 
 
-class DataIdentifierClient(BaseClient):
+class DIDClient(BaseClient):
 
     """DataIdentifier client class for working with data identifiers"""
 
     DIDS_BASEURL = 'dids'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(DataIdentifierClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
+        super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
     def list_replicas(self, scope, name, protocols=None):
         """

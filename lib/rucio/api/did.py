@@ -12,24 +12,24 @@
 
 import rucio.api.permission
 
-from rucio.core import identifier
+from rucio.core import did
 
 
 def list_replicas(scope, name, protocols=None):
     """
-    List file replicas for a data identifier.
+    List file replicas for a data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param protocols: A list of protocols to filter the replicas.
     """
 
-    return identifier.list_replicas(scope=scope, name=name, protocols=protocols)
+    return did.list_replicas(scope=scope, name=name, protocols=protocols)
 
 
 def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[]):
     """
-    Add data identifier.
+    Add data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -37,18 +37,18 @@ def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[]):
     :param issuer: The issuer account.
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-    :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :rules: Replication rules associated with the data did. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     """
 
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'statuses': statuses, 'meta': meta, 'rules': rules}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
-    return identifier.add_identifier(scope=scope, name=name, type=type, issuer=issuer, statuses=statuses, meta=meta, rules=rules)
+    return did.add_identifier(scope=scope, name=name, type=type, issuer=issuer, statuses=statuses, meta=meta, rules=rules)
 
 
 def append_identifier(scope, name, dids, issuer):
     """
-    Append content to data identifier.
+    Append content to data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -59,7 +59,7 @@ def append_identifier(scope, name, dids, issuer):
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='append_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
-    return identifier.append_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
+    return did.append_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
 
 
 def detach_identifier(scope, name, dids, issuer):
@@ -75,7 +75,7 @@ def detach_identifier(scope, name, dids, issuer):
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='detach_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
-    return identifier.detach_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
+    return did.detach_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
 
 
 def list_content(scope, name):
@@ -86,7 +86,7 @@ def list_content(scope, name):
     :param name: The data identifier name.
     """
 
-    return identifier.list_content(scope=scope, name=name)
+    return did.list_content(scope=scope, name=name)
 
 
 def list_files(scope, name):
@@ -97,7 +97,7 @@ def list_files(scope, name):
     :param name: The data identifier name.
     """
 
-    return identifier.list_files(scope=scope, name=name)
+    return did.list_files(scope=scope, name=name)
 
 
 def scope_list(scope, name=None, recursive=False):
@@ -109,24 +109,24 @@ def scope_list(scope, name=None, recursive=False):
     :param recursive: boolean, True or False.
     """
 
-    return identifier.scope_list(scope, name=name, recursive=recursive)
+    return did.scope_list(scope, name=name, recursive=recursive)
 
 
 def get_did(scope, name):
     """
-    Retrieve a single data identifier.
+    Retrieve a single data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :return did: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
     """
 
-    return identifier.get_did(scope=scope, name=name)
+    return did.get_did(scope=scope, name=name)
 
 
 def set_metadata(scope, name, key, value, issuer):
     """
-    Add metadata to data identifier.
+    Add metadata to data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -138,7 +138,7 @@ def set_metadata(scope, name, key, value, issuer):
     kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadate to data identifier %s:%s' % (issuer, scope, name))
-    return identifier.set_metadata(scope=scope, name=name, key=key, value=value)
+    return did.set_metadata(scope=scope, name=name, key=key, value=value)
 
 
 def get_metadata(scope, name):
@@ -148,7 +148,7 @@ def get_metadata(scope, name):
     :param scope: The scope name.
     :param name: The data identifier name.
     """
-    return identifier.get_metadata(scope=scope, name=name)
+    return did.get_metadata(scope=scope, name=name)
 
 
 def set_status(scope, name, issuer, **kwargs):
@@ -163,4 +163,4 @@ def set_status(scope, name, issuer, **kwargs):
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}):
         raise rucio.common.exception.AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
-    return identifier.set_status(scope=scope, name=name, **kwargs)
+    return did.set_status(scope=scope, name=name, **kwargs)
