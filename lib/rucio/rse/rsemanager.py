@@ -203,7 +203,7 @@ class RSEMgr(object):
             :raises RSERepositoryNotFound: if RSE-repository file is not found (path_to_repo)
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
         """
-        rse = self.__create_rse(rse_id)
+        rse = self.__create_rse(rse_id, auto_connect=False)
         return rse.list_protocols()
 
 
