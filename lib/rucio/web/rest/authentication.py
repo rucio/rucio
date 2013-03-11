@@ -191,6 +191,8 @@ class x509:
         # Alternative: use the SSL_CLIENT_I_DN, but that would require a separate
         # endpoint as you cannot programmatically decide, by examining the SSL variables,
         # if you got a proxy or regular certificate
+        if dn.endswith('/CN=limited proxy'):
+            dn = dn[:-17]
         if dn.endswith('/CN=proxy'):
             while dn.endswith('/CN=proxy'):
                 dn = dn[:-9]
