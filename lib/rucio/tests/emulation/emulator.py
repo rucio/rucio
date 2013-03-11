@@ -17,6 +17,8 @@ import traceback
 
 import rucio.tests.emulation.usecases
 
+from pystatsd import Client
+
 
 """
     Executes all use cases defined in rucio.tests.emulation.usecases according to the time series
@@ -40,12 +42,25 @@ if __name__ == '__main__':
     # Load and print list of included use cases
     uc_array = []
     m = None
+
+    cs = None
+    if 'carbon' in cfg:
+        print 'Setting up carbon client ...'
+        try:
+            cs = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
+        except Exception, e:
+            print 'Unable to connect to Carbon-Server'
+            print e
+            print traceback.format_exc()
+    else:
+        print 'Loggin into carbon disabled'
+
     for module_name in rucio.tests.emulation.usecases.__all__:
         print'= Loaded module: \t%s' % module_name
         obj = __import__('rucio.tests.emulation.usecases.%s' % module_name)
         for mn in ['tests', 'emulation', 'usecases', module_name, 'UseCaseDefinition']:
             obj = getattr(obj, mn)
-        obj = obj(module_name, cfg)
+        obj = obj(module_name, cfg, cs)
         for uc in obj.get_defined_usecases():
             print '== Added use case:\t\t%s' % uc
         uc_array.append(obj)
@@ -57,6 +72,8 @@ if __name__ == '__main__':
 
     # Starting all defined use cases
     start = time.time()
+    tf_counter = 1
+    cs.update_stats('emulation.timeframe', tf_counter)
     try:
         event = threading.Event()
         for uc in uc_array:
@@ -65,7 +82,6 @@ if __name__ == '__main__':
             t.deamon = True
             t.start()
 
-        tf_counter = 1
         while True:
             time.sleep(cfg['global']['seconds_per_timeframe'])
             if not uc_array[0].has_next_timeframe():
@@ -73,6 +89,7 @@ if __name__ == '__main__':
             for uc in uc_array:
                 uc.next_timeframe()
             tf_counter += 1
+            cs.update_stats('emulation.timeframe', tf_counter)
             msg = ''
             for uc in uc_array:
                 intervals = uc.get_intervals()
@@ -84,6 +101,7 @@ if __name__ == '__main__':
             uc.stop()
         event.set()
         print 'Finished in %f seconds' % (time.time() - start)
+        exit(0)
 
     except KeyboardInterrupt:
         print '%f\tKeyboardInterrupt' % (time.time())
