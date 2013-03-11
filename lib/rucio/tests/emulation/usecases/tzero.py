@@ -49,7 +49,7 @@ class UseCaseDefinition(UCEmulator):
         except:
             print 'UC_TZ_REGISTER_NEW: Unable to register a dataset'
             raise
-        if self.cfg['global']['operation_mode'] == 'verbose':
+        if self.__verbose:
             print 'UC_TZ_REGISTER_NEW\tdid_client.add_dataset\t%s' % (tmp_dsn)
 
     @UCEmulator.UseCase
@@ -85,7 +85,7 @@ class UseCaseDefinition(UCEmulator):
         except:
             print 'UC_TZ_REGISTER_APPEND: Unable to append files to a dataset'
             raise
-        if self.cfg['global']['operation_mode'] == 'verbose':
+        if self.__verbose:
             print 'UC_TZ_REGISTER_APPEND\tdid_client.add_files_to_dataset\t%s' % (len(sources))
 
     @UCEmulator.UseCase
@@ -102,7 +102,7 @@ class UseCaseDefinition(UCEmulator):
             except:
                 print 'UC_TZ_FREEZE_DATASET: Unable to close dataset'
                 raise
-            if self.cfg['global']['operation_mode'] == 'verbose':
+            if self.__verbose:
                 print 'UC_TZ_FREEZE_DATASET\tdid_client.close\t%s' % (len(tmp_dsn))
 
     def setup(self, cfg):
@@ -112,7 +112,9 @@ class UseCaseDefinition(UCEmulator):
 
             :param cfg: the context of etc/emulation.cfg
         """
-        self.cfg = cfg
+        self.__verbose = False
+        if cfg['global']['operation_mode'] == 'verbose':
+            self.__verbose = True
         self.account = 'rucio'
         self.rse = 'CERN-PROD_TZERO'
         self.scope = 'data13_hip'
