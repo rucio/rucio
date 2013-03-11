@@ -14,8 +14,6 @@ import threading
 import os
 import traceback
 
-from pystatsd import Client
-
 
 class UCEmulator(object):
     """
@@ -29,7 +27,7 @@ class UCEmulator(object):
     """
     __ucs = {}
 
-    def __init__(self, timeseries_file, cfg):
+    def __init__(self, timeseries_file, cfg, carbon_server):
         """
             Initializes the use case emulation. It sets up the multiplier of the workload defined in the
             time series file and the operation mode for the emulation (both defined in etc/emulation.cfg).
@@ -47,14 +45,7 @@ class UCEmulator(object):
         """
         self.__factor = cfg['global']['workload_multiplier']
         self.__operation_mode = cfg['global']['operation_mode']
-        self.__carbon_server = None
-        if 'carbon' in cfg:
-            try:
-                self.__carbon_server = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
-            except Exception, e:
-                print 'Unable to connect to Carbon-Server'
-                print e
-                print traceback.format_exc()
+        self.__carbon_server = carbon_server
         self.__timeseries = {}
         self.__intervals = {}
         self.__current_timeframe = 0
@@ -226,7 +217,7 @@ class UCEmulator(object):
         else:
             res = fn()
         fin = time.time()
-        resp = (fin - start) * 1000
+        resp = (fin - start) * 1000  # Converting seconds to milliseconds (needed by pystatsd)
         if self.__carbon_server:
             if (fn.__name__ == '__execute__'):  # a wrapped use case is executed, if res is False, an exception occurred and was already reported by the wrapper
                 if res:

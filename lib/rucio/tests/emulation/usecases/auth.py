@@ -24,9 +24,11 @@ class UseCaseDefinition(UCEmulator):
         """
             Requests an Rucio Auth token using curl
         """
-        client = BaseClient()
-        if not client._BaseClient__get_token_userpass():
+        if not self.__client._BaseClient__get_token_userpass():
             raise AuthorizationFailed()
+
+    def setup(self, cfg):
+        self.__client = BaseClient()
 
 
 class AuthorizationFailed(Exception):
