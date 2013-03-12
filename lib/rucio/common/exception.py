@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
@@ -355,6 +356,18 @@ class SourceNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(SourceNotFound, self).__init__(args, kwargs)
         self._message = "Source file not found."
+
+
+class SubscriptionDuplicate(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(SubscriptionDuplicate, self).__init__(args, kwargs)
+        self._message = "A subscription with the same identifier already exists."
+
+
+class SubscriptionNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(SubscriptionNotFound, self).__init__(args, kwargs)
+        self._message = "Subscription not found."
 
 
 class SwitchProtocol(RucioException):

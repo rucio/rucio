@@ -9,25 +9,24 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+
+from rucio.core import subscription
 
 
-def add_subscription(account, filter, replication_rules, transfer_requests, subscription_policy, lifetime, retroactive, dry_run):
+def add_subscription(name, account, filter, replication_rules, subscription_policy, lifetime, retroactive, dry_run):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
     :param account: Account identifier
     :type account:  String
+    :param name: Name of the subscription
+    :type:  String
     :param filter: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
     :type filter:  Dict
-    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group;
-                              The lock flag tells rucio that this is a locked replication rule;
-                              If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
-                              **Example**: ``[(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)]``
-    :type replication_rules:  List
-    :param transfer_requests: Transfer requests to be issued. List of tuples holding count, RSE-tag, group; If the group flag is set to ``true``, this transfer_request will resolve to the same RSE for all files in the same dataset
-                              **Example**: ``[(1, 'T1-DATADISKS', True), (2, 'T2-DATADISKS', False)]``
-    :type transfer_requests:  List
+    :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
+    :type replication_rules:  Dict
     :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
                                 **Example**: ``'data_export'``
     :type subscription_policy:  String
@@ -40,28 +39,22 @@ def add_subscription(account, filter, replication_rules, transfer_requests, subs
     :returns: subscription_id
     :rtype:   String
     """
-    raise NotImplementedError
+    return subscription.add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
 
-def update_subscription(subscription_id, account=None, filter=None, replication_rules=None, transfer_requests=None, subscription_policy=None, lifetime=None, retroactive=None, dry_run=None):
+def update_subscription(name, account, filter=None, replication_rules=None, subscription_policy=None, lifetime=None, retroactive=None, dry_run=None):
     """
     Updates a subscription
 
-    :param subscription_id: Subscription identifier
-    :type subscription_id:  String
+    :param name: Name of the subscription
+    :type:  String
     :param account: Account identifier
     :type account:  String
     :param filter: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
     :type filter:  Dict
-    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group;
-                              The lock flag tells rucio that this is a locked replication rule;
-                              If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
-                              **Example**: ``[(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)]``
-    :type replication_rules:  List
-    :param transfer_requests: Transfer requests to be issued. List of tuples holding count, RSE-tag, group; If the group flag is set to ``true``, this transfer_request will resolve to the same RSE for all files in the same dataset
-                              **Example**: ``[(1, 'T1-DATADISKS', True), (2, 'T2-DATADISKS', False)]``
-    :type transfer_requests:  List
+    :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
+    :type replication_rules:  Dict
     :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
                                 **Example**: ``'data_export'``
     :type subscription_policy:  String
@@ -74,22 +67,27 @@ def update_subscription(subscription_id, account=None, filter=None, replication_
     :raises: exception.NotFound if subscription is not found
     """
 
-    raise NotImplementedError
+    return subscription.update_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
 
-def get_subscription(subscription_id):
+def list_subscriptions(name=None, account=None):
     """
-    Returns a dictionary with the subscription and completeness information(total/waiting/done/broken replication rules)
+    Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
 
-    :param subscription_id: Subscription identifier
-    :type subscription_id:  String
-    :returns: Dictionary containing {subscription_meta: subscription_value}
+    :param name: Name of the subscription
+    :type:  String
+    :param account: Account identifier
+    :type account:  String
+    :returns: Dictionary containing subscription parameter
     :rtype:   Dict
     :raises: exception.NotFound if subscription is not found
     """
-
-    raise NotImplementedError
+    if name == '*':
+        name = None
+    if account == '*':
+        account = None
+    return subscription.list_subscriptions(name, account)
 
 
 def delete_subscription(subscription_id):

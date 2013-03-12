@@ -33,11 +33,8 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :param filter: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
     :type filter:  Dict
-    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group;
-                              The lock flag tells rucio that this is a locked replication rule;
-                              If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
-                              **Example**: ``[(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)]``
-    :type replication_rules:  List
+    :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
+    :type replication_rules:  Dict
     :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
                                 **Example**: ``'data_export'``
     :type subscription_policy:  String
@@ -48,8 +45,6 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :param dry_run: Just print the subsecriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :param session: The database session in use.
-    :returns: name, account
-    :rtype:  Tuple
     """
     policyid_dict = {'tier0': 0}
     policyid = None
@@ -69,7 +64,6 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         #print e
         raise RucioException(e.args[0])
-    return 0
 
 
 @transactional_session
@@ -84,11 +78,8 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :param filter: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
     :type filter:  Dict
-    :param replication_rules: Replication rules to be set. List of tuples holding count, RSE-tag, lock, group;
-                              The lock flag tells rucio that this is a locked replication rule;
-                              If the group flag is set to ``true``, this rule will resolve to the same RSE for all files in the same dataset
-                              **Example**: ``[(1, 'T1-DATADISKS', True, True), (3, 'T2-DATADISKS', False, False)]``
-    :type replication_rules:  List
+    :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
+    :type replication_rules:  Dict
     :param transfer_requests: Transfer requests to be issued. List of tuples holding count, RSE-tag, group; If the group flag is set to ``true``, this transfer_request will resolve to the same RSE for all files in the same dataset
                               **Example**: ``[(1, 'T1-DATADISKS', True), (2, 'T2-DATADISKS', False)]``
     :type transfer_requests:  List
@@ -112,12 +103,12 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     if replication_rules:
         values['replication_rules'] = replication_rules
     if subscription_policy:
-            try:
-                policyid = policyid_dict[subscription_policy]
-                values['policyid'] = policyid
-            except KeyError, e:
-                print 'Unknown subscription policy : %s' % (e)
-                raise
+        try:
+            policyid = policyid_dict[subscription_policy]
+            values['policyid'] = policyid
+        except KeyError, e:
+            print 'Unknown subscription policy : %s' % (e)
+            raise
     if lifetime:
         values['lifetime'] = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
     if retroactive:
@@ -134,11 +125,10 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     #except IntegrityError, e:
     #    print e
     #    raise
-    return 0
 
 
 @read_session
-def get_subscriptions(name=None, account=None, session=None):
+def list_subscriptions(name=None, account=None, session=None):
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
