@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 """
 SQLAlchemy models for rucio data
@@ -459,14 +460,22 @@ class ReplicaLock(BASE, ModelBase):
                    )
 
 
-class Subscription(BASE, ModelBase):
+class Subscription(BASE, ModelBase, Versioned):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
     id = Column(GUID(), default=utils.generate_uuid)
-    account = Column(String(30))
+    name = Column(String(64))
+    filter = Column(String(1024))
+    replication_rules = Column(String(512))
+    policyid = Column(Integer(), default=0)
+    last_processed = Column(DateTime, default=datetime.datetime.utcnow())
+    account = Column(String(255))
+    #issuer = Column(String(255))
+    lifetime = Column(DateTime, default=datetime.datetime(4772, 10, 13))  # default lifetime is till the End of the Maya Long Count Calendar
     retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
     expired_at = Column(DateTime)
-    _table_args = (PrimaryKeyConstraint('id', 'account', name='SUBSCRIPTIONS_PK'),
+    _table_args = (PrimaryKeyConstraint('id', name='SUBSCRIPTIONS_PK'),
+                   UniqueConstraint('name', 'account', name='SUBSCRIPTION_NAME_ACCOUNT_UQ'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
                    CheckConstraint('"RETROACTIVE" IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),)
 
