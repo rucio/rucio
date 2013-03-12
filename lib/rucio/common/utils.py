@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 """
 Rucio utilities.
@@ -131,7 +132,7 @@ def date_to_str(date):
 
     :param date: the datetime value to convert.
     """
-    return datetime.strftime(date, DATE_FORMAT) if date else None
+    return datetime.datetime.strftime(date, DATE_FORMAT) if date else None
 
 
 class APIEncoder(json.JSONEncoder):

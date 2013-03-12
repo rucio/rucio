@@ -13,7 +13,7 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.subscription import get_subscriptions, add_subscription, update_subscription
+from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
 from rucio.common.exception import SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
 
@@ -49,14 +49,14 @@ class Subscription:
         #header('Content-Type', 'application/json')
         #header('Content-Type', 'application/octet-stream')
         header('Content-Type', 'application/x-json-stream')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            for subscription in get_subscriptions(name=name, account=account):
+            for subscription in list_subscriptions(name=name, account=account):
                 yield dumps(subscription, cls=APIEncoder) + '\n'
         except SubscriptionNotFound, e:
             raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
@@ -78,7 +78,7 @@ class Subscription:
         """
         #header('Content-Type', 'application/octet-stream')
         header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 
@@ -140,7 +140,7 @@ class Subscription:
         """
 
         header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_RUCIO_AUTH_TOKEN')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         auth = validate_auth_token(auth_token)
 

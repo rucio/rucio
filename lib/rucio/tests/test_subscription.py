@@ -13,7 +13,7 @@ from json import dumps, loads
 from nose.tools import assert_equal, assert_true, raises
 from paste.fixture import TestApp
 
-from rucio.api.subscription import get_subscriptions, add_subscription, update_subscription
+from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.utils import generate_uuid as uuid
@@ -37,10 +37,10 @@ class TestSubscriptionCoreApi():
         result = add_subscription(name=subscription_name, account='root', filter="{'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD',], 'excluded_pattern': \
         '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',\
         'account':'tier0'}", replication_rules="[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)]", lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
-        assert_equal(result, 0)
+        assert_equal(result, None)
         result = update_subscription(name=subscription_name, account='root', filter='toto')
-        assert_equal(result, 0)
-        result = get_subscriptions(name=subscription_name, account='root')
+        assert_equal(result, None)
+        result = list_subscriptions(name=subscription_name, account='root')
         sub = []
         for r in result:
             sub.append(r)
@@ -54,7 +54,7 @@ class TestSubscriptionCoreApi():
         result = add_subscription(name=subscription_name, account='root', filter="{'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD',], 'excluded_pattern': \
         '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',\
         'account':'tier0'}", replication_rules="[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)]", lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
-        assert_equal(result, 0)
+        assert_equal(result, None)
         result = add_subscription(name=subscription_name, account='root', filter="{'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD',], 'excluded_pattern': \
         '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',\
         'account':'tier0'}", replication_rules="[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)]", lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
@@ -80,14 +80,14 @@ class TestSubscriptionRestApi():
         """ SUBSCRIPTION (REST): Test the creation of a new subscription, update it, list it """
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
         assert_equal(r1.status, 200)
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
         subscription_name = uuid()
-        headers2 = {'Rucio-Auth-Token': str(token)}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'name': subscription_name, 'filter': "{'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD',], 'excluded_pattern': \
         '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',\
         'account': 'tier0'}", 'replication_rules': "[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)]", 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'subscription_policy': 'tier0'})
@@ -109,14 +109,14 @@ class TestSubscriptionRestApi():
         """ SUBSCRIPTION (REST): Test the creation of a existing subscription """
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
         assert_equal(r1.status, 200)
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
         subscription_name = uuid()
-        headers2 = {'Rucio-Auth-Token': str(token)}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'name': subscription_name, 'filter': "{'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD',], 'excluded_pattern': \
         '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',\
         'account': 'tier0'}", 'replication_rules': "[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)]", 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'subscription_policy': 'tier0'})
@@ -131,14 +131,14 @@ class TestSubscriptionRestApi():
         """ SUBSCRIPTION (REST): Test the update of a non-existing subscription """
         mw = []
 
-        headers1 = {'Rucio-Account': 'root', 'Rucio-Username': 'ddmlab', 'Rucio-Password': 'secret'}
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
         assert_equal(r1.status, 200)
-        token = str(r1.header('Rucio-Auth-Token'))
+        token = str(r1.header('X-Rucio-Auth-Token'))
 
         subscription_name = uuid()
-        headers2 = {'Rucio-Auth-Token': str(token)}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
 
         data = dumps({'name': subscription_name, 'filter': 'toto'})
         r2 = TestApp(subs_app.wsgifunc(*mw)).put('/subscriptions' + subscription_name, headers=headers2, params=data, expect_errors=True)
@@ -169,7 +169,7 @@ class TestSubscriptionClient():
         assert_true(result)
         result = self.client.update_subscription(name=subscription_name, filter='toto')
         assert_true(result)
-        result = self.client.get_subscriptions(name=subscription_name, account='root')
+        result = self.client.list_subscriptions(name=subscription_name, account='root')
         sub = []
         for r in result:
             sub.append(r)
