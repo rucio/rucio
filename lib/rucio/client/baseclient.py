@@ -13,15 +13,12 @@
 Client class for callers of the Rucio system
 """
 
-import os
-import shutil
-import tempfile
-
-
 from getpass import getuser
 from json import loads
 from logging import getLogger, StreamHandler, ERROR
-from os import environ, fdopen, path
+from os import environ, fdopen, path, makedirs
+from shutil import move
+from tempfile import mkstemp
 from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
@@ -416,16 +413,16 @@ class BaseClient(object):
         if not path.isdir(token_path):
             try:
                 LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
-                os.makedirs(token_path, 0700)
+                makedirs(token_path, 0700)
             except Exception, e:
                 raise e
 
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
-            fd, fn = tempfile.mkstemp(dir=token_path)
-            with fdopen(os.open(fn, os.O_WRONLY | os.O_CREAT, 0700), 'w') as f:
+            fd, fn = mkstemp(dir=token_path)
+            with fdopen(fd, "w") as f:
                 f.write(self.auth_token)
-            shutil.move(fn, self.token_file)
+            move(fn, self.token_file)
         except IOError as (errno, strerror):  # NOQA
             print("I/O error({0}): {1}".format(errno, strerror))
         except Exception, e:
