@@ -14,7 +14,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
-from rucio.common.exception import SubscriptionDuplicate, SubscriptionNotFound
+from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
 
 logger = getLogger("rucio.subscription")
@@ -164,11 +164,11 @@ class Subscription:
             add_subscription(name=name, account=auth['account'], filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionDuplicate as e:
             raise generate_http_error(409, 'SubscriptionDuplicate', e.args[0][0])
-        #except Duplicate, e:
-        #    raise generate_http_error(409, 'Duplicate', e)
-        #except Exception, e:
-        #    print e
-        #    raise InternalError(e)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
         raise Created()
 
     def DELETE(self):

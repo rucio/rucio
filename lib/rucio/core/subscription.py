@@ -62,7 +62,8 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         if re.match(".*columns name, account are not unique.*", e.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
-        #print e
+        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*UQ_SUBSCRIPTIONS_NAME.*violated.*', e.args[0]):
+            raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         raise RucioException(e.args[0])
 
 
