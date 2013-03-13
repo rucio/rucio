@@ -74,6 +74,7 @@ Installing Rucio
     installing_atlas_clients
     installing_server
     overview_Deployment
+    atlas_integration_testbed
 
 Rucio Client APIs
 =================
@@ -84,15 +85,11 @@ Rucio Client APIs
     account
     scope
     identity
-    rse
-    dataidentifier
+    did
     meta-data
-    permission
-..    service_availability
     rse
     replica
     rule
-    transfer
     subscription
 
 Using Rucio

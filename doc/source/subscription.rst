@@ -3,7 +3,7 @@ Subscription  Methods
 *********************
 
 .. _subscription:
-.. automodule:: rucio.api.subscription
+.. automodule:: rucio.client.subscriptionclient
     :members:
     :undoc-members:
     :show-inheritance:

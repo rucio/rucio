@@ -2,8 +2,8 @@
 Data Identifier Methods
 ***********************
 
-.. _dataset:
-.. automodule:: rucio.client.dataidentifierclient
+.. _did:
+.. automodule:: rucio.client.didclient
     :members:
     :undoc-members:
     :show-inheritance:
