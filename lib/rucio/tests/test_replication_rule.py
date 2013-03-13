@@ -29,7 +29,7 @@ class TestReplicationRuleCore():
 
     def setup(self):
         #Add test scope
-        self.tmp_scope = 'scope_%s' % uuid()
+        self.tmp_scope = 'scope_%s' % uuid()[:20]
         add_scope(self.tmp_scope, 'root')
 
         #Add test RSE

@@ -92,6 +92,8 @@ def _ck_constraint_name(const, table):
                 const.name = "%s_DEL_CHK" % (table.name.upper())
             else:
                 const.name = "%s_DELETED_CHK" % (table.name.upper())
+    elif const.name == 'SUBSCRIPTIONS_RETROACTIVE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
+        const.name = "SUBS_HISTORY_RETROACTIVE_CHK"
 
 
 @event.listens_for(Table, "after_parent_attach")
@@ -426,19 +428,19 @@ class ReplicationRule(BASE, ModelBase):
     account = Column(String(30))
     scope = Column(String(30))
     name = Column(String(255))
-    state = Column(Enum('WAITING', 'OK'), default='WAITING', name='DID_RULES_STATE_CHK')
+    state = Column(Enum('WAITING', 'OK', name='DID_RULES_STATE_CHK'), default='WAITING')
     rse_expression = Column(String(255))
     copies = Column(Integer(), default=1)
     expires_at = Column(DateTime)
     weight = Column(String(255))
     locked = Column(Boolean(name='DID_RULES_LOCKED_CHK'), default=False)
-    grouping = Column(Enum('ALL', 'DATASET', 'NONE'), default="ALL", name='DID_RULES_GROUPING_CHK')
+    grouping = Column(Enum('ALL', 'DATASET', 'NONE', name='DID_RULES_GROUPING_CHK'), default="ALL")
 
     _table_args = (PrimaryKeyConstraint('id', name='DID_RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='DID_RULES_ACCOUNT_FK'),
                    #ForeignKeyConstraint(['subscription_id'], ['accounts.account'], name='DID_RULES_ACCOUNT_FK'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='DID_RULES_STATE_NN'),
+                   CheckConstraint('STATE IS NOT NULL', name='DID_RULES_STATE_NN'),
                    CheckConstraint('"GROUPING" IS NOT NULL', name='DID_RULES_GROUPING_NN'),
                    CheckConstraint('"COPIES" IS NOT NULL', name='DID_RULES_COPIES_NN'),
                    CheckConstraint('"LOCKED" IS NOT NULL', name='DID_RULES_LOCKED_NN'),
@@ -453,7 +455,7 @@ class ReplicaLock(BASE, ModelBase):
     rule_id = Column(GUID())
     rse_id = Column(GUID())
     account = Column(String(30))
-    state = Column(Enum('WAITING', 'OK'), default='WAITING', name='REPLICA_LOCKS_STATE_CHK')
+    state = Column(Enum('WAITING', 'OK', name='REPLICA_LOCKS_STATE_CHK'), default='WAITING')
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='REPLICA_LOCKS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_DID_FK'),
                    ForeignKeyConstraint(['rule_id'], ['did_rules.id'], name='REPLICAS_LOCKS_RULE_ID_FK'),
