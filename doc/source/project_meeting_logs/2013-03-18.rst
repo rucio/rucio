@@ -1,0 +1,132 @@
+---------------------------------------------------
+Pre-Minutes for the Rucio meeting on March 18, 2013
+---------------------------------------------------
+
+* **When:** 2013-03-18, 14:00 to 16:00
+* **Present:** Vincent, ...
+
+**News**
+
+ProdSys2/PanDA meetings
+  * Discussion Points
+
+    * Upsert a replication rule for all jobs or one rule per job
+    * Add meta-data to replication rule like a JobID
+
+    * Obsolete flag for file ? is it equivalent to the availability state: LOST, DELETED ??, AVAILABLE ?
+    * Move files to T1s and lock the source replicas
+    * Move functionality in FTS3 ?
+
+  * New tasks
+
+    * Repair method to replace a file in a closed dataset https://its.cern.ch/jira/browse/RUCIO-213
+
+
+**Use Cases(All)**
+
+* PanDA
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+
+**Clients(Thomas, Vincent, Mario)**
+
+* Python clients (Thomas)
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+* CLIs (Vincent)
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+* Dmlite(Mario)
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+**Storage Interfaces(Ralph)**
+
+* RSE Wrapper
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+    * Support for the RFIO protocol  https://its.cern.ch/jira/browse/RUCIO-211
+    * PFN format checking https://its.cern.ch/jira/browse/RUCIO-212
+
+* RSE Repository
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+
+**Emulation framework(Ralph)**
+
+* Ongoing actions
+* Status
+* New tasks
+
+**Replica Management(Martin, Cédric)**
+
+* Replication Rules(Martin)
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+* Subscriptions(Cédric)
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+**Transfer Service(Mario)**
+
+* Ongoing actions
+* Status
+* New tasks
+
+**Rucio Analytics(Thomas)**
+
+* Ongoing actions
+* Status
+* New tasks
+
+**Migration(Cédric)**
+
+* Renaming
+
+  * Ongoing actions
+  * Status
+  * New tasks
+
+**Integration test-bed(Vincent)**
+
+* Ongoing actions
+
+  * A Nagios server has been setup http://voatlas143.cern.ch/nagios/
+
+* Status
+* New tasks
+
+  * Add Nagios probes to get space at sites
+
+* Services deployment and Infrastructure monitoring
+
+**Documentation(???)**
+
+**AOB**
+
+**Next meetings**
+
+* A meeting dedicated to the schema will be held on Thursday 21, 2013 at 09.30 CERN time.
+* The next Rucio meeting will be on Monday, March 25, 2013 at 14.00 CERN time.
