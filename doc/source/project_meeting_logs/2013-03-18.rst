@@ -4,7 +4,7 @@ Pre-Minutes for the Rucio meeting on March 18, 2013
 
 * **When:** 2013-03-18, 14:00 to 16:00
 * **Were:** `1-1-025 <https://maps.cern.ch/mapsearch/mapcernlite.htm?no=1>`_
-* **Who:** Vincent, ...
+* **Who:** Vincent, Mario
 
 **News**
 
@@ -47,11 +47,16 @@ ProdSys2/PanDA meeting summary
 
     * Better testsuite for the CLIs: https://its.cern.ch/jira/browse/RUCIO-215
 
-* Dmlite(Mario)
+* DMLite(Mario)
 
   * Ongoing actions
+   * Instructing Philippe (updating/maintaining Rucio server, developing DMLite plugin)
   * Status
+   * voatlas67 set up as testbed, with its own Rucio server
+   * got one summer student
   * New tasks
+   * continue with Philippe
+   * write workplan for summer student
 
 **Storage Interfaces(Ralph)**
 
@@ -95,6 +100,8 @@ ProdSys2/PanDA meeting summary
 
 * Ongoing actions
 * Status
+ * waiting for FTS3 JSON server deployment
+ * pushed transfer mock interface and fake FTS3 server to master
 * New tasks
 
 **Rucio Analytics(Thomas)**
