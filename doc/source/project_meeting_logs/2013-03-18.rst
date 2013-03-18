@@ -3,11 +3,12 @@ Pre-Minutes for the Rucio meeting on March 18, 2013
 ---------------------------------------------------
 
 * **When:** 2013-03-18, 14:00 to 16:00
-* **Present:** Vincent, ...
+* **Were:** `1-1-025 <https://maps.cern.ch/mapsearch/mapcernlite.htm?no=1>`_
+* **Who:** Vincent, ...
 
 **News**
 
-ProdSys2/PanDA meetings
+ProdSys2/PanDA meeting summary
   * Discussion Points
 
     * Upsert a replication rule for all jobs or one rule per job
@@ -42,9 +43,9 @@ ProdSys2/PanDA meetings
 
 * CLIs (Vincent)
 
-  * Ongoing actions
-  * Status
   * New tasks
+
+    * Better testsuite for the CLIs: https://its.cern.ch/jira/browse/RUCIO-215
 
 * Dmlite(Mario)
 
@@ -116,7 +117,6 @@ ProdSys2/PanDA meetings
 
   * A Nagios server has been setup http://voatlas143.cern.ch/nagios/
 
-* Status
 * New tasks
 
   * Add Nagios probes to get space at sites
