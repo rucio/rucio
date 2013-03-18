@@ -20,6 +20,7 @@ ProdSys2/PanDA meetings
   * New tasks
 
     * Repair method to replace a file in a closed dataset https://its.cern.ch/jira/browse/RUCIO-213
+    * Callback service https://its.cern.ch/jira/browse/RUCIO-214
 
 
 **Use Cases(All)**
