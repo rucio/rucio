@@ -5,4 +5,4 @@ distribute==0.6.34       # Easily download, build, install, upgrade, and uninsta
 argcomplete==0.3.7       # Bash tab completion for argparse
 kerberos==1.1.1          # Kerberos high-level interface
 requests==0.14.2         # Python HTTP for Humans
-urllib3==1.3             # HTTP library with thread-safe connection pooling and file post support
+urllib3==1.5             # HTTP library with thread-safe connection pooling and file post support
