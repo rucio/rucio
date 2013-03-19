@@ -157,8 +157,7 @@ class TestSubscriptionClient():
         pass
 
     def setUp(self):
-        creds = {'username': 'ddmlab', 'password': 'secret'}
-        self.client = SubscriptionClient(rucio_host='https://voatlas68.cern.ch', auth_host='https://voatlas68.cern.ch', account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='userpass', creds=creds)
+        self.client = SubscriptionClient()
 
     def test_create_and_update_and_list_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the creation of a new subscription, update it, list it """
