@@ -138,8 +138,7 @@ def list_accounts(session=None):
     """
 
     query = session.query(models.Account).filter_by(deleted=False)
-
-    for row in query.order_by(models.Account.account):
+    for row in query.order_by(models.Account.account).yield_per(25):
         yield {'account': row.account, 'type': row.type}
 
 

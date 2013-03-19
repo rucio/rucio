@@ -196,7 +196,7 @@ class BaseClient(object):
         while retry < self.request_retries:
             try:
                 if type == 'GET':
-                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params)
+                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, prefetch=False)  # `stream=True` for newer versions of requests
                 elif type == 'PUT':
                     r = put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
