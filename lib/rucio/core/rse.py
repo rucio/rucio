@@ -380,6 +380,11 @@ def add_protocol(rse, parameter, session=None):
         raise exception.RSENotFound('RSE \'%s\' not found')
     # Inster new protocol entry
     parameter['rse_id'] = rid
+
+    # Default values
+    parameter['port'] = parameter.get('port', None)
+    parameter['hostname'] = parameter.get('hostname', None)
+
     try:
         new_protocol = models.RSEProtocols()
         new_protocol.update(parameter)
