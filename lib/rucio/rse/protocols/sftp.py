@@ -66,7 +66,7 @@ class Default(protocol.RSEProtocol):
             :raise RSEAccessDenied
         """
         try:
-            credentials['host'] = self.rse['protocol']['host']
+            credentials['host'] = self.rse['protocol']['hostname']
             self.__connection = pysftp.Connection(**credentials)
         except Exception as e:
             raise exception.RSEAccessDenied(e)
