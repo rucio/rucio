@@ -50,7 +50,7 @@ class TestReplica():
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
         assert_equal(len(replicas), 2)
 
-        replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, protocols=['posix'])]
+        replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, protocols=['file'])]
         assert_equal(len(replicas), 2)
         for replica in replicas:
             for pfn in replica['pfns']:

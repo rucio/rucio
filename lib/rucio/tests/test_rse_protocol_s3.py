@@ -36,7 +36,7 @@ class TestRseS3():
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSE('swift.cern.ch')
+        storage = rsemanager.RSE('SWIFT')
         fnull = open(os.devnull, 'w')
 
         # Create test files on storage
@@ -53,7 +53,7 @@ class TestRseS3():
     def setUp(self):
         """S3 (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseS3.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'swift.cern.ch')
+        self.mtc = MgrTestCases(self.tmpdir, 'SWIFT')
 
     @classmethod
     def tearDownClass(cls):

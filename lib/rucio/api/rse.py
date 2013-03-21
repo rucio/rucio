@@ -146,29 +146,30 @@ def add_protocol(rse, issuer, **data):
     rse_module.add_protocol(rse, data['data'])
 
 
-def get_protocols(rse, issuer, operation=None, default=False, protocol=None):
+def get_protocols(rse, issuer, protocol_domain='ALL', operation=None, default=False, scheme=None):
     """
     Returns all matching protocols (including detailed information) for the given RSE.
 
     :param rse: The name of the rse.
     :param issuer: The issuer account.
+    :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL" (as default).
     :param operation: The name of the requested operation (read, write, or delete).
                       If None, all operations are queried.
     :param default: Indicates if all or only the default protocols should be returned.
-    :param protocol: The protocol identifier.
+    :param scheme: The protocol identifier.
 
     :returns: A dict with all supported protocols and their attibutes.
     """
-    return rse_module.get_protocols(rse, operation=operation, protocol=protocol, default=default)
+    return rse_module.get_protocols(rse, protocol_domain=protocol_domain, operation=operation, scheme=scheme, default=default)
 
 
-def del_protocols(rse, issuer, protocol, hostname=None, port=None):
+def del_protocols(rse, issuer, scheme, hostname=None, port=None):
     """
     Deletes all matching protocol entries for the given RSE..
 
     :param rse: The name of the rse.
     :param issuer: The issuer account.
-    :param protocol: The protocol identifier.
+    :param scheme: The protocol identifier.
     :param hostname: The hostname (to be used if more then one protocol using the
                      same identifier are present)
     :param port: The port (to be used if more than one protocol using the same
@@ -177,16 +178,16 @@ def del_protocols(rse, issuer, protocol, hostname=None, port=None):
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='del_protocol', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete protocols from RSE %s' % (issuer, rse))
-    rse_module.del_protocols(rse, protocol=protocol, hostname=hostname, port=port)
+    rse_module.del_protocols(rse, scheme=scheme, hostname=hostname, port=port)
 
 
-def update_protocols(rse, issuer, protocol, data, hostname=None, port=None):
+def update_protocols(rse, issuer, scheme, data, hostname=None, port=None):
     """
     Updates all provided attributes for all matching protocol entries of the given RSE..
 
     :param rse: The name of the rse.
     :param issuer: The issuer account.
-    :param protocol: The protocol identifier.
+    :param scheme: The protocol identifier.
     :param data: A dict including the attributes of the protocol to be updated. Keys must match the column names in the database.
     :param hostname: The hostname (to be used if more then one protocol using the same identifier are present)
     :param port: The port (to be used if more than one protocol using the same identifier and hostname are present)
@@ -194,4 +195,4 @@ def update_protocols(rse, issuer, protocol, data, hostname=None, port=None):
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='update_protocol', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update protocols from RSE %s' % (issuer, rse))
-    rse_module.update_protocols(rse, protocol=protocol, hostname=hostname, port=port, data=data)
+    rse_module.update_protocols(rse, scheme=scheme, hostname=hostname, port=port, data=data)

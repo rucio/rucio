@@ -15,10 +15,9 @@
 from json import dumps, loads
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
-from random import randint
 
 from rucio.client.rseclient import RSEClient
-from rucio.common.exception import Duplicate, RSENotFound, RSEProtocolNotSupported, RSEOperationNotSupported, InvalidObject
+from rucio.common.exception import Duplicate, RSENotFound, RSEProtocolNotSupported, RSEOperationNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.rse import add_rse, del_rse, list_rses,\
     rse_exists, set_rse_usage, get_rse_usage, add_rse_attribute, list_rse_attributes
@@ -241,9 +240,12 @@ class TestRSEClient():
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'read': randint(1, 5),
-                                      'write': randint(1, 5),
-                                      'delete': randint(1, 5),
+                                      'domains': {
+                                          'LAN': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1
+                                                  }
+                                      },
                                       'extended_attributes': 'TheOneWithAllTheRest'
                                       })
         for id in protocol_id:
@@ -259,9 +261,12 @@ class TestRSEClient():
                                   'port': 17,
                                   'prefix': '/the/one/with/all/the/files',
                                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'read': randint(1, 5),
-                                  'write': randint(1, 5),
-                                  'delete': randint(1, 5),
+                                  'domains': {
+                                      'LAN': {'read': 1,
+                                              'write': 1,
+                                              'delete': 1
+                                              }
+                                  },
                                   'extended_attributes': 'TheOneWithAllTheRest'
                                   })
 
@@ -276,9 +281,12 @@ class TestRSEClient():
                                   'port': 17,
                                   'prefix': '/the/one/with/all/the/files',
                                   #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'read': randint(1, 5),
-                                  'write': randint(1, 5),
-                                  'delete': randint(1, 5),
+                                  'domains': {
+                                      'LAN': {'read': 1,
+                                              'write': 1,
+                                              'delete': 1
+                                              }
+                                  },
                                   'extended_attributes': 'TheOneWithAllTheRest'
                                   })
         self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
@@ -297,9 +305,12 @@ class TestRSEClient():
                                           'port': 17,
                                           'prefix': '/the/one/with/all/the/files',
                                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                          'read': randint(1, 5),
-                                          'write': randint(1, 5),
-                                          'delete': randint(1, 5),
+                                          'domains': {
+                                              'LAN': {'read': 1,
+                                                      'write': 1,
+                                                      'delete': 1
+                                                      }
+                                          },
                                           'extended_attributes': 'TheOneWithAllTheRest'
                                           })
             except Exception, e:
@@ -309,7 +320,72 @@ class TestRSEClient():
         self.client.delete_protocols(protocol_rse, 'MOCK_Duplicate')
         self.client.delete_rse(protocol_rse)
 
-    # DELETE PROTOCOLS
+    @raises(RSEProtocolDomainNotSupported)
+    def test_add_protocol_not_suppotred_domain(self):
+        """ RSE (CLIENTS): add a protocol with unsupported domain parameters (RSEProtocolDomainNotSupported)."""
+        protocol_rse = 'MOCK_PROTOCOL_ADD_NOT_EXISTING_DOMAIN' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        self.client.add_protocol(protocol_rse,
+                                 'Mock_Insuff_Params',
+                                 {'hostname': 'localhost',
+                                  'port': 17,
+                                  'prefix': '/the/one/with/all/the/files',
+                                  #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                                  'domains': {
+                                      'FIRENDS': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1
+                                                  }
+                                  },
+                                  'extended_attributes': 'TheOneWithAllTheRest'
+                                  })
+        self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
+        self.client.delete_rse(protocol_rse)
+
+    @raises(RSEProtocolPriorityError)
+    def test_add_protocol_wrong_priority(self):
+        """ RSE (CLIENTS): Add a protocol with an invalid priority for ranking. """
+        protocol_rse = 'MOCK_PROTOCOL_ADD_WRONG_PRIORITY' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocol_ports = [17, 29, 42]
+        for i in range(3):
+            self.client.add_protocol(protocol_rse,
+                                     'MOCK',
+                                     {'hostname': 'localhost',
+                                      'port': protocol_ports[i],
+                                      'prefix': '/the/one/with/all/the/files',
+                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                                      'domains': {
+                                          'LAN': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1
+                                                  }
+                                      },
+                                      'extended_attributes': 'TheOneWithAllTheRest'
+                                      })
+        try:
+            self.client.add_protocol(protocol_rse,
+                                     'MOCK',
+                                     {'hostname': 'localhost',
+                                      'port': 815,
+                                      'prefix': '/the/one/with/all/the/files',
+                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                                      'domains': {
+                                          'LAN': {'read': 4,
+                                                  'write': 99,
+                                                  'delete': 1
+                                                  }
+                                      },
+                                      'extended_attributes': 'TheOneWithAllTheRest'
+                                      })
+        except RSEProtocolPriorityError:
+            self.client.delete_protocols(protocol_rse, scheme='MOCK')
+            self.client.delete_rse(protocol_rse)
+            raise
+        self.client.delete_protocols(protocol_rse, scheme='MOCK')
+        self.client.delete_rse(protocol_rse)
+
+   # DELETE PROTOCOLS
 
     @raises(RSENotFound)
     def test_del_protocol_rse_not_found(self):
@@ -329,16 +405,19 @@ class TestRSEClient():
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'read': randint(1, 5),
-                                      'write': randint(1, 5),
-                                      'delete': randint(1, 5),
+                                      'domains': {
+                                          'LAN': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1
+                                                  }
+                                      }
                                       })
         self.client.delete_protocols(protocol_rse, protocol_id)
 
         # check if empty
         resp = None
         try:
-            resp = self.client.get_protocols(protocol_rse, protocol=protocol_id)
+            resp = self.client.get_protocols(protocol_rse, scheme=protocol_id)
         except RSEProtocolNotSupported:
             self.client.delete_rse(protocol_rse)
             return
@@ -373,21 +452,24 @@ class TestRSEClient():
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'read': randint(1, 5),
-                                      'write': randint(1, 5),
-                                      'delete': randint(1, 5),
+                                      'domains': {
+                                          'LAN': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1
+                                                  }
+                                      },
                                       'extended_attributes': 'TheOneWithAllTheRest'
                                       })
-        self.client.delete_protocols(protocol_rse, protocol=protocol_id, hostname='localhost')
+        self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost')
 
         # check if protocol for 'other_host' are still there
-        resp = self.client.get_protocols(protocol_rse, protocol=protocol_id)
+        resp = self.client.get_protocols(protocol_rse, scheme=protocol_id)
         for r in resp:
             if r['hostname'] == 'localhost':
                 self.client.delete_rse(protocol_rse)
                 raise Exception('Protocols not deleted. Remaining: %s' % resp)
 
-        self.client.delete_protocols(protocol_rse, protocol=protocol_id, hostname='an_other_host')
+        self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='an_other_host')
         self.client.delete_rse(protocol_rse)
 
     @raises(RSEProtocolNotSupported)
@@ -402,9 +484,12 @@ class TestRSEClient():
                                   'port': 42,
                                   'prefix': '/the/one/with/all/the/files',
                                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'read': randint(1, 5),
-                                  'write': randint(1, 5),
-                                  'delete': randint(1, 5),
+                                  'domains': {
+                                      'LAN': {'read': 1,
+                                              'write': 1,
+                                              'delete': 1
+                                              }
+                                  },
                                   'extended_attributes': 'TheOneWithAllTheRest'
                                   })
         try:
@@ -429,15 +514,18 @@ class TestRSEClient():
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'read': randint(1, 5),
-                                      'write': randint(1, 5),
-                                      'delete': randint(1, 5),
+                                      'domains': {
+                                          'LAN': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1
+                                                  }
+                                      },
                                       'extended_attributes': 'TheOneWithAllTheRest'
                                       })
-        self.client.delete_protocols(protocol_rse, protocol=protocol_id, hostname='localhost', port=17)
+        self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost', port=17)
 
         # check remaining protocols
-        resp = self.client.get_protocols(protocol_rse, protocol=protocol_id)
+        resp = self.client.get_protocols(protocol_rse, scheme=protocol_id)
         for r in resp:
             if r['port'] == 17:
                 self.client.delete_rse(protocol_rse, protocol_id)
@@ -458,9 +546,12 @@ class TestRSEClient():
                                   'port': 42,
                                   'prefix': '/the/one/with/all/the/files',
                                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'read': randint(1, 5),
-                                  'write': randint(1, 5),
-                                  'delete': randint(1, 5),
+                                  'domains': {
+                                      'LAN': {'read': 1,
+                                              'write': 1,
+                                              'delete': 1
+                                              }
+                                  },
                                   'extended_attributes': 'TheOneWithAllTheRest'
                                   })
         try:
@@ -478,48 +569,69 @@ class TestRSEClient():
         """ RSE (CLIENTS): get protocols of rse."""
         protocol_rse = 'MOCK_PROTOCOL_GET_SUCCESS' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK_READ',
+        protocols = [{'scheme': 'MOCK_READ',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': 1,
-                      'write': 1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1
+                                  },
+                          'WAN': {'read': 0,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_WRITE',
+                     {'scheme': 'MOCK_WRITE',
                       'hostname': 'localhost',
                       'port': 42,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': -1,
-                      'write': 1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  },
+                          'WAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_DELETE',
+                     {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': -1,
-                      'write': -1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 0,
+                                  'delete': 1
+                                  },
+                          'WAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
         # GET all = 3
         resp = self.client.get_protocols(protocol_rse)
         if len(resp) != 3:
             for p in protocols:
-                self.client.delete_protocols(protocol_rse, p['protocol'])
+                self.client.delete_protocols(protocol_rse, p['scheme'])
             self.client.delete_rse(protocol_rse)
             raise Exception('Unexpected protocols returned: %s' % resp)
         for p in protocols:
-            self.client.delete_protocols(protocol_rse, p['protocol'])
+            self.client.delete_protocols(protocol_rse, p['scheme'])
         self.client.delete_rse(protocol_rse)
 
     @raises(RSENotFound)
@@ -531,135 +643,195 @@ class TestRSEClient():
         """ RSE (CLIENTS): get protocols for operations of rse."""
         protocol_rse = 'MOCK_PROTOCOL_GET_OP_SUCCESS' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK_READ_WRITE_DELETE',
+        protocols = [{'scheme': 'MOCK_READ_WRITE_DELETE',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': 1,
-                      'write': 1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_WRITE_DELETE',
+                     {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
                       'port': 42,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': -1,
-                      'write': 1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_DELETE',
+                     {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': -1,
-                      'write': -1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
                      ]
         # Protocol identifier include supported operations
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
 
         ops = {'read': 1, 'write': 2, 'delete': 3}
         for op in ops:
-            resp = self.client.get_protocols(protocol_rse, operation=op)
+            resp = self.client.get_protocols(protocol_rse, operation=op, protocol_domain='LAN')
             for p in resp:
-                if op not in p['protocol'].lower():
+                if op not in p['scheme'].lower():
                     for p in protocols:
-                        self.client.delete_protocols(protocol_rse, p['protocol'])
+                        self.client.delete_protocols(protocol_rse, p['scheme'])
                     self.client.delete_rse(protocol_rse)
                     raise Exception('Unexpected protocols returned for %s: %s' % (op, resp))
         for p in protocols:
-            self.client.delete_protocols(protocol_rse, p['protocol'])
+            self.client.delete_protocols(protocol_rse, p['scheme'])
         self.client.delete_rse(protocol_rse)
 
     def test_get_protocols_defaults(self):
         """ RSE (CLIENTS): get default protocols for operations of rse."""
         protocol_rse = 'MOCK_PROTOCOL_GET_DEFAULT_SUCCESS' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK_READ',
+        protocols = [{'scheme': 'MOCK_READ',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': 1,
+                      'domains': {
+                          'LAN': {'read': 1},
+                          'WAN': {'delete': 1}
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_WRITE',
+                     {'scheme': 'MOCK_WRITE',
                       'hostname': 'localhost',
                       'port': 42,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'write': 1,
+                      'domains': {
+                          'LAN': {'write': 1},
+                          'WAN': {'read': 1}
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_DELETE',
+                     {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'delete': 1},
+                          'WAN': {'write': 1}
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
 
         for op in ['delete', 'read', 'write']:
-            resp = self.client.get_protocols(protocol_rse, operation=op, default=True)
-            if op not in resp[0]['protocol'].lower():
+            resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='LAN')
+            if op not in resp[0]['scheme'].lower():
                 for p in protocols:
-                    self.client.delete_protocols(protocol_rse, p['protocol'])
+                    self.client.delete_protocols(protocol_rse, p['scheme'])
+                self.client.delete_rse(protocol_rse)
+                raise Exception('Unexpected protocols returned for %s: %s' % (op, resp))
+        for op in ['delete', 'read', 'write']:
+            resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='WAN')
+            if ((op == 'delete') and (resp[0]['port'] != 17)) or ((op == 'read') and (resp[0]['port'] != 42)) or ((op == 'write') and (resp[0]['port'] != 19)):
+                for p in protocols:
+                    self.client.delete_protocols(protocol_rse, p['scheme'])
                 self.client.delete_rse(protocol_rse)
                 raise Exception('Unexpected protocols returned for %s: %s' % (op, resp))
         for p in protocols:
-            self.client.delete_protocols(protocol_rse, p['protocol'])
+            self.client.delete_protocols(protocol_rse, p['scheme'])
         self.client.delete_rse(protocol_rse)
+
+    def test_get_protocols_nested_attributes(self):
+        """ RSE (CLIENTS): get nested extended_attributes."""
+        protocol_rse = 'MOCK_PROTOCOL_NESTED' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK_READ',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1},
+                          'WAN': {'delete': 1}
+                      },
+                      'extended_attributes': {'Some': 'value', 'more': {'value1': 1, 'value2': 0}}
+                      }
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        resp = self.client.get_protocols(protocol_rse)
+        assert((not resp[0]['extended_attributes']['more']['value2']) and resp[0]['extended_attributes']['more']['value1'])
 
     @raises(RSEOperationNotSupported)
     def test_get_protocols_operations_not_supported(self):
         """ RSE (CLIENTS): get protocols for operations of rse (RSEOperationNotSupported)."""
         protocol_rse = 'MOCK_PROTOCOL_GET_OP_NOT_SUPPORTED' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK_WRITE_DELETE',
+        protocols = [{'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'write': 1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_WRITE_DELETE',
+                     {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
                       'port': 42,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'write': 1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_DELETE',
+                     {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
                      ]
         # Protocol for read is undefined
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
 
         try:
-            self.client.get_protocols(protocol_rse, operation='read')
+            self.client.get_protocols(protocol_rse, operation='read', protocol_domain='LAN')
         except Exception, e:
             self.client.delete_protocols(protocol_rse, 'MOCK_WRITE_DELETE')
             self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
@@ -669,44 +841,121 @@ class TestRSEClient():
         self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
         self.client.delete_rse(protocol_rse)
 
-    @raises(RSEOperationNotSupported)
-    def test_get_protocols_defaults_not_supported(self):
-        """ RSE (CLIENTS): get default protocols for operations of rse (RSEOperationNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_DEFAULT_NOT_SUPPORTED' + str(uuid())
+    @raises(RSEProtocolDomainNotSupported)
+    def test_get_protocols_domain_not_exist(self):
+        """ RSE (CLIENTS): get protocols for operations of rse in not existing domain (RSEProtocolDomainNotSupported)."""
+        protocol_rse = 'MOCK_PROTOCOL_GET_DOMAIN_NOT_EXIST' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK_WRITE_DELETE',
+        protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'write': 1,
-                      'delete': 1,
-                      'extended_attributes': 'TheOneWithAllTheRest'
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
                       },
-                     {'protocol': 'MOCK_WRITE_DELETE',
-                      'hostname': 'localhost',
-                      'port': 42,
-                      'prefix': '/the/one/with/all/the/files',
-                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'write': 1,
-                      'delete': 1,
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      },
-                     {'protocol': 'MOCK_DELETE',
-                      'hostname': 'localhost',
-                      'port': 19,
-                      'prefix': '/the/one/with/all/the/files',
-                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'delete': 1,
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
                      ]
         # Protocol for read is undefined
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
 
         try:
-            self.client.get_protocols(protocol_rse, operation='read', default=True)
+            self.client.get_protocols(protocol_rse, operation='write', protocol_domain='FRIENDS')
+        except Exception, e:
+            self.client.delete_protocols(protocol_rse, 'MOCK')
+            self.client.delete_rse(protocol_rse)
+            raise e
+        self.client.delete_protocols(protocol_rse, 'MOCK')
+        self.client.delete_rse(protocol_rse)
+
+    @raises(RSEOperationNotSupported)
+    def test_get_protocols_domain_not_supported(self):
+        """ RSE (CLIENTS): get protocols for operations of rse in unsupported domain (RSEOperationNotSupported)."""
+        protocol_rse = 'MOCK_PROTOCOL_GET_DOMAIN_NOT_SUPPORTED' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     ]
+        # Protocol for read is undefined
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        try:
+            self.client.get_protocols(protocol_rse, operation='write', protocol_domain='WAN')
+        except Exception, e:
+            self.client.delete_protocols(protocol_rse, 'MOCK')
+            self.client.delete_rse(protocol_rse)
+            raise e
+        self.client.delete_protocols(protocol_rse, 'MOCK')
+        self.client.delete_rse(protocol_rse)
+
+    @raises(RSEOperationNotSupported)
+    def test_get_protocols_defaults_not_supported(self):
+        """ RSE (CLIENTS): get default protocols for operations of rse (RSEOperationNotSupported)."""
+        protocol_rse = 'MOCK_PROTOCOL_GET_DEFAULT_NOT_SUPPORTED' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK_WRITE_DELETE',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK_WRITE_DELETE',
+                      'hostname': 'localhost',
+                      'port': 42,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK_DELETE',
+                      'hostname': 'localhost',
+                      'port': 19,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     ]
+        # Protocol for read is undefined
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        try:
+            self.client.get_protocols(protocol_rse, operation='read', default=True, protocol_domain='LAN')
         except Exception, e:
             self.client.delete_protocols(protocol_rse, 'MOCK_WRITE_DELETE')
             self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
@@ -718,105 +967,433 @@ class TestRSEClient():
 
     # UPDATE PROTOCOLS
 
-    def test_update_protocols(self):
-        """ RSE (CLIENTS): update all protocols with specific identifier of rse."""
+    @raises(Duplicate)
+    def test_update_protocols_port_exist(self):
+        """ RSE (CLIENTS): set new values for various protocol attributes."""
         protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK',
+        protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': 1,
-                      'write': 1,
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK',
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 11,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      }
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        try:
+            self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '11'})
+        except Exception as e:
+            self.client.delete_protocols(protocol_rse, 'MOCK')
+            self.client.delete_rse(protocol_rse)
+            raise e
+        self.client.delete_protocols(protocol_rse, 'MOCK')
+        self.client.delete_rse(protocol_rse)
+
+    def test_update_protocols_various_attributes(self):
+        """ RSE (CLIENTS): set new values for various protocol attributes."""
+        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      }
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '12'})
+        resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
+        for p in resp:
+            if p['prefix'] != 'where/the/files/are' and p['extended_attributes'] != 'Something else':
+                raise Exception('Update gave unexpected results: %s' % resp)
+        self.client.delete_protocols(protocol_rse, 'MOCK')
+        self.client.delete_rse(protocol_rse)
+
+    def test_update_protocols_enable_new_default(self):
+        """ RSE (CLIENTS): set new default protocol by setting it explicite."""
+        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 42,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'write': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_DELETE',
+                     {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 19,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
 
-        self.client.update_protocols(protocol_rse, protocol='MOCK', data={'prefix': 'where/the/files/are'})
-        resp = self.client.get_protocols(protocol_rse, protocol='MOCK')
-        for p in resp:
-            if p['prefix'] != 'where/the/files/are':
-                raise Exception('Update gave unexpected results: %s' % resp)
-        self.client.update_protocols(protocol_rse, protocol='MOCK', hostname='localhost', port=42, data={'read': 0})
-        resp = self.client.get_protocols(protocol_rse, operation='read', default=True)
+        resp = self.client.get_protocols(protocol_rse, operation='read', default=True, protocol_domain='LAN')
+        if resp[0]['port'] != 19:
+            raise Exception('Update gave unexpected result for current default operation (i.e. insert failed): %s' % resp)
+        self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'LAN': {'read': 1}}})
+        resp = self.client.get_protocols(protocol_rse, operation='read', default=True, protocol_domain='LAN')
         if resp[0]['port'] != 42:
-            raise Exception('Update gave unexpected result for new default operation: %s' % resp)
+            raise Exception('Update gave unexpected result for new default operation (i.e. update failed): %s' % resp)
+        resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
+        for r in resp:
+            if (r['port'] == 42 and r['domains']['LAN']['read'] != 1) or (r['port'] == 19 and r['domains']['LAN']['read'] != 2) or (r['port'] == 17 and r['domains']['LAN']['read'] != 3):
+                raise Exception('Update gave unexpected result for nwe ranking (i.e. update existing failed): %s' % resp)
         self.client.delete_protocols(protocol_rse, 'MOCK')
-        self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
+        self.client.delete_rse(protocol_rse)
+
+    def test_update_protocols_disable_default(self):
+        """ RSE (CLIENTS): set new default protocol by disabling the current default protocol."""
+        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 42,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 19,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        resp = self.client.get_protocols(protocol_rse, operation='read', default=True, protocol_domain='LAN')
+        if resp[0]['port'] != 19:
+            raise Exception('Update gave unexpected result for current default operation (i.e. insert failed): %s' % resp)
+        self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=19, data={'domains': {'LAN': {'read': 0}}})
+        resp = self.client.get_protocols(protocol_rse, operation='read', default=True, protocol_domain='LAN')
+        if resp[0]['port'] != 17:
+            raise Exception('Update gave unexpected result for new default operation (i.e. update failed): %s' % resp)
+        resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
+        for r in resp:
+            if (r['port'] == 42 and r['domains']['LAN']['read'] != 0) or (r['port'] == 19 and r['domains']['LAN']['read'] != 0) or (r['port'] == 17 and r['domains']['LAN']['read'] != 1):
+                raise Exception('Update gave unexpected result for nwe ranking (i.e. update existing failed): %s' % resp)
+        self.client.delete_protocols(protocol_rse, 'MOCK')
+        self.client.delete_rse(protocol_rse)
+
+    def test_update_protocols_update_ranking_forward(self):
+        """ RSE (CLIENTS): assign high priority to one protocol."""
+        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 18,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 2,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 19,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 3,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 20,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 4,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 21,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 5,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=20, data={'domains': {'LAN': {'read': 2}}})
+        resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
+        for r in resp:
+            if (r['port'] == 17 and r['domains']['LAN']['read'] != 1) or \
+               (r['port'] == 18 and r['domains']['LAN']['read'] != 3) or \
+               (r['port'] == 19 and r['domains']['LAN']['read'] != 4) or \
+               (r['port'] == 20 and r['domains']['LAN']['read'] != 2) or \
+               (r['port'] == 21 and r['domains']['LAN']['read'] != 5):
+                raise Exception('Update gave unexpected result for nwe ranking (i.e. update existing failed): %s' % resp)
+        self.client.delete_protocols(protocol_rse, 'MOCK')
+        self.client.delete_rse(protocol_rse)
+
+    def test_update_protocols_update_ranking_backward(self):
+        """ RSE (CLIENTS): assign lower priority to one protocol."""
+        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 18,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 2,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 19,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 3,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 20,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 4,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 21,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 5,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+
+        self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=18, data={'domains': {'LAN': {'read': 4}}})
+        resp = self.client.get_protocols(protocol_rse, scheme='MOCK')
+        for r in resp:
+            if (r['port'] == 17 and r['domains']['LAN']['read'] != 1) or \
+               (r['port'] == 18 and r['domains']['LAN']['read'] != 4) or \
+               (r['port'] == 19 and r['domains']['LAN']['read'] != 2) or \
+               (r['port'] == 20 and r['domains']['LAN']['read'] != 3) or \
+               (r['port'] == 21 and r['domains']['LAN']['read'] != 5):
+                raise Exception('Update gave unexpected result for new ranking (i.e. update existing failed): %s' % resp)
+        self.client.delete_protocols(protocol_rse, 'MOCK')
         self.client.delete_rse(protocol_rse)
 
     @raises(RSENotFound)
     def test_update_protocols_rse_not_found(self):
         """ RSE (CLIENTS): update all protocols with specific identifier of rse (RSENotFound)."""
-        self.client.update_protocols('The One that shouldn\'t be here', protocol='MOCK_Fail', data={'prefix': 'where/the/files/are'})
+        self.client.update_protocols('The One that shouldn\'t be here', scheme='MOCK_Fail', hostname='localhost', port=17, data={'prefix': 'where/the/files/are'})
 
     @raises(RSEProtocolNotSupported)
     def test_update_protocols_not_supported(self):
         """ RSE (CLIENTS): update all protocols with specific identifier of rse (RSEProtocolNotSupported)."""
         protocol_rse = 'MOCK_PROTOCOL_UPDATE_NOT_SUPPORTED' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK',
+        protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': 1,
-                      'write': 1,
-                      'delete': -1,
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK',
+                     {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 42,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': -1,
-                      'write': 1,
-                      'delete': -1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
-                     {'protocol': 'MOCK_DELETE',
+                     {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
                       'port': 19,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': -1,
-                      'write': -1,
-                      'delete': 1,
+                      'domains': {
+                          'LAN': {'read': 0,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
 
         try:
-            self.client.update_protocols(protocol_rse, protocol='MOCK_UNDEFINED', data={'delete': 1})
+            self.client.update_protocols(protocol_rse, scheme='MOCK_UNDEFINED', hostname='localhost', port=17, data={'delete_LAN': 1})
         except Exception, e:
             for p in protocols:
-                self.client.delete_protocols(protocol_rse, p['protocol'])
+                self.client.delete_protocols(protocol_rse, p['scheme'])
             self.client.delete_rse(protocol_rse)
             raise e
         for p in protocols:
-            self.client.delete_protocols(protocol_rse, p['protocol'])
+            self.client.delete_protocols(protocol_rse, p['scheme'])
         self.client.delete_rse(protocol_rse)
 
     @raises(InvalidObject)
@@ -824,20 +1401,24 @@ class TestRSEClient():
         """ RSE (CLIENTS): update all protocol with invalid value (InvalidObject)."""
         protocol_rse = 'MOCK_PROTOCOL_UPDATE_INVALID_VALUE' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocols = [{'protocol': 'MOCK',
+        protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'read': 1,
-                      'write': 1,
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
                       'extended_attributes': 'TheOneWithAllTheRest'
                       }
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['protocol'], p)
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
         try:
-            self.client.update_protocols(protocol_rse, protocol='MOCK', data={'impl': None})
+            self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'impl': None})
         except Exception, e:
             self.client.delete_protocols(protocol_rse, 'MOCK')
             self.client.delete_rse(protocol_rse)
@@ -845,3 +1426,33 @@ class TestRSEClient():
         self.client.delete_protocols(protocol_rse, 'MOCK')
         self.client.delete_rse(protocol_rse)
         raise Exception('Update did not raise expected exception')
+
+    @raises(RSEProtocolPriorityError)
+    def test_update_protocol_wrong_priority(self):
+        """  RSE (CLIENTS): Add a protocol with an invalid priority for ranking. """
+        protocol_rse = 'MOCK_PROTOCOL_ADD_WRONG_PRIORITY' + str(uuid())
+        self.client.add_rse(protocol_rse)
+        protocol_ports = [17, 29, 42]
+        for i in range(3):
+            self.client.add_protocol(protocol_rse,
+                                     'MOCK',
+                                     {'hostname': 'localhost',
+                                      'port': protocol_ports[i],
+                                      'prefix': '/the/one/with/all/the/files',
+                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                                      'domains': {
+                                          'LAN': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1
+                                                  }
+                                      },
+                                      'extended_attributes': 'TheOneWithAllTheRest'
+                                      })
+        try:
+            self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'LAN': {'read': 4}}})
+        except RSEProtocolPriorityError:
+            self.client.delete_protocols(protocol_rse, scheme='MOCK')
+            self.client.delete_rse(protocol_rse)
+            raise
+        self.client.delete_protocols(protocol_rse, scheme='MOCK')
+        self.client.delete_rse(protocol_rse)

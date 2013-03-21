@@ -150,7 +150,7 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_file_replica(self, rse, scope, name, size,  adler32=None, md5=None, pfn=None, dsn=None):
+    def add_file_replica(self, rse, scope, name, size, adler32=None, md5=None, pfn=None, dsn=None):
         """
         Add a file replica to a RSE.
 
@@ -176,12 +176,12 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_protocol(self, rse, protocol, params):
+    def add_protocol(self, rse, scheme, params):
         """
         Sends the request to create a new protocol for the given RSE.
 
         :param rse: the name of the  rse.
-        :param protocol: identifier of this protocol
+        :param scheme: identifier of this protocol
         :param params: Attributes of the protocol. Supported are:
             hostname:       hostname for this protocol (default = localhost)
             port:           port for this protocol (default = 0)
@@ -209,7 +209,7 @@ class RSEClient(BaseClient):
         :raises AccessDenied: if not authorized.
         """
         headers = {'Rucio-Auth-Token': self.auth_token}
-        path = '/'.join([self.RSE_BASEURL, rse, 'protocols', protocol])
+        path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
         url = build_url(self.host, path=path)
         data = dumps(params)
         r = self._send_request(url, headers, type='POST', data=data)
@@ -219,16 +219,17 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def get_protocols(self, rse, operation=None, default=False, protocol=None):
+    def get_protocols(self, rse, protocol_domain='ALL', operation=None, default=False, scheme=None):
         """
         Returns protocol information. Parameter comibantions are:
         (operation OR default) XOR protocol.
 
         :param rse: The name of the rse.
+        :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
         :param operation: The name of the requested operation (read, write, or delete).
                           If None, all operations are queried.
         :param default: Indicates if only the default operations should be returned.
-        :param protocol: The identifier of the requested protocol.
+        :param scheme: The identifier of the requested protocol.
 
         :returns: A list with details about each matching protocol.
 
@@ -241,14 +242,15 @@ class RSEClient(BaseClient):
         headers = {'Rucio-Auth-Token': self.auth_token}
         path = None
         params = {}
-        if protocol:
-            path = '/'.join([self.RSE_BASEURL, rse, 'protocols', protocol])
+        if scheme:
+            path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
         else:
             path = '/'.join([self.RSE_BASEURL, rse, 'protocols'])
             if operation:
                 params['operation'] = operation
             if default:
                 params['default'] = default
+        params['protocol_domain'] = protocol_domain
         url = build_url(self.host, path=path, params=params)
 
         r = self._send_request(url, headers, type='GET')
@@ -259,13 +261,13 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def delete_protocols(self, rse, protocol, hostname=None, port=None):
+    def delete_protocols(self, rse, scheme, hostname=None, port=None):
         """
         Deletes matching protocols from RSE. Protocols using the same identifier can be
         distinguished by hostname and port.
 
         :param rse: the name of the  rse.
-        :param protocol: identifier of the protocol.
+        :param scheme: identifier of the protocol.
         :param hostname: hostname of the protocol.
         :param port: port of the protocol.
 
@@ -277,7 +279,7 @@ class RSEClient(BaseClient):
         """
 
         headers = {'Rucio-Auth-Token': self.auth_token}
-        path = [self.RSE_BASEURL, rse, 'protocols', protocol]
+        path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
             path.append(hostname)
             if port:
@@ -292,13 +294,13 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def update_protocols(self, rse, protocol, data, hostname=None, port=None):
+    def update_protocols(self, rse, scheme, data, hostname=None, port=None):
         """
         Updates matching protocols from RSE. Protocol using the same identifier can be
         distinguished by hostname and port.
 
         :param rse: the name of the  rse.
-        :param protocol: identifier of the protocol.
+        :param scheme: identifier of the protocol.
         :param data: A dict providing the new values of the protocol attibutes.
                      Keys must match column names in database.
         :param hostname: hostname of the protocol.
@@ -313,7 +315,7 @@ class RSEClient(BaseClient):
         """
 
         headers = {'Rucio-Auth-Token': self.auth_token}
-        path = [self.RSE_BASEURL, rse, 'protocols', protocol]
+        path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
             path.append(hostname)
             if port:

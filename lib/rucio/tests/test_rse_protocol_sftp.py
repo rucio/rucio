@@ -29,7 +29,7 @@ class TestRseSFTP():
         """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
-        storage = rsemanager.RSE('lxplus.cern.ch')
+        storage = rsemanager.RSE('LXPLUS')
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
@@ -40,11 +40,12 @@ class TestRseSFTP():
         # Load local credentials from file
         with open('etc/rse-accounts.cfg') as f:
             data = json.load(f)
-        credentials = data['lxplus.cern.ch']
+        credentials = data['LXPLUS']
         credentials['host'] = 'lxplus.cern.ch'
+        print 'credentials: %s' % credentials
         lxplus = pysftp.Connection(**credentials)
         with open('etc/rse_repository.json') as f:
-            prefix = json.load(f)['lxplus.cern.ch']['protocols']['prefix']
+            prefix = json.load(f)['LXPLUS']['protocols']['supported']['sftp']['prefix']
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         for f in MgrTestCases.files_remote:
@@ -60,12 +61,12 @@ class TestRseSFTP():
         credentials = {}
         with open('etc/rse-accounts.cfg') as f:
             data = json.load(f)
-        credentials['username'] = str(data['lxplus.cern.ch']['username'])
-        credentials['password'] = str(data['lxplus.cern.ch']['password'])
+        credentials['username'] = str(data['LXPLUS']['username'])
+        credentials['password'] = str(data['LXPLUS']['password'])
         credentials['host'] = 'lxplus.cern.ch'
         lxplus = pysftp.Connection(**credentials)
         with open('etc/rse_repository.json') as f:
-            prefix = json.load(f)['lxplus.cern.ch']['protocols']['prefix']
+            prefix = json.load(f)['LXPLUS']['protocols']['supported']['sftp']['prefix']
         lxplus.execute('rm -rf %s' % prefix)
         lxplus.close()
         shutil.rmtree(cls.tmpdir)
@@ -73,7 +74,7 @@ class TestRseSFTP():
     def setUp(self):
         """SFTP (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseSFTP.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'lxplus.cern.ch')
+        self.mtc = MgrTestCases(self.tmpdir, 'LXPLUS')
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):

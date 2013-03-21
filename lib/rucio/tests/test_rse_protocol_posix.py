@@ -35,10 +35,10 @@ class TestRsePOSIX():
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSE('posix')
+        storage = rsemanager.RSE('POSIX')
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
-        prefix = data['posix']['protocols']['supported']['posix']['prefix']
+        prefix = data['POSIX']['protocols']['supported']['file']['prefix']
         try:
             os.mkdir(prefix)
         except Exception, e:
@@ -56,14 +56,14 @@ class TestRsePOSIX():
         """POSIX (RSE/PROTOCOLS): Removing created directorie s and files """
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
-        prefix = data['posix']['protocols']['supported']['posix']['prefix']
+        prefix = data['POSIX']['protocols']['supported']['file']['prefix']
         shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)
 
     def setUp(self):
         """POSIX (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRsePOSIX.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'posix')
+        self.mtc = MgrTestCases(self.tmpdir, 'POSIX')
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
