@@ -262,7 +262,7 @@ class Content:
         :returns: A list with the contents.
         """
 
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
@@ -274,7 +274,8 @@ class Content:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(list_content(scope=scope, name=name))
+            for did in list_content(scope=scope, name=name):
+                yield dumps(did) + '\n'
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except RucioException, e:
