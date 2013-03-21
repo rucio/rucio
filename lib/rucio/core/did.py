@@ -38,7 +38,7 @@ def list_replicas(scope, name, protocols=None, session=None):
     rsemgr = rsemanager.RSEMgr()
     try:
         query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE')
-        for row in query:
+        for row in query.yield_per(5):
             try:
                 pfns = list()
                 for protocol in rsemgr.list_protocols(rse_id=row.rse.rse):
@@ -184,16 +184,12 @@ def list_content(scope, name, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-
-    dids = []
     try:
         query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name)
-        for tmp_did in query:
-            dids.append({'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type})
+        for tmp_did in query.yield_per(5):
+            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-
-    return dids
 
 
 @read_session
@@ -219,7 +215,8 @@ def list_files(scope, name, session=None):
         while dids:
             s, n = dids.pop()
             query = session.query(models.DataIdentifierAssociation).filter_by(scope=s, name=n)
-            for tmp_did in query:
+            for tmp_did in query.yield_per(5):
+
                 if tmp_did.child_type == models.DataIdType.FILE:
                     yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'size': 100000}  # TODO Change this to the proper filesize [RUCIO-199]
                 else:
@@ -236,6 +233,11 @@ def scope_list(scope, name=None, recursive=False, session=None):
     :param name: The data identifier name.
     :param recursive: boolean, True or False.
     """
+
+    # TODO= Perf. tuning of the method
+    # query = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
+    # for did in query.yield_per(5):
+    #    yield {'scope': did.scope, 'name': did.name, 'type': did.type, 'parent': None, 'level': 0}
 
     try:
         query_all = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
