@@ -322,6 +322,18 @@ class RSEProtocolNotSupported(RucioException):
         self._message = "RSE does not support requested protocol."
 
 
+class RSEProtocolPriorityError(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSEProtocolPriorityError, self).__init__(args, kwargs)
+        self._message = "RSE does not support provided protocol priority for protocol."
+
+
+class RSEProtocolDomainNotSupported(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSEProtocolDomainNotSupported, self).__init__(args, kwargs)
+        self._message = "RSE does not support requested protocol scope."
+
+
 class RSEOperationNotSupported(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEOperationNotSupported, self).__init__(args, kwargs)

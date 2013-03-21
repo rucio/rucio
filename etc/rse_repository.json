@@ -8,9 +8,18 @@
           "impl": "rucio.rse.protocols.s3.Default",
           "prefix": "RSETESTS3",
           "port": 443,
-          "read": 1,
-          "write": 1,
-          "delete": 1,
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          },
           "hostname": "swift.cern.ch"
         }
       }
@@ -25,9 +34,18 @@
         "sftp": {
           "impl": "rucio.rse.protocols.sftp.Default",
           "port": 22,
-          "read": 1,
-          "write": 1,
-          "delete": 1,
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          },
           "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test_run/",
           "hostname": "lxplus.cern.ch"
         }
@@ -38,14 +56,23 @@
   "POSIX":{
     "backend_type": "POSIX",
     "protocols": {
-      "default": "posix",
+      "default": "file",
       "supported": {
         "file": {
           "prefix": "/tmp/rucio_rse/",
           "hostname": "localhost",
-          "read": 1,
-          "write": 1,
-          "delete": 1,
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          },
           "impl": "rucio.rse.protocols.posix.Default"
         }
       }
@@ -55,21 +82,30 @@
   "MOCK":{
     "backend_type": "POSIX",
     "protocols": {
-      "default": "posix",
+      "default": "file",
       "supported": {
-        "posix": {
+        "file": {
           "impl": "rucio.rse.protocols.posix.Default",
           "hostname": "localhost",
-          "read": 1,
-          "write": 1,
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          },
           "prefix": "/tmp/rucio_rse/"
         },
         "sftp": {
           "impl": "rucio.rse.protocols.sftp.Default",
           "port": 22,
-          "read": 1,
-          "write": 1,
-          "delete": -1,
+          "domains": {
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          },
           "prefix": "/afs/cern.ch/user/d/ddmlab/somethingelse/",
           "hostname": "lxplus.cern.ch"
         }
@@ -81,11 +117,12 @@
     "backend_type": "POSIX",
     "deterministic": false,
     "protocols": {
-      "default": "posix",
+      "default": "file",
       "prefix": "/tmp/rucio_rse/",
       "supported": {
-        "posix": {
-          "impl": "rucio.rse.protocols.posix.Default"
+        "file": {
+          "impl": "rucio.rse.protocols.posix.Default",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"}
         }
       }
     },
@@ -332,10 +369,19 @@
           "hostname": "rfio://castoratlas.cern.ch",
           "port": 9002,
           "prefix": "/castor/cern.ch/grid/atlas/tzero/",
-          "read": 1,
-          "write": 1,
-          "delete": 1,
           "hostname": "srm://srm-atlas.cern.ch",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          },
           "extended_attributes": "{'The One After the Port': '/srm/managerv2'}"
         }
       }
@@ -360,10 +406,19 @@
           "hostname": "rfio://castoratlas.cern.ch",
           "port": 9002,
           "prefix": "/castor/cern.ch/grid/atlas/tmpdisk/rucio_tests/",
-          "extended_attributes": {"STAGE_SVCCLASS": "t0atlas"},
-          "read": 1,
-          "write": 1,
-          "delete": 1
+          "extended_attributes": "{'STAGE_SVCCLASS': 't0atlas'}",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },

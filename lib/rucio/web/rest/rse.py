@@ -17,7 +17,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, del_rse_attribute, add_file_replica, add_protocol, get_protocols, del_protocols, update_protocols
-from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject
+from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
 from rucio.common.utils import generate_http_error
 
 urls = (
@@ -143,7 +143,6 @@ class RSE:
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except AccessDenied, e:
-            print e
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
 
         raise OK()
@@ -353,16 +352,20 @@ class Protocols:
         params = input()
         operation = params.operation if 'operation' in params.keys() else None
         default = params.default if 'default' in params.keys() else False
+        protocol_domain = params.protocol_domain if 'protocol_domain' in params.keys() else 'ALL'
         try:
-            p_list = get_protocols(rse, issuer=auth['account'], operation=operation, default=default)
+            p_list = get_protocols(rse, issuer=auth['account'], protocol_domain=protocol_domain, operation=operation, default=default)
         except RSEOperationNotSupported, e:
             raise generate_http_error(404, 'RSEOperationNotSupported', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RSEProtocolNotSupported, e:
             raise generate_http_error(404, 'RSEProtocolNotSupported', e[0][0])
+        except RSEProtocolDomainNotSupported, e:
+            raise generate_http_error(404, 'RSEProtocolDomainNotSupported', e[0][0])
         except Exception, e:
             print e
+            print format_exc()
             raise InternalError(e)
         return dumps(p_list)
 
@@ -380,7 +383,7 @@ class Protocols:
 class Protocol:
     """ Create, Update, Read and delete a specific protocol. """
 
-    def POST(self, rse, protocol):
+    def POST(self, rse, scheme):
         """
         Create a protocol for a given RSE.
 
@@ -410,7 +413,7 @@ class Protocol:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         # Fill defaults and check mandatory parameters
-        parameters['protocol'] = protocol
+        parameters['scheme'] = scheme
 
         try:
             add_protocol(rse, issuer=auth['account'], data=parameters)
@@ -422,6 +425,10 @@ class Protocol:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except InvalidObject, e:
             raise generate_http_error(400, 'InvalidObject', e[0][0])
+        except RSEProtocolDomainNotSupported, e:
+            raise generate_http_error(404, 'RSEProtocolDomainNotSupported', e[0][0])
+        except RSEProtocolPriorityError, e:
+            raise generate_http_error(409, 'RSEProtocolPriorityError', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -430,7 +437,7 @@ class Protocol:
             raise InternalError(e)
         raise Created()
 
-    def GET(self, rse, protocol):
+    def GET(self, rse, scheme):
         """ List all references of the provided RSE for the given protocol.
 
         HTTP Success:
@@ -453,17 +460,20 @@ class Protocol:
 
         p_list = None
         try:
-            p_list = get_protocols(rse, issuer=auth['account'], protocol=protocol)
+            p_list = get_protocols(rse, issuer=auth['account'], scheme=scheme)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RSEProtocolNotSupported, e:
             raise generate_http_error(404, 'RSEProtocolNotSupported', e[0][0])
+        except RSEProtocolDomainNotSupported, e:
+            raise generate_http_error(404, 'RSEProtocolDomainNotSupported', e[0][0])
         except Exception, e:
             print e
+            print format_exc()
             raise InternalError(e)
         return dumps(p_list)
 
-    def PUT(self, rse, protocol, hostname=None, port=None):
+    def PUT(self, rse, scheme, hostname=None, port=None):
         """
         Updates attributes of an existing protocol entry. Because protocol identifier, hostname,
         and port are used as unique identifier they are immutable.
@@ -475,6 +485,7 @@ class Protocol:
             400 Bad Request
             401 Unauthorized
             404 Resource not Found
+            409 Conflict
             500 InternalError
         """
 
@@ -493,13 +504,17 @@ class Protocol:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            update_protocols(rse, issuer=auth['account'], protocol=protocol, hostname=hostname, port=port, data=parameter)
+            update_protocols(rse, issuer=auth['account'], scheme=scheme, hostname=hostname, port=port, data=parameter)
         except InvalidObject, e:
             raise generate_http_error(400, 'InvalidObject', e[0][0])
         except RSEProtocolNotSupported, e:
             raise generate_http_error(404, 'RSEProtocolNotSupported', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RSEProtocolDomainNotSupported, e:
+            raise generate_http_error(404, 'RSEProtocolDomainNotSupported', e[0][0])
+        except RSEProtocolPriorityError, e:
+            raise generate_http_error(409, 'RSEProtocolPriorityError', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -509,7 +524,7 @@ class Protocol:
 
         raise OK()
 
-    def DELETE(self, rse, protocol, hostname=None, port=None):
+    def DELETE(self, rse, scheme, hostname=None, port=None):
         """
         Deletes a protocol entry for the provided RSE.
 
@@ -530,7 +545,7 @@ class Protocol:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            del_protocols(rse, issuer=auth['account'], protocol=protocol, hostname=hostname, port=port)
+            del_protocols(rse, issuer=auth['account'], scheme=scheme, hostname=hostname, port=port)
         except RSEProtocolNotSupported, e:
             raise generate_http_error(404, 'RSEProtocolNotSupported', e[0][0])
         except RSENotFound, e:

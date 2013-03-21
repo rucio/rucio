@@ -46,6 +46,7 @@ if __name__ == '__main__':
             print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
         for p_id in repo_data[rse]['protocols']['supported']:
             try:
+                print 'Adding protocol %s to %s' % (p_id, rse)
                 c.add_protocol(rse, p_id, repo_data[rse]['protocols']['supported'][p_id])
             except ValueError, e:
                 print e

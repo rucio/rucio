@@ -128,10 +128,12 @@ class ModelBase(object):
         if flush:
             session.flush()
 
-    def update(self, values):
+    def update(self, values, flush=True, session=None):
         """dict.update() behaviour."""
         for k, v in values.iteritems():
             self[k] = v
+        if session and flush:
+            session.flush()
 
     def __setitem__(self, key, value):
         setattr(self, key, value)
@@ -178,7 +180,7 @@ class SoftModelBase(ModelBase):
         self.save(session=session)
 
 
-class Account(BASE,  SoftModelBase):
+class Account(BASE, SoftModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
     account = Column(String(30))
@@ -361,17 +363,20 @@ class RSEProtocols(BASE, ModelBase):
     """Represents supported protocols of RSEs (Rucio Storage Elements)"""
     __tablename__ = 'rse_protocols'
     rse_id = Column(GUID())
-    protocol = Column(String(255))
+    scheme = Column(String(255))
     hostname = Column(String(255), default='localhost')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as beeing default
     port = Column(Integer, default=0)  # like host, for local protocol the port 0 is assumed to be default
     prefix = Column(String(1024), nullable=True)
     impl = Column(String(255), nullable=False)
-    read = Column(Integer, default=-1)  # if no value is provided, -1 i.e. not supported is assumed as default value
-    write = Column(Integer, default=-1)  # if no value is provided, -1 i.e. not supported is assumed as default value
-    delete = Column(Integer, default=-1)  # if no value is provided, -1 i.e. not supported is assumed as default value
+    read_LAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    write_LAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    delete_LAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    read_WAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    write_WAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    delete_WAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(1024), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
-    _table_args = (PrimaryKeyConstraint('rse_id', 'protocol', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
+    _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
                    CheckConstraint('"IMPL" IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'),
                    )
