@@ -185,11 +185,9 @@ def list_rse_attributes(rse, rse_id=None, session=None):
     """
     rse_attrs = {}
     if rse_id is None:
-        l = get_rse(rse=rse, session=session).id
-    else:
-        l = rse_id
+        rse_id = get_rse(rse=rse, session=session).id
 
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id)
+    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id)
     for attr in query:
         rse_attrs[attr.key] = attr.value
     return rse_attrs

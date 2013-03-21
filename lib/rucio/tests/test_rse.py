@@ -21,7 +21,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.common.exception import Duplicate, RSENotFound, RSEProtocolNotSupported, RSEOperationNotSupported, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.rse import add_rse, del_rse, list_rses,\
-    rse_exists, set_rse_usage, get_rse_usage, add_rse_attribute
+    rse_exists, set_rse_usage, get_rse_usage, add_rse_attribute, list_rse_attributes
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -84,6 +84,15 @@ class TestRSECoreApi():
         usage = get_rse_usage(rse=rse)
         for u in usage:
             assert_equal(u['total'], 1000000)
+
+    def test_list_rse_attributes(self):
+        """ RSE (CORE): Test the listing of RSE attributes """
+        rse = 'MOCK_' + str(uuid())
+        rse_id = add_rse(rse)
+        add_rse_attribute(rse=rse, key='tier', value='1')
+        attr = list_rse_attributes(rse=None, rse_id=rse_id)
+        assert_in('tier', attr.keys())
+        assert_in(rse, attr.keys())
 
 
 class TestRSE():
