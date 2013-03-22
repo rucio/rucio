@@ -185,8 +185,8 @@ class Account(BASE,  SoftModelBase):
     type = Column(Enum('user', 'group', 'service', name='ACCOUNTS_TYPE_CHK'))
     status = Column(Enum('active', 'inactive', 'disabled', name='ACCOUNTS_STATUS_CHK'))
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
-                   CheckConstraint('"TYPE" IS NOT NULL', name='ACCOUNT_TYPE_NN'),
-                   CheckConstraint('"STATUS" IS NOT NULL', name='ACCOUNT_STATUS_NN')
+                   CheckConstraint('"TYPE" IS NOT NULL', name='ACCOUNTS_TYPE_NN'),
+                   CheckConstraint('"STATUS" IS NOT NULL', name='ACCOUNTS_STATUS_NN')
                    )
 
 
@@ -497,11 +497,23 @@ class Authentication(BASE, ModelBase):
                    CheckConstraint('"LIFETIME" IS NOT NULL', name='AUTH_LIFETIME_NN'),)
 
 
+class Callback(BASE, ModelBase):
+    """Represents the event callbacks"""
+    __tablename__ = 'callbacks'
+    id = Column(GUID(), default=utils.generate_uuid)
+    event_type = Column(String(1024))
+    payload = Column(String(4000))
+    _table_args = (PrimaryKeyConstraint('id', name='CALLBACKS_ID_PK'),
+                   CheckConstraint('"EVENT_TYPE" IS NOT NULL', name='CALLBACKS_EVENT_TYPE_NN'),
+                   CheckConstraint('"PAYLOAD" IS NOT NULL', name='CALLBACKS_PAYLOAD_NN'),)
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
     models = (Account,
+              Callback,
               Identity,
               IdentityAccountAssociation,
               Scope,
@@ -529,6 +541,7 @@ def unregister_models(engine):
     Drops database tables for all models with the given engine
     """
     models = (Account,
+              Callback,
               Identity,
               IdentityAccountAssociation,
               Scope,
