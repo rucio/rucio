@@ -16,6 +16,7 @@ Rucio utilities.
 import datetime
 import json
 import re
+import subprocess
 import zlib
 
 from urllib import urlencode
@@ -174,3 +175,29 @@ def parse_response(**data):
     """ JSON render function
     """
     return json.loads(data, object_hook=datetime_parser)
+
+
+def execute(cmd):
+    """
+    Executes a command in a subprocess. Returns a tuple
+    of (exitcode, out, err), where out is the string output
+    from stdout and err is the string output from stderr when
+    executing the command.
+
+    :param cmd: Command string to execute
+    """
+
+    process = subprocess.Popen(cmd,
+                               shell=True,
+                               stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    out = ''
+    err = ''
+    exitcode = 0
+
+    result = process.communicate()
+    (out, err) = result
+    exitcode = process.returncode
+
+    return exitcode, out, err

@@ -129,7 +129,7 @@ def add_replicas(args):
     for lfn, rse, checksum, size in zip(args.lfns, args.rses, args.checksums, args.sizes):
         try:
             scope, name = lfn.split(':')
-            client.add_file_replica(scope=scope, name=name, rse=rse, checksum=checksum, size=size)
+            client.add_file_replica(scope=scope, name=name, rse=rse, adler32=checksum, size=size)
             print 'Added file replica %(lfn)s at %(rse)s' % locals()
         except Exception, e:
             print 'Failed to add file replica %(lfn)s at %(rse)s' % locals()
@@ -574,7 +574,7 @@ def upload(args):
         try:
             size = os.stat(filename).st_size
             checksum = adler32(filename)
-            client.add_file_replica(scope=args.scope, name=filename, rse=args.rse, checksum=checksum, size=size, dsn=dsn)
+            client.add_file_replica(scope=args.scope, name=filename, rse=args.rse, adler32=checksum, size=size, dsn=dsn)
             rsemgr.upload(args.rse, lfns=[{'filename': filename, 'scope': args.scope}, ])
             print 'download operation for %s done' % filename
         except Exception, e:
