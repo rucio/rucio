@@ -11,24 +11,25 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
+from datetime import datetime
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
 
 from rucio.common import exception
 from rucio.db import models
-from rucio.db.session import read_session, transactional_session, in_transaction
+from rucio.db.session import read_session, transactional_session
 
 
 class account_status:
     """ Enumerated type for account status """
-    # As the corresponding column on the db is of type enum, no integers are used
-    active = 'active'
-    inactive = 'inactive'
-    disabled = 'disabled'
-    not_exist = 'not_exist'
+# As the corresponding column on the db is of type enum, no integers are used
+    ACTIVE = 'ACTIVE'
+    SUSPENDED = 'SUSPENDED'
+    DELETED = 'DELETED'
 
 
-@in_transaction(nested=False)
+@transactional_session
 def add_account(account_name, account_type, session=None):
     """ Add an account with the given account name and type.
 
@@ -36,19 +37,11 @@ def add_account(account_name, account_type, session=None):
     :param account_type: the type of the new account.
     :param session: the database session in use.
     """
-
-    values = {}
-    values['account'] = account_name
-    values['type'] = account_type
-    values['status'] = account_status.active
-    new_account = models.Account()
-
-    new_account.update(values)
-
+    new_account = models.Account(account=account_name, type=account_type, status=account_status.ACTIVE)
     try:
         new_account.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate('Account ID \'%s\' already exists!' % values['account'])
+        raise exception.Duplicate('Account ID \'%s\' already exists!' % account_name)
 
 
 @read_session
@@ -92,14 +85,14 @@ def del_account(account_name, session=None):
     :param session: the database session in use.
     """
 
-    query = session.query(models.Account).filter_by(account=account_name).filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(account=account_name).filter_by(status=account_status.ACTIVE)
 
     try:
         account = query.one()
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
 
-    account.delete(session=session)
+    account.update({'status': account_status.DELETED, 'deleted_at': datetime.utcnow()})
 
 
 @read_session
@@ -137,7 +130,7 @@ def list_accounts(session=None):
     returns: a list of all account names.
     """
 
-    query = session.query(models.Account).filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(status=account_status.ACTIVE)
     for row in query.order_by(models.Account.account).yield_per(25):
         yield {'account': row.account, 'type': row.type}
 

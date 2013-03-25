@@ -185,7 +185,9 @@ class Account(BASE, SoftModelBase):
     __tablename__ = 'accounts'
     account = Column(String(30))
     type = Column(Enum('user', 'group', 'service', name='ACCOUNTS_TYPE_CHK'))
-    status = Column(Enum('active', 'inactive', 'disabled', name='ACCOUNTS_STATUS_CHK'))
+    status = Column(Enum('ACTIVE', 'SUSPENDED', 'DELETED', name='ACCOUNTS_STATUS_CHK'), default='ACTIVE')
+    suspended_at = Column(DateTime)
+    deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
                    CheckConstraint('"TYPE" IS NOT NULL', name='ACCOUNTS_TYPE_NN'),
                    CheckConstraint('"STATUS" IS NOT NULL', name='ACCOUNTS_STATUS_NN')
@@ -222,15 +224,19 @@ class IdentityAccountAssociation(BASE, ModelBase):
                    )
 
 
-class Scope(BASE, SoftModelBase):
+class Scope(BASE, ModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
     scope = Column(String(30))
     account = Column(String(30))
     is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
+    status = Column(Enum('OPEN', 'CLOSED', 'DELETED', name='SCOPE_STATUS_CHK'), default='OPEN')
+    closed_at = Column(DateTime)
+    deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
                    CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),
+                   CheckConstraint('STATUS IS NOT NULL', name='SCOPES_STATUS_NN'),
                    CheckConstraint('account IS NOT NULL', name='SCOPES_ACCOUNT_NN')
                    )
 
@@ -542,8 +548,7 @@ def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
-    models = (
-              Account,
+    models = (Account,
               AccountLimit,
               AccountUsage,
               Callback,
@@ -573,8 +578,7 @@ def unregister_models(engine):
     """
     Drops database tables for all models with the given engine
     """
-    models = (
-              Account,
+    models = (Account,
               AccountLimit,
               AccountUsage,
               Callback,

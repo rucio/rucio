@@ -106,7 +106,7 @@ def create_root_account():
 
     s = session.get_session()
 
-    account = models.Account(account='root', type='user', status='active')
+    account = models.Account(account='root', type='user', status='ACTIVE')
 
     identity1 = models.Identity(identity=up_id, type='userpass', password=up_pwd, salt='0', email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, is_default=True)

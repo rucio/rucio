@@ -70,7 +70,10 @@ class Scopes:
             scopes = get_scopes(account_name)
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
         if not len(scopes):
