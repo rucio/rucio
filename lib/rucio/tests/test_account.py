@@ -48,11 +48,11 @@ class TestAccountCoreApi():
         """ ACCOUNT (CORE): Test changing and quering account status """
         usr = str(uuid()).lower()[0:30]
         add_account(usr, 'user', 'root')
-        assert_equal(get_account_status(usr), account_status.active)  # Should be active by default
-        set_account_status(usr, account_status.inactive)
-        assert_equal(get_account_status(usr), account_status.inactive)
-        set_account_status(usr, account_status.active)
-        assert_equal(get_account_status(usr), account_status.active)
+        assert_equal(get_account_status(usr), account_status.ACTIVE)  # Should be active by default
+        set_account_status(usr, account_status.SUSPENDED)
+        assert_equal(get_account_status(usr), account_status.SUSPENDED)
+        set_account_status(usr, account_status.ACTIVE)
+        assert_equal(get_account_status(usr), account_status.ACTIVE)
         del_account(usr, 'root')
 
 
@@ -203,7 +203,8 @@ class TestAccountRestApi():
         headers4 = {'X-Rucio-Auth-Token': str(token)}
         r4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
         body = loads(r4.body)
-        assert_true(body['deleted'])
+        print
+        assert_true(body['status'] == account_status.DELETED)
         assert_equal(r3.status, 200)
 
     def test_del_user_failure(self):

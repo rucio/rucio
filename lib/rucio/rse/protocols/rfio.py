@@ -55,7 +55,7 @@ class Default(protocol.RSEProtocol):
         return status == 0
 
     def mkdir(self, directory):
-        path = self.pfn2uri(directory)    # NOQA
+        path = self.pfn2uri(directory)  # NOQA
         cmd = 'rfmkdir -p %(path)s' % locals()
         status, out, err = execute(cmd)
         return status == 0
