@@ -360,7 +360,7 @@
           "hostname": "rfio://castoratlas.cern.ch",
           "port": 9002,
           "prefix": "/castor/cern.ch/grid/atlas/tmpdisk/rucio_tests/",
-          "extended_attributes": "{'STAGE_SVCCLASS': 't0atlas'}",
+          "extended_attributes": {"STAGE_SVCCLASS": "t0atlas"},
           "read": 1,
           "write": 1,
           "delete": 1
