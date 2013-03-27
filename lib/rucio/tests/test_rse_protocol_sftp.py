@@ -25,7 +25,7 @@ class TestRseSFTP():
     tmpdir = None
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
@@ -71,7 +71,7 @@ class TestRseSFTP():
         lxplus.close()
         shutil.rmtree(cls.tmpdir)
 
-    def setUp(self):
+    def setup(self):
         """SFTP (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseSFTP.tmpdir
         self.mtc = MgrTestCases(self.tmpdir, 'LXPLUS')

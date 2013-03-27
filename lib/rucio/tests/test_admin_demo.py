@@ -21,7 +21,7 @@ from rucio.tests.common import execute
 class TestRucioDemo:
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         try:
             remove('/tmp/.rucio_root/auth_token_root')
         except OSError, e:
@@ -36,7 +36,7 @@ class TestRucioDemo:
     def tearDownClass(cls):
         pass
 
-    def setUp(self):
+    def setup(self):
         self.marker = '   $> '
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')

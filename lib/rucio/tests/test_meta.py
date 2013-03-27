@@ -17,7 +17,7 @@ from rucio.common.utils import generate_uuid as uuid
 
 class TestMetaClient():
 
-    def setUp(self):
+    def setup(self):
         self.meta_client = MetaClient()
 
     def test_add_and_list_keys(self):
