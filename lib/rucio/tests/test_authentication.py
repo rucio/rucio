@@ -17,12 +17,6 @@ from rucio.web.rest.authentication import app
 
 class TestAuthCoreApi():
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_get_auth_token_user_pass(self):
         """AUTHENTICATION (CORE): Username and password (correct credentials)."""
         result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1')
@@ -30,12 +24,6 @@ class TestAuthCoreApi():
 
 
 class TestAuthRestApi():
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
 
     def test_userpass_fail(self):
         """AUTHENTICATION (REST): Username and password (wrong credentials)."""

@@ -30,7 +30,7 @@ class TestCurlRucio():
     def tearDownClass(cls):
         pass
 
-    def setUp(self):
+    def setup(self):
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
         self.marker = '$> '

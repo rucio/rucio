@@ -397,9 +397,11 @@
       "supported": {
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
-          "hostname": "srm://srm-atlas.cern.ch",
+          "hostname": "srm-atlas.cern.ch",
+          "scheme": "srm",
           "port": 8443,
-          "extended_attributes": "{'web_service_path': '/srm/managerv2?SFN=', 'space_token': 'ATLASDATATAPE'}"
+          "prefix": "/castor/cern.ch/grid/atlas/tmpdisk/rucio_tests/",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"}
         },
         "rfio": {
           "impl": "rucio.rse.protocols.rfio.Default",
