@@ -10,6 +10,7 @@
 
 import os
 
+from json import loads
 from os.path import dirname, normpath
 
 from rucio.common.utils import execute
@@ -22,9 +23,9 @@ class Default(protocol.RSEProtocol):
         self.rse = props
 
     def connect(self, credentials):
-        if 'STAGE_SVCCLASS' in self.rse['protocol']['extended_attributes']:
-            pass
-        #    os.environ['STAGE_SVCCLASS'] = self.rse['protocol']['extended_attributes']['STAGE_SVCCLASS']
+        extended_attributes = self.rse['protocol']['extended_attributes']
+        if 'STAGE_SVCCLASS' in extended_attributes:
+            os.environ['STAGE_SVCCLASS'] =  extended_attributes['STAGE_SVCCLASS']
 
     def pfn2uri(self, pfn):
         path = self.rse['prefix'] + '/' + pfn
