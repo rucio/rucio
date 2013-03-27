@@ -44,6 +44,7 @@ def run_once():
     print err
     print 'Upload it against a RSE'
     cmd = 'rucio upload --files %(fname)s --rse RUCIO_TEST_CERN-PROD_TMPDISK  --scope tests' % locals()
+    print cmd
     exitcode, out, err = execute(cmd)
     print out
     print err

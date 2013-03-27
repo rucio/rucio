@@ -242,6 +242,7 @@ class RSE(object):
 
         # Loading repository data
         try:
+            print self.__path_to_repo
             f = open(self.__path_to_repo)
             repdata = json.load(f)
             f.close()
