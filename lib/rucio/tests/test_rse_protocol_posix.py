@@ -24,7 +24,7 @@ class TestRsePOSIX():
     tmpdir = None
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         """POSIX (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
@@ -52,7 +52,7 @@ class TestRsePOSIX():
             shutil.copy('%s/data.raw' % prefix, storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'}))
 
     @classmethod
-    def tearDownClass(cls):
+    def teardownClass(cls):
         """POSIX (RSE/PROTOCOLS): Removing created directorie s and files """
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
@@ -60,7 +60,7 @@ class TestRsePOSIX():
         shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)
 
-    def setUp(self):
+    def setup(self):
         """POSIX (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRsePOSIX.tmpdir
         self.mtc = MgrTestCases(self.tmpdir, 'POSIX')

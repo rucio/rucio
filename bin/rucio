@@ -195,7 +195,7 @@ def list_replicas(args):
             scope, name = did.split(':')
             replicas = client.list_replicas(scope=scope, name=name, protocols=protocols)
             for replica in replicas:
-                print '%(rse)s\t%(checksum)s\t%(size)s\t%(pfns)s' % replica
+                print '%(rse)s\t%(adler32)s\t%(size)s\t%(pfns)s' % replica
         except Exception, e:
             print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
             print e

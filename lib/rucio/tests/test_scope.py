@@ -27,15 +27,7 @@ from rucio.web.rest.authentication import app as auth_app
 
 class TestScopeCoreApi():
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
-    def setUp(self):
+    def setup(self):
         self.scopes = ['test_scope_' + str(uuid())[:19] for i in range(5)]
 
     def test_list_scopes(self):
@@ -56,15 +48,7 @@ class TestScopeCoreApi():
 
 class TestScope():
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
-    def setUp(self):
+    def setup(self):
         self.scopes = ['test_scope_' + str(uuid())[:19] for i in range(5)]
 
     def test_scope_success(self):
@@ -199,15 +183,7 @@ class TestScope():
 
 class TestScopeClient():
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
-    def setUp(self):
+    def setup(self):
         self.account_client = AccountClient()
         self.scope_client = ScopeClient()
 
