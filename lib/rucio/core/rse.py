@@ -423,6 +423,7 @@ def add_protocol(rse, parameter, session=None):
                     val = parameter[op_name] + 1
                     for p in prots:
                         p.update({op_name: val})
+                        val += 1
         new_protocol = models.RSEProtocols()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
