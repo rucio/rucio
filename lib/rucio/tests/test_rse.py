@@ -231,25 +231,71 @@ class TestRSEClient():
         """ RSE (CLIENTS): add three protocols to rse."""
         protocol_rse = 'MOCK_PROTOCOL_ADD_SUCCESS' + str(uuid())
         self.client.add_rse(protocol_rse)
-        protocol_id = ['MOCK_' + str(uuid()) + str(i) for i in xrange(3)]
-        protocol_ports = [17, 29, 42]
-        for i in range(3):
-            self.client.add_protocol(protocol_rse,
-                                     protocol_id[i],
-                                     {'hostname': 'localhost',
-                                      'port': protocol_ports[i],
-                                      'prefix': '/the/one/with/all/the/files',
-                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'domains': {
-                                          'LAN': {'read': 1,
-                                                  'write': 1,
-                                                  'delete': 1
-                                                  }
-                                      },
-                                      'extended_attributes': 'TheOneWithAllTheRest'
-                                      })
-        for id in protocol_id:
-            self.client.delete_protocols(protocol_rse, id)
+        protocols = [{'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 18,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 19,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCK',
+                      'hostname': 'localhost',
+                      'port': 20,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'LAN': {'read': 2,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p['scheme'], p)
+        resp = self.client.get_protocols(protocol_rse)
+        for p in resp:
+            if ((p['port'] == 19) and (p['domains']['LAN']['read'] != 1)) or \
+               ((p['port'] == 20) and (p['domains']['LAN']['read'] != 2)) or \
+               ((p['port'] == 18) and (p['domains']['LAN']['read'] != 3)) or \
+               ((p['port'] == 17) and (p['domains']['LAN']['read'] != 4)):
+                print resp
+                assert(False)
+
+        self.client.delete_protocols(protocol_rse, scheme='MOCK')
         self.client.delete_rse(protocol_rse)
 
     @raises(RSENotFound)
