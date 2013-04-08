@@ -14,12 +14,13 @@ Prerequisites
 This document assumes you have the following tools available on your system:
 
 - git_
-- setuptools_
-- pip_
-- virtualenv_
+- Python_ 2.6 or 2.7
+- setuptools_/pip_/virtualenv_ or curl_
 
 .. _git: http://git-scm.com/
+.. _Python: http://www.python.org/
 .. _setuptools: http://pypi.python.org/pypi/setuptools
+.. _curl: http://curl.haxx.se/
 
 Getting the latest code
 =======================
@@ -32,7 +33,7 @@ Make a clone of the code from our git repository::
 
 .. Or, if you need to do an an anonymous checkout::
 ..    $ export GIT_SSL_NO_VERIFY=1
-..    $ git clone https://atlas-gerrit.cern.ch:8443/p/rucio    
+..    $ git clone https://atlas-gerrit.cern.ch:8443/p/rucio
 
 
 Configuring git
@@ -49,7 +50,7 @@ They can be installed by executing the script tools/configure_git.sh::
 Or manually with::
 
     $ cd rucio
-    $ cp tools/commit-msg .git/hooks/commit-msg    
+    $ cp tools/commit-msg .git/hooks/commit-msg
     $ chmod +x .git/hooks/commit-msg
 
 Now, copy the pep8 verification commit hook::
@@ -70,14 +71,18 @@ When that is complete, you are ready to play.
 Installing dependencies
 =======================
 
-Rucio maintains two lists of dependencies::
+Rucio maintains three lists of dependencies::
 
     tools/pip-requires
+    tools/pip-requires-client
     tools/pip-requires-test
 
-The first is the list of dependencies needed for running rucio, the second list includes dependencies used for active development and testing of rucio itself.
+The first is the list of dependencies needed for running rucio,
+the second list includes dependencies used for the rucio python clients and CLIs and
+the third list is for active development and testing of rucio itself.
 
-These depdendencies can be installed from PyPi_ using the python tool pip_.
+These depdendencies can be installed from PyPi_ using the python tool pip_ or by using
+the tools/install_venv.py script as described in the next section.
 
 .. _PyPi: http://pypi.python.org/
 .. _pip: http://pypi.python.org/pypi/pip
@@ -97,6 +102,11 @@ rucio. The tools directory in rucio has a script already created to make this ve
     $ python tools/install_venv.py
 
 This will create a local virtual environment in the directory ``.venv``.
+
+If you need to develop only the clients and have a default configuration::
+
+    $ python tools/install_venv.py --atlas-clients
+
 Once created, you can activate this virtualenv for your current shell using::
 
     $ source .venv/bin/activate
@@ -191,6 +201,10 @@ It can be copied locally and configured::
     $ mkdir -p /opt/rucio/
     $ cp etc/rucio.cfg.template /opt/rucio/etc/rucio.cfg
     $ edit  /opt/rucio/etc/rucio.cfg
+
+You should then be able to test the rucio commands::
+
+    $ rucio ping
 
 
 Generating documentation
