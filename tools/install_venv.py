@@ -1,6 +1,6 @@
 #    copyright: European Organization for Nuclear Research (CERN)
 #    @author:
-#    - Vincent Garonne, <vincent.garonne@cern.ch>, 2011
+#    - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-1013
 #    @contact: U{ph-adp-ddm-lab@cern.ch<mailto:ph-adp-ddm-lab@cern.ch>}
 #    @license: Licensed under the Apache License, Version 2.0 (the "License");
 #    You may not use this file except in compliance with the License.
@@ -10,8 +10,10 @@ Installation script Rucio's development virtualenv
 """
 
 import errno
+import optparse
 import os
 import subprocess
+import shutil
 import sys
 
 
@@ -27,7 +29,7 @@ def die(message, *args):
     sys.exit(1)
 
 
-def run_command(cmd, redirect_output=True, check_exit_code=True):
+def run_command(cmd, redirect_output=True, check_exit_code=True, shell=False):
     """
     Runs a command in an out-of-process shell, returning the
     output of that command.  Working directory is ROOT.
@@ -37,17 +39,17 @@ def run_command(cmd, redirect_output=True, check_exit_code=True):
     else:
         stdout = None
 
-    proc = subprocess.Popen(cmd, cwd=ROOT, stdout=stdout)
+    proc = subprocess.Popen(cmd, cwd=ROOT, stdout=stdout, shell=shell)
     output = proc.communicate()[0]
     if check_exit_code and proc.returncode != 0:
         die('Command "%s" failed.\n%s', ' '.join(cmd), output)
     return output
 
 
-HAS_EASY_INSTALL = bool(run_command(['which', 'easy_install'],
-                                    check_exit_code=False).strip())
+HAS_EASY_INSTALL = bool(run_command(['which', 'easy_install'], check_exit_code=False).strip())
 HAS_VIRTUALENV = bool(run_command(['which', 'virtualenv'], check_exit_code=False).strip())
-HAS_PIP = bool(run_command(['which', 'easy_install'], check_exit_code=False).strip())
+HAS_PIP = bool(run_command(['which', 'pip'], check_exit_code=False).strip())
+HAS_CURL = bool(run_command(['which', 'curl'], check_exit_code=False).strip())
 
 
 def check_dependencies():
@@ -55,7 +57,7 @@ def check_dependencies():
 
     if not HAS_VIRTUALENV:
         print 'virtualenv not found.'
-        # Try installing it via pip/easy_install...
+        # Try installing it via curl/pip/easy_install...
         if HAS_PIP:
             print 'Installing virtualenv via pip...',
             if not run_command(['which', 'pip']):
@@ -84,27 +86,29 @@ def create_virtualenv(venv=VENV):
     Creates the virtual environment and installs PIP only into the
     virtual environment
     """
-    print 'Creating venv...'
-    run_command(['virtualenv', '-q', '--no-site-packages', VENV])
+    if HAS_VIRTUALENV:
+        print 'Creating venv...'
+        run_command(['virtualenv', '-q', '--no-site-packages', VENV])
+    elif HAS_CURL:
+        print 'Creating venv via curl...',
+        if not run_command("curl -s https://raw.github.com/pypa/virtualenv/master/virtualenv.py | %s - --no-site-packages %s" % (sys.executable, VENV), shell=True):
+            die('Failed to install virtualenv with curl.')
     print 'done.'
     print 'Installing pip in virtualenv...',
-    if not run_command(['tools/with_venv.sh', 'easy_install',
-                        'pip>1.0']).strip():
+    if not run_command(['tools/with_venv.sh', 'easy_install', 'pip>1.0']).strip():
         die("Failed to install pip.")
     print 'done.'
 
 
-def install_dependencies(venv=VENV):
+def install_dependencies(venv=VENV, client=False):
     print 'Installing dependencies with pip (this can take a while)...'
 
-    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_CLIENT],
-                redirect_output=False)
+    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_CLIENT], redirect_output=False)
 
-    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES],
-                redirect_output=False)
+    if not client:
+        run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES], redirect_output=False)
 
-    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_TEST],
-                redirect_output=False)
+    run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_TEST], redirect_output=False)
 
     # Tell the virtual env how to "import rucio"
     py_ver = _detect_python_version(venv)
@@ -122,7 +126,7 @@ def _detect_python_version(venv):
     raise Exception('Unable to detect Python version')
 
 
-def create_symlinks(venv=VENV):
+def create_symlinks(venv=VENV, atlas_clients=False):
     print 'Installing binaries symlinks ...'
     bin_dir = os.path.join(ROOT, "bin")
     venv_bin_dir = os.path.join(venv, "bin")
@@ -141,6 +145,27 @@ def create_symlinks(venv=VENV):
         if not os.path.exists(link_name):
             print 'Create the symlink: %(link_name)s -> %(source)s' % locals()
             os.symlink(source, link_name)
+
+    if atlas_clients:
+        source = os.path.join(ROOT, "etc")
+        link_name = os.path.join(venv, "etc")
+        try:
+            os.path.exists(link_name) and source != os.readlink(link_name)
+        except OSError, e:
+            if e.errno == errno.EINVAL:
+                print 'Delete broken symlink: %(link_name)s -> %(source)s' % locals()
+                os.remove(link_name)
+            else:
+                raise e
+        if not os.path.exists(link_name):
+            print 'Create the symlink: %(link_name)s -> %(source)s' % locals()
+            os.symlink(source, link_name)
+
+        cfg_name = os.path.join(link_name, 'rucio.cfg')
+        tpl_cfg_name = os.path.join(link_name, 'rucio.cfg.template')
+        if not os.path.exists(cfg_name):
+            print 'Configuring Rucio with etc/rucio.cfg.template'
+            shutil.copy(src=tpl_cfg_name, dst=cfg_name)
 
 
 def print_help():
@@ -165,12 +190,13 @@ def print_help():
     print help
 
 
-def main(argv):
-    check_dependencies()
-    create_virtualenv()
-    install_dependencies()
-    create_symlinks()
-    print_help()
-
 if __name__ == '__main__':
-    main(sys.argv)
+
+    parser = optparse.OptionParser()
+    parser.add_option("-a", "--atlas-clients", action="store_true", default=False, dest="atlas_clients", help="Setting up a Rucio development environment for ATLAS clients")
+    (options, args) = parser.parse_args()
+    # check_dependencies()
+    create_virtualenv()
+    install_dependencies(client=options.atlas_clients)
+    create_symlinks(atlas_clients=options.atlas_clients)
+    print_help()
