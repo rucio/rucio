@@ -247,6 +247,7 @@ class DataIdentifier(BASE, SoftModelBase):
     hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
     obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
     complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
+    new = Column(Boolean(name='DIDS_NEW_CHK'), server_default='1')
     availability = Column(Enum('lost', 'deleted', 'available', name='DIDS_AVAILABILITY_CHK'))
     suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
     size = Column(BigInteger)
