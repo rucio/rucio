@@ -267,6 +267,7 @@ class DataIdentifier(BASE, SoftModelBase):
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
                    UniqueConstraint('guid', name='DIDS_GUID_UQ'),
+                   Index('DID_NEW_IDX', 'new'),
                    )
 
 
