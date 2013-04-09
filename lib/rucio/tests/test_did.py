@@ -11,11 +11,14 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 
 from datetime import timedelta
 from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_in, assert_not_in, raises
 
+from rucio.api import did
+from rucio.api import scope
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
@@ -24,6 +27,41 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import (DataIdentifierNotFound, UnsupportedOperation,
                                     UnsupportedStatus)
 from rucio.common.utils import generate_uuid
+
+
+class TestDIDApi():
+
+    def setup(self):
+        pass
+
+    def test_list_new_identifiers(self):
+        """ DATA IDENTIFIERS (API): List new identifiers """
+        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_dsn = 'dsn_%s' % generate_uuid()
+        scope.add_scope(tmp_scope, 'root', 'root')
+        for i in xrange(0, 5):
+            did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='dataset', issuer='root')
+        for i in did.list_new_identifier('dataset'):
+            assert_not_equal(i, {})
+            assert_equal(str(i['type']), 'dataset')
+            break
+        for i in did.list_new_identifier():
+            assert_not_equal(i, {})
+            break
+
+    def test_update_new_identifiers(self):
+        """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
+        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_dsn = 'dsn_%s' % generate_uuid()
+        scope.add_scope(tmp_scope, 'root', 'root')
+        for i in xrange(0, 5):
+            did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='dataset', issuer='root')
+        for i in did.list_new_identifier('dataset'):
+            st = did.set_new_identifier(i['scope'], i['name'])
+            assert_not_equal(st, 0)
+            break
+        with assert_raises(DataIdentifierNotFound):
+            did.set_new_identifier('dummyscope', 'dummyname', 0)
 
 
 class TestDIDClients():
