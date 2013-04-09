@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 from re import match
 
@@ -173,6 +174,47 @@ def detach_identifier(scope, name, dids, issuer, session=None):
         if associ_did is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
         associ_did.delete(session=session)
+
+
+@read_session
+def list_new_identifier(type, session=None):
+    """
+    List recent identifiers.
+
+    :param type : The DID type.
+    :param session: The database session in use.
+    """
+    if type:
+        query = session.query(models.DataIdentifier).filter_by(type=type, new=1)
+    else:
+        query = session.query(models.DataIdentifier).filter_by(new=1)
+    for chunk in query.yield_per(5):
+        yield {'scope': chunk.scope, 'name': chunk.name, 'type': chunk.type}  # TODO Change this to the proper filesize [RUCIO-199]
+
+
+@transactional_session
+def set_new_identifier(scope, name, new_flag, session=None):
+    """
+    Set/reset the flag new
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param new_flag: A boolean to flag new DIDs.
+    :param session: The database session in use.
+    """
+
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)
+    rowcount = query.update({'new': new_flag})
+
+    if not rowcount:
+        query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)
+        try:
+            query.one()
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.UnsupportedOperation("The new flag of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
+    else:
+        return rowcount
 
 
 @read_session

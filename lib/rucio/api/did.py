@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 import rucio.api.permission
 
@@ -78,6 +79,26 @@ def detach_identifier(scope, name, dids, issuer):
     return did.detach_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
 
 
+def list_new_identifier(type=None):
+    """
+    List recent identifiers.
+
+    :param type : The DID type.
+    """
+    return did.list_new_identifier(type)
+
+
+def set_new_identifier(scope, name, new_flag=True, session=None):
+    """
+    Set/reset the flag new
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param new_flag: A boolean to flag new DIDs.
+    """
+    return did.set_new_identifier(scope, name, new_flag)
+
+
 def list_content(scope, name):
     """
     List data identifier contents.
@@ -85,7 +106,6 @@ def list_content(scope, name):
     :param scope: The scope name.
     :param name: The data identifier name.
     """
-
     return did.list_content(scope=scope, name=name)
 
 
