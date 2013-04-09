@@ -38,6 +38,7 @@ lib/rucio.egg-info/
 *.swp
 *~
 .venv
+.tox
 lib/rucio/vcsversion.py
 rucio.egg-info
 

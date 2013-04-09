@@ -1,6 +1,5 @@
 # All dependencies needed to run rucio should be defined here
 
-argparse
 #cx_Oracle==5.1.1          # Oracle connector
 #MySQL-python==1.2.3       # MySQL connector
 SQLAlchemy==0.7.8          # db backend
@@ -25,10 +24,10 @@ supervisor==3.0b1        # Supervisor is a client/server system that allows its 
 meld3==0.6.10            # an HTML/XML templating system for Python 2.3+
 
 # This must be installed before matplotlib !!!
-numpy==1.6.1             # Numerical Python libs
-pysftp                   # forces installation of paramikoi and pycrypto
-paramiko
-pycrypto
-s3cmd                    # Package built from http://s3tools.org/download
-python-magic             # Dependency for S3, but unfortunately not installed by it automiatically
-pystatsd==0.1.7          # Needed to log into graphite with more than 1 Hz
+# numpy==1.6.1             # Numerical Python libs
+
+pysftp==0.2.2            # forces installation of paramikoi and pycrypto
+paramiko==1.7.7.2
+pycrypto==2.6
+s3cmd==1.1.0-beta3       # Package built from http://s3tools.org/download
+python-magic==0.4.2      # Dependency for S3, but unfortunately not installed by it automatically
