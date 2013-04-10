@@ -19,7 +19,7 @@ class AccountClient(BaseClient):
 
     """Account client class for working with rucio accounts"""
 
-    BASEURL = 'accounts'
+    ACCOUNTS_BASEURL = 'accounts'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(AccountClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
@@ -34,7 +34,7 @@ class AccountClient(BaseClient):
         """
 
         data = dumps({'account_type': account_type})
-        path = '/'.join([self.BASEURL, account_name])
+        path = '/'.join([self.ACCOUNTS_BASEURL, account_name])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='POST', data=data)
@@ -54,7 +54,7 @@ class AccountClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.BASEURL, account_name])
+        path = '/'.join([self.ACCOUNTS_BASEURL, account_name])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url, type='DEL')
@@ -74,7 +74,7 @@ class AccountClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.BASEURL, account_name])
+        path = '/'.join([self.ACCOUNTS_BASEURL, account_name])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url)
@@ -92,7 +92,7 @@ class AccountClient(BaseClient):
         :return: a list containing account info dictionary for all rucio accounts.
         :raises AccountNotFound: if account doesn't exist.
         """
-        path = '/'.join([self.BASEURL, ''])
+        path = '/'.join([self.ACCOUNTS_BASEURL, ''])
         url = build_url(self.host, path=path)
 
         r = self._send_request(url)
@@ -125,7 +125,7 @@ class AccountClient(BaseClient):
         """
 
         data = dumps({'identity': identity, 'authtype': authtype, 'default': default, 'email': email})
-        path = '/'.join([self.BASEURL, account_name, 'identities'])
+        path = '/'.join([self.ACCOUNTS_BASEURL, account_name, 'identities'])
 
         url = build_url(self.host, path=path)
 
@@ -143,7 +143,7 @@ class AccountClient(BaseClient):
 
         :param account_name: The account name.
         """
-        path = '/'.join([self.BASEURL, account_name, 'identities'])
+        path = '/'.join([self.ACCOUNTS_BASEURL, account_name, 'identities'])
         url = build_url(self.host, path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
