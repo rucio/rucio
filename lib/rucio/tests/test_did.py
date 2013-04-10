@@ -180,36 +180,36 @@ class TestDIDClients():
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
 
         # create some dummy data
-        self.tmp_accounts = ['account-%s' % generate_uuid().lower()[:20] for i in xrange(10)]
-        self.tmp_scopes = ['scope_%s' % generate_uuid()[:22] for i in xrange(10)]
-        self.tmp_rses = ['RSE_%s' % generate_uuid()[:20] for i in xrange(10)]
-        self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(10)]
-        self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(10)]
-        self.tmp_containers = ['container_%s' % generate_uuid() for i in xrange(10)]
+        self.tmp_accounts = ['account-%s' % generate_uuid().lower()[:20] for i in xrange(3)]
+        self.tmp_scopes = ['scope_%s' % generate_uuid()[:22] for i in xrange(3)]
+        self.tmp_rses = ['RSE_%s' % generate_uuid()[:20] for i in xrange(3)]
+        self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(3)]
+        self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(3)]
+        self.tmp_containers = ['container_%s' % generate_uuid() for i in xrange(3)]
 
         # add dummy data to the catalogue
-        for i in xrange(10):
+        for i in xrange(3):
             self.account_client.add_account(self.tmp_accounts[i], 'user')
             self.scope_client.add_scope(self.tmp_accounts[i], self.tmp_scopes[i])
             self.rse_client.add_rse(self.tmp_rses[i])
             self.rse_client.add_file_replica(self.tmp_rses[i], self.tmp_scopes[i], self.tmp_files[i], 1L, 1L)
 
         # put files in datasets
-        for i in xrange(10):
-            for j in xrange(10):
+        for i in xrange(3):
+            for j in xrange(3):
                 files = [{'scope': self.tmp_scopes[j], 'name': self.tmp_files[j]}]
                 self.did_client.add_dataset(self.tmp_scopes[i], self.tmp_datasets[j])
                 self.did_client.add_files_to_dataset(self.tmp_scopes[i], self.tmp_datasets[j], files)
 
         # put datasets in containers
-        for i in xrange(10):
-            for j in xrange(10):
+        for i in xrange(3):
+            for j in xrange(3):
                 datasets = [{'scope': self.tmp_scopes[j], 'name': self.tmp_datasets[j]}]
                 self.did_client.add_container(self.tmp_scopes[i], self.tmp_containers[j])
                 self.did_client.add_datasets_to_container(self.tmp_scopes[i], self.tmp_containers[j], datasets)
 
         # reverse check if everything is in order
-        for i in xrange(10):
+        for i in xrange(3):
             result = self.did_client.scope_list(self.tmp_scopes[i], recursive=True)
 
             r_topdids = []
@@ -223,7 +223,7 @@ class TestDIDClients():
                     r_otherscopedids.append(r['scope'] + ':' + r['name'])
                     assert_in(r['level'], [1, 2])
 
-            for j in xrange(10):
+            for j in xrange(3):
                 assert_equal(self.tmp_scopes[i], r_scope[j])
                 if j != i:
                     assert_in(self.tmp_scopes[j] + ':' + self.tmp_files[j], r_otherscopedids)
