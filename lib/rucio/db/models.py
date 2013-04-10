@@ -471,6 +471,30 @@ class ReplicaLock(BASE, ModelBase):
                    )
 
 
+class Requests(BASE, ModelBase):
+    """Represents transfer request of files with a third party transfer service"""
+    __tablename__ = 'requests'
+    id = Column(GUID(), default=utils.generate_uuid)
+    type = Column(Enum('TRANSFER', 'DELETE', 'UPLOAD', 'DOWNLOAD', name='REQUESTS_TYPE_CHK'), default='TRANSFER')
+    scope = Column(String(30))
+    name = Column(String(255))
+    dest_rse_id = Column(GUID())
+    attributes = Column(String(4000))
+    state = Column(Enum('QUEUED', 'SUBMITTED', 'FAILED', 'DONE', name='REQUESTS_STATE_CHK'), default='QUEUED')
+    external_id = Column(String(4000))
+    retry_count = Column(Integer(), default=0)
+    err_msg = Column(String(4000))
+    previous_attempt_id = Column(GUID())
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'dest_rse_id', name='REQUESTS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
+                   ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
+                   CheckConstraint('"TYPE" IS NOT NULL', name='REQUESTS_TYPE_NN'),
+                   CheckConstraint('"STATE" IS NOT NULL', name='REQUESTS_STATE_NN'),
+                   Index('REQUESTS_ID_IDX', 'id'),
+                   Index('REQUESTS_EXTERNAL_ID_IDX', 'external_id')
+                   )
+
+
 class Subscription(BASE, ModelBase, Versioned):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
@@ -518,26 +542,29 @@ def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
-    models = (Account,
-              Callback,
-              Identity,
-              IdentityAccountAssociation,
-              Scope,
-              DataIdentifier,
-              DIDKey,
-              DIDKeyValueAssociation,
-              DIDAttribute,
-              RSE,
-              RSEUsage,
-              RSEProtocols,
+    models = (
+              Account,
               AccountLimit,
               AccountUsage,
+              Callback,
+              DIDAttribute,
+              DIDKey,
+              DIDKeyValueAssociation,
+              DataIdentifier,
+              Identity,
+              IdentityAccountAssociation,
+              RSE,
               RSEAttrAssociation,
               RSEFileAssociation,
-              ReplicationRule,
+              RSEProtocols,
+              RSEUsage,
               ReplicaLock,
+              ReplicationRule,
+              Requests,
+              Scope,
               Subscription,
               Token)
+
     for model in models:
         model.metadata.create_all(engine)
 
@@ -546,24 +573,26 @@ def unregister_models(engine):
     """
     Drops database tables for all models with the given engine
     """
-    models = (Account,
-              Callback,
-              Identity,
-              IdentityAccountAssociation,
-              Scope,
-              DataIdentifier,
-              DIDKey,
-              DIDKeyValueAssociation,
-              DIDAttribute,
-              RSE,
-              RSEProtocols,
-              RSEUsage,
+    models = (
+              Account,
               AccountLimit,
               AccountUsage,
+              Callback,
+              DIDAttribute,
+              DIDKey,
+              DIDKeyValueAssociation,
+              DataIdentifier,
+              Identity,
+              IdentityAccountAssociation,
+              RSE,
               RSEAttrAssociation,
               RSEFileAssociation,
-              ReplicationRule,
+              RSEProtocols,
+              RSEUsage,
               ReplicaLock,
+              ReplicationRule,
+              Requests,
+              Scope,
               Subscription,
               Token)
 
