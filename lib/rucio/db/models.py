@@ -491,9 +491,9 @@ class Subscription(BASE, ModelBase, Versioned):
                    CheckConstraint('"RETROACTIVE" IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),)
 
 
-class Authentication(BASE, ModelBase):
+class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
-    __tablename__ = 'authentication'
+    __tablename__ = 'tokens'
     token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(String(30))
     lifetime = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
@@ -537,7 +537,7 @@ def register_models(engine):
               ReplicationRule,
               ReplicaLock,
               Subscription,
-              Authentication)
+              Token)
     for model in models:
         model.metadata.create_all(engine)
 
@@ -565,7 +565,7 @@ def unregister_models(engine):
               ReplicationRule,
               ReplicaLock,
               Subscription,
-              Authentication)
+              Token)
 
     for model in models:
         model.metadata.drop_all(engine)
