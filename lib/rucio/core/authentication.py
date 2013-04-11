@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 import datetime
@@ -73,7 +73,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
     token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
 
-    new_token = models.Authentication(account=db_account, token=token, ip=ip)
+    new_token = models.Token(account=db_account, token=token, ip=ip)
     new_token.save(session=session)
 
     return token
@@ -105,7 +105,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
     token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
 
-    new_token = models.Authentication(account=account, token=token, ip=ip)
+    new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
     return token
@@ -137,7 +137,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
     token = '%(account)s-%(gsstoken)s-%(appid)s-%(token)s' % locals()
 
-    new_token = models.Authentication(account=account, token=token, ip=ip)
+    new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
     return token
@@ -160,7 +160,7 @@ def validate_auth_token(token, session=None):
     else:
         return None
 
-    q = session.query(models.Authentication.account, models.Authentication.lifetime).filter(models.Authentication.token == token, models.Authentication.lifetime > datetime.datetime.utcnow())
+    q = session.query(models.Token.account, models.Token.lifetime).filter(models.Token.token == token, models.Token.lifetime > datetime.datetime.utcnow())
 
     r = q.all()
 
