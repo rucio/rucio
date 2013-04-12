@@ -28,7 +28,7 @@ from rucio.web.rest.authentication import app as auth_app
 class TestAccountCoreApi():
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         pass
 
     @classmethod
@@ -59,7 +59,7 @@ class TestAccountCoreApi():
 class TestAccountRestApi():
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         pass
 
     @classmethod
@@ -237,14 +237,14 @@ class TestAccountRestApi():
 class TestAccountClient():
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         pass
 
     @classmethod
     def tearDownClass(cls):
         pass
 
-    def setUp(self):
+    def setup(self):
         self.client = AccountClient()
 
     def test_add_account_success(self):

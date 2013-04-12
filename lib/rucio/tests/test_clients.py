@@ -21,7 +21,7 @@ from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupporte
 
 class TestBaseClient():
 
-    def setUp(self):
+    def setup(self):
         try:
             remove('/tmp/' + getuser() + '/.rucio_root/auth_token_root')
         except OSError, e:
@@ -74,7 +74,7 @@ class TestBaseClient():
 
 class TestRucioClients():
 
-    def setUp(self):
+    def setup(self):
         self.marker = '$> '
 
     def tearDown(self):

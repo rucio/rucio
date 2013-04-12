@@ -156,7 +156,7 @@ class TestSubscriptionClient():
     def tearDownClass(cls):
         pass
 
-    def setUp(self):
+    def setup(self):
         self.client = SubscriptionClient()
 
     def test_create_and_update_and_list_subscription(self):
