@@ -19,7 +19,7 @@ from rucio.web.rest.ping import app as ping_app
 
 class TestPing():
 
-    def setUp(self):
+    def setup(self):
         pass
 
     def tearDown(self):
@@ -38,7 +38,7 @@ class TestPing():
 
 class TestPingClient():
 
-    def setUp(self):
+    def setup(self):
         self.client = PingClient()
 
     def tearDown(self):

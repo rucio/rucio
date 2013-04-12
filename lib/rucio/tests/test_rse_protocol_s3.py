@@ -25,7 +25,7 @@ class TestRseS3():
     tmpdir = None
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         """S3 (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
@@ -50,7 +50,7 @@ class TestRseS3():
             subprocess.call(["s3cmd", "cp", storage.lfn2pfn({'filename': 'data.raw', 'scope': 'user.jdoe'}), storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
         fnull.close()
 
-    def setUp(self):
+    def setup(self):
         """S3 (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseS3.tmpdir
         self.mtc = MgrTestCases(self.tmpdir, 'SWIFT')
