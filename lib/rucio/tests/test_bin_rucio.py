@@ -23,7 +23,7 @@ from rucio.tests.common import execute
 
 class TestBinRucio():
 
-    def setUp(self):
+    def setup(self):
         try:
             remove('/tmp/.rucio_root/auth_token_root')
         except OSError, e:

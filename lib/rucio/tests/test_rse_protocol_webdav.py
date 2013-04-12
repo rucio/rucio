@@ -25,7 +25,7 @@ class TestRseWebDAV():
     tmpdir = None
 
     @classmethod
-    def setUpClass(cls):
+    def setupClass(cls):
         """WebDAV (RSE/PROTOCOLS): Creating necessary directories and files """
         site = 'FZK-LCG2_SCRATCHDISK'
         # Creating local files
@@ -94,7 +94,7 @@ class TestRseWebDAV():
 
         storage.close()
 
-    def setUp(self):
+    def setup(self):
         """WebDAV (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseWebDAV.tmpdir
         self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK')

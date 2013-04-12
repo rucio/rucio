@@ -18,7 +18,7 @@ from rucio.core.identity import add_identity, del_identity, add_account_identity
 
 class TestIdentity():
 
-    def setUp(self):
+    def setup(self):
         self.account = str(uuid()).lower()[:30]
         add_account(self.account, 'user')
 

@@ -198,7 +198,7 @@ class TestRSEClient():
     def tearDownClass(cls):
         pass
 
-    def setUp(self):
+    def setup(self):
         self.client = RSEClient()
 
     def test_add_rse(self):

@@ -27,11 +27,11 @@ class Default(protocol.RSEProtocol):
             os.environ['STAGE_SVCCLASS'] = extended_attributes['STAGE_SVCCLASS']
 
     def pfn2uri(self, pfn):
-        path = self.rse['prefix'] + '/' + pfn
+        path = self.rse['prefix'] + '/' + pfn    # NOQA
         return normpath(path)
 
     def exists(self, pfn):
-        path = self.pfn2uri(pfn)
+        path = self.pfn2uri(pfn)    # NOQA
         cmd = 'rfstat %(path)s' % locals()
         status, out, err = execute(cmd)
         return status == 0
@@ -44,7 +44,7 @@ class Default(protocol.RSEProtocol):
         raise NotImplemented
 
     def put(self, source, target, source_dir):
-        path = self.pfn2uri(target)
+        path = self.pfn2uri(target)    # NOQA
         # Check
         if not self.exists(dirname(target)):
             self.mkdir(dirname(target))
@@ -55,7 +55,7 @@ class Default(protocol.RSEProtocol):
         return status == 0
 
     def mkdir(self, directory):
-        path = self.pfn2uri(directory)
+        path = self.pfn2uri(directory)    # NOQA
         cmd = 'rfmkdir -p %(path)s' % locals()
         status, out, err = execute(cmd)
         return status == 0
