@@ -67,17 +67,23 @@ def get_schema_dir():
 
 __config = ConfigParser.ConfigParser()
 
-__configfile = '/opt/rucio/etc/rucio.cfg'
-__validate = __config.read(__configfile)
+__configfiles = list()
 
-if __validate != [__configfile]:
-    if 'RUCIO_HOME' in os.environ:
-        __configfile = '%s/etc/rucio.cfg' % os.environ['RUCIO_HOME']
-        __validate = __config.read(__configfile)
+if 'RUCIO_HOME' in os.environ:
+    __configfiles.append('%s/etc/rucio.cfg' % os.environ['RUCIO_HOME'])
 
-    if 'VIRTUAL_ENV' in os.environ:
-        __configfile = '%s/etc/rucio.cfg' % os.environ['VIRTUAL_ENV']
-        __validate = __config.read(__configfile)
+__configfiles.append('/opt/rucio/etc/rucio.cfg')
 
-    if __validate != [__configfile]:
-        raise Exception('Could not load /opt/rucio/etc/rucio.cfg and RUCIO_HOME is not set.')
+if 'VIRTUAL_ENV' in os.environ:
+    __configfiles.append('%s/etc/rucio.cfg' % os.environ['VIRTUAL_ENV'])
+
+__has_config = False
+for configfile in __configfiles:
+    __has_config = __config.read(configfile) == [configfile]
+    if __has_config:
+        break
+
+if not __has_config:
+    raise Exception('Could not load rucio configuration file rucio.cfg. \
+Rucio looks in the following directories for a configuration file, in order:\
+\n\t${RUCIO_HOME}/etc/rucio.cfg\n\t/opt/rucio/etc/rucio.cfg\n\t${VIRTUAL_ENV}/etc/rucio.cfg')
