@@ -15,14 +15,14 @@ from rucio.client.baseclient import BaseClient
 from rucio.common.utils import build_url
 
 
-class ReplicationRuleClient(BaseClient):
+class RuleClient(BaseClient):
 
-    """ReplicationRuleClient class for working with replication rules"""
+    """RuleClient class for working with replication rules"""
 
     RULE_BASEURL = 'rules'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(ReplicationRuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
+        super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
     def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False, subscription_id=None):
         """
@@ -40,6 +40,7 @@ class ReplicationRuleClient(BaseClient):
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(self.host, path=path)
+        #TODO remove the subscription_id from the client; It will only be used by the core;
         data = dumps({'dids': dids, 'copies': copies, 'rse_expression': rse_expression,
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
                       'account': account, 'locked': locked, 'subscription_id': subscription_id})

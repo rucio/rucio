@@ -16,7 +16,6 @@ from nose.tools import assert_equal, raises
 from rucio.core import rse
 from rucio.core import rse_expression_parser
 from rucio.common.exception import InvalidRSEExpression
-from rucio.common.exception import RSENotFound
 
 
 def rse_name_generator(size=10):
@@ -74,7 +73,7 @@ class TestRSEExpressionParserCore():
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: wrong parantheses """
         rse_expression_parser.parse_expression("TEST_RSE1)")
 
-    @raises(RSENotFound)
+    @raises(InvalidRSEExpression)
     def test_unknown_RSE(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test unknown RSE """
         rse_expression_parser.parse_expression("TEST_RSE999")

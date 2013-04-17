@@ -14,7 +14,6 @@ import re
 import string
 
 from rucio.common.exception import InvalidRSEExpression
-from rucio.common.exception import RSENotFound
 from rucio.core.rse import get_rse, list_rses
 from rucio.db.session import transactional_session
 
@@ -38,7 +37,7 @@ def parse_expression(expression, session=None):
     :param expression:  RSE expression, e.g: 'CERN|BNL'
     :param session:     Database session in use
     :return:            A list of rse_ids
-    :raises:            InvalidRSEExpression
+    :raises:            InvalidRSEExpression, RSENotFound
     """
     #Evaluate the correctness of the parantheses
     parantheses_open_count = 0
@@ -49,9 +48,9 @@ def parse_expression(expression, session=None):
         elif (char == ')'):
             parantheses_close_count += 1
         if (parantheses_close_count > parantheses_open_count):
-            raise InvalidRSEExpression()
+            raise InvalidRSEExpression('Problem with parantheses.')
     if (parantheses_open_count != parantheses_close_count):
-        raise InvalidRSEExpression()
+        raise InvalidRSEExpression('Problem with parantheses.')
 
     #Check the expression pattern
     match = re.match(PATTERN, expression)
@@ -63,6 +62,8 @@ def parse_expression(expression, session=None):
 
     result = list(resolve_term_expression(expression)[0].resolve_elements(session=session))
     random.shuffle(result)
+    if not result:
+        raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
     return result
 
 
@@ -167,7 +168,6 @@ class BaseExpressionElement:
         :param session:  Database session in use
         :returns:        Set of RSE ids
         :rtype:          Set of Strings
-        :raises:         RSENotFound
         """
         pass
 
@@ -190,7 +190,7 @@ class RSEAttribute(BaseExpressionElement):
         """
         output = list_rses({self.key: self.value}, session=session)
         if not output:
-            raise RSENotFound(self.key)
+            return []
         return set([get_rse(rse).id for rse in output])
 
 

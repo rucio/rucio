@@ -454,46 +454,65 @@ class RSEFileAssociation(BASE, ModelBase):
 
 class ReplicationRule(BASE, ModelBase):
     """Represents data identifier replication rules"""
-    __tablename__ = 'did_rules'
+    __tablename__ = 'rules'
     id = Column(GUID(), default=utils.generate_uuid)
     subscription_id = Column(GUID())
     account = Column(String(30))
     scope = Column(String(30))
     name = Column(String(255))
-    state = Column(Enum('WAITING', 'OK', name='DID_RULES_STATE_CHK'), default='WAITING')
+    state = Column(Enum('REPLICATING', 'SATISFIED', 'STUCK', 'SUSPENDED', name='RULES_STATE_CHK'), default='REPLICATING')
     rse_expression = Column(String(255))
     copies = Column(Integer(), default=1)
     expires_at = Column(DateTime)
     weight = Column(String(255))
-    locked = Column(Boolean(name='DID_RULES_LOCKED_CHK'), default=False)
-    grouping = Column(Enum('ALL', 'DATASET', 'NONE', name='DID_RULES_GROUPING_CHK'), default="ALL")
+    locked = Column(Boolean(name='RULES_LOCKED_CHK'), default=False)
+    grouping = Column(Enum('ALL', 'DATASET', 'NONE', name='RULES_GROUPING_CHK'), default="ALL")
+    _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_ACCOUNT_FK'),
+                   CheckConstraint('"STATE" IS NOT NULL', name='RULES_STATE_NN'),
+                   CheckConstraint('"GROUPING" IS NOT NULL', name='RULES_GROUPING_NN'),
+                   CheckConstraint('"COPIES" IS NOT NULL', name='RULES_COPIES_NN'),
+                   CheckConstraint('"LOCKED" IS NOT NULL', name='RULES_LOCKED_NN'),
+                   UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='RULES_UQ'),)
 
-    _table_args = (PrimaryKeyConstraint('id', name='DID_RULES_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_RULES_SCOPE_NAME_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DID_RULES_ACCOUNT_FK'),
-                   #ForeignKeyConstraint(['subscription_id'], ['accounts.account'], name='DID_RULES_ACCOUNT_FK'),
-                   CheckConstraint('STATE IS NOT NULL', name='DID_RULES_STATE_NN'),
-                   CheckConstraint('"GROUPING" IS NOT NULL', name='DID_RULES_GROUPING_NN'),
-                   CheckConstraint('"COPIES" IS NOT NULL', name='DID_RULES_COPIES_NN'),
-                   CheckConstraint('"LOCKED" IS NOT NULL', name='DID_RULES_LOCKED_NN'),
-                   UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='DID_RULES_UQ'),)
+
+class ReplicationRuleHint(BASE, ModelBase):
+    """Represents hints for replication rules"""
+    __tablename__ = 'rule_hints'
+    id = Column(GUID(), default=utils.generate_uuid)
+    scope = Column(String(30))
+    name = Column(String(255))
+    rule_id = Column(GUID())
+    rse_id = Column(GUID())
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'id', name='RULE_HINTS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULE_HINTS_DID_FK'),
+                   ForeignKeyConstraint(['rule_id'], ['rules.id'], name='RULE_HINTS_RULE_ID_FK', ondelete='CASCADE'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RULE_HINTS_RSES_FK'),
+                   Index('RULE_HINTS_RULE_ID_IDX', 'rule_id'),
+                   UniqueConstraint('scope', 'name', 'rule_id', 'rse_id', name='RULE_HINTS_UQ')
+                   )
 
 
 class ReplicaLock(BASE, ModelBase):
     """Represents replica locks"""
-    __tablename__ = 'replica_locks'
+    __tablename__ = 'locks'
     scope = Column(String(30))
     name = Column(String(255))
     rule_id = Column(GUID())
     rse_id = Column(GUID())
     account = Column(String(30))
+    size = Column(BigInteger)
     state = Column(Enum('WAITING', 'OK', name='REPLICA_LOCKS_STATE_CHK'), default='WAITING')
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='REPLICA_LOCKS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_DID_FK'),
-                   ForeignKeyConstraint(['rule_id'], ['did_rules.id'], name='REPLICAS_LOCKS_RULE_ID_FK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICA_LOCKS_DID_FK'),
+                   ForeignKeyConstraint(['rule_id'], ['rules.id'], name='REPLICAS_LOCKS_RULE_ID_FK', ondelete='CASCADE'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='REPLICA_LOCKS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICA_LOCKS_RSES_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='REPLICA_LOCKS_STATE_NN'),
+                   Index('REPLICA_LOCKS_RULE_ID_IDX', 'rule_id'),
+                   Index('REPLICA_LOCKS_ACCOUNT_RSE_ID_IDX', 'account', 'rse_id')  # Needed for accounting?
                    )
 
 
@@ -585,6 +604,8 @@ def register_models(engine):
               RSELimit,
               RSEProtocols,
               RSEUsage,
+              ReplicationRule,
+              ReplicationRuleHint,
               ReplicaLock,
               ReplicationRule,
               Requests,
@@ -616,6 +637,8 @@ def unregister_models(engine):
               RSELimit,
               RSEProtocols,
               RSEUsage,
+              ReplicationRule,
+              ReplicationRuleHint,
               ReplicaLock,
               ReplicationRule,
               Requests,

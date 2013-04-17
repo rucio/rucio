@@ -19,7 +19,7 @@ def list_account_limits(account, rse_id, session=None):
     :return:         Limit in Byte
     """
     #Mocking the Answer:
-    return 1000000
+    return 100000000000
 
 
 def list_account_usage(account, rse_id, session=None):
