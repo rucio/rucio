@@ -1,3 +1,4 @@
+include MANIFEST.in pylintrc
 include AUTHORS
 include LICENSE
 include ChangeLog
@@ -5,16 +6,20 @@ include README
 include TODO
 include setup.py
 include setup.cfg
+include lib/rucio/db/rucio_migrate_repo/README
+include lib/rucio/db/rucio_migrate_repo/migrate.cfg
+include lib/rucio/db/rucio_migrate_repo/versions/*.sql
 graft bin
 graft doc
-prune dist 
+prune dist
 prune examples
 prune .coverage
 prune build/
 prune covhtml
 prune  doc/build/
 prune lib/rucio*egg-info/
+prune tools/patches
+prune .tox
 prune .venv
 prune .DS_Store
-global-exclude *.pyc *.log *.db *.swp *.proxy *~ *.cfg
-
+global-exclude *.pyc *.log *.db *.swp *.proxy *~ rse-accounts.cfg rucio*.cfg emulation.cfg
