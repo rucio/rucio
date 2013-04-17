@@ -27,6 +27,5 @@ pylint==0.25.2            # static code analysis
 virtualenv==1.9.1         # Virtual Python Environment builder
 tox==1.4.3                # Automate and standardize testing in Python
 pystatsd==0.1.7           # Needed to log into graphite with more than 1 Hz
-pylint                    # static code analysis
 pytest==2.3.4             # Full-featured Python testing tool
 pytest-xdist==1.8         # py.test xdist plugin for distributed testing and loop-on-failing modes
