@@ -42,7 +42,8 @@ requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
 data_files = [('etc/', glob.glob('etc/*.template')),
               ('etc/web', glob.glob('etc/web/*.template')),
               ('etc/schemas', glob.glob('etc/schemas/*.json')),
-              ('tools/', glob.glob('tools/*'))]
+              ('tools/', glob.glob('tools/*[^patches]'))
+              ]
 
 scripts = ['bin/rucio', 'bin/rucio-admin', 'bin/rucio-conveyor', 'bin/rucio-reaper', 'bin/rucio-transmogrifier']
 
@@ -58,6 +59,7 @@ if '--client' in copy_args:
     description = "Rucio Client Lite Package"
     data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
                   ('tools/', ['tools/pip-requires-client', ]), ]
+
     scripts = ['bin/rucio', 'bin/rucio-admin']
     if os.path.exists('build/'):
         shutil.rmtree('build/')
