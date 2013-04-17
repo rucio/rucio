@@ -233,6 +233,44 @@ def list_content(scope, name, session=None):
 
 
 @read_session
+def list_parent_dids(scope, name, session=None):
+    """
+    List all parent datasets and containers of a did.
+
+    :param scope:    The scope.
+    :param name:     The name.
+    :param session:  The database session
+    :returns:        List of dids
+    :rtype:          Generator
+    """
+
+    query = session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, deleted=False)
+    for did in query.yield_per(5):
+        yield {'scope': did.scope, 'name': did.name, 'type': did.type}
+        list_parent_dids(scope=did.scope, name=did.name, session=session)
+
+
+@read_session
+def list_child_dids(scope, name, session=None):
+    """
+    List all child datasets and containers of a did.
+    Attention: This list can include duplicates.
+
+    :param scope:    The scope.
+    :param name:     The name.
+    :param session:  The database session
+    :returns:        List of dids
+    :rtype:          Generator
+    """
+
+    query = session.query(models.DataIdentifierAssociation).filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name, models.DataIdentifierAssociation.child_type != 'file')
+    for did in query.yield_per(5):
+        yield {'scope': did.child_scope, 'name': did.child_name, 'type': did.child_type}
+        if did.child_type == 'container':
+            list_child_dids(scope=did.child_scope, name=did.child_name, session=session)
+
+
+@read_session
 def list_files(scope, name, session=None):
     """
     List data identifier file contents.
