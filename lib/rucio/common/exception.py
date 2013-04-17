@@ -298,6 +298,12 @@ class NotAFile(RucioException):
         self._message = 'Specified name is not a file'
 
 
+class ReplicationRuleNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ReplicationRuleNotFound, self).__init__(args, kwargs)
+        self._message = "Replication Rule does not exist."
+
+
 class RSEAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEAccessDenied, self).__init__(args, kwargs)
