@@ -340,6 +340,12 @@ class RSEOperationNotSupported(RucioException):
         self._message = "RSE does not support requested operation."
 
 
+class RSEFileNameNotSupported(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSEFileNameNotSupported, self).__init__(args, kwargs)
+        self._message = "RSE does not support provided filename."
+
+
 class RSEOverQuota(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEOverQuota, self).__init__(args, kwargs)
@@ -392,12 +398,6 @@ class SubscriptionNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(SubscriptionNotFound, self).__init__(args, kwargs)
         self._message = "Subscription not found."
-
-
-class SwitchProtocol(RucioException):
-    def __init__(self, *args, **kwargs):
-        super(SwitchProtocol, self).__init__(args, kwargs)
-        self._message = "Protocol not supported."
 
 
 class UnsupportedOperation(RucioException):

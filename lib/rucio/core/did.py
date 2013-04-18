@@ -25,32 +25,30 @@ from rucio.rse import rsemanager
 
 
 @read_session
-def list_replicas(scope, name, protocols=None, session=None):
+def list_replicas(scope, name, schemes=None, session=None):
     """
     List file replicas for a data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param protocols: A list of protocols to filter the replicas.
+    :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
     :param session: The database session in use.
 
     """
 
-    rsemgr = rsemanager.RSEMgr()
+    rsemgr = rsemanager.RSEMgr(server_mode=True)
     try:
         query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE')
         for row in query.yield_per(5):
             try:
                 pfns = list()
                 for protocol in rsemgr.list_protocols(rse_id=row.rse.rse):
-                    if not protocols or protocol in protocols:
-                        pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, scope=scope, lfn=name, protocol=protocol))
-
-                # ToDo: add support for non determistic rse path -> pfn conversion
+                    if not schemes or protocol['scheme'] in schemes:
+                        pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': scope, 'filename': name}, properties=protocol))
                 if pfns:
                     yield {'scope': row.scope, 'name': row.name, 'size': row.size,
                            'rse': row.rse.rse, 'md5': row.md5, 'adler32': row.adler32, 'pfns': pfns}
-            except (exception.RSENotFound, exception.SwitchProtocol):
+            except (exception.RSENotFound, exception.RSEProtocolNotSupported):
                 pass
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found")

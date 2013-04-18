@@ -1,12 +1,13 @@
 {
   "SWIFT": {
     "backend_type": "S3",
+    "deterministic": true,
     "protocols": {
       "default": "s3",
       "supported": {
         "s3": {
           "impl": "rucio.rse.protocols.s3.Default",
-          "prefix": "RSETESTS3",
+          "hostname": "swift.cern.ch",
           "port": 443,
           "domains": {
             "LAN": {
@@ -19,8 +20,7 @@
               "write": 1,
               "delete": 1
             }
-          },
-          "hostname": "swift.cern.ch"
+          }
         }
       }
     },
@@ -28,6 +28,7 @@
   },
   "LXPLUS":{
     "backend_type": "SFTP",
+    "deterministic": true,
     "protocols": {
       "default": "sftp",
       "supported": {
@@ -55,12 +56,12 @@
   },
   "POSIX":{
     "backend_type": "POSIX",
+    "deterministic": true,
     "protocols": {
       "default": "file",
       "supported": {
         "file": {
           "prefix": "/tmp/rucio_rse/",
-          "hostname": "localhost",
           "domains": {
             "LAN": {
               "read": 1,
@@ -86,12 +87,14 @@
       "supported": {
         "file": {
           "impl": "rucio.rse.protocols.posix.Default",
-          "hostname": "localhost",
           "domains": {
             "LAN": {
               "read": 1,
               "write": 1,
               "delete": 1
+            },
+            "WAN": {
+              "read": 1
             }
           },
           "prefix": "/tmp/rucio_rse/"
@@ -101,13 +104,13 @@
           "port": 22,
           "domains": {
             "WAN": {
-              "read": 1,
+              "read": 2,
               "write": 1,
               "delete": 1
             }
           },
           "prefix": "/afs/cern.ch/user/d/ddmlab/somethingelse/",
-          "hostname": "lxplus.cern.ch"
+          "hostname": "mock.cern.ch"
         }
       }
     },
@@ -118,11 +121,23 @@
     "deterministic": false,
     "protocols": {
       "default": "file",
-      "prefix": "/tmp/rucio_rse/",
       "supported": {
         "file": {
+          "prefix": "/tmp/rucio_rse/",
           "impl": "rucio.rse.protocols.posix.Default",
-          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"}
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -136,12 +151,36 @@
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://t-dpm.grid.sinica.edu.tw",
-          "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/"
+          "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://t-dpm.grid.sinica.edu.tw",
-          "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/"
+          "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -156,12 +195,36 @@
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://lcg-se0.ifh.de",
           "port": 2880,
-          "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/"
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://lcg-se0.ifh.de",
-          "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/"
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -171,18 +234,41 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://lcg-se0.ifh.de",
           "port": 2880,
-          "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/"
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://lcg-se0.ifh.de",
-          "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/"
+          "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -192,18 +278,41 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/dq2/atlasscratchdisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://dcache-door-atlas12.desy.de",
           "port": 2880,
-          "prefix": "/dq2/atlasscratchdisk/"
+          "prefix": "/dq2/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://dcache-se-atlas.desy.de",
-          "prefix": "/pnfs/desy.de/atlas/dq2/atlasscratchdisk/"
+          "prefix": "/pnfs/desy.de/atlas/dq2/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -213,18 +322,41 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/dq2/atlasdatadisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://dcache-door-atlas12.desy.de",
           "port": 2880,
-          "prefix": "/dq2/atlasdatadisk/"
+          "prefix": "/dq2/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://dcache-se-atlas.desy.de",
-          "prefix": "/pnfs/desy.de/atlas/dq2/atlasdatadisk/"
+          "prefix": "/pnfs/desy.de/atlas/dq2/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -234,17 +366,40 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://lcg-lrz-dc66.grid.lrz.de",
-          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/"
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://lcg-lrz-se.lrz-muenchen.de",
-          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/"
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -254,17 +409,40 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://lcg-lrz-dc66.grid.lrz.de",
-          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/"
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://lcg-lrz-se.lrz-muenchen.de",
-          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/"
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -274,17 +452,40 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://lcg-lrz-dc66.grid.lrz.de",
-          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/"
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://lcg-lrz-se.lrz-muenchen.de",
-          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/"
+          "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -294,18 +495,41 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/disk-only/atlasscratchdisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://f01-060-114-e.gridka.de",
           "port": 2880,
-          "prefix": "/disk-only/atlasscratchdisk/"
+          "prefix": "/disk-only/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://atlassrm-fzk.gridka.de",
-          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/"
+          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -315,18 +539,41 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/disk-only/atlasdatadisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://f01-060-114-e.gridka.de",
           "port": 2880,
-          "prefix": "/disk-only/atlasdatadisk/"
+          "prefix": "/disk-only/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://atlassrm-fzk.gridka.de",
-          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasdatadisk/"
+          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -336,18 +583,41 @@
     "backend_type": "dCache",
     "protocols": {
       "default": "webdav",
-      "prefix": "/atlas/disk/atlasdatadisk/",
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "https://fozzie.ndgf.org",
           "port": 2881,
-          "prefix": "/atlas/disk/atlasdatadisk/"
+          "prefix": "/atlas/disk/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "srm://srm.ndgf.org",
-          "prefix": "/atlas/disk/atlasdatadisk/"
+          "prefix": "/atlas/disk/atlasdatadisk/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         }
       }
     },
@@ -356,20 +626,32 @@
   "CERN-PROD_TZERO":{
     "backend_type": "Castor",
     "deterministic": false,
-    "prefix": "/castor/cern.ch/grid/atlas/tzero/",
     "protocols": {
       "default": "castor",
       "supported": {
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
-          "hostname": "srm://srm-atlas.cern.ch:8443/srm/managerv2"
+          "hostname": "srm-atlas.cern.ch",
+          "port": 8443,
+          "prefix": "srm/manager2/castor/cern.ch/grid/atlas/tzero/",
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "rfio": {
           "impl": "rucio.rse.protocols.rfio.Default",
-          "hostname": "rfio://castoratlas.cern.ch",
+          "hostname": "castoratlas.cern.ch",
           "port": 9002,
           "prefix": "/castor/cern.ch/grid/atlas/tzero/",
-          "hostname": "srm://srm-atlas.cern.ch",
           "domains": {
             "LAN": {
               "read": 1,
@@ -391,7 +673,6 @@
  "RUCIO_TEST_CERN-PROD_TMPDISK":{
     "backend_type": "Castor",
     "deterministic": false,
-    "prefix": "/castor/cern.ch/grid/atlas/tmpdisk/rucio_tests/",
     "protocols": {
       "default": "rfio",
       "supported": {
@@ -401,7 +682,19 @@
           "scheme": "srm",
           "port": 8443,
           "prefix": "/castor/cern.ch/grid/atlas/tmpdisk/rucio_tests/",
-          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"}
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
+          "domains": {
+            "LAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "WAN": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
         },
         "rfio": {
           "impl": "rucio.rse.protocols.rfio.Default",

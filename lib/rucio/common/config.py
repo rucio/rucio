@@ -17,8 +17,11 @@ If it is not there, except.
 """
 
 import os
+import json
 
 import ConfigParser
+
+from rucio.common import exception
 
 
 def config_get(section, option):
@@ -63,6 +66,26 @@ def get_schema_dir():
         jsonschemadir = '%s/schemas/' % configdir
         if os.path.exists(jsonschemadir):
             return jsonschemadir
+
+
+def get_rse_credentials(path_to_credentials_file):
+    """ Returns credentials for RSEs. """
+
+    path = ''
+    if path_to_credentials_file:  # Use specific file for this connect
+        path = path_to_credentials_file
+    else:  # Use file defined in th RSEMgr
+        if 'RUCIO_HOME' in os.environ:
+            path = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
+        else:
+            path = '/opt/rucio/etc/rse-accounts.cfg'
+    try:
+        # Load all user credentials
+        with open(path) as f:
+            credentials = json.load(f)
+    except Exception as e:
+        raise exception.ErrorLoadingCredentials(e)
+    return credentials
 
 
 __config = ConfigParser.ConfigParser()

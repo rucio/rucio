@@ -15,6 +15,7 @@ import tempfile
 
 from nose.tools import raises
 from S3.Exceptions import S3Error
+from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.rse import rsemanager
@@ -23,12 +24,15 @@ from rsemgr_api_test import MgrTestCases
 
 class TestRseS3():
     tmpdir = None
+    user = None
 
     @classmethod
     def setupClass(cls):
         """S3 (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
+        cls.user = uuid()
+        # cls.user = 'jdoe'  # use again when latency issue with S3 storage is resolved
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
@@ -36,32 +40,34 @@ class TestRseS3():
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSE('SWIFT')
+        storage = rsemanager.RSEMgr()
         fnull = open(os.devnull, 'w')
 
         # Create test files on storage
         try:
             subprocess.call(["s3cmd", "mb", "s3://USER"], stdout=fnull, stderr=fnull, shell=False)
             subprocess.call(["s3cmd", "mb", "s3://GROUP"], stdout=fnull, stderr=fnull, shell=False)
+            subprocess.call(["s3cmd", "mb", "s3://NONDETERMINISTIC"], stdout=fnull, stderr=fnull, shell=False)
         except S3Error:
             pass
-        subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, storage.lfn2pfn({'filename': 'data.raw', 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
+        cls.static_file = 's3://NONDETERMINISTIC/data.raw'
+        subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, cls.static_file, "--no-progress"], stdout=fnull, stderr=fnull)
         for f in MgrTestCases.files_remote:
-            subprocess.call(["s3cmd", "cp", storage.lfn2pfn({'filename': 'data.raw', 'scope': 'user.jdoe'}), storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'}), "--no-progress"], stdout=fnull, stderr=fnull)
+            subprocess.call(["s3cmd", "cp", cls.static_file, storage.lfn2pfn('SWIFT', {'filename': f, 'scope': 'user.%s' % cls.user})], stdout=fnull, stderr=fnull)
         fnull.close()
 
     def setup(self):
         """S3 (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseS3.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'SWIFT')
+        self.mtc = MgrTestCases(self.tmpdir, 'SWIFT', TestRseS3.user, TestRseS3.static_file)
 
     @classmethod
     def tearDownClass(cls):
         """S3 (RSE/PROTOCOLS): Removing created directories and files """
         # Remove test files from storage
         fnull = open(os.devnull, 'w')
-        subprocess.call(["s3cmd", "del", "s3://USER/jdoe", "--recursive"], stdout=fnull, stderr=fnull)
-        subprocess.call(["s3cmd", "del", "s3://GROUP/jdoe", "--recursive"], stdout=fnull, stderr=fnull)
+        subprocess.call(["s3cmd", "rb", "s3://USER", "--recursive"], stdout=fnull, stderr=fnull)
+        subprocess.call(["s3cmd", "rb", "s3://GROUP", "--recursive"], stdout=fnull, stderr=fnull)
         shutil.rmtree(cls.tmpdir)
         fnull.close()
 

@@ -225,6 +225,12 @@ class TestRSEClient():
         for rse in rse_list:
             assert_in(rse, svr_list)
 
+    def test_get_rse(self):
+        id = 'MOCK_TEST_GET_' + str(uuid())
+        self.client.add_rse(id)
+        props = self.client.get_rse(rse=id)
+        assert(props['rse'] == id)
+
     # ADD PROTOCOLS
 
     def test_add_protocol(self):

@@ -8,43 +8,66 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 
+import hashlib
+
+from urlparse import urlparse
+
+from rucio.common import exception
+
 
 class RSEProtocol(object):
-    """ This class is virtual and acts as a base to inherit new protocols from."""
+    """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the amjority of the protocols."""
 
     def __init__(self, props):
         """ Initializes the object with information about the referred RSE.
 
-            :param props Properties derived from the RSE Repository
+            :param props: Properties derived from the RSE Repository
         """
-        raise NotImplemented
+        self.rse = props
 
-    def pfn2uri(self, pfn):
+    def get_path(self, lfn, scope):
         """ Transforms the physical file name into the local URI in the referred RSE.
+            Suitable for sites implementoing the RUCIO naming convention.
 
-            :param pfn Physical file name
+            :param lfn: filename
+            :param scope: scope
 
             :returns: RSE specific URI of the physical file
         """
-        raise NotImplemented
+        hstr = hashlib.md5('%s:%s' % (scope, lfn)).hexdigest()
+        correctedscope = "/".join(scope.split('.'))
+        return '%s%s/%s/%s/%s' % (self.rse['prefix'], correctedscope, hstr[0:2], hstr[2:4], lfn)
 
-    def exists(self, pfn):
-        """ Checks if the requested file is known by the referred RSE.
+    def path2pfn(self, path):
+        """
+            Retruns a fully qualified PFN for the file referred by path.
 
-            :param pfn Physical file name
+            :param path: The path to the file.
+
+            :returns: Fully qualified PFN.
+
+        """
+        return ''.join([self.rse['scheme'], '://', self.rse['hostname'], ':', str(self.rse['port']), path])
+
+    def exists(self, path):
+        """
+            Checks if the requested file is known by the referred RSE.
+
+            :param path: Physical file name
 
             :returns: True if the file exists, False if it doesn't
 
-            :raise  ServiceUnavailable
+            :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplemented
 
-    def connect(self):
-        """ Establishes the actual connection to the referred RSE.
+    def connect(self, credentials):
+        """
+            Establishes the actual connection to the referred RSE.
 
-            :param credentials User credentials to establish the connection to the RSE. See documentation of the according protocol for further information.
+            :param: credentials needed to establish a connection with the stroage.
 
-            :raises RSEAccessDenied
+            :raises RSEAccessDenied: if no connection could be established.
         """
         raise NotImplemented
 
@@ -52,42 +75,101 @@ class RSEProtocol(object):
         """ Closes the connection to RSE."""
         raise NotImplemented
 
-    def get(self, pfn, dest):
-        """ Provides access to files stored inside connected the RSE.
+    def get(self, path, dest):
+        """
+            Provides access to files stored inside connected the RSE.
 
-            :param pfn Physical file name of requested file
-            :param dest Name and path of the files when stored at the client
+            :param path: Physical file name of requested file
+            :param dest: Name and path of the files when stored at the client
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
          """
         raise NotImplemented
 
     def put(self, source, target, source_dir):
-        """ Allows to store files inside the referred RSE.
+        """
+            Allows to store files inside the referred RSE.
 
-            :param source Physical file name
-            :param target Name of the file on the storage system e.g. with prefixed scope
-            :param source_dir Path where the to be transferred files are stored in the local file system
+            :param source: path to the source file on the client file system
+            :param target: path to the destination file on the storage
+            :param source_dir: Path where the to be transferred files are stored in the local file system
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplemented
 
-    def delete(self, pfn):
-        """ Deletes a file from the connected RSE.
+    def delete(self, path):
+        """
+            Deletes a file from the connected RSE.
 
-            :param pfn Physical file name
+            :param path: path to the to be deleted file
 
-            :raises ServiceUnavailable, SourceNotFound
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplemented
 
-    def rename(self, lfn, new_lfn):
+    def rename(self, path, new_path):
         """ Allows to rename a file stored inside the connected RSE.
 
-            :param pfn      Current physical file name
-            :param new_pfn  New physical file name
+            :param path: path to the current file on the storage
+            :param new_path: path to the new file on the storage
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplemented
+
+    def split_pfn(self, pfn):
+        """
+            Splits the given PFN into the parts known by the protocol. During parsing the PFN is also checked for
+            validity on the given RSE with the given protocol.
+
+            As this method is strongly connected to the protocol itself it is very likely that it will be overwritten
+            in the specific protocol classes.
+
+            The default implementation parses a PFN for: scheme, hostname, port, prefix, path, filename and checks if the
+            derived data matches with data provided in the RSE repository for this RSE/protocol.
+
+            :param pfn: a fully qualified PFN
+
+            :returns: a dict containing all known parts of the PFN for the protocol e.g. scheme, hostname, port, prefix, path, filename
+
+            :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
+        """
+        parsed = urlparse(pfn)
+        ret = dict()
+        ret['scheme'] = parsed.scheme
+        ret['hostname'] = parsed.netloc.partition(':')[0]
+        ret['port'] = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
+        ret['path'] = parsed.path
+
+        # Protect against 'lazy' defined prefixes for RSEs in the repository
+        self.rse['prefix'] = '' if self.rse['prefix'] is None else self.rse['prefix']
+        if not self.rse['prefix'].startswith('/'):
+            self.rse['prefix'] = '/' + self.rse['prefix']
+        if not self.rse['prefix'].endswith('/'):
+            self.rse['prefix'] += '/'
+
+        if self.rse['hostname'] != ret['hostname']:
+            raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (ret['hostname'], self.rse['hostname']))
+
+        if self.rse['port'] != ret['port']:
+            raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (ret['port'], self.rse['port']))
+
+        if not ret['path'].startswith(self.rse['prefix']):
+            raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(ret['path'].split('/')[0:len(self.rse['prefix'].split('/')) - 1]),
+                                                                                                          self.rse['prefix']))  # len(...)-1 due to the leading '/
+
+        # Spliting parsed.path into prefix, path, filename
+        ret['prefix'] = self.rse['prefix']
+        ret['path'] = ret['path'].partition(self.rse['prefix'])[2]
+        ret['filename'] = ret['path'].split('/')[-1]
+        ret['path'] = ret['path'].partition(ret['filename'])[0]
+
+        return ret
