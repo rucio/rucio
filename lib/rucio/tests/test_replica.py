@@ -9,7 +9,6 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 from nose.tools import assert_equal, assert_raises
-from urlparse import urlparse
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
@@ -18,6 +17,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import UnsupportedOperation
 from rucio.common.utils import generate_uuid
+from rucio.rse.rsemanager import RSEMgr
 
 
 class TestReplica():
@@ -33,14 +33,14 @@ class TestReplica():
         """ REPLICA (CLIENT): Add and list file replica """
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_file = 'file_%s' % generate_uuid()
-        tmp_pfn = '/tmpt/%s' % tmp_file
+        tmp_pfn = 'file:///tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
 
         self.scope_client.add_scope('root', tmp_scope)
 
         self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
 
-#        with assert_raises(UnsupportedOperation):
-#            self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb', pfn=tmp_pfn)
+        with assert_raises(UnsupportedOperation):
+            self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
         with assert_raises(UnsupportedOperation):
             self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
@@ -50,8 +50,11 @@ class TestReplica():
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
         assert_equal(len(replicas), 2)
 
-        replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, protocols=['file'])]
+        replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, schemes=['file'])]
+        print '---'
+        print replicas
+        print '---'
         assert_equal(len(replicas), 2)
         for replica in replicas:
-            for pfn in replica['pfns']:
-                assert_equal(urlparse(pfn).path, pfn)
+            pfn_gen = RSEMgr().lfn2pfn(replica['rse'], {'scope': tmp_scope, 'filename': tmp_file}, scheme='file')
+            assert(pfn_gen == replica['pfns'][0])

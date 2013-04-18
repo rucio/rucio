@@ -79,8 +79,20 @@ class TestDIDClients():
         tmp_rse = 'RSE_%s' % generate_uuid()
         tmp_dsn = 'dsn_%s' % generate_uuid()
 
+        # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
+
         self.scope_client.add_scope('root', tmp_scope)
         self.rse_client.add_rse(tmp_rse, deterministic=False)
+        rfio_props = {"impl": "rucio.rse.protocols.rfio.Default",
+                      "hostname": "castoratlas.cern.ch",
+                      "port": 9002,
+                      "prefix": "/castor/cern.ch/grid/atlas/tzero/",
+                      "domains": {"LAN": {"read": 1, "write": 1, "delete": 1},
+                                  "WAN": {"read": 1, "write": 1, "delete": 1}
+                                  }
+                      }
+        self.rse_client.add_protocol(tmp_rse, 'rfio', rfio_props)
+
         dataset_meta = {'project': 'data13_hip',
                         'run_number': str(generate_uuid()),
                         'stream_name': 'physics_CosmicCalo',
@@ -94,7 +106,7 @@ class TestDIDClients():
         files = []
         for i in xrange(5):
             lfn = 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid())
-            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            pfn = 'rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 10}
             files.append({'scope': tmp_scope, 'name': lfn,
@@ -107,7 +119,7 @@ class TestDIDClients():
         files = []
         for i in xrange(5):
             lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
-            pfn = '/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            pfn = 'rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 100}
             files.append({'scope': tmp_scope, 'name': lfn,

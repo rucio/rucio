@@ -201,3 +201,13 @@ def execute(cmd):
     exitcode = process.returncode
 
     return exitcode, out, err
+
+
+def rse_supported_protocol_operations():
+    """ Returns a list with operations supported by all RSE protocols."""
+    return ['read', 'write', 'delete']
+
+
+def rse_supported_protocol_domains():
+    """ Returns a list with all supoorted RSE protocol domains."""
+    return ['LAN', 'WAN']

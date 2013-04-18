@@ -157,7 +157,7 @@ class Default(protocol.RSEProtocol):
     def close(self):
         self.session.close()
 
-    def pfn2uri(self, pfn):
+    def get_path(self, pfn):
         """ Transforms the physical file name into the local URI in the referred RSE.
 
             :param pfn Physical file name
@@ -178,7 +178,7 @@ class Default(protocol.RSEProtocol):
 
             :raise  ServiceUnavailable
         """
-        path = self.pfn2uri(pfn)
+        path = self.get_path(pfn)
         #print 'Checking existence of '+path
         try:
             result = self.session.request('HEAD', path, verify=False)
@@ -200,7 +200,7 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.pfn2uri(pfn)
+        path = self.get_path(pfn)
         chunksize = 1024
         #print 'Will get %s' %(path)
         try:
@@ -237,7 +237,7 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.pfn2uri(target)
+        path = self.get_path(target)
         full_name = source_dir + '/' + source if source_dir else source
         #print 'Will copy %s to %s' %(full_name,path)
         directories = path.split('/')
@@ -270,8 +270,8 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.pfn2uri(pfn)
-        new_path = self.pfn2uri(new_pfn)
+        path = self.get_path(pfn)
+        new_path = self.get_path(new_pfn)
         #print 'Moving %s to %s' % (path, new_path)
         directories = new_path.split('/')
 
@@ -306,7 +306,7 @@ class Default(protocol.RSEProtocol):
 
             :raises ServiceUnavailable, SourceNotFound
         """
-        path = self.pfn2uri(pfn)
+        path = self.get_path(pfn)
         #print 'Will delete %s' % (path)
         listfiles = self.ls(path)
         if (listfiles == []):
@@ -331,7 +331,7 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.pfn2uri(directory)
+        path = self.get_path(directory)
         #print 'Will create %s' % (path)
         try:
             result = self.session.request('MKCOL', path, verify=False)
@@ -352,7 +352,7 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.pfn2uri(filename)
+        path = self.get_path(filename)
         print 'Checking files in %s' % (path)
         headers = {'Depth': '1'}
         self.exists(filename)

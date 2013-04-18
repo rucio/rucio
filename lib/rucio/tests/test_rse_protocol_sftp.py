@@ -15,6 +15,7 @@ import shutil
 import tempfile
 
 from nose.tools import raises
+from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.rse import rsemanager
@@ -23,13 +24,15 @@ from rsemgr_api_test import MgrTestCases
 
 class TestRseSFTP():
     tmpdir = None
+    user = None
 
     @classmethod
     def setupClass(cls):
         """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
-        storage = rsemanager.RSE('LXPLUS')
+        cls.user = uuid()
+        storage = rsemanager.RSEMgr()
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
@@ -42,16 +45,16 @@ class TestRseSFTP():
             data = json.load(f)
         credentials = data['LXPLUS']
         credentials['host'] = 'lxplus.cern.ch'
-        print 'credentials: %s' % credentials
         lxplus = pysftp.Connection(**credentials)
         with open('etc/rse_repository.json') as f:
             prefix = json.load(f)['LXPLUS']['protocols']['supported']['sftp']['prefix']
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
+        cls.static_file = 'sftp://lxplus.cern.ch:22%sdata.raw' % prefix
         for f in MgrTestCases.files_remote:
-            uri = storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'})
-            lxplus.execute('mkdir -p %s' % ('/'.join(uri.split('/')[0:-1])))
-            lxplus.execute('ln -s %s/data.raw %s' % (prefix, uri))
+            tmp = storage.parse_pfn('LXPLUS', storage.lfn2pfn('LXPLUS', {'filename': f, 'scope': 'user.%s' % cls.user}))
+            for cmd in ['mkdir -p %s' % ''.join([tmp['prefix'], tmp['path']]), 'ln -s %sdata.raw %s' % (prefix, ''.join([tmp['prefix'], tmp['path'], tmp['filename']]))]:
+                lxplus.execute(cmd)
         lxplus.close()
 
     @classmethod
@@ -74,7 +77,8 @@ class TestRseSFTP():
     def setup(self):
         """SFTP (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseSFTP.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'LXPLUS')
+        self.static_file = TestRseSFTP.static_file
+        self.mtc = MgrTestCases(self.tmpdir, 'LXPLUS', TestRseSFTP.user, self.static_file)
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
