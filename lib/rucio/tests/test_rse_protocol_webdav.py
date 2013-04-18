@@ -14,6 +14,7 @@ import os
 import tempfile
 
 from nose.tools import raises
+from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.rse import rsemanager
@@ -23,15 +24,21 @@ from rucio.common.exception import FileReplicaAlreadyExists
 
 class TestRseWebDAV():
     tmpdir = None
+    user = None
+
+    # The setupClass and tearDownClass need some fixing, but can be ignored for this patch
 
     @classmethod
     def setupClass(cls):
         """WebDAV (RSE/PROTOCOLS): Creating necessary directories and files """
-        site = 'FZK-LCG2_SCRATCHDISK'
+        cls.site = 'FZK-LCG2_SCRATCHDISK'
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
-        storage = rsemanager.RSE(site)
-        props = storage._RSE__props
+        cls.user = uuid()
+        storage = rsemanager.RSEMgr()
+        # props = storage._RSE__props
+        with open('etc/rse_repository.json') as f:
+            props = json.load(f)[cls.site]
         host, prefix = props['protocol']['host'], props['protocol']['prefix']
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
@@ -39,19 +46,14 @@ class TestRseWebDAV():
             out.write('\0')
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
-            print '%s/%s' % (cls.tmpdir, f)
 
         # Load local credentials from file
-        with open('etc/rse-accounts.cfg') as f:
-            data = json.load(f)
-        credentials = data[site]
+        #with open('etc/rse-accounts.cfg') as f:
+        #    data = json.load(f)
+        #credentials = data[cls.site]
 
-        print credentials
-        storage._RSE__protocol.connect(credentials)
         for f in MgrTestCases.files_remote:
-            print f
-            uri = storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'})
-            print uri
+            uri = storage.lfn2pfn(cls.site, {'filename': f, 'scope': 'user.%s'} % cls.user)
             try:
                 storage._RSE__protocol.put('%s/data.raw' % (cls.tmpdir), uri)
             except FileReplicaAlreadyExists, e:
@@ -61,18 +63,19 @@ class TestRseWebDAV():
     @classmethod
     def tearDownClass(cls):
         """WebDAV (RSE/PROTOCOLS): Removing created directories and files """
-        site = 'FZK-LCG2_SCRATCHDISK'
         credentials = {}
         # Load local credentials from file
         with open('etc/rse-accounts.cfg') as f:
             data = json.load(f)
-        storage = rsemanager.RSE(site)
-        credentials = data[site]
-        props = storage._RSE__props
+        storage = rsemanager.RSE(cls.site)
+        credentials = data[cls.site]
+        # props = storage._RSE__props
+        with open('etc/rse_repository.json') as f:
+            props = json.load(f)[cls.site]
         host, prefix = props['protocol']['host'], props['protocol']['prefix']
         storage._RSE__protocol.connect(credentials)
 
-        list1 = storage._RSE__protocol.ls('%s%suser/jdoe' % (host, prefix))
+        list1 = storage._RSE__protocol.ls('%s%suser/%s' % (host, prefix, cls.user))
         for uri1 in list1:
             list2 = storage._RSE__protocol.ls(uri1)
             for uri2 in list2:
@@ -82,7 +85,7 @@ class TestRseWebDAV():
                 storage._RSE__protocol.delete(uri2)
             storage._RSE__protocol.delete(uri1)
 
-        list1 = storage._RSE__protocol.ls('%s%sgroup/jdoe' % (host, prefix))
+        list1 = storage._RSE__protocol.ls('%s%sgroup/%s' % (host, prefix, cls.user))
         for uri1 in list1:
             list2 = storage._RSE__protocol.ls(uri1)
             for uri2 in list2:
@@ -97,7 +100,7 @@ class TestRseWebDAV():
     def setup(self):
         """WebDAV (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseWebDAV.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK')
+        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', self.user)
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):

@@ -33,6 +33,20 @@ def add_rse(rse, issuer, prefix=None, deterministic=True, volatile=False):
     return rse_module.add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
 
 
+def get_rse(rse):
+    """
+    Provides details about the specified RSE.
+
+    :param rse: The RSE name.
+    :param issuer: The issuer account.
+
+    :returns: a dict with details about the RSE
+
+    :raises RSENotFound: if the referred RSE was ot found in the database
+    """
+    return rse_module.get_rse(rse)
+
+
 def del_rse(rse, issuer):
     """
     Disables a RSE with the provided RSE name.

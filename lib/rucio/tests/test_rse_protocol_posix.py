@@ -13,6 +13,8 @@ import os
 import shutil
 import tempfile
 
+from uuid import uuid4 as uuid
+
 from nose.tools import raises
 
 from rucio.common import exception
@@ -22,12 +24,14 @@ from rsemgr_api_test import MgrTestCases
 
 class TestRsePOSIX():
     tmpdir = None
+    user = None
 
     @classmethod
     def setupClass(cls):
         """POSIX (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
+        cls.user = uuid()
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
@@ -35,7 +39,7 @@ class TestRsePOSIX():
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSE('POSIX')
+        storage = rsemanager.RSEMgr()
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
         prefix = data['POSIX']['protocols']['supported']['file']['prefix']
@@ -44,12 +48,13 @@ class TestRsePOSIX():
         except Exception, e:
             print e
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
+        cls.static_file = '%s/data.raw' % prefix
         for f in MgrTestCases.files_remote:
-            path = storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'})
+            path = storage.lfn2pfn('POSIX', {'filename': f, 'scope': 'user.%s' % cls.user}).partition('://')[2]
             dirs = os.path.dirname(path)
             if not os.path.exists(dirs):
                 os.makedirs(dirs)
-            shutil.copy('%s/data.raw' % prefix, storage.lfn2pfn({'filename': f, 'scope': 'user.jdoe'}))
+            shutil.copy('%s/data.raw' % prefix, path)
 
     @classmethod
     def teardownClass(cls):
@@ -63,7 +68,8 @@ class TestRsePOSIX():
     def setup(self):
         """POSIX (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRsePOSIX.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'POSIX')
+        self.rse_id = 'POSIX'
+        self.mtc = MgrTestCases(self.tmpdir, 'POSIX', TestRsePOSIX.user, TestRsePOSIX.static_file)
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):

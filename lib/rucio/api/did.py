@@ -16,16 +16,16 @@ import rucio.api.permission
 from rucio.core import did
 
 
-def list_replicas(scope, name, protocols=None):
+def list_replicas(scope, name, schemes=None):
     """
     List file replicas for a data did.
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param protocols: A list of protocols to filter the replicas.
+    :param schemes: A list of schemes to filter the replicas.
     """
 
-    return did.list_replicas(scope=scope, name=name, protocols=protocols)
+    return did.list_replicas(scope=scope, name=name, schemes=schemes)
 
 
 def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[]):

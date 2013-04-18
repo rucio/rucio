@@ -372,7 +372,7 @@ class RSEProtocols(BASE, ModelBase):
     __tablename__ = 'rse_protocols'
     rse_id = Column(GUID())
     scheme = Column(String(255))
-    hostname = Column(String(255), default='localhost')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as beeing default
+    hostname = Column(String(255), default='')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as beeing default
     port = Column(Integer, default=0)  # like host, for local protocol the port 0 is assumed to be default
     prefix = Column(String(1024), nullable=True)
     impl = Column(String(255), nullable=False)

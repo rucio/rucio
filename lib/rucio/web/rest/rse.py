@@ -16,7 +16,7 @@ from traceback import format_exc
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, del_rse_attribute, add_file_replica, add_protocol, get_protocols, del_protocols, update_protocols
+from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, del_rse_attribute, add_file_replica, add_protocol, get_protocols, del_protocols, update_protocols, get_rse
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
 from rucio.common.utils import generate_http_error
 
@@ -30,8 +30,46 @@ urls = (
     '/(.+)/protocols/(.+)', 'Protocol',  # List (GET), create (POST), update (PUT), or delete (DELETE) a all protocols with the same identifier
     '/(.+)/protocols', 'Protocols',  # List all supported protocols (GET)
     '/(.+)', 'RSE',
-    '/', 'RSE',
+    '/', 'RSEs',
 )
+
+
+class RSEs:
+    """ List all RSEs in the database. """
+
+    def GET(self):
+        """ List all RSEs.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :returns: A list containing all RSEs.
+        """
+
+        header('Content-Type', 'application/json')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        return dumps(list_rses())
+
+    def POST(self, rse):
+        raise NotImplemented()
+
+    def PUT(self, rse):
+        raise NotImplemented()
+
+    def DELETE(self, rse):
+        raise NotImplemented()
 
 
 class RSE:
@@ -88,30 +126,37 @@ class RSE:
 
         raise Created()
 
-    def GET(self):
-        """ List all RSEs.
+    def GET(self, rse):
+        """ Details about a specific RSE.
 
         HTTP Success:
             200 OK
 
         HTTP Error:
             401 Unauthorized
+            404 Resource not Found
             500 InternalError
 
         :returns: A list containing all RSEs.
         """
 
         header('Content-Type', 'application/json')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
         auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        return dumps(list_rses())
+        try:
+            rse_prop = get_rse(rse=rse)
+            ret = dict()
+            for attr in ['id', 'rse', 'type', 'prefix', 'deterministic', 'volatile']:
+                ret[attr] = getattr(rse_prop, attr)
+            return dumps(ret)
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')
