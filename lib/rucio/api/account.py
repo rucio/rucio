@@ -17,9 +17,6 @@ import rucio.core.identity
 from rucio.core import account as account_core
 from rucio.common.schema import validate_schema
 
-# Expose status through API
-account_status = account_core.account_status
-
 
 def add_account(account, type, issuer):
     """

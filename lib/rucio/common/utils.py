@@ -21,9 +21,11 @@ import zlib
 
 from urllib import urlencode
 from uuid import uuid4 as uuid
+
 try:
     # Hack for the client distribution
     from web import HTTPError
+    from rucio.db.enum import EnumSymbol
 except:
     pass
 
@@ -150,6 +152,8 @@ class APIEncoder(json.JSONEncoder):
             return obj.isoformat()
         elif isinstance(obj, datetime.timedelta):
             return obj.days * 24 * 60 * 60 + obj.seconds
+        elif isinstance(obj, EnumSymbol):
+            return obj.description
         return json.JSONEncoder.default(self, obj)
 
 
