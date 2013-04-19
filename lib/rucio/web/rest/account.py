@@ -21,7 +21,7 @@ from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_account_identity
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException
-from rucio.common.utils import generate_http_error
+from rucio.common.utils import generate_http_error, render_json
 
 logger = getLogger("rucio.account")
 sh = StreamHandler()
@@ -175,7 +175,7 @@ class AccountParameter:
 
         del dict['_sa_instance_state']
 
-        return dumps(dict)
+        return render_json(**dict)
 
     def PUT(self, account):
         """ update account informations for given account name """

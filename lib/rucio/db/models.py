@@ -26,6 +26,7 @@ from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint,
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
+from rucio.db.constants import AccountStatus, ScopeStatus
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
 from rucio.db.types import GUID
@@ -181,7 +182,7 @@ class Account(BASE, SoftModelBase):
     __tablename__ = 'accounts'
     account = Column(String(30))
     type = Column(Enum('user', 'group', 'service', name='ACCOUNTS_TYPE_CHK'))
-    status = Column(Enum('ACTIVE', 'SUSPENDED', 'DELETED', name='ACCOUNTS_STATUS_CHK'), default='ACTIVE')
+    status = Column(AccountStatus.db_type(default=AccountStatus.ACTIVE, name='ACCOUNTS_STATUS_CHK'))
     suspended_at = Column(DateTime)
     deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
@@ -226,7 +227,7 @@ class Scope(BASE, ModelBase):
     scope = Column(String(30))
     account = Column(String(30))
     is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
-    status = Column(Enum('OPEN', 'CLOSED', 'DELETED', name='SCOPE_STATUS_CHK'), default='OPEN')
+    status = Column(ScopeStatus.db_type(name='SCOPE_STATUS_CHK', default=ScopeStatus.OPEN))
     closed_at = Column(DateTime)
     deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', name='SCOPES_SCOPE_PK'),

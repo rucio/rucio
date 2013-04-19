@@ -17,10 +17,11 @@ from nose.tools import assert_equal, assert_true, assert_raises, raises
 from paste.fixture import TestApp
 
 from rucio.api.account import add_account, account_exists, del_account
-from rucio.api.account import get_account_status, set_account_status, account_status
+from rucio.api.account import get_account_status, set_account_status
 from rucio.client.accountclient import AccountClient
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
+from rucio.db.constants import AccountStatus
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -48,11 +49,11 @@ class TestAccountCoreApi():
         """ ACCOUNT (CORE): Test changing and quering account status """
         usr = str(uuid()).lower()[0:30]
         add_account(usr, 'user', 'root')
-        assert_equal(get_account_status(usr), account_status.ACTIVE)  # Should be active by default
-        set_account_status(usr, account_status.SUSPENDED)
-        assert_equal(get_account_status(usr), account_status.SUSPENDED)
-        set_account_status(usr, account_status.ACTIVE)
-        assert_equal(get_account_status(usr), account_status.ACTIVE)
+        assert_equal(get_account_status(usr), AccountStatus.ACTIVE)  # Should be active by default
+        set_account_status(usr, AccountStatus.SUSPENDED)
+        assert_equal(get_account_status(usr), AccountStatus.SUSPENDED)
+        set_account_status(usr, AccountStatus.ACTIVE)
+        assert_equal(get_account_status(usr), AccountStatus.ACTIVE)
         del_account(usr, 'root')
 
 
@@ -204,7 +205,7 @@ class TestAccountRestApi():
         r4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
         body = loads(r4.body)
         print
-        assert_true(body['status'] == account_status.DELETED)
+        assert_true(body['status'] == AccountStatus.DELETED.description)
         assert_equal(r3.status, 200)
 
     def test_del_user_failure(self):
