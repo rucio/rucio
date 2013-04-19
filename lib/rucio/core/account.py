@@ -19,14 +19,7 @@ from sqlalchemy.orm import exc
 from rucio.common import exception
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
-
-
-class account_status:
-    """ Enumerated type for account status """
-# As the corresponding column on the db is of type enum, no integers are used
-    ACTIVE = 'ACTIVE'
-    SUSPENDED = 'SUSPENDED'
-    DELETED = 'DELETED'
+from rucio.db.constants import AccountStatus
 
 
 @transactional_session
@@ -37,7 +30,7 @@ def add_account(account, type, session=None):
     :param type: the type of the new account.
     :param session: the database session in use.
     """
-    new_account = models.Account(account=account, type=type, status=account_status.ACTIVE)
+    new_account = models.Account(account=account, type=type, status=AccountStatus.ACTIVE)
     try:
         new_account.save(session=session)
     except IntegrityError:
@@ -84,15 +77,13 @@ def del_account(account, session=None):
     :param account: the account name.
     :param session: the database session in use.
     """
-
-    query = session.query(models.Account).filter_by(account=account).filter_by(status=account_status.ACTIVE)
-
+    query = session.query(models.Account).filter_by(account=account).filter_by(status=AccountStatus.ACTIVE)
     try:
         account = query.one()
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
-    account.update({'status': account_status.DELETED, 'deleted_at': datetime.utcnow()})
+    account.update({'status': AccountStatus.DELETED, 'deleted_at': datetime.utcnow()})
 
 
 @read_session
@@ -130,7 +121,7 @@ def list_accounts(session=None):
     returns: a list of all account names.
     """
 
-    query = session.query(models.Account).filter_by(status=account_status.ACTIVE)
+    query = session.query(models.Account).filter_by(status=AccountStatus.ACTIVE)
     for row in query.order_by(models.Account.account).yield_per(25):
         yield {'account': row.account, 'type': row.type}
 

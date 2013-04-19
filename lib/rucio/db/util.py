@@ -12,8 +12,8 @@ from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, 
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.db import session, migration
-from rucio.db import models, test_models
+from rucio.db import session, migration, models, test_models
+from rucio.db.constants import AccountStatus
 
 
 def build_database(echo=True, tests=False):
@@ -110,7 +110,7 @@ def create_root_account():
 
     s = session.get_session()
 
-    account = models.Account(account='root', type='user', status='ACTIVE')
+    account = models.Account(account='root', type='user', status=AccountStatus.ACTIVE)
 
     identity1 = models.Identity(identity=up_id, type='userpass', password=up_pwd, salt='0', email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, is_default=True)

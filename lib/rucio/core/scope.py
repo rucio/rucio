@@ -14,9 +14,9 @@
 from re import match
 from sqlalchemy.exc import IntegrityError
 
-from rucio.core.account import account_status
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.db import models
+from rucio.db.constants import AccountStatus, ScopeStatus
 from rucio.db.session import read_session, transactional_session
 
 
@@ -29,12 +29,12 @@ def add_scope(scope, account, session=None):
     :param session: The database session in use.
     """
 
-    result = session.query(models.Account).filter_by(account=account, status=account_status.ACTIVE).first()
+    result = session.query(models.Account).filter_by(account=account, status=AccountStatus.ACTIVE).first()
 
     if result is None:
         raise AccountNotFound('Account ID \'%s\' does not exist' % account)
 
-    new_scope = models.Scope(scope=scope, account=account, status='OPEN')
+    new_scope = models.Scope(scope=scope, account=account, status=ScopeStatus.OPEN)
     try:
         new_scope.save(session=session)
     except IntegrityError, e:
@@ -74,7 +74,7 @@ def list_scopes(session=None):
     :returns: A list containing all scopes.
     """
     scope_list = []
-    query = session.query(models.Scope).filter("status!='%s'" % account_status.DELETED)
+    query = session.query(models.Scope).filter("status!='%s'" % ScopeStatus.DELETED)
     for s in query:
         scope_list.append(s.scope)
     return scope_list
@@ -97,7 +97,7 @@ def get_scopes(account, session=None):
 
     scope_list = []
 
-    for s in session.query(models.Scope).filter_by(account=account).filter("status!='%s'" % account_status.DELETED):
+    for s in session.query(models.Scope).filter_by(account=account).filter("status!='%s'" % ScopeStatus.DELETED):
         scope_list.append(s.scope)
 
     return scope_list
