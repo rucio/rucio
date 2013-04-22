@@ -43,11 +43,15 @@ class SubscriptionClient(BaseClient):
         :type lifetime:  Integer or False
         :param retroactive: Flag to know if the subscription should be applied on previous data
         :type retroactive:  Boolean
-        :param dry_run: Just print the subsecriptions actions without actually executing them (Useful if retroactive flag is set)
+        :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
         :type dry_run:  Boolean
         """
         path = self.SUB_BASEURL + '/' + name
         url = build_url(self.host, path=path)
+        if filter and type(filter) != dict:
+            raise TypeError('filter should be a dict')
+        if replication_rules and type(replication_rules) != list:
+            raise TypeError('replication_rules should be a list')
         data = dumps({'filter': filter, 'replication_rules': replication_rules, 'subscription_policy': subscription_policy,
                       'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run})
         r = self._send_request(url, type='POST', data=data)
@@ -101,12 +105,16 @@ class SubscriptionClient(BaseClient):
         :type lifetime:  Integer or False
         :param retroactive: Flag to know if the subscription should be applied on previous data
         :type retroactive:  Boolean
-        :param dry_run: Just print the subsecriptions actions without actually executing them (Useful if retroactive flag is set)
+        :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
         :type dry_run:  Boolean
         :raises: exception.NotFound if subscription is not found
         """
         path = self.SUB_BASEURL + '/' + name
         url = build_url(self.host, path=path)
+        if filter and type(filter) != dict:
+            raise TypeError('filter should be a dict')
+        if replication_rules and type(replication_rules) != list:
+            raise TypeError('replication_rules should be a list')
         data = dumps({'filter': filter, 'replication_rules': replication_rules, 'subscription_policy': subscription_policy,
                       'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run})
         r = self._send_request(url, type='PUT', data=data)

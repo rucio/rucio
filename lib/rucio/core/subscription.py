@@ -42,7 +42,7 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
-    :param dry_run: Just print the subsecriptions actions without actually executing them (Useful if retroactive flag is set)
+    :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :param session: The database session in use.
     """
@@ -53,7 +53,10 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     except KeyError, e:
         print 'Unknown subscription policy : %s' % (e)
         raise
-    new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, lifetime=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
+    state = 'ACTIVE'
+    if retroactive:
+        state = 'NEW'
+    new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
                                            retroactive=retroactive, policyid=policyid)
     try:
         new_subscription.save(session=session)
@@ -91,14 +94,13 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
-    :param dry_run: Just print the subsecriptions actions without actually executing them (Useful if retroactive flag is set)
+    :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :param session: The database session in use.
     :raises: exception.NotFound if subscription is not found
     """
     policyid_dict = {'tier0': 0}
-    values = {}
-
+    values = {'state': 'UPDATED'}
     if filter:
         values['filter'] = filter
     if replication_rules:
@@ -129,7 +131,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
 
 
 @read_session
-def list_subscriptions(name=None, account=None, session=None):
+def list_subscriptions(name=None, account=None, state=None, session=None):
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
@@ -149,6 +151,8 @@ def list_subscriptions(name=None, account=None, session=None):
             query = query.filter_by(name=name)
         if account:
             query = query.filter_by(account=account)
+        if state:
+            query = query.filter_by(state=state)
     except IntegrityError, e:
         print e
         raise

@@ -11,6 +11,10 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
+from json import dumps
+
+from rucio.common.exception import InvalidMetadata
+from rucio.common.schema import validate_schema
 from rucio.core import subscription
 
 
@@ -34,12 +38,27 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
-    :param dry_run: Just print the subsecriptions actions without actually executing them (Useful if retroactive flag is set)
+    :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :returns: subscription_id
     :rtype:   String
     """
-    return subscription.add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping']
+    try:
+        if filter:
+            if type(filter) != dict:
+                raise TypeError('filter should be a dict')
+            else:
+                for key in filter:
+                    if not key in accepted_keys:
+                        raise InvalidMetadata('Invalid metadata <%s>' % (key))
+            validate_schema(name='sub_filter', obj=filter)
+        if replication_rules and type(replication_rules) != list:
+            raise TypeError('replication_rules should be a list')
+    except ValueError, e:
+        raise TypeError(e)
+
+    return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
 
 def update_subscription(name, account, filter=None, replication_rules=None, subscription_policy=None, lifetime=None, retroactive=None, dry_run=None):
@@ -62,15 +81,28 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
-    :param dry_run: Just print the subsecriptions actions without actually executing them (Useful if retroactive flag is set)
+    :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :raises: exception.NotFound if subscription is not found
     """
+    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping']
+    try:
+        if filter:
+            if type(filter) != dict:
+                raise TypeError('filter should be a dict')
+            else:
+                for key in filter:
+                    if not key in accepted_keys:
+                        raise InvalidMetadata('Invalid metadata <%s>' % (key))
+            validate_schema(name='sub_filter', obj=filter)
+        if replication_rules and type(replication_rules) != list:
+            raise TypeError('replication_rules should be a list')
+    except ValueError, e:
+        raise TypeError(e)
+    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
-    return subscription.update_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
-
-def list_subscriptions(name=None, account=None):
+def list_subscriptions(name=None, account=None, state=None):
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
@@ -87,7 +119,7 @@ def list_subscriptions(name=None, account=None):
         name = None
     if account == '*':
         account = None
-    return subscription.list_subscriptions(name, account)
+    return subscription.list_subscriptions(name, account, state)
 
 
 def delete_subscription(subscription_id):
