@@ -145,9 +145,7 @@ class RSEMgr(object):
         """
         protocol = self.__select_protocol(rse_id, protocol_domain=protocol_domain, operation='write', default=default, scheme=scheme, properties=properties)
         if not protocol.is_connected():
-            if rse_id not in self.__credentials:
-                raise exception.ErrorLoadingCredentials('Credentials for RSE %s could not be found.' % rse_id)
-            protocol.connect(self.__credentials[rse_id])
+            protocol.connect(self.__credentials.get(rse_id, {}))
         return protocol.put(lfns, source_dir)
 
     def download(self, rse_id, files, dest_dir='.', protocol_domain='ALL', default=False, scheme=None, properties=None):
@@ -179,9 +177,7 @@ class RSEMgr(object):
         """
         protocol = self.__select_protocol(rse_id, protocol_domain=protocol_domain, operation='read', default=default, scheme=scheme, properties=properties)
         if not protocol.is_connected():
-            if rse_id not in self.__credentials:
-                raise exception.ErrorLoadingCredentials('Credentials for RSE %s could not be found.' % rse_id)
-            protocol.connect(self.__credentials[rse_id])
+            protocol.connect(self.__credentials.get(rse_id, {}))
         return protocol.get(files, dest_dir)
 
     def delete(self, rse_id, lfns, protocol_domain='ALL', default=False, scheme=None, properties=None):
@@ -209,9 +205,7 @@ class RSEMgr(object):
         """
         protocol = self.__select_protocol(rse_id, protocol_domain=protocol_domain, operation='delete', default=default, scheme=scheme, properties=properties)
         if not protocol.is_connected():
-            if rse_id not in self.__credentials:
-                raise exception.ErrorLoadingCredentials('Credentials for RSE %s could not be found.' % rse_id)
-            protocol.connect(self.__credentials[rse_id])
+            protocol.connect(self.__credentials.get(rse_id, {}))
         return protocol.delete(lfns)
 
     def rename(self, rse_id, files, protocol_domain='ALL', default=False, scheme=None, properties=None):
@@ -243,9 +237,7 @@ class RSEMgr(object):
         """
         protocol = self.__select_protocol(rse_id, protocol_domain=protocol_domain, operation='write', default=default, scheme=scheme, properties=properties)
         if not protocol.is_connected():
-            if rse_id not in self.__credentials:
-                raise exception.ErrorLoadingCredentials('Credentials for RSE %s could not be found.' % rse_id)
-            protocol.connect(self.__credentials[rse_id])
+            protocol.connect(self.__credentials.get(rse_id, {}))
         return protocol.rename(files)
 
     def exists(self, rse_id, files, protocol_domain='ALL', default=False, scheme=None, properties=None):
@@ -273,9 +265,7 @@ class RSEMgr(object):
         """
         protocol = self.__select_protocol(rse_id, protocol_domain=protocol_domain, operation='read', default=default, scheme=scheme, properties=properties)
         if not protocol.is_connected():
-            if rse_id not in self.__credentials:
-                raise exception.ErrorLoadingCredentials('Credentials for RSE %s could not be found.' % rse_id)
-            protocol.connect(self.__credentials[rse_id])
+            protocol.connect(self.__credentials.get(rse_id, {}))
         return protocol.exists(files)
 
     def lfn2pfn(self, rse_id, lfns, protocol_domain='ALL', default=False, scheme=None, properties=None):
