@@ -91,7 +91,6 @@ class Subscription:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
-        #print params
         try:
             filter = params['filter']
         except KeyError:
@@ -116,6 +115,7 @@ class Subscription:
             dry_run = params['dry_run']
         except KeyError:
             dry_run = None
+
         try:
             update_subscription(name=name, account=auth['account'], filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionNotFound, e:

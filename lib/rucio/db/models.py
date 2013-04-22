@@ -524,9 +524,10 @@ class Subscription(BASE, ModelBase, Versioned):
     __tablename__ = 'subscriptions'
     id = Column(GUID(), default=utils.generate_uuid)
     name = Column(String(64))
-    filter = Column(String(1024))
-    replication_rules = Column(String(512))
+    filter = Column(String(2048))
+    replication_rules = Column(String(1024))
     policyid = Column(Integer(), default=0)
+    state = Column(Enum('ACTIVE', 'INACTIVE', 'NEW', 'UPDATED', 'BROKEN', name='SUBSCRIPTIONS_STATE_CHK'), default='ACTIVE')
     last_processed = Column(DateTime, default=datetime.datetime.utcnow())
     account = Column(String(255))
     #issuer = Column(String(255))
