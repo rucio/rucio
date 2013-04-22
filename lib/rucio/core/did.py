@@ -186,7 +186,7 @@ def list_new_identifier(type, session=None):
         query = session.query(models.DataIdentifier).filter_by(type=type, new=1)
     else:
         query = session.query(models.DataIdentifier).filter_by(new=1)
-    for chunk in query.yield_per(5):
+    for chunk in query.yield_per(10):
         yield {'scope': chunk.scope, 'name': chunk.name, 'type': chunk.type}  # TODO Change this to the proper filesize [RUCIO-199]
 
 

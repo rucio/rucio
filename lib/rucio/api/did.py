@@ -88,7 +88,7 @@ def list_new_identifier(type=None):
     return did.list_new_identifier(type)
 
 
-def set_new_identifier(scope, name, new_flag=True, session=None):
+def set_new_identifier(scope, name, new_flag=True):
     """
     Set/reset the flag new
 
