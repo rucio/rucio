@@ -171,7 +171,7 @@ def datetime_parser(dct):
     return dct
 
 
-def parse_response(**data):
+def parse_response(data):
     """ JSON render function
     """
     return json.loads(data, object_hook=datetime_parser)

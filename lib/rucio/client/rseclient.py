@@ -35,11 +35,10 @@ class RSEClient(BaseClient):
 
         :raises RSENotFound: if the referred RSE was not found in the database
         """
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = '/'.join([self.RSE_BASEURL, rse])
         url = build_url(self.host, path=path)
 
-        r = self._send_request(url, headers, type='GET')
+        r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             rse = loads(r.text)
             return rse
@@ -49,7 +48,7 @@ class RSEClient(BaseClient):
 
     def add_rse(self, rse, prefix=None, deterministic=True, volatile=False):
         """
-        Sends the request to create a new rse.
+        Sends the request to create a new RSE.
 
         :param rse: the name of the rse.
         :param prefix: the base path of the rse.
@@ -60,13 +59,12 @@ class RSEClient(BaseClient):
         :raises Duplicate: if rse already exists.
         """
 
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'rses/' + rse
         url = build_url(self.host, path=path)
 
         data = dumps({'prefix': prefix, 'volatile': volatile, 'deterministic': deterministic})
 
-        r = self._send_request(url, headers, type='POST', data=data)
+        r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
         else:
@@ -80,11 +78,9 @@ class RSEClient(BaseClient):
         :param rse: the name of the rse.
         :return: True if location was created successfully else False.
         """
-
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'rses/' + rse
         url = build_url(self.host, path=path)
-        r = self._send_request(url, headers, type='DEL')
+        r = self._send_request(url, type='DEL')
         if r.status_code == codes.ok:
             return True
         else:
@@ -101,11 +97,10 @@ class RSEClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = 'rses/'
         url = build_url(self.host, path=path)
 
-        r = self._send_request(url, headers)
+        r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             accounts = loads(r.text)
             return accounts
@@ -139,7 +134,7 @@ class RSEClient(BaseClient):
         """
         Sends the request to delete a RSE attribute.
 
-        :param rse: the name of the rse.
+        :param rse: the RSE name.
         :param key: the attribute key.
 
         :return: True if RSE attribute was deleted successfully else False.
@@ -158,7 +153,7 @@ class RSEClient(BaseClient):
         """
         Sends the request to get RSE attributes.
 
-        :param rse: the name of the rse.
+        :param rse: The RSE name.
 
         :return: True if RSE attribute was created successfully else False.
         """
@@ -176,7 +171,7 @@ class RSEClient(BaseClient):
         """
         Add a file replica to a RSE.
 
-        :param rse: the name of the rse.
+        :param rse: the RSE name.
         :param scope: the name of the scope.
         :param name: the data identifier name.
         :param size: the size of the file.
@@ -230,11 +225,9 @@ class RSEClient(BaseClient):
                              protocol.
         :raises AccessDenied: if not authorized.
         """
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
         url = build_url(self.host, path=path)
-        data = dumps(params)
-        r = self._send_request(url, headers, type='POST', data=data)
+        r = self._send_request(url, type='POST', data=dumps(params))
         if r.status_code == codes.created:
             return True
         else:
@@ -246,7 +239,7 @@ class RSEClient(BaseClient):
         Returns protocol information. Parameter comibantions are:
         (operation OR default) XOR protocol.
 
-        :param rse: The name of the rse.
+        :param rse: the RSE name.
         :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
         :param operation: The name of the requested operation (read, write, or delete).
                           If None, all operations are queried.
@@ -261,7 +254,6 @@ class RSEClient(BaseClient):
                                           operation could be found.
         """
 
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = None
         params = {}
         if scheme:
@@ -275,7 +267,7 @@ class RSEClient(BaseClient):
         params['protocol_domain'] = protocol_domain
         url = build_url(self.host, path=path, params=params)
 
-        r = self._send_request(url, headers, type='GET')
+        r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             protocols = loads(r.text)
             return protocols
@@ -288,7 +280,7 @@ class RSEClient(BaseClient):
         Deletes matching protocols from RSE. Protocols using the same identifier can be
         distinguished by hostname and port.
 
-        :param rse: the name of the  rse.
+        :param rse: the RSE name.
         :param scheme: identifier of the protocol.
         :param hostname: hostname of the protocol.
         :param port: port of the protocol.
@@ -299,8 +291,6 @@ class RSEClient(BaseClient):
         :raises RSENotFound: if the RSE doesn't exist.
         :raises AccessDenied: if not authorized.
         """
-
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
             path.append(hostname)
@@ -309,7 +299,7 @@ class RSEClient(BaseClient):
 
         path = '/'.join(path)
         url = build_url(self.host, path=path)
-        r = self._send_request(url, headers, type='DEL')
+        r = self._send_request(url, type='DEL')
         if r.status_code == codes.ok:
             return True
         else:
@@ -321,7 +311,7 @@ class RSEClient(BaseClient):
         Updates matching protocols from RSE. Protocol using the same identifier can be
         distinguished by hostname and port.
 
-        :param rse: the name of the  rse.
+        :param rse: the RSE name.
         :param scheme: identifier of the protocol.
         :param data: A dict providing the new values of the protocol attibutes.
                      Keys must match column names in database.
@@ -335,8 +325,6 @@ class RSEClient(BaseClient):
         :raises KeyNotFound: if invalid data was provided for update.
         :raises AccessDenied: if not authorized.
         """
-
-        headers = {'Rucio-Auth-Token': self.auth_token}
         path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
             path.append(hostname)
@@ -345,9 +333,109 @@ class RSEClient(BaseClient):
 
         path = '/'.join(path)
         url = build_url(self.host, path=path)
-        r = self._send_request(url, headers, type='PUT', data=dumps(data))
+        r = self._send_request(url, type='PUT', data=dumps(data))
         if r.status_code == codes.ok:
             return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def set_rse_usage(self, rse, source, total, free):
+        """
+        Set RSE usage information.
+
+        :param rse: the RSE name.
+        :param source: the information source, e.g. srm.
+        :param total: the total space in bytes.
+        :param free: the free in bytes.
+
+        :returns: True if successful, otherwise false.
+        """
+        path = [self.RSE_BASEURL, rse, 'usage']
+        path = '/'.join(path)
+        url = build_url(self.host, path=path)
+        data = {'source': source, 'total': total, 'free': free}
+        r = self._send_request(url, type='PUT', data=dumps(data))
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def get_rse_usage(self, rse, filters=None):
+        """
+        Get RSE usage information.
+
+        :param rse: the RSE name.
+        :param filters: dictionary of attributes by which the results should be filtered
+
+        :returns: True if successful, otherwise false.
+        """
+        path = [self.RSE_BASEURL, rse, 'usage']
+        path = '/'.join(path)
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET', data=filters and dumps(filters))
+        if r.status_code == codes.ok:
+            return self._load_json_data(r).next()
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def list_rse_usage_history(self, rse, filters=None):
+        """
+        List RSE usage history information.
+
+        :param rse: The RSE name.
+        :param filters: dictionary of attributes by which the results should be filtered.
+
+        :returns:  list of dictionnaries.
+        """
+        path = [self.RSE_BASEURL, rse, 'usage', 'history']
+        path = '/'.join(path)
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET', data=filters and dumps(filters))
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def set_rse_limits(self, rse, name, value):
+        """
+        Set RSE limit information.
+
+        :param rse: The RSE name.
+        :param name: The name of the limit.
+        :param value: The feature value. Set to -1 to remove the limit.
+
+        :returns: True if successful, otherwise false.
+        """
+        path = [self.RSE_BASEURL, rse, 'limits']
+        path = '/'.join(path)
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='PUT', data=dumps({'name': name, 'value': value}))
+
+        if r.status_code == codes.ok:
+            return True
+
+        exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+        raise exc_cls(exc_msg)
+
+    def get_rse_limits(self, rse):
+        """
+        Get RSE limits.
+
+        :param rse: The RSE name.
+
+        :returns: True if successful, otherwise false.
+        """
+
+        path = [self.RSE_BASEURL, rse, 'limits']
+        path = '/'.join(path)
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
