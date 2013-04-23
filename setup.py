@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 import glob
 import shutil
@@ -207,8 +207,8 @@ setup(
     include_package_data=True,
     scripts=scripts,
     # doc=cmdclass,
-    author="Vincent Garonne",
-    author_email="vincent.garonne@cern.ch",
+    author="CERN PH-ADP-CO",
+    author_email="ph-adp-ddm-lab@cern.ch",
     description=description,
     license="Apache License, Version 2.0",
     url="http://rucio.cern.ch/",
