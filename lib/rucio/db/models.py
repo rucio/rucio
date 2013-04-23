@@ -99,8 +99,8 @@ def _ck_constraint_name(const, table):
 @event.listens_for(Table, "after_parent_attach")
 def _add_created_col(table, metadata):
     if not table.name.upper().endswith('_HISTORY'):
-        table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow))
-        table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
+#        table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow))
+#        table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
         if table.info.get('soft_delete', False):
             table.append_column(Column("deleted", Boolean, default=False))
             table.append_column(Column("deleted_at", DateTime))
@@ -115,6 +115,14 @@ class ModelBase(object):
         return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   {'mysql_engine': 'InnoDB'})
+
+    @declared_attr
+    def created_at(cls):
+        return Column("created_at", DateTime, default=datetime.datetime.utcnow)
+
+    @declared_attr
+    def updated_at(cls):
+        return Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     def save(self, flush=True, session=None):
         """Save this object"""
@@ -340,8 +348,17 @@ class RSE(BASE, SoftModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint('"TYPE" IS NOT NULL', name='RSES_TYPE_NN'),
-                   )
+                   CheckConstraint('"TYPE" IS NOT NULL', name='RSES_TYPE_NN'), )
+
+
+class RSELimit(BASE, ModelBase):
+    """Represents RSE limits"""
+    __tablename__ = 'rse_limits'
+    rse_id = Column(GUID())
+    name = Column(String(255))
+    value = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('rse_id', 'name', name='RSE_LIMITS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_LIMIT_RSE_ID_FK'), )
 
 
 class RSEUsage(BASE, ModelBase, Versioned):
@@ -562,6 +579,7 @@ def register_models(engine):
               RSE,
               RSEAttrAssociation,
               RSEFileAssociation,
+              RSELimit,
               RSEProtocols,
               RSEUsage,
               ReplicaLock,
@@ -592,6 +610,7 @@ def unregister_models(engine):
               RSE,
               RSEAttrAssociation,
               RSEFileAssociation,
+              RSELimit,
               RSEProtocols,
               RSEUsage,
               ReplicaLock,

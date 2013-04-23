@@ -14,6 +14,7 @@ Reaper is a daemon to manage file deletion
 from logging import getLogger, StreamHandler, DEBUG
 from sys import exit
 
+from rucio.core import rse as rse_core
 
 logger = getLogger("rucio.daemons.Reaper")
 sh = StreamHandler()
@@ -30,5 +31,27 @@ def stop(signum, frame):
     exit(SUCCESS)
 
 
+def __check_rse_limits(rse):
+    limits = rse_core.get_rse_limits(rse=rse, name='MinFreeSpace')
+    usage = rse_core.get_rse_usage(rse)
+
+    # ToDO: Get the amount of bytes waiting for deletion to add
+
+    if not usage or not limits:
+        return False
+
+    for limit in limits:
+        if limit['value'] > usage['free']:
+            return limit['value'] - usage['free']  # + bytesWaitingForDeletion
+
+    return False
+
+
 def run_once():
-    pass
+
+    for rse in rse_core.list_rses():
+        bytes = __check_rse_limits(rse)
+        if bytes:
+            print 'Freeing up some space(%(bytes)s) on %(rse)s' % locals()
+            # select files with no locks for x bytes on RSE
+            # submit the files for deletion

@@ -17,7 +17,7 @@ from rucio.core import rse as rse_module
 
 def add_rse(rse, issuer, prefix=None, deterministic=True, volatile=False):
     """
-    Creates a new Rucio Location (RSE).
+    Creates a new Rucio Storage Element(RSE).
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
@@ -64,7 +64,7 @@ def del_rse(rse, issuer):
 
 def list_rses(filters=None):
     """
-    Lists all the rses.
+    Lists all RSEs.
 
     :param filters: dictionary of attributes by which the results should be filtered.
 
@@ -164,7 +164,7 @@ def get_protocols(rse, issuer, protocol_domain='ALL', operation=None, default=Fa
     """
     Returns all matching protocols (including detailed information) for the given RSE.
 
-    :param rse: The name of the rse.
+    :param rse: The RSE name.
     :param issuer: The issuer account.
     :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL" (as default).
     :param operation: The name of the requested operation (read, write, or delete).
@@ -181,7 +181,7 @@ def del_protocols(rse, issuer, scheme, hostname=None, port=None):
     """
     Deletes all matching protocol entries for the given RSE..
 
-    :param rse: The name of the rse.
+    :param rse: The RSE name.
     :param issuer: The issuer account.
     :param scheme: The protocol identifier.
     :param hostname: The hostname (to be used if more then one protocol using the
@@ -199,7 +199,7 @@ def update_protocols(rse, issuer, scheme, data, hostname=None, port=None):
     """
     Updates all provided attributes for all matching protocol entries of the given RSE..
 
-    :param rse: The name of the rse.
+    :param rse: The RSE name.
     :param issuer: The issuer account.
     :param scheme: The protocol identifier.
     :param data: A dict including the attributes of the protocol to be updated. Keys must match the column names in the database.
@@ -210,3 +210,78 @@ def update_protocols(rse, issuer, scheme, data, hostname=None, port=None):
     if not permission.has_permission(issuer=issuer, action='update_protocol', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update protocols from RSE %s' % (issuer, rse))
     rse_module.update_protocols(rse, scheme=scheme, hostname=hostname, port=port, data=data)
+
+
+def set_rse_usage(rse, source, total, free, issuer):
+    """
+    Set RSE usage information.
+
+    :param rse: The RSE name.
+    :param source: the information source, e.g. srm.
+    :param total: the total space in bytes.
+    :param free: the free space in bytes.
+    :param issuer: The issuer account.
+
+
+    :returns: True if successful, otherwise false.
+    """
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='set_rse_usage', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update RSE usage information for RSE %s' % (issuer, rse))
+
+    return rse_module.set_rse_usage(rse=rse, source=source, total=total, free=free)
+
+
+def get_rse_usage(rse, issuer, filters=None):
+    """
+    get RSE usage information.
+
+    :param rse: The RSE name.
+    :param issuer: The issuer account.
+    :param filters: dictionary of attributes by which the results should be filtered
+
+    :returns: True if successful, otherwise false.
+    """
+    return rse_module.get_rse_usage(rse=rse, filters=filters)
+
+
+def list_rse_usage_history(rse, issuer, filters=None):
+    """
+     List RSE usage history information.
+
+    :param rse: The RSE name.
+    :param issuer: The issuer account.
+    :param filters: Dictionary of attributes by which the results should be filtered.
+
+    """
+    return rse_module.list_rse_usage_history(rse=rse, filters=filters)
+
+
+def set_rse_limits(rse, name, value, issuer):
+    """
+    Set RSE limits.
+
+    :param rse: The RSE name.
+    :param name: The name of the limit.
+    :param value: The feature value. Set to -1 to remove the limit.
+    :param issuer: The issuer account.
+
+    :returns: True if successful, otherwise false.
+    """
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='set_rse_limits', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
+
+    return rse_module.set_rse_limits(rse=rse, name=name, value=value)
+
+
+def get_rse_limits(rse, issuer):
+    """
+    Get RSE limits.
+
+    :param rse: The RSE name.
+    :param issuer: The issuer account.
+
+    :returns: True if successful, otherwise false.
+    """
+    return rse_module.get_rse_limits(rse=rse)
