@@ -11,14 +11,12 @@
 Create history table (based on the example provided in the sqlalchemy examples directory)
 """
 
-
-from sqlalchemy import Table, Column, ForeignKeyConstraint, Integer
+from sqlalchemy import Table, ForeignKeyConstraint
 from sqlalchemy import event
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import mapper, attributes, object_mapper
 from sqlalchemy.orm.exc import UnmappedColumnError
 from sqlalchemy.orm.properties import RelationshipProperty
-from sqlalchemy.schema import CheckConstraint
 
 
 def col_references_table(col, table):
@@ -45,8 +43,9 @@ def _history_mapper(local_mapper):
     if not super_mapper or local_mapper.local_table is not super_mapper.local_table:
         cols = []
         for column in local_mapper.local_table.c:
-            if column.name == 'version':
-                continue
+
+            if column.name == 'updated_at':
+                column.primary_key = True
 
             col = column.copy()
             col.unique = False
@@ -58,12 +57,6 @@ def _history_mapper(local_mapper):
 
             if column is local_mapper.polymorphic_on:
                 polymorphic_on = col
-
-        if super_mapper:
-            super_fks.append(('version', super_history_mapper.base_mapper.local_table.c.version))
-            cols.append(Column('version', Integer))  # , primary_key=True
-        else:
-            cols.append(Column('version', Integer))  # , primary_key=True
 
         if super_fks:
             cols.append(ForeignKeyConstraint(*zip(*super_fks)))
@@ -85,21 +78,12 @@ def _history_mapper(local_mapper):
         bases = local_mapper.base_mapper.class_.__bases__
     versioned_cls = type.__new__(type, "%sHistory" % cls.__name__, bases, {})
 
-    m = mapper(
-        versioned_cls,
-        table,
-        inherits=super_history_mapper,
-        polymorphic_on=polymorphic_on,
-        polymorphic_identity=local_mapper.polymorphic_identity)
-
+    m = mapper(versioned_cls,
+               table,
+               inherits=super_history_mapper,
+               polymorphic_on=polymorphic_on,
+               polymorphic_identity=local_mapper.polymorphic_identity)
     cls.__history_mapper__ = m
-
-    if not super_history_mapper:
-        local_mapper.local_table.append_column(
-            Column('version', Integer, default=1)
-        )
-        local_mapper.local_table.append_constraint(CheckConstraint('VERSION IS NOT NULL', name=local_mapper.local_table.name.upper() + '_VERSION_NN'))
-        local_mapper.add_property("version", local_mapper.local_table.c.version)
 
 
 class Versioned(object):
@@ -134,8 +118,6 @@ def create_version(obj, session, deleted=False):
             continue
 
         for hist_col in hm.local_table.c:
-            if hist_col.key == 'version':
-                continue
 
             obj_col = om.local_table.c[hist_col.key]
 
@@ -177,15 +159,13 @@ def create_version(obj, session, deleted=False):
                 obj_changed = True
                 break
 
-    if not obj_changed and not deleted:
-        return
+    # if not obj_changed and not deleted:
+    #    return
 
-    attr['version'] = obj.version
     hist = history_cls()
     for key, value in attr.iteritems():
         setattr(hist, key, value)
     session.add(hist)
-    obj.version += 1
 
 
 def versioned_session(session):

@@ -22,7 +22,6 @@ from sqlalchemy.orm import aliased
 
 from rucio.common import exception, utils
 from rucio.db import models
-from rucio.db.history import versioned_session
 from rucio.db.session import read_session, transactional_session
 from rucio.rse.rsemanager import RSEMgr
 
@@ -147,7 +146,7 @@ def add_rse_attribute(rse, key, value, session=None):
     :param issuer: The issuer account.
     :param session: The database session in use.
 
-    :returns: True is successfull
+    :returns: True is successful
     """
     # Check location
     l = get_rse(rse=rse, session=session)
@@ -209,16 +208,16 @@ def set_rse_usage(rse, source, total, free, session=None):
     :param free: the free in bytes.
     :param session: The database session in use.
 
-    :returns: True if successfull, otherwise false.
+    :returns: True if successful, otherwise false.
     """
-
-    rse = session.query(models.RSE).filter_by(rse=rse).one()
-
+    rse = get_rse(rse)
     rse_usage = models.RSEUsage(rse_id=rse.id, source=source, total=total, free=free)
+    # versioned_session(session)
+    rse_usage = session.merge(rse_usage)
+    rse_usage.save(session=session)
 
-    versioned_session(session)
-    merged_rse_usage = session.merge(rse_usage)
-    merged_rse_usage.save(session=session)
+    rse_usage_history = models.RSEUsage.__history_mapper__.class_(rse_id=rse.id, source=source, total=total, free=free)
+    rse_usage_history.save(session=session)
 
     return True
 
@@ -232,30 +231,66 @@ def get_rse_usage(rse, filters=None, session=None):
     :param filters: dictionary of attributes by which the results should be filtered
     :param session: The database session in use.
 
-    :returns: True if successfull, otherwise false.
+    :returns: True if successful, otherwise false.
     """
+    rse = get_rse(rse)
 
-    query = session.query(models.RSEUsage).\
-        join(models.RSE, models.RSE.id == models.RSEUsage.rse_id).\
-        filter_by(rse=rse)
+    query = session.query(models.RSEUsage).filter_by(rse_id=rse.id)
 
     if filters:
         for (k, v) in filters.items():
             if hasattr(models.RSEUsage, k):
                 query = query.filter(getattr(models.RSEUsage, k) == v)
 
-    result = list()
     for usage in query:
-        result.append({'rse': usage.rse.rse, 'source': usage.source,
-                       'total': usage.total, 'free': usage.free,
-                       'updated_at': usage.updated_at})
-    return result
+        return {'rse': usage.rse.rse, 'source': usage.source,
+                'total': usage.total, 'free': usage.free,
+                'updated_at': usage.updated_at}
+
+
+@transactional_session
+def set_rse_limits(rse, name, value, session=None):
+    """
+    Set RSE limits.
+
+    :param rse: The RSE name.
+    :param name: The name of the limit.
+    :param value: The feature value. Set to -1 to remove the limit.
+    :param session: The database session in use.
+
+    :returns: True if successful, otherwise false.
+    """
+    rse = get_rse(rse)
+    rse_limit = models.RSELimit(rse_id=rse.id, name=name, value=value)
+    rse_limit = session.merge(rse_limit)
+    rse_limit.save(session=session)
+    return True
 
 
 @read_session
-def get_rse_usage_history(rse, filters=None, session=None):
+def get_rse_limits(rse, name=None, session=None):
     """
-    get location usage history information.
+    Get RSE limits.
+
+    :param rse: The RSE name.
+
+    :returns: True if successful, otherwise false.
+    """
+    rse = get_rse(rse)
+    query = session.query(models.RSELimit).filter_by(rse_id=rse.id)
+    if name:
+        query = query.filter_by(name=name)
+
+    for limit in query.yield_per(5):
+        yield {'rse': rse.rse, 'name': limit.name,
+               'value': limit.value, 'created_at': limit.created_at,
+               'updated_at': limit.updated_at}
+
+
+@read_session
+def list_rse_usage_history(rse, filters=None, session=None):
+    """
+    List location usage history information.
 
     :param location: The location name.
     :param filters: dictionary of attributes by which the results should be filtered.
@@ -263,10 +298,10 @@ def get_rse_usage_history(rse, filters=None, session=None):
 
     :returns:  list of locations.
     """
-    result = list()
-    query = session.query(models.LocationUsage.__history_mapper__.class_)
-    for usage in query:
-        result.append({'location': usage.location.location, 'source': usage.source, usage.name: usage.value, 'updated_at': usage.updated_at})
+    rse = get_rse(rse)
+    query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=rse.id).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
+    for usage in query.yield_per(5):
+        yield ({'rse': rse.rse, 'source': usage.source, 'total': usage.total, 'free': usage.free, 'updated_at': usage.updated_at})
 
 
 @transactional_session
@@ -286,7 +321,7 @@ def add_file_replica(rse, scope, name, size, issuer, adler32=None, md5=None, dsn
     :rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     :param session: The database session in use.
 
-    :returns: True is successfull.
+    :returns: True is successful.
     """
     replica_rse = get_rse(rse=rse, session=session)
     path = None
@@ -338,7 +373,7 @@ def list_replicas(rse, filters={}, session=None):
         for (k, v) in filters.items():
             query = query.filter(getattr(models.RSEFileAssociation, k) == v)
 
-    for row in query:
+    for row in query.yield_per(5):
         d = {}
         for column in row.__table__.columns:
             d[column.name] = getattr(row, column.name)

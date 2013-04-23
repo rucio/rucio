@@ -50,7 +50,10 @@ def has_permission(issuer, action, kwargs):
             'submit_rse_transfer': perm_submit_rse_transfer,
             'submit_transfer': perm_submit_transfer,
             'query_transfer': perm_query_transfer,
-            'cancel_transfer': perm_cancel_transfer}
+            'cancel_transfer': perm_cancel_transfer,
+            'set_rse_usage': perm_set_rse_usage,
+            'set_rse_limits': perm_set_rse_limits}
+
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
 
@@ -321,6 +324,28 @@ def perm_query_transfer(issuer, kwargs):
 def perm_cancel_transfer(issuer, kwargs):
     """
     Checks if an account can cancel a transfer.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_set_rse_usage(issuer, kwargs):
+    """
+    Checks if an account can set RSE usage information.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_set_rse_limits(issuer, kwargs):
+    """
+    Checks if an account can set RSE limits.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

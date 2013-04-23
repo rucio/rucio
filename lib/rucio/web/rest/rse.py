@@ -16,9 +16,14 @@ from traceback import format_exc
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.rse import add_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, del_rse_attribute, add_file_replica, add_protocol, get_protocols, del_protocols, update_protocols, get_rse
+from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
+                           list_rse_attributes, del_rse_attribute, add_file_replica,
+                           add_protocol, get_protocols, del_protocols,
+                           update_protocols, get_rse, set_rse_usage,
+                           get_rse_usage, list_rse_usage_history,
+                           set_rse_limits, get_rse_limits)
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
-from rucio.common.utils import generate_http_error
+from rucio.common.utils import generate_http_error, render_json
 
 urls = (
     '/(.+)/attr/(.+)', 'Attributes',
@@ -29,6 +34,9 @@ urls = (
     '/(.+)/protocols/(.+)/(.+)', 'Protocol',  # delete (DELETE) all protocols with the same identifier and the same hostname
     '/(.+)/protocols/(.+)', 'Protocol',  # List (GET), create (POST), update (PUT), or delete (DELETE) a all protocols with the same identifier
     '/(.+)/protocols', 'Protocols',  # List all supported protocols (GET)
+    '/(.+)/usage', 'Usage',  # Update RSE usage information
+    '/(.+)/usage/history', 'UsageHistory',  # Get RSE usage history information
+    '/(.+)/limits', 'Limits',  # Update/List RSE limits
     '/(.+)', 'RSE',
     '/', 'RSEs',
 )
@@ -542,7 +550,6 @@ class Protocol:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         json_data = data()
-
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -603,6 +610,204 @@ class Protocol:
             raise InternalError(e)
 
         raise OK()
+
+
+class Usage:
+
+    def POST(self, rse):
+        """ Not supported. """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def GET(self, rse):
+        """
+        Get RSE usage information.
+
+        :param rse: the RSE name.
+        """
+        header('Content-Type', 'application/json')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        usage = None
+        try:
+            usage = get_rse_usage(rse, issuer=auth['account'], filters=None)
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+        return render_json(**usage)
+
+    def PUT(self, rse):
+        """ Update RSE usage information.
+
+        HTTP Success:
+            200 Updated
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            409 Conflict
+            500 Internal Error
+
+        :param rse: The RSE name.
+        """
+
+        header('Content-Type', 'application/json')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        json_data = data()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+
+        try:
+            set_rse_usage(rse=rse, issuer=auth['account'], **parameter)
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+        raise OK()
+
+    def DELETE(self, rse):
+        """ Not supported. """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+
+class UsageHistory:
+
+    def POST(self, rse):
+        """ Not supported. """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def GET(self, rse):
+        """
+        Get RSE usage information.
+
+        :param rse: the RSE name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            for usage in list_rse_usage_history(rse=rse, issuer=auth['account'], filters=None):
+                yield render_json(**usage) + '\n'
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+    def PUT(self, rse):
+        """ Not supported. """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self, rse):
+        """ Not supported. """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+
+class Limits:
+
+    def POST(self, rse):
+        """ Not supported. """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def GET(self, rse):
+        """
+        Get RSE limits.
+
+        :param rse: the RSE name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            for limit in get_rse_limits(rse=rse, issuer=auth['account']):
+                yield render_json(**limit) + '\n'
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+    def PUT(self, rse):
+        """ Update RSE limits.
+
+        HTTP Success:
+            200 Updated
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            409 Conflict
+            500 Internal Error
+
+        :param rse: The RSE name.
+        """
+
+        header('Content-Type', 'application/json')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        json_data = data()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+
+        try:
+            set_rse_limits(rse=rse, issuer=auth['account'], **parameter)
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+        raise OK()
+
+    def DELETE(self, rse):
+        """ Not supported. """
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 """----------------------
    Web service startup

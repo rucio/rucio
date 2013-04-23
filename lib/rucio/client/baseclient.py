@@ -14,7 +14,6 @@ Client class for callers of the Rucio system
 """
 
 from getpass import getuser
-from json import loads
 from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs
 from shutil import move
@@ -30,7 +29,7 @@ from requests.exceptions import SSLError
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter, RucioException
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, parse_response
 
 LOG = getLogger(__name__)
 sh = StreamHandler()
@@ -168,9 +167,9 @@ class BaseClient(object):
         if 'content-type' in response.headers and response.headers['content-type'] == 'application/x-json-stream':
             for line in response.iter_lines():
                 if line:
-                    yield loads(line)
+                    yield parse_response(line)
         elif 'content-type' in response.headers and response.headers['content-type'] == 'application/json':
-            yield loads(response.text)
+            yield parse_response(response.text)
         else:  # Exception ?
             yield response.text
 

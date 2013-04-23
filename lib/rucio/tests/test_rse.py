@@ -19,8 +19,7 @@ from paste.fixture import TestApp
 from rucio.client.rseclient import RSEClient
 from rucio.common.exception import Duplicate, RSENotFound, RSEProtocolNotSupported, RSEOperationNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.rse import add_rse, del_rse, list_rses,\
-    rse_exists, set_rse_usage, get_rse_usage, add_rse_attribute, list_rse_attributes
+from rucio.core.rse import add_rse, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -72,17 +71,6 @@ class TestRSECoreApi():
         rses = list_rses(filters={'tier': '1', 'country': 'us'})
         assert_in(rse, rses)
         del_rse(rse)
-
-    def test_set_rse_usage(self):
-        """ RSE (CORE): Test the update of RSE usage """
-        rse = 'MOCK_' + str(uuid())
-        source = 'srm'
-        add_rse(rse)
-        assert_equal(rse_exists(rse), True)
-        assert_equal(set_rse_usage(rse=rse, source=source, total=1000000L, free=80L), True)
-        usage = get_rse_usage(rse=rse)
-        for u in usage:
-            assert_equal(u['total'], 1000000)
 
     def test_list_rse_attributes(self):
         """ RSE (CORE): Test the listing of RSE attributes """
@@ -1508,3 +1496,21 @@ class TestRSEClient():
             raise
         self.client.delete_protocols(protocol_rse, scheme='MOCK')
         self.client.delete_rse(protocol_rse)
+
+    def test_set_rse_usage(self):
+        """ RSE (CLIENTS): Test the update of RSE usage."""
+        assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', total=1000000L, free=800L), True)
+        usage = self.client.get_rse_usage(rse='MOCK')
+        assert_equal(usage['total'], 1000000)
+        assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', total=1000000L, free=80L), True)
+        for usage in self.client.list_rse_usage_history(rse='MOCK'):
+            assert_equal(usage['free'], 80)
+            break
+
+    def test_set_rse_limits(self):
+        """ RSE (CLIENTS): Test the update of RSE limits."""
+        assert_equal(self.client.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=1000000L), True)
+        for limit in self.client.get_rse_limits(rse='MOCK'):
+            if limit['rse'] == 'MOCK' and limit['name'] == 'MinFreeSpace':
+                assert_equal(limit['value'], 1000000)
+                break
