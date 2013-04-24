@@ -17,7 +17,6 @@ SQLAlchemy models for rucio data
 """
 
 import datetime
-from uuid import uuid4 as uuid
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Integer, String as _String, event, UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
@@ -37,19 +36,6 @@ from rucio.db.types import GUID
 def String(*arg, **kw):
     kw['convert_unicode'] = 'force'
     return _String(*arg, **kw)
-
-#class String(_String):
-#    def bind_processor(self, dialect):
-#        if dialect.name == 'oracle':
-#            encoder = codecs.getencoder(dialect.encoding)
-#            def process(value):
-#                if isinstance(value, unicode):
-#                    return encoder(value, self.unicode_error)[0]
-#                else:
-#                    return value
-#            return process
-#        else:
-#            return super(String, self).bind_processor(dialect)
 
 
 class DataIdType:
@@ -339,7 +325,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
 class RSE(BASE, SoftModelBase):
     """Represents a Rucio Location"""
     __tablename__ = 'rses'
-    id = Column(GUID(), default=lambda: str(uuid()))
+    id = Column(GUID(), default=utils.generate_uuid)
     rse = Column(String(255))
     type = Column(Enum('disk', 'tape', name='RSES_TYPE_CHK'), default='disk')
     prefix = Column(String(1024))
@@ -499,8 +485,8 @@ class ReplicaLock(BASE, ModelBase):
                    )
 
 
-class Requests(BASE, ModelBase):
-    """Represents transfer request of files with a third party transfer service"""
+class Request(BASE, ModelBase):
+    """Represents a request for a single file with a third party service"""
     __tablename__ = 'requests'
     id = Column(GUID(), default=utils.generate_uuid)
     type = Column(Enum('TRANSFER', 'DELETE', 'UPLOAD', 'DOWNLOAD', name='REQUESTS_TYPE_CHK'), default='TRANSFER')
@@ -509,17 +495,15 @@ class Requests(BASE, ModelBase):
     dest_rse_id = Column(GUID())
     attributes = Column(String(4000))
     state = Column(Enum('QUEUED', 'SUBMITTED', 'FAILED', 'DONE', name='REQUESTS_STATE_CHK'), default='QUEUED')
-    external_id = Column(String(4000))
+    external_id = Column(String(64))
     retry_count = Column(Integer(), default=0)
     err_msg = Column(String(4000))
     previous_attempt_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'dest_rse_id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
-                   CheckConstraint('"TYPE" IS NOT NULL', name='REQUESTS_TYPE_NN'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='REQUESTS_STATE_NN'),
                    Index('REQUESTS_ID_IDX', 'id'),
-                   Index('REQUESTS_EXTERNAL_ID_IDX', 'external_id')
+                   Index('REQUESTS_TYPE_STATE_IDX', 'type', 'state')
                    )
 
 
@@ -590,7 +574,7 @@ def register_models(engine):
               ReplicationRule,
               ReplicaLock,
               ReplicationRule,
-              Requests,
+              Request,
               Scope,
               Subscription,
               Token)
@@ -622,7 +606,7 @@ def unregister_models(engine):
               ReplicationRule,
               ReplicaLock,
               ReplicationRule,
-              Requests,
+              Request,
               Scope,
               Subscription,
               Token)

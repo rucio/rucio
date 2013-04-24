@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from random import uniform, shuffle
 
@@ -22,7 +23,7 @@ from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_da
 from rucio.core.quota import list_account_limits, list_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.transfer import submit_rse_transfer
+from rucio.core.request import queue_request
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 
@@ -108,7 +109,7 @@ def add_replication_rule(dids, account, copies, rse_expression, grouping, weight
     if len(transfers_to_create) > 0:
         for transfer in transfers_to_create:
             #TODO: Add session variable when [RUCIO-243] is done
-            submit_rse_transfer(scope=transfer['scope'], name=transfer['name'], destination_rse=transfer['rse_id'], metadata=None)
+            queue_request(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], req_type='TRANSFER')
     else:
         # No transfers need to be created, the rule is SATISFIED
         new_rule.state = "OK"
