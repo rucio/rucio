@@ -10,7 +10,6 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
-
 from re import match
 from StringIO import StringIO
 
