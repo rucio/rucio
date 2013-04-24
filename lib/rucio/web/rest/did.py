@@ -80,8 +80,8 @@ class Scope:
         try:
             for did in scope_list(scope=scope, name=name, recursive=recursive):
                 yield dumps(did) + '\n'
-        except ScopeNotFound, e:
-            raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
