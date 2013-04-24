@@ -41,7 +41,7 @@ Listen 443
  SSLCertificateFile /opt/rucio/etc/web/localhost.crt
  SSLCACertificateFile /opt/rucio/etc/web/ca.crt
 
- LogLevel debug
+ LogLevel warn
 
  Include /opt/rucio/etc/web/aliases-py27.conf
 

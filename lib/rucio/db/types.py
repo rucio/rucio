@@ -51,6 +51,6 @@ class GUID(TypeDecorator):
         if value is None:
             return value
         elif dialect.name == 'oracle':
-            return str(uuid.UUID(bytes=value))
+            return str(uuid.UUID(bytes=value)).replace('-', '').upper()
         else:
-            return str(uuid.UUID(value))
+            return str(uuid.UUID(value)).replace('-', '').upper()

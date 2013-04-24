@@ -27,7 +27,7 @@ def has_permission(issuer, action, kwargs):
     :param issuer: Account identifier which issues the command..
     :param action:  The action(API call) called by the account.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     perm = {'add_account': perm_add_account,
             'del_account': perm_del_account,
@@ -49,12 +49,14 @@ def has_permission(issuer, action, kwargs):
             'append_identifier': perm_append_identifier,
             'detach_identifier': perm_detach_identifier,
             'set_status': perm_set_status,
-            'submit_rse_transfer': perm_submit_rse_transfer,
+            'queue_request': perm_queue_request,
+            'submit_deletion': perm_submit_transfer,
             'submit_transfer': perm_submit_transfer,
-            'query_transfer': perm_query_transfer,
-            'cancel_transfer': perm_cancel_transfer,
             'set_rse_usage': perm_set_rse_usage,
-            'set_rse_limits': perm_set_rse_limits}
+            'set_rse_limits': perm_set_rse_limits,
+            'query_request': perm_query_request,
+            'cancel_request': perm_cancel_request,
+            'get_next': perm_get_next}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -65,7 +67,7 @@ def perm_default(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return True
 
@@ -76,7 +78,7 @@ def perm_add_rse(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -87,7 +89,7 @@ def perm_add_rule(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     if kwargs['account'] == issuer:
         return True
@@ -102,7 +104,7 @@ def perm_add_rse_attr(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -113,7 +115,7 @@ def perm_del_rse_attr(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -124,7 +126,7 @@ def perm_del_rse(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -135,7 +137,7 @@ def perm_add_account(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -146,7 +148,7 @@ def perm_del_account(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -157,7 +159,7 @@ def perm_add_scope(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or issuer == kwargs.get('account_name')
 
@@ -168,7 +170,7 @@ def perm_get_auth_token_user_pass(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     if rucio.core.authentication.exist_identity_account(identity=kwargs['username'], type='userpass', account=kwargs['account']):
         return True
@@ -181,7 +183,7 @@ def perm_get_auth_token_gss(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     if rucio.core.authentication.exist_identity_account(identity=kwargs['gsscred'], type='gss', account=kwargs['account']):
         return True
@@ -194,7 +196,7 @@ def perm_get_auth_token_x509(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     if rucio.core.authentication.exist_identity_account(identity=kwargs['dn'], type='x509', account=kwargs['account']):
         return True
@@ -207,7 +209,7 @@ def perm_add_account_identity(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
 
     return issuer == 'root' or issuer == kwargs.get('account_name')
@@ -219,7 +221,7 @@ def perm_add_identifier(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
@@ -230,7 +232,7 @@ def perm_append_identifier(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
@@ -256,7 +258,7 @@ def perm_detach_identifier(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return perm_append_identifier(issuer, kwargs)
 
@@ -267,7 +269,7 @@ def perm_set_status(issuer, kwargs):
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
@@ -278,7 +280,7 @@ def perm_add_protocol(issuer, kwargs):
 
     :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -289,7 +291,7 @@ def perm_del_protocol(issuer, kwargs):
 
     :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
@@ -300,51 +302,73 @@ def perm_update_protocol(issuer, kwargs):
 
     :param account_name: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
 
-def perm_submit_rse_transfer(issuer, kwargs):
+def perm_queue_request(issuer, kwargs):
     """
-    Checks if an account can submit a transfer to an RSE.
+    Checks if an account can submit a transfer or deletion request on a destination RSE for a data identifier.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_submit_deletion(issuer, kwargs):
+    """
+    Checks if an account can submit a transfer request to a transfertool.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
 
 def perm_submit_transfer(issuer, kwargs):
     """
-    Checks if an account can submit a transfer to a transfertool.
+    Checks if an account can submit a transfer request to a transfertool.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
 
-def perm_query_transfer(issuer, kwargs):
+def perm_query_request(issuer, kwargs):
     """
-    Checks if an account can query a transfer.
+    Checks if an account can query a request.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
 
-def perm_cancel_transfer(issuer, kwargs):
+def perm_cancel_request(issuer, kwargs):
     """
-    Checks if an account can cancel a transfer.
+    Checks if an account can cancel a request.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_get_next(issuer, kwargs):
+    """
+    Checks if an account can retrieve the next request matching the request type and state.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
 
