@@ -1,8 +1,8 @@
 {
-    "type": "object",  
+    "type": "object",
     "properties" : {
         "datatype": {"type": "array"},
-        "prod_step": {"type": "array"}, 
+        "prod_step": {"type": "array"},
         "stream_name": {"type": "array"},
         "project": {"type": "array"},
         "scope": {"type": "array"},
