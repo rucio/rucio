@@ -91,11 +91,27 @@ def get_rse(rse, session=None):
     :raises RSENotFound: If referred RSE was not found in the database.
     """
     try:
-        query = session.query(models.RSE).filter_by(rse=rse)
-        location = query.one()
+        return session.query(models.RSE).filter_by(rse=rse).one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
-    return location
+
+
+@read_session
+def get_rse_by_id(rse_id, session=None):
+    """
+    Get a RSE properties or raise if it does not exist.
+
+    :param rse_id: the rse uuid from the database.
+    :param session: The database session in use.
+
+    :returns: The row-object od the matching RSE.
+
+    :raises RSENotFound: If referred RSE was not found in the database.
+    """
+    try:
+        return session.query(models.RSE).filter_by(id=rse_id).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
 
 
 @read_session
