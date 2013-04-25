@@ -16,6 +16,7 @@
 
 import rucio.core.authentication
 import rucio.core.scope
+from rucio.core.rule import get_replication_rule
 
 
 def has_permission(issuer, action, kwargs):
@@ -30,7 +31,7 @@ def has_permission(issuer, action, kwargs):
     """
     perm = {'add_account': perm_add_account,
             'del_account': perm_del_account,
-            'add_replication_rule': perm_add_replication_rule,
+            'add_rule': perm_add_rule,
             'add_scope': perm_add_scope,
             'add_rse': perm_add_rse,
             'add_protocol': perm_add_protocol,
@@ -39,6 +40,7 @@ def has_permission(issuer, action, kwargs):
             'add_rse_attr': perm_add_rse_attr,
             'del_rse_attr': perm_del_rse_attr,
             'del_rse': perm_del_rse,
+            'del_rule': perm_del_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
@@ -79,7 +81,7 @@ def perm_add_rse(issuer, kwargs):
     return issuer == 'root'
 
 
-def perm_add_replication_rule(issuer, kwargs):
+def perm_add_rule(issuer, kwargs):
     """
     Checks if an account can add a replication rule.
 
@@ -231,6 +233,21 @@ def perm_append_identifier(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+
+
+def perm_del_rule(issuer, kwargs):
+    """
+    Checks if an issuer can delete a replication rule.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    if issuer == 'root':
+        return True
+    if get_replication_rule(kwargs['rule_id'])['account'] != issuer:
+        return False
+    return True
 
 
 def perm_detach_identifier(issuer, kwargs):

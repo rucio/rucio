@@ -13,17 +13,15 @@
 import string
 import random
 
-from nose.tools import assert_is_instance, assert_in, assert_not_in
+from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises
 
-from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
-from rucio.client.rseclient import RSEClient
-from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import generate_uuid as uuid
+from rucio.common.exception import RuleNotFound
 from rucio.core.did import add_identifier, append_identifier
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse, add_rse_attribute, add_file_replica
-from rucio.core.rule import add_replication_rule
+from rucio.core.rule import add_replication_rule, get_replication_rule, delete_replication_rule
 from rucio.core.scope import add_scope
 
 
@@ -283,53 +281,119 @@ class TestReplicationRuleCore():
                 assert(len(first_locks.intersection(rse_locks)) == 2)
                 assert_in(self.rse1_id, rse_locks)
 
-    #def test_subscription_id(self):
-    #    """ REPLICATION RULE (CORE): Test if subscription_id is set properly"""
-    #    scope = 'scope_%s' % uuid()[:20]
-    #    add_scope(scope, 'root')
-    #    files = _create_test_files(50, scope, self.rse1)
+    def test_get_rule(self):
+        """ REPLICATION RULE (CORE): Test to get a previously created rule"""
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(50, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        append_identifier(scope, dataset, files, 'root')
 
-    #    subscription_id = uuid()
-    #    rule_id = add_replication_rule(dids=files, account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=subscription_id)
-    #    assert(subscription_id == get_replication_rule(rule_id)['subscription_id'])
+        rule_id = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        assert(rule_id == get_replication_rule(rule_id)['id'].replace('-', '').upper())
+        assert_raises(RuleNotFound, get_replication_rule, uuid())
+
+    def test_delete_rule(self):
+        """ REPLICATION RULE (CORE): Test to delete a previously created rule"""
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(50, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        append_identifier(scope, dataset, files, 'root')
+
+        rule_id = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        delete_replication_rule(rule_id)
+        for file in files:
+            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
+            print rse_locks
+            assert(len(rse_locks) == 0)
+        assert_raises(RuleNotFound, delete_replication_rule, uuid())
+
+    def test_delete_rule_and_cancel_transfers(self):
+        """ REPLICATION RULE (CORE): Test to delete a previously created rule and do not cancel overlapping transfers"""
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(50, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        append_identifier(scope, dataset, files, 'root')
+
+        rule_id_1 = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=3, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=4, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+
+        delete_replication_rule(rule_id_1)
+
+        for file in files:
+            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
+            print rse_locks
+            assert(len(rse_locks) == 7)
+            #TODO Need to check transfer queue here, this is actually not the check of this test case
+        assert_raises(RuleNotFound, delete_replication_rule, uuid())
 
 
-class TestReplicationRuleClients():
+class TestReplicationRuleClient():
+
+    @classmethod
+    def setUpClass(cls):
+        #Add test RSE
+        cls.rse1 = str(uuid())
+        cls.rse2 = str(uuid())
+        cls.rse3 = str(uuid())
+        cls.rse4 = str(uuid())
+        cls.rse5 = str(uuid())
+        cls.rse1_id = add_rse(cls.rse1)
+        cls.rse2_id = add_rse(cls.rse2)
+        cls.rse3_id = add_rse(cls.rse3)
+        cls.rse4_id = add_rse(cls.rse4)
+        cls.rse5_id = add_rse(cls.rse5)
+
+        #Add Tags
+        cls.T1 = _tag_generator()
+        cls.T2 = _tag_generator()
+        add_rse_attribute(cls.rse1, cls.T1, True)
+        add_rse_attribute(cls.rse2, cls.T1, True)
+        add_rse_attribute(cls.rse3, cls.T1, True)
+        add_rse_attribute(cls.rse4, cls.T2, True)
+        add_rse_attribute(cls.rse5, cls.T1, True)
+
+        #Add fake weights
+        add_rse_attribute(cls.rse1, "fakeweight", 10)
+        add_rse_attribute(cls.rse2, "fakeweight", 0)
+        add_rse_attribute(cls.rse3, "fakeweight", 0)
+        add_rse_attribute(cls.rse4, "fakeweight", 0)
+        add_rse_attribute(cls.rse5, "fakeweight", 0)
 
     def setup(self):
-        self.did_client = DIDClient()
         self.rule_client = RuleClient()
-        self.rse_client = RSEClient()
-        self.scope_client = ScopeClient()
 
     def test_add_replication_rule(self):
         """ REPLICATION RULE (CLIENT): Add a replication rule """
 
-        # Add a scope
-        tmp_scope = 'scope_%s' % uuid()[:22]
-        self.scope_client.add_scope('root', tmp_scope)
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(50, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        append_identifier(scope, dataset, files, 'root')
 
-        # Add a RSE
-        tmp_rse = str(uuid())
-        self.rse_client.add_rse(tmp_rse)
-
-        # Add 10 Tiers1 RSEs
-        for i in xrange(5):
-            tmp_rse_t1 = str(uuid())
-            self.rse_client.add_rse(tmp_rse_t1)
-            self.rse_client.add_rse_attribute(rse=tmp_rse_t1, key='Tier', value='1')
-
-        # Add datasets
-        dsns = list()
-        for i in xrange(5):
-            tmp_dataset = 'dsn_' + str(uuid())
-            # Add file replicas
-            tmp_file = 'file_%s' % uuid()
-            self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
-            files = [{'scope': tmp_scope, 'name': tmp_file}, ]
-            self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
-            self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
-            dsns.append({'scope': tmp_scope, 'name': tmp_dataset})
-
-        ret = self.rule_client.add_replication_rule(dids=dsns, account="root", copies=2, rse_expression='Tier=1', grouping='NONE')
+        ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account="root", copies=2, rse_expression=self.T1, grouping='NONE')
         assert_is_instance(ret, list)
+
+    def test_delete_replication_rule(self):
+        """ REPLICATION RULE (CLIENT): Delete a replication rule """
+
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(50, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        append_identifier(scope, dataset, files, 'root')
+
+        rule_id = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+
+        ret = self.rule_client.delete_replication_rule(rule_id=rule_id)
+        assert(ret is True)
+        assert_raises(RuleNotFound, self.rule_client.delete_replication_rule, rule_id)
