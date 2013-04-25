@@ -18,6 +18,7 @@ import traceback
 import rucio.tests.emulation.usecases
 
 from pystatsd import Client
+from gearman.admin_client import GearmanAdminClient
 
 
 """
@@ -26,6 +27,17 @@ from pystatsd import Client
 
     Emulation setup is loaded from /opt/rucio/etc/emulation.cfg
 """
+
+
+def observe_gearman_queue(cfg, oberserver_event):
+    ac = GearmanAdminClient(cfg['gearman']['server'])
+    cs = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
+    while observer_event.is_set() is False:
+        stat = ac.get_status()
+        for task in stat:
+            if task['task'] == 'execute_uc':
+                cs.update_stats('gearman.queue', task['queued'])
+        observer_event.wait(1.0)
 
 if __name__ == '__main__':
     with open('/opt/rucio/etc/emulation.cfg') as f:
@@ -48,6 +60,20 @@ if __name__ == '__main__':
         print 'Setting up carbon client ...'
         try:
             cs = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
+        except Exception, e:
+            print 'Unable to connect to Carbon-Server'
+            print e
+            print traceback.format_exc()
+    else:
+        print 'Loggin into carbon disabled'
+
+    if cfg['global']['operation_mode'] == 'gearman':
+        print 'Setting up gearman queue observer ...'
+        try:
+            observer_event = threading.Event()
+            t = threading.Thread(target=observe_gearman_queue, args=[cfg, observer_event])
+            t.deamon = True
+            t.start()
         except Exception, e:
             print 'Unable to connect to Carbon-Server'
             print e
@@ -107,6 +133,8 @@ if __name__ == '__main__':
         print '%f\tKeyboardInterrupt' % (time.time())
         for uc in uc_array:
             uc.stop()
+        if cfg['global']['operation_mode'] == 'gearman':
+            observer_event.set()
         exit(1)
 
     except:
