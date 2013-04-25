@@ -5,5 +5,6 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
 __all__ = ['dummy_template']  # for testing purpose
-__all__ = ['dummy_template', 'tzero', 'auth']  # for testing purpose
+__all__ = ['panda']  # for testing purpose
+#__all__ = ['dummy_template', 'tzero']  # for testing purpose
 #__all__ = ['tzero']  # only 'real' modules goe here

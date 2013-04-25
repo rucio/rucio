@@ -16,10 +16,11 @@ from rucio.client.accountclient import AccountClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
+from rucio.client.didclient import DIDClient
 from rucio.client.scopeclient import ScopeClient
 
 
-class Client(AccountClient, MetaClient, PingClient, RSEClient, ScopeClient):
+class Client(AccountClient, MetaClient, PingClient, RSEClient, ScopeClient, DIDClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 

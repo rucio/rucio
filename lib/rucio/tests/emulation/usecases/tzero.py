@@ -34,7 +34,7 @@ class UseCaseDefinition(UCEmulator):
     """
 
     @UCEmulator.UseCase
-    def UC_TZ_REGISTER_NEW(self, hz):
+    def UC_TZ_REGISTER_NEW(self):
         """
             Registers a new empty dataset using the add_identifier method.
 
@@ -53,7 +53,7 @@ class UseCaseDefinition(UCEmulator):
             print 'UC_TZ_REGISTER_NEW\tdid_client.add_dataset\t%s' % (tmp_dsn)
 
     @UCEmulator.UseCase
-    def UC_TZ_REGISTER_APPEND(self, hz, no_of_files):
+    def UC_TZ_REGISTER_APPEND(self):
         """
             Registers file replicas for a dataset. The number of files is provided
             as 'no_of_files' in the tse object. This number applied to a gauss-distribution
@@ -70,7 +70,7 @@ class UseCaseDefinition(UCEmulator):
         self.dataset_meta['run_number'] = str(generate_uuid())
         sources = []
         # Creating Files to append to a dataset
-        for i in xrange(int(round(gauss(no_of_files, 10)))):
+        for i in xrange(int(round(gauss(30, 10)))):
             lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
             pfn = 'rfio:///castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % self.dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
@@ -89,7 +89,7 @@ class UseCaseDefinition(UCEmulator):
             print 'UC_TZ_REGISTER_APPEND\tdid_client.add_files_to_dataset\t%s' % (len(sources))
 
     @UCEmulator.UseCase
-    def UC_TZ_FREEZE_DATASET(self, hz):
+    def UC_TZ_FREEZE_DATASET(self):
         """
             Closes a dataset using the 'set_status' method.
         """
@@ -105,7 +105,7 @@ class UseCaseDefinition(UCEmulator):
             if self.__verbose:
                 print 'UC_TZ_FREEZE_DATASET\tdid_client.close\t%s' % (len(tmp_dsn))
 
-    def setup(self, cfg):
+    def setup(self, cfg, ctx):
         """
             Sets up shared information/objects between the use cases and creates between one
             and ten empty datasets for the UC_TZ_REGISTER_APPEND use case.
