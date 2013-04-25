@@ -9,14 +9,16 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
+import datetime
+
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
 
-from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized
+from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized, OK
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.rule import add_replication_rule
-from rucio.common.exception import InsufficientQuota
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
+from rucio.common.exception import InsufficientQuota, RuleNotFound, AccessDenied
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.rule")
@@ -24,14 +26,47 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/', 'Rule')
+urls = ('/', 'Rule',
+        '/(.+)', 'Rule')
 
 
 class Rule:
     """ REST APIs for replication rules. """
 
-    def GET(self):
-        raise BadRequest()
+    def GET(self, rule_id):
+        """ get rule information for given rule id.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 InternalError
+
+        :returns: JSON dict containing informations about the requested user.
+        """
+
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            rule = get_replication_rule(rule_id)
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        dict = rule
+        for key, value in dict.items():
+            if isinstance(value, datetime):
+                dict[key] = value.strftime('%Y-%m-%dT%H:%M:%S')
+
+        return dumps(dict)
 
     def PUT(self):
         raise BadRequest()
@@ -81,11 +116,37 @@ class Rule:
             raise generate_http_error(409, 'InsufficientQuota', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
-
         raise Created(dumps(rule_ids))
 
-    def DELETE(self):
-        raise BadRequest()
+    def DELETE(self, rule_id):
+        """
+        Delete a new replication rule.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 Internal Error
+        """
+
+        header('Content-Type', 'application/octet-stream')
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise Unauthorized()
+        try:
+            delete_replication_rule(rule_id=rule_id, issuer=auth['account'])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+        raise OK()
 
 
 """----------------------

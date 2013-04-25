@@ -50,3 +50,19 @@ class RuleClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def delete_replication_rule(self, rule_id):
+        """
+        Deletes a replication rule and all associated locks.
+
+        :param rule_id:  The id of the rule to be deleted
+        :raises:         RuleNotFound
+        """
+        path = self.RULE_BASEURL + '/' + rule_id
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='DEL')
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)

@@ -298,12 +298,6 @@ class NotAFile(RucioException):
         self._message = 'Specified name is not a file'
 
 
-class ReplicationRuleNotFound(RucioException):
-    def __init__(self, *args, **kwargs):
-        super(ReplicationRuleNotFound, self).__init__(args, kwargs)
-        self._message = "Replication Rule does not exist."
-
-
 class RSEAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEAccessDenied, self).__init__(args, kwargs)
@@ -362,6 +356,12 @@ class RSETagNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSETagNotFound, self).__init__(args, kwargs)
         self._message = "RSE Tag does not exist."
+
+
+class RuleNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RuleNotFound, self).__init__(args, kwargs)
+        self._message = "No replication rule found."
 
 
 class ServiceUnavailable(RucioException):

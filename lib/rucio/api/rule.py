@@ -34,7 +34,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :returns:                List of created replication rules
     """
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime, 'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id}
-    if not has_permission(issuer=issuer, action='add_replication_rule', kwargs=kwargs):
+    if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
     #TODO Check for valid parameters: dids, copies etc.
     if lifetime is not None:
@@ -42,12 +42,22 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     return rule.add_replication_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)
 
 
-def list_replication_rules(filters={}):
+def get_replication_rule(filters={}):
     raise NotImplementedError
 
 
-def delete_replication_rule():
-    raise NotImplementedError
+def delete_replication_rule(rule_id, issuer):
+    """
+    Deletes a replication rule and all associated locks.
+
+    :param rule_id:  The id of the rule to be deleted
+    :param issuer:   The issuing account of this operation
+    :raises:         RuleNotFound
+    """
+    kwargs = {'rule_id': rule_id}
+    if not has_permission(issuer=issuer, action='del_rule', kwargs=kwargs):
+        raise AccessDenied('Account %s can not remove this replication rule.' % (issuer))
+    rule.delete_replication_rule(rule_id)
 
 
 def set_replication_rule():
