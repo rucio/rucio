@@ -31,3 +31,4 @@ paramiko==1.7.7.2
 pycrypto==2.6
 s3cmd==1.5.0-alpha3      # Package built from http://s3tools.org/download
 python-magic==0.4.2      # Dependency for S3, but unfortunately not installed by it automatically
+gearman                  # Used only gor emulation framework
