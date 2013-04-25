@@ -8,22 +8,23 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import and_
 
-from rucio.common.exception import InvalidReplicaLock
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 
 
 @read_session
-def get_replica_locks(scope, name, account=None, session=None):
+def get_replica_locks(scope, name, account=None, db_lock=True, session=None):
     """
     Get the active replica locks for a file
 
     :param scope:    Scope of the did
     :param name:     Name of the did
     :param account:  If specified, only list replica locks of this account
+    :param db_lock:  If the database should lock the read rows.
+    :param session:  The db session.
     :return:         List of dicts {'rse': ..., 'state': ...}
     :raises:         NoResultFound
     """
@@ -34,29 +35,89 @@ def get_replica_locks(scope, name, account=None, session=None):
             query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name, account=account)
         else:
             query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
-            for row in query:
-                rses.append({'rse_id': row.rse_id, 'state': row.state})
-    except NoResultFound:
+        if db_lock:
+            query = query.with_lockmode("update")
+
+        for row in query:
+            rses.append({'rse_id': row.rse_id, 'state': row.state})
+    except NoResultFound:  # TODO: Actually raise the exception?
         rses = []
     return rses
 
 
-@transactional_session
-def add_replica_lock(rule_id, scope, name, rse_id, account, state='WAITING', session=None):
+@read_session
+def get_files_and_replica_locks_of_dataset(scope, name, db_lock=True, session=None):
     """
-    Add a replica lock
+    Get all the files of a dataset and, if existing, all locks of the file.
 
-    :param rule_id:  The rule the lock is associated to
+    :param scope:    Scope of the dataset
+    :param name:     Name of the datset
+    :param db_lock:  If the database should lock the read rows.
+    :param session:  The db session.
+    :return:         Dictionary with keys: (scope, name)
+                     and as value: {'size':, 'locks: [{'rse_id':, 'state':}]}
+    :raises:         NoResultFound
+    """
+    locks = {}
+    try:
+        query = session.query(models.DataIdentifierAssociation.child_scope,
+                              models.DataIdentifierAssociation.child_name,
+                              models.DataIdentifierAssociation.size,
+                              models.ReplicaLock.rse_id,
+                              models.ReplicaLock.state).outerjoin(models.ReplicaLock, and_(
+                                  models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                                  models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
+                                      models.DataIdentifierAssociation.scope == scope,
+                                      models.DataIdentifierAssociation.name == name)
+        if db_lock:
+            query = query.with_lockmode('update')
+        for child_scope, child_name, size, rse_id, state in query:
+            size = 25  # TODO Fake value until RUCIO-252 gets fixed
+            if rse_id is None:
+                locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'size': size, 'locks': []}
+            else:
+                if (child_scope, child_name) in locks:
+                    locks[(child_scope, child_name)]['locks'].append({'rse_id': rse_id, 'state': state})
+                else:
+                    locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'size': size, 'locks': [{'rse_id': rse_id, 'state': state}]}
+        return locks
+    except NoResultFound:  # TODO: Actually raise the exception?
+        pass
+
+
+@transactional_session
+def successful_transfer(scope, name, rse_id, session=None):
+    """
+    Update the state of all replica locks because of an successful transfer
+
     :param scope:    Scope of the did
     :param name:     Name of the did
     :param rse_id:   RSE id
-    :param account:  account owning the lock
-    :param state:    State of the replication rule (WAITING/OK)
-    :raises:         InvalidReplicaLock
     """
 
-    new_lock = models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=scope, name=name, account=account, state=state)
-    try:
-        new_lock.save(session=session)
-    except IntegrityError, e:
-        raise InvalidReplicaLock(e.args[0])
+    locks = session.query(models.ReplicaLock).with_lockmode('update').filter_by(scope=scope, name=name, rse_id=rse_id)
+    for lock in locks:
+        lock.state = 'OK'
+        # Check if the rule_id of the lock has any REPLICATING locks LEFT
+        if session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == lock.rule_id,
+                                                    models.ReplicaLock.state != 'OK').count() == 0:
+            session.query(models.ReplicationRule).filter_by(id=lock.rule_id).one().state = 'OK'
+
+
+@transactional_session
+def failed_transfer(scope, name, rse_id, session=None):
+    """
+    Update the state of all replica locks because of a failed transfer
+
+    :param scope:    Scope of the did
+    :param name:     Name of the did
+    :param rse_id:   RSE id
+    """
+
+    locks = session.query(models.ReplicaLock).with_lockmode('update').filter_by(scope=scope, name=name, rse_id=rse_id)
+    for lock in locks:
+        lock.state = 'STUCK'
+        # Check if the rule_id of the lock has any REPLICATING locks LEFT
+        if session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == lock.rule_id,
+                                                    models.ReplicaLock.state != 'OK').count() == 0:
+            session.query(models.ReplicationRule).filter_by(id=lock.rule_id).one().state = 'STUCK'

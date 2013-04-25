@@ -14,10 +14,11 @@ from random import uniform, shuffle
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_
+from sqlalchemy.orm import aliased
 
-from rucio.core.did import list_child_dids, list_files
-from rucio.common.exception import InvalidReplicationRule, InsufficientQuota, DataIdentifierNotFound, ReplicationRuleNotFound
-from rucio.core.lock import get_replica_locks
+from rucio.core.did import list_child_dids
+from rucio.common.exception import InvalidReplicationRule, InsufficientQuota, DataIdentifierNotFound, RuleNotFound
+from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.quota import list_account_limits, list_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
@@ -93,20 +94,39 @@ def add_replication_rule(dids, account, copies, rse_expression, grouping, weight
     for elem in dids:
         # 2. Create the replication rule
         new_rule = models.ReplicationRule(account=account, name=elem['name'], scope=elem['scope'], copies=copies, rse_expression=rse_expression, locked=locked, grouping=grouping, expires_at=lifetime, weight=weight, subscription_id=subscription_id)
-        rule_id = new_rule.id
-        rule_ids.append(rule_id)
         try:
             new_rule.save(session=session)
         except IntegrityError, e:
             raise InvalidReplicationRule(e.args[0])
+        rule_id = new_rule.id
+        print rule_id
+        rule_ids.append(rule_id)
         # 3. Apply the replication rule to create locks and return a list of transfers
         transfers_to_create = __apply_replication_rule(scope=elem['scope'], name=elem['name'], rseselector=selector, account=account, rule_id=rule_id, grouping=grouping, session=session)
 
     # 4. Create the transfers
-    for transfer in transfers_to_create:
-        #TODO: Add session variable when [RUCIO-243] is done
-        submit_rse_transfer(scope=transfer['scope'], name=transfer['name'], destination_rse=transfer['rse_id'], metadata=None)
+    if len(transfers_to_create) > 0:
+        for transfer in transfers_to_create:
+            #TODO: Add session variable when [RUCIO-243] is done
+            submit_rse_transfer(scope=transfer['scope'], name=transfer['name'], destination_rse=transfer['rse_id'], metadata=None)
+    else:
+        # No transfers need to be created, the rule is SATISFIED
+        new_rule.state = "OK"
+        new_rule.save(session=session)
     return rule_ids
+
+
+@transactional_session
+def __db_lock_did(scope, name, session=None):
+    """
+    Accquires a Database lock for a did in the DID table.
+
+    :param scope:        Scope of the did.
+    :param name:         Name of the did.
+    :param session:      Session of the db.
+    :returns:            List of transfers to create
+    """
+    session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name, deleted=False).one()
 
 
 @transactional_session
@@ -126,11 +146,11 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
 
     containers = []    # List of Containers in the Tree [{'scope':, 'name':}]
     datasetfiles = []  # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files:}]
-    files = []         # Files are in the format [{'scope': ,'name':, 'size', 'replica_locks': [{'rse_id':, 'state':}]}]
+    files = []         # Files are in the format [{'scope': ,'name':, 'size', 'locks': [{'rse_id':, 'state':}]}]
 
     # a) Is the did a file, dataset or container
     try:
-        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).one()
+        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).with_lockmode('update').one()
     except NoResultFound:
         raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (scope, name))
 
@@ -139,47 +159,30 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
         # ########
         # # FILE #
         # ########
-        # Get the file information
-        datasetfiles = [{'scope': None, 'name': None, 'files': [{'scope': scope, 'name': name, 'size': did.size, 'replica_locks': get_replica_locks(scope=scope, name=name)}]}]
+        files = [{'scope': scope, 'name': name, 'size': did.size, 'locks': get_replica_locks(scope=scope, name=name)}]
+        datasetfiles = [{'scope': None, 'name': None, 'files': files}]
     elif did.type == 'dataset':
         # ###########
         # # DATASET #
         # ###########
-        # Get the file information
-        tmp_files = {}
-        for file in list_files(scope=scope, name=name, session=session):
-            tmp_files['%s:%s' % (file['scope'], file['name'])] = {'scope': file['scope'], 'name': file['name'], 'size': file['size'], 'replica_locks': []}
-        # Get all the locks associated to the files
-        filelocks = session.query(models.DataIdentifierAssociation, models.ReplicaLock).join(models.ReplicaLock, and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope, models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
-        #TODO: Is this an efficient query?
-        for did, lock in filelocks:
-            tmp_files['%s:%s' % (did['child_scope'], did['child_name'])]['replica_locks'].append({'rse_id': lock['rse_id'], 'state': lock['state']})
-        datasetfiles = [{'scope': scope, 'name': name, 'files': tmp_files.values()}]
-        files = tmp_files.values()
+        tmp_locks = get_files_and_replica_locks_of_dataset(scope=scope, name=name)
+        datasetfiles = [{'scope': scope, 'name': name, 'files': tmp_locks.values()}]
+        files = tmp_locks.values()
     elif did.type == 'container':
         # #############
         # # CONTAINER #
         # #############
-        # Get the file, dataset and container information
         for dscont in list_child_dids(scope=scope, name=name, session=session):
+            __db_lock_did(dscont['scope'], dscont['name'], session=session)
             if dscont['type'] == 'container':
                 containers.append({'scope': dscont['scope'], 'name': dscont['name']})
             else:  # dataset
-                tmp_files = {}
-                # Get the file information
-                for file in list_files(scope=dscont['scope'], name=dscont['name'], session=session):
-                    tmp_files['%s:%s' % (file['scope'], file['name'])] = {'scope': file['scope'], 'name': file['name'], 'size': file['size'], 'replica_locks': []}
-                # Get all the locks associated to the files
-                filelocks = session.query(models.DataIdentifierAssociation, models.ReplicaLock).join(models.ReplicaLock, and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope, models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(models.DataIdentifierAssociation.scope == dscont['scope'], models.DataIdentifierAssociation.name == dscont['name'])
-                #TODO: Is this an efficient query
-                for did, lock in filelocks:
-                    tmp_files['%s:%s' % (did['child_scope'], did['child_name'])]['replica_locks'].append({'rse_id': lock['rse_id'], 'state': lock['state']})
-                datasetfiles.append({'scope': dscont['scope'], 'name': dscont['name'], 'files': tmp_files.values()})
-                files.extend(tmp_files.values())
+                tmp_locks = get_files_and_replica_locks_of_dataset(scope=dscont['scope'], name=dscont['name'])
+                datasetfiles.append({'scope': dscont['scope'], 'name': dscont['name'], 'files': tmp_locks.values()})
+                files.extend(tmp_locks.values())
 
     # c) Select the locks for the dids
     locks_to_create = []      # DB Objects
-    hints_to_create = []      # DB Objects
     transfers_to_create = []  # [{'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']}]
     if grouping == 'NONE':
         # ########
@@ -187,19 +190,16 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
         # ########
         for dataset in datasetfiles:
             for file in dataset['files']:
-                rse_ids = rseselector.select_rse(file['size'], [lock['rse_id'] for lock in file['replica_locks']])
+                rse_ids = rseselector.select_rse(file['size'], [lock['rse_id'] for lock in file['locks']])
                 for rse_id in rse_ids:
-                    if rse_id in [lock['rse_id'] for lock in file['replica_locks']]:
-                        if 'WAITING' in [lock['state'] for lock in file['replica_locks'] if lock['rse_id'] == rse_id]:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='WAITING'))
+                    if rse_id in [lock['rse_id'] for lock in file['locks']]:
+                        if 'REPLICATING' in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
                         else:
                             locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='OK'))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='WAITING'))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
-            hints_to_create.append(models.ReplicationRuleHint(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id))
-        for container in containers:
-            hints_to_create.append(models.ReplicationRuleHint(scope=container['scope'], name=container['name'], rule_id=rule_id))
     elif grouping == 'ALL':
         # #######
         # # ALL #
@@ -207,7 +207,7 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
         size = sum([file['size'] for file in files])
         rse_coverage = {}  # {'rse_id': coverage }
         for file in files:
-            for lock in file['replica_locks']:
+            for lock in file['locks']:
                 if lock['rse_id'] in rse_coverage:
                     rse_coverage[lock['rse_id']] += file['size']
                 else:
@@ -217,19 +217,14 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
         rse_ids = rseselector.select_rse(size, preferred_rse_ids)
         for rse_id in rse_ids:
             for file in files:
-                if rse_id in [lock['rse_id'] for lock in file['replica_locks']]:
-                    if 'WAITING' in [lock['state'] for lock in file['replica_locks'] if lock['rse_id'] == rse_id]:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='WAITING'))
+                if rse_id in [lock['rse_id'] for lock in file['locks']]:
+                    if 'REPLICATING' in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
                     else:
                         locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='OK'))
                 else:
-                    locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='WAITING'))
+                    locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
                     transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
-        # Create hints
-        for dataset in datasetfiles:
-            hints_to_create.append(models.ReplicationRuleHint(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id))
-        for container in containers:
-            hints_to_create.append(models.ReplicationRuleHint(scope=container['scope'], name=container['name'], rule_id=rule_id, rse_id=rse_id))
     else:
         # ###########
         # # DATASET #
@@ -238,7 +233,7 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
             size = sum(file['size'] for file in dataset['files'])
             rse_coverage = {}  # {'rse_id': coverage }
             for file in dataset['files']:
-                for lock in file['replica_locks']:
+                for lock in file['locks']:
                     if lock['rse_id'] in rse_coverage:
                         rse_coverage[lock['rse_id']] += file['size']
                     else:
@@ -248,21 +243,17 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
             rse_ids = rseselector.select_rse(size, preferred_rse_ids)
             for rse_id in rse_ids:
                 for file in dataset['files']:
-                    if rse_id in [lock['rse_id'] for lock in file['replica_locks']]:
-                        if 'WAITING' in [lock['state'] for lock in file['replica_locks'] if lock['rse_id'] == rse_id]:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='WAITING'))
+                    if rse_id in [lock['rse_id'] for lock in file['locks']]:
+                        if 'REPLICATING' in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
                         else:
                             locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='OK'))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='WAITING'))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
-            hints_to_create.append(models.ReplicationRuleHint(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id))
-        for container in containers:
-            hints_to_create.append(models.ReplicationRuleHint(scope=container['scope'], name=container['name'], rule_id=rule_id))
 
-    # d) Put the locks and hints to the DB, return the transfers
+    # d) Put the locks to the DB, return the transfers
     session.add_all(locks_to_create)
-    session.add_all(hints_to_create)
     session.flush()
     return(transfers_to_create)
 
@@ -288,6 +279,69 @@ def list_replication_rules(filters={}, session=None):
         yield d
 
 
+@transactional_session
+def delete_replication_rule(rule_id, session=None):
+    """
+    Delete a replication rule.
+
+    :param rule_id: The rule to delete.
+    :param session: The database session in use.
+    :raises:        RuleNotFound if no Rule can be found.
+    """
+
+    try:
+        rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=rule_id).one()
+        session.query(models.ReplicaLock).filter_by(rule_id=rule_id).with_lockmode('update').all()
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    if rule.state == "OK" or rule.state == "SUSPENDED" or rule.state == "STUCK":
+        #Just delete the rule (and locks), no running transfers for this rule in this rule STATE
+        rule.delete(session=session)
+    elif rule.state == "REPLICATING":
+        #There are running transfers for this rule, which possibly have to be deleted
+        lock_alias = aliased(models.ReplicaLock)
+        alllocks = session.query(models.ReplicaLock.scope,
+                                 models.ReplicaLock.name,
+                                 models.ReplicaLock.rse_id,
+                                 models.ReplicaLock.state,
+                                 lock_alias.state).outerjoin(lock_alias,
+                                                             and_(models.ReplicaLock.scope == lock_alias.scope,
+                                                                  models.ReplicaLock.name == lock_alias.name,
+                                                                  models.ReplicaLock.rule_id != lock_alias.rule_id,
+                                                                  models.ReplicaLock.rse_id == lock_alias.rse_id)).filter(
+                                                                      models.ReplicaLock.rule_id == rule_id,
+                                                                      models.ReplicaLock.state == 'REPLICATING')
+
+        transfers_to_delete = {}  # {(scope, name) : {'scope': , 'name':, 'rse_id':, 'delete' }}
+        for scope, name, rse_id, self_state, other_state in alllocks:
+            if other_state is None:
+                # There are no other locks, the transfer has to be cancelled
+                transfers_to_delete[(scope, name)] = {'scope':  scope,
+                                                      'name':   name,
+                                                      'rse_id': rse_id,
+                                                      'delete': True}
+            elif other_state == 'REPLICATING':
+                if (scope, name) in transfers_to_delete:
+                    transfers_to_delete[(scope, name)]['delete'] = False
+                else:
+                    transfers_to_delete[(scope, name)] = {'scope':  scope,
+                                                          'name':   name,
+                                                          'rse_id': rse_id,
+                                                          'delete': False}
+            else:
+                # SUSPENDED, STUCK
+                if (scope, name) not in transfers_to_delete:
+                    transfers_to_delete[(scope, name)] = {'scope':  scope,
+                                                          'name':   name,
+                                                          'rse_id': rse_id,
+                                                          'delete': True}
+        for transfer in [transfer for transfer in transfers_to_delete.values() if transfer['delete']]:
+            #TODO Cancel Transfer
+            #cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], req_type='transfer')
+            continue
+        rule.delete(session=session)
+
+
 @read_session
 def get_replication_rule(rule_id, session=None):
     """
@@ -295,24 +349,27 @@ def get_replication_rule(rule_id, session=None):
 
     :param rule_id: The rule_id to select
     :param session: The database session in use.
+    :raises:        RuleNotFound if no Rule can be found.
     """
 
     try:
-        query = session.query(models.ReplicationRule.filter_by(id=rule_id)).one()
-        return {'id': query.id,
-                'subscription_id': query.subsciption_id,
-                'account': query.account,
-                'scope': query.scope,
-                'name': query.name,
-                'state': query.state,
-                'rse_expression': query.rse_expression,
-                'copies': query.copies,
-                'expires_at': query.expires_at,
-                'weight': query.weight,
-                'locked': query.locked,
-                'grouping': query.grouping}
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        return {'id': rule.id,
+                'subscription_id': rule.subscription_id,
+                'account': rule.account,
+                'scope': rule.scope,
+                'name': rule.name,
+                'state': rule.state,
+                'rse_expression': rule.rse_expression,
+                'copies': rule.copies,
+                'expires_at': rule.expires_at,
+                'weight': rule.weight,
+                'locked': rule.locked,
+                'grouping': rule.grouping,
+                'created_at': rule.created_at,
+                'updatet_at': rule.updated_at}
     except NoResultFound:
-        raise ReplicationRuleNotFound()
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
 
 
 class RSESelector():
