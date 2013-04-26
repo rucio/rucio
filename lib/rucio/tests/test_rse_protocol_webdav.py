@@ -11,10 +11,10 @@
 
 import json
 import os
+import requests
 import tempfile
 
 from nose.tools import raises
-from uuid import uuid4 as uuid
 
 from rucio.common import exception
 from rucio.rse import rsemanager
@@ -31,76 +31,79 @@ class TestRseWebDAV():
     @classmethod
     def setupClass(cls):
         """WebDAV (RSE/PROTOCOLS): Creating necessary directories and files """
+        session = requests.Session()
+        session.cert = os.getenv('X509_USER_PROXY')
+        session.verify = False
         cls.site = 'FZK-LCG2_SCRATCHDISK'
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
-        cls.user = uuid()
+        cls.user = 'jdoe'
         storage = rsemanager.RSEMgr()
-        # props = storage._RSE__props
         with open('etc/rse_repository.json') as f:
-            props = json.load(f)[cls.site]
-        host, prefix = props['protocol']['host'], props['protocol']['prefix']
+            data = json.load(f)
+
+        scheme = data[cls.site]['protocols']['supported']['https']['scheme']
+        prefix = data[cls.site]['protocols']['supported']['https']['prefix']
+        hostname = data[cls.site]['protocols']['supported']['https']['hostname']
+        port = data[cls.site]['protocols']['supported']['https']['port']
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
-            out.seek((1024 * 1024) - 1)  # 1 MB
+            out.seek((1024) - 1)  # 1 kB
             out.write('\0')
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        # Load local credentials from file
-        #with open('etc/rse-accounts.cfg') as f:
-        #    data = json.load(f)
-        #credentials = data[cls.site]
+        credentials = {"auth_type": "cert", "timeout": 300}
+        cls.static_file = '%s://%s:%s%sdata.raw' % (scheme, hostname, port, prefix)
 
+        storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.connect(credentials)
         for f in MgrTestCases.files_remote:
-            uri = storage.lfn2pfn(cls.site, {'filename': f, 'scope': 'user.%s'} % cls.user)
+            os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
             try:
-                storage._RSE__protocol.put('%s/data.raw' % (cls.tmpdir), uri)
+                storage.upload('FZK-LCG2_SCRATCHDISK', {'filename': f, 'scope': 'user.%s' % (cls.user)}, cls.tmpdir)
             except FileReplicaAlreadyExists, e:
                 print e
-        storage.close()
+        with open('%s/data.raw' % cls.tmpdir, 'rb') as f:
+            session.put(cls.static_file, data=f.read(), verify=False, allow_redirects=True)
 
     @classmethod
     def tearDownClass(cls):
         """WebDAV (RSE/PROTOCOLS): Removing created directories and files """
+        storage = rsemanager.RSEMgr()
         credentials = {}
-        # Load local credentials from file
-        with open('etc/rse-accounts.cfg') as f:
-            data = json.load(f)
-        storage = rsemanager.RSE(cls.site)
-        credentials = data[cls.site]
-        # props = storage._RSE__props
         with open('etc/rse_repository.json') as f:
-            props = json.load(f)[cls.site]
-        host, prefix = props['protocol']['host'], props['protocol']['prefix']
-        storage._RSE__protocol.connect(credentials)
+            data = json.load(f)
+        scheme = data[cls.site]['protocols']['supported']['https']['scheme']
+        prefix = data[cls.site]['protocols']['supported']['https']['prefix']
+        hostname = data[cls.site]['protocols']['supported']['https']['hostname']
+        port = data[cls.site]['protocols']['supported']['https']['port']
 
-        list1 = storage._RSE__protocol.ls('%s%suser/%s' % (host, prefix, cls.user))
+        storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.connect(credentials)
+        list1 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls('%s://%s:%s%suser/%s' % (scheme, hostname, port, prefix, cls.user))
         for uri1 in list1:
-            list2 = storage._RSE__protocol.ls(uri1)
+            list2 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri1)
             for uri2 in list2:
-                list3 = storage._RSE__protocol.ls(uri2)
+                list3 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri2)
                 for remotefile in list3:
-                    storage._RSE__protocol.delete(remotefile)
-                storage._RSE__protocol.delete(uri2)
-            storage._RSE__protocol.delete(uri1)
+                    storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(remotefile)
+                storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri2)
+            storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri1)
 
-        list1 = storage._RSE__protocol.ls('%s%sgroup/%s' % (host, prefix, cls.user))
+        list1 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls('%s://%s:%s%sgroup/%s' % (scheme, hostname, port, prefix, cls.user))
         for uri1 in list1:
-            list2 = storage._RSE__protocol.ls(uri1)
+            list2 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri1)
             for uri2 in list2:
-                list3 = storage._RSE__protocol.ls(uri2)
+                list3 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri2)
                 for remotefile in list3:
-                    storage._RSE__protocol.delete(remotefile)
-                storage._RSE__protocol.delete(uri2)
-            storage._RSE__protocol.delete(uri1)
-
-        storage.close()
+                    storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(remotefile)
+                storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri2)
+            storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri1)
 
     def setup(self):
         """WebDAV (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseWebDAV.tmpdir
-        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', self.user)
+        self.rse_id = 'FZK-LCG2_SCRATCHDISK'
+        self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseWebDAV.user, TestRseWebDAV.static_file)
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):

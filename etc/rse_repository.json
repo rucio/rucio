@@ -494,13 +494,14 @@
   "FZK-LCG2_SCRATCHDISK":{
     "backend_type": "dCache",
     "protocols": {
-      "default": "webdav",
+      "default": "https",
       "supported": {
-        "webdav": {
+        "https": {
           "impl": "rucio.rse.protocols.webdav.Default",
-          "hostname": "https://f01-060-114-e.gridka.de",
+          "hostname": "f01-060-114-e.gridka.de",
           "port": 2880,
-          "prefix": "/disk-only/atlasscratchdisk/",
+          "scheme": "https",
+          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/",
           "domains": {
             "LAN": {
               "read": 1,
@@ -520,14 +521,14 @@
           "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/",
           "domains": {
             "LAN": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
+              "read": 2,
+              "write": 2,
+              "delete": 2
             },
             "WAN": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
+              "read": 2,
+              "write": 2,
+              "delete": 2
             }
           }
         }
@@ -542,9 +543,10 @@
       "supported": {
         "webdav": {
           "impl": "rucio.rse.protocols.webdav.Default",
-          "hostname": "https://f01-060-114-e.gridka.de",
+          "hostname": "f01-060-114-e.gridka.de",
           "port": 2880,
-          "prefix": "/disk-only/atlasdatadisk/",
+          "scheme": "https",
+          "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasdatadisk/",
           "domains": {
             "LAN": {
               "read": 1,

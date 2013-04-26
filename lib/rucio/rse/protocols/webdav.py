@@ -119,9 +119,8 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEAccessDenied
         """
-
         try:
-            self.server = self.rse['protocol']['host']
+            self.server = self.path2pfn('')
         except KeyError:
             raise exception.RSEAccessDenied('No specified Server')
 
@@ -150,24 +149,28 @@ class Default(protocol.RSEProtocol):
 
         # "ping" to see if the server is available
         try:
-            self.session.request('HEAD', self.server, verify=False)
+            res = self.session.request('HEAD', self.server+self.rse['prefix'], verify=False)
+            if res.status_code != 200:
+                raise exception.ServiceUnavailable(res.text)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
     def close(self):
         self.session.close()
 
-    def get_path(self, pfn):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-
-            :param pfn Physical file name
-
-            :returns: RSE specific URI of the physical file
+    def path2pfn(self, path):
         """
-        if not pfn.startswith('https'):
-            return '%s%s/%s' % (self.rse['protocol']['host'].rstrip('/'), self.rse['protocol']['prefix'].rstrip('/'), pfn)
+            Returns a fully qualified PFN for the file referred by path.
+
+            :param path: The path to the file.
+
+            :returns: Fully qualified PFN.
+
+        """
+        if not path.startswith('https'):
+            return '%s://%s:%s%s' % (self.rse['scheme'], self.rse['hostname'], str(self.rse['port']), path)
         else:
-            return pfn
+            return path
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
@@ -178,8 +181,7 @@ class Default(protocol.RSEProtocol):
 
             :raise  ServiceUnavailable
         """
-        path = self.get_path(pfn)
-        #print 'Checking existence of '+path
+        path = self.path2pfn(pfn)
         try:
             result = self.session.request('HEAD', path, verify=False)
             if (result.status_code == 200):
@@ -200,9 +202,8 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.get_path(pfn)
+        path = self.path2pfn(pfn)
         chunksize = 1024
-        #print 'Will get %s' %(path)
         try:
             result = self.session.get(path, verify=False, prefetch=False)
             if result and result.status_code in [200, ]:
@@ -237,9 +238,8 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.get_path(target)
+        path = self.path2pfn(target)
         full_name = source_dir + '/' + source if source_dir else source
-        #print 'Will copy %s to %s' %(full_name,path)
         directories = path.split('/')
         for directory_level in reversed(xrange(1, 4)):
             upper_directory = "/".join(directories[:-directory_level])
@@ -270,9 +270,8 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.get_path(pfn)
-        new_path = self.get_path(new_pfn)
-        #print 'Moving %s to %s' % (path, new_path)
+        path = self.path2pfn(pfn)
+        new_path = self.path2pfn(new_pfn)
         directories = new_path.split('/')
 
         directoriesToCreate = []
@@ -306,8 +305,7 @@ class Default(protocol.RSEProtocol):
 
             :raises ServiceUnavailable, SourceNotFound
         """
-        path = self.get_path(pfn)
-        #print 'Will delete %s' % (path)
+        path = self.path2pfn(pfn)
         listfiles = self.ls(path)
         if (listfiles == []):
             try:
@@ -321,8 +319,8 @@ class Default(protocol.RSEProtocol):
                     raise exception.RucioException(result.status_code, result.text)
             except requests.exceptions.ConnectionError, e:
                 raise exception.ServiceUnavailable(e)
-        else:
-            print listfiles
+        #else:
+        #    print listfiles
 
     def mkdir(self, directory):
         """ Internal method to create directories
@@ -331,8 +329,7 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.get_path(directory)
-        #print 'Will create %s' % (path)
+        path = self.path2pfn(directory)
         try:
             result = self.session.request('MKCOL', path, verify=False)
             if result.status_code in [201, ]:
@@ -352,8 +349,7 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.get_path(filename)
-        print 'Checking files in %s' % (path)
+        path = self.path2pfn(filename)
         headers = {'Depth': '1'}
         self.exists(filename)
         try:
