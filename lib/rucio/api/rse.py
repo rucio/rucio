@@ -213,13 +213,13 @@ def update_protocols(rse, scheme, data, issuer, hostname=None, port=None):
     rse_module.update_protocols(rse, scheme=scheme, hostname=hostname, port=port, data=data)
 
 
-def set_rse_usage(rse, source, total, free, issuer):
+def set_rse_usage(rse, source, used, free, issuer):
     """
     Set RSE usage information.
 
     :param rse: The RSE name.
     :param source: the information source, e.g. srm.
-    :param total: the total space in bytes.
+    :param used: the used space in bytes.
     :param free: the free space in bytes.
     :param issuer: The issuer account.
 
@@ -230,7 +230,7 @@ def set_rse_usage(rse, source, total, free, issuer):
     if not permission.has_permission(issuer=issuer, action='set_rse_usage', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update RSE usage information for RSE %s' % (issuer, rse))
 
-    return rse_module.set_rse_usage(rse=rse, source=source, total=total, free=free)
+    return rse_module.set_rse_usage(rse=rse, source=source, used=used, free=free)
 
 
 def get_rse_usage(rse, issuer, filters=None):

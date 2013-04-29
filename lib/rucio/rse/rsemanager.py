@@ -16,12 +16,14 @@ from rucio.common import exception, utils, config
 
 
 class RSEMgr(object):
-    def __init__(self, path_to_credentials_file=None, server_mode=False):
+    def __init__(self, path_to_credentials_file=None, server_mode=False, server_mode_with_credentials=False):
         """
             Instantiates the RSEMgr.
 
             :param path_to_credentials_file:    relative path from RUCIO_HOME to the JSON file where the user credentials are stored in. If not given the default path is assumed
-            :param server_mode: inidcates if the RSEMgr is executed in a server environment or in a client environment.
+            :param server_mode: indicates if the RSEMgr is executed in a server environment or in a client environment.
+            :param server_mode_with_credentials: indicates if the RSEMgr executed in a server environment must load the RSE credentials.
+
 
             :raises ErrorLoadingCredentials:    user credentials could not be loaded
         """
@@ -31,7 +33,7 @@ class RSEMgr(object):
         self.__server_mode = server_mode
 
         # Loading credentials into manager - only if not executed by the server
-        if not server_mode:
+        if not server_mode or (server_mode and server_mode_with_credentials):
             self.__credentials = config.get_rse_credentials(path_to_credentials_file)
 
         if server_mode:
