@@ -94,6 +94,8 @@ def _ck_constraint_name(const, table):
                 const.name = "%s_DELETED_CHK" % (table.name.upper())
     elif const.name == 'SUBSCRIPTIONS_RETROACTIVE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
         const.name = "SUBS_HISTORY_RETROACTIVE_CHK"
+    elif const.name == 'SUBSCRIPTIONS_STATE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
+        const.name = "SUBS_HISTORY_STATE_CHK"
 
 
 @event.listens_for(Table, "after_parent_attach")
