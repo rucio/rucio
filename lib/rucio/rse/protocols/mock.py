@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 
+from rucio.common import exception
 from rucio.rse.protocols import protocol
 
 
@@ -16,17 +17,23 @@ class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the local filesystem."""
 
     def __init__(self, props):
-        """ Initializes the object with information about the referred RSE."""
-        pass
+        """ Initializes the object with information about the referred RSE.
 
-    def pfn2uri(self, pfn):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-
-            :param pfn Physical file name
-
-            :returns: RSE specific URI of the physical file
+            :param props Properties derived from the RSE Repository
         """
-        raise NotImplemented
+        self.rse = props
+        self.files = []
+
+    def path2pfn(self, path):
+        """
+            Retruns a fully qualified PFN for the file referred by path.
+
+            :param path: The path to the file.
+
+            :returns: Fully qualified PFN.
+
+        """
+        return ''.join([self.rse['scheme'], '://', path])
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
@@ -37,7 +44,7 @@ class Default(protocol.RSEProtocol):
 
             :raise  ServiceUnavailable
         """
-        raise NotImplemented
+        return pfn in self.files
 
     def connect(self, credentials):
         """ Establishes the actual connection to the referred RSE.
@@ -52,7 +59,7 @@ class Default(protocol.RSEProtocol):
 
             :raise RSEAccessDenied
         """
-        raise NotImplemented
+        pass
 
     def close(self):
         """ Closes the connection to RSE."""
@@ -66,7 +73,8 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
          """
-        raise NotImplemented
+        if pfn not in self.files:
+            raise exception.SourceNotFound(pfn)
 
     def put(self, source, target, source_dir=None):
         """ Allows to store files inside the referred RSE.
@@ -77,7 +85,7 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        raise NotImplemented
+        self.files.append(target)
 
     def delete(self, pfn):
         """ Deletes a file from the connected RSE.
@@ -86,7 +94,7 @@ class Default(protocol.RSEProtocol):
 
             :raises ServiceUnavailable, SourceNotFound
         """
-        raise NotImplemented
+        pass
 
     def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
@@ -96,4 +104,4 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        raise NotImplemented
+        pass

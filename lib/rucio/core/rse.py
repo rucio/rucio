@@ -16,9 +16,10 @@ from StringIO import StringIO
 import json
 import sqlalchemy
 import sqlalchemy.orm
+
+from sqlalchemy import exists, and_
 from sqlalchemy.exc import DatabaseError, IntegrityError, FlushError
 from sqlalchemy.orm import aliased
-
 from rucio.common import exception, utils
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
@@ -213,25 +214,25 @@ def list_rse_attributes(rse, rse_id=None, session=None):
 
 
 @transactional_session
-def set_rse_usage(rse, source, total, free, session=None):
+def set_rse_usage(rse, source, used, free, session=None):
     """
     Set RSE usage information.
 
     :param rse: the location name.
     :param source: the information source, e.g. srm.
-    :param total: the total space in bytes.
+    :param used: the used space in bytes.
     :param free: the free in bytes.
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
     """
     rse = get_rse(rse)
-    rse_usage = models.RSEUsage(rse_id=rse.id, source=source, total=total, free=free)
+    rse_usage = models.RSEUsage(rse_id=rse.id, source=source, used=used, free=free)
     # versioned_session(session)
     rse_usage = session.merge(rse_usage)
     rse_usage.save(session=session)
 
-    rse_usage_history = models.RSEUsage.__history_mapper__.class_(rse_id=rse.id, source=source, total=total, free=free)
+    rse_usage_history = models.RSEUsage.__history_mapper__.class_(rse_id=rse.id, source=source, used=used, free=free)
     rse_usage_history.save(session=session)
 
     return True
@@ -259,7 +260,8 @@ def get_rse_usage(rse, filters=None, session=None):
 
     for usage in query:
         return {'rse': usage.rse.rse, 'source': usage.source,
-                'total': usage.total, 'free': usage.free,
+                'used': usage.used, 'free': usage.free,
+                'total': usage.free + usage.used,
                 'updated_at': usage.updated_at}
 
 
@@ -316,7 +318,7 @@ def list_rse_usage_history(rse, filters=None, session=None):
     rse = get_rse(rse)
     query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=rse.id).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
     for usage in query.yield_per(5):
-        yield ({'rse': rse.rse, 'source': usage.source, 'total': usage.total, 'free': usage.free, 'updated_at': usage.updated_at})
+        yield ({'rse': rse.rse, 'source': usage.source, 'used': usage.used, 'total': usage.used + usage.free, 'free': usage.free, 'updated_at': usage.updated_at})
 
 
 @transactional_session
@@ -369,6 +371,25 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
         raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
 
 
+@transactional_session
+def del_file_replica(rse, scope, name, session=None):
+    """
+    Add File replica.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param name: The data identifier name.
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    replica_rse = get_rse(rse=rse, session=session)
+
+    query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name)
+    for row in query:
+        row.delete(session=session)
+
+
 @read_session
 def list_replicas(rse, filters={}, session=None):
     """
@@ -381,7 +402,7 @@ def list_replicas(rse, filters={}, session=None):
     :returns: a list of dictionary replica.
     """
 
-    rse = session.query(models.RSE).filter_by(rse=rse).one()
+    rse = get_rse(rse)
 
     query = session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id)
     if filters:
@@ -393,6 +414,36 @@ def list_replicas(rse, filters={}, session=None):
         for column in row.__table__.columns:
             d[column.name] = getattr(row, column.name)
         yield d
+
+
+@read_session
+def list_unlocked_replicas(rse, bytes, session=None):
+    """
+    List RSE File replicas with no locks.
+
+    :param rse: the rse name.
+    :param bytes: the amount of needed bytes.
+    :param session: The database session in use.
+
+    :returns: a list of dictionary replica.
+    """
+    rse = get_rse(rse)
+
+    query = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse.id).\
+        filter(~exists().where(and_(models.ReplicaLock.rse_id == rse.id,
+                                    models.ReplicaLock.scope == models.RSEFileAssociation.scope,
+                                    models.ReplicaLock.name == models.RSEFileAssociation.name)))
+    neededSpace = bytes
+    rows = list()
+    for row in query.yield_per(5):
+        d = {}
+        for column in row.__table__.columns:
+            d[column.name] = getattr(row, column.name)
+        rows.append(d)
+        neededSpace -= d['size']
+        if not max(neededSpace, 0):
+            break
+    return rows
 
 
 @transactional_session

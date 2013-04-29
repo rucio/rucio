@@ -354,7 +354,7 @@ class RSEUsage(BASE, ModelBase, Versioned):
     __tablename__ = 'rse_usage'
     rse_id = Column(GUID())
     source = Column(String(255))
-    total = Column(BigInteger)
+    used = Column(BigInteger)
     free = Column(BigInteger)
     rse = relationship("RSE", backref=backref('rse_usage', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'source', name='RSE_USAGE_PK'),

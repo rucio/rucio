@@ -340,13 +340,13 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def set_rse_usage(self, rse, source, total, free):
+    def set_rse_usage(self, rse, source, used, free):
         """
         Set RSE usage information.
 
         :param rse: the RSE name.
         :param source: the information source, e.g. srm.
-        :param total: the total space in bytes.
+        :param used: the used space in bytes.
         :param free: the free in bytes.
 
         :returns: True if successful, otherwise false.
@@ -354,7 +354,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
         url = build_url(self.host, path=path)
-        data = {'source': source, 'total': total, 'free': free}
+        data = {'source': source, 'used': used, 'free': free}
         r = self._send_request(url, type='PUT', data=dumps(data))
         if r.status_code == codes.ok:
             return True

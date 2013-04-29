@@ -8,14 +8,23 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
+from rucio.common.utils import generate_uuid
+
 from rucio.core import rse as rse_core
-from rucio.daemons.Reaper import run_once
+from rucio.daemons.reaper import reaper
 
 
 class TestReaper():
 
     def test_set_rse_limits(self):
         """ RSE (CLIENTS): Test the update of RSE limits."""
-        rse_core.set_rse_usage(rse='MOCK', source='srm', total=100000000000000L, free=800L)
-        rse_core.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=1000000000L)
-        run_once()
+
+        nb_files = 30
+        file_size = 2147483648L  # 2G
+        for file in xrange(nb_files):
+            rse_core.add_file_replica(rse='MOCK', scope='data13_hip', name='lfn' + generate_uuid(), size=file_size, account='root', adler32=None, md5=None)
+
+        rse_core.set_rse_usage(rse='MOCK', source='srm', used=nb_files*file_size, free=800L)
+        rse_core.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=10737418240L)
+        reaper(once=True)
+        reaper(once=True)

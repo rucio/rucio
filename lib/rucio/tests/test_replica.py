@@ -33,7 +33,7 @@ class TestReplica():
         """ REPLICA (CLIENT): Add and list file replica """
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_file = 'file_%s' % generate_uuid()
-        tmp_pfn = 'file:///tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
+        tmp_pfn = 'mock:///tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
 
         self.scope_client.add_scope('root', tmp_scope)
 
@@ -50,11 +50,11 @@ class TestReplica():
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
         assert_equal(len(replicas), 2)
 
-        replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, schemes=['file'])]
+        replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, schemes=['mock'])]
         print '---'
         print replicas
         print '---'
         assert_equal(len(replicas), 2)
         for replica in replicas:
-            pfn_gen = RSEMgr().lfn2pfn(replica['rse'], {'scope': tmp_scope, 'filename': tmp_file}, scheme='file')
+            pfn_gen = RSEMgr().lfn2pfn(replica['rse'], {'scope': tmp_scope, 'filename': tmp_file}, scheme='mock')
             assert(pfn_gen == replica['pfns'][0])
