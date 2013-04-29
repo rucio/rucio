@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 """
 Get the configuration file from /opt/rucio/etc/rucio.cfg
@@ -31,7 +32,7 @@ def config_get(section, option):
 
 def config_get_int(section, option):
     """Return the integer value for a given option in a section"""
-    return __config.get(section, option)
+    return __config.getint(section, option)
 
 
 def config_get_float(section, option):
