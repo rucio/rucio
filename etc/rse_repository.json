@@ -81,12 +81,12 @@
     "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
   },
   "MOCK":{
-    "backend_type": "POSIX",
+    "backend_type": "MOCK",
     "protocols": {
-      "default": "file",
+      "default": "mock",
       "supported": {
-        "file": {
-          "impl": "rucio.rse.protocols.posix.Default",
+        "mock": {
+          "impl": "rucio.rse.protocols.mock.Default",
           "domains": {
             "LAN": {
               "read": 1,
@@ -94,23 +94,12 @@
               "delete": 1
             },
             "WAN": {
-              "read": 1
-            }
-          },
-          "prefix": "/tmp/rucio_rse/"
-        },
-        "sftp": {
-          "impl": "rucio.rse.protocols.sftp.Default",
-          "port": 22,
-          "domains": {
-            "WAN": {
-              "read": 2,
+              "read": 1,
               "write": 1,
               "delete": 1
             }
           },
-          "prefix": "/afs/cern.ch/user/d/ddmlab/somethingelse/",
-          "hostname": "mock.cern.ch"
+          "prefix": "/tmp/rucio_rse/"
         }
       }
     },
@@ -120,11 +109,11 @@
     "backend_type": "POSIX",
     "deterministic": false,
     "protocols": {
-      "default": "file",
+      "default": "mock",
       "supported": {
-        "file": {
+        "mock": {
           "prefix": "/tmp/rucio_rse/",
-          "impl": "rucio.rse.protocols.posix.Default",
+          "impl": "rucio.rse.protocols.mock.Default",
           "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
           "domains": {
             "LAN": {
