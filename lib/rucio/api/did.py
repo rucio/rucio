@@ -48,7 +48,7 @@ def add_identifier(scope, name, type, issuer, account=None, statuses={}, meta=[]
     return did.add_identifier(scope=scope, name=name, type=type, account=account or issuer, statuses=statuses, meta=meta, rules=rules)
 
 
-def append_identifier(scope, name, dids, issuer):
+def append_identifier(scope, name, dids, issuer, account=None):
     """
     Append content to data did.
 
@@ -56,12 +56,14 @@ def append_identifier(scope, name, dids, issuer):
     :param name: The data identifier name.
     :param dids: The content as a list of data identifiers.
     :param issuer: The issuer account.
+    :param account: The account owner. If None, then issuer is selected.
+
     """
 
-    kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
+    kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer, 'account': account}
     if not rucio.api.permission.has_permission(issuer=issuer, action='append_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
-    return did.append_identifier(scope=scope, name=name, dids=dids, issuer=issuer)
+    return did.append_identifier(scope=scope, name=name, dids=dids, account=account or issuer)
 
 
 def detach_identifier(scope, name, dids, issuer):
