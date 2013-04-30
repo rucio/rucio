@@ -55,14 +55,14 @@ def list_replicas(scope, name, schemes=None, session=None):
 
 
 @transactional_session
-def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[], session=None):
+def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], session=None):
     """
     Add data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param type: The data identifier type.
-    :param issuer: The issuer account.
+    :param account: The account owner.
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
     :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
@@ -72,7 +72,7 @@ def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[], se
         raise exception.UnsupportedOperation("Only dataset/container can be registered." % locals())
 
     # Insert new data identifier
-    new_did = models.DataIdentifier(scope=scope, name=name, account=issuer, type=type, monotonic=statuses.get('monotonic', False), open=True)
+    new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=type, monotonic=statuses.get('monotonic', False), open=True)
     try:
         new_did.save(session=session)
     except IntegrityError, e:
