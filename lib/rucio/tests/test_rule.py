@@ -83,7 +83,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(10, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         add_replication_rule(dids=files, account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         #Check if the Locks are created properly
@@ -97,7 +97,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, NONE Grouping"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -122,8 +122,8 @@ class TestReplicationRuleCore():
         container = 'container_' + str(uuid())
         add_identifier(scope, container, 'container', 'root')
         all_files = []
-        for i in xrange(10):
-            files = _create_test_files(50, scope, self.rse1)
+        for i in xrange(3):
+            files = _create_test_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
@@ -140,7 +140,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, ALL Grouping"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -164,8 +164,8 @@ class TestReplicationRuleCore():
         container = 'container_' + str(uuid())
         add_identifier(scope, container, 'container', 'root')
         all_files = []
-        for i in xrange(10):
-            files = _create_test_files(50, scope, self.rse1)
+        for i in xrange(3):
+            files = _create_test_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
@@ -187,7 +187,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, DATASET Grouping"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -212,8 +212,8 @@ class TestReplicationRuleCore():
         add_identifier(scope, container, 'container', 'root')
         all_files = []
         dataset_files = []
-        for i in xrange(10):
-            files = _create_test_files(50, scope, self.rse1)
+        for i in xrange(3):
+            files = _create_test_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
@@ -237,7 +237,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, NONE Grouping, WEIGHTS"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -259,8 +259,8 @@ class TestReplicationRuleCore():
         add_identifier(scope, container, 'container', 'root')
         all_files = []
         dataset_files = []
-        for i in xrange(10):
-            files = _create_test_files(50, scope, self.rse1)
+        for i in xrange(3):
+            files = _create_test_files(3, scope, self.rse1)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
@@ -285,7 +285,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Test to get a previously created rule"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -298,7 +298,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Test to delete a previously created rule"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -315,7 +315,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Test to delete a previously created rule and do not cancel overlapping transfers"""
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -374,7 +374,7 @@ class TestReplicationRuleClient():
 
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
@@ -387,7 +387,7 @@ class TestReplicationRuleClient():
 
         scope = 'scope_%s' % uuid()[:20]
         add_scope(scope, 'root')
-        files = _create_test_files(50, scope, self.rse1)
+        files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
         append_identifier(scope, dataset, files, 'root')
