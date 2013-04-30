@@ -28,7 +28,7 @@ def list_replicas(scope, name, schemes=None):
     return did.list_replicas(scope=scope, name=name, schemes=schemes)
 
 
-def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[]):
+def add_identifier(scope, name, type, issuer, account=None, statuses={}, meta=[], rules=[]):
     """
     Add data did.
 
@@ -36,15 +36,16 @@ def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[]):
     :param name: The data identifier name.
     :param type: The data identifier type.
     :param issuer: The issuer account.
+    :param account: The account owner. If None, then issuer is selected as owner.
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
     :rules: Replication rules associated with the data did. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     """
 
-    kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'statuses': statuses, 'meta': meta, 'rules': rules}
+    kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
-    return did.add_identifier(scope=scope, name=name, type=type, issuer=issuer, statuses=statuses, meta=meta, rules=rules)
+    return did.add_identifier(scope=scope, name=name, type=type, account=account or issuer, statuses=statuses, meta=meta, rules=rules)
 
 
 def append_identifier(scope, name, dids, issuer):
