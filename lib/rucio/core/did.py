@@ -72,7 +72,7 @@ def add_identifier(scope, name, type, issuer, statuses={}, meta=[], rules=[], se
         raise exception.UnsupportedOperation("Only dataset/container can be registered." % locals())
 
     # Insert new data identifier
-    new_did = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=type, monotonic=statuses.get('monotonic', False), open=True)
+    new_did = models.DataIdentifier(scope=scope, name=name, account=issuer, type=type, monotonic=statuses.get('monotonic', False), open=True)
     try:
         new_did.save(session=session)
     except IntegrityError, e:
@@ -384,10 +384,10 @@ def get_did(scope, name, session=None):
         r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).one()
         if r:
             if r.type == models.DataIdType.FILE:
-                did_r = {'scope': r.scope, 'name': r.name, 'type': r.type, 'owner': r.owner}
+                did_r = {'scope': r.scope, 'name': r.name, 'type': r.type, 'account': r.account}
             else:
                 did_r = {'scope': r.scope, 'name': r.name, 'type': r.type,
-                         'owner': r.owner, 'open': r.open, 'monotonic': r.monotonic}
+                         'account': r.account, 'open': r.open, 'monotonic': r.monotonic}
 
             #  To add:  created_at, updated_at, deleted_at, deleted, monotonic, hidden, obsolete, complete
             #  ToDo: Add json encoder for datetime

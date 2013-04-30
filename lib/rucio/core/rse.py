@@ -354,7 +354,7 @@ def add_file_replica(rse, scope, name, size, issuer, adler32=None, md5=None, dsn
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False)
     if not query.first():
         try:
-            new_data_id = models.DataIdentifier(scope=scope, name=name, owner=issuer, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
+            new_data_id = models.DataIdentifier(scope=scope, name=name, account=issuer, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
             new_data_id = session.merge(new_data_id)
             new_data_id.save(session=session)
         except IntegrityError, e:
