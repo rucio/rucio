@@ -242,7 +242,7 @@ class DataIdentifier(BASE, SoftModelBase):
     __tablename__ = 'dids'
     scope = Column(String(30))
     name = Column(String(255))
-    owner = Column(String(255))
+    account = Column(String(30))
     type = Column(Enum('file', 'dataset', 'container', name='DIDS_TYPE_CHK'))
     open = Column(Boolean(name='DIDS_OPEN_CHK'))
     monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
@@ -257,7 +257,7 @@ class DataIdentifier(BASE, SoftModelBase):
     adler32 = Column(String(8))
     guid = Column(GUID())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
-                   ForeignKeyConstraint(['owner'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
