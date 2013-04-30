@@ -320,7 +320,7 @@ def list_rse_usage_history(rse, filters=None, session=None):
 
 
 @transactional_session
-def add_file_replica(rse, scope, name, size, issuer, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, session=None):
+def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, session=None):
     """
     Add File replica.
 
@@ -328,7 +328,7 @@ def add_file_replica(rse, scope, name, size, issuer, adler32=None, md5=None, dsn
     :param scope: the tag name.
     :param name: The data identifier name.
     :param size: the size of the file.
-    :param issuer: The issuer account.
+    :param account: The account owner.
     :param md5: The md5 checksum.
     :param adler32: The adler32 checksum.
     :param pfn: Physical file name (for nondeterministic rse).
@@ -354,7 +354,7 @@ def add_file_replica(rse, scope, name, size, issuer, adler32=None, md5=None, dsn
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False)
     if not query.first():
         try:
-            new_data_id = models.DataIdentifier(scope=scope, name=name, account=issuer, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
+            new_data_id = models.DataIdentifier(scope=scope, name=name, account=account, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
             new_data_id = session.merge(new_data_id)
             new_data_id.save(session=session)
         except IntegrityError, e:

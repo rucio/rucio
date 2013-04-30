@@ -95,14 +95,14 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], s
 
 
 @transactional_session
-def append_identifier(scope, name, dids, issuer, session=None):
+def append_identifier(scope, name, dids, account, session=None):
     """
     Append data identifier.
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param dids: The content.
-    :param issuer: The issuer account.
+    :param account: The account owner.
     :param session: The database session in use.
     """
     #TODO: should judge target did's status: open, monotonic, close.
@@ -131,7 +131,7 @@ def append_identifier(scope, name, dids, issuer, session=None):
                 raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
             child_type = child.type
         if 'rse' in source:
-            add_file_replica(issuer=issuer, session=session, **source)
+            add_file_replica(account=account, session=session, **source)
 
         append_did = query_associ.filter_by(child_scope=source['scope'], child_name=source['name'], child_type=child_type).first()
         if append_did is None:
