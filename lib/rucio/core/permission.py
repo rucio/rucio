@@ -161,7 +161,7 @@ def perm_add_scope(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or issuer == kwargs.get('account_name')
+    return issuer == 'root' or issuer == kwargs.get('account')
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs):
@@ -212,7 +212,7 @@ def perm_add_account_identity(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
 
-    return issuer == 'root' or issuer == kwargs.get('account_name')
+    return issuer == 'root' or issuer == kwargs.get('account')
 
 
 def perm_add_identifier(issuer, kwargs):
@@ -278,7 +278,7 @@ def perm_add_protocol(issuer, kwargs):
     """
     Checks if an account can add a protocol to an RSE.
 
-    :param account_name: Account identifier which issues the command.
+    :param account: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
@@ -289,7 +289,7 @@ def perm_del_protocol(issuer, kwargs):
     """
     Checks if an account can delete protocols from an RSE.
 
-    :param account_name: Account identifier which issues the command.
+    :param account: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
@@ -300,7 +300,7 @@ def perm_update_protocol(issuer, kwargs):
     """
     Checks if an account can update protocols of an RSE.
 
-    :param account_name: Account identifier which issues the command.
+    :param account: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
