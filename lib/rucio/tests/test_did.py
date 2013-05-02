@@ -15,7 +15,7 @@
 
 
 from datetime import timedelta
-from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_in, assert_not_in, raises
+from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_in, assert_true, assert_not_in, raises
 
 from rucio.api import did
 from rucio.api import scope
@@ -170,7 +170,8 @@ class TestDIDClients():
             self.did_client.add_identifier(scope, cnt[i], 'container', statuses=None, meta=None, rules=None)
 
         for i in range(4):
-            self.did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i]}, {'scope': scope, 'name': file[2 * i + 1]}])
+            self.did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i], 'size': 1, 'adler32': 1},
+                                                                 {'scope': scope, 'name': file[2 * i + 1], 'size': 1, 'adler32': 1}])
 
         self.did_client.add_containers_to_container(scope, cnt[1], [{'scope': scope, 'name': dst[2]}, {'scope': scope, 'name': dst[3]}])
         self.did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': cnt[1]}])
@@ -207,7 +208,8 @@ class TestDIDClients():
             self.did_client.add_identifier(scope, cnt[i], 'container', statuses=None, meta=None, rules=None)
 
         for i in range(4):
-            self.did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i]}, {'scope': scope, 'name': file[2 * i + 1]}])
+            self.did_client.add_files_to_dataset(scope, dst[i], [{'scope': scope, 'name': file[2 * i], 'size': 1L, 'adler32': 1L},
+                                                                 {'scope': scope, 'name': file[2 * i + 1], 'size': 1L, 'adler32': 1L}])
 
         self.did_client.add_containers_to_container(scope, cnt[1], [{'scope': scope, 'name': dst[2]}, {'scope': scope, 'name': dst[3]}])
         self.did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': cnt[1]}])
@@ -247,7 +249,7 @@ class TestDIDClients():
         # put files in datasets
         for i in xrange(3):
             for j in xrange(3):
-                files = [{'scope': self.tmp_scopes[j], 'name': self.tmp_files[j]}]
+                files = [{'scope': self.tmp_scopes[j], 'name': self.tmp_files[j], 'size': 1, 'adler32': 1}]
                 self.did_client.add_dataset(self.tmp_scopes[i], self.tmp_datasets[j])
                 self.did_client.add_files_to_dataset(self.tmp_scopes[i], self.tmp_datasets[j], files)
 
@@ -335,8 +337,8 @@ class TestDIDClients():
         files1 = []
         files2 = []
         for i in xrange(10):
-            files1.append({'scope': scope, 'name': generate_uuid()})
-            files2.append({'scope': scope, 'name': generate_uuid()})
+            files1.append({'scope': scope, 'name': generate_uuid(), 'size': 1, 'adler32': 1})
+            files2.append({'scope': scope, 'name': generate_uuid(), 'size': 1, 'adler32': 1})
 
         self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
@@ -372,8 +374,8 @@ class TestDIDClients():
         files1 = []
         files2 = []
         for i in xrange(10):
-            files1.append({'scope': scope, 'name': generate_uuid()})
-            files2.append({'scope': scope, 'name': generate_uuid()})
+            files1.append({'scope': scope, 'name': generate_uuid(), 'size': 1, 'adler32': unicode(1), 'md5': None})
+            files2.append({'scope': scope, 'name': generate_uuid(), 'size': 1, 'adler32': unicode(1), 'md5': None})
 
         self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
@@ -393,10 +395,10 @@ class TestDIDClients():
 
         # List file content
         for d in self.did_client.list_files(scope, files1[i]['name']):
-            assert_equal(d, files1[i])
+            assert_true(d == files1[i])
 
         # List container content
-        for d in [{'name': x['name'], 'scope': x['scope']} for x in self.did_client.list_files(scope, container)]:
+        for d in [{'name': x['name'], 'scope': x['scope'],  'size': x['size'], u'adler32': x['adler32'], u'md5': x['md5']} for x in self.did_client.list_files(scope, container)]:
             assert_in(d, files1 + files2)
 
         # List non-existing data identifier content
@@ -426,14 +428,15 @@ class TestDIDClients():
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
 
         # Add files to dataset
-        files = [{'scope': tmp_scope, 'name': tmp_file}, ]
+        files = [{'scope': tmp_scope, 'name': tmp_file, 'size': 1L, 'adler32': 1L}, ]
+
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Add a second file replica
         tmp_file = 'file_%s' % generate_uuid()
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
         # Add files to dataset
-        files = [{'scope': tmp_scope, 'name': tmp_file}, ]
+        files = [{'scope': tmp_scope, 'name': tmp_file, 'size': 1L, 'adler32': 1L}, ]
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Close dataset
@@ -445,5 +448,5 @@ class TestDIDClients():
         tmp_file = 'file_%s' % generate_uuid()
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
         # Add files to dataset
-        files = [{'scope': tmp_scope, 'name': tmp_file}, ]
+        files = [{'scope': tmp_scope, 'name': tmp_file, 'size': 1L, 'adler32': 1L}, ]
         self.did_client.attach_identifier(scope=tmp_scope, name=tmp_dataset, dids=files)
