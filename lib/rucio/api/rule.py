@@ -37,8 +37,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
     #TODO Check for valid parameters: dids, copies etc.
-    if lifetime is not None:
-        lifetime = datetime.now() + timedelta(hours=lifetime)
+    if lifetime:
+        lifetime = datetime.utcnow() + timedelta(seconds=lifetime)
     return rule.add_replication_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)
 
 

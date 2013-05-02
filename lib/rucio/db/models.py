@@ -256,6 +256,7 @@ class DataIdentifier(BASE, SoftModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     guid = Column(GUID())
+    expired_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -263,7 +264,8 @@ class DataIdentifier(BASE, SoftModelBase):
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
                    UniqueConstraint('guid', name='DIDS_GUID_UQ'),
-                   Index('DID_NEW_IDX', 'new'),
+                   Index('DIDS_NEW_IDX', 'new'),
+                   Index('DIDS_EXPIRED_AT', 'expired_at')
                    )
 
 

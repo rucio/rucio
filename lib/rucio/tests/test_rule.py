@@ -20,7 +20,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound
 from rucio.core.did import add_identifier, append_identifier
 from rucio.core.lock import get_replica_locks
-from rucio.core.rse import add_rse, add_rse_attribute, add_file_replica
+from rucio.core.rse import add_rse_attribute, add_file_replica
 from rucio.core.rule import add_replication_rule, get_replication_rule, delete_replication_rule
 from rucio.core.scope import add_scope
 

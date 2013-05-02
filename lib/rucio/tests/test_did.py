@@ -14,8 +14,8 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 
-from datetime import timedelta
-from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_in, assert_true, assert_not_in, raises
+from datetime import datetime, timedelta
+from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_true, assert_in, assert_not_in, raises
 
 from rucio.api import did
 from rucio.api import scope
@@ -288,6 +288,7 @@ class TestDIDClients():
         scope = generate_uuid()[:30]
         rse = generate_uuid()
         file = generate_uuid()
+        dsn = generate_uuid()
 
         self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
@@ -298,6 +299,10 @@ class TestDIDClients():
 
         assert_equal(did['scope'], scope)
         assert_equal(did['name'], file)
+
+        self.did_client.add_dataset(scope=scope, name=dsn, lifetime=10000000)
+        did2 = self.did_client.get_did(scope, dsn)
+        assert_equal(type(did2['expired_at']), datetime)
 
     def test_get_meta(self):
         """ DATA IDENTIFIERS (CLIENT): add a new meta data for an identifier and try to retrieve it back"""
