@@ -533,11 +533,11 @@ class Token(BASE, ModelBase):
     __tablename__ = 'tokens'
     token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(String(30))
-    lifetime = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
-    ip = Column(String(16), nullable=True)
-    _table_args = (PrimaryKeyConstraint('token', 'account', name='AUTH_TOKEN_ACCOUNT_PK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='AUTH_ACCOUNT_FK'),
-                   CheckConstraint('"LIFETIME" IS NOT NULL', name='AUTH_LIFETIME_NN'),)
+    expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
+    ip = Column(String(39), nullable=True)
+    _table_args = (PrimaryKeyConstraint('account', 'token', name='TOKENS_TOKEN_ACCOUNT_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
+                   CheckConstraint('"EXPIRED_AT" IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),)
 
 
 class Callback(BASE, ModelBase):

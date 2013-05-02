@@ -11,8 +11,8 @@
 
 import datetime
 import hashlib
-import uuid
 
+from rucio.common.utils import generate_uuid
 from rucio.core.account import account_exists
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
@@ -21,7 +21,7 @@ from rucio.db.session import read_session, transactional_session
 @read_session
 def exist_identity_account(identity, type, account, session=None):
     """
-    Check if a identity is mapped to an account.
+    Check if an identity is mapped to an account.
 
     :param identity: The user identity as string.
     :param type: The type of identity as a string, e.g. userpass, x509, gss...
@@ -31,9 +31,7 @@ def exist_identity_account(identity, type, account, session=None):
     :returns: True if identity is mapped to account, otherwise False
     """
 
-    query = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account)
-    result = query.first()
-    return result is not None
+    return session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account).first() is not None
 
 
 @transactional_session
@@ -69,10 +67,12 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, type='userpass').first()
     db_account = result['account']
 
-    # create new rucio-auth-token for account
-    tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
-    token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
+    # remove expired tokens
+    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account).delete()
 
+    # create new rucio-auth-token for account
+    tuid = generate_uuid()  # NOQA
+    token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=db_account, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -99,12 +99,12 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    session.query(models.Identity).filter_by(identity=dn, type='x509').first()
+    # remove expired tokens
+    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account).delete()
 
     # create new rucio-auth-token for account
-    tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
+    tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
-
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -131,12 +131,12 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     if not account_exists(account, session=session):
         return None
 
-    session.query(models.Identity).filter_by(identity=gsstoken, type='gsstoken').first()
+    # remove expired tokens
+    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(), models.Token.account == account).delete()
 
     # create new rucio-auth-token for account
-    tuid = str(uuid.uuid4()).replace('-', '')  # NOQA
+    tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(gsstoken)s-%(appid)s-%(token)s' % locals()
-
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -160,9 +160,7 @@ def validate_auth_token(token, session=None):
     else:
         return None
 
-    q = session.query(models.Token.account, models.Token.lifetime).filter(models.Token.token == token, models.Token.lifetime > datetime.datetime.utcnow())
-
-    r = q.all()
+    r = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
 
     if r is not None and r != []:
         return {'account': r[0][0], 'lifetime': r[0][1]}
