@@ -50,7 +50,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add_identifier(self, scope, name, type, statuses=None, meta=None, rules=None):
+    def add_identifier(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None):
         """
         Add data identifier for a data@transactional_sessionset or container.
 
@@ -60,6 +60,7 @@ class DIDClient(BaseClient):
         :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
         :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        :param lifetime: DID's lifetime (in seconds).
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name])
         url = build_url(self.host, path=path)
@@ -71,6 +72,8 @@ class DIDClient(BaseClient):
             data['meta'] = meta
         if rules:
             data['rules'] = rules
+        if lifetime:
+            data['lifetime'] = lifetime
         r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
@@ -78,7 +81,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add_dataset(self, scope, name, statuses=None, meta=None, rules=None):
+    def add_dataset(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
         """
         Add data identifier for a dataset.
 
@@ -87,10 +90,11 @@ class DIDClient(BaseClient):
         :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
         :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        :param lifetime: DID's lifetime (in seconds).
         """
-        return self.add_identifier(scope=scope, name=name, type='dataset', statuses=statuses, meta=meta, rules=rules)
+        return self.add_identifier(scope=scope, name=name, type='dataset', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
-    def add_container(self, scope, name, statuses=None, meta=None, rules=None):
+    def add_container(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
         """
         Add data identifier for a container.
 
@@ -99,6 +103,7 @@ class DIDClient(BaseClient):
         :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
         :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        :param lifetime: DID's lifetime (in seconds).
         """
         return self.add_identifier(scope=scope, name=name, type='container', statuses=statuses, meta=meta, rules=rules)
 

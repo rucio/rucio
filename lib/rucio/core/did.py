@@ -11,6 +11,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
+from datetime import datetime, timedelta
 from re import match
 
 from sqlalchemy.exc import IntegrityError
@@ -56,7 +57,7 @@ def list_replicas(scope, name, schemes=None, session=None):
 
 
 @transactional_session
-def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], session=None):
+def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, session=None):
     """
     Add data identifier.
 
@@ -67,13 +68,19 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], s
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
     :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :param lifetime: DID's lifetime (in seconds).
     :param session: The database session in use.
     """
     if type == models.DataIdType.FILE:
         raise exception.UnsupportedOperation("Only dataset/container can be registered." % locals())
 
+    # Lifetime
+    expired_at = None
+    if lifetime:
+        expired_at = datetime.utcnow() + timedelta(seconds=lifetime)
+
     # Insert new data identifier
-    new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=type, monotonic=statuses.get('monotonic', False), open=True)
+    new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=type, monotonic=statuses.get('monotonic', False), open=True, expired_at=expired_at)
     try:
         new_did.save(session=session)
     except IntegrityError, e:
@@ -383,7 +390,7 @@ def get_did(scope, name, session=None):
                 did_r = {'scope': r.scope, 'name': r.name, 'type': r.type, 'account': r.account}
             else:
                 did_r = {'scope': r.scope, 'name': r.name, 'type': r.type,
-                         'account': r.account, 'open': r.open, 'monotonic': r.monotonic}
+                         'account': r.account, 'open': r.open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
 
             #  To add:  created_at, updated_at, deleted_at, deleted, monotonic, hidden, obsolete, complete
             #  ToDo: Add json encoder for datetime
