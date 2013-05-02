@@ -27,7 +27,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     Duplicate, InvalidValueForKey,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException)
-from rucio.common.utils import generate_http_error
+from rucio.common.utils import generate_http_error, render_json
 
 urls = (
     '/(.*)/', 'Scope',
@@ -127,7 +127,8 @@ class DIDs:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            return dumps(get_did(scope=scope, name=name))
+            did = get_did(scope=scope, name=name)
+            return render_json(**did)
         except ScopeNotFound, e:
             raise generate_http_error(404, 'ScopeNotFound', e.args[0][0])
         except DataIdentifierNotFound, e:
@@ -161,7 +162,7 @@ class DIDs:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        statuses, meta, rules = {}, [], []
+        statuses, meta, rules, lifetime = {}, [], [], None
         try:
             json_data = loads(data())
             type = json_data['type']
@@ -171,10 +172,13 @@ class DIDs:
                 meta = json_data['meta']
             if 'rules' in json_data:
                 rules = json_data['rules']
+            if 'lifetime' in json_data:
+                lifetime = json_data['lifetime']
+
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            add_identifier(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, issuer=auth['account'])
+            add_identifier(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
