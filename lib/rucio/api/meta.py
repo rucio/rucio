@@ -33,13 +33,13 @@ def list_values(key):
     return meta.list_values(key=key)
 
 
-def add_key(key, issuer, key_type, value_type=None, value_regexp=None):
+def add_key(key, key_type, issuer, value_type=None, value_regexp=None):
     """
     Add a new allowed key.
 
     :param key: the name for the new key.
-    :param issuer: The issuer account.
     :param key_type: the type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
+    :param issuer: The issuer account.
     :param value_type: the type of the value, if defined.
     :param value_regexp: the regular expression that values should match, if defined.
     """

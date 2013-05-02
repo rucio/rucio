@@ -30,95 +30,95 @@ class account_status:
 
 
 @transactional_session
-def add_account(account_name, account_type, session=None):
+def add_account(account, type, session=None):
     """ Add an account with the given account name and type.
 
-    :param account_name: the name of the new account.
-    :param account_type: the type of the new account.
+    :param account: the name of the new account.
+    :param type: the type of the new account.
     :param session: the database session in use.
     """
-    new_account = models.Account(account=account_name, type=account_type, status=account_status.ACTIVE)
+    new_account = models.Account(account=account, type=type, status=account_status.ACTIVE)
     try:
         new_account.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate('Account ID \'%s\' already exists!' % account_name)
+        raise exception.Duplicate('Account ID \'%s\' already exists!' % account)
 
 
 @read_session
-def account_exists(account_name, session=None):
+def account_exists(account, session=None):
     """ Checks to see if account exists. This procedure does not check it's status.
 
-    :param account_name: Name of the account.
+    :param account: Name of the account.
     :param session: the database session in use.
 
     :returns: True if found, otherwise false.
     """
 
-    query = session.query(models.Account).filter_by(account=account_name)
+    query = session.query(models.Account).filter_by(account=account)
 
     return True if query.first() else False
 
 
 @read_session
-def get_account(account_name, session=None):
+def get_account(account, session=None):
     """ Returns an account for the given account name.
 
-    :param account_name: the name of the account.
+    :param account: the name of the account.
     :param session: the database session in use.
 
     :returns: a dict with all information for the account.
     """
 
-    query = session.query(models.Account).filter_by(account=account_name)
+    query = session.query(models.Account).filter_by(account=account)
 
     result = query.first()
     if result is None:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
     return result
 
 
 @transactional_session
-def del_account(account_name, session=None):
+def del_account(account, session=None):
     """ Disable an account with the given account name.
 
-    :param account_name: the account name.
+    :param account: the account name.
     :param session: the database session in use.
     """
 
-    query = session.query(models.Account).filter_by(account=account_name).filter_by(status=account_status.ACTIVE)
+    query = session.query(models.Account).filter_by(account=account).filter_by(status=account_status.ACTIVE)
 
     try:
         account = query.one()
     except exc.NoResultFound:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
     account.update({'status': account_status.DELETED, 'deleted_at': datetime.utcnow()})
 
 
 @read_session
-def get_account_status(account_name, session=None):
+def get_account_status(account, session=None):
     """ Returns the state of the account.
 
-    :param account_name: Name of the account.
+    :param account: Name of the account.
     :param session: the database session in use.
 
     """
 
-    query = session.query(models.Account).filter_by(account=account_name)
+    query = session.query(models.Account).filter_by(account=account)
 
     acc_details = query.one()
     return acc_details.status
 
 
 @transactional_session
-def set_account_status(account_name, status, session=None):
+def set_account_status(account, status, session=None):
     """ Set the status of an account.
 
-    :param account_name: Name of the account.
+    :param account: Name of the account.
     :param status: The status for the account.
     :param session: the database session in use.
     """
-    session.query(models.Account).filter_by(account=account_name).update({'status': status})
+    session.query(models.Account).filter_by(account=account).update({'status': status})
 
 
 @read_session
@@ -136,23 +136,23 @@ def list_accounts(session=None):
 
 
 @read_session
-def list_identities(account_name, session=None):
+def list_identities(account, session=None):
     """
     List all identities on an account.
 
-    :param account_name: The account name.
+    :param account: The account name.
     :param session: the database session in use.
     """
     identity_list = list()
 
-    query = session.query(models.Account).filter_by(account=account_name).filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(account=account).filter_by(deleted=False)
 
     try:
         query.one()
     except exc.NoResultFound:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account_name)
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
-    query = session.query(models.IdentityAccountAssociation).filter_by(account=account_name)
+    query = session.query(models.IdentityAccountAssociation).filter_by(account=account)
     for identity in query:
         identity_list.append({'type': identity.type, 'identity': identity.identity})
 
