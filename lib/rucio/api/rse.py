@@ -178,7 +178,7 @@ def get_protocols(rse, issuer, protocol_domain='ALL', operation=None, default=Fa
     return rse_module.get_protocols(rse, protocol_domain=protocol_domain, operation=operation, scheme=scheme, default=default)
 
 
-def del_protocols(rse, issuer, scheme, hostname=None, port=None):
+def del_protocols(rse, scheme, issuer, hostname=None, port=None):
     """
     Deletes all matching protocol entries for the given RSE..
 
@@ -196,7 +196,7 @@ def del_protocols(rse, issuer, scheme, hostname=None, port=None):
     rse_module.del_protocols(rse, scheme=scheme, hostname=hostname, port=port)
 
 
-def update_protocols(rse, issuer, scheme, data, hostname=None, port=None):
+def update_protocols(rse, scheme, data, issuer, hostname=None, port=None):
     """
     Updates all provided attributes for all matching protocol entries of the given RSE..
 

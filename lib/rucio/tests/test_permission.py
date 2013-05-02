@@ -26,14 +26,14 @@ class TestPermissionCoreApi():
 
     def test_permission_add_account(self):
         """ PERMISSION(CORE): Check permission to add account """
-        assert_true(has_permission(issuer='root', action='add_account', kwargs={'account_name': 'account1'}))
-        assert_false(has_permission(issuer='self.usr', action='add_account', kwargs={'account_name': 'account1'}))
+        assert_true(has_permission(issuer='root', action='add_account', kwargs={'account': 'account1'}))
+        assert_false(has_permission(issuer='self.usr', action='add_account', kwargs={'account': 'account1'}))
 
     def test_permission_add_scope(self):
         """ PERMISSION(CORE): Check permission to add scope """
-        assert_true(has_permission(issuer='root', action='add_scope', kwargs={'account_name': 'account1'}))
-        assert_false(has_permission(issuer=self.usr, action='add_scope', kwargs={'account_name': 'root'}))
-        assert_true(has_permission(issuer=self.usr, action='add_scope', kwargs={'account_name': self.usr}))
+        assert_true(has_permission(issuer='root', action='add_scope', kwargs={'account': 'account1'}))
+        assert_false(has_permission(issuer=self.usr, action='add_scope', kwargs={'account': 'root'}))
+        assert_true(has_permission(issuer=self.usr, action='add_scope', kwargs={'account': self.usr}))
 
     def test_permission_get_auth_token_user_pass(self):
         """ PERMISSION(CORE): Check permission to get_auth_token_user_pass """

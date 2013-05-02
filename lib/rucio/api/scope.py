@@ -36,7 +36,7 @@ def add_scope(scope, account, issuer):
 
     validate_schema(name='scope', obj=scope)
 
-    kwargs = {'scope_name': scope, 'account_name': account}
+    kwargs = {'scope': scope, 'account': account}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_scope', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add scope' % (issuer))
 
