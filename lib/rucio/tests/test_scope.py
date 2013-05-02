@@ -63,7 +63,7 @@ class TestScope():
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid()).lower()[:20]
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -99,7 +99,7 @@ class TestScope():
 
         headers2 = {'Rucio-Type': 'user', 'X-Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid()).lower()[:20]
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -122,7 +122,7 @@ class TestScope():
 
         tmp_val = str(uuid()).lower()[:15]
         headers2 = {'Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/testaccount-%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -169,7 +169,7 @@ class TestScope():
 
         headers2 = {'Rucio-Type': 'user', 'X-Rucio-Auth-Token': str(token)}
         acntusr = 'user' + str(uuid()).lower()[:20]
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 

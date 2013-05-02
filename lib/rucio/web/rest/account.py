@@ -39,7 +39,7 @@ urls = (
 
 
 class Scopes:
-    def GET(self, account_name):
+    def GET(self, account):
         """ list all scopes for an account.
 
         HTTP Success:
@@ -67,7 +67,7 @@ class Scopes:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            scopes = get_scopes(account_name)
+            scopes = get_scopes(account)
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except RucioException, e:
@@ -77,11 +77,11 @@ class Scopes:
             raise InternalError(e)
 
         if not len(scopes):
-            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account_name)
+            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account)
 
         return dumps(scopes)
 
-    def POST(self, account_name, scope_name):
+    def POST(self, account, scope):
         """ create scope with given scope name.
 
         HTTP Success:
@@ -109,7 +109,7 @@ class Scopes:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            add_scope(scope_name, account_name, issuer=auth.get('account'))
+            add_scope(scope, account, issuer=auth.get('account'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -128,7 +128,7 @@ class Scopes:
 class AccountParameter:
     """ create, update, get and disable rucio accounts. """
 
-    def GET(self, account_name):
+    def GET(self, account):
         """ get account information for given account name.
 
         HTTP Success:
@@ -157,13 +157,13 @@ class AccountParameter:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        if account_name == 'whoami':
+        if account == 'whoami':
             # Redirect to the account uri
             raise seeother(auth['account'])
 
         acc = None
         try:
-            acc = get_account_info(account_name)
+            acc = get_account_info(account)
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
 
@@ -177,12 +177,12 @@ class AccountParameter:
 
         return dumps(dict)
 
-    def PUT(self, account_name):
+    def PUT(self, account):
         """ update account informations for given account name """
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
-    def POST(self, account_name):
+    def POST(self, account):
         """ create account with given account name.
 
         HTTP Success:
@@ -214,18 +214,18 @@ class AccountParameter:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
-        account_type = None
+        type = None
 
         try:
-            account_type = parameter['account_type']
+            type = parameter['type']
         except KeyError, e:
-            if e.args[0] == 'account_type':
+            if e.args[0] == 'type':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account(account_name, account_type, issuer=auth.get('account'))
+            add_account(account, type, issuer=auth.get('account'))
         except Duplicate as e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccessDenied, e:
@@ -238,7 +238,7 @@ class AccountParameter:
 
         raise Created()
 
-    def DELETE(self, account_name):
+    def DELETE(self, account):
         """ disable account with given account name.
 
         HTTP Success:
@@ -263,7 +263,7 @@ class AccountParameter:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            del_account(account_name, issuer=auth.get('account'))
+            del_account(account, issuer=auth.get('account'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except AccountNotFound, e:
@@ -319,7 +319,7 @@ class Account:
 
 
 class AccountLimits:
-    def GET(self, account_name):
+    def GET(self, account):
         """ get the current limits for an account """
         raise BadRequest()
 
@@ -339,7 +339,7 @@ class AccountLimits:
 
 
 class Identities:
-    def POST(self, account_name):
+    def POST(self, account):
         """ Grant an identity access to an account.
 
         HTTP Success:
@@ -351,7 +351,7 @@ class Identities:
             409 Conflict
             500 Internal Error
 
-        :param account_name: Account identifier.
+        :param account: Account identifier.
         """
 
         header('Content-Type', 'application/octet-stream')
@@ -380,7 +380,7 @@ class Identities:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, type=authtype, account=account_name, issuer=auth.get('account'))
+            add_account_identity(identity_key=identity, type=authtype, account=account, issuer=auth.get('account'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate as e:
@@ -392,7 +392,7 @@ class Identities:
 
         raise Created()
 
-    def GET(self, account_name):
+    def GET(self, account):
         header('Content-Type', 'application/x-json-stream')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
         header('Cache-Control', 'post-check=0, pre-check=0', False)
@@ -406,7 +406,7 @@ class Identities:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            for identity in list_identities(account_name):
+            for identity in list_identities(account):
                 yield dumps(identity) + "\n"
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])

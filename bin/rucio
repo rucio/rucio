@@ -408,7 +408,7 @@ def list(args):
 
 def list_scopes(args):
     """
-    %(prog)s list-scopes <scope_name>
+    %(prog)s list-scopes <scope>
 
     List scopes.
     """
@@ -436,7 +436,7 @@ def list_scopes(args):
 
 def scope_list(args):
     """
-    %(prog)s scope_list <scope_name>
+    %(prog)s scope_list <scope>
 
     List all data identifiers in given scope.
     """
