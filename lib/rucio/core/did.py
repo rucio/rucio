@@ -124,19 +124,29 @@ def append_identifier(scope, name, dids, account, session=None):
     query_all = session.query(models.DataIdentifier)
     query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, type=did.type)
     for source in dids:
+
         if (scope == source['scope']) and (name == source['name']):
             raise exception.UnsupportedOperation('Self-append is not valid.')
+
         if did.type == models.DataIdType.CONTAINER:
             child = query_all.filter_by(scope=source['scope'], name=source['name']).first()
             if child is None:
                 raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
             child_type = child.type
+
         if 'rse' in source:
+
             add_file_replica(account=account, session=session, **source)
+
+        # + should check for size/checksum mismatches
+        if child_type == models.DataIdType.FILE and 'size' not in source:
+            raise exception.MissingFileParameter("The file size is missing for file '%(scope)s:%(name)s'" % source)
 
         append_did = query_associ.filter_by(child_scope=source['scope'], child_name=source['name'], child_type=child_type).first()
         if append_did is None:
-            models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'], type=did.type, child_type=child_type).save(session=session)
+            models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'],
+                                             size=source.get('size', None), md5=source.get('md5', None), adler32=source.get('adler32', None),
+                                             type=did.type, child_type=child_type).save(session=session)
         else:
             if append_did.deleted:
                 append_did.update({'deleted': False})
@@ -228,7 +238,8 @@ def list_content(scope, name, session=None):
     try:
         query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name)
         for tmp_did in query.yield_per(5):
-            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type}
+            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
+                   'size': tmp_did.size, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
@@ -288,7 +299,7 @@ def list_files(scope, name, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     if did.type == models.DataIdType.FILE:
-        yield {'scope': did.scope, 'name': did.name}
+        yield {'scope': did.scope, 'name': did.name, 'size': did.size, 'adler32': did.adler32, 'md5': did.md5}
     else:
         dids = [(scope, name), ]
         while dids:
@@ -297,7 +308,7 @@ def list_files(scope, name, session=None):
             for tmp_did in query.yield_per(5):
 
                 if tmp_did.child_type == models.DataIdType.FILE:
-                    yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'size': 100000}  # TODO Change this to the proper filesize [RUCIO-199]
+                    yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'size': tmp_did.size, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
                 else:
                     dids.append((tmp_did.child_scope, tmp_did.child_name))
 
