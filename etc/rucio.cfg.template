@@ -42,3 +42,8 @@ x509_email = ph-adp-ddm-lab@cern.ch
 # Default DDMLAB cern account
 gss_identity = ddmlab@CERN.CH
 gss_email = ph-adp-ddm-lab@cern.ch
+
+[monitor]
+carbon_server = voatlas70.cern.ch
+carbon_port = 8125
+user_scope = rucio
