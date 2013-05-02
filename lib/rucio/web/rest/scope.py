@@ -59,7 +59,7 @@ class Scope:
     def PUT(self):
         raise BadRequest()
 
-    def POST(self, account_name, scope_name):
+    def POST(self, account, scope):
         """
         Creates scope with given scope name.
 
@@ -86,7 +86,7 @@ class Scope:
             raise Unauthorized()
 
         try:
-            add_scope(scope_name, account_name)
+            add_scope(scope, account)
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccountNotFound, e:
@@ -105,7 +105,7 @@ class Scope:
 class ScopeList:
     """ list scopes """
 
-    def GET(self, account_name):
+    def GET(self, account):
         """
         List all scopes for an account.
 
@@ -134,14 +134,14 @@ class ScopeList:
             raise Unauthorized()
 
         try:
-            scopes = get_scopes(account_name)
+            scopes = get_scopes(account)
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
 
         if not len(scopes):
-            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account_name)
+            raise generate_http_error(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account)
 
         return dumps(scopes)
 

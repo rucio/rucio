@@ -60,7 +60,7 @@ def add_account(args):
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        accountClient.add_account(account_name=args.acnt, account_type=args.acnttype)
+        accountClient.add_account(account=args.acnt, type=args.acnttype)
         print 'Added new account: %s' % args.acnt
     except Exception, e:
             print 'Failed to add account %s' % args.acnt
@@ -144,7 +144,7 @@ def show_account(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        info = accountClient.get_account(account_name=args.acnt)
+        info = accountClient.get_account(account=args.acnt)
     except Exception, e:
             print 'Failed to show account'
             print e
@@ -173,7 +173,7 @@ def list_identities(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        identities = accountClient.list_identities(account_name=args.acnt)
+        identities = accountClient.list_identities(account=args.acnt)
     except Exception, e:
             print 'Failed to list identities for account %s' % args.acnt
             print e
@@ -284,7 +284,7 @@ def identity_add(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        accountClient.add_identity(account_name=args.acnt, identity=args.identity, authtype=args.authtype, email=args.email)
+        accountClient.add_identity(account=args.acnt, identity=args.identity, authtype=args.authtype, email=args.email)
         print 'Added new identity to account: %s-%s' % (args.identity, args.acnt)
     except Exception, e:
             print 'Failed to grant an identity access to an account'
@@ -493,7 +493,7 @@ def add_scope(args):
                          auth_type=args.auth_strategy, creds=creds,
                          ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.add_scope(account_name=args.acnt, scope_name=args.scope)
+        client.add_scope(account=args.acnt, scope=args.scope)
         print 'Added new scope to account: %s-%s' % (args.scope, args.acnt)
     except Exception, e:
             print 'Failed to add scope'
