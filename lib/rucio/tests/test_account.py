@@ -78,7 +78,7 @@ class TestAccountRestApi():
 
         acntusr = 'user' + str(uuid()).lower()[0:20]
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -93,7 +93,7 @@ class TestAccountRestApi():
         token = str(r1.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r1 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
 
@@ -108,7 +108,7 @@ class TestAccountRestApi():
         token = str(r.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
-        data = {'account_type': 'user'}
+        data = {'type': 'user'}
         ret = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'ValueError')
@@ -128,7 +128,7 @@ class TestAccountRestApi():
         ret = TestApp(account_app.wsgifunc(*mw)).post('/account', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'KeyError')
-        assert_equal(ret.normal_body, "KeyError: \'account_type\' not defined")
+        assert_equal(ret.normal_body, "KeyError: \'type\' not defined")
         assert_equal(ret.status, 400)
 
     def test_create_user_not_json_dict(self):
@@ -140,7 +140,7 @@ class TestAccountRestApi():
         token = str(r.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps(('account_name', 'account'))
+        data = dumps(('account', 'account'))
         r = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers, params=data, expect_errors=True)
 
         assert_equal(r.header('ExceptionClass'), 'TypeError')
@@ -158,7 +158,7 @@ class TestAccountRestApi():
 
         acntusr = 'user' + str(uuid()).lower()[0:20]
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -192,7 +192,7 @@ class TestAccountRestApi():
 
         acntusr = 'user' + str(uuid()).lower()[0:20]
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'account_type': 'user'})
+        data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 

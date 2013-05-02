@@ -13,16 +13,16 @@ from rucio.common import exception
 from rucio.core import request
 
 
-def queue_request(account, issuer, scope, name, dest_rse, req_type, metadata={}):
+def queue_request(scope, name, dest_rse, req_type, issuer, account, metadata={}):
     """
     Submit a transfer or deletion request on a destination RSE for a data identifier.
 
-    :param account: Account identifier as a string.
-    :param account: Issuing account as a string.
     :param scope: Data identifier scope as a string.
     :param name: Data identifier name as a string.
     :param dest_rse: RSE name as a string.
     :param req_type: Type of the request as a string.
+    :param issuer: Issuing account as a string.
+    :param account: Account identifier as a string.
     :param metadata: Metadata key/value pairs as a dictionary.
     :returns: Request-ID as a 32 character hex string.
     """
@@ -34,12 +34,13 @@ def queue_request(account, issuer, scope, name, dest_rse, req_type, metadata={})
     return request.queue_request(scope=scope, name=name, dest_rse=dest_rse, req_type=req_type, metadata=metadata)
 
 
-def submit_deletion(account, issuer, url):
+def submit_deletion(url, issuer, account):
     """
     Submit a deletion request to a deletiontool.
 
-    :param account: Account identifier as a string.
     :param src_url: URL acceptable to deletiontool as a string.
+    :param issuer: Issuing account as a string.
+    :param account: Account identifier as a string.
     :returns: Deletiontool external ID.
     """
 
@@ -50,15 +51,16 @@ def submit_deletion(account, issuer, url):
     return request.submit_deletion(url)
 
 
-def submit_transfer(account, issuer, request_id, src_urls, dest_urls, transfertool, metadata={}):
+def submit_transfer(request_id, src_urls, dest_urls, transfertool, issuer, account, metadata={}):
     """
     Submit a transfer request to a transfertool.
 
-    :param account: Account identifier as a string.
     :param request_id: Associated request identifier as a string.
     :param src_urls: Source URL acceptable to transfertool as a list of strings.
     :param dest_urls: Destination URL acceptable to transfertool as a list of strings.
     :param transfertool: Transfertool as a string.
+    :param issuer: Issuing account as a string.
+    :param account: Account identifier as a string.
     :param metadata: Metadata key/value pairs as a dictionary.
     :returns: Transfertool external ID.
     """
@@ -70,12 +72,13 @@ def submit_transfer(account, issuer, request_id, src_urls, dest_urls, transferto
     return request.submit_transfer(request_id, src_urls=src_urls, dest_urls=dest_urls, transfertool=transfertool, metadata=metadata)
 
 
-def query_request(account, issuer, request_id):
+def query_request(request_id, issuer, account):
     """
     Query the status of a request.
 
-    :param account: Account identifier as a string.
     :param request_id: Request-ID as a 32 character hex string.
+    :param issuer: Issuing account as a string.
+    :param account: Account identifier as a string.
     :returns: Request status information as a dictionary.
     """
 
@@ -86,12 +89,13 @@ def query_request(account, issuer, request_id):
     return request.query_request(request_id)
 
 
-def cancel_request(account, issuer, request_id):
+def cancel_request(request_id, issuer, account):
     """
     Cancel a request.
 
-    :param account: Account identifier as a string.
     :param request_id: Request Identifier as a 32 character hex string.
+    :param issuer: Issuing account as a string.
+    :param account: Account identifier as a string.
     """
 
     kwargs = {'account': account, 'issuer': issuer, 'request_id': request_id}
@@ -101,15 +105,16 @@ def cancel_request(account, issuer, request_id):
     return request.cancel_request(request_id)
 
 
-def cancel_request_did(account, issuer, scope, name, dest_rse, req_type):
+def cancel_request_did(scope, name, dest_rse, req_type, issuer, account):
     """
     Cancel a request based on a DID and request type.
 
-    :param account: Account identifier as a string.
     :param scope: Data identifier scope as a string.
     :param name: Data identifier name as a string.
     :param dest_rse: RSE name as a string.
     :param req_type: Type of the request as a string.
+    :param issuer: Issuing account as a string.
+    :param account: Account identifier as a string.
     """
 
     kwargs = {'account': account, 'issuer': issuer}
@@ -119,13 +124,14 @@ def cancel_request_did(account, issuer, scope, name, dest_rse, req_type):
     return request.cancel_request_did(scope, name, dest_rse, req_type)
 
 
-def get_next(account, issuer, req_type, state):
+def get_next(req_type, state, issuer, account):
     """
     Retrieve the next request matching the request type and state.
 
-    :param account: Account identifier as a string.
     :param req_type: Type of the request as a string.
     :param state: State of the request as a string.
+    :param issuer: Issuing account as a string.
+    :param account: Account identifier as a string.
     :returns: Request as a dictionary.
     """
 
