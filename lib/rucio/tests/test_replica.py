@@ -15,7 +15,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.common.exception import UnsupportedOperation
+from rucio.common.exception import FileConsistencyMismatch, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.rse.rsemanager import RSEMgr
 
@@ -44,6 +44,12 @@ class TestReplica():
 
         with assert_raises(UnsupportedOperation):
             self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
+
+        with assert_raises(FileConsistencyMismatch):
+            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=2L, adler32='0cc737eb', pfn=tmp_pfn)
+
+        with assert_raises(FileConsistencyMismatch):
+            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc837eb', pfn=tmp_pfn)
 
         self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
