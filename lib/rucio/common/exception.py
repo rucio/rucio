@@ -268,6 +268,12 @@ class MissingClientParameter(RucioException):
         self._message = "Client parameters are missing."
 
 
+class MissingFileParameter(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(MissingFileParameter, self).__init__(args, kwargs)
+        self._message = "File parameter is missing."
+
+
 class NameTypeError(RucioException):
     def __init__(self, *args, **kwargs):
         super(NameTypeError, self).__init__(args, kwargs)
