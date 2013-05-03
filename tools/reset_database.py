@@ -16,11 +16,14 @@ from rucio.db.util import build_database, destroy_database, drop_everything, cre
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--drop-everything", action="store_true", default=False, help='Drop all tables+constraints')
+    parser.add_argument('-d', '--drop-everything', action="store_true", default=False, help='Drop all tables and constraints')
+    parser.add_argument('-t', '--include-test', action="store_true", default=False, help='Include all mock and testing tables')
     args = parser.parse_args()
+
     if args.drop_everything:
         drop_everything()
     else:
         destroy_database()
-    build_database()
+
+    build_database(tests=args.include_test)
     create_root_account()
