@@ -46,7 +46,7 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_x509': perm_get_auth_token_x509,
             'add_account_identity': perm_add_account_identity,
             'add_identifier': perm_add_identifier,
-            'append_identifier': perm_append_identifier,
+            'attach_identifier': perm_attach_identifier,
             'detach_identifier': perm_detach_identifier,
             'set_status': perm_set_status,
             'queue_request': perm_queue_request,
@@ -226,7 +226,7 @@ def perm_add_identifier(issuer, kwargs):
     return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
-def perm_append_identifier(issuer, kwargs):
+def perm_attach_identifier(issuer, kwargs):
     """
     Checks if an account can append an data identifier to the other data identifier.
 
@@ -260,7 +260,7 @@ def perm_detach_identifier(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return perm_append_identifier(issuer, kwargs)
+    return perm_attach_identifier(issuer, kwargs)
 
 
 def perm_set_status(issuer, kwargs):

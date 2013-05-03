@@ -166,9 +166,9 @@ class FileAssociationsRemain(RucioException):
         self._message = "Dataset has file associations"
 
 
-class FileConsistencyConflict(RucioException):
+class FileConsistencyMismatch(RucioException):
     def __init__(self, *args, **kwargs):
-        super(FileConsistencyConflict, self).__init__(args, kwargs)
+        super(FileConsistencyMismatch, self).__init__(args, kwargs)
         self._message = "Error related to file consistency."
 
 

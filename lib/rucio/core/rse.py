@@ -353,16 +353,19 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
         if pfn:
             raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False)
-    if not query.first():
+    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False).first()
+    if not did:
         try:
-            new_data_id = models.DataIdentifier(scope=scope, name=name, account=account, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
-            new_data_id = session.merge(new_data_id)
-            new_data_id.save(session=session)
+            new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
+            new_did = session.merge(new_did)
+            new_did.save(session=session)
         except IntegrityError, e:
             if e.args[0] == "(IntegrityError) foreign key constraint failed":
                 raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
-            raise
+            raise exception.RucioException(e.args[0])
+    else:
+        if size != did.size or adler32 != did.adler32 or md5 != did.md5:
+            raise exception.FileConsistencyMismatch("(size: %s, adler32: '%s', md5: '%s') != (size: %s, adler32: '%s', md5: '%s')" % (did.size, did.adler32, did.md5, size, adler32, md5))
 
     new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, path=path, state='AVAILABLE', md5=md5, adler32=adler32)
     try:
