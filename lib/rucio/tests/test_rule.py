@@ -18,7 +18,7 @@ from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_rais
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound
-from rucio.core.did import add_identifier, append_identifier
+from rucio.core.did import add_identifier, attach_identifier
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, add_file_replica
 from rucio.core.rule import add_replication_rule, get_replication_rule, delete_replication_rule
@@ -95,7 +95,7 @@ class XTestReplicationRuleCore():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         #Add a first rule to the DS
         add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -122,8 +122,8 @@ class XTestReplicationRuleCore():
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
-            append_identifier(scope, dataset, files, 'root')
-            append_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
+            attach_identifier(scope, dataset, files, 'root')
+            attach_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
 
         add_replication_rule(dids=[{'scope': scope, 'name': container}], account='root', copies=1, rse_expression=self.T2, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
         for file in all_files:
@@ -138,7 +138,7 @@ class XTestReplicationRuleCore():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
@@ -164,8 +164,8 @@ class XTestReplicationRuleCore():
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
-            append_identifier(scope, dataset, files, 'root')
-            append_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
+            attach_identifier(scope, dataset, files, 'root')
+            attach_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
 
         add_replication_rule(dids=[{'scope': scope, 'name': container}], account='root', copies=2, rse_expression=self.T1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
@@ -185,7 +185,7 @@ class XTestReplicationRuleCore():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
@@ -212,8 +212,8 @@ class XTestReplicationRuleCore():
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
-            append_identifier(scope, dataset, files, 'root')
-            append_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
+            attach_identifier(scope, dataset, files, 'root')
+            attach_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
             dataset_files.append({'scope': scope, 'name': dataset, 'files': files})
 
         add_replication_rule(dids=[{'scope': scope, 'name': container}], account='root', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -235,7 +235,7 @@ class XTestReplicationRuleCore():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight="fakeweight", lifetime=None, locked=False, subscription_id=None)
 
@@ -259,8 +259,8 @@ class XTestReplicationRuleCore():
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
             add_identifier(scope, dataset, 'dataset', 'root')
-            append_identifier(scope, dataset, files, 'root')
-            append_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
+            attach_identifier(scope, dataset, files, 'root')
+            attach_identifier(scope, container, [{'scope': scope, 'name': dataset}], 'root')
             dataset_files.append({'scope': scope, 'name': dataset, 'files': files})
 
         add_replication_rule(dids=[{'scope': scope, 'name': container}], account='root', copies=2, rse_expression=self.T1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)
@@ -283,7 +283,7 @@ class XTestReplicationRuleCore():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         rule_id = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         assert(rule_id == get_replication_rule(rule_id)['id'].replace('-', '').upper())
@@ -296,7 +296,7 @@ class XTestReplicationRuleCore():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         rule_id = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         delete_replication_rule(rule_id)
@@ -313,7 +313,7 @@ class XTestReplicationRuleCore():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         rule_id_1 = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=3, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
@@ -367,7 +367,7 @@ class XTestReplicationRuleClient():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account="root", copies=2, rse_expression=self.T1, grouping='NONE')
         assert_is_instance(ret, list)
@@ -380,7 +380,7 @@ class XTestReplicationRuleClient():
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, 'dataset', 'root')
-        append_identifier(scope, dataset, files, 'root')
+        attach_identifier(scope, dataset, files, 'root')
 
         rule_id = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 

@@ -20,7 +20,7 @@ from web import application, ctx, data, header, Created, InternalError, BadReque
 from rucio.api.authentication import validate_auth_token
 from rucio.api.did import (list_replicas, add_identifier, list_content,
                            list_files, scope_list, get_did, set_metadata,
-                           get_metadata, set_status, append_identifier, detach_identifier)
+                           get_metadata, set_status, attach_identifier, detach_identifier)
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
                                     AccessDenied, KeyNotFound,
@@ -318,7 +318,7 @@ class Content:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            append_identifier(scope=scope, name=name, dids=dids, issuer=auth['account'])
+            attach_identifier(scope=scope, name=name, dids=dids, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
