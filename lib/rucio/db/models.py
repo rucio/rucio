@@ -334,7 +334,7 @@ class RSE(BASE, SoftModelBase):
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
-#    file_replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
+#    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
@@ -422,7 +422,7 @@ class AccountUsage(BASE, ModelBase, Versioned):
 
 class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
-    __tablename__ = 'file_replicas'
+    __tablename__ = 'replicas'
     rse_id = Column(GUID())
     scope = Column(String(30))
     name = Column(String(255))
@@ -430,14 +430,14 @@ class RSEFileAssociation(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     path = Column(String(1024))
-    state = Column(Enum('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD', name='FILE_REPLICAS_STATE_CHK'), default='UNAVAILABLE')
-    rse = relationship("RSE", backref=backref('file_replicas', order_by="RSE.id"))
-    _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='FILE_REPLICAS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='FILE_REPLICAS_LFN_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='FILE_REPLICAS_RSE_ID_FK'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='FILE_REPLICAS_STATE_NN'),
+    state = Column(Enum('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD', name='REPLICAS_STATE_CHK'), default='UNAVAILABLE')
+    rse = relationship("RSE", backref=backref('replicas', order_by="RSE.id"))
+    _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
+                   CheckConstraint('"STATE" IS NOT NULL', name='REPLICAS_STATE_NN'),
                    )
-#                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='FILE_REPLICAS_RULE_FK'),
+#                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
 
 
 class ReplicationRule(BASE, ModelBase):
@@ -458,7 +458,7 @@ class ReplicationRule(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_SUBS_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='RULES_STATE_NN'),
                    CheckConstraint('"GROUPING" IS NOT NULL', name='RULES_GROUPING_NN'),
                    CheckConstraint('"COPIES" IS NOT NULL', name='RULES_COPIES_NN'),
@@ -475,15 +475,15 @@ class ReplicaLock(BASE, ModelBase):
     rse_id = Column(GUID())
     account = Column(String(30))
     size = Column(BigInteger)
-    state = Column(Enum('REPLICATING', 'OK', 'STUCK', name='REPLICA_LOCKS_STATE_CHK'), default='REPLICATING')
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='REPLICA_LOCKS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICA_LOCKS_DID_FK'),
-                   ForeignKeyConstraint(['rule_id'], ['rules.id'], name='REPLICAS_LOCKS_RULE_ID_FK', ondelete='CASCADE'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='REPLICA_LOCKS_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICA_LOCKS_RSES_FK'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='REPLICA_LOCKS_STATE_NN'),
-                   Index('REPLICA_LOCKS_RULE_ID_IDX', 'rule_id'),
-                   Index('REPLICA_LOCKS_ACCOUNT_RSE_ID_IDX', 'account', 'rse_id')  # Needed for accounting?
+    state = Column(Enum('REPLICATING', 'OK', 'STUCK', name='LOCKS_STATE_CHK'), default='REPLICATING')
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='LOCKS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='LOCKS_DID_FK'),
+                   ForeignKeyConstraint(['rule_id'], ['rules.id'], name='LOCKS_RULE_ID_FK', ondelete='CASCADE'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='LOCKS_RSES_FK'),
+                   CheckConstraint('"STATE" IS NOT NULL', name='LOCKS_STATE_NN'),
+                   Index('LOCKS_RULE_ID_IDX', 'rule_id'),
+                   Index('LOCKS_ACCOUNT_RSE_ID_IDX', 'account', 'rse_id')  # Needed for accounting?
                    )
 
 

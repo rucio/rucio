@@ -22,5 +22,5 @@ class TestMonitor():
         pass
 
     def test_monitor_record_message(self):
-        """ send a message to graphite """
+        """MONITOR (CORE): Send a message to graphite """
         monitor.record('test.stuff', 10)
