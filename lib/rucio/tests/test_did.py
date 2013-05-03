@@ -24,9 +24,18 @@ from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.core.did import list_dids
 from rucio.common.exception import (DataIdentifierNotFound, UnsupportedOperation,
                                     UnsupportedStatus)
 from rucio.common.utils import generate_uuid
+
+
+class TestDIDCore():
+
+    def test_list_dids(self):
+        """ DATA IDENTIFIERS (CORE): List dids """
+        for d in list_dids(scope='data13_hip', pattern='*', type='collection'):
+            print d
 
 
 class TestDIDApi():
