@@ -18,7 +18,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
-from rucio.common.exception import InsufficientQuota, RuleNotFound, AccessDenied
+from rucio.common.exception import InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression
 from rucio.common.utils import generate_http_error
 
 logger = getLogger("rucio.rule")
@@ -114,6 +114,8 @@ class Rule:
         #TODO: Add all other error cases here
         except InsufficientQuota, e:
             raise generate_http_error(409, 'InsufficientQuota', e.args[0][0])
+        except InvalidRSEExpression, e:
+            raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
         raise Created(dumps(rule_ids))
