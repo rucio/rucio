@@ -13,13 +13,17 @@ from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, 
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.db import session, migration
-from rucio.db import models
+from rucio.db import models, test_models
 
 
-def build_database(echo=True):
+def build_database(echo=True, tests=False):
     """ Applies the schema to the database. Run this command once to build the database. """
     engine = session.get_engine(echo=echo)
     models.register_models(engine)
+
+    if tests:
+        test_models.register_models(engine)
+
     try:
         sql_connection = config_get('database', 'default')
         migration.version_control(sql_connection=sql_connection)
