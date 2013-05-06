@@ -108,8 +108,7 @@ def add_replication_rule(dids, account, copies, rse_expression, grouping, weight
     # 4. Create the transfers
     if len(transfers_to_create) > 0:
         for transfer in transfers_to_create:
-            #TODO: Add session variable when [RUCIO-243] is done
-            queue_request(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], req_type='TRANSFER')
+            queue_request(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], req_type='TRANSFER')
     else:
         # No transfers need to be created, the rule is SATISFIED
         new_rule.state = "OK"

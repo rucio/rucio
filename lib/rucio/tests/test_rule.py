@@ -20,7 +20,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound
 from rucio.core.did import add_identifier, attach_identifier
 from rucio.core.lock import get_replica_locks
-from rucio.core.rse import add_rse_attribute, add_file_replica
+from rucio.core.rse import add_rse_attribute, add_file_replica, get_rse
 from rucio.core.rule import add_replication_rule, get_replication_rule, delete_replication_rule
 from rucio.core.scope import add_scope
 
@@ -38,8 +38,8 @@ def _create_test_files(nrfiles, scope, rse, size=1):
     files = []
     for i in xrange(nrfiles):
         file = 'file_%s' % uuid()
-        add_file_replica(rse=rse, scope=scope, name=file, size=size, issuer='root')
-        files.append({'scope': scope, 'name': file})
+        add_file_replica(rse=rse, scope=scope, name=file, size=size, account='root')
+        files.append({'scope': scope, 'name': file, 'size': size})
     return files
 
 
@@ -47,16 +47,22 @@ def _tag_generator(size=8, chars=string.ascii_uppercase):
     return ''.join(random.choice(chars) for x in range(size))
 
 
-class XTestReplicationRuleCore():
+class TestReplicationRuleCore():
 
     @classmethod
     def setUpClass(cls):
         #Add test RSE
         cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK'
-        cls.rse3 = 'MOCK'
-        cls.rse4 = 'MOCK'
-        cls.rse5 = 'MOCK'
+        cls.rse2 = 'MOCK2'
+        cls.rse3 = 'MOCK3'
+        cls.rse4 = 'MOCK4'
+        cls.rse5 = 'MOCK5'
+
+        cls.rse1_id = get_rse(cls.rse1).id
+        cls.rse2_id = get_rse(cls.rse2).id
+        cls.rse3_id = get_rse(cls.rse3).id
+        cls.rse4_id = get_rse(cls.rse4).id
+        cls.rse5_id = get_rse(cls.rse5).id
 
         #Add Tags
         cls.T1 = _tag_generator()
@@ -329,16 +335,22 @@ class XTestReplicationRuleCore():
         assert_raises(RuleNotFound, delete_replication_rule, uuid())
 
 
-class XTestReplicationRuleClient():
+class TestReplicationRuleClient():
 
     @classmethod
     def setUpClass(cls):
         #Add test RSE
         cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK'
-        cls.rse3 = 'MOCK'
-        cls.rse4 = 'MOCK'
-        cls.rse5 = 'MOCK'
+        cls.rse2 = 'MOCK2'
+        cls.rse3 = 'MOCK3'
+        cls.rse4 = 'MOCK4'
+        cls.rse5 = 'MOCK5'
+
+        cls.rse1_id = get_rse(cls.rse1).id
+        cls.rse2_id = get_rse(cls.rse2).id
+        cls.rse3_id = get_rse(cls.rse3).id
+        cls.rse4_id = get_rse(cls.rse4).id
+        cls.rse5_id = get_rse(cls.rse5).id
 
         #Add Tags
         cls.T1 = _tag_generator()
