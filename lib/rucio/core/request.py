@@ -11,20 +11,19 @@
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.exception import RucioException
-from rucio.core import rse as rse_core
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
 
 @transactional_session
-def queue_request(scope, name, dest_rse, req_type, metadata={}, session=None):
+def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None):
     """
     Submit a transfer or deletion request on a destination RSE for a data identifier.
 
     :param scope: Data identifier scope as a string.
     :param name: Data identifier name as a string.
-    :param dest_rse: RSE name as a string.
+    :param dest_rse: RSE identifier as a string.
     :param req_type: Type of the request as a string.
     :param metadata: Metadata key/value pairs as a dictionary.
     :returns: Request-ID as a 32 character hex string.
@@ -33,7 +32,7 @@ def queue_request(scope, name, dest_rse, req_type, metadata={}, session=None):
     new_request = models.Request(type=req_type,
                                  scope=scope,
                                  name=name,
-                                 dest_rse_id=rse_core.get_rse(dest_rse)['id'],
+                                 dest_rse_id=dest_rse_id,
                                  attributes=str(metadata),
                                  state='QUEUED')
 
