@@ -7,45 +7,59 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
+testopts=""
 
 function usage {
   echo "Usage: $0 [OPTION]..."
   echo "Run Rucio's test suite(s)"
   echo ""
-  echo "  -s, --skip-rse-tests              Skip RSE tests."
-  echo "  -c, --class                       Include only named class."
+  echo "  -s    Skip RSE tests."
+  echo "  -c    Include only named class."
+  echo "  -t    Include tables required for testing."
   exit
 }
 
-while getopts hsc: opt
+while getopts hsct opt
 do
   case "$opt" in
-    h|help) usage;;
-    s|skip-rse-tests) noseopts="--exclude=.*test_rse_protocol_.* ";;
-    c|class) noseopts=$OPTARG;;
+    h) usage;;
+    s) noseopts="--exclude=.*test_rse_protocol_.* ";;
+    c) noseopts=$OPTARG;;
+    t) testopts="-t";;
   esac
 done
 
-# Cleanup *pyc
-echo "cleaning *.pyc files"
+echo "Cleaning *.pyc files"
 find lib -iname '*.pyc' | xargs rm
 
-# Cleanup old token
+echo "Cleaning old authentication tokens"
 rm -rf /tmp/.rucio_*/
 
-./tools/reset_database.py
+echo "Removing old database"
+rm -f /tmp/rucio.db
+
+echo "Resetting database tables" $testopts
+tools/reset_database.py $testopts
 if [ $? != 0 ]; then
-    echo 'Failed to reset the database'
+    echo 'Failed to reset the database!'
     exit
 fi
 
+echo "Disable database access restriction"
+chmod 777 /tmp/rucio.db
+
 echo 'Sync rse_repository with Rucio core'
-./tools/sync_rses.py
+tools/sync_rses.py
 
 echo 'Sync metadata keys'
-./tools/sync_meta.py
+tools/sync_meta.py
 
-# Run nosetests
+echo "Running tests with nose - Iteration 1"
 nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
+
+echo "Running tests with nose - Iteration 2"
 nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
+
+echo "Finished"
