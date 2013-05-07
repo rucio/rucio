@@ -55,4 +55,3 @@ if __name__ == '__main__':
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
                 print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
-                sys.exit(CRITICAL)
