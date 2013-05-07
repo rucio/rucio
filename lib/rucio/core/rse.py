@@ -490,8 +490,8 @@ def add_protocol(rse, parameter, session=None):
     parameter['rse_id'] = rid
 
     # Default values
-    parameter['port'] = parameter.get('port', None)
-    parameter['hostname'] = parameter.get('hostname', None)
+    parameter['port'] = parameter.get('port', 0)
+    parameter['hostname'] = parameter.get('hostname', 'localhost')
 
     # Transform nested domains to match DB schema e.g. [domains][LAN][read] => [read_LAN]
     if 'domains' in parameter.keys():
@@ -742,7 +742,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
 
         up.update(data, flush=True, session=session)
     except IntegrityError, e:
-        if 'not unique' in e.args[0]:
+        if 'unique' in e.args[0]:  # Covers SQLite and Orcale error message
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
         elif 'may not be NULL' in e.args[0]:
             raise exception.InvalidObject('Invalid values: %s' % e.args[0])

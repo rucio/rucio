@@ -33,7 +33,7 @@ class TestReplica():
         """ REPLICA (CLIENT): Add and list file replica """
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_file = 'file_%s' % generate_uuid()
-        tmp_pfn = 'mock:///tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
+        tmp_pfn = 'mock://localhost/tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
 
         self.scope_client.add_scope('root', tmp_scope)
 
