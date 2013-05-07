@@ -432,11 +432,15 @@ class RSEFileAssociation(BASE, ModelBase):
     adler32 = Column(String(8))
     path = Column(String(1024))
     state = Column(Enum('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD', name='REPLICAS_STATE_CHK'), default='UNAVAILABLE')
+    lock_cnt = Column(Integer, default=0)
+    accessed_at = Column(DateTime)
+    tombstone = Column(DateTime)
     rse = relationship("RSE", backref=backref('replicas', order_by="RSE.id"))
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='REPLICAS_STATE_NN'),
+                   Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
 
