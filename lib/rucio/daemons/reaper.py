@@ -17,9 +17,10 @@ import traceback
 
 from logging import getLogger, StreamHandler, DEBUG
 
-from rucio.core import rse as rse_core
+from rucio.core import monitor, rse as rse_core
 from rucio.db.session import get_session
 from rucio.rse.rsemanager import RSEMgr
+
 
 logger = getLogger("rucio.daemons.reaper")
 sh = StreamHandler()
@@ -76,19 +77,20 @@ def reaper(once=False):
                             print 'Remove file replica information with size %(size)s for file %(scope)s:%(name)s' % replica
                             # Remove file replica information : Check replica locks ?
                             rse_core.del_file_replica(rse=rse, scope=replica['scope'], name=replica['name'], session=session)
+                            monitor.record(timeseries='reaper.deletion.done',  delta=1)
                             freed_space += replica['size']
                         # Release the lock
                         session.commit()
 
                     print 'RSE: %(rse)s, Freed space: %(freed_space)s, Needed freed space: %(bytes)s' % locals()
                     # Update RSE space usage information
-                    rse_core.set_rse_usage(rse='MOCK', source='srm', used=used-freed_space, free=free+freed_space)
+                    # rse_core.set_rse_usage(rse='MOCK', source='srm', used=used-freed_space, free=free+freed_space)
         except:
             print traceback.format_exc()
 
         if once:
             break
-        time.sleep(1)
+        time.sleep(0.01)
 
     print 'reaper: graceful stop requested'
 
@@ -122,5 +124,5 @@ def run(once=False):
         print 'main: waiting for interrupts'
 
         # Interruptible joins require a timeout.
-        while threads[0].is_alive() and threads[1].is_alive():
+        while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]
