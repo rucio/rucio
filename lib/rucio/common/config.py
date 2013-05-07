@@ -45,6 +45,16 @@ def config_get_bool(section, option):
     return __config.getboolean(section, option)
 
 
+def config_get_options(section):
+    """Return all options from a given section"""
+    return __config.options(section)
+
+
+def config_get_items(section):
+    """Return all (name, value) pairs from a given section"""
+    return __config.items(section)
+
+
 def get_config_dir():
     """Return the rucio configuration directory"""
     configdirs = ['/opt/rucio/etc/', ]
