@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 '''
 Transmogrifier (Replication Rule Resolver) Daemon
@@ -15,13 +16,10 @@ Transmogrifier (Replication Rule Resolver) Daemon
 import argparse
 import signal
 import sys
-import time
 import traceback
 
-from rucio.daemons.RRResolver import run_once, stop
+from rucio.daemons.transmogrifier import launch_transmogrifier, stop
 
-SUCCESS = 0
-FAILURE = 1
 
 if __name__ == "__main__":
 
@@ -32,18 +30,16 @@ if __name__ == "__main__":
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
     args = parser.parse_args()
 
-    print 'Start Transmogrifier'
+    print 'Start transmogrifier'
     if args.run_once:
-        run_once()
-        sys.exit(SUCCESS)
-
-    while True:
+        launch_transmogrifier(once=True)
+        sys.exit()
+    else:
         try:
-            run_once()
-            time.sleep(0.1)
+            launch_transmogrifier(once=False)
         except KeyboardInterrupt:
             raise
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
-            print 'Transmogrifier interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+            print 'transmogrifier interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
