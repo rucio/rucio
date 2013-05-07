@@ -146,7 +146,7 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
 
     containers = []    # List of Containers in the Tree [{'scope':, 'name':}]
     datasetfiles = []  # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files:}]
-    files = []         # Files are in the format [{'scope': ,'name':, 'size', 'locks': [{'rse_id':, 'state':}]}]
+    files = []         # Files are in the format [{'scope': ,'name':, 'size':, 'locks': [{'rse_id':, 'state':}]}]
 
     # a) Is the did a file, dataset or container
     try:
@@ -194,11 +194,11 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
                 for rse_id in rse_ids:
                     if rse_id in [lock['rse_id'] for lock in file['locks']]:
                         if 'REPLICATING' in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='REPLICATING'))
                         else:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='OK'))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='OK'))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='REPLICATING'))
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
     elif grouping == 'ALL':
         # #######
@@ -219,11 +219,11 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
             for file in files:
                 if rse_id in [lock['rse_id'] for lock in file['locks']]:
                     if 'REPLICATING' in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='REPLICATING'))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='OK'))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='OK'))
                 else:
-                    locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
+                    locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='REPLICATING'))
                     transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
     else:
         # ###########
@@ -245,11 +245,11 @@ def __apply_replication_rule(scope, name, rseselector, account, rule_id, groupin
                 for file in dataset['files']:
                     if rse_id in [lock['rse_id'] for lock in file['locks']]:
                         if 'REPLICATING' in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='REPLICATING'))
                         else:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='OK'))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='OK'))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, state='REPLICATING'))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state='REPLICATING'))
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
 
     # d) Put the locks to the DB, return the transfers
