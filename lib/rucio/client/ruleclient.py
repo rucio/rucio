@@ -66,3 +66,19 @@ class RuleClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def get_replication_rule(self, rule_id):
+        """
+        Get a replication rule.
+
+        :param rule_id:  The id of the rule to be retrieved.
+        :raises:         RuleNotFound
+        """
+        path = self.RULE_BASEURL + '/' + rule_id
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return r.json
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)

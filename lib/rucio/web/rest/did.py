@@ -21,13 +21,14 @@ from rucio.api.authentication import validate_auth_token
 from rucio.api.did import (list_replicas, add_identifier, list_content,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_identifier, detach_identifier)
+from rucio.api.rule import list_replication_rules
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
                                     AccessDenied, KeyNotFound,
                                     Duplicate, InvalidValueForKey,
                                     UnsupportedStatus, UnsupportedOperation,
-                                    RSENotFound, RucioException)
-from rucio.common.utils import generate_http_error, render_json
+                                    RSENotFound, RucioException, RuleNotFound)
+from rucio.common.utils import generate_http_error, render_json, APIEncoder
 
 urls = (
     '/(.*)/', 'Scope',
@@ -37,6 +38,7 @@ urls = (
     '/(.*)/(.*)/meta/(.*)', 'Meta',
     '/(.*)/(.*)/meta', 'Meta',
     '/(.*)/(.*)/status', 'DIDs',
+    '/(.*)/(.*)/rules', 'Rules',
     '/(.*)/(.*)', 'DIDs',
 )
 
@@ -519,7 +521,6 @@ class Meta:
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             return dumps(get_metadata(scope=scope, name=name))
         except RucioException, e:
@@ -584,6 +585,52 @@ class Meta:
             raise InternalError(e)
 
         raise Created()
+
+
+class Rules:
+
+    def GET(self, scope, name):
+        """
+        Return all rules of a given DID.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+        try:
+            for rule in list_replication_rules({'scope': scope, 'name': name}):
+                yield dumps(rule, cls=APIEncoder) + '\n'
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+    def PUT(self):
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
+
+    def POST(self):
+        raise BadRequest()
 
 """----------------------
    Web service startup

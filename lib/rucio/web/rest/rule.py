@@ -9,8 +9,6 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-import datetime
-
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
 
@@ -19,7 +17,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
 from rucio.common.exception import InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression
-from rucio.common.utils import generate_http_error
+from rucio.common.utils import generate_http_error, render_json
 
 logger = getLogger("rucio.rule")
 sh = StreamHandler()
@@ -53,7 +51,6 @@ class Rule:
 
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             rule = get_replication_rule(rule_id)
         except RuleNotFound, e:
@@ -61,12 +58,7 @@ class Rule:
         except Exception, e:
             raise InternalError(e)
 
-        dict = rule
-        for key, value in dict.items():
-            if isinstance(value, datetime):
-                dict[key] = value.strftime('%Y-%m-%dT%H:%M:%S')
-
-        return dumps(dict)
+        return render_json(**rule)
 
     def PUT(self):
         raise BadRequest()

@@ -272,10 +272,21 @@ def list_replication_rules(filters={}, session=None):
         for (k, v) in filters.items():
             query = query.filter(getattr(models.ReplicationRule, k) == v)
 
-    for row in query.yield_per(5):
-        d = {}
-        for column in row.__table__.columns:
-            d[column.name] = getattr(row, column.name)
+    for rule in query.yield_per(5):
+        d = {'id': rule.id,
+             'subscription_id': rule.subscription_id,
+             'account': rule.account,
+             'scope': rule.scope,
+             'name': rule.name,
+             'state': rule.state,
+             'rse_expression': rule.rse_expression,
+             'copies': rule.copies,
+             'expires_at': rule.expires_at,
+             'weight': rule.weight,
+             'locked': rule.locked,
+             'grouping': rule.grouping,
+             'created_at': rule.created_at,
+             'updated_at': rule.updated_at}
         yield d
 
 
@@ -354,20 +365,11 @@ def get_replication_rule(rule_id, session=None):
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
-        return {'id': rule.id,
-                'subscription_id': rule.subscription_id,
-                'account': rule.account,
-                'scope': rule.scope,
-                'name': rule.name,
-                'state': rule.state,
-                'rse_expression': rule.rse_expression,
-                'copies': rule.copies,
-                'expires_at': rule.expires_at,
-                'weight': rule.weight,
-                'locked': rule.locked,
-                'grouping': rule.grouping,
-                'created_at': rule.created_at,
-                'updatet_at': rule.updated_at}
+        d = {}
+        for column in rule.__table__.columns:
+            d[column.name] = getattr(rule, column.name)
+        return d
+
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
 

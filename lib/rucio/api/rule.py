@@ -42,8 +42,22 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     return rule.add_replication_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)
 
 
-def get_replication_rule(filters={}):
-    raise NotImplementedError
+def get_replication_rule(rule_id):
+    """
+    Get replication rule by it's id.
+
+    :param rule_id: The rule_id to get.
+    """
+    return rule.get_replication_rule(rule_id)
+
+
+def list_replication_rules(filters={}):
+    """
+    Lists replication rules based on a filter.
+
+    :param filters: dictionary of attributes by which the results should be filtered.
+    """
+    return rule.list_replication_rules(filters)
 
 
 def delete_replication_rule(rule_id, issuer):
