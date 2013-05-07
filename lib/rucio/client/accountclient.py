@@ -152,3 +152,19 @@ class AccountClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def list_rules(self, account):
+        """
+        List the associated rules of an account.
+
+        :param account: The account name.
+        """
+
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'rules'])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)

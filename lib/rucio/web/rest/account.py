@@ -19,9 +19,10 @@ from web import application, ctx, data, header, seeother, BadRequest, Created, I
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
 from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_account_identity
+from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException
-from rucio.common.utils import generate_http_error, render_json
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound
+from rucio.common.utils import generate_http_error, APIEncoder, render_json
 
 logger = getLogger("rucio.account")
 sh = StreamHandler()
@@ -33,8 +34,9 @@ urls = (
     '/(.+)/scopes/(.+)', 'Scopes',
     '/(.+)/identities', 'Identities',
     '/(.+)/limits', 'AccountLimits',
+    '/(.+)/rules', 'Rules',
     '/(.+)', 'AccountParameter',
-    '/', 'Account'
+    '/', 'Account',
 )
 
 
@@ -423,6 +425,50 @@ class Identities:
         header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
+
+class Rules:
+
+    def GET(self, account):
+        """
+        Return all rules of a given account.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+        try:
+            for rule in list_replication_rules({'account': account}):
+                yield dumps(rule, cls=APIEncoder) + '\n'
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+    def PUT(self):
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
+
+    def POST(self):
+        raise BadRequest()
 
 """----------------------
    Web service startup
