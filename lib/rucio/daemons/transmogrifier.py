@@ -25,6 +25,7 @@ from rucio.api.rule import add_replication_rule
 from rucio.api.subscription import list_subscriptions
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidReplicationRule
+from rucio.core import monitor
 
 
 logger = getLogger('rucio.daemons.Transmogrifier')
@@ -312,11 +313,14 @@ class Worker(GearmanWorker):
                                 try:
                                     add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rule['rse_expression'],
                                                          grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=subscription['id'], issuer='root')
+                                    monitor.record(timeseries='transmogrifier.addnewrule.done',  delta=1)
                                 except InvalidReplicationRule, e:
                                     logger.error(e)
                 set_new_identifier(did['scope'], did['name'], 0)
+                monitor.record(timeseries='transmogrifier.did.processed',  delta=1)
             logger.debug('Matching subscriptions '+dumps(results))
             logger.info('It took %f seconds to process %i DIDs by worker %s' % (time.time() - start_time, len(dids), self.__pid))
+            monitor.record(timeseries='transmogrifier.job.done',  delta=1)
             return dumps(results)
         except:
             exc_type, exc_value, exc_traceback = exc_info()
@@ -335,7 +339,7 @@ def launch_transmogrifier(once=False):
     In production, they should be launch via supervisord.
     """
     workers_pid = []
-    for i in xrange(0, 4):
+    for i in xrange(0, 20):
         newpid = fork()
         if newpid == 0:
             worker = Worker(['127.0.0.1', ])
