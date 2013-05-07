@@ -13,8 +13,9 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized
 
 from rucio.api.authentication import validate_auth_token
+from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
-from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
+from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
 
 logger = getLogger("rucio.subscription")
@@ -25,6 +26,7 @@ logger.addHandler(sh)
 urls = (
     '/(.*)/(.*)', 'Subscription',
     '/(.*)', 'Subscription',
+    '/(.*)/Rules', 'Rules',
 )
 
 
@@ -174,6 +176,52 @@ class Subscription:
     def DELETE(self):
         raise BadRequest()
 
+
+class Rules:
+
+    def GET(self, id):
+        """
+        Return all rules of a given subscription id.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            for rule in list_replication_rules({'subscription_id': id}):
+                yield dumps(rule, cls=APIEncoder) + '\n'
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+    def PUT(self):
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
+
+    def POST(self):
+        raise BadRequest()
 
 """----------------------
    Web service startup

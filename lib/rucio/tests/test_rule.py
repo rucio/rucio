@@ -15,7 +15,10 @@ import random
 
 from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises
 
+from rucio.client.accountclient import AccountClient
+from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
+from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound
 from rucio.core.did import add_identifier, attach_identifier
@@ -370,6 +373,9 @@ class TestReplicationRuleClient():
 
     def setup(self):
         self.rule_client = RuleClient()
+        self.did_client = DIDClient()
+        self.subscription_client = SubscriptionClient()
+        self.account_client = AccountClient()
 
     def test_add_replication_rule(self):
         """ REPLICATION RULE (CLIENT): Add a replication rule """
@@ -399,3 +405,55 @@ class TestReplicationRuleClient():
         ret = self.rule_client.delete_replication_rule(rule_id=rule_id)
         assert(ret is True)
         assert_raises(RuleNotFound, self.rule_client.delete_replication_rule, rule_id)
+
+    def test_list_rules_by_did(self):
+        """ DID (CLIENT): List Replication Rules per DID """
+
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        attach_identifier(scope, dataset, files, 'root')
+
+        rule_id_1 = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+
+        rule_id_2 = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse2, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+
+        ret = self.did_client.list_rules(scope=scope, name=dataset)
+
+        ids = [rule['id'] for rule in ret]
+
+        assert_in(rule_id_1, ids)
+        assert_in(rule_id_2, ids)
+
+    def test_get_rule(self):
+        """ REPLICATION RULE (CLIENT): Get Replication Rule by id """
+
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        attach_identifier(scope, dataset, files, 'root')
+
+        ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account="root", copies=2, rse_expression=self.T1, grouping='NONE')
+        get = self.rule_client.get_replication_rule(ret[0])
+
+        assert(ret[0] == get['id'])
+
+    def test_get_rule_by_account(self):
+        """ ACCOUNT (CLIENT): Get Replication Rule by account """
+
+        scope = 'scope_%s' % uuid()[:20]
+        add_scope(scope, 'root')
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_identifier(scope, dataset, 'dataset', 'root')
+        attach_identifier(scope, dataset, files, 'root')
+
+        ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account="root", copies=2, rse_expression=self.T1, grouping='NONE')
+        get = self.account_client.list_rules('root')
+        rules = [rule['id'] for rule in get]
+
+        assert_in(ret[0], rules)
