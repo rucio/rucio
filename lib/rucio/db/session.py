@@ -83,8 +83,21 @@ def get_engine(echo=True):
 def get_dump_engine(echo=False):
     """ Creates a dump engine to a specific database.
         :returns: engine """
+
+    statements = list()
+
     def dump(sql, *multiparams, **params):
-        print sql.compile(dialect=engine.dialect), ';'
+        statement = str(sql.compile(dialect=engine.dialect))
+        if statement in statements:
+            return
+        statements.append(statement)
+        if statement.endswith(')\n\n'):
+            print statement.replace(')\n\n', ');\n')
+        elif statement.endswith(')'):
+            print statement.replace(')', ');\n')
+        else:
+            print statement
+
     sql_connection = config_get('database', 'default')
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
     return engine

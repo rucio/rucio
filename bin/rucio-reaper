@@ -14,44 +14,18 @@ Reaper is a daemon to manage file deletion
 
 import argparse
 import signal
-import sys
-import time
-import traceback
 
-from logging import getLogger, StreamHandler, DEBUG
-
-from rucio.daemons.Reaper import run_once, stop
-
-logger = getLogger("rucio.daemons.Reaper")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
-
-SUCCESS = 0
-FAILURE = 1
-
+from rucio.daemons.reaper import run, stop
 
 if __name__ == "__main__":
 
-    # Bind our callback to the SIGTERM signal and run the daemon:
     signal.signal(signal.SIGTERM, stop)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     args = parser.parse_args()
 
-    print 'Start Reaper'
-    if args.run_once:
-        run_once()
-        sys.exit(SUCCESS)
-
-    while True:
-        try:
-            run_once()
-            time.sleep(0.1)
-        except KeyboardInterrupt:
-            raise
-        except:
-            errno, errstr = sys.exc_info()[:2]
-            trcbck = traceback.format_exc()
-            print 'Transmogrifier interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+    try:
+        run(once=args.run_once)
+    except KeyboardInterrupt:
+        stop()

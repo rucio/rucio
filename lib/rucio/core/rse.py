@@ -233,8 +233,8 @@ def set_rse_usage(rse, source, used, free, session=None):
     rse_usage = session.merge(rse_usage)
     rse_usage.save(session=session)
 
-    rse_usage_history = models.RSEUsage.__history_mapper__.class_(rse_id=rse.id, source=source, used=used, free=free)
-    rse_usage_history.save(session=session)
+    # rse_usage_history = models.RSEUsage.__history_mapper__.class_(rse_id=rse.id, source=source, used=used, free=free)
+    # rse_usage_history.save(session=session)
 
     return True
 
@@ -375,6 +375,8 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
         new_replica.save(session=session)
     except IntegrityError:
         raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
+    except DatabaseError, e:
+        raise exception.RucioException(e.args[0])
 
 
 @read_session
