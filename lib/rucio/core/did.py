@@ -148,7 +148,7 @@ def attach_identifier(scope, name, dids, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False)
+    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name, deleted=False)
     try:
         did = query.one()
 
@@ -236,6 +236,13 @@ def detach_identifier(scope, name, dids, issuer, session=None):
     :param issuer: The issuer account.
     :param session: The database session in use.
     """
+
+    #Row Lock the parent did
+    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name, deleted=False)
+    try:
+        query.one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     #TODO: should judge target did's status: open, monotonic, close.
     query_all = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name)
