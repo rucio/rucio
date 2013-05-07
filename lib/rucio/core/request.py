@@ -143,6 +143,21 @@ def query_request(request_id):
         return req_status
 
 
+@transactional_session
+def set_request_state(request_id, new_state, session=None):
+    """
+    Update the state of a request. Fails silently if the request_id does not exist.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    :param new_state: New state as string.
+    """
+
+    try:
+        session.query(models.Request).filter_by(id=request_id).update({'state': new_state})
+    except IntegrityError, e:
+        raise RucioException(e.args[0])
+
+
 def cancel_request(request_id):
     """
     Cancel a request.

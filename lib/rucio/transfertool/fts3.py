@@ -16,14 +16,16 @@ FTSHOST = 'https://fts3-pilot.cern.ch:8446'
 FTSHOST_MOCK = 'https://localhost/mockfts3'
 
 
-def submit(src_urls, dest_urls, filesize=None, checksum=None, overwrite=False, job_metadata={}, mock=False):
+def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, filesize=None, checksum=None, overwrite=False, job_metadata={}, mock=False):
     """
     Submit a transfer to FTS3 via JSON.
 
     :param src_urls: Source URL acceptable to transfertool as a list of strings.
     :param dest_urls: Destination URL acceptable to transfertool as a list of strings.
-    :param filesize: Optional filesize in bytes.
-    :param checksum: Optional checksum as a string.
+    :param src_spacetoken: Source spacetoken as a string - ignored for non-spacetoken-aware protocols.
+    :param dest_spacetoken: Destination spacetoken as a string - ignored for non-spacetoken-aware protocols.
+    :param filesize: Filesize in bytes.
+    :param checksum: Checksum as a string.
     :param overwrite: Overwrite potentially existing destination, True or False.
     :param job_metadata: Optional job metadata as a dictionary.
     :returns: FTS transfer identifier as string.
@@ -37,7 +39,9 @@ def submit(src_urls, dest_urls, filesize=None, checksum=None, overwrite=False, j
                               'filesize': str(filesize),
                               'checksum': str(checksum)}],
                    'params': {'verify_checksum': 'true',
-                              'job_metadata': job_metadata}}
+                              'job_metadata': job_metadata,
+                              'spacetoken': dest_spacetoken,
+                              'source_spacetoken': src_spacetoken}}
 
     # only " is valid in JSON
     params_str = str(params_dict).replace("'", '"')

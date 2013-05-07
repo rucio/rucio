@@ -47,3 +47,10 @@ gss_email = ph-adp-ddm-lab@cern.ch
 carbon_server = voatlas70.cern.ch
 carbon_port = 8125
 user_scope = rucio
+
+[messaging-fts3]
+port = 6162
+ssl_key_file = /home/mario/.ssh/hostkey.pem
+ssl_cert_file = /home/mario/.ssh/hostcert.pem
+destination = /queue/Consumer.test_fts3.transfer.fts_monitoring_state
+brokers = gridmsg107.cern.ch, gridmsg108.cern.ch, gridmsg109.cern.ch
