@@ -33,6 +33,7 @@
       "default": "sftp",
       "supported": {
         "sftp": {
+          "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test_run/",
           "impl": "rucio.rse.protocols.sftp.Default",
           "port": 22,
           "domains": {
@@ -47,7 +48,6 @@
               "delete": 1
             }
           },
-          "prefix": "/afs/cern.ch/user/d/ddmlab/rse_test_run/",
           "hostname": "lxplus.cern.ch"
         }
       }
