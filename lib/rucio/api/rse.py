@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 from rucio.api import permission
 from rucio.common import exception
@@ -71,7 +72,7 @@ def list_rses(filters=None):
     :returns: List of all RSEs.
     """
 
-    return rse_module.list_rses()
+    return rse_module.list_rses(filters=filters)
 
 
 def del_rse_attribute(rse, key, issuer):
