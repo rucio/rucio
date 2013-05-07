@@ -18,6 +18,7 @@ import traceback
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.core import rse as rse_core
+from rucio.db.session import get_session
 from rucio.rse.rsemanager import RSEMgr
 
 logger = getLogger("rucio.daemons.reaper")
@@ -65,13 +66,20 @@ def reaper(once=False):
                     # Race conditions with locks
                     freed_space = 0
                     for replica in replicas:
-                        print 'Delete the file %(scope)s:%(name)s' % replica
-                        # Should deleguate the deletion to a backend for persistency and retrial
-                        rsemgr.delete(rse_id=rse, lfns=[{'scope': replica['scope'], 'filename': replica['name']}, ])
-                        print 'Remove file replica information with size %(size)s for file %(scope)s:%(name)s' % replica
-                        # Remove file replica information : Check replica locks ?
-                        rse_core.del_file_replica(rse=rse, scope=replica['scope'], name=replica['name'])
-                        freed_space += replica['size']
+                        session = get_session()
+                        print 'Lock the file replica %(scope)s:%(name)s' % replica
+                        f = rse_core.get_file_replica(rse=rse, scope=replica['scope'], name=replica['name'], lock=True, session=session)
+                        if f and f['lock_cnt'] == 0:
+                            print 'Delete the file %(scope)s:%(name)s' % replica
+                            # Should deleguate the deletion to a backend for persistency and retrial
+                            rsemgr.delete(rse_id=rse, lfns=[{'scope': replica['scope'], 'filename': replica['name']}, ])
+                            print 'Remove file replica information with size %(size)s for file %(scope)s:%(name)s' % replica
+                            # Remove file replica information : Check replica locks ?
+                            rse_core.del_file_replica(rse=rse, scope=replica['scope'], name=replica['name'], session=session)
+                            freed_space += replica['size']
+                        # Release the lock
+                        session.commit()
+
                     print 'RSE: %(rse)s, Freed space: %(freed_space)s, Needed freed space: %(bytes)s' % locals()
                     # Update RSE space usage information
                     rse_core.set_rse_usage(rse='MOCK', source='srm', used=used-freed_space, free=free+freed_space)

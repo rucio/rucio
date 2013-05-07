@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
+from datetime import datetime
 from re import match
 from StringIO import StringIO
 
@@ -17,7 +18,7 @@ import json
 import sqlalchemy
 import sqlalchemy.orm
 
-from sqlalchemy import exists, and_
+#  from sqlalchemy import exists, and_
 from sqlalchemy.exc import DatabaseError, IntegrityError, FlushError
 from sqlalchemy.orm import aliased
 from rucio.common import exception, utils
@@ -322,7 +323,7 @@ def list_rse_usage_history(rse, filters=None, session=None):
 
 
 @transactional_session
-def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, session=None):
+def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, tombstone=None, session=None):
     """
     Add File replica.
 
@@ -334,8 +335,9 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
     :param md5: The md5 checksum.
     :param adler32: The adler32 checksum.
     :param pfn: Physical file name (for nondeterministic rse).
-    :meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
-    :rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :param meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
+    :param rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :param tombstone: If True, create replica with a tombstone.
     :param session: The database session in use.
 
     :returns: True is successful.
@@ -367,11 +369,40 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
         if size != did.size or adler32 != did.adler32 or md5 != did.md5:
             raise exception.FileConsistencyMismatch("(size: %s, adler32: '%s', md5: '%s') != (size: %s, adler32: '%s', md5: '%s')" % (did.size, did.adler32, did.md5, size, adler32, md5))
 
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, path=path, state='AVAILABLE', md5=md5, adler32=adler32)
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, path=path, state='AVAILABLE',
+                                            md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
     try:
         new_replica.save(session=session)
     except IntegrityError:
         raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
+
+
+@read_session
+def get_file_replica(rse, scope, name, lock=False, session=None):
+    """
+    Get File replica.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param name: The data identifier name.
+    :param lock: If True, locks the row for update.
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    replica_rse = get_rse(rse=rse, session=session)
+
+    query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name)
+
+    if lock:
+        query = query.with_lockmode('update_nowait')
+
+    try:
+        for row in query:
+            return row
+    except DatabaseError:
+        # (DatabaseError) ORA-00054: resource busy and acquire with NOWAIT specified or timeout expired
+        return False
 
 
 @transactional_session
@@ -432,10 +463,16 @@ def list_unlocked_replicas(rse, bytes, session=None):
     """
     rse = get_rse(rse)
 
+    #query = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse.id).\
+    #    filter(~exists().where(and_(models.ReplicaLock.rse_id == rse.id,
+    #                                models.ReplicaLock.scope == models.RSEFileAssociation.scope,
+    #                                models.ReplicaLock.name == models.RSEFileAssociation.name)))
+
+    none_value = None  # Hack to get pep8 happy...
     query = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse.id).\
-        filter(~exists().where(and_(models.ReplicaLock.rse_id == rse.id,
-                                    models.ReplicaLock.scope == models.RSEFileAssociation.scope,
-                                    models.ReplicaLock.name == models.RSEFileAssociation.name)))
+        filter(models.RSEFileAssociation.tombstone != none_value).order_by(models.RSEFileAssociation.tombstone).\
+        order_by(models.RSEFileAssociation.created_at)
+
     neededSpace = bytes
     rows = list()
     for row in query.yield_per(5):
