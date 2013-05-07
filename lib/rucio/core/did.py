@@ -14,6 +14,7 @@
 from datetime import datetime, timedelta
 from re import match
 
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
@@ -37,7 +38,6 @@ def list_replicas(scope, name, schemes=None, session=None):
     :param session: The database session in use.
 
     """
-
     rsemgr = rsemanager.RSEMgr(server_mode=True)
     try:
         query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE')
@@ -54,6 +54,42 @@ def list_replicas(scope, name, schemes=None, session=None):
                 pass
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found")
+
+
+@read_session
+def list_dids(scope, pattern, type='collection', ignore_case=False, session=None):
+    """
+    List dids in a scope.
+
+    :param scope: The scope name.
+    :param pattern: The wildcard pattern.
+    :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+    :param ignore_case: Ignore case distinctions.
+    :param session: The database session in use.
+    """
+
+    query = session.query(models.DataIdentifier).filter(models.DataIdentifier.name.like(pattern.replace('*', '%')))
+    # if ignore_case
+    # func.upper(models.DataIdentifier.name).like(pattern.replace('*','%'))
+    if type == 'all':
+        query = query.filter(or_(models.DataIdentifier.type == models.DataIdType.CONTAINER,
+                                 models.DataIdentifier.type == models.DataIdType.DATASET,
+                                 models.DataIdentifier.type == models.DataIdType.FILE))
+    elif type == 'collection':
+        query = query.filter(or_(models.DataIdentifier.type == models.DataIdType.CONTAINER, models.DataIdentifier.type == models.DataIdType.DATASET))
+    elif type == 'container':
+        query = query.filter(models.DataIdentifier.type == models.DataIdType.CONTAINER)
+    elif type == 'dataset':
+        query = query.filter(models.DataIdentifier.type == models.DataIdType.DATASET)
+    elif type == 'file':
+        query = query.filter(models.DataIdentifier.type == models.DataIdType.FILE)
+    #else:
+    #  error
+    for row in query.yield_per(5):
+        d = {}
+        for column in row.__table__.columns:
+            d[column.name] = getattr(row, column.name)
+        yield d
 
 
 @transactional_session
