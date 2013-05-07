@@ -33,7 +33,7 @@ class Default(protocol.RSEProtocol):
             :returns: Fully qualified PFN.
 
         """
-        return ''.join([self.rse['scheme'], '://', path])
+        return ''.join([self.rse['scheme'], '://%s' % self.rse['hostname'], path])
 
     def exists(self, pfn):
         """ Checks if the requested file is known by the referred RSE.
