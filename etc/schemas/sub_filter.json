@@ -8,6 +8,8 @@
         "scope": {"type": "array"},
         "pattern": {"type": "string"},
         "excluded_pattern": {"type": "string"},
+        "group": {"type": "string"},
+        "provenance": {"type": "string"},
         "account": {
             "type": "string",
              "pattern": "^[a-z0-9-]{1,30}$"
