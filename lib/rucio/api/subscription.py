@@ -43,7 +43,7 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :returns: subscription_id
     :rtype:   String
     """
-    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping']
+    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping', 'group', 'provenance']
     try:
         if filter:
             if type(filter) != dict:
@@ -85,7 +85,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :type dry_run:  Boolean
     :raises: exception.NotFound if subscription is not found
     """
-    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping']
+    accepted_keys = ['datatype', 'prod_step', 'stream_name', 'project', 'scope', 'pattern', 'type', 'account', 'excluded_pattern', 'grouping', 'group', 'provenance']
     try:
         if filter:
             if type(filter) != dict:
