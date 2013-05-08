@@ -41,7 +41,7 @@ class RucioException(Exception):
             # Convert all arguments into their string representations...
             args = ["%s" % arg for arg in self.args if arg]
             self._error_string = (self._error_string + "\nDetails: %s" % '\n'.join(args))
-        return self._error_string
+        return self._error_string.strip()
 
 
 # Please insert new exceptions in alphabetic order
