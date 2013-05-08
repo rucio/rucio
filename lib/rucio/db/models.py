@@ -68,6 +68,8 @@ def _fk_constraint_name(const, table):
 
 @event.listens_for(UniqueConstraint, "after_parent_attach")
 def _unique_constraint_name(const, table):
+    if const.name:
+        return
     const.name = "uq_%s_%s" % (table.name, list(const.columns)[0].name)
 
 

@@ -10,7 +10,6 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
-import uuid
 from os import remove
 
 import nose.tools
@@ -18,6 +17,7 @@ import re
 
 from rucio import version
 from rucio.common.config import config_get
+from rucio.common.utils import generate_uuid as uuid
 from rucio.tests.common import execute
 
 
@@ -50,7 +50,7 @@ class TestBinRucio():
 
     def test_add_account(self):
         """ACCOUNT (CLI): Add account"""
-        tmp_val = str(uuid.uuid4()).lower()[:20]
+        tmp_val = str(uuid()).lower()[:20]
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
@@ -67,7 +67,7 @@ class TestBinRucio():
 
     def test_add_identity(self):
         """ACCOUNT (CLI): Test add identity"""
-        tmp_val = str(uuid.uuid4()).lower()[:20]
+        tmp_val = str(uuid()).lower()[:20]
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         nose.tools.assert_equal('Added new account: jdoe-%s\n' % tmp_val, out)
@@ -79,7 +79,7 @@ class TestBinRucio():
 
     def test_add_scope(self):
         """ACCOUNT (CLI): Test add identity"""
-        tmp_val = str(uuid.uuid4()).lower()[:20]
+        tmp_val = str(uuid()).lower()[:20]
         cmd = 'rucio-admin account add jdoe-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin identity add --account jdoe-%s --type gss --id jdoe@CERN.CH' % tmp_val
@@ -90,16 +90,16 @@ class TestBinRucio():
 
     def test_add_rse(self):
         """RSE (CLI): Add RSE"""
-        tmp_val = str(uuid.uuid4()).upper()
-        cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
+        tmp_val = str(uuid()).upper()[:20]
+        cmd = 'rucio-admin rse add MOCK_%s' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
-        nose.tools.assert_equal('Added new RSE: MOCK-%s\n' % tmp_val, out)
+        nose.tools.assert_equal('Added new RSE: MOCK_%s\n' % tmp_val, out)
 
     def test_list_rses(self):
         """RSE (CLI): List RSEs"""
-        tmp_val = str(uuid.uuid4()).upper()
+        tmp_val = str(uuid()).upper()[:20]
         cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin rse list'
@@ -110,7 +110,7 @@ class TestBinRucio():
 
     def test_upload(self):
         """RSE (CLI): Upload"""
-        tmp_val = str(uuid.uuid4())
+        tmp_val = str(uuid())
         cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio upload'

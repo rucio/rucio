@@ -16,10 +16,11 @@ from time import sleep
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.exc import DisconnectionError, OperationalError, DBAPIError
+from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, DBAPIError
 from sqlalchemy.ext.declarative import declarative_base
 
 from rucio.common.config import config_get
+from rucio.common.exception import RucioException
 
 BASE = declarative_base()
 try:
@@ -92,12 +93,14 @@ def get_dump_engine(echo=False):
             return
         statements.append(statement)
         if statement.endswith(')\n\n'):
-            print statement.replace(')\n\n', ');\n')
+            if engine.dialect.name == 'oracle':
+                print statement.replace(')\n\n', ') PCTFREE 0;\n')
+            else:
+                print statement.replace(')\n\n', ');\n')
         elif statement.endswith(')'):
             print statement.replace(')', ');\n')
         else:
             print statement
-
     sql_connection = config_get('database', 'default')
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
     return engine
@@ -113,7 +116,8 @@ def is_db_connection_error(args):
                         'ORA-03113',  # end-of-file on communication channel
                         'ORA-03114',  # not connected to ORACLE
                         'ORA-03135',  # connection lost contact
-                        'ORA-25408')  # can not safely replay call
+                        'ORA-25408',)  # can not safely replay call
+
     for err_code in conn_err_codes:
         if args.find(err_code) != -1:
             return True
@@ -125,10 +129,11 @@ def wrap_db_error(f):
     def _wrap(*args, **kwargs):
         try:
             return f(*args, **kwargs)
+        except DatabaseError, e:
+            raise RucioException(e.args[0])
         except OperationalError, e:
             if not is_db_connection_error(e.args[0]):
                 raise
-
             # To Do: Should come from the configuration
             remaining_attempts = 10
             retry_interval = 0.5
