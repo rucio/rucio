@@ -44,6 +44,8 @@ def add_rse(rse, prefix=None, deterministic=True, volatile=False, session=None):
         new_rse.save(session=session)
     except IntegrityError:
         raise exception.Duplicate('RSE \'%(rse)s\' already exists!' % locals())
+    except DatabaseError, e:
+        raise exception.RucioException(e.args[0][0])
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse=rse, key=rse, value=True, session=session)

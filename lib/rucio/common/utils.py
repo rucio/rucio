@@ -92,8 +92,8 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     """
 
     status = codes[status_code]
-    headers = {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': exc_msg}
-    data = ': '.join([exc_cls, exc_msg])
+    headers = {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': exc_msg.strip()}
+    data = ': '.join([exc_cls, exc_msg.strip()])
 
     return HTTPError(status, headers=headers, data=data)
 
