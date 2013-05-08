@@ -99,8 +99,12 @@ class RSE:
 
         auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
-        auth = validate_auth_token(auth_token)
+        try:
+            auth = validate_auth_token(auth_token)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, str(e.args[0]))
 
+        # invalid username/password;
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
