@@ -313,7 +313,7 @@ class TestRSEClient():
     @raises(InvalidObject)
     def test_add_protocol_missing_values(self):
         """ RSE (CLIENTS): add a protocol with insufficient parameters (InvalidObject)."""
-        protocol_rse = 'MOCK_PROTOCOL_ADD_MISSING_VALUES' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         self.client.add_protocol(protocol_rse,
                                  'Mock_Insuff_Params',
@@ -335,7 +335,7 @@ class TestRSEClient():
     @raises(Duplicate)
     def test_add_protocol_duplicate(self):
         """ RSE (CLIENTS): add duplicate protocol to rse (Duplicate)."""
-        protocol_rse = 'MOCK_PROTOCOL_ADD_DUPLICATE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         for i in range(2):
             try:
@@ -363,7 +363,7 @@ class TestRSEClient():
     @raises(RSEProtocolDomainNotSupported)
     def test_add_protocol_not_suppotred_domain(self):
         """ RSE (CLIENTS): add a protocol with unsupported domain parameters (RSEProtocolDomainNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_ADD_NOT_EXISTING_DOMAIN' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         self.client.add_protocol(protocol_rse,
                                  'Mock_Insuff_Params',
@@ -385,7 +385,7 @@ class TestRSEClient():
     @raises(RSEProtocolPriorityError)
     def test_add_protocol_wrong_priority(self):
         """ RSE (CLIENTS): Add a protocol with an invalid priority for ranking. """
-        protocol_rse = 'MOCK_PROTOCOL_ADD_WRONG_PRIORITY' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocol_ports = [17, 29, 42]
         for i in range(3):
@@ -434,7 +434,7 @@ class TestRSEClient():
 
     def test_del_protocol_id(self):
         """ RSE (CLIENTS): delete multiple protocols with the same identifier from an rse."""
-        protocol_rse = 'MOCK_PROTOCOL_DEL_ID_SUCCESS' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocol_id = 'MOCK_DEL_ID_SUCCESS'
         protocol_ports = [17, 29, 42]
@@ -469,7 +469,7 @@ class TestRSEClient():
     @raises(RSEProtocolNotSupported)
     def test_del_protocol_id_protocol_not_supported(self):
         """ RSE (CLIENTS): delete a none-existing protocol from an rse (RSEProtocolNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_DEL_ID_FAIL' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         try:
             self.client.delete_protocols(protocol_rse, 'MOCK_Fail')
@@ -480,7 +480,7 @@ class TestRSEClient():
 
     def test_del_protocol_hostname(self):
         """ RSE (CLIENTS): delete multiple protocols with the same identifier, and the same hostname from an rse."""
-        protocol_rse = 'MOCK_PROTOCOL_DEL_HOST_SUCCESS' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocol_id = 'MOCK_DEL_HOST_SUCCESS'
         protocol_hostname = ['localhost', 'an_other_host', 'localhost']
@@ -515,7 +515,7 @@ class TestRSEClient():
     @raises(RSEProtocolNotSupported)
     def test_del_protocol_hostname_protocol_not_supported(self):
         """ RSE (CLIENTS): delete a none-existing protocol from an rse with given hostname (RSEProtocolNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_DEL_HOST_FAIL' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         protocol_id = 'MOCK_PROTOCOL_DEL_HOST_FAIL'
         self.client.add_rse(protocol_rse)
         self.client.add_protocol(protocol_rse,
@@ -542,7 +542,7 @@ class TestRSEClient():
 
     def test_del_protocol_port(self):
         """ RSE (CLIENTS): delete a specific protocol from an rse."""
-        protocol_rse = 'MOCK_PROTOCOL_DEL_PORT_SUCCESS' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocol_id = 'MOCK_DEL_PORT_SUCCESS'
         protocol_hostname = ['localhost', 'an_other_host', 'localhost']
@@ -577,7 +577,7 @@ class TestRSEClient():
     @raises(RSEProtocolNotSupported)
     def test_del_protocol_port_protocol_not_supported(self):
         """ RSE (CLIENTS): delete a specific protocol from an rse. (RSEProtocolNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_DEL_PORT_FAIL' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         protocol_id = 'MOCK_PROTOCOL_DEL_PORT_FAIL'
         self.client.add_rse(protocol_rse)
         self.client.add_protocol(protocol_rse,
@@ -607,7 +607,7 @@ class TestRSEClient():
 
     def test_get_protocols(self):
         """ RSE (CLIENTS): get protocols of rse."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_SUCCESS' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK_READ',
                       'hostname': 'localhost',
@@ -681,7 +681,7 @@ class TestRSEClient():
 
     def test_get_protocols_operations(self):
         """ RSE (CLIENTS): get protocols for operations of rse."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_OP_SUCCESS' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK_READ_WRITE_DELETE',
                       'hostname': 'localhost',
@@ -742,7 +742,7 @@ class TestRSEClient():
 
     def test_get_protocols_defaults(self):
         """ RSE (CLIENTS): get default protocols for operations of rse."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_DEFAULT_SUCCESS' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK_READ',
                       'hostname': 'localhost',
@@ -801,7 +801,7 @@ class TestRSEClient():
 
     def test_get_protocols_nested_attributes(self):
         """ RSE (CLIENTS): get nested extended_attributes."""
-        protocol_rse = 'MOCK_PROTOCOL_NESTED' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK_READ',
                       'hostname': 'localhost',
@@ -824,7 +824,7 @@ class TestRSEClient():
     @raises(RSEOperationNotSupported)
     def test_get_protocols_operations_not_supported(self):
         """ RSE (CLIENTS): get protocols for operations of rse (RSEOperationNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_OP_NOT_SUPPORTED' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
@@ -884,7 +884,7 @@ class TestRSEClient():
     @raises(RSEProtocolDomainNotSupported)
     def test_get_protocols_domain_not_exist(self):
         """ RSE (CLIENTS): get protocols for operations of rse in not existing domain (RSEProtocolDomainNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_DOMAIN_NOT_EXIST' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -916,7 +916,7 @@ class TestRSEClient():
     @raises(RSEOperationNotSupported)
     def test_get_protocols_domain_not_supported(self):
         """ RSE (CLIENTS): get protocols for operations of rse in unsupported domain (RSEOperationNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_DOMAIN_NOT_SUPPORTED' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -948,7 +948,7 @@ class TestRSEClient():
     @raises(RSEOperationNotSupported)
     def test_get_protocols_defaults_not_supported(self):
         """ RSE (CLIENTS): get default protocols for operations of rse (RSEOperationNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_GET_DEFAULT_NOT_SUPPORTED' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
@@ -1010,7 +1010,7 @@ class TestRSEClient():
     @raises(Duplicate)
     def test_update_protocols_port_exist(self):
         """ RSE (CLIENTS): set new values for various protocol attributes."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1053,7 +1053,7 @@ class TestRSEClient():
 
     def test_update_protocols_various_attributes(self):
         """ RSE (CLIENTS): set new values for various protocol attributes."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1082,7 +1082,7 @@ class TestRSEClient():
 
     def test_update_protocols_enable_new_default(self):
         """ RSE (CLIENTS): set new default protocol by setting it explicite."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1143,7 +1143,7 @@ class TestRSEClient():
 
     def test_update_protocols_disable_default(self):
         """ RSE (CLIENTS): set new default protocol by disabling the current default protocol."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1204,7 +1204,7 @@ class TestRSEClient():
 
     def test_update_protocols_update_ranking_forward(self):
         """ RSE (CLIENTS): assign high priority to one protocol."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1289,7 +1289,7 @@ class TestRSEClient():
 
     def test_update_protocols_update_ranking_backward(self):
         """ RSE (CLIENTS): assign lower priority to one protocol."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1380,7 +1380,7 @@ class TestRSEClient():
     @raises(RSEProtocolNotSupported)
     def test_update_protocols_not_supported(self):
         """ RSE (CLIENTS): update all protocols with specific identifier of rse (RSEProtocolNotSupported)."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE_NOT_SUPPORTED' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1439,7 +1439,7 @@ class TestRSEClient():
     @raises(InvalidObject)
     def test_update_protocols_invalid_value(self):
         """ RSE (CLIENTS): update all protocol with invalid value (InvalidObject)."""
-        protocol_rse = 'MOCK_PROTOCOL_UPDATE_INVALID_VALUE' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -1470,7 +1470,7 @@ class TestRSEClient():
     @raises(RSEProtocolPriorityError)
     def test_update_protocol_wrong_priority(self):
         """  RSE (CLIENTS): Add a protocol with an invalid priority for ranking. """
-        protocol_rse = 'MOCK_PROTOCOL_ADD_WRONG_PRIORITY' + str(uuid())
+        protocol_rse = 'MOCK_' + str(uuid())
         self.client.add_rse(protocol_rse)
         protocol_ports = [17, 29, 42]
         for i in range(3):
