@@ -513,7 +513,9 @@ def set_metadata(scope, name, key, value, did=None, session=None):
 
     if key == 'guid':
         try:
-            session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).update({'guid': value})
+            session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).update({'guid': value}, synchronize_session='fetch')
+            # or synchronize_session=False
+            # session.expire_all() ?
         except IntegrityError, e:
             raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
     else:
@@ -575,7 +577,7 @@ def set_status(scope, name, session=None, **kwargs):
             query = query.filter_by(open=True).filter(models.DataIdentifier.type != "file")
             values['open'] = False
 
-    rowcount = query.update(values)
+    rowcount = query.update(values, synchronize_session='fetch')
 
     if not rowcount:
         query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)

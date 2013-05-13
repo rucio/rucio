@@ -19,8 +19,9 @@ import sqlalchemy
 import sqlalchemy.orm
 
 #  from sqlalchemy import exists, and_
-from sqlalchemy.exc import DatabaseError, IntegrityError, FlushError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
+from sqlalchemy.orm.exc import FlushError
 from rucio.common import exception, utils
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session

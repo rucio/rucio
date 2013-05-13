@@ -9,6 +9,9 @@
 Rucio RESTful API
 =================
 
+General notes
+=============
+
 Each resource can be accessed or modified using specially formed URLs and the standard HTTP methods:
 
  * GET to read
@@ -21,7 +24,45 @@ to authenticate all API requests. The method is to get an authentication token, 
 the requests. Descriptions of the actions you may perform on each resource can be found below.
 
 
+**Date format**
+
+All dates returned are in UTC and are strings in the following format (RFC 1123, ex RFC 822)::
+
+ Mon, 13 May 2013 10:23:03 UTC
+
+In code format, which can be used in all programming languages that support strftime or strptime::
+
+'%a, %d %b %Y %H:%M:%S UTC'
+
+**SSL only**
+
+We require that all requests(except for the ping) are done over SSL.
+
+**Response formats**
+
+The currently-available response format for all REST endpoints is the string-based format JavaScript Object Notation(JSON_).
+The server answer can be one of the following content-type in the http Header::
+
+    Content-type: application/json
+    Content-Type: application/x-json-stream
+
+In the last case, it corresponds to JSON objects delimited by newlines(streaming JSON for large answer), e.g.::
+
+    { "id": 1, "foo": "bar" }
+    { "id": 2, "foo": "baz" }
+    ...
+
+**Error handling**
+
+Errors are returned using standard HTTP error code syntax.
+Any additional info is included in the header of the return call, JSON-formatted with the parameters::
+    ExceptionClass
+    ExceptionMessage
+
+Where ExceptionClass refers to :ref:`exceptions`.
+
 .. _OAuth: http://oauth.net/
+.. _JSON: http://www.json.org/
 
 Service
 =======
@@ -138,17 +179,10 @@ Replication rule
 Subscriptions
 =============
 
-+----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| Resource                                                             | Description                                               | Availability |
-+======================================================================+===========================================================+==============+
-| :ref:`POST /subscriptions/{account_name}/`                             | Register a subscription                                   |  No          |
-+----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`DELETE /subscriptions/{subscription_id}`                        | Delete a subscription                                     |  No          |
-+----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET /subscriptions/{subscription_id}`                           | Get subscription info                                     |  No          |
-+----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
-| :ref:`GET /subscriptions/`                                            | List all subscriptions                                    |  No          |
-+----------------------------------------------------------------------+-----------------------------------------------------------+--------------+
+* :ref:`POST /subscriptions/{account_name}/`: Register a subscription
+* :ref:`DELETE /subscriptions/{subscription_id}`: Delete a subscription
+* :ref:`GET /subscriptions/{subscription_id}`: Get subscription info
+* :ref:`GET /subscriptions/`: List all subscriptions
 
 
 .. Status legend:

@@ -1,5 +1,5 @@
 -----------
-RSE Classes 
+RSE Classes
 -----------
 
 +++++++++++
@@ -23,11 +23,7 @@ Manager
 +++++++++++
 Storage
 +++++++++++
-.. autoclass:: rucio.rse.rsemanager.RSE
-    :members:
-    :undoc-members:
-    :show-inheritance:
-.. autoclass:: rucio.rse.rsemanager.RSEMgr
+.. autoclass:: rucio.rse.protocols.protocol.RSEProtocol
     :members:
     :undoc-members:
     :show-inheritance:

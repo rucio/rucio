@@ -3,7 +3,7 @@ Replication Rule Methods
 ------------------------
 
 .. _rule:
-.. automodule:: rucio.client.replicationruleclient
+.. automodule:: rucio.client.ruleclient
     :members:
     :undoc-members:
     :show-inheritance:
