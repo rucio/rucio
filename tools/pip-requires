@@ -1,11 +1,11 @@
 # All dependencies needed to run rucio should be defined here
 
-# cx_Oracle==5.1.1          # Oracle connector
-#MySQL-python==1.2.3       # MySQL connector
-SQLAlchemy==0.7.8          # db backend
+# cx_Oracle==5.1.1         # Oracle connector
+# MySQL-python==1.2.3      # MySQL connector
+SQLAlchemy==0.8.1          # db backend
 sqlalchemy-migrate==0.7.2  # To deal with database schema changes
 #Jinja2>=2.3               # Template engine
-flup                       # Needed to deploy web.py in lighthttpd
+flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
 web.py==0.37               # Python web framework
 #python-memcached          # Cache
 
@@ -31,4 +31,4 @@ paramiko==1.7.7.2
 pycrypto==2.6
 s3cmd==1.5.0-alpha3      # Package built from http://s3tools.org/download
 python-magic==0.4.2      # Dependency for S3, but unfortunately not installed by it automatically
-gearman                  # Used only gor emulation framework
+gearman==2.0.2           # Used only gor emulation framework
