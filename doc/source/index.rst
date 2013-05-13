@@ -93,6 +93,8 @@ Rucio Client APIs
     replica
     rule
     subscription
+    core_constants
+    exception
 
 Using Rucio
 ===========
