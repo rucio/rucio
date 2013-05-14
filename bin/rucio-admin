@@ -375,14 +375,14 @@ def list_rses(args):
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        locations = client.list_rses()
+        rses = client.list_rses()
     except Exception, e:
             print 'Failed to list RSEs'
             print e
             return FAILURE
 
-    for location in locations:
-        print location
+    for rse in rses:
+        print '%(rse)s' % rse
 
     return SUCCESS
 

@@ -42,7 +42,7 @@ class TestRsePOSIX():
         storage = rsemanager.RSEMgr()
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
-        prefix = data['POSIX']['protocols']['supported']['file']['prefix']
+        prefix = data['MOCK-POSIX']['protocols']['supported']['file']['prefix']
         try:
             os.mkdir(prefix)
         except Exception, e:
@@ -50,7 +50,7 @@ class TestRsePOSIX():
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = '%s/data.raw' % prefix
         for f in MgrTestCases.files_remote:
-            path = storage.lfn2pfn('POSIX', {'filename': f, 'scope': 'user.%s' % cls.user}).partition('://')[2]
+            path = storage.lfn2pfn('MOCK-POSIX', {'filename': f, 'scope': 'user.%s' % cls.user}).partition('://')[2]
             dirs = os.path.dirname(path)
             if not os.path.exists(dirs):
                 os.makedirs(dirs)
@@ -61,15 +61,15 @@ class TestRsePOSIX():
         """POSIX (RSE/PROTOCOLS): Removing created directorie s and files """
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
-        prefix = data['POSIX']['protocols']['supported']['file']['prefix']
+        prefix = data['MOCK-POSIX']['protocols']['supported']['file']['prefix']
         shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)
 
     def setup(self):
         """POSIX (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRsePOSIX.tmpdir
-        self.rse_id = 'POSIX'
-        self.mtc = MgrTestCases(self.tmpdir, 'POSIX', TestRsePOSIX.user, TestRsePOSIX.static_file)
+        self.rse_id = 'MOCK-POSIX'
+        self.mtc = MgrTestCases(self.tmpdir, 'MOCK-POSIX', TestRsePOSIX.user, TestRsePOSIX.static_file)
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):

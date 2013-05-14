@@ -22,6 +22,7 @@ from rucio.client.accountclient import AccountClient
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
 from rucio.db.constants import AccountStatus
+from rucio.tests.common import account_name_generator
 from rucio.web.rest.account import app as account_app
 from rucio.web.rest.authentication import app as auth_app
 
@@ -38,8 +39,8 @@ class TestAccountCoreApi():
 
     def test_create_and_check_for_user(self):
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
-        usr = str(uuid()).lower()[0:30]
-        invalid_usr = str(uuid()).lower()[0:30]
+        usr = account_name_generator()
+        invalid_usr = account_name_generator()
         add_account(usr, 'user', 'root')
         assert_equal(account_exists(usr), True)
         assert_equal(account_exists(invalid_usr), False)
@@ -47,7 +48,7 @@ class TestAccountCoreApi():
 
     def test_account_status(self):
         """ ACCOUNT (CORE): Test changing and quering account status """
-        usr = str(uuid()).lower()[0:30]
+        usr = account_name_generator()
         add_account(usr, 'user', 'root')
         assert_equal(get_account_status(usr), AccountStatus.ACTIVE)  # Should be active by default
         set_account_status(usr, AccountStatus.SUSPENDED)
@@ -59,14 +60,6 @@ class TestAccountCoreApi():
 
 class TestAccountRestApi():
 
-    @classmethod
-    def setupClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
     def test_create_user_success(self):
         """ ACCOUNT (REST): send a POST to create a new user """
         mw = []
@@ -77,7 +70,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('X-Rucio-Auth-Token'))
 
-        acntusr = 'user' + str(uuid()).lower()[0:20]
+        acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
@@ -95,10 +88,9 @@ class TestAccountRestApi():
 
         headers = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'type': 'user'})
-        r1 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
-        r2 = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
+        r1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
 
-        assert_equal(r2.status, 409)
+        assert_equal(r1.status, 409)
 
     def test_create_user_non_json_body(self):
         """ ACCOUNT (REST): send a POST with a non json body"""
@@ -157,7 +149,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('X-Rucio-Auth-Token'))
 
-        acntusr = 'user' + str(uuid()).lower()[0:20]
+        acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
@@ -191,7 +183,7 @@ class TestAccountRestApi():
         assert_equal(r1.status, 200)
         token = str(r1.header('X-Rucio-Auth-Token'))
 
-        acntusr = 'user' + str(uuid()).lower()[0:20]
+        acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'type': 'user'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
@@ -204,7 +196,6 @@ class TestAccountRestApi():
         headers4 = {'X-Rucio-Auth-Token': str(token)}
         r4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
         body = loads(r4.body)
-        print
         assert_true(body['status'] == AccountStatus.DELETED.description)
         assert_equal(r3.status, 200)
 
@@ -238,20 +229,12 @@ class TestAccountRestApi():
 
 class TestAccountClient():
 
-    @classmethod
-    def setupClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
     def setup(self):
         self.client = AccountClient()
 
     def test_add_account_success(self):
-        """ ACCOUNT (CLIENTS): create a new account."""
-        account = str(uuid()).lower()[0:30]
+        """ ACCOUNT (CLIENTS): create a new account and get information about account."""
+        account = account_name_generator()
         type = 'user'
         ret = self.client.add_account(account, type)
         assert_true(ret)
@@ -265,10 +248,6 @@ class TestAccountClient():
         with assert_raises(InvalidObject):
             self.client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type)
 
-    def test_get_account(self):
-        """ ACCOUNT (CLIENTS): get information about account."""
-        account = str(uuid()).lower()[0:30]
-        self.client.add_account(account, 'user')
         acc_info = self.client.get_account(account)
         assert_equal(acc_info['account'], account)
 
@@ -280,7 +259,7 @@ class TestAccountClient():
 
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
-        acc_list = [str(uuid()).lower()[0:20] + str(i) for i in xrange(5)]
+        acc_list = [account_name_generator() + str(i) for i in xrange(5)]
 
         for account in acc_list:
             self.client.add_account(account, 'user')

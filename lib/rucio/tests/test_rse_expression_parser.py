@@ -19,7 +19,7 @@ from rucio.common.exception import InvalidRSEExpression
 
 
 def rse_name_generator(size=10):
-    return ''.join(choice(ascii_uppercase) for x in xrange(size))
+    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in xrange(size))
 
 
 def tag_generator(size_s=10, size_d=2):

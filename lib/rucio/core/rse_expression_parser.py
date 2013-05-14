@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 import abc
 import random
@@ -14,7 +15,7 @@ import re
 import string
 
 from rucio.common.exception import InvalidRSEExpression
-from rucio.core.rse import get_rse, list_rses
+from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
 
 
@@ -191,7 +192,7 @@ class RSEAttribute(BaseExpressionElement):
         output = list_rses({self.key: self.value}, session=session)
         if not output:
             return []
-        return set([get_rse(rse).id for rse in output])
+        return set([rse['id'] for rse in output])
 
 
 class BaseRSEOperator(BaseExpressionElement):

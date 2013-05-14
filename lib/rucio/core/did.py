@@ -23,6 +23,7 @@ from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.core.rse import add_file_replica
 from rucio.db import models
+from rucio.db.constants import ReplicaState
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
@@ -40,7 +41,7 @@ def list_replicas(scope, name, schemes=None, session=None):
     """
     rsemgr = rsemanager.RSEMgr(server_mode=True)
     try:
-        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state='AVAILABLE')
+        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state=ReplicaState.AVAILABLE)
         for row in query.yield_per(5):
             try:
                 pfns = list()

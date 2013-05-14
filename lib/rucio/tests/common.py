@@ -10,9 +10,13 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 
 from paste.fixture import TestApp
+from random import choice
+from string import ascii_uppercase
+
 import subprocess
 
 from rucio.common import exception
+from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account
 from rucio.web.rest.authentication import app as auth_app
 
@@ -69,3 +73,19 @@ def get_auth_token(account, username, password):
     r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=header, expect_errors=True)
     token = str(r1.header('Rucio-Auth-Token'))
     return token
+
+
+def account_name_generator():
+    """ Generate random account name.
+
+    :returns: A random account name
+    """
+    return 'jdoe-' + str(uuid()).lower()[:20]
+
+
+def rse_name_generator(size=10):
+    """ Generate random RSE name.
+
+    :returns: A random RSE name
+    """
+    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in xrange(size))
