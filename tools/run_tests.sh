@@ -56,10 +56,13 @@ tools/sync_rses.py
 echo 'Sync metadata keys'
 tools/sync_meta.py
 
-echo "Running tests with nose - Iteration 1"
-nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
+echo 'Bootstrap tests: Create jdoe account/mock scope'
+tools/bootstrap_tests.py
 
-echo "Running tests with nose - Iteration 2"
-nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
+for i in {1..2}
+do
+    echo "Running tests with nose - Iteration $i"
+    nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
+done
 
 echo "Finished"

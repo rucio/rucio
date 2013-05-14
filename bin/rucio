@@ -182,9 +182,8 @@ def list_replicas(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
 
     protocols = None
     if args.protocols:
@@ -215,9 +214,8 @@ def add(args):
     scope, name = args.did.split(':')
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
         if args.dataset:
             client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
@@ -244,9 +242,8 @@ def add_dataset(args):
     scope, name = args.did.split(':')
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
         client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
         print 'Added %s:%s' % (scope, name)
@@ -270,9 +267,8 @@ def add_container(args):
     scope, name = args.did.split(':')
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
         client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
         print 'Added %s:%s' % (scope, name)
@@ -295,9 +291,8 @@ def attach(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
@@ -326,9 +321,8 @@ def detach(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
@@ -372,9 +366,8 @@ def list(args):
                 return FAILURE
         else:  # list dids in a scope
             client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                          account=args.account,
-                                          auth_type=args.auth_strategy, creds=creds,
-                                          ca_cert=args.ca_certificate, timeout=args.timeout)
+                               account=args.account, auth_type=args.auth_strategy, creds=creds,
+                               ca_cert=args.ca_certificate, timeout=args.timeout)
 
             try:
                 dids = client.scope_list(scope=args.scope, recursive=args.recursive)
@@ -388,9 +381,8 @@ def list(args):
                 return FAILURE
     else:
         client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                      account=args.account,
-                                      auth_type=args.auth_strategy, creds=creds,
-                                      ca_cert=args.ca_certificate, timeout=args.timeout)
+                           account=args.account, auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
         for did in args.dids:
             try:
                 scope, name = did.split(':')
@@ -446,9 +438,8 @@ def scope_list(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         dids = client.scope_list(scope=args.scope)
@@ -473,9 +464,8 @@ def list_files(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
 
     for did in args.dids:
         try:
@@ -499,9 +489,8 @@ def close(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     for did in args.dids:
         try:
             scope, name = did.split(':')
@@ -524,9 +513,8 @@ def stat(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
     for did in args.dids:
         try:
             scope, name = did.split(':')
@@ -594,9 +582,8 @@ def download(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
 
     rsemgr = rsemanager.RSEMgr()
     for did in args.dids:
@@ -624,9 +611,9 @@ def get_metadata(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
     for did in args.dids:
         try:
             scope, name = did.split(':')
@@ -650,9 +637,8 @@ def set_metadata(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
         client.set_metadata(scope=args.did.split(':')[0], name=args.did.split(':')[1], key=args.key, value=args.value)
