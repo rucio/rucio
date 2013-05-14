@@ -10,26 +10,34 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 testopts=""
+noseopts="--exclude=.*test_rse_protocol_.* "
 
 function usage {
   echo "Usage: $0 [OPTION]..."
   echo "Run Rucio's test suite(s)"
   echo ""
-  echo "  -s    Skip RSE tests."
+  echo "  -h    Show usage."
+  echo "  -s    Do not skip RSE tests."
   echo "  -c    Include only named class."
   echo "  -t    Include tables required for testing."
+  echo "  -i    Do only the initialization."
+  echo "  -d    Delete the sqlite db file."
+
   exit
 }
 
-while getopts hsct opt
+while getopts hsctid opt
 do
   case "$opt" in
     h) usage;;
-    s) noseopts="--exclude=.*test_rse_protocol_.* ";;
-    c) noseopts=$OPTARG;;
+    s) noseopts="";;
+    c) noseopts="$OPTARG";;
     t) testopts="-t";;
+    i) init_only="true";;
+    d) delete_sqlite="true";;
   esac
 done
+
 
 echo "Cleaning *.pyc files"
 find lib -iname '*.pyc' | xargs rm
@@ -37,11 +45,14 @@ find lib -iname '*.pyc' | xargs rm
 echo "Cleaning old authentication tokens"
 rm -rf /tmp/.rucio_*/
 
-echo "Removing old database"
-rm -f /tmp/rucio.db
+if test ${delete_sqlite+defined}; then
+    echo "Removing old database"
+    rm -f /tmp/rucio.db
+fi
 
 echo "Resetting database tables" $testopts
 tools/reset_database.py $testopts
+
 if [ $? != 0 ]; then
     echo 'Failed to reset the database!'
     exit
@@ -59,9 +70,14 @@ tools/sync_meta.py
 echo 'Bootstrap tests: Create jdoe account/mock scope'
 tools/bootstrap_tests.py
 
+if test ${init_only+defined}; then
+    exit
+fi
+
 for i in {1..2}
 do
     echo "Running tests with nose - Iteration $i"
+    echo nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
     nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
 done
 

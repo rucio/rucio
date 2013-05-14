@@ -58,7 +58,7 @@ class RSEs:
         :returns: A list containing all RSEs.
         """
 
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
@@ -68,7 +68,8 @@ class RSEs:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-        return dumps(list_rses())
+        for rse in list_rses():
+            yield render_json(**rse) + '\n'
 
     def POST(self, rse):
         raise NotImplemented()
@@ -630,7 +631,7 @@ class Usage:
 
         :param rse: the RSE name.
         """
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
@@ -639,7 +640,7 @@ class Usage:
 
         usage = None
         try:
-            usage = get_rse_usage(rse, issuer=auth['account'], filters=None)
+            usage = get_rse_usage(rse, issuer=auth['account'], source=None)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:
@@ -648,7 +649,8 @@ class Usage:
             print format_exc()
             raise InternalError(e)
 
-        return render_json(**usage)
+        for u in usage:
+            yield render_json(**u) + '\n'
 
     def PUT(self, rse):
         """ Update RSE usage information.
@@ -717,7 +719,7 @@ class UsageHistory:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            for usage in list_rse_usage_history(rse=rse, issuer=auth['account'], filters=None):
+            for usage in list_rse_usage_history(rse=rse, issuer=auth['account'], source=None):
                 yield render_json(**usage) + '\n'
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
@@ -751,7 +753,7 @@ class Limits:
 
         :param rse: the RSE name.
         """
-        header('Content-Type', 'application/x-json-stream')
+        header('Content-Type', 'application/json')
         auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
         auth = validate_auth_token(auth_token)
 
@@ -759,8 +761,8 @@ class Limits:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         try:
-            for limit in get_rse_limits(rse=rse, issuer=auth['account']):
-                yield render_json(**limit) + '\n'
+            limits = get_rse_limits(rse=rse, issuer=auth['account'])
+            return render_json(**limits)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:

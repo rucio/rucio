@@ -234,20 +234,20 @@ def set_rse_usage(rse, source, used, free, issuer):
     return rse_module.set_rse_usage(rse=rse, source=source, used=used, free=free)
 
 
-def get_rse_usage(rse, issuer, filters=None):
+def get_rse_usage(rse, issuer, source=None):
     """
     get RSE usage information.
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
-    :param filters: dictionary of attributes by which the results should be filtered
+    :param source: dictionary of attributes by which the results should be filtered
 
     :returns: True if successful, otherwise false.
     """
-    return rse_module.get_rse_usage(rse=rse, filters=filters)
+    return rse_module.get_rse_usage(rse=rse, source=source)
 
 
-def list_rse_usage_history(rse, issuer, filters=None):
+def list_rse_usage_history(rse, issuer, source=None):
     """
      List RSE usage history information.
 
@@ -256,7 +256,7 @@ def list_rse_usage_history(rse, issuer, filters=None):
     :param filters: Dictionary of attributes by which the results should be filtered.
 
     """
-    return rse_module.list_rse_usage_history(rse=rse, filters=filters)
+    return rse_module.list_rse_usage_history(rse=rse, source=source)
 
 
 def set_rse_limits(rse, name, value, issuer):

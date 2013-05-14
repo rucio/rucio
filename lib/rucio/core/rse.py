@@ -19,11 +19,16 @@ import sqlalchemy
 import sqlalchemy.orm
 
 #  from sqlalchemy import exists, and_
+from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
+
+
 from rucio.common import exception, utils
+from rucio.core.counter import decrease, increase, add_counter
 from rucio.db import models
+from rucio.db.constants import ReplicaState, OBSOLETE
 from rucio.db.session import read_session, transactional_session
 from rucio.rse.rsemanager import RSEMgr
 
@@ -50,6 +55,9 @@ def add_rse(rse, prefix=None, deterministic=True, volatile=False, session=None):
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse=rse, key=rse, value=True, session=session)
+
+    # Add counter to monitor the space usage
+    add_counter(rse_id=new_rse.id)
 
     return new_rse.id
 
@@ -101,6 +109,22 @@ def get_rse(rse, session=None):
 
 
 @read_session
+def get_rse_id(rse, session=None):
+    """
+    Get a RSE ID or raise if it does not exist.
+
+    :param rse: the rse name.
+    :param session: The database session in use.
+
+    :raises RSENotFound: If referred RSE was not found in the database.
+    """
+    try:
+        return session.query(models.RSE).filter_by(rse=rse).one().id
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
+
+
+@read_session
 def get_rse_by_id(rse_id, session=None):
     """
     Get a RSE properties or raise if it does not exist.
@@ -121,12 +145,12 @@ def get_rse_by_id(rse_id, session=None):
 @read_session
 def list_rses(filters={}, session=None):
     """
-    Returns a list of all RSE names.
+    Returns a list of all RSEs.
 
     :param filters: dictionary of attributes by which the results should be filtered.
     :param session: The database session in use.
 
-    :returns: a list of all RSE names.
+    :returns: a list of dictionaries.
     """
 
     rse_list = []
@@ -134,7 +158,8 @@ def list_rses(filters={}, session=None):
     if filters:
         query = session.query(models.RSEAttrAssociation).\
             join(models.RSE, models.RSE.id == models.RSEAttrAssociation.rse_id).\
-            filter_by(deleted=False)
+            filter_by(deleted=False).group_by(models.RSE.id)
+
         for (k, v) in filters.items():
             if hasattr(models.RSE, k):
                 query = query.filter(getattr(models.RSE, k) == v)
@@ -145,13 +170,18 @@ def list_rses(filters={}, session=None):
                 query = query.filter(t.value == v)
 
         for row in query:
-            if row.rse.rse not in rse_list:
-                rse_list.append(row.rse.rse)
+            d = {}
+            for column in row.rse.__table__.columns:
+                d[column.name] = getattr(row.rse, column.name)
+            rse_list.append(d)
     else:
 
         query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
         for row in query:
-            rse_list.append(row.rse)
+            d = {}
+            for column in row.__table__.columns:
+                d[column.name] = getattr(row, column.name)
+            rse_list.append(d)
 
     return rse_list
 
@@ -223,7 +253,7 @@ def set_rse_usage(rse, source, used, free, session=None):
     Set RSE usage information.
 
     :param rse: the location name.
-    :param source: the information source, e.g. srm.
+    :param source: The information source, e.g. srm.
     :param used: the used space in bytes.
     :param free: the free in bytes.
     :param session: The database session in use.
@@ -243,30 +273,31 @@ def set_rse_usage(rse, source, used, free, session=None):
 
 
 @read_session
-def get_rse_usage(rse, filters=None, session=None):
+def get_rse_usage(rse, source=None, rse_id=None, session=None):
     """
     get rse usage information.
 
-    :param rse: the rse name.
-    :param filters: dictionary of attributes by which the results should be filtered
+    :param rse: The rse name.
+    :param source: The information source, e.g. srm.
+    :param rse_id:  The RSE id.
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
     """
-    rse = get_rse(rse)
+    if not rse_id:
+        rse_id = get_rse_id(rse, session=session)
 
-    query = session.query(models.RSEUsage).filter_by(rse_id=rse.id)
+    query = session.query(models.RSEUsage).filter_by(rse_id=rse_id)
+    if source:
+        query = query.filter_by(source=source)
 
-    if filters:
-        for (k, v) in filters.items():
-            if hasattr(models.RSEUsage, k):
-                query = query.filter(getattr(models.RSEUsage, k) == v)
-
-    for usage in query:
-        return {'rse': usage.rse.rse, 'source': usage.source,
-                'used': usage.used, 'free': usage.free,
-                'total': usage.free + usage.used,
-                'updated_at': usage.updated_at}
+    usage = list()
+    for row in query:
+        usage.append({'rse': rse, 'source': row.source,
+                      'used': row.used, 'free': row.free,
+                      'total': row.free + row.used,
+                      'updated_at': row.updated_at})
+    return usage
 
 
 @transactional_session
@@ -281,7 +312,7 @@ def set_rse_limits(rse, name, value, session=None):
 
     :returns: True if successful, otherwise false.
     """
-    rse = get_rse(rse)
+    rse = get_rse(rse=rse, session=session)
     rse_limit = models.RSELimit(rse_id=rse.id, name=name, value=value)
     rse_limit = session.merge(rse_limit)
     rse_limit.save(session=session)
@@ -289,32 +320,35 @@ def set_rse_limits(rse, name, value, session=None):
 
 
 @read_session
-def get_rse_limits(rse, name=None, session=None):
+def get_rse_limits(rse, name=None, rse_id=None, session=None):
     """
     Get RSE limits.
 
     :param rse: The RSE name.
+    :param name: A Limit name.
+    :param rse_id: The RSE id.
 
-    :returns: True if successful, otherwise false.
+    :returns: A dictionary with the limits {'limit.name': limit.value}.
     """
-    rse = get_rse(rse)
-    query = session.query(models.RSELimit).filter_by(rse_id=rse.id)
+    if not rse_id:
+        rse_id = get_rse_id(rse=rse, session=session)
+
+    query = session.query(models.RSELimit).filter_by(rse_id=rse_id)
     if name:
         query = query.filter_by(name=name)
-
-    for limit in query.yield_per(5):
-        yield {'rse': rse.rse, 'name': limit.name,
-               'value': limit.value, 'created_at': limit.created_at,
-               'updated_at': limit.updated_at}
+    limits = {}
+    for limit in query:
+        limits[limit.name] = limit.value
+    return limits
 
 
 @read_session
-def list_rse_usage_history(rse, filters=None, session=None):
+def list_rse_usage_history(rse, source=None, session=None):
     """
     List location usage history information.
 
     :param location: The location name.
-    :param filters: dictionary of attributes by which the results should be filtered.
+    :param source: dictionary of attributes by which the results should be filtered.
     :param session: The database session in use.
 
     :returns:  list of locations.
@@ -372,7 +406,7 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
         if size != did.size or adler32 != did.adler32 or md5 != did.md5:
             raise exception.FileConsistencyMismatch("(size: %s, adler32: '%s', md5: '%s') != (size: %s, adler32: '%s', md5: '%s')" % (did.size, did.adler32, did.md5, size, adler32, md5))
 
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, path=path, state='AVAILABLE',
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, path=path, state=ReplicaState.AVAILABLE,
                                             md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
     try:
         new_replica.save(session=session)
@@ -381,33 +415,7 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
     except DatabaseError, e:
         raise exception.RucioException(e.args[0])
 
-
-@read_session
-def get_file_replica(rse, scope, name, lock=False, session=None):
-    """
-    Get File replica.
-
-    :param rse: the rse name.
-    :param scope: the tag name.
-    :param name: The data identifier name.
-    :param lock: If True, locks the row for update.
-    :param session: The database session in use.
-
-    :returns: True is successful.
-    """
-    replica_rse = get_rse(rse=rse, session=session)
-
-    query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name)
-
-    if lock:
-        query = query.with_lockmode('update_nowait')
-
-    try:
-        for row in query:
-            return row
-    except DatabaseError:
-        # (DatabaseError) ORA-00054: resource busy and acquire with NOWAIT specified or timeout expired
-        return False
+    increase(rse_id=replica_rse.id, delta=1, bytes=size, session=session)
 
 
 @transactional_session
@@ -427,6 +435,7 @@ def del_file_replica(rse, scope, name, session=None):
     query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name)
     for row in query:
         row.delete(session=session)
+        decrease(rse_id=replica_rse.id, delta=1, bytes=row['size'], session=session)
 
 
 @read_session
@@ -441,7 +450,7 @@ def list_replicas(rse, filters={}, session=None):
     :returns: a list of dictionary replica.
     """
 
-    rse = get_rse(rse)
+    rse = get_rse(rse, session=session)
 
     query = session.query(models.RSEFileAssociation).filter_by(rse_id=rse.id)
     if filters:
@@ -456,7 +465,7 @@ def list_replicas(rse, filters={}, session=None):
 
 
 @read_session
-def list_unlocked_replicas(rse, bytes, session=None):
+def list_unlocked_replicas(rse, bytes, limit, rse_id=None, session=None):
     """
     List RSE File replicas with no locks.
 
@@ -466,17 +475,15 @@ def list_unlocked_replicas(rse, bytes, session=None):
 
     :returns: a list of dictionary replica.
     """
-    rse = get_rse(rse)
 
-    #query = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse.id).\
-    #    filter(~exists().where(and_(models.ReplicaLock.rse_id == rse.id,
-    #                                models.ReplicaLock.scope == models.RSEFileAssociation.scope,
-    #                                models.ReplicaLock.name == models.RSEFileAssociation.name)))
+    if not rse_id:
+        rse_id = get_rse_id(rse=rse, session=session)
 
     none_value = None  # Hack to get pep8 happy...
-    query = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse.id).\
-        filter(models.RSEFileAssociation.tombstone != none_value).order_by(models.RSEFileAssociation.tombstone).\
-        order_by(models.RSEFileAssociation.created_at)
+    query = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse_id).\
+        filter(models.RSEFileAssociation.tombstone != none_value).filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE).\
+        order_by(models.RSEFileAssociation.tombstone).\
+        order_by(models.RSEFileAssociation.created_at).limit(limit)
 
     neededSpace = bytes
     rows = list()
@@ -485,10 +492,31 @@ def list_unlocked_replicas(rse, bytes, session=None):
         for column in row.__table__.columns:
             d[column.name] = getattr(row, column.name)
         rows.append(d)
-        neededSpace -= d['size']
+
+        if d['tombstone'] != OBSOLETE:
+            neededSpace -= d['size']
+
         if not max(neededSpace, 0):
             break
+
     return rows
+
+
+@read_session
+def get_sum_count_being_deleted(rse_id, session=None):
+    """
+
+    :param rse_id: The id of the RSE.
+    :param session: The database session in use.
+
+    :returns: A dictionary with total and bytes.
+    """
+    none_value = None
+    total, bytes = session.query(func.count(models.RSEFileAssociation.tombstone), func.sum(models.RSEFileAssociation.size)).filter_by(rse_id=rse_id).\
+        filter(models.RSEFileAssociation.tombstone != none_value).\
+        filter(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED).\
+        one()
+    return {'bytes': bytes or 0, 'total': total or 0}
 
 
 @transactional_session
@@ -503,8 +531,8 @@ def update_file_replica_state(rse, scope, name, state, session=None):
     :param session: The database session in use.
     """
 
-    rid = get_rse(rse=rse, session=session).id
-    session.query(models.RSEFileAssociation).filter_by(rse_id=rid, scope=scope, name=name).update({'state': state})
+    replica_rse = get_rse(rse=rse, session=session)
+    return session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name, lock_cnt=0).update({'state': state})
 
 
 @transactional_session

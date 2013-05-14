@@ -26,7 +26,7 @@ from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint,
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
-from rucio.db.constants import AccountStatus, ScopeStatus
+from rucio.db.constants import AccountStatus, ScopeStatus, ReplicaState
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
 from rucio.db.types import GUID
@@ -366,6 +366,17 @@ class RSEUsage(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
 
 
+class Counter(BASE, ModelBase):
+    """Represents general-purpose counters"""
+    __tablename__ = 'rse_counters'
+    rse_id = Column(GUID())
+    num = Column(Integer)  # to avoid concurrency
+    total = Column(BigInteger)
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('rse_id', 'num', name='COUNTERS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='COUNTERS_RSE_ID_FK'))
+
+
 class RSEAttrAssociation(BASE, ModelBase):
     """Represents the map between RSEs and tags"""
     __tablename__ = 'rse_attr_map'
@@ -433,7 +444,7 @@ class RSEFileAssociation(BASE, ModelBase):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     path = Column(String(1024))
-    state = Column(Enum('AVAILABLE', 'UNAVAILABLE', 'COPYING', 'BAD', name='REPLICAS_STATE_CHK'), default='UNAVAILABLE')
+    state = Column(ReplicaState.db_type(name='REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE)
     lock_cnt = Column(Integer, default=0)
     accessed_at = Column(DateTime)
     tombstone = Column(DateTime)
@@ -442,6 +453,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='REPLICAS_STATE_NN'),
+                   CheckConstraint('"SIZE" IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
@@ -568,6 +580,7 @@ def register_models(engine):
               AccountLimit,
               AccountUsage,
               Callback,
+              Counter,
               DIDAttribute,
               DIDKey,
               DIDKeyValueAssociation,
@@ -600,6 +613,7 @@ def unregister_models(engine):
               AccountLimit,
               AccountUsage,
               Callback,
+              Counter,
               DIDAttribute,
               DIDKey,
               DIDKeyValueAssociation,

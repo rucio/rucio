@@ -12,7 +12,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-from json import dumps, loads
+from json import dumps
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
 
@@ -41,15 +41,10 @@ class TestRSECoreApi():
         add_rse(rse)
         assert_equal(rse_exists(rse), True)
         assert_equal(rse_exists(invalid_rse), False)
-        del_rse(rse)
 
-    @raises(Duplicate)
-    def test_create_and_create_for_rse(self):
-        """ RSE (CORE): Test the double creation of the same RSE """
-        rse = 'MOCK_' + str(uuid())
-        add_rse(rse)
-        assert_equal(rse_exists(rse), True)
-        add_rse(rse)
+        with assert_raises(Duplicate):
+            add_rse(rse)
+        del_rse(rse)
 
     def test_list_rses(self):
         """ RSE (CORE): Test the listing of all RSEs """
@@ -58,18 +53,12 @@ class TestRSECoreApi():
         assert_equal(rse_exists(rse), True)
         add_rse_attribute(rse=rse, key='tier', value='1')
         rses = list_rses(filters={'tier': '1'})
-        assert_in(rse, rses)
-        del_rse(rse)
+        assert_in(rse, [r['rse'] for r in rses])
 
-    def test_list_rses2(self):
-        """ RSE (CORE): Test the listing of all RSEs with multiple filters"""
-        rse = u'MOCK_' + str(uuid())
-        add_rse(rse)
-        assert_equal(rse_exists(rse), True)
-        add_rse_attribute(rse=rse, key='tier', value='1')
         add_rse_attribute(rse=rse, key='country', value='us')
         rses = list_rses(filters={'tier': '1', 'country': 'us'})
-        assert_in(rse, rses)
+        assert_in(rse, [r['rse'] for r in rses])
+
         del_rse(rse)
 
     def test_list_rse_attributes(self):
@@ -83,14 +72,6 @@ class TestRSECoreApi():
 
 
 class TestRSE():
-
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
 
     def test_create_rse_success(self):
         """ RSE (REST): send a POST to create a new RSE """
@@ -110,26 +91,6 @@ class TestRSE():
         headers3 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r3 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse, headers=headers3, expect_errors=True)
         assert_equal(r3.status, 409)
-
-    def test_list_rses(self):
-        """ RSE (REST): send a GET to list all rses """
-        mw = []
-
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-
-        assert_equal(r1.status, 200)
-        token = str(r1.header('X-Rucio-Auth-Token'))
-        rse = 'MOCK_' + str(uuid())
-
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse, headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 201)
-
-        headers3 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r3 = TestApp(rse_app.wsgifunc(*mw)).get('/', headers=headers3, expect_errors=True)
-        assert_in(rse, loads(r3.body))
-        assert_equal(r3.status, 200)
 
     def xtest_tag_rses(self):
         """ RSE (REST): send a POST to tag a RSE """
@@ -178,14 +139,6 @@ class TestRSE():
 
 class TestRSEClient():
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
     def setup(self):
         self.client = RSEClient()
 
@@ -208,14 +161,14 @@ class TestRSEClient():
         for rse in rse_list:
             self.client.add_rse(rse)
 
-        svr_list = self.client.list_rses()
+        svr_list = [r['rse'] for r in self.client.list_rses()]
 
         for rse in rse_list:
             assert_in(rse, svr_list)
 
     def test_get_rse(self):
-        id = 'MOCK_TEST_GET_' + str(uuid())
-        self.client.add_rse(id)
+        """ RSE (CLIENTS): Get a RSE."""
+        id = 'MOCK'
         props = self.client.get_rse(rse=id)
         assert(props['rse'] == id)
 
@@ -1501,6 +1454,7 @@ class TestRSEClient():
         """ RSE (CLIENTS): Test the update of RSE usage."""
         assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', used=999200L, free=800L), True)
         usage = self.client.get_rse_usage(rse='MOCK')
+        print usage
         assert_equal(usage['total'], 1000000)
         assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', used=999920L, free=80L), True)
         for usage in self.client.list_rse_usage_history(rse='MOCK'):
@@ -1510,7 +1464,5 @@ class TestRSEClient():
     def test_set_rse_limits(self):
         """ RSE (CLIENTS): Test the update of RSE limits."""
         assert_equal(self.client.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=1000000L), True)
-        for limit in self.client.get_rse_limits(rse='MOCK'):
-            if limit['rse'] == 'MOCK' and limit['name'] == 'MinFreeSpace':
-                assert_equal(limit['value'], 1000000)
-                break
+        limits = self.client.get_rse_limits(rse='MOCK')
+        assert_equal(limits['MinFreeSpace'], 1000000)

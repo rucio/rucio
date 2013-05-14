@@ -54,7 +54,7 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.sftp.Default.getSpace"
   },
-  "POSIX":{
+  "MOCK-POSIX":{
     "backend_type": "POSIX",
     "deterministic": true,
     "protocols": {
