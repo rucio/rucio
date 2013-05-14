@@ -13,6 +13,14 @@
 # - Martin Baristis, <martin.barisits@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
+
+"""Exceptions used with Rucio.
+
+The base exception class is :class:`. RucioException`.
+Exceptions which are raised are all subclasses of it.
+
+"""
+
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 
 

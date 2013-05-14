@@ -18,7 +18,8 @@ import traceback
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.core import monitor, rse as rse_core
-from rucio.db.session import get_session
+from rucio.core.counter import get_counter
+from rucio.db.constants import ReplicaState
 from rucio.rse.rsemanager import RSEMgr
 
 
@@ -30,20 +31,48 @@ logger.addHandler(sh)
 graceful_stop = threading.Event()
 
 
-def __check_rse_limits(rse):
-    limits = rse_core.get_rse_limits(rse=rse, name='MinFreeSpace')
-    usage = rse_core.get_rse_usage(rse)
+def __check_rse_usage(rse, rse_id):
+    """
+    Internal method to check RSE usage and limits.
 
-    # ToDO: Get the amount of bytes waiting for deletion to add
-    if not usage or not limits:
-        return False, False, False
+    :param rse_id: the rse name.
+    :param rse_id: the rse id.
 
-    free, used = usage['free'], usage['used']
-    for limit in limits:
-        if limit['value'] > free:
-            return limit['value'] - free, used, free  # + bytesWaitingForDeletion
+    :returns : max_being_deleted_files, needed_free_space, used, free.
+    """
+    max_being_deleted_files, needed_free_space, used, free = None, None, None, None
 
-    return False, False, False
+    # Get RSE limits
+    limits = rse_core.get_rse_limits(rse=rse, rse_id=rse_id)
+    if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
+        return max_being_deleted_files, needed_free_space, used, free
+
+    min_free_space = limits.get('MinFreeSpace')
+    max_being_deleted_files = limits.get('MaxBeingDeletedFiles')
+
+    # Get total space available
+    usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source='srm')
+    if not usage:
+        return max_being_deleted_files, needed_free_space, used, free
+
+    for u in usage:
+        total = u['total']
+        break
+
+    # Get current used space
+    cnt = get_counter(rse_id=rse_id)
+    if not cnt:
+        return max_being_deleted_files, needed_free_space, used, free
+    used = cnt['bytes']
+
+    # Get current amount of bytes and files waiting for deletion
+    being_deleted = rse_core.get_sum_count_being_deleted(rse_id=rse_id)
+    print being_deleted
+
+    free = total - used
+    needed_free_space = min_free_space - free
+
+    return max_being_deleted_files, needed_free_space, used, free
 
 
 def reaper(once=False):
@@ -60,31 +89,28 @@ def reaper(once=False):
     while not graceful_stop.is_set():
         try:
             for rse in rse_core.list_rses():
-                bytes, used, free = __check_rse_limits(rse)
-                if bytes:
-                    print 'Freeing up some space(%(bytes)s) on %(rse)s' % locals()
-                    replicas = rse_core.list_unlocked_replicas(rse=rse, bytes=bytes)
-                    # Race conditions with locks
-                    freed_space = 0
-                    for replica in replicas:
-                        session = get_session()
-                        print 'Lock the file replica %(scope)s:%(name)s' % replica
-                        f = rse_core.get_file_replica(rse=rse, scope=replica['scope'], name=replica['name'], lock=True, session=session)
-                        if f and f['lock_cnt'] == 0:
-                            print 'Delete the file %(scope)s:%(name)s' % replica
-                            # Should deleguate the deletion to a backend for persistency and retrial
-                            rsemgr.delete(rse_id=rse, lfns=[{'scope': replica['scope'], 'filename': replica['name']}, ])
-                            print 'Remove file replica information with size %(size)s for file %(scope)s:%(name)s' % replica
-                            # Remove file replica information : Check replica locks ?
-                            rse_core.del_file_replica(rse=rse, scope=replica['scope'], name=replica['name'], session=session)
-                            monitor.record(timeseries='reaper.deletion.done',  delta=1)
-                            freed_space += replica['size']
-                        # Release the lock
-                        session.commit()
-
-                    print 'RSE: %(rse)s, Freed space: %(freed_space)s, Needed freed space: %(bytes)s' % locals()
-                    # Update RSE space usage information
-                    # rse_core.set_rse_usage(rse='MOCK', source='srm', used=used-freed_space, free=free+freed_space)
+                max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
+                print 'Space usage for RSE %(rse)s: max_being_deleted_files, needed_free_space, used, free' % rse, max_being_deleted_files, needed_free_space, used, free
+                replicas = rse_core.list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files)
+                freed_space, deleted_files = 0, 0
+                for replica in replicas:
+                    print 'Mark the file replica %(scope)s:%(name)s as beeing deleted' % replica
+                    f = rse_core.update_file_replica_state(rse=rse['rse'], scope=replica['scope'], name=replica['name'], state=ReplicaState.BEING_DELETED)
+                    if f:
+                        monitor.record(timeseries='reaper.deletion.being_deleted',  delta=1)
+                        print 'Delete the file %(scope)s:%(name)s' % replica
+                        # Should delegate the deletion to a backend
+                        # try:
+                        rsemgr.delete(rse_id=rse['rse'], lfns=[{'scope': replica['scope'], 'filename': replica['name']}, ])
+                        # except:
+                              # ToDo: Add failure management
+                        # Remove file replica information
+                        print 'Remove file replica information with size %(size)s for file %(scope)s:%(name)s' % replica
+                        deleted_files += 1
+                        rse_core.del_file_replica(rse=rse['rse'], scope=replica['scope'], name=replica['name'])
+                        monitor.record(timeseries='reaper.deletion.done',  delta=1)
+                        freed_space += replica['size']
+                print 'RSE: %(rse)s' % rse + '#deleted files: %(deleted_files)s, Freed space: %(freed_space)s, Needed freed space: %(needed_free_space)s' % locals()
         except:
             print traceback.format_exc()
 

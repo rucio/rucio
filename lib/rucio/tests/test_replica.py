@@ -31,11 +31,9 @@ class TestReplica():
 
     def test_add_list_replica(self):
         """ REPLICA (CLIENT): Add and list file replica """
-        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_scope = 'mock'
         tmp_file = 'file_%s' % generate_uuid()
         tmp_pfn = 'mock://localhost/tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
-
-        self.scope_client.add_scope('root', tmp_scope)
 
         self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
 

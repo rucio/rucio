@@ -47,7 +47,7 @@ class TestDIDApi():
         """ DATA IDENTIFIERS (API): List new identifiers """
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_dsn = 'dsn_%s' % generate_uuid()
-        scope.add_scope(tmp_scope, 'root', 'root')
+        scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
             did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='dataset', issuer='root')
         for i in did.list_new_identifier('dataset'):
@@ -62,7 +62,7 @@ class TestDIDApi():
         """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_dsn = 'dsn_%s' % generate_uuid()
-        scope.add_scope(tmp_scope, 'root', 'root')
+        scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
             did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='dataset', issuer='root')
         for i in did.list_new_identifier('dataset'):
@@ -85,24 +85,12 @@ class TestDIDClients():
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
-        tmp_rse = 'RSE_%s' % generate_uuid()
+        tmp_rse = 'MOCK2'
         tmp_dsn = 'dsn_%s' % generate_uuid()
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
 
-        self.scope_client.add_scope('root', tmp_scope)
-
-        self.rse_client.add_rse(tmp_rse, deterministic=False)
-
-        rfio_props = {"impl": "rucio.rse.protocols.rfio.Default",
-                      "hostname": "castoratlas.cern.ch",
-                      "port": 9002,
-                      "prefix": "/castor/cern.ch/grid/atlas/tzero/",
-                      "domains": {"LAN": {"read": 1, "write": 1, "delete": 1},
-                                  "WAN": {"read": 1, "write": 1, "delete": 1}
-                                  }
-                      }
-        self.rse_client.add_protocol(tmp_rse, 'rfio', rfio_props)
+        self.scope_client.add_scope('jdoe', tmp_scope)
 
         dataset_meta = {'project': 'data13_hip',
                         'run_number': str(generate_uuid()),
@@ -120,7 +108,7 @@ class TestDIDClients():
         files = []
         for i in xrange(5):
             lfn = 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid())
-            pfn = 'rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            pfn = 'mock://localhost/tmp/rucio_rse/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 10}
             files.append({'scope': tmp_scope, 'name': lfn,
@@ -133,7 +121,7 @@ class TestDIDClients():
         files = []
         for i in xrange(5):
             lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
-            pfn = 'rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/prod1/perm/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            pfn = 'mock://localhost/tmp/rucio_rse/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 100}
             files.append({'scope': tmp_scope, 'name': lfn,
@@ -148,10 +136,9 @@ class TestDIDClients():
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
         tmp_file = 'file_%s' % generate_uuid()
-        tmp_rse = 'RSE_%s' % generate_uuid()
+        tmp_rse = 'MOCK'
 
-        self.scope_client.add_scope('root', tmp_scope)
-        self.rse_client.add_rse(tmp_rse)
+        self.scope_client.add_scope('jdoe', tmp_scope)
         self.rse_client.add_file_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 
         did = self.did_client.get_did(tmp_scope, tmp_file)
@@ -165,16 +152,14 @@ class TestDIDClients():
     def test_did_hierarchy(self):
         """ DATA IDENTIFIERS (CLIENT): Check did hierarchy rule """
 
-        account = 'user-%s' % generate_uuid().lower()[:20]
-        rse = 'RSE_%s' % generate_uuid().upper()[:20]
+        account = 'jdoe'
+        rse = 'MOCK'
         scope = 'scope_%s' % generate_uuid()[:20]
         file = ['file_%s' % generate_uuid() for i in range(10)]
         dst = ['dst_%s' % generate_uuid() for i in range(4)]
         cnt = ['cnt_%s' % generate_uuid() for i in range(4)]
 
-        self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
-        self.rse_client.add_rse(rse)
 
         for i in range(10):
             self.rse_client.add_file_replica(rse, scope, file[i], 1, '0cc737eb')
@@ -205,16 +190,14 @@ class TestDIDClients():
     def test_detach_did(self):
         """ DATA IDENTIFIERS (CLIENT): Detach dids from a did"""
 
-        account = 'user-%s' % generate_uuid().lower()[:20]
-        rse = 'RSE_%s' % generate_uuid().upper()[:20]
+        account = 'jdoe'
+        rse = 'MOCK'
         scope = 'scope_%s' % generate_uuid()[:24]
         file = ['file_%s' % generate_uuid() for i in range(10)]
         dst = ['dst_%s' % generate_uuid() for i in range(4)]
         cnt = ['cnt_%s' % generate_uuid() for i in range(2)]
 
-        self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
-        self.rse_client.add_rse(rse)
 
         for i in range(10):
             self.rse_client.add_file_replica(rse, scope, file[i], 1L, '0cc737eb')
@@ -253,16 +236,15 @@ class TestDIDClients():
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
 
         # create some dummy data
-        self.tmp_accounts = ['account-%s' % generate_uuid().lower()[:20] for i in xrange(3)]
+        self.tmp_accounts = ['jdoe' for i in xrange(3)]
         self.tmp_scopes = ['scope_%s' % generate_uuid()[:22] for i in xrange(3)]
-        self.tmp_rses = ['RSE_%s' % generate_uuid()[:20] for i in xrange(3)]
+        self.tmp_rses = ['MOCK_%s' % generate_uuid()[:20] for i in xrange(3)]
         self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(3)]
         self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(3)]
         self.tmp_containers = ['container_%s' % generate_uuid() for i in xrange(3)]
 
         # add dummy data to the catalogue
         for i in xrange(3):
-            self.account_client.add_account(self.tmp_accounts[i], 'user')
             self.scope_client.add_scope(self.tmp_accounts[i], self.tmp_scopes[i])
             self.rse_client.add_rse(self.tmp_rses[i])
             self.rse_client.add_file_replica(self.tmp_rses[i], self.tmp_scopes[i], self.tmp_files[i], 1L, '0cc737eb')
@@ -305,15 +287,13 @@ class TestDIDClients():
     def test_get_did(self):
         """ DATA IDENTIFIERS (CLIENT): add a new data identifier and try to retrieve it back"""
 
-        account = generate_uuid().lower()[:30]
+        account = 'jdoe'
+        rse = 'MOCK'
         scope = generate_uuid()[:30]
-        rse = generate_uuid()
         file = generate_uuid()
         dsn = generate_uuid()
 
-        self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
-        self.rse_client.add_rse(rse)
         self.rse_client.add_file_replica(rse, scope, file, 1L, 1L)
 
         did = self.did_client.get_did(scope, file)
@@ -328,9 +308,9 @@ class TestDIDClients():
     def test_get_meta(self):
         """ DATA IDENTIFIERS (CLIENT): add a new meta data for an identifier and try to retrieve it back"""
 
-        account = generate_uuid().lower()[:20]
+        account = 'jdoe'
+        rse = 'MOCK'
         scope = generate_uuid()[:30]
-        rse = generate_uuid()
         file = generate_uuid()
         keys = []
         values = []
@@ -338,9 +318,7 @@ class TestDIDClients():
             keys.append(generate_uuid())
             values.append(generate_uuid())
 
-        self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
-        self.rse_client.add_rse(rse)
         self.rse_client.add_file_replica(rse, scope, file, 1L, 1L)
         for i in xrange(10):
             self.meta_client.add_key(keys[i], key_type='all')
@@ -353,10 +331,9 @@ class TestDIDClients():
 
     def test_list_contents(self):
         """ DATA IDENTIFIERS (CLIENT): test to list contents for an identifier"""
-
-        account = generate_uuid().lower()[:20]
+        account = 'jdoe'
+        rse = 'MOCK'
         scope = generate_uuid()[:22]
-        rse = generate_uuid()
         dataset1 = generate_uuid()
         dataset2 = generate_uuid()
         container = generate_uuid()
@@ -366,9 +343,7 @@ class TestDIDClients():
             files1.append({'scope': scope, 'name': generate_uuid(), 'size': 1L, 'adler32': '0cc737eb'})
             files2.append({'scope': scope, 'name': generate_uuid(), 'size': 1L, 'adler32': '0cc737eb'})
 
-        self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
-        self.rse_client.add_rse(rse)
         for i in xrange(10):
             self.rse_client.add_file_replica(rse, scope, files1[i]['name'], 1L, '0cc737eb')
             self.rse_client.add_file_replica(rse, scope, files2[i]['name'], 1L, '0cc737eb')
@@ -391,9 +366,9 @@ class TestDIDClients():
 
     def test_list_files(self):
         """ DATA IDENTIFIERS (CLIENT): test to list all files for a container"""
-        account = generate_uuid().lower()[:30]
+        account = 'jdoe'
+        rse = 'MOCK'
         scope = generate_uuid()[:30]
-        rse = generate_uuid().upper()
         dataset1 = generate_uuid()
         dataset2 = generate_uuid()
         container = generate_uuid()
@@ -403,9 +378,7 @@ class TestDIDClients():
             files1.append({'scope': scope, 'name': generate_uuid(), 'size': 1L, 'adler32': '0cc737eb'})
             files2.append({'scope': scope, 'name': generate_uuid(), 'size': 1L, 'adler32': '0cc737eb'})
 
-        self.account_client.add_account(account, 'user')
         self.scope_client.add_scope(account, scope)
-        self.rse_client.add_rse(rse)
         for i in xrange(10):
             self.rse_client.add_file_replica(rse, scope, files1[i]['name'], 1L, '0cc737eb')
             self.rse_client.add_file_replica(rse, scope, files2[i]['name'], 1L, '0cc737eb')
@@ -435,13 +408,11 @@ class TestDIDClients():
     def test_close(self):
         """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""
 
+        tmp_rse = 'MOCK'
+
         # Add a scope
         tmp_scope = 'scope_%s' % generate_uuid()[:22]
-        self.scope_client.add_scope('root', tmp_scope)
-
-        # Add a RSE
-        tmp_rse = 'RSE_%s' % generate_uuid()
-        self.rse_client.add_rse(tmp_rse)
+        self.scope_client.add_scope('jdoe', tmp_scope)
 
         # Add dataset
         tmp_dataset = 'dsn_%s' % generate_uuid()

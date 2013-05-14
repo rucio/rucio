@@ -26,5 +26,7 @@ class TestReaper():
 
         rse_core.set_rse_usage(rse='MOCK', source='srm', used=nb_files*file_size, free=800L)
         rse_core.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=10737418240L)
+        rse_core.set_rse_limits(rse='MOCK', name='MaxBeingDeletedFiles', value=10)
+
         reaper(once=True)
         reaper(once=True)

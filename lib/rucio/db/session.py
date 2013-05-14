@@ -28,7 +28,6 @@ try:
 except NoOptionError:
     pass
 
-
 _SESSION = None
 
 
@@ -68,8 +67,11 @@ def get_engine(echo=True):
         :returns: engine """
 
     database = config_get('database', 'default')
-
+    #  pool_size = config_get('database', 'pool_size')
+    #  max_overflow = config_get('database', 'max_overflow')
+    #  pool_timeout = config_get('database', 'pool_timeout')
     engine = create_engine(database, echo=False, echo_pool=False, pool_recycle=3600, pool_reset_on_return='rollback')
+    # pool_size=5, max_overflow=10, pool_timeout=30 Should be in configuration file
     if 'mysql' in database:
         event.listen(engine, 'checkout', mysql_ping_listener)
     if 'sqlite' in database:

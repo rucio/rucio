@@ -9,21 +9,19 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
-from uuid import uuid4 as uuid
-
-from rucio.core.account import add_account
-from rucio.core.identity import add_identity, del_identity, add_account_identity,\
-    del_account_identity, list_identities
+from rucio.core.account import add_account, del_account
+from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
+from rucio.tests.common import account_name_generator
 
 
 class TestIdentity():
 
     def setup(self):
-        self.account = str(uuid()).lower()[:30]
+        self.account = account_name_generator()
         add_account(self.account, 'user')
 
     def tearDown(self):
-        pass
+        del_account(self.account)
 
     def test_userpass(self):
         """ IDENTITY (CORE): Test adding and removing username/password authentication """

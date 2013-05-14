@@ -11,15 +11,12 @@
 from nose.tools import assert_true, assert_false
 
 from rucio.api.permission import has_permission
-from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import add_account
 
 
 class TestPermissionCoreApi():
 
     def setup(self):
-        self.usr = str(uuid()).lower()[:30]
-        add_account(self.usr, 'user')
+        self.usr = 'jdoe'
 
     def tearDown(self):
         pass

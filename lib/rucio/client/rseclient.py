@@ -99,13 +99,11 @@ class RSEClient(BaseClient):
 
         path = 'rses/'
         url = build_url(self.host, path=path)
-
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            accounts = loads(r.text)
-            return accounts
+            return self._load_json_data(r)
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
     def add_rse_attribute(self, rse, key, value):
@@ -435,7 +433,7 @@ class RSEClient(BaseClient):
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
-            return self._load_json_data(r)
+            return self._load_json_data(r).next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)

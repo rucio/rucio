@@ -16,6 +16,8 @@ VALUE is what will be stored in the DB.
 DESCRIPTION is the meaningful string for client
 """
 
+from datetime import datetime
+
 from rucio.db.enum import DeclEnum
 
 
@@ -67,7 +69,7 @@ class RSEType(DeclEnum):
     TAPE = 'TAPE', 'TAPE'
 
 
-class ReplicasState(DeclEnum):
+class ReplicaState(DeclEnum):
     AVAILABLE = 'AVAILABLE', 'AVAILABLE'
     UNAVAILABLE = 'UNAVAILABLE', 'UNAVAILABLE'
     COPYING = 'COPYING', 'COPYING'
@@ -114,3 +116,8 @@ class RequestState(DeclEnum):
     SUBMITTED = 'SUBMITTED', 'SUBMITTED'
     FAILED = 'FAILED', 'FAILED'
     DONE = 'DONE', 'DONE'
+
+
+# Individual constants
+
+OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas.
