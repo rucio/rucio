@@ -1,0 +1,4 @@
+{
+    "enum": [ "USER", "GROUP", "SERVICE"],
+    "description": "Account type."
+}
