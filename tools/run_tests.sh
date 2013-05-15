@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 testopts=""
 noseopts="--exclude=.*test_rse_protocol_.* "
@@ -17,24 +18,28 @@ function usage {
   echo "Run Rucio's test suite(s)"
   echo ""
   echo "  -h    Show usage."
-  echo "  -s    Do not skip RSE tests."
+  echo "  -r    Do not skip RSE tests."
   echo "  -c    Include only named class."
   echo "  -t    Include tables required for testing."
   echo "  -i    Do only the initialization."
   echo "  -d    Delete the sqlite db file."
+  echo "  -1    Only run once."
 
   exit
 }
 
-while getopts hsctid opt
+range=$(seq 1 2)
+
+while getopts hrctid1 opt
 do
   case "$opt" in
     h) usage;;
-    s) noseopts="";;
+    r) noseopts="";;
     c) noseopts="$OPTARG";;
     t) testopts="-t";;
     i) init_only="true";;
     d) delete_sqlite="true";;
+    1) range=1;;
   esac
 done
 
@@ -74,7 +79,7 @@ if test ${init_only+defined}; then
     exit
 fi
 
-for i in {1..2}
+for i in $range
 do
     echo "Running tests with nose - Iteration $i"
     echo nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts

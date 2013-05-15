@@ -30,6 +30,7 @@ from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DID
                                 DIDShortType, KeyType, IdentityType, LockState, RuleGrouping,
                                 RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                 ScopeStatus, SubscriptionState)
+from rucio.db.constants import AccountStatus, ScopeStatus, ReplicaState, LockState, RuleState, DIDReEvaluation, RuleGrouping
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
 from rucio.db.types import GUID
@@ -259,6 +260,7 @@ class DataIdentifier(BASE, ModelBase):
     length = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
+    rule_evaluation = Column(DIDReEvaluation.db_type(name='DIDS_RULE_EVALUATION_CHK'))
     expired_at = Column(DateTime)
     deleted_at = Column(DateTime)
     guid = Column(GUID())
@@ -270,7 +272,8 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_NEW_IDX', 'new'),
-                   Index('DIDS_EXPIRED_AT', 'expired_at')
+                   Index('DIDS_EXPIRED_AT', 'expired_at'),
+                   Index('DIDS_RULE_EVALUATION', 'rule_evaluation')
                    )
 
 
@@ -307,12 +310,14 @@ class DataIdentifierAssociation(BASE, ModelBase):
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
+    rule_evaluation = Column(Boolean(name='CONTENTS_RULE_EVALUATION_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
                    CheckConstraint('"TYPE" IS NOT NULL', name='CONTENTS_TYPE_NN'),
                    CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'),)
+                   Index('CONTENTS_RULE_EVALUATION', 'rule_evaluation'))
 
 
 class RSE(BASE, SoftModelBase):
@@ -456,6 +461,7 @@ class ReplicationRule(BASE, ModelBase):
     name = Column(String(255))
     type = Column(DIDShortType.db_type(name='RULES_TYPE_CHK'))
     state = Column(RuleState.db_type(name='RULES_STATE_CHK'), default=RuleState.REPLICATING)
+    error = Column(String(255))
     rse_expression = Column(String(255))
     copies = Column(SmallInteger, default=1)
     expires_at = Column(DateTime)
@@ -470,7 +476,9 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('"GROUPING" IS NOT NULL', name='RULES_GROUPING_NN'),
                    CheckConstraint('"COPIES" IS NOT NULL', name='RULES_COPIES_NN'),
                    CheckConstraint('"LOCKED" IS NOT NULL', name='RULES_LOCKED_NN'),
-                   UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='RULES_UQ'),)
+                   UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='RULES_UQ'),
+                   Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
+                   Index('RULES_EXPIRES_AT_IDX', 'expires_at'))
 
 
 class ReplicaLock(BASE, ModelBase):
