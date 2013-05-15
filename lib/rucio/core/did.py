@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
 from re import match
@@ -23,7 +24,7 @@ from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.core.rse import add_file_replica
 from rucio.db import models
-from rucio.db.constants import ReplicaState
+from rucio.db.constants import ReplicaState, DIDReEvaluation
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
@@ -166,6 +167,12 @@ def attach_identifier(scope, name, dids, account, session=None):
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
+    # Mark for rule re-evaluation
+    if did.rule_evaluation is None:
+        did.rule_evaluation = DIDReEvaluation.ATTACH
+    elif did.rule_evaluation == DIDReEvaluation.DETACH:
+        did.rule_evaluation = DIDReEvaluation.BOTH
+
     query_all = session.query(models.DataIdentifier)
     # query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, type=did.type)
     for source in dids:
@@ -211,7 +218,8 @@ def attach_identifier(scope, name, dids, account, session=None):
         try:
             models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'],
                                              size=source.get('size', None), adler32=source.get('adler32', None),
-                                             md5=source.get('md5', None), type=did.type, child_type=child_type).save(session=session)
+                                             md5=source.get('md5', None), type=did.type, child_type=child_type,
+                                             rule_evaluation=True).save(session=session)
         except IntegrityError, e:
             raise exception.RucioException(e.args[0])
             #if e.args[0] == "(IntegrityError) foreign key constraint failed":
@@ -241,7 +249,12 @@ def detach_identifier(scope, name, dids, issuer, session=None):
     #Row Lock the parent did
     query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name, deleted=False)
     try:
-        query.one()
+        did = query.one()
+        # Mark for rule re-evaluation
+        if did.rule_evaluation is None:
+            did.rule_evaluation = DIDReEvaluation.DETACH
+        elif did.rule_evaluation == DIDReEvaluation.ATTACH:
+            did.rule_evaluation = DIDReEvaluation.BOTH
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
@@ -258,6 +271,21 @@ def detach_identifier(scope, name, dids, issuer, session=None):
         if associ_did is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
         associ_did.delete(session=session)
+
+
+@read_session
+def list_rule_re_evaluation_identifier(limit=None, session=None):
+    """
+    List identifiers which need rule re-evaluation.
+
+    :param type : The DID type.
+    """
+    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.type).filter_by(rule_evaluation=True, deleted=False)
+
+    if limit:
+        query = query.limit(limit)
+    for scope, name, type in query.yield_per(10):
+        yield {'scope': scope, 'name': name, 'type': type}
 
 
 @read_session
@@ -320,41 +348,53 @@ def list_content(scope, name, session=None):
 
 
 @read_session
-def list_parent_dids(scope, name, session=None):
+def list_parent_dids(scope, name, lock=False, session=None):
     """
     List all parent datasets and containers of a did.
 
     :param scope:    The scope.
     :param name:     The name.
-    :param session:  The database session
-    :returns:        List of dids
-    :rtype:          Generator
+    :param lock:     If the rows should be locked.
+    :param session:  The database session.
+    :returns:        List of dids.
+    :rtype:          Generator.
     """
 
-    query = session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, deleted=False)
+    query = session.query(models.DataIdentifierAssociation.scope,
+                          models.DataIdentifierAssociation.name,
+                          models.DataIdentifierAssociation.type).filter_by(child_scope=scope, child_name=name)
+    if lock:
+        query = query.with_lockmode('update')
     for did in query.yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.type}
         list_parent_dids(scope=did.scope, name=did.name, session=session)
 
 
 @read_session
-def list_child_dids(scope, name, session=None):
+def list_child_dids(scope, name, lock=False, session=None):
     """
     List all child datasets and containers of a did.
-    Attention: This list can include duplicates.
 
     :param scope:    The scope.
     :param name:     The name.
+    :param lock:     If the rows should be locked.
     :param session:  The database session
     :returns:        List of dids
     :rtype:          Generator
     """
 
-    query = session.query(models.DataIdentifierAssociation).filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name, models.DataIdentifierAssociation.child_type != 'file')
-    for did in query.yield_per(5):
-        yield {'scope': did.child_scope, 'name': did.child_name, 'type': did.child_type}
-        if did.child_type == 'container':
-            list_child_dids(scope=did.child_scope, name=did.child_name, session=session)
+    query = session.query(models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.child_type).filter(
+                              models.DataIdentifierAssociation.scope == scope,
+                              models.DataIdentifierAssociation.name == name,
+                              models.DataIdentifierAssociation.child_type != 'file')
+    if lock:
+        query = query.with_lockmode('update')
+    for child_scope, child_name, child_type in query.yield_per(5):
+        yield {'scope': child_scope, 'name': child_name, 'type': child_type}
+        if child_type == 'container':
+            list_child_dids(scope=child_scope, name=child_name, session=session)
 
 
 @read_session

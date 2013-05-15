@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime
 from re import match
@@ -380,6 +381,9 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
 
     :returns: True is successful.
     """
+
+    # TODO: If the dsn is used to attach the file to a dataset, the right locking for replication rules has to be done
+    # TODO: Ask Martin about that!
     replica_rse = get_rse(rse=rse, session=session)
     path = None
     if not replica_rse.deterministic:
