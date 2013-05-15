@@ -66,6 +66,12 @@ class DIDAvailability(DeclEnum):
     AVAILABLE = 'A', 'AVAILABLE'
 
 
+class DIDReEvaluation(DeclEnum):
+    ATTACH = 'ATTACH', 'ATTACH'
+    DETACH = 'DETACH', 'DETACH'
+    BOTH = 'BOTH', 'BOTH'
+
+
 class KeyType(DeclEnum):
     ALL = 'ALL', 'ALL'
     COLLECTION = 'COLLECTION', 'COLLECTION'
