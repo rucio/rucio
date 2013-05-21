@@ -12,11 +12,46 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
+import time
 
 import rucio.core.authentication
 import rucio.core.scope
+from rucio.common.config import config_get
 from rucio.core.rule import get_replication_rule
+
+
+class Memoize(object):
+
+    def __init__(self, timeout):
+        self.__cache = {}
+        self.__timeout = timeout
+
+    def __call__(self, func):
+        #print 'In Memoize'
+        def f():
+            if not func.func_name in self.__cache:
+                #print 'Not in cache'
+                self.__cache[func.func_name] = (func(), time.time())
+            else:
+                if time.time()-self.__cache[func.func_name][1] > self.__timeout:
+                    #print 'Cache too old, refreshing'
+                    self.__cache[func.func_name] = (func(), time.time())
+            #print self.__cache
+            return self.__cache[func.func_name][0]
+        return f
+
+
+@Memoize(300)
+def get_special_accounts():
+    accounts = []
+    try:
+        accounts = config_get('accounts', 'special_accounts')
+        accounts = accounts.split(',')
+    except:
+        pass
+    return accounts
 
 
 def has_permission(issuer, action, kwargs):
@@ -223,7 +258,7 @@ def perm_add_identifier(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
 def perm_attach_identifier(issuer, kwargs):
@@ -234,7 +269,7 @@ def perm_attach_identifier(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
 def perm_del_rule(issuer, kwargs):

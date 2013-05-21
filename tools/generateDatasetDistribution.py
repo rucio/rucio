@@ -9,7 +9,9 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
+import os
 import random
+import sys
 
 from rucio.api.rse import add_rse, add_rse_attribute, add_file_replica, list_rses
 from rucio.api.did import attach_identifier, add_identifier
@@ -59,15 +61,21 @@ def createRSEs():
     add_rse_attribute(source_rse, "T0", True, issuer='root')
 
 
-def populateDB():
-    listrses = list_rses()
+def populateDB(filename=None):
+    listrses = list_rses(filters={'deterministic': 1})
     account = 'root'
     nbDatasets = 0
     list = []
     dictDistrib = {}
 
+    if not filename:
+        if os.getenv('RUCIO_HOME'):
+            filename = os.getenv('RUCIO_HOME') + '/etc/data12_8TeV_distribution.txt'
+        else:
+            filename = '/opt/rucio/etc/data12_8TeV_distribution.txt'
+
     # Get the dataset distribution
-    f = open('../etc/data12_8TeV_distribution.txt', 'r')
+    f = open(filename, 'r')
     for line in f:
         if not line.startswith('NBDATASETS'):
             line = line.rstrip('\n')
@@ -111,7 +119,7 @@ def populateDB():
                     while (len(source_rses) != nbreplicas and iter != 100):
                         rnd_site = random.choice(listrses)
                         iter += 1
-                        if not rnd_site in source_rses:
+                        if (not rnd_site in source_rses):
                             source_rses.append(rnd_site)
 
                     dsn = '%s.%s.%s.%s.%s' % (project, run_number, stream_name, prod_step, datatype)
@@ -131,6 +139,17 @@ def populateDB():
                         except InvalidReplicationRule, e:
                             print e
 
-#createRSEs()
-#createMetadata()
-populateDB()
+
+def main(argv):
+    #createRSEs()
+    #createMetadata()
+    filename = None
+    try:
+        filename = argv[0]
+    except IndexError:
+        print 'Will use the default file : data12_8TeV_distribution.txt'
+    populateDB(filename)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
