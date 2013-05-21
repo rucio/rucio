@@ -23,7 +23,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-
+from sqlalchemy.sql.expression import case
 
 from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
@@ -155,10 +155,11 @@ def list_rses(filters={}, session=None):
 
     rse_list = []
 
+    false_value = False  # To make pep8 checker happy ...
     if filters:
-        query = session.query(models.RSEAttrAssociation).\
-            join(models.RSE, models.RSE.id == models.RSEAttrAssociation.rse_id).\
-            filter_by(deleted=False).group_by(models.RSE.id)
+        query = session.query(models.RSE).\
+            join(models.RSEAttrAssociation, models.RSE.id == models.RSEAttrAssociation.rse_id).\
+            filter(models.RSE.deleted == false_value).group_by(models.RSE)
 
         for (k, v) in filters.items():
             if hasattr(models.RSE, k):
@@ -171,8 +172,8 @@ def list_rses(filters={}, session=None):
 
         for row in query:
             d = {}
-            for column in row.rse.__table__.columns:
-                d[column.name] = getattr(row.rse, column.name)
+            for column in row.__table__.columns:
+                d[column.name] = getattr(row, column.name)
             rse_list.append(d)
     else:
 
@@ -424,7 +425,7 @@ def del_file_replica(rse, scope, name, session=None):
     Add File replica.
 
     :param rse: the rse name.
-    :param scope: the tag name.
+    :param scope: the scope name.
     :param name: The data identifier name.
     :param session: The database session in use.
 
@@ -436,6 +437,29 @@ def del_file_replica(rse, scope, name, session=None):
     for row in query:
         row.delete(session=session)
         decrease(rse_id=replica_rse.id, delta=1, bytes=row['size'], session=session)
+
+
+@transactional_session
+def get_file_replica(rse, scope, name, rse_id=None, session=None):
+    """
+    Get File replica.
+
+    :param rse: the rse name.
+    :param scope: the scope name.
+    :param name: The data identifier name.
+    :param rse_id: The RSE Id.
+    :param session: The database session in use.
+
+    :returns: A dictionary with the list of replica attributes.
+    """
+    if not rse_id:
+        rse_id = get_rse_id(rse=rse, session=session)
+
+    row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
+    d = {}
+    for column in row.__table__.columns:
+        d[column.name] = getattr(row, column.name)
+    return d
 
 
 @read_session
@@ -533,6 +557,30 @@ def update_file_replica_state(rse, scope, name, state, session=None):
 
     replica_rse = get_rse(rse=rse, session=session)
     return session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name, lock_cnt=0).update({'state': state})
+
+
+@transactional_session
+def update_replica_lock_counter(rse, scope, name, value, rse_id=None, session=None):
+    """
+    Update File replica lock counters.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param name: The data identifier name.
+    :param value: The number of created/deleted locks.
+    :param rse_id: The id of the RSE.
+    :param session: The database session in use.
+
+    :returns: True or False.
+    """
+    if not rse_id:
+        rse_id = get_rse_id(rse=rse, session=session)
+
+    rowcount = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).\
+        update({'lock_cnt': models.RSEFileAssociation.lock_cnt + value,
+                'tombstone': case([(models.RSEFileAssociation.lock_cnt + value == 0, datetime.utcnow()), ], else_=None)}, synchronize_session=False)
+
+    return bool(rowcount)
 
 
 @transactional_session
