@@ -39,7 +39,7 @@ extensions = ['sphinx.ext.autodoc',
 
 # Path to sedit -setup (http://sdedit.sourceforge.net/)
 # you can use .jar, .exe, .bat, .sh
-sdedit_path = 'externals/sdedit-3.1.jar'
+sdedit_path = '../externals/sdedit-3.1.jar'
 
 
 # Add any paths that contain templates here, relative to this directory.
