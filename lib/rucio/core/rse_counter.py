@@ -28,7 +28,7 @@ def add_counter(rse_id, session=None):
     :param session: The database session in use.
     """
     for num in xrange(MAX_COUNTERS):
-        new_counter = models.Counter(rse_id=rse_id, num=num, total=0, bytes=0)
+        new_counter = models.RSECounter(rse_id=rse_id, num=num, files=0, bytes=0)
         new_counter.save(flush=False, session=session)
 
 
@@ -45,8 +45,8 @@ def increase(rse_id, delta, bytes, session=None):
     :returns: The numbers of affected rows.
     """
     num = randint(0, MAX_COUNTERS - 1)  # to avoid row lock contention
-    rowcount = session.query(models.Counter).filter_by(rse_id=rse_id, num=num).\
-        update({'total': models.Counter.total + delta, 'bytes': models.Counter.bytes + bytes})
+    rowcount = session.query(models.RSECounter).filter_by(rse_id=rse_id, num=num).\
+        update({'files': models.RSECounter.files + delta, 'bytes': models.RSECounter.bytes + bytes})
     return rowcount
 
 
@@ -72,7 +72,7 @@ def del_counter(rse_id, session=None):
     :param bytes: the amount of bytes.
     :param session: The database session in use.
     """
-    rows = session.query(models.Counter).filter_by(rse_id=rse_id).with_lockmode('update').all()
+    rows = session.query(models.RSECounter).filter_by(rse_id=rse_id).with_lockmode('update').all()
     for row in rows:
         row.delete(flush=False, session=session)
 
@@ -87,7 +87,7 @@ def get_counter(rse_id, session=None):
 
     :returns: A dictionary with total and bytes.
     """
-    total, bytes, updated_at = session.query(func.sum(models.Counter.total),
-                                             func.sum(models.Counter.bytes),
-                                             func.max(models.Counter.updated_at)).filter_by(rse_id=rse_id).one()
-    return {'bytes': bytes or 0, 'total': total or 0, 'updated_at':  updated_at}
+    files, bytes, updated_at = session.query(func.sum(models.RSECounter.files),
+                                             func.sum(models.RSECounter.bytes),
+                                             func.max(models.RSECounter.updated_at)).filter_by(rse_id=rse_id).one()
+    return {'bytes': bytes or 0, 'files': files or 0, 'updated_at':  updated_at}

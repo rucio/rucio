@@ -26,7 +26,7 @@ from sqlalchemy.orm.exc import FlushError
 
 
 from rucio.common import exception, utils
-from rucio.core.counter import decrease, increase, add_counter
+from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
 from rucio.db.constants import ReplicaState, OBSOLETE
 from rucio.db.session import read_session, transactional_session

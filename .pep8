@@ -1,2 +1,5 @@
 [pep8]
 max-line-length=256
+
+[flake8]
+max-line-length=256
