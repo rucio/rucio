@@ -366,15 +366,15 @@ class RSEUsage(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
 
 
-class Counter(BASE, ModelBase):
+class RSECounter(BASE, ModelBase):
     """Represents general-purpose counters"""
     __tablename__ = 'rse_counters'
     rse_id = Column(GUID())
     num = Column(Integer)  # to avoid concurrency
-    total = Column(BigInteger)
+    files = Column(BigInteger)
     bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('rse_id', 'num', name='COUNTERS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='COUNTERS_RSE_ID_FK'))
+    _table_args = (PrimaryKeyConstraint('rse_id', 'num', name='RSE_COUNTERS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_COUNTERS_RSE_ID_FK'))
 
 
 class RSEAttrAssociation(BASE, ModelBase):
@@ -506,6 +506,20 @@ class ReplicaLock(BASE, ModelBase):
                    )
 
 
+class AccountCounter(BASE, ModelBase):
+    """Represents counters for locks and accounts"""
+    __tablename__ = 'account_counters'
+    account = Column(String(30))
+    rse_id = Column(GUID())
+    num = Column(Integer)
+    files = Column(BigInteger)
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'num', name='ACCOUNT_COUNTERS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_COUNTERS_ID_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_COUNTERS_ACCOUNT_FK'),
+                   )
+
+
 class Request(BASE, ModelBase):
     """Represents a request for a single file with a third party service"""
     __tablename__ = 'requests'
@@ -577,10 +591,10 @@ def register_models(engine):
     Creates database tables for all models with the given engine
     """
     models = (Account,
+              AccountCounter,
               AccountLimit,
               AccountUsage,
               Callback,
-              Counter,
               DIDAttribute,
               DIDKey,
               DIDKeyValueAssociation,
@@ -589,6 +603,7 @@ def register_models(engine):
               IdentityAccountAssociation,
               RSE,
               RSEAttrAssociation,
+              RSECounter,
               RSEFileAssociation,
               RSELimit,
               RSEProtocols,
@@ -610,10 +625,10 @@ def unregister_models(engine):
     Drops database tables for all models with the given engine
     """
     models = (Account,
+              AccountCounter,
               AccountLimit,
               AccountUsage,
               Callback,
-              Counter,
               DIDAttribute,
               DIDKey,
               DIDKeyValueAssociation,
@@ -622,6 +637,7 @@ def unregister_models(engine):
               IdentityAccountAssociation,
               RSE,
               RSEAttrAssociation,
+              RSECounter,
               RSEFileAssociation,
               RSELimit,
               RSEProtocols,
