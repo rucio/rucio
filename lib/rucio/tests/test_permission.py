@@ -7,10 +7,13 @@
 #
 # Authors:
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 from nose.tools import assert_true, assert_false
 
 from rucio.api.permission import has_permission
+from rucio.core.scope import add_scope
+from rucio.common.utils import generate_uuid as uuid
 
 
 class TestPermissionCoreApi():
@@ -20,6 +23,13 @@ class TestPermissionCoreApi():
 
     def tearDown(self):
         pass
+
+    def test_permission_add_did(self):
+        """ PERMISSION(CORE): Check permission to add a did"""
+        scope = 'test_scope_' + str(uuid())[:19]
+        add_scope(scope=scope, account='root')
+        assert_true(has_permission(issuer='panda', action='add_identifier', kwargs={'scope': scope}))
+        assert_false(has_permission(issuer='spock', action='add_identifier', kwargs={'scope': scope}))
 
     def test_permission_add_account(self):
         """ PERMISSION(CORE): Check permission to add account """
