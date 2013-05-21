@@ -453,7 +453,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='REPLICAS_STATE_NN'),
-                   CheckConstraint('"SIZE" IS NOT NULL', name='REPLICAS_SIZE_NN'),
+                   CheckConstraint('"size" IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
