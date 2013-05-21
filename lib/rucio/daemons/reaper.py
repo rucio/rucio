@@ -18,7 +18,7 @@ import traceback
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.core import monitor, rse as rse_core
-from rucio.core.counter import get_counter
+from rucio.core.rse_counter import get_counter
 from rucio.db.constants import ReplicaState
 from rucio.rse.rsemanager import RSEMgr
 
