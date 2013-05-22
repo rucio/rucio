@@ -2,7 +2,7 @@
 
 # cx_Oracle==5.1.1         # Oracle connector
 # MySQL-python==1.2.3      # MySQL connector
-SQLAlchemy==0.8.1          # db backend
+SQLAlchemy==0.7.10         # db backend
 sqlalchemy-migrate==0.7.2  # To deal with database schema changes
 #Jinja2>=2.3               # Template engine
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
@@ -11,24 +11,24 @@ web.py==0.37               # Python web framework
 
 # Celery==2.5.1            # Distributed Task Queue
 # importlib==1.0.2         # An implementation of import
-anyjson==0.3.1           # Wraps the best available JSON implementation available in a common interface
-jsonschema==0.6          # JSON Schema
+anyjson==0.3.1             # Wraps the best available JSON implementation available in a common interface
+jsonschema==0.6            # JSON Schema
 
 # kombu==2.1.2             # AMQP Messaging Framework
-python-dateutil==1.5     # Extensions to the standard datetime module
-ordereddict==1.1         # Ordered Dictionary
+python-dateutil==1.5       # Extensions to the standard datetime module
+ordereddict==1.1           # Ordered Dictionary
 # amqplib==1.0.2           # AMQP Client Library
 
 # For the rucio daemons
-supervisor==3.0b1        # Supervisor is a client/server system that allows its users to monitor and control a number of processes on UNIX-like operating systems.
-meld3==0.6.10            # an HTML/XML templating system for Python 2.3+
+supervisor==3.0b1          # Supervisor is a client/server system that allows its users to monitor and control a number of processes on UNIX-like operating systems.
+meld3==0.6.10              # an HTML/XML templating system for Python 2.3+
 
 # This must be installed before matplotlib !!!
 # numpy==1.6.1             # Numerical Python libs
 
-pysftp==0.2.2            # forces installation of paramikoi and pycrypto
+pysftp==0.2.2              # forces installation of paramikoi and pycrypto
 paramiko==1.7.7.2
 pycrypto==2.6
-s3cmd==1.5.0-alpha3      # Package built from http://s3tools.org/download
-python-magic==0.4.2      # Dependency for S3, but unfortunately not installed by it automatically
-gearman==2.0.2           # Used only gor emulation framework
+s3cmd==1.5.0-alpha3        # Package built from http://s3tools.org/download
+python-magic==0.4.2        # Dependency for S3, but unfortunately not installed by it automatically
+gearman==2.0.2             # Used only gor emulation framework
