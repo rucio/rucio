@@ -41,6 +41,7 @@ The following concepts define how data is organised, accessed, and catalogued by
     overview_Accounting_and_quota
     overview_Notifications
     overview_Subscriptions
+    overview_Scheduled_Transfers
 
 Architecture
 ============
@@ -126,4 +127,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
