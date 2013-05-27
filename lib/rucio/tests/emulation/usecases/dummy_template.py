@@ -25,7 +25,7 @@ class UseCaseDefinition(UCEmulator):
 
             :param tse: time series element of the current time frame
         """
-        print 'Perform UA1 (incl sleeep 0.1)'
+        print 'Perform UA1'
         return {'switch': run_no % 5}
 
     def DUMMY_UC1_input(self, ctx):
@@ -36,10 +36,11 @@ class UseCaseDefinition(UCEmulator):
 
             :returns: a dict representing the input parameters for the use case
         """
+        #print 'UC1 - ctx: %s' % ctx
         ctx.run += 1
         return {'run_no': ctx.run}
 
-    def _DUMMY_UC2_input(self, ctx):
+    def DUMMY_UC2_input(self, ctx):
         """
             Will be executed everytime before the use case is executed.
 
@@ -48,9 +49,9 @@ class UseCaseDefinition(UCEmulator):
             :returns: a dict representing the input parameters for the use case
         """
         ctx.run += 1
-        print '(UC2) preparing run no. %s' % ctx.run
+        #print '(UC2) preparing run no. %s' % ctx.run
 
-    def _DUMMY_UC1_output(self, ctx, output):
+    def DUMMY_UC1_output(self, ctx, output):
         """
             Will be executed everytime after the execution of use case has finished.
             IMPORTANT: If emulation is run in gearman mode, a separate thread is created waiting for the gearman job to finish.
@@ -59,6 +60,7 @@ class UseCaseDefinition(UCEmulator):
             :params ctx: The context of the use case module.
             :params kwargs: Whatever the according use case returns.
         """
+        #print 'UC1 output'
         if not output['switch']:
             ctx.run = 0
 
@@ -193,14 +195,16 @@ class UseCaseDefinition(UCEmulator):
         raise DummyUC3Exception('Test Exception UC3')
         pass
 
-    def setup(self, cfg, ctx):
+    def setup(self, ctx):
         """
             Sets up shared information/objects between the use cases and creates between one
             and ten empty datasets for the UC_TZ_REGISTER_APPEND use case.
 
             :param cfg: the context of etc/emulation.cfg
         """
+        print '\tSetup cfg - param'
         ctx.run = 0
+        print '\t%s' % ctx
 
     def some_method(self, arg1, arg2):
         sleep(0.01)
