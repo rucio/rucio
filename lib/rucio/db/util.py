@@ -7,6 +7,8 @@
 # Authors:
 # - Vincent Garonne,  <vincent.garonne@cern.ch>, 2013
 
+from traceback import format_exc
+
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 
@@ -77,10 +79,16 @@ def drop_everything(echo=True):
         all_fks.extend(fks)
 
     for fkc in all_fks:
-        conn.execute(DropConstraint(fkc))
+        try:
+            conn.execute(DropConstraint(fkc))
+        except:
+            print format_exc()
 
     for table in tbs:
-        conn.execute(DropTable(table))
+        try:
+            conn.execute(DropTable(table))
+        except:
+            print format_exc()
 
     trans.commit()
 
