@@ -13,8 +13,10 @@ Search datasets with wildcard pattern, meta-data
 
 .. sequence-diagram::
 
-    HTTPClient::                                                                                                                                                                                                                                                                 REST::
-    Core::                                                                                                                                                                                                                                                                       DB::
+    HTTPClient::
+    REST::
+    Core::
+    DB::
 
     HTTPClient:[datasets]=REST.GET /datasets/{regular expression}
     REST:[datasets]=Core.searchDatasets({regular expression})
