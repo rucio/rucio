@@ -28,6 +28,7 @@ from rucio.core.did import list_dids
 from rucio.common.exception import (DataIdentifierNotFound, UnsupportedOperation,
                                     UnsupportedStatus)
 from rucio.common.utils import generate_uuid
+from rucio.tests.common import scope_name_generator
 
 
 class TestDIDCore():
@@ -45,7 +46,7 @@ class TestDIDApi():
 
     def test_list_new_identifiers(self):
         """ DATA IDENTIFIERS (API): List new identifiers """
-        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_scope = scope_name_generator()
         tmp_dsn = 'dsn_%s' % generate_uuid()
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
@@ -60,7 +61,7 @@ class TestDIDApi():
 
     def test_update_new_identifiers(self):
         """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
-        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_scope = scope_name_generator()
         tmp_dsn = 'dsn_%s' % generate_uuid()
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
@@ -84,7 +85,7 @@ class TestDIDClients():
 
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
-        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_scope = scope_name_generator()
         tmp_rse = 'MOCK2'
         tmp_dsn = 'dsn_%s' % generate_uuid()
 
@@ -134,7 +135,7 @@ class TestDIDClients():
 
     def test_exists(self):
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
-        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_scope = scope_name_generator()
         tmp_file = 'file_%s' % generate_uuid()
         tmp_rse = 'MOCK'
 
@@ -154,7 +155,7 @@ class TestDIDClients():
 
         account = 'jdoe'
         rse = 'MOCK'
-        scope = 'scope_%s' % generate_uuid()[:20]
+        scope = scope_name_generator()
         file = ['file_%s' % generate_uuid() for i in range(10)]
         dst = ['dst_%s' % generate_uuid() for i in range(4)]
         cnt = ['cnt_%s' % generate_uuid() for i in range(4)]
@@ -192,7 +193,7 @@ class TestDIDClients():
 
         account = 'jdoe'
         rse = 'MOCK'
-        scope = 'scope_%s' % generate_uuid()[:24]
+        scope = scope_name_generator()
         file = ['file_%s' % generate_uuid() for i in range(10)]
         dst = ['dst_%s' % generate_uuid() for i in range(4)]
         cnt = ['cnt_%s' % generate_uuid() for i in range(2)]
@@ -237,7 +238,7 @@ class TestDIDClients():
 
         # create some dummy data
         self.tmp_accounts = ['jdoe' for i in xrange(3)]
-        self.tmp_scopes = ['scope_%s' % generate_uuid()[:22] for i in xrange(3)]
+        self.tmp_scopes = [scope_name_generator() for i in xrange(3)]
         self.tmp_rses = ['MOCK_%s' % generate_uuid()[:20] for i in xrange(3)]
         self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(3)]
         self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(3)]
@@ -289,7 +290,7 @@ class TestDIDClients():
 
         account = 'jdoe'
         rse = 'MOCK'
-        scope = generate_uuid()[:30]
+        scope = scope_name_generator()
         file = generate_uuid()
         dsn = generate_uuid()
 
@@ -310,7 +311,7 @@ class TestDIDClients():
 
         account = 'jdoe'
         rse = 'MOCK'
-        scope = generate_uuid()[:30]
+        scope = scope_name_generator()
         file = generate_uuid()
         keys = []
         values = []
@@ -333,7 +334,7 @@ class TestDIDClients():
         """ DATA IDENTIFIERS (CLIENT): test to list contents for an identifier"""
         account = 'jdoe'
         rse = 'MOCK'
-        scope = generate_uuid()[:22]
+        scope = scope_name_generator()
         dataset1 = generate_uuid()
         dataset2 = generate_uuid()
         container = generate_uuid()
@@ -368,7 +369,7 @@ class TestDIDClients():
         """ DATA IDENTIFIERS (CLIENT): test to list all files for a container"""
         account = 'jdoe'
         rse = 'MOCK'
-        scope = generate_uuid()[:30]
+        scope = scope_name_generator()
         dataset1 = generate_uuid()
         dataset2 = generate_uuid()
         container = generate_uuid()
@@ -411,7 +412,7 @@ class TestDIDClients():
         tmp_rse = 'MOCK'
 
         # Add a scope
-        tmp_scope = 'scope_%s' % generate_uuid()[:22]
+        tmp_scope = scope_name_generator()
         self.scope_client.add_scope('jdoe', tmp_scope)
 
         # Add dataset

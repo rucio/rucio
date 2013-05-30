@@ -17,6 +17,7 @@ from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import generate_uuid as uuid
+from rucio.tests.common import scope_name_generator
 
 
 class TestMetaDIDClient():
@@ -30,7 +31,7 @@ class TestMetaDIDClient():
     def test_add_list_meta(self):
         """ META DID (CLIENTS):  Add metadata to a data identifier"""
         # Add a scope
-        tmp_scope = 'scope_%s' % uuid()[:22]
+        tmp_scope = scope_name_generator()
         self.scope_client.add_scope('root', tmp_scope)
 
         # Add a dataset
