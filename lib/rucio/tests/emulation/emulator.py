@@ -10,15 +10,18 @@
 
 
 import json
+import multiprocessing
+import operator
+import os
 import sys
 import time
 import threading
 import traceback
 
-from pystatsd import Client
 from gearman.admin_client import GearmanAdminClient
+from pystatsd import Client
 
-
+from rucio.tests.emulation.ucprocess import UCProcess
 """
     Executes all use cases defined in rucio.tests.emulation.usecases according to the time series
     defined in /opt/rucio/lib/rucio/tests/emulation/timeseries.
@@ -27,19 +30,25 @@ from gearman.admin_client import GearmanAdminClient
 """
 
 
-def observe_gearman_queue(cfg, oberserver_event):
+def observe_gearman_queue(cfg, stop_event):
     ac = GearmanAdminClient(cfg['gearman'])
     cs = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
-    while observer_event.is_set() is False:
+    while stop_event.is_set() is False:
         stat = ac.get_status()
         for task in stat:
             if task['task'] == 'execute_uc':
                 cs.update_stats('gearman.queue', task['queued'])
-        observer_event.wait(1.0)
+        try:
+            stop_event.wait(1.0)
+        except KeyboardInterrupt:
+            pass
+    print '= Stopping queue observer ... OK'
+
 
 if __name__ == '__main__':
-    multiplier = 1
     update = 500
+    num_processes = 4
+    stop_event = multiprocessing.Event()
     with open('/opt/rucio/etc/emulation.cfg') as f:
         cfg = json.load(f)
     print '=' * 80
@@ -47,10 +56,10 @@ if __name__ == '__main__':
     # Printing configuration for testrun
     for setting in cfg['global']:
         print '= Emulation -> %s:\t %s' % (setting, cfg['global'][setting])
-        if setting == 'multiplier':
-            multiplier = cfg['global'][setting]
         if setting == 'update_interval':
             update = cfg['global'][setting]
+        if setting == 'processes':
+            num_processes = cfg['global'][setting]
 
     # Initialize carbon logger
     cs = None
@@ -68,8 +77,7 @@ if __name__ == '__main__':
     if cfg['global']['operation_mode'] == 'gearman':
         print '=' * 36 + ' GEARMAN ' + '=' * 35
         try:
-            observer_event = threading.Event()
-            t = threading.Thread(target=observe_gearman_queue, args=[cfg['global'], observer_event])
+            t = threading.Thread(target=observe_gearman_queue, args=[cfg['global'], stop_event])
             t.deamon = True
             t.start()
             print '= Setting up gearman queue observer ... OK'
@@ -80,92 +88,55 @@ if __name__ == '__main__':
 
     print '=' * 31 + ' INCLUDED USECASES ' + '=' * 30
     uc_array = dict()
-    for module_name in cfg:
-        if module_name == 'global':
+
+    # Distributing WL over processes
+    proc_load = {}
+    proc_mod = {}
+    for i in range(num_processes):
+        proc_load[i] = 0
+        proc_mod[i] = []
+
+    for mod in cfg:
+        if mod == 'global':
             continue
-        try:
-            print '= Instanciating module \'%s\' ... ' % module_name
-            obj = __import__('rucio.tests.emulation.usecases.%s' % module_name)  # Not sure why this is needed, but couldn't find an other working way
-            for mn in ['tests', 'emulation', 'usecases', module_name, 'UseCaseDefinition']:
-                obj = getattr(obj, mn)
-            # Applying multiplier to Hz rates
-            print '== Importing sucessful. Exexcuting setup ...'
-            for uc in cfg[module_name]:
-                if uc == 'context':
-                    continue
-                cfg[module_name][uc] *= multiplier
-            obj = obj(cfg[module_name], cs)  # Instanciate UC object
-            print '== Initialized frequencies: %s' % obj.get_intervals()
-            uc_array[module_name] = obj
-        except Exception, e:
-            print '!! Error importing module \'%s\' !!' % module_name
-            print traceback.format_exc()
+        uc_array[mod] = 0
+        for uc in cfg[mod]:
+            if uc == 'context':
+                continue
+            uc_array[mod] += cfg[mod][uc]
+    sorted_uc = sorted(uc_array.iteritems(), key=operator.itemgetter(1))
+    while len(sorted_uc):
+        smallest = sorted(proc_load.iteritems(), key=operator.itemgetter(1))[0][0]
+        uc = sorted_uc.pop()
+        proc_load[smallest] += uc[1]
+        proc_mod[smallest].append(uc[0])
 
-    if len(uc_array.items()) == 0:
-        print '!! No use case definition found. !!'
-        exit(1)
+    # Starting all processes
+    procs = []
+    for proc in proc_mod:
+        if len(proc_mod[proc]):
+            ucp = UCProcess(cfg, proc_mod[proc], stop_event)
+            procs.append(ucp)
+    print '=' * 30 + ' STARTING EXECUTION ' + '=' * 30
+    for ucp in procs:
+            p = multiprocessing.Process(target=ucp.run)
+            p.deamon = True
+            p.start()
 
-    print '=' * 80
-
-    # Starting all defined use cases
-    uc_threads = dict()
     try:
-        event = threading.Event()
-        for uc in uc_array.items():
-            run = getattr(uc[1], 'run')
-            t = threading.Thread(target=run, args=[cfg['global'], event])
-            t.deamon = True
-            t.start()
-            uc_threads[uc] = t
-
-        with open('/opt/rucio/etc/emulation.cfg') as f:
-            cfg = json.load(f)
+        pid = os.getpid()
         while True:
-            time.sleep(update)
-            print '=' * 22 + '> Checking configuration for updates '
-            with open('/opt/rucio/etc/emulation.cfg') as f:
-                cfg_new = json.load(f)
-            update = cfg_new['global']['update_interval']
-            if cfg_new['global']['multiplier'] != cfg['global']['multiplier']:
-                # Update workload multiplier of all UCs
-                print '== Updating workload multiplier changed to %s' % cfg_new['global']['multiplier']
-                multiplier = cfg_new['global']['multiplier']
-                for mod in cfg_new:
-                    if mod == 'global':
-                        continue
-                    ucs_new = dict()
-                    for uc in cfg_new[mod]:
-                        if uc == 'context':
-                            continue
-                        ucs_new[uc] = cfg_new[mod][uc] * multiplier
-                    try:
-                        uc_array[mod].update_ucs(ucs_new)
-                    except KeyError, e:
-                        print 'Unknow module found in CFG file'
-                        print e
-            for mod in cfg_new:
-                if mod == 'global':
-                    continue
-                if cfg_new[mod] != cfg[mod]:
-                    for part in cfg_new[mod]:
-                        if cfg[mod][part] != cfg_new[mod][part]:
-                            if part == 'context':
-                                uc_array[mod].update_ctx(cfg_new[mod][part])
-                            else:
-                                uc_array[mod].update_ucs({part: cfg_new[mod][part] * multiplier})
-            cfg = cfg_new
+            time.sleep(10)
+            print '= (PID: %s) Main Process' % pid
 
     except KeyboardInterrupt:
         print 'Stopping emulation ...'
-        for uc in uc_array.items():
-            uc[1].stop()
-        if cfg['global']['operation_mode'] == 'gearman':
-            observer_event.set()
+        stop_event.set()
         exit(0)
 
     except:
-        print '%f\tException' % (time.time())
+        print '%f\t Exception' % (time.time())
         traceback.print_exc(file=sys.stdout)
-        for uc in uc_array.items():
-            uc[1].stop()
+        for proc in procs:
+            proc.stop()
         exit(2)
