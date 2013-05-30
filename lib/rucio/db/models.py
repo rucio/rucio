@@ -18,7 +18,7 @@ SQLAlchemy models for rucio data
 
 import datetime
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Integer, String as _String, event, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, SmallInteger, String as _String, event, UniqueConstraint
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import object_mapper, relationship, backref
@@ -26,7 +26,10 @@ from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint,
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
-from rucio.db.constants import AccountStatus, ScopeStatus, ReplicaState
+from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType,
+                                DIDShortType, KeyType, IdentityType, LockState, RuleGrouping,
+                                RuleState, ReplicaState, RequestState, RequestType, RSEType,
+                                ScopeStatus, SubscriptionState)
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
 from rucio.db.types import GUID
@@ -37,12 +40,6 @@ from rucio.db.types import GUID
 def String(*arg, **kw):
     kw['convert_unicode'] = 'force'
     return _String(*arg, **kw)
-
-
-class DataIdType:
-    FILE = 'file'
-    DATASET = 'dataset'
-    CONTAINER = 'container'
 
 
 @compiles(Boolean, "oracle")
@@ -89,6 +86,9 @@ def _ck_constraint_name(const, table):
 
 @event.listens_for(Table, "after_parent_attach")
 def _add_created_col(table, metadata):
+    if not table.name.upper():
+        pass
+
     if not table.name.upper().endswith('_HISTORY'):
 #        table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow))
 #        table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
@@ -179,11 +179,11 @@ class SoftModelBase(ModelBase):
         self.save(session=session)
 
 
-class Account(BASE, SoftModelBase):
+class Account(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
-    account = Column(String(30))
-    type = Column(Enum('user', 'group', 'service', name='ACCOUNTS_TYPE_CHK'))
+    account = Column(String(25))
+    type = Column(AccountType.db_type(name='ACCOUNTS_TYPE_CHK'))
     status = Column(AccountStatus.db_type(default=AccountStatus.ACTIVE, name='ACCOUNTS_STATUS_CHK'))
     suspended_at = Column(DateTime)
     deleted_at = Column(DateTime)
@@ -193,11 +193,11 @@ class Account(BASE, SoftModelBase):
                    )
 
 
-class Identity(BASE, ModelBase):
+class Identity(BASE, SoftModelBase):
     """Represents an identity"""
     __tablename__ = 'identities'
     identity = Column(String(255))
-    type = Column(Enum('x509', 'gss', 'userpass', name='IDENTITIES_TYPE_CHK'))  # If you change this, then don't forget to change in the IdentityAccountAssociation as well
+    type = Column(IdentityType.db_type(name='IDENTITIES_TYPE_CHK'))
     username = Column(String(255))
     password = Column(String(255))
     salt = Column(LargeBinary(255))
@@ -212,8 +212,8 @@ class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity"""
     __tablename__ = 'account_map'
     identity = Column(String(255))
-    type = Column(Enum('x509', 'gss', 'userpass', name='ACCOUNT_MAP_TYPE_CHK'))
-    account = Column(String(30))
+    type = Column(IdentityType.db_type(name='ACCOUNT_MAP_TYPE_CHK'))
+    account = Column(String(25))
     is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
@@ -226,8 +226,8 @@ class IdentityAccountAssociation(BASE, ModelBase):
 class Scope(BASE, ModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
-    scope = Column(String(30))
-    account = Column(String(30))
+    scope = Column(String(25))
+    account = Column(String(25))
     is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
     status = Column(ScopeStatus.db_type(name='SCOPE_STATUS_CHK', default=ScopeStatus.OPEN))
     closed_at = Column(DateTime)
@@ -240,33 +240,35 @@ class Scope(BASE, ModelBase):
                    )
 
 
-class DataIdentifier(BASE, SoftModelBase):
+class DataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'dids'
-    scope = Column(String(30))
+    scope = Column(String(25))
     name = Column(String(255))
-    account = Column(String(30))
-    type = Column(Enum('file', 'dataset', 'container', name='DIDS_TYPE_CHK'))
+    account = Column(String(25))
+    type = Column(DIDType.db_type(name='DIDS_TYPE_CHK'))
     open = Column(Boolean(name='DIDS_OPEN_CHK'))
     monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
     hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
     obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
     complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
     new = Column(Boolean(name='DIDS_NEW_CHK'), server_default='1')
-    availability = Column(Enum('lost', 'deleted', 'available', name='DIDS_AVAILABILITY_CHK'))
+    availability = Column(DIDAvailability.db_type(name='DIDS_AVAILABILITY_CHK'))
     suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
-    size = Column(BigInteger)
+    bytes = Column(BigInteger)
+    length = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
-    guid = Column(GUID())
     expired_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    guid = Column(GUID())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
-                   UniqueConstraint('guid', name='DIDS_GUID_UQ'),
+                   #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_NEW_IDX', 'new'),
                    Index('DIDS_EXPIRED_AT', 'expired_at')
                    )
@@ -276,7 +278,7 @@ class DIDKey(BASE, ModelBase):
     """Represents Data IDentifier property keys"""
     __tablename__ = 'did_keys'
     key = Column(String(255))
-    key_type = Column(Enum('all', 'collection', 'file', 'derived', name='DID_KEYS_KEY_TYPE_CHK'))
+    key_type = Column(KeyType.db_type(name='DID_KEYS_KEY_TYPE_CHK'))
     value_type = Column(String(255))
     value_regexp = Column(String(255))
     _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),
@@ -293,30 +295,16 @@ class DIDKeyValueAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_MAP_KEYS_FK'),)
 
 
-class DIDAttribute(BASE, ModelBase):
-    """Represents Data IDentifier  properties"""
-    __tablename__ = 'did_attributes'
-    scope = Column(String(30))
-    name = Column(String(255))
-    key = Column(String(255))
-    value = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'key', name='DID_ATTR_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_ATTR_SCOPE_NAME_FK'),
-                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DID_ATTR_SCOPE_FK'),
-                   ForeignKeyConstraint(['key'], ['did_keys.key'], name='DID_ATTR_KEYS_FK'),
-                   Index('DID_ATTR_KEY_IDX', 'key'),)
-
-
 class DataIdentifierAssociation(BASE, ModelBase):
     """Represents the map between containers/datasets and files"""
     __tablename__ = 'contents'
-    scope = Column(String(30))         # dataset scope
+    scope = Column(String(25))          # dataset scope
     name = Column(String(255))          # dataset name
-    child_scope = Column(String(30))   # Provenance scope
+    child_scope = Column(String(25))    # Provenance scope
     child_name = Column(String(255))    # Provenance name
-    type = Column(Enum('file', 'dataset', 'container', name='CONTENTS_TYPE_CHK'))
-    child_type = Column(Enum('file', 'dataset', 'container', name='CONTENTS_CHILD_TYPE_CHK'))
-    size = Column(BigInteger)
+    type = Column(DIDShortType.db_type(name='CONTENTS_TYPE_CHK'))
+    child_type = Column(DIDShortType.db_type(name='CONTENTS_CHILD_TYPE_CHK'))
+    bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
@@ -324,7 +312,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
                    CheckConstraint('"TYPE" IS NOT NULL', name='CONTENTS_TYPE_NN'),
                    CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
-                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name'),)
+                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'),)
 
 
 class RSE(BASE, SoftModelBase):
@@ -332,8 +320,7 @@ class RSE(BASE, SoftModelBase):
     __tablename__ = 'rses'
     id = Column(GUID(), default=utils.generate_uuid)
     rse = Column(String(255))
-    type = Column(Enum('disk', 'tape', name='RSES_TYPE_CHK'), default='disk')
-    prefix = Column(String(1024))
+    type = Column(RSEType.db_type(name='RSES_TYPE_CHK'), default=RSEType.DISK)
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
@@ -414,7 +401,7 @@ class RSEProtocols(BASE, ModelBase):
 class AccountLimit(BASE, ModelBase):
     """Represents account limits"""
     __tablename__ = 'account_limits'
-    account = Column(String(30))
+    account = Column(String(25))
     rse_expression = Column(String(255))
     name = Column(String(255))
     value = Column(BigInteger)
@@ -425,11 +412,11 @@ class AccountLimit(BASE, ModelBase):
 class AccountUsage(BASE, ModelBase, Versioned):
     """Represents account usage"""
     __tablename__ = 'account_usage'
-    account = Column(String(30))
+    account = Column(String(25))
     rse_id = Column(GUID())
-    name = Column(String(255))
-    value = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'name', name='ACCOUNT_USAGE_PK'),
+    files = Column(BigInteger)
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_USAGE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_USAGE_ACCOUNT_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_USAGE_RSES_ID_FK'), )
 
@@ -438,9 +425,9 @@ class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'replicas'
     rse_id = Column(GUID())
-    scope = Column(String(30))
+    scope = Column(String(25))
     name = Column(String(255))
-    size = Column(BigInteger)
+    bytes = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
     path = Column(String(1024))
@@ -453,7 +440,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='REPLICAS_STATE_NN'),
-                   CheckConstraint('"size" IS NOT NULL', name='REPLICAS_SIZE_NN'),
+                   CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
@@ -464,16 +451,17 @@ class ReplicationRule(BASE, ModelBase):
     __tablename__ = 'rules'
     id = Column(GUID(), default=utils.generate_uuid)
     subscription_id = Column(GUID())
-    account = Column(String(30))
-    scope = Column(String(30))
+    account = Column(String(25))
+    scope = Column(String(25))
     name = Column(String(255))
-    state = Column(Enum('REPLICATING', 'OK', 'STUCK', 'SUSPENDED', name='RULES_STATE_CHK'), default='REPLICATING')
+    type = Column(DIDShortType.db_type(name='RULES_TYPE_CHK'))
+    state = Column(RuleState.db_type(name='RULES_STATE_CHK'), default=RuleState.REPLICATING)
     rse_expression = Column(String(255))
-    copies = Column(Integer(), default=1)
+    copies = Column(SmallInteger, default=1)
     expires_at = Column(DateTime)
     weight = Column(String(255))
     locked = Column(Boolean(name='RULES_LOCKED_CHK'), default=False)
-    grouping = Column(Enum('ALL', 'DATASET', 'NONE', name='RULES_GROUPING_CHK'), default="ALL")
+    grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
@@ -488,28 +476,26 @@ class ReplicationRule(BASE, ModelBase):
 class ReplicaLock(BASE, ModelBase):
     """Represents replica locks"""
     __tablename__ = 'locks'
-    scope = Column(String(30))
+    scope = Column(String(25))
     name = Column(String(255))
     rule_id = Column(GUID())
     rse_id = Column(GUID())
-    account = Column(String(30))
-    size = Column(BigInteger)
-    state = Column(Enum('REPLICATING', 'OK', 'STUCK', name='LOCKS_STATE_CHK'), default='REPLICATING')
+    account = Column(String(25))
+    bytes = Column(BigInteger)
+    state = Column(LockState.db_type(name='LOCKS_STATE_CHK'), default=LockState.REPLICATING)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='LOCKS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='LOCKS_DID_FK'),
                    ForeignKeyConstraint(['rule_id'], ['rules.id'], name='LOCKS_RULE_ID_FK', ondelete='CASCADE'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='LOCKS_RSES_FK'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='LOCKS_STATE_NN'),
-                   Index('LOCKS_RULE_ID_IDX', 'rule_id'),
-                   Index('LOCKS_ACCOUNT_RSE_ID_IDX', 'account', 'rse_id')  # Needed for accounting?
+                   CheckConstraint('"STATE" IS NOT NULL', name='LOCKS_STATE_NN')
                    )
 
 
 class AccountCounter(BASE, ModelBase):
     """Represents counters for locks and accounts"""
     __tablename__ = 'account_counters'
-    account = Column(String(30))
+    account = Column(String(25))
     rse_id = Column(GUID())
     num = Column(Integer)
     files = Column(BigInteger)
@@ -520,16 +506,16 @@ class AccountCounter(BASE, ModelBase):
                    )
 
 
-class Request(BASE, ModelBase):
+class Request(BASE, ModelBase, Versioned):
     """Represents a request for a single file with a third party service"""
     __tablename__ = 'requests'
     id = Column(GUID(), default=utils.generate_uuid)
-    type = Column(Enum('TRANSFER', 'DELETE', 'UPLOAD', 'DOWNLOAD', name='REQUESTS_TYPE_CHK'), default='TRANSFER')
-    scope = Column(String(30))
+    type = Column(RequestType.db_type(name='REQUESTS_TYPE_CHK'), default=RequestType.TRANSFER)
+    scope = Column(String(25))
     name = Column(String(255))
     dest_rse_id = Column(GUID())
     attributes = Column(String(4000))
-    state = Column(Enum('QUEUED', 'SUBMITTED', 'FAILED', 'DONE', name='REQUESTS_STATE_CHK'), default='QUEUED')
+    state = Column(RequestState.db_type(name='REQUESTS_STATE_CHK'), default=RequestState.QUEUED)
     external_id = Column(String(64))
     retry_count = Column(Integer(), default=0)
     err_msg = Column(String(4000))
@@ -549,10 +535,10 @@ class Subscription(BASE, ModelBase, Versioned):
     name = Column(String(64))
     filter = Column(String(2048))
     replication_rules = Column(String(1024))
-    policyid = Column(Integer(), default=0)
-    state = Column(Enum('ACTIVE', 'INACTIVE', 'NEW', 'UPDATED', 'BROKEN', name='SUBSCRIPTIONS_STATE_CHK'), default='ACTIVE')
+    policyid = Column(SmallInteger, default=0)
+    state = Column(SubscriptionState.db_type(name='SUBSCRIPTIONS_STATE_CHK', default=SubscriptionState.ACTIVE))
     last_processed = Column(DateTime, default=datetime.datetime.utcnow())
-    account = Column(String(255))
+    account = Column(String(25))
     #issuer = Column(String(255))
     lifetime = Column(DateTime, default=datetime.datetime(4772, 10, 13))  # default lifetime is till the End of the Maya Long Count Calendar
     retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
@@ -567,7 +553,7 @@ class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
     token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
-    account = Column(String(30))
+    account = Column(String(25))
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('account', 'token', name='TOKENS_TOKEN_ACCOUNT_PK'),
@@ -595,7 +581,6 @@ def register_models(engine):
               AccountLimit,
               AccountUsage,
               Callback,
-              DIDAttribute,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
@@ -629,7 +614,6 @@ def unregister_models(engine):
               AccountLimit,
               AccountUsage,
               Callback,
-              DIDAttribute,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,

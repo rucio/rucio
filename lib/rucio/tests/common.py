@@ -83,6 +83,14 @@ def account_name_generator():
     return 'jdoe-' + str(uuid()).lower()[:20]
 
 
+def scope_name_generator():
+    """ Generate random scope name.
+
+    :returns: A random scope name
+    """
+    return 'mock_' + str(uuid()).lower()[:20]
+
+
 def rse_name_generator(size=10):
     """ Generate random RSE name.
 
