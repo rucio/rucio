@@ -1,8 +1,9 @@
 { 
   "global": { 
-    "multiplier": 1,
+    "multiplier": 70,
     "operation_mode": "gearman",
-    "update_interval": 5,
+    "update_interval": 15,
+    "processes": 4,
     "gearman": ["voatlas320:4730"],
     "carbon": {
       "CARBON_SERVER": "voatlas70.cern.ch",
@@ -11,18 +12,18 @@
     }
   },
   "dummy_template": {
-    "DUMMY_UC1": 2,
-    "DUMMY_UC2": 4,
+    "DUMMY_UC1": 5,
+    "DUMMY_UC2": 5,
     "context": {
       "bla": "blu",
       "one": 1
     }
   },
   "dummy": {
-    "UC1": 24,
-    "UC2": 16,
+    "UC1": 5,
+    "UC2": 5,
     "context": {
-      "bli": "ble",
+      "ble": "bli",
       "two": 2
     }
   }
