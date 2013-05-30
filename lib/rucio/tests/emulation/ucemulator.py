@@ -7,13 +7,15 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+
+
 import ast
 import time
 import threading
 import traceback
 
 from gearman.client import GearmanClient
-from uuid import uuid4 as uuid
+from rucio.common.utils import generate_uuid as uuid
 
 
 class UCEmulator(object):
@@ -83,8 +85,9 @@ class UCEmulator(object):
                 print traceback.format_exc()
 
     def update_ucs(self, ucs):
-        for uc in ucs:
-            self.__intervals[uc] = 1.0 / ucs[uc]
+        for uc in self.__intervals:
+            if uc in ucs:
+                self.__intervals[uc] = 1.0 / ucs[uc]
         print '== Assigned Frequencies for %s: %s' % (self.__module__.split('.')[-1], self.__intervals)
 
     def update_ctx(self, ctx):
@@ -270,12 +273,6 @@ class UCEmulator(object):
         """
             Decorator to help identifying all use cases defined within a module.
         """
-        # Register method as use case
-        #mod = func.__module__.split('.')[-1]
-        #if mod not in cls.__ucs:
-        #    cls.__ucs[mod] = []
-        #cls.__ucs[mod].append(func.__name__)
-
         # Wrap function for exception handling
         def __execute__(self, *args, **kwargs):
             try:
