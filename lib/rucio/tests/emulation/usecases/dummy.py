@@ -24,7 +24,7 @@ class UseCaseDefinition(UCEmulator):
 
             :param tse: time series element of the current time frame
         """
-        print 'Perform UA1'
+        print 'Perform dummy.UC1'
 
     @UCEmulator.UseCase
     def UC2(self):
@@ -34,8 +34,7 @@ class UseCaseDefinition(UCEmulator):
             function to derive the actual number of files added to the dataset.
 
         """
-        #self.time_it(self.some_method, kwargs={'arg1': some_other_information, 'arg2': some_more})
-        print 'Perform UC2'
+        print 'Perform dummy.UC2'
         pass
 
     def setup(self, ctx):
@@ -45,6 +44,4 @@ class UseCaseDefinition(UCEmulator):
 
             :param cfg: the context of etc/emulation.cfg
         """
-        print '\tSetup cfg - param'
         ctx.run = 0
-        print '\t%s' % ctx
