@@ -12,7 +12,7 @@ with open('/opt/rucio/etc/emulation.cfg') as f:
 
 print 'Connecting to gearman server'
 try:
-    gm_worker = gearman.GearmanWorker(cfg['gearman']['server'])
+    gm_worker = gearman.GearmanWorker(cfg['global']['gearman'])
 except Exception, e:
     print 'Unable to connect to gearman server: %s' % cfg['gearman']['server']
     print e
@@ -20,7 +20,7 @@ except Exception, e:
 
 print 'Connecting to carbons server'
 try:
-    carbon_server = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
+    carbon_server = Client(host=cfg['global']['carbon']['CARBON_SERVER'], port=cfg['global']['carbon']['CARBON_PORT'], prefix=cfg['global']['carbon']['USER_SCOPE'])
 except Exception, e:
     print 'Unable to connect to carbon server %s on port %s.' % (cfg['carbon']['CARBON_SERVER'], cfg['carbon']['CARBON_PORT'])
     print e
