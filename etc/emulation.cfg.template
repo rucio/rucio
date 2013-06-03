@@ -1,16 +1,29 @@
-{
-  "global": {
-    "seconds_per_timeframe": 5,
-    "workload_multiplier": 20,
-    "operation_mode": "verbose",
-    "rucio_server": "localhost"
+{ 
+  "global": { 
+    "multiplier": 1,
+    "operation_mode": "gearman",
+    "update_interval": 5,
+    "gearman": ["voatlas320:4730"],
+    "carbon": {
+      "CARBON_SERVER": "voatlas70.cern.ch",
+      "USER_SCOPE": "ralph",
+      "CARBON_PORT": 8125
+    }
   },
-  "gearman": {
-    "gearman_server": ["localhost", "not-localhost"]
+  "dummy_template": {
+    "DUMMY_UC1": 2,
+    "DUMMY_UC2": 4,
+    "context": {
+      "bla": "blu",
+      "one": 1
+    }
   },
-  "carbon": {
-    "CARBON_SERVER": "voatlas70.cern.ch",
-    "CARBON_PORT": 8125,
-    "USER_SCOPE": "DefineUserScopeForLogging"
+  "dummy": {
+    "UC1": 24,
+    "UC2": 16,
+    "context": {
+      "bli": "ble",
+      "two": 2
+    }
   }
 }

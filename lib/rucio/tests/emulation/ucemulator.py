@@ -8,10 +8,8 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 import ast
-import json
 import time
 import threading
-import os
 import traceback
 
 from gearman.client import GearmanClient
@@ -28,9 +26,9 @@ class UCEmulator(object):
         implementing the UseCase decorator) in a frequency according to the current time frame
         defined in the related time series.
     """
-    __ucs = {}
+    #__ucs = {}
 
-    def __init__(self, timeseries_file=None, cfg=None, carbon_server=None, worker_mode=False):
+    def __init__(self, cfg=None, carbon_server=None, worker_mode=False):
         """
             Initializes the use case emulation. It sets up the multiplier of the workload defined in the
             time series file and the operation mode for the emulation (both defined in etc/emulation.cfg).
@@ -49,36 +47,27 @@ class UCEmulator(object):
         self.__carbon_server = carbon_server
         if worker_mode:
             return
-        else:
-            if timeseries_file is None:
-                raise Exception('No timeseries file provided')
-            if cfg is None:
-                raise Exception('No configuration provided')
-        self.__factor = cfg['global']['workload_multiplier']
-        self.__operation_mode = cfg['global']['operation_mode']
-        self.__timeseries = {}
+
+        if cfg is None:
+            print 'Module %s has not configuration' % self.__module__.split('.')[-1]
+            return
         self.__intervals = {}
-        self.__current_timeframe = 0
         self.__running = False
         self.__call_methods = dict()
+
+        # Create Context for UseCases and initilaize it with values provided in the cfg - file
         self.__ctx = Context()
-        # Check what methods are decorated to be use case definition
+        for m in cfg['context']:
+            setattr(self.__ctx, m, cfg['context'][m])
+
         if 'setup' in dir(self):  # Calls setup-method of child class to support the implementation of correlated use cases
-            self.setup(cfg, self.__ctx)
+            self.setup(self.__ctx)
 
-        path = None
-        if 'RUCIO_HOME' in os.environ:
-            path = '%s/lib/rucio/tests/emulation/timeseries/%s.json' % (os.environ['RUCIO_HOME'], timeseries_file)
-        else:
-            path = '/opt/rucio/lib/rucio/tests/emulation/timeseries/%s.json' % timeseries_file
-
-        with open(path) as f:
-            tmp_json = json.load(f)
-        for uc in self.__ucs[self.__module__.split('.')[-1]]:
-            if uc not in tmp_json:
-                print '== !WARNING! No timeseries found for use case %s.' % uc
+        for uc in cfg:
+            if uc == 'context':
+                continue
             else:
-                self.__timeseries[uc] = tmp_json[uc]
+                self.__intervals[uc] = 1.0 / cfg[uc]
             try:
                 self.__call_methods[uc] = {'main': getattr(self, uc), 'input': None, 'output': None}
                 try:
@@ -92,41 +81,17 @@ class UCEmulator(object):
             except Exception, e:
                 print e
                 print traceback.format_exc()
-        # Apply factor to number of calls
-        for ser in self.__timeseries:
-            for tf in self.__timeseries[ser]:
-                if 'calls' in tf:
-                    tf['hz'] = self.__factor * (tf['calls'] / 3600.0)  # Convert calls per hour to hz
-                    del(tf['calls'])
-                elif 'hz' in tf:
-                    tf['hz'] = self.__factor * tf['hz']
-                else:
-                    tf['hz'] = 1  # Fallback if no frequency is given
-        self.__calc_timeframe__()
 
-    def __calc_timeframe__(self):
-        """
-            Updates the frequency (calls per second) for each use case  in the current time frame.
-        """
-        for uc in self.__timeseries:
-            self.__intervals[uc] = 1.0 / self.__timeseries[uc][self.__current_timeframe]['hz']
+    def update_ucs(self, ucs):
+        for uc in ucs:
+            self.__intervals[uc] = 1.0 / ucs[uc]
+        print '== Assigned Frequencies for %s: %s' % (self.__module__.split('.')[-1], self.__intervals)
 
-    def next_timeframe(self):
-        """
-            Stops the emulation of the current time frame and restarts with the frequencies defined for the next one.
-        """
-        self.__current_timeframe += 1
-        self.__calc_timeframe__()
-        self.__event.set()
-        self.__event.clear()
-
-    def has_next_timeframe(self):
-        """
-            Returns the number of time frames left for emulation.
-
-            :returns: number of pending time frames
-        """
-        return len(self.__timeseries[self.__timeseries.keys()[0]]) - self.__current_timeframe - 1
+    def update_ctx(self, ctx):
+        """ If the behaviour of this method must be adapted in order to work with a given usecase it must be overwritten in the according UseCaseDefintion class. """
+        for m in ctx:
+            setattr(self.__ctx, m, ctx[m])
+        print '== Updated context of module %s: %s' % (self.__module__.split('.')[-1], ctx)
 
     def get_intervals(self):
         """
@@ -145,36 +110,38 @@ class UCEmulator(object):
             :returns: the ID of the next use case to execute
         """
         pending_calls = {}
-        for uc in self.__timeseries:
-            pending_calls[uc] = self.__intervals[uc] + time.time()  # Set time for first calls
+        for uc in self.__intervals:
+            pending_calls[uc] = self.__intervals[uc] + time.time()  # Set time for first calls. Doing this in bulk could eventually save a lot of time
         nc = min(pending_calls, key=pending_calls.get)
         while self.__running:
             yield nc
             # Find next pending call
             pending_calls[nc] += self.__intervals[nc]
-            nc = min(pending_calls, key=pending_calls.get)  # Find next pending call
-            #print 'Turnover: %s' % (time.time() - time_stamp)
+            nc = min(pending_calls, key=pending_calls.get)  # Find next pending call. Doing this in bulk could eventually save a lot of time
             sleep = pending_calls[nc] - time.time()  # Calculate sleep till next call
             if sleep > 0.0003:
                 self.__event.wait(sleep)
 
-    def run(self, cfg, event):
+    def run(self, cfg_global=None, event=None):
         """
             Starts the actual execution of the use cases.
 
-            :param cfg: content of etc/emulation.cfg
+            :param cfg_global: content of the global section in etc/emulation.cfg
             :param event: the event used for thread synchronization
         """
+        if event is None:
+            return
+
         self.__running = True
         self.__event = event
         # Making this assignement outside of the loop saves computing time by avoiding the if inside the loop
-        if self.__operation_mode == 'threaded':
+        if cfg_global['operation_mode'] == 'threaded':
             do_it = self.run_threaded
-        elif self.__operation_mode == 'verbose':
+        elif cfg_global['operation_mode'] == 'verbose':
             do_it = self.run_verbose
-        elif self.__operation_mode == 'gearman':
-            self.__gearman_server = cfg['gearman']['server']
-            self.__gearman_client = GearmanClient(self.__gearman_server)
+        elif cfg_global['operation_mode'] == 'gearman':
+            self.__gearman_client = GearmanClient(cfg_global['gearman'])
+            self.__gearman_server = cfg_global['gearman']
             do_it = self.run_gearman
         else:
             raise Exception("Unknown operation mode set")
@@ -248,14 +215,6 @@ class UCEmulator(object):
         """
         self.__running = False
 
-    def get_defined_usecases(self):
-        """
-            Provides a list with the IDs of all defined use cases in this module.
-
-            :returns: list with use case IDs
-        """
-        return self.__timeseries.keys()
-
     def time_it(self, fn, kwargs={}):
         res = None
         start = time.time()
@@ -312,10 +271,10 @@ class UCEmulator(object):
             Decorator to help identifying all use cases defined within a module.
         """
         # Register method as use case
-        mod = func.__module__.split('.')[-1]
-        if mod not in cls.__ucs:
-            cls.__ucs[mod] = []
-        cls.__ucs[mod].append(func.__name__)
+        #mod = func.__module__.split('.')[-1]
+        #if mod not in cls.__ucs:
+        #    cls.__ucs[mod] = []
+        #cls.__ucs[mod].append(func.__name__)
 
         # Wrap function for exception handling
         def __execute__(self, *args, **kwargs):
