@@ -316,7 +316,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
                    CheckConstraint('"TYPE" IS NOT NULL', name='CONTENTS_TYPE_NN'),
                    CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
-                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'),)
+                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'),
                    Index('CONTENTS_RULE_EVALUATION', 'rule_evaluation'))
 
 
@@ -333,7 +333,7 @@ class RSE(BASE, SoftModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint('"TYPE" IS NOT NULL', name='RSES_TYPE_NN'), )
+                   CheckConstraint('"TYPE" IS NOT NULL', name='RSES_TYPE_NN'),)
 
 
 class RSELimit(BASE, ModelBase):
