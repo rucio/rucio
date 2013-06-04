@@ -11,6 +11,7 @@
 
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
+from rucio.db.constants import AccountType, IdentityType
 from rucio.tests.common import account_name_generator
 
 
@@ -18,7 +19,7 @@ class TestIdentity():
 
     def setup(self):
         self.account = account_name_generator()
-        add_account(self.account, 'user')
+        add_account(self.account, AccountType.USER)
 
     def tearDown(self):
         del_account(self.account)
@@ -26,19 +27,19 @@ class TestIdentity():
     def test_userpass(self):
         """ IDENTITY (CORE): Test adding and removing username/password authentication """
 
-        add_identity(self.account, 'userpass', password='secret')
-        add_account_identity('ddmlab_%s' % self.account, 'userpass', self.account)
+        add_identity(self.account, IdentityType.USERPASS, password='secret')
+        add_account_identity('ddmlab_%s' % self.account, IdentityType.USERPASS, self.account)
 
-        add_identity('/ch/cern/rucio/ddmlab_%s' % self.account, 'x509')
-        add_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, 'x509', self.account)
+        add_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509)
+        add_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, self.account)
 
-        add_identity('ddmlab_%s' % self.account, 'gss')
-        add_account_identity('ddmlab_%s' % self.account, 'gss', self.account)
+        add_identity('ddmlab_%s' % self.account, IdentityType.GSS)
+        add_account_identity('ddmlab_%s' % self.account, IdentityType.GSS, self.account)
 
         list_identities()
 
-        del_account_identity('ddmlab_%s' % self.account, 'userpass', self.account)
-        del_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, 'x509', self.account)
-        del_account_identity('ddmlab_%s' % self.account, 'gss', self.account)
+        del_account_identity('ddmlab_%s' % self.account, IdentityType.USERPASS, self.account)
+        del_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, self.account)
+        del_account_identity('ddmlab_%s' % self.account, IdentityType.GSS, self.account)
 
-        del_identity('ddmlab_%s' % self.account, 'userpass')
+        del_identity('ddmlab_%s' % self.account, IdentityType.USERPASS)
