@@ -35,21 +35,21 @@ class TestReplica():
         tmp_file = 'file_%s' % generate_uuid()
         tmp_pfn = 'mock://localhost/tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
 
-        self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
+        self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
 
         with assert_raises(UnsupportedOperation):
-            self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb', pfn=tmp_pfn)
+            self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
         with assert_raises(UnsupportedOperation):
-            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb')
+            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
 
         with assert_raises(FileConsistencyMismatch):
-            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=2L, adler32='0cc737eb', pfn=tmp_pfn)
+            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=2L, adler32='0cc737eb', pfn=tmp_pfn)
 
         with assert_raises(FileConsistencyMismatch):
-            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc837eb', pfn=tmp_pfn)
+            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc837eb', pfn=tmp_pfn)
 
-        self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, size=1L, adler32='0cc737eb', pfn=tmp_pfn)
+        self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
         assert_equal(len(replicas), 2)
