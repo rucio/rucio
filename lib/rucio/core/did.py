@@ -445,7 +445,7 @@ def scope_list(scope, name=None, recursive=False, session=None):
 
     def __topdids(scope):
         c = session.query(models.DataIdentifierAssociation.child_name).filter_by(scope=scope, child_scope=scope)
-        q = session.query(models.DataIdentifier.name, models.DataIdentifier.type).filter_by(scope=scope, deleted=False)
+        q = session.query(models.DataIdentifier.name, models.DataIdentifier.type).filter_by(scope=scope)  # add type
         s = q.filter(not_(models.DataIdentifier.name.in_(c))).order_by(models.DataIdentifier.name)
         for row in s.yield_per(5):
             yield {'scope': scope, 'name': row.name, 'type': row.type, 'parent': None, 'level': 0}
