@@ -35,18 +35,17 @@ from rucio.rse.rsemanager import RSEMgr
 
 
 @transactional_session
-def add_rse(rse, prefix=None, deterministic=True, volatile=False, session=None):
+def add_rse(rse, deterministic=True, volatile=False, session=None):
     """
     Add a rse with the given location name.
 
     :param rse: the name of the new rse.
-    :param prefix: the base path of the rse.
     :param deterministic: Boolean to know if the pfn is generated deterministically.
     :param volatile: Boolean for RSE cache.
     :param session: The database session in use.
     """
 
-    new_rse = models.RSE(rse=rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
+    new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile)
     try:
         new_rse.save(session=session)
     except IntegrityError:

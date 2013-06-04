@@ -113,8 +113,6 @@ class RSE:
         json_data = data()
         try:
             parameter = json_data and loads(json_data)
-            if parameter and 'prefix' in parameter:
-                prefix = parameter['prefix']
             if parameter and 'deterministic' in parameter:
                 deterministic = parameter['deterministic']
             if parameter and 'volatile' in parameter:
@@ -123,7 +121,7 @@ class RSE:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile, issuer=auth['account'])
+            add_rse(rse, deterministic=deterministic, volatile=volatile, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:

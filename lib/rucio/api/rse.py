@@ -16,13 +16,12 @@ from rucio.common.schema import validate_schema
 from rucio.core import rse as rse_module
 
 
-def add_rse(rse, issuer, prefix=None, deterministic=True, volatile=False):
+def add_rse(rse, issuer, deterministic=True, volatile=False):
     """
     Creates a new Rucio Storage Element(RSE).
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
-    :param prefix: the base path of the rse.
     :param deterministic: Boolean to know if the pfn is generated deterministically.
     :param volatile: Boolean for RSE cache.
     """
@@ -31,7 +30,7 @@ def add_rse(rse, issuer, prefix=None, deterministic=True, volatile=False):
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
-    return rse_module.add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
+    return rse_module.add_rse(rse, deterministic=deterministic, volatile=volatile)
 
 
 def get_rse(rse):
