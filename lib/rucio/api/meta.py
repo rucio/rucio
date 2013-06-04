@@ -10,6 +10,7 @@
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.core import meta
+from rucio.db.constants import KeyType
 
 
 def list_keys():
@@ -46,7 +47,7 @@ def add_key(key, key_type, issuer, value_type=None, value_regexp=None):
     kwargs = {'key': key, 'key_type': key_type, 'value_type': value_type, 'value_regexp': value_regexp}
     if not has_permission(issuer=issuer, action='add_key', kwargs=kwargs):
         raise AccessDenied('Account %s can not add key' % (issuer))
-    return meta.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp)
+    return meta.add_key(key=key, key_type=KeyType.from_sym(key_type), value_type=value_type, value_regexp=value_regexp)
 
 
 def add_value(key, value, issuer):

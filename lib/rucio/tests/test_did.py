@@ -63,7 +63,7 @@ class TestDIDApi():
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
             did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root')
-        for i in did.list_new_identifier('dataset'):
+        for i in did.list_new_identifier('DATASET'):
             st = did.set_new_identifier(i['scope'], i['name'])
             assert_not_equal(st, 0)
             break
