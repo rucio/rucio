@@ -24,7 +24,7 @@ from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.core.rse import add_file_replica
 from rucio.db import models
-from rucio.db.constants import ReplicaState, DIDReEvaluation
+from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
@@ -109,8 +109,8 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], l
     :param lifetime: DID's lifetime (in seconds).
     :param session: The database session in use.
     """
-    if type == models.DataIdType.FILE:
-        raise exception.UnsupportedOperation("Only dataset/container can be registered." % locals())
+    if type == DIDType.FILE:
+        raise exception.UnsupportedOperation("Only collection (dataset/container) can be registered." % locals())
 
     # Lifetime
     expired_at = None

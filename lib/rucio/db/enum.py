@@ -44,9 +44,10 @@ class EnumMeta(type):
 
     def __init__(cls, classname, bases, dict_):
         cls._reg = reg = cls._reg.copy()
+        cls._syms = syms = cls._syms.copy()
         for k, v in dict_.items():
             if isinstance(v, tuple):
-                sym = reg[v[0]] = EnumSymbol(cls, k, *v)
+                sym = reg[v[0]] = syms[v[1]] = EnumSymbol(cls, k, *v)
                 setattr(cls, k, sym)
         return type.__init__(cls, classname, bases, dict_)
 
@@ -59,11 +60,19 @@ class DeclEnum(object):
 
     __metaclass__ = EnumMeta
     _reg = {}
+    _syms = {}
 
     @classmethod
     def from_string(cls, value):
         try:
             return cls._reg[value]
+        except KeyError:
+            raise ValueError("Invalid value for %r: %r" % (cls.__name__, value))
+
+    @classmethod
+    def from_sym(cls, value):
+        try:
+            return cls._syms[value]
         except KeyError:
             raise ValueError("Invalid value for %r: %r" % (cls.__name__, value))
 
