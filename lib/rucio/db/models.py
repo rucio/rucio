@@ -26,7 +26,7 @@ from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint,
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
-from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType,
+from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                 DIDShortType, KeyType, IdentityType, LockState, RuleGrouping,
                                 RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                 ScopeStatus, SubscriptionState)
