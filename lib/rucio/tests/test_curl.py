@@ -103,7 +103,7 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"type": "user"}' -X POST %s/accounts/jdoe-%s''' % (self.host, str(uuid.uuid4()).lower()[:24])
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"type": "USER"}' -X POST %s/accounts/jdoe-%s''' % (self.host, str(uuid.uuid4()).lower()[:24])
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -127,7 +127,7 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -X POST %s/rses/MOCK-%s''' % (self.host, str(uuid.uuid4()).upper())
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -X POST %s/rses/MOCK-%s''' % (self.host, str(uuid.uuid4()).upper())
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
