@@ -281,7 +281,7 @@ class Content:
 
         try:
             for did in list_content(scope=scope, name=name):
-                yield dumps(did) + '\n'
+                yield render_json(**did) + '\n'
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except RucioException, e:
