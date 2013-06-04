@@ -20,6 +20,7 @@ import rucio.core.authentication
 import rucio.core.scope
 from rucio.common.config import config_get
 from rucio.core.rule import get_replication_rule
+from rucio.db.constants import IdentityType
 
 
 class Memoize(object):
@@ -207,7 +208,7 @@ def perm_get_auth_token_user_pass(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if rucio.core.authentication.exist_identity_account(identity=kwargs['username'], type='userpass', account=kwargs['account']):
+    if rucio.core.authentication.exist_identity_account(identity=kwargs['username'], type=IdentityType.USERPASS, account=kwargs['account']):
         return True
     return False
 
@@ -220,7 +221,7 @@ def perm_get_auth_token_gss(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if rucio.core.authentication.exist_identity_account(identity=kwargs['gsscred'], type='gss', account=kwargs['account']):
+    if rucio.core.authentication.exist_identity_account(identity=kwargs['gsscred'], type=IdentityType.GSS, account=kwargs['account']):
         return True
     return False
 
@@ -233,7 +234,7 @@ def perm_get_auth_token_x509(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if rucio.core.authentication.exist_identity_account(identity=kwargs['dn'], type='x509', account=kwargs['account']):
+    if rucio.core.authentication.exist_identity_account(identity=kwargs['dn'], type=IdentityType.X509, account=kwargs['account']):
         return True
     return False
 

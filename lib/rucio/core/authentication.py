@@ -15,6 +15,7 @@ import hashlib
 from rucio.common.utils import generate_uuid
 from rucio.core.account import account_exists
 from rucio.db import models
+from rucio.db.constants import IdentityType
 from rucio.db.session import read_session, transactional_session
 
 
@@ -55,7 +56,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     if not account_exists(account, session=session):
         return None
 
-    result = session.query(models.Identity).filter_by(identity=username, type='userpass').first()
+    result = session.query(models.Identity).filter_by(identity=username, type=IdentityType.USERPASS).first()
 
     db_salt = result['salt']
     db_password = result['password']
@@ -64,7 +65,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
         return None
 
     # get account identifier
-    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, type='userpass').first()
+    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, type=IdentityType.USERPASS).first()
     db_account = result['account']
 
     # remove expired tokens
