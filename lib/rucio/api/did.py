@@ -14,6 +14,7 @@
 import rucio.api.permission
 
 from rucio.core import did
+from rucio.db.constants import DIDType
 
 
 def list_replicas(scope, name, schemes=None):
@@ -46,7 +47,8 @@ def add_identifier(scope, name, type, issuer, account=None, statuses={}, meta=[]
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_identifier', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
-    return did.add_identifier(scope=scope, name=name, type=type, account=account or issuer, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
+
+    return did.add_identifier(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
 
 def attach_identifier(scope, name, dids, issuer, account=None):
@@ -89,7 +91,7 @@ def list_new_identifier(type=None):
 
     :param type : The DID type.
     """
-    return did.list_new_identifier(type)
+    return did.list_new_identifier(type=type and DIDType.from_sym(type))
 
 
 def set_new_identifier(scope, name, new_flag=True):
