@@ -15,7 +15,7 @@ from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, 
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.db import session, migration, models, test_models
-from rucio.db.constants import AccountStatus
+from rucio.db.constants import AccountStatus, AccountType, IdentityType
 
 
 def build_database(echo=True, tests=False):
@@ -118,17 +118,17 @@ def create_root_account():
 
     s = session.get_session()
 
-    account = models.Account(account='root', type='user', status=AccountStatus.ACTIVE)
+    account = models.Account(account='root', type=AccountType.USER, status=AccountStatus.ACTIVE)
 
-    identity1 = models.Identity(identity=up_id, type='userpass', password=up_pwd, salt='0', email=up_email)
+    identity1 = models.Identity(identity=up_id, type=IdentityType.USERPASS, password=up_pwd, salt='0', email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, is_default=True)
 
     # X509 authentication
-    identity2 = models.Identity(identity=x509_id, type='x509', email=x509_email)
+    identity2 = models.Identity(identity=x509_id, type=IdentityType.X509, email=x509_email)
     iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, is_default=True)
 
     # GSS authentication
-    identity3 = models.Identity(identity=gss_id, type='gss', email=gss_email)
+    identity3 = models.Identity(identity=gss_id, type=IdentityType.GSS, email=gss_email)
     iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, type=identity3.type, account=account.account, is_default=True)
 
     # Apply
