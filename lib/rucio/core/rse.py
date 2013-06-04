@@ -29,7 +29,7 @@ from sqlalchemy.sql.expression import case
 from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
-from rucio.db.constants import ReplicaState, DIDAvailability, DIDType, OBSOLETE
+from rucio.db.constants import ReplicaState, DIDType, OBSOLETE
 from rucio.db.session import read_session, transactional_session
 from rucio.rse.rsemanager import RSEMgr
 
@@ -396,9 +396,7 @@ def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, d
         if pfn:
             raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
 
-
-
-    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=DIDType.FILE, availability=DIDAvailability.AVAILABLE).first()
+    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=DIDType.FILE).first()
     if not did:
         try:
             new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
