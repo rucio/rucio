@@ -108,6 +108,8 @@ class Rule:
             raise generate_http_error(409, 'InsufficientQuota', e.args[0][0])
         except InvalidRSEExpression, e:
             raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
+        except InvalidReplicationRule, e:
+            raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
         except Exception, e:
             raise InternalError(e)
         raise Created(dumps(rule_ids))
