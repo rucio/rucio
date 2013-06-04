@@ -13,7 +13,7 @@ from nose.tools import assert_true, assert_false
 
 from rucio.api.permission import has_permission
 from rucio.core.scope import add_scope
-from rucio.common.utils import generate_uuid as uuid
+from rucio.tests.common import scope_name_generator
 
 
 class TestPermissionCoreApi():
@@ -26,7 +26,7 @@ class TestPermissionCoreApi():
 
     def test_permission_add_did(self):
         """ PERMISSION(CORE): Check permission to add a did"""
-        scope = 'test_scope_' + str(uuid())[:19]
+        scope = scope_name_generator()
         add_scope(scope=scope, account='root')
         assert_true(has_permission(issuer='panda', action='add_identifier', kwargs={'scope': scope}))
         assert_false(has_permission(issuer='spock', action='add_identifier', kwargs={'scope': scope}))
