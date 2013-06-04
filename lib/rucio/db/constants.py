@@ -40,21 +40,30 @@ class IdentityType(DeclEnum):
 
 
 class ScopeStatus(DeclEnum):
-    OPEN = 'OPEN', 'OPEN'
-    CLOSED = 'CLOSED', 'CLOSED'
-    DELETED = 'DELETED', 'DELETED'
+    OPEN = 'O', 'OPEN'
+    CLOSED = 'C', 'CLOSED'
+    DELETED = 'D', 'DELETED'
 
 
 class DIDType(DeclEnum):
-    FILE = 'FILE', 'FILE'
-    DATASET = 'DATASET', 'DATASET'
-    CONTAINER = 'CONTAINER', 'CONTAINER'
+    FILE = 'F', 'FILE'
+    DATASET = 'D', 'DATASET'
+    CONTAINER = 'C', 'CONTAINER'
+    DELETED_FILE = 'DF', 'DELETED_FILE'
+    DELETED_DATASET = 'DD', 'DELETED_DATASET'
+    DELETED_CONTAINER = 'DC', 'DELETED_CONTAINER'
+
+
+class DIDShortType(DeclEnum):
+    FILE = 'F', 'FILE'
+    DATASET = 'D', 'DATASET'
+    CONTAINER = 'C', 'CONTAINER'
 
 
 class DIDAvailability(DeclEnum):
-    LOST = 'LOST', 'LOST'
-    DELETED = 'DELETED', 'DELETED'
-    AVAILABLE = 'AVAILABLE', 'AVAILABLE'
+    LOST = 'L', 'LOST'
+    DELETED = 'D', 'DELETED'
+    AVAILABLE = 'A', 'AVAILABLE'
 
 
 class KeyType(DeclEnum):
@@ -70,11 +79,11 @@ class RSEType(DeclEnum):
 
 
 class ReplicaState(DeclEnum):
-    AVAILABLE = 'AVAILABLE', 'AVAILABLE'
-    UNAVAILABLE = 'UNAVAILABLE', 'UNAVAILABLE'
-    COPYING = 'COPYING', 'COPYING'
-    BEING_DELETED = 'BEING_DELETED', 'BEING_DELETED'
-    BAD = 'BAD', 'BAD'
+    AVAILABLE = 'A', 'AVAILABLE'
+    UNAVAILABLE = 'U', 'UNAVAILABLE'
+    COPYING = 'C', 'COPYING'
+    BEING_DELETED = 'B', 'BEING_DELETED'
+    BAD = 'D', 'BAD'
 
 
 class RuleState(DeclEnum):
@@ -85,37 +94,37 @@ class RuleState(DeclEnum):
 
 
 class RuleGrouping(DeclEnum):
-    ALL = 'ALL', 'ALL'
-    DATASET = 'DATASET', 'DATASET'
-    NONE = 'NONE', 'NONE'
+    ALL = 'A', 'ALL'
+    DATASET = 'D', 'DATASET'
+    NONE = 'N', 'NONE'
 
 
 class LockState(DeclEnum):
-    REPLICATING = 'REPLICATING', 'REPLICATING'
-    OK = 'OK', 'OK'
-    STUCK = 'STUCK', 'STUCK'
+    REPLICATING = 'R', 'REPLICATING'
+    OK = 'O', 'OK'
+    STUCK = 'S', 'STUCK'
 
 
 class SubscriptionState(DeclEnum):
-    ACTIVE = 'ACTIVE', 'ACTIVE'
-    INACTIVE = 'INACTIVE', 'INACTIVE'
-    NEW = 'NEW', 'NEW'
-    UPDATED = 'UPDATED', 'UPDATED'
-    BROKEN = 'BROKEN', 'BROKEN'
+    ACTIVE = 'A', 'ACTIVE'
+    INACTIVE = 'I', 'INACTIVE'
+    NEW = 'N', 'NEW'
+    UPDATED = 'U', 'UPDATED'
+    BROKEN = 'B', 'BROKEN'
 
 
 class RequestType(DeclEnum):
-    TRANSFER = 'TRANSFER', 'TRANSFER'
-    DELETE = 'DELETE', 'DELETE'
-    UPLOAD = 'UPLOAD', 'UPLOAD'
-    DOWNLOAD = 'DOWNLOAD', 'DOWNLOAD'
+    TRANSFER = 'T', 'TRANSFER'
+    DELETE = 'D', 'DELETE'
+    UPLOAD = 'U', 'UPLOAD'
+    DOWNLOAD = 'D', 'DOWNLOAD'
 
 
 class RequestState(DeclEnum):
-    QUEUED = 'QUEUED', 'QUEUED'
-    SUBMITTED = 'SUBMITTED', 'SUBMITTED'
-    FAILED = 'FAILED', 'FAILED'
-    DONE = 'DONE', 'DONE'
+    QUEUED = 'Q', 'QUEUED'
+    SUBMITTED = 'S', 'SUBMITTED'
+    FAILED = 'F', 'FAILED'
+    DONE = 'D', 'DONE'
 
 
 # Individual constants
