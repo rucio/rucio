@@ -29,7 +29,7 @@ from sqlalchemy.sql.expression import case
 from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
-from rucio.db.constants import ReplicaState, OBSOLETE
+from rucio.db.constants import ReplicaState, DIDAvailability, DIDType, OBSOLETE
 from rucio.db.session import read_session, transactional_session
 from rucio.rse.rsemanager import RSEMgr
 
@@ -361,14 +361,14 @@ def list_rse_usage_history(rse, source=None, session=None):
 
 
 @transactional_session
-def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, tombstone=None, session=None):
+def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, tombstone=None, session=None):
     """
     Add File replica.
 
     :param rse: the rse name.
     :param scope: the tag name.
     :param name: The data identifier name.
-    :param size: the size of the file.
+    :param bytes: the size of the file.
     :param account: The account owner.
     :param md5: The md5 checksum.
     :param adler32: The adler32 checksum.
@@ -396,10 +396,12 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
         if pfn:
             raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
 
-    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=models.DataIdType.FILE, deleted=False).first()
+
+
+    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=DIDType.FILE, availability=DIDAvailability.AVAILABLE).first()
     if not did:
         try:
-            new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=models.DataIdType.FILE, size=size, md5=md5, adler32=adler32)
+            new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
             new_did = session.merge(new_did)
             new_did.save(session=session)
         except IntegrityError, e:
@@ -407,10 +409,10 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
                 raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
             raise exception.RucioException(e.args[0])
     else:
-        if size != did.size or adler32 != did.adler32 or md5 != did.md5:
-            raise exception.FileConsistencyMismatch("(size: %s, adler32: '%s', md5: '%s') != (size: %s, adler32: '%s', md5: '%s')" % (did.size, did.adler32, did.md5, size, adler32, md5))
+        if bytes != did.bytes or adler32 != did.adler32 or md5 != did.md5:
+            raise exception.FileConsistencyMismatch("(bytes: %s, adler32: '%s', md5: '%s') != (bytes: %s, adler32: '%s', md5: '%s')" % (did.bytes, did.adler32, did.md5, bytes, adler32, md5))
 
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, size=size, path=path, state=ReplicaState.AVAILABLE,
+    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, bytes=bytes, path=path, state=ReplicaState.AVAILABLE,
                                             md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
     try:
         new_replica.save(session=session)
@@ -419,7 +421,7 @@ def add_file_replica(rse, scope, name, size, account, adler32=None, md5=None, ds
     except DatabaseError, e:
         raise exception.RucioException(e.args[0])
 
-    increase(rse_id=replica_rse.id, delta=1, bytes=size, session=session)
+    increase(rse_id=replica_rse.id, delta=1, bytes=bytes, session=session)
 
 
 @transactional_session
