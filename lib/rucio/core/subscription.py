@@ -53,9 +53,9 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     except KeyError, e:
         print 'Unknown subscription policy : %s' % (e)
         raise
-    state = 'ACTIVE'
+    state = 'A'
     if retroactive:
-        state = 'NEW'
+        state = 'N'
     new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
                                            retroactive=retroactive, policyid=policyid)
     try:
@@ -100,7 +100,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :raises: exception.NotFound if subscription is not found
     """
     policyid_dict = {'tier0': 0}
-    values = {'state': 'UPDATED'}
+    values = {'state': 'U'}
     if filter:
         values['filter'] = filter
     if replication_rules:
