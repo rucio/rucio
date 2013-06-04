@@ -130,7 +130,7 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], l
 
     # Add meta-data
     for key in meta:
-        set_metadata(scope=scope, name=name, key=key, value=meta[key], did=new_did, session=session)
+        set_metadata(scope=scope, name=name, key=key, value=meta[key], type=type, did=new_did, session=session)
 
     # Add rules
     # for rule in rules:
@@ -223,7 +223,7 @@ def attach_identifier(scope, name, dids, account, session=None):
 
         if 'meta' in source:
             for key in source['meta']:
-                set_metadata(scope=source['scope'], name=source['name'], key=key, value=source['meta'][key], session=session)
+                set_metadata(scope=source['scope'], name=source['name'], key=key, type=child_type, value=source['meta'][key], session=session)
 
 
 @transactional_session
@@ -469,7 +469,7 @@ def get_did(scope, name, session=None):
 
 
 @transactional_session
-def set_metadata(scope, name, key, value, did=None, session=None):
+def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     """
     Add metadata to data identifier.
 
@@ -520,7 +520,7 @@ def set_metadata(scope, name, key, value, did=None, session=None):
         except IntegrityError, e:
             raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
     else:
-        new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value)
+        new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value, type=did['type'])
         try:
             new_meta.save(session=session)
         except IntegrityError, e:
