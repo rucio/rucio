@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
 from rucio.db import models
+from rucio.db.constants import SubscriptionState
 from rucio.db.session import read_session, transactional_session
 
 
@@ -53,9 +54,9 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     except KeyError, e:
         print 'Unknown subscription policy : %s' % (e)
         raise
-    state = 'A'
+    state = SubscriptionState.ACTIVE
     if retroactive:
-        state = 'N'
+        state = SubscriptionState.NEW
     new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
                                            retroactive=retroactive, policyid=policyid)
     try:
@@ -100,7 +101,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :raises: exception.NotFound if subscription is not found
     """
     policyid_dict = {'tier0': 0}
-    values = {'state': 'U'}
+    values = {'state': SubscriptionState.UPDATED}
     if filter:
         values['filter'] = filter
     if replication_rules:
