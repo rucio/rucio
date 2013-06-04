@@ -22,7 +22,7 @@ from rucio.common.exception import InvalidRSEExpression, InvalidReplicationRule,
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import queue_request
-# from rucio.core.rse_selector import RSESelector
+from rucio.core.rse_selector import RSESelector
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDReEvaluation
 from rucio.db.session import read_session, transactional_session
@@ -113,11 +113,11 @@ def __resolve_dids_to_locks(did, session=None):
     """
 
     datasetfiles = []  # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files:}]
-                       # Files are in the format [{'scope': ,'name':, 'size':, 'locks': [{'rse_id':, 'state':, 'rule_id':}]}]
+                       # Files are in the format [{'scope': ,'name':, 'bytes':, 'locks': [{'rse_id':, 'state':, 'rule_id':}]}]
 
     # a) Resolve the did
     if did.type == 'file':
-        files = [{'scope': did.scope, 'name': did.name, 'size': did.size, 'locks': get_replica_locks(scope=did.scope, name=did.name)}]
+        files = [{'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'locks': get_replica_locks(scope=did.scope, name=did.name)}]
         datasetfiles = [{'scope': None, 'name': None, 'files': files}]
     elif did.type == 'dataset':
         tmp_locks = get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name)
@@ -158,37 +158,37 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                 if len([lock for lock in file['locks'] if lock['rule_id'] == rule_id]) == copies:
                     continue
                 if len(preferred_rse_ids) == 0:
-                    rse_ids = rseselector.select_rse(file['size'], [lock['rse_id'] for lock in file['locks']])
+                    rse_ids = rseselector.select_rse(file['bytes'], [lock['rse_id'] for lock in file['locks']])
                 else:
-                    rse_ids = rseselector.select_rse(file['size'], preferred_rse_ids)
+                    rse_ids = rseselector.select_rse(file['bytes'], preferred_rse_ids)
                 for rse_id in rse_ids:
                     if rse_id in [lock['rse_id'] for lock in file['locks']]:
                         if RuleState.REPLICATING in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.REPLICATING))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
                         else:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.OK))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.OK))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.REPLICATING))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
     elif grouping == RuleGrouping.ALL:
         # #######
         # # ALL #
         # #######
-        size = 0
+        bytes = 0
         rse_coverage = {}  # {'rse_id': coverage }
         for dataset in datasetfiles:
             for file in dataset['files']:
-                size += file['size']
+                bytes += file['bytes']
                 for lock in file['locks']:
                     if lock['rse_id'] in rse_coverage:
-                        rse_coverage[lock['rse_id']] += file['size']
+                        rse_coverage[lock['rse_id']] += file['bytes']
                     else:
-                        rse_coverage[lock['rse_id']] = file['size']
+                        rse_coverage[lock['rse_id']] = file['bytes']
         #TODO add a threshold here?
         if len(preferred_rse_ids) == 0:
-            rse_ids = rseselector.select_rse(size, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)])
+            rse_ids = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)])
         else:
-            rse_ids = rseselector.select_rse(size, preferred_rse_ids)
+            rse_ids = rseselector.select_rse(bytes, preferred_rse_ids)
         for rse_id in rse_ids:
             for dataset in datasetfiles:
                 for file in dataset['files']:
@@ -196,29 +196,29 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         continue
                     if rse_id in [lock['rse_id'] for lock in file['locks']]:
                         if LockState.REPLICATING in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.REPLICATING))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
                         else:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.OK))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.OK))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.REPLICATING))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
     else:
         # ###########
         # # DATASET #
         # ###########
         for dataset in datasetfiles:
-            size = sum([file['size'] for file in dataset['files']])
+            bytes = sum([file['bytes'] for file in dataset['files']])
             rse_coverage = {}  # {'rse_id': coverage }
             for file in dataset['files']:
                 for lock in file['locks']:
                     if lock['rse_id'] in rse_coverage:
-                        rse_coverage[lock['rse_id']] += file['size']
+                        rse_coverage[lock['rse_id']] += file['bytes']
                     else:
-                        rse_coverage[lock['rse_id']] = file['size']
+                        rse_coverage[lock['rse_id']] = file['bytes']
             if len(preferred_rse_ids) == 0:
-                rse_ids = rseselector.select_rse(size, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)])
+                rse_ids = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)])
             else:
-                rse_ids = rseselector.select_rse(size, preferred_rse_ids)
+                rse_ids = rseselector.select_rse(bytes, preferred_rse_ids)
             #TODO: Add some threshhold
             for rse_id in rse_ids:
                 for file in dataset['files']:
@@ -226,11 +226,11 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         continue
                     if rse_id in [lock['rse_id'] for lock in file['locks']]:
                         if LockState.REPLICATING in [lock['state'] for lock in file['locks'] if lock['rse_id'] == rse_id]:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.REPLICATING))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
                         else:
-                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.OK))
+                            locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.OK))
                     else:
-                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, size=file['size'], state=LockState.REPLICATING))
+                        locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
 
     # d) Put the locks to the DB, return the transfers
@@ -475,7 +475,7 @@ def __evaluate_attach(eval_did, session=None):
         # Build the special files and datasetfiles object
         files = []
         for did in new_child_dids:
-            files.append({'scope': did.scope, 'name': did.name, 'size': did.size, 'locks': get_replica_locks(scope=did.scope, name=did.name)})
+            files.append({'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'locks': get_replica_locks(scope=did.scope, name=did.name)})
         datasetfiles = [{'scope': None, 'name': None, 'files': files}]
     else:
         datasetfiles = {}
