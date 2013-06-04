@@ -29,21 +29,21 @@ from rucio.core.scope import add_scope
 from rucio.tests.common import scope_name_generator
 
 
-def _create_test_files(nrfiles, scope, rse, size=1):
+def _create_test_files(nrfiles, scope, rse, bytes=1):
     """
     Creates a number of test files and add replicas to rse
 
     :param nrfiles:  Number of files to create
     :param scope:    Scope to create the files in
     :param rse:      RSE to add the replica to
-    :param size:     Size of each file
+    :param bytes:    Bytes of each file
     :returns:        List of dict
     """
     files = []
     for i in xrange(nrfiles):
         file = 'file_%s' % uuid()
-        add_file_replica(rse=rse, scope=scope, name=file, size=size, account='jdoe')
-        files.append({'scope': scope, 'name': file, 'size': size})
+        add_file_replica(rse=rse, scope=scope, name=file, bytes=bytes, account='jdoe')
+        files.append({'scope': scope, 'name': file, 'bytes': bytes})
     return files
 
 
