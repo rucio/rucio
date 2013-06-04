@@ -161,9 +161,9 @@ class RSE:
         try:
             rse_prop = get_rse(rse=rse)
             ret = dict()
-            for attr in ['id', 'rse', 'type', 'prefix', 'deterministic', 'volatile']:
+            for attr in ['id', 'rse', 'type', 'deterministic', 'volatile']:
                 ret[attr] = getattr(rse_prop, attr)
-            return dumps(ret)
+            return render_json(**ret)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:
