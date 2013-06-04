@@ -336,7 +336,7 @@ class Files:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            size = parameter['size']
+            bytes = parameter['bytes']
             if 'md5' in parameter:
                 md5 = parameter['md5']
             if 'adler32' in parameter:
@@ -344,13 +344,13 @@ class Files:
             dsn = parameter['dsn']
             pfn = parameter['pfn']
         except KeyError, e:
-            if e.args[0] == 'size' or e.args[0] == 'dsn':
+            if e.args[0] == 'bytes' or e.args[0] == 'dsn':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'Body must be a json dictionary')
 
         try:
-            add_file_replica(rse=rse, scope=scope, name=name, size=size, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=auth['account'])
+            add_file_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
