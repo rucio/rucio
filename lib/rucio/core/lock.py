@@ -81,14 +81,14 @@ def get_files_and_replica_locks_of_dataset(scope, name, db_lock=True, session=No
     :param db_lock:  If the database should lock the read rows.
     :param session:  The db session.
     :return:         Dictionary with keys: (scope, name)
-                     and as value: {'size':, 'locks: [{'rse_id':, 'state':}]}
+                     and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
     :raises:         NoResultFound
     """
     locks = {}
     try:
         query = session.query(models.DataIdentifierAssociation.child_scope,
                               models.DataIdentifierAssociation.child_name,
-                              models.DataIdentifierAssociation.size,
+                              models.DataIdentifierAssociation.bytes,
                               models.ReplicaLock.rse_id,
                               models.ReplicaLock.state,
                               models.ReplicaLock.rule_id).outerjoin(models.ReplicaLock, and_(
@@ -98,14 +98,14 @@ def get_files_and_replica_locks_of_dataset(scope, name, db_lock=True, session=No
                                       models.DataIdentifierAssociation.name == name)
         if db_lock:
             query = query.with_lockmode('update')
-        for child_scope, child_name, size, rse_id, state, rule_id in query:
+        for child_scope, child_name, bytes, rse_id, state, rule_id in query:
             if rse_id is None:
-                locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'size': size, 'locks': []}
+                locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': []}
             else:
                 if (child_scope, child_name) in locks:
                     locks[(child_scope, child_name)]['locks'].append({'rse_id': rse_id, 'state': state, 'rule_id': rule_id})
                 else:
-                    locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'size': size, 'locks': [{'rse_id': rse_id, 'state': state, 'rule_id': rule_id}]}
+                    locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': [{'rse_id': rse_id, 'state': state, 'rule_id': rule_id}]}
         return locks
     except NoResultFound:  # TODO: Actually raise the exception?
         pass
