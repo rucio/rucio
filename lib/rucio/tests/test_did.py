@@ -41,19 +41,16 @@ class TestDIDCore():
 
 class TestDIDApi():
 
-    def setup(self):
-        pass
-
     def test_list_new_identifiers(self):
         """ DATA IDENTIFIERS (API): List new identifiers """
         tmp_scope = scope_name_generator()
         tmp_dsn = 'dsn_%s' % generate_uuid()
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
-            did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='dataset', issuer='root')
-        for i in did.list_new_identifier('dataset'):
+            did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root')
+        for i in did.list_new_identifier('DATASET'):
             assert_not_equal(i, {})
-            assert_equal(str(i['type']), 'dataset')
+            assert_equal(str(i['type']), 'DATASET')
             break
         for i in did.list_new_identifier():
             assert_not_equal(i, {})
@@ -65,7 +62,7 @@ class TestDIDApi():
         tmp_dsn = 'dsn_%s' % generate_uuid()
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
-            did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='dataset', issuer='root')
+            did.add_identifier(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root')
         for i in did.list_new_identifier('dataset'):
             st = did.set_new_identifier(i['scope'], i['name'])
             assert_not_equal(st, 0)
