@@ -15,7 +15,7 @@ from rucio.common.exception import Duplicate
 if __name__ == '__main__':
     c = Client()
     try:
-        c.add_account('jdoe', 'service')
+        c.add_account('jdoe', 'SERVICE')
     except Duplicate:
         print 'Account jdoe already added' % locals()
 
