@@ -16,7 +16,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
-from rucio.common.exception import InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression
+from rucio.common.exception import InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression, InvalidReplicationRule
 from rucio.common.utils import generate_http_error, render_json
 
 logger = getLogger("rucio.rule")
