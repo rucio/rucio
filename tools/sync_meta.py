@@ -22,14 +22,14 @@ OK = 0
 
 if __name__ == '__main__':
 
-    meta_keys = [('project', 'all', None, ['data13_hip', ]),
-                 ('run_number', 'all', None, []),
-                 ('stream_name', 'all', None, []),
-                 ('prod_step', 'all', None, []),
-                 ('datatype', 'all', None, []),
-                 ('version', 'all', None, []),
-                 ('guid', 'file', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
-                 ('events', 'derived', '^\d+$', [])]
+    meta_keys = [('project', 'ALL', None, ['data13_hip', ]),
+                 ('run_number', 'ALL', None, []),
+                 ('stream_name', 'ALL', None, []),
+                 ('prod_step', 'ALL', None, []),
+                 ('datatype', 'ALL', None, []),
+                 ('version', 'ALL', None, []),
+                 ('guid', 'FILE', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
+                 ('events', 'DERIVED', '^\d+$', [])]
 
     c = Client()
     for key, key_type, value_regexp, values in meta_keys:

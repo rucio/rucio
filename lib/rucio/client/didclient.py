@@ -92,7 +92,7 @@ class DIDClient(BaseClient):
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         """
-        return self.add_identifier(scope=scope, name=name, type='dataset', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
+        return self.add_identifier(scope=scope, name=name, type='DATASET', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
     def add_container(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
         """
@@ -105,7 +105,7 @@ class DIDClient(BaseClient):
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         """
-        return self.add_identifier(scope=scope, name=name, type='container', statuses=statuses, meta=meta, rules=rules)
+        return self.add_identifier(scope=scope, name=name, type='CONTAINER', statuses=statuses, meta=meta, rules=rules)
 
     def attach_identifier(self, scope, name, dids):
         """
