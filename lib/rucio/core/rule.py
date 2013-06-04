@@ -22,7 +22,7 @@ from rucio.common.exception import InvalidRSEExpression, InvalidReplicationRule,
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import queue_request
-from rucio.core.rse_selector import RSESelector
+# from rucio.core.rse_selector import RSESelector
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDReEvaluation
 from rucio.db.session import read_session, transactional_session

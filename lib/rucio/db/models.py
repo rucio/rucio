@@ -30,7 +30,6 @@ from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DID
                                 DIDShortType, KeyType, IdentityType, LockState, RuleGrouping,
                                 RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                 ScopeStatus, SubscriptionState)
-from rucio.db.constants import AccountStatus, ScopeStatus, ReplicaState, LockState, RuleState, DIDReEvaluation, RuleGrouping
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
 from rucio.db.types import GUID

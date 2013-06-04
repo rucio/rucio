@@ -16,6 +16,7 @@ import rucio.core.identity
 
 from rucio.core import account as account_core
 from rucio.common.schema import validate_schema
+from rucio.db.constants import AccountType
 
 
 def add_account(account, type, issuer):
@@ -33,7 +34,8 @@ def add_account(account, type, issuer):
     kwargs = {'account': account, 'type': type}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
-    account_core.add_account(account, type)
+
+    account_core.add_account(account, AccountType.from_string(type))
 
 
 def del_account(account, issuer):
