@@ -50,7 +50,7 @@ def list_replicas(scope, name, schemes=None, session=None):
                     if not schemes or protocol['scheme'] in schemes:
                         pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': scope, 'filename': name}, properties=protocol))
                 if pfns:
-                    yield {'scope': row.scope, 'name': row.name, 'size': row.size,
+                    yield {'scope': row.scope, 'name': row.name, 'bytes': row.bytes,
                            'rse': row.rse.rse, 'md5': row.md5, 'adler32': row.adler32, 'pfns': pfns}
             except (exception.RSENotFound, exception.RSEProtocolNotSupported):
                 pass
