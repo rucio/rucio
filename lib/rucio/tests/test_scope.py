@@ -64,7 +64,7 @@ class TestScope():
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -98,9 +98,9 @@ class TestScope():
 
         token = str(r1.header('X-Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'X-Rucio-Auth-Token': str(token)}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -123,7 +123,7 @@ class TestScope():
 
         tmp_val = account_name_generator()
         headers2 = {'Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/%s' % tmp_val, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -168,9 +168,9 @@ class TestScope():
 
         token = str(r1.header('X-Rucio-Auth-Token'))
 
-        headers2 = {'Rucio-Type': 'user', 'X-Rucio-Auth-Token': str(token)}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
         acntusr = account_name_generator()
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -237,5 +237,5 @@ class TestScopeClient():
     def test_list_scopes_no_scopes(self):
         """ SCOPE (CLIENTS): try to list scopes for an account without scopes."""
         account = account_name_generator()
-        self.account_client.add_account(account, 'user')
+        self.account_client.add_account(account, 'USER')
         self.scope_client.list_scopes_for_account(account)
