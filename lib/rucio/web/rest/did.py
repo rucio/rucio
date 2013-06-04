@@ -81,10 +81,11 @@ class Scope:
 
         try:
             for did in scope_list(scope=scope, name=name, recursive=recursive):
-                yield dumps(did) + '\n'
+                yield render_json(**did) + '\n'
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except Exception, e:
+            print format_exc()
             raise InternalError(e)
 
     def PUT(self):
