@@ -69,15 +69,15 @@ chmod 777 /tmp/rucio.db
 echo 'Sync rse_repository with Rucio core'
 tools/sync_rses.py
 
-echo 'Sync metadata keys'
-tools/sync_meta.py
+# echo 'Sync metadata keys'
+# tools/sync_meta.py
 
 echo 'Bootstrap tests: Create jdoe account/mock scope'
 tools/bootstrap_tests.py
 
-if test ${init_only+defined}; then
-    exit
-fi
+# if test ${init_only+defined}; then
+#     exit
+# fi
 
 for i in $range
 do

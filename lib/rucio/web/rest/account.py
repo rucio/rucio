@@ -305,7 +305,7 @@ class Account:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         for account in list_accounts():
-            yield dumps(account) + "\n"
+            yield render_json(**account) + "\n"
 
     def PUT(self):
         header('Content-Type', 'application/octet-stream')

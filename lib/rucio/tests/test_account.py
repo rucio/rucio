@@ -41,7 +41,7 @@ class TestAccountCoreApi():
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
         usr = account_name_generator()
         invalid_usr = account_name_generator()
-        add_account(usr, 'user', 'root')
+        add_account(usr, 'USER', 'root')
         assert_equal(account_exists(usr), True)
         assert_equal(account_exists(invalid_usr), False)
         del_account(usr, 'root')
@@ -49,7 +49,7 @@ class TestAccountCoreApi():
     def test_account_status(self):
         """ ACCOUNT (CORE): Test changing and quering account status """
         usr = account_name_generator()
-        add_account(usr, 'user', 'root')
+        add_account(usr, 'USER', 'root')
         assert_equal(get_account_status(usr), AccountStatus.ACTIVE)  # Should be active by default
         set_account_status(usr, AccountStatus.SUSPENDED)
         assert_equal(get_account_status(usr), AccountStatus.SUSPENDED)
@@ -72,7 +72,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -87,7 +87,7 @@ class TestAccountRestApi():
         token = str(r1.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
 
         assert_equal(r1.status, 409)
@@ -101,7 +101,7 @@ class TestAccountRestApi():
         token = str(r.header('X-Rucio-Auth-Token'))
 
         headers = {'X-Rucio-Auth-Token': str(token)}
-        data = {'type': 'user'}
+        data = {'type': 'USER'}
         ret = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'ValueError')
@@ -151,7 +151,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -185,7 +185,7 @@ class TestAccountRestApi():
 
         acntusr = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'user'})
+        data = dumps({'type': 'USER'})
         r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -235,7 +235,7 @@ class TestAccountClient():
     def test_add_account_success(self):
         """ ACCOUNT (CLIENTS): create a new account and get information about account."""
         account = account_name_generator()
-        type = 'user'
+        type = 'USER'
         ret = self.client.add_account(account, type)
         assert_true(ret)
 
@@ -262,7 +262,7 @@ class TestAccountClient():
         acc_list = [account_name_generator() + str(i) for i in xrange(5)]
 
         for account in acc_list:
-            self.client.add_account(account, 'user')
+            self.client.add_account(account, 'USER')
 
         svr_list = [a['account'] for a in self.client.list_accounts()]
 
