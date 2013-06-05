@@ -312,19 +312,19 @@ class TestDIDClients():
         file = generate_uuid()
         keys = []
         values = []
-        for i in xrange(10):
-            keys.append(generate_uuid())
+        for i in xrange(2):
+            keys.append('key' + generate_uuid()[:10])
             values.append(generate_uuid())
 
         self.scope_client.add_scope(account, scope)
         self.rse_client.add_file_replica(rse, scope, file, 1L, 1L)
-        for i in xrange(10):
+        for i in xrange(2):
             self.meta_client.add_key(keys[i], key_type='ALL')
             self.did_client.set_metadata(scope, file, keys[i], values[i])
 
         meta = self.did_client.get_metadata(scope, file)
 
-        for i in xrange(10):
+        for i in xrange(2):
             assert_equal(meta[keys[i]], values[i])
 
     def test_list_contents(self):

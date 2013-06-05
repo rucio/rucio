@@ -17,7 +17,7 @@ import os
 import nose.tools
 
 from rucio.common.config import config_get
-from rucio.tests.common import execute
+from rucio.tests.common import account_name_generator, execute
 
 
 class TestCurlRucio():
@@ -103,7 +103,7 @@ class TestCurlRucio():
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
-        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"type": "USER"}' -X POST %s/accounts/jdoe-%s''' % (self.host, str(uuid.uuid4()).lower()[:24])
+        cmd = '''curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"type": "USER"}' -X POST %s/accounts/%s''' % (self.host, account_name_generator())
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out

@@ -40,7 +40,7 @@ class TestMetaDIDClient():
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
 
         # Add a key
-        key = 'key_' + str(uuid())
+        key = 'key_' + str(uuid())[:20]
         self.meta_client.add_key(key=key, key_type='COLLECTION')
 
         value = 'value_' + str(uuid())
@@ -51,7 +51,7 @@ class TestMetaDIDClient():
         assert_equal(meta[key], value)
 
         # Add a new key with a value
-        key2 = 'key_' + str(uuid())
+        key2 = 'key_' + str(uuid())[:20]
         value2 = 'value_' + str(uuid())
         self.meta_client.add_key(key=key2, key_type='COLLECTION')
         self.meta_client.add_value(key=key2, value=value2)
@@ -61,7 +61,7 @@ class TestMetaDIDClient():
             self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key2, value='Nimportnawak')
 
         # Add a new key with a value
-        key3 = 'key_' + str(uuid())
+        key3 = 'key_' + str(uuid())[:20]
         value3 = 'value_' + str(uuid())
         self.meta_client.add_key(key=key3, key_type='FILE')
         self.meta_client.add_value(key=key3, value=value3)

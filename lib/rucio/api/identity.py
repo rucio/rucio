@@ -22,7 +22,7 @@ def add_identity(identity_key, type, password=None):
     :param type: The type of the authentication (x509, gss, userpass)
     :param password: If type==userpass, this sets the password.
     """
-    return identity.add_identity(identity_key, IdentityType.from_string(type), password)
+    return identity.add_identity(identity_key, IdentityType.from_sym(type), password)
 
 
 def del_identity(identity_key, type):
@@ -32,7 +32,7 @@ def del_identity(identity_key, type):
     :param identity_key: The identity key name. For example x509 DN, or a username.
     :param type: The type of the authentication (x509, gss, userpass).
     """
-    return identity.del_identity(identity_key, IdentityType.from_string(type))
+    return identity.del_identity(identity_key, IdentityType.from_sym(type))
 
 
 def add_account_identity(identity_key, type, account, issuer, default=False):
@@ -49,7 +49,7 @@ def add_account_identity(identity_key, type, account, issuer, default=False):
     if not permission.has_permission(issuer=issuer, action='add_account_identity', kwargs=kwargs):
             raise exception.AccessDenied('Account %s can not identity' % (issuer))
 
-    return identity.add_account_identity(identity_key, IdentityType.from_string(type), account, default)
+    return identity.add_account_identity(identity_key, IdentityType.from_sym(type), account, default)
 
 
 def del_account_identity(identity_key, type, account):
@@ -60,7 +60,7 @@ def del_account_identity(identity_key, type, account):
     :param type: The type of the authentication (x509, gss, userpass).
     :param account: The account name.
     """
-    return identity.del_account_identity(identity_key, IdentityType.from_string(type), account)
+    return identity.del_account_identity(identity_key, IdentityType.from_sym(type), account)
 
 
 def list_identities(**kwargs):
