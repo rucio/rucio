@@ -523,7 +523,8 @@ class Meta:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         try:
-            return dumps(get_metadata(scope=scope, name=name))
+            meta = get_metadata(scope=scope, name=name)
+            return render_json(**meta)
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:

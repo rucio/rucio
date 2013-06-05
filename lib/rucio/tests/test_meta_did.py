@@ -41,7 +41,7 @@ class TestMetaDIDClient():
 
         # Add a key
         key = 'key_' + str(uuid())
-        self.meta_client.add_key(key=key, key_type='collection')
+        self.meta_client.add_key(key=key, key_type='COLLECTION')
 
         value = 'value_' + str(uuid())
         self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key, value=value)
@@ -53,7 +53,7 @@ class TestMetaDIDClient():
         # Add a new key with a value
         key2 = 'key_' + str(uuid())
         value2 = 'value_' + str(uuid())
-        self.meta_client.add_key(key=key2, key_type='collection')
+        self.meta_client.add_key(key=key2, key_type='COLLECTION')
         self.meta_client.add_value(key=key2, value=value2)
 
         # Try a add a wrong value
@@ -63,7 +63,7 @@ class TestMetaDIDClient():
         # Add a new key with a value
         key3 = 'key_' + str(uuid())
         value3 = 'value_' + str(uuid())
-        self.meta_client.add_key(key=key3, key_type='file')
+        self.meta_client.add_key(key=key3, key_type='FILE')
         self.meta_client.add_value(key=key3, value=value3)
 
         with assert_raises(UnsupportedOperation):

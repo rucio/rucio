@@ -15,7 +15,6 @@
 """
 SQLAlchemy models for rucio data
 """
-
 import datetime
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, SmallInteger, String as _String, event, UniqueConstraint
@@ -262,7 +261,6 @@ class DataIdentifier(BASE, ModelBase):
     rule_evaluation = Column(DIDReEvaluation.db_type(name='DIDS_RULE_EVALUATION_CHK'))
     expired_at = Column(DateTime)
     deleted_at = Column(DateTime)
-    guid = Column(GUID())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -272,7 +270,7 @@ class DataIdentifier(BASE, ModelBase):
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_NEW_IDX', 'new'),
                    Index('DIDS_EXPIRED_AT', 'expired_at'),
-                   Index('DIDS_RULE_EVALUATION', 'rule_evaluation')
+                   Index('DIDS_RULE_EVALUATION', 'rule_evaluation'),
                    )
 
 
@@ -316,7 +314,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    CheckConstraint('"TYPE" IS NOT NULL', name='CONTENTS_TYPE_NN'),
                    CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'),
-                   Index('CONTENTS_RULE_EVALUATION', 'rule_evaluation'))
+                   Index('CONTENTS_RULE_EVALUATION_IDX', 'rule_evaluation'))
 
 
 class RSE(BASE, SoftModelBase):

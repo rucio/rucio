@@ -4,6 +4,7 @@
 # MySQL-python==1.2.3      # MySQL connector
 SQLAlchemy==0.7.10         # db backend
 sqlalchemy-migrate==0.7.2  # To deal with database schema changes
+alembic==0.5.0             # Lightweight database migration tool for SQLAlchemy
 #Jinja2>=2.3               # Template engine
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
 web.py==0.37               # Python web framework
