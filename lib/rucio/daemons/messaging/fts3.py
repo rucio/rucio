@@ -19,6 +19,7 @@ import time
 import json
 import stomp
 
+from rucio.db.constants import FTSState, RequestState
 from rucio.core.monitor import record
 from rucio.core.request import set_request_state
 from rucio.common.config import config_get, config_get_int
@@ -40,8 +41,8 @@ class Consumer(object):
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
 
         if msg['job_metadata'] != '':
-            if msg['job_state'] == 'FINISHED':
-                set_request_state(msg['job_metadata']['request_id'], 'DONE')
+            if msg['job_state'] == FTSState.FINISHED:
+                set_request_state(msg['job_metadata']['request_id'], RequestState.DONE)
 
 
 def consumer():
