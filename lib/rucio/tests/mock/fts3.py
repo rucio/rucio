@@ -11,6 +11,8 @@ import random
 import sqlite3
 import uuid
 
+from rucio.db.constants import FTSState, RequestState
+
 """
 This mock FTS3 server provides basic job control, with a random job progression model:
 """
@@ -36,7 +38,7 @@ def submit(tinfo):
     """
 
     tid = str(uuid.uuid4())
-    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('INSERT INTO transfers(tid, timestart, lastmodified, state, tinfo) VALUES (?, datetime(\'now\'), datetime(\'now\'), \'QUEUED\', ?)', [tid, str(tinfo)])
+    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('INSERT INTO transfers(tid, timestart, lastmodified, state, tinfo) VALUES (?, datetime(\'now\'), datetime(\'now\'), ?, ?)', [tid, RequestState.QUEUED, str(tinfo)])
     return {'job_id': tid}
 
 
@@ -48,15 +50,15 @@ def query(tid):
     :returns: The transfer job information.
     """
 
-    new_state = random.sample(sum([['FINISHED']*15, ['FAILED']*3, ['FINISHEDDIRTY']*2, ['ACTIVE']*80], []), 1)[0]
+    new_state = random.sample(sum([[FTSState.FINISHED]*15, [FTSState.FAILED]*3, [FTSState.FINISHEDDIRTY]*2, [FTSState.ACTIVE]*80], []), 1)[0]
 
-    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('UPDATE transfers SET state=?, lastmodified=datetime(\'now\') WHERE tid=? AND (state == \'ACTIVE\' OR state == \'QUEUED\')', [new_state, tid])
+    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('UPDATE transfers SET state=?, lastmodified=datetime(\'now\') WHERE tid=? AND (state == ? OR state == ?)', [new_state, tid, RequestState.ACTIVE, RequestState.QUEUED])
     t = sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('SELECT state FROM transfers WHERE tid=?', [tid])
     tr = t.fetchone()[0]
 
     r = {'job_state': tr}
 
-    if tr == u'FAILED' or tr == u'FINISHEDDIRTY':
+    if tr == FTSState.FAILED or tr == FTSState.FINISHEDDIRTY:
         r['reason'] = 'Mock FTS decided to kill your transfer.'
         r['files'] = [{'source_surl': 'mock_src', 'dest_surl': 'mock_dest', 'reason': 'mock failure'}]
 
@@ -70,7 +72,7 @@ def cancel(tid):
     :param tid: The transfer job id.
     """
 
-    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('UPDATE transfers SET lastmodified=datetime(\'now\'), state=\'CANCELLED\' WHERE tid=? AND state!=\'DONE\'', [tid])
+    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('UPDATE transfers SET lastmodified=datetime(\'now\'), state=? WHERE tid=? AND state!=?', [FTSState.CANCELED, tid, RequestState.DONE])
 
 
 # one time setup

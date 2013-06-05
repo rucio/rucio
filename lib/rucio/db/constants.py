@@ -133,6 +133,15 @@ class RequestState(DeclEnum):
     DONE = 'D', 'DONE'
 
 
+class FTSState(DeclEnum):
+    SUBMITTED = 'S', 'SUBMITTED'
+    READY = 'R', 'READY'
+    ACTIVE = 'A', 'ACTIVE'
+    FAILED = 'F', 'FAILED'
+    FINISHED = 'X', 'FINISHED'
+    FINISHEDDIRTY = 'D', 'FINISHEDDIRTY'
+    CANCELED = 'C', 'CANCELED'
+
 # Individual constants
 
 OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas.

@@ -13,9 +13,10 @@ SQLAlchemy models for Rucio tests
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, PrimaryKeyConstraint
+from sqlalchemy import Column, DateTime, PrimaryKeyConstraint
 
 from rucio.common.utils import generate_uuid
+from rucio.db.constants import FTSState
 from rucio.db.models import ModelBase, String
 from rucio.db.session import BASE
 from rucio.db.types import GUID
@@ -26,7 +27,7 @@ class MockFTSTransfer(BASE, ModelBase):
     transfer_id = Column(GUID(), default=generate_uuid)
     start_time = Column(DateTime, default=datetime.utcnow)
     last_modified = Column(DateTime, default=datetime.utcnow)
-    state = Column(Enum('SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY', 'CANCELED'), default='SUBMITTED')
+    state = Column(FTSState.db_type(name='MOCK_FTS_TRANSFERS_STATE_CHK'), default=FTSState.SUBMITTED)
     transfer_metadata = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('transfer_id', name='MOCK_FTS_TRANSFERS_PK'), )
 

@@ -16,6 +16,7 @@ import threading
 import time
 import traceback
 
+from rucio.db.constants import RequestType, RequestState
 from rucio.core import did, request, rse
 from rucio.rse import rsemanager
 
@@ -39,7 +40,7 @@ def submitter(once=False):
 
         try:
 
-            req = request.get_next(req_type='TRANSFER', state='QUEUED')
+            req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED)
             if req is None:
                 continue
 
@@ -75,7 +76,7 @@ def poller(once=False):
         try:
             print 'poller: retrieving external state of request'
 
-            req_id = request.get_next(req_type='TRANSFER', state='SUBMITTED')['request_id']
+            req_id = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED)['request_id']
             if req_id is None:
                 continue
 
