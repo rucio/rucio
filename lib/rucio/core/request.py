@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from rucio.common.exception import RucioException
 from rucio.db import models
+from rucio.db.constants import RequestState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
@@ -34,7 +35,7 @@ def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None)
                                  name=name,
                                  dest_rse_id=dest_rse_id,
                                  attributes=str(metadata),
-                                 state='QUEUED')
+                                 state=RequestState.QUEUED)
 
     try:
         new_request.save(session=session)
@@ -74,7 +75,7 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
     elif transfertool == 'fts3-mock':
         transfer_id = fts3.submit(src_urls=src_urls, dest_urls=dest_urls, filesize=None, checksum=None, overwrite=False, job_metadata=metadata, mock=True)
 
-    session.query(models.Request).filter_by(id=request_id).update({'state': 'SUBMITTED', 'external_id': transfer_id})
+    session.query(models.Request).filter_by(id=request_id).update({'state': RequestState.SUBMITTED, 'external_id': transfer_id})
 
 
 @read_session

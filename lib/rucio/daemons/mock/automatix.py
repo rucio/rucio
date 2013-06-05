@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 
+from rucio.db.constants import RequestType
 from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid
 from rucio.core import did, rse, scope, request
@@ -48,7 +49,7 @@ def request_transfer(once=False):
             rse.add_file_replica(rse='MOCK', scope=tmp_scope, name='file-%s' % tmp_name, size=1, issuer='root')
             did.attach_identifier(scope=tmp_scope, name='dataset-%s' % tmp_name, dids=[{'scope': tmp_scope, 'name': 'file-%s' % tmp_name}], issuer='root')
 
-            request.queue_request(tmp_scope, 'file-%s' % tmp_name, 'MOCK3', 'TRANSFER', {'random': 'metadata'})
+            request.queue_request(tmp_scope, 'file-%s' % tmp_name, 'MOCK3', RequestType.TRANSFER, {'random': 'metadata'})
 
         except:
             print traceback.format_exc()
