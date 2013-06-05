@@ -24,7 +24,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.request import queue_request
 from rucio.core.rse_selector import RSESelector
 from rucio.db import models
-from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDReEvaluation
+from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDReEvaluation, DIDType, RequestType
 from rucio.db.session import read_session, transactional_session
 
 
@@ -62,8 +62,7 @@ def add_replication_rule(dids, account, copies, rse_expression, grouping, weight
         try:
             did = session.query(models.DataIdentifier).filter_by(
                 scope=elem['scope'],
-                name=elem['name'],
-                deleted=False).with_lockmode('update').one()
+                name=elem['name']).with_lockmode('update').one()
         except NoResultFound:
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
         # 3. Create the replication rule
@@ -94,7 +93,7 @@ def add_replication_rule(dids, account, copies, rse_expression, grouping, weight
     # 6. Create the transfers
     if len(transfers_to_create) > 0:
         for transfer in transfers_to_create:
-            queue_request(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], req_type='TRANSFER')
+            queue_request(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], req_type=RequestType.TRANSFER)
     else:
         # No transfers need to be created, the rule is SATISFIED
         new_rule.state = RuleState.OK
@@ -116,13 +115,13 @@ def __resolve_dids_to_locks(did, session=None):
                        # Files are in the format [{'scope': ,'name':, 'bytes':, 'locks': [{'rse_id':, 'state':, 'rule_id':}]}]
 
     # a) Resolve the did
-    if did.type == 'file':
+    if did.type == DIDType.FILE:
         files = [{'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'locks': get_replica_locks(scope=did.scope, name=did.name)}]
         datasetfiles = [{'scope': None, 'name': None, 'files': files}]
-    elif did.type == 'dataset':
+    elif did.type == DIDType.DATASET:
         tmp_locks = get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name)
         datasetfiles = [{'scope': did.scope, 'name': did.name, 'files': tmp_locks.values()}]
-    elif did.type == 'container':
+    elif did.type == DIDType.CONTAINER:
         for dscont in list_child_dids(scope=did.scope, name=did.name, lock=True, session=session):
             tmp_locks = get_files_and_replica_locks_of_dataset(scope=dscont['scope'], name=dscont['name'])
             datasetfiles.append({'scope': dscont['scope'], 'name': dscont['name'], 'files': tmp_locks.values()})
