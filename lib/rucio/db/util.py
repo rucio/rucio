@@ -14,7 +14,7 @@ from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, 
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.db import session, migration, models, test_models
+from rucio.db import session, models, test_models
 from rucio.db.constants import AccountStatus, AccountType, IdentityType
 
 
@@ -28,7 +28,6 @@ def build_database(echo=True, tests=False):
 
     try:
         sql_connection = config_get('database', 'default')
-        migration.version_control(sql_connection=sql_connection)
     except exception.DatabaseMigrationError:
         # Can happen if the DB exists and is under version control
         pass
