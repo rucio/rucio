@@ -28,7 +28,14 @@ function usage {
   exit
 }
 
-range=$(seq 1 2)
+
+seq_tool=`which seq`
+if [ $? != 0 ]; then
+    range=$(jot - 1 2)  #  For mac
+else
+    range=$(seq 1 2)
+fi
+
 
 while getopts hrctid1 opt
 do
@@ -69,8 +76,8 @@ chmod 777 /tmp/rucio.db
 echo 'Sync rse_repository with Rucio core'
 tools/sync_rses.py
 
-# echo 'Sync metadata keys'
-# tools/sync_meta.py
+echo 'Sync metadata keys'
+tools/sync_meta.py
 
 echo 'Bootstrap tests: Create jdoe account/mock scope'
 tools/bootstrap_tests.py

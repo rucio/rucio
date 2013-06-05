@@ -9,12 +9,17 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from re import match
+
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from sqlalchemy import Column
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.common.exception import Duplicate, RucioException, KeyNotFound, InvalidValueForKey, UnsupportedValueType
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
+from rucio.db.types import GUID
 
 
 @transactional_session
@@ -40,6 +45,14 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
         if e.args[0] == "(IntegrityError) column key is not unique":
             raise Duplicate('key \'%(key)s\' already exists!' % locals())
         raise
+
+    ctx = MigrationContext.configure(session.connection())
+    op = Operations(ctx)
+
+    if key.upper() == 'GUID':
+        op.add_column(models.DataIdentifier.__table__.name, Column(key, GUID()))
+    else:
+        op.add_column(models.DataIdentifier.__table__.name, Column(key, models.String(50)))
 
 
 @transactional_session
