@@ -259,7 +259,7 @@ class TestAccountClient():
 
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
-        acc_list = [account_name_generator() + str(i) for i in xrange(5)]
+        acc_list = [account_name_generator() for i in xrange(5)]
 
         for account in acc_list:
             self.client.add_account(account, 'USER')

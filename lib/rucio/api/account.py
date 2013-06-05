@@ -35,7 +35,7 @@ def add_account(account, type, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
 
-    account_core.add_account(account, AccountType.from_string(type))
+    account_core.add_account(account, AccountType.from_sym(type))
 
 
 def del_account(account, issuer):
