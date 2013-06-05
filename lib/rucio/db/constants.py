@@ -93,10 +93,10 @@ class ReplicaState(DeclEnum):
 
 
 class RuleState(DeclEnum):
-    REPLICATING = 'REPLICATING', 'REPLICATING'
-    OK = 'OK', 'OK'
-    STUCK = 'STUCK', 'STUCK'
-    SUSPENDED = 'SUSPENDED', 'SUSPENDED'
+    REPLICATING = 'R', 'REPLICATING'
+    OK = 'O', 'OK'
+    STUCK = 'S', 'STUCK'
+    SUSPENDED = 'S', 'SUSPENDED'
 
 
 class RuleGrouping(DeclEnum):
