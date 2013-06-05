@@ -77,9 +77,6 @@ class TestRucioClients():
     def setup(self):
         self.marker = '$> '
 
-    def tearDown(self):
-        pass
-
     def test_ping(self):
         """ PING (CLIENT): Ping Rucio """
         creds = {'username': 'ddmlab', 'password': 'secret'}
