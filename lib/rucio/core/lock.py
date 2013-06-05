@@ -125,6 +125,7 @@ def successful_transfer(scope, name, rse_id, session=None):
     for lock in locks:
         lock.state = LockState.OK
         # Check if the rule_id of the lock has any REPLICATING locks LEFT
+        # TODO This query does not work with the new schema, as rule_id is not INDEXED on the locks table
         if session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == lock.rule_id,
                                                     models.ReplicaLock.state != LockState.OK).count() == 0:
             session.query(models.ReplicationRule).filter_by(id=lock.rule_id).one().state = LockState.OK
@@ -144,6 +145,7 @@ def failed_transfer(scope, name, rse_id, session=None):
     for lock in locks:
         lock.state = LockState.STUCK
         # Check if the rule_id of the lock has any REPLICATING locks LEFT
+        # TODO This query does not work with the new schema, as rule_id is not INDEXED on the locks table
         if session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == lock.rule_id,
                                                     models.ReplicaLock.state != LockState.OK).count() == 0:
             session.query(models.ReplicationRule).filter_by(id=lock.rule_id).one().state = LockState.STUCK

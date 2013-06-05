@@ -75,9 +75,9 @@ tools/sync_rses.py
 echo 'Bootstrap tests: Create jdoe account/mock scope'
 tools/bootstrap_tests.py
 
-# if test ${init_only+defined}; then
-#     exit
-# fi
+if test ${init_only}; then
+    exit
+fi
 
 for i in $range
 do
