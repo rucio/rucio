@@ -388,7 +388,7 @@ def list_child_dids(scope, name, lock=False, session=None):
                           models.DataIdentifierAssociation.child_type).filter(
                               models.DataIdentifierAssociation.scope == scope,
                               models.DataIdentifierAssociation.name == name,
-                              models.DataIdentifierAssociation.child_type != 'file')
+                              models.DataIdentifierAssociation.child_type != DIDType.FILE)
     if lock:
         query = query.with_lockmode('update')
     for child_scope, child_name, child_type in query.yield_per(5):
