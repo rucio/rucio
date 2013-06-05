@@ -15,16 +15,17 @@
 from datetime import datetime, timedelta
 from re import match
 
-from sqlalchemy import or_
+from sqlalchemy import or_, Column
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
+from sqlalchemy.sql.expression import bindparam
 
 from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.core.rse import add_file_replica
 from rucio.db import models
-from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
+from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState, KeyType
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
@@ -547,18 +548,25 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
         did = get_did(scope=scope, name=name, session=session)
 
     # Check key_type
-    if k.key_type in ('file', 'derived') and did['type'] != 'file':
+    if k.key_type in (KeyType.FILE, KeyType.DERIVED) and did['type'] != DIDType.FILE:
         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != file" % locals())
-    elif k.key_type == 'collection' and did['type'] not in ('dataset', 'container'):
+    elif k.key_type == KeyType.COLLECTION and did['type'] not in (DIDType.DATASET, DIDType.CONTAINER):
         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != dataset|container" % locals())
 
-    if key == 'guid':
-        try:
-            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'guid': value}, synchronize_session='fetch')  # add DIDtype
-            # or synchronize_session=False
-            # session.expire_all() ?
-        except IntegrityError, e:
-            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
+    models.DataIdentifier.__table__.append_column(Column(key, models.String(50)))
+    # session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
+    values = {key: value}
+    stmt = models.DataIdentifier.__table__.update().where(models.DataIdentifier.__table__.c.scope == bindparam('s')).where(models.DataIdentifier.__table__.c.name == bindparam('n')).values(**values)
+    session.execute(stmt, [{'s': scope, 'n': name}, ])
+
+
+#    if key == 'guid':
+#        try:
+#            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'guid': value}, synchronize_session='fetch')  # add DIDtype
+#            # or synchronize_session=False
+#            # session.expire_all() ?
+#        except IntegrityError, e:
+#            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
     # else:
     #    new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value, type=did['type'])
     #    try:
@@ -581,18 +589,20 @@ def get_metadata(scope, name, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
+    for key in session.query(models.DIDKey):
+        models.DataIdentifier.__table__.append_column(Column(key.key, models.String(50)))
+
     try:
-        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()   # remove deleted data
+        r = session.query(models.DataIdentifier.__table__).filter_by(scope=scope, name=name).one()   # remove deleted data
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     meta = {}
-    #query = session.query(models.DIDAttribute).filter_by(scope=scope, name=name)
-    #for row in query:
-    #    meta[row.key] = row.value
+    for column in r._fields:
+        meta[column] = getattr(r, column)
 
-    if r.type == DIDType.FILE and r.guid:
-        meta['guid'] = r.guid
+    # if r.type == DIDType.FILE and r.guid:
+    #    meta['guid'] = r.guid
 
     return meta
 

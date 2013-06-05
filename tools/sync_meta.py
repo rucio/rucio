@@ -28,6 +28,7 @@ if __name__ == '__main__':
                  ('prod_step', 'ALL', None, []),
                  ('datatype', 'ALL', None, []),
                  ('version', 'ALL', None, []),
+                 ('campaign', 'ALL', None, []),
                  ('guid', 'FILE', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
                  ('events', 'DERIVED', '^\d+$', [])]
 

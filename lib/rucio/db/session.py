@@ -160,9 +160,11 @@ def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
         :returns: session """
     global _SESSION
+    global BASE
     if not _SESSION:
         engine = get_engine(echo=True)
         _SESSION = scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
+        BASE.metadata.bind = engine
     return _SESSION
 
 
