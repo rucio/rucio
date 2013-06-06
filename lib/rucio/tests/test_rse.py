@@ -187,7 +187,7 @@ class TestRSEClient():
 
     def test_add_protocol(self):
         """ RSE (CLIENTS): add three protocols to rse."""
-        protocol_rse = 'MOCK_PROTOCOL_ADD_SUCCESS' + str(uuid())
+        protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',

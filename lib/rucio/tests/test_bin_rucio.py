@@ -18,8 +18,7 @@ import re
 from rucio import version
 from rucio.common.config import config_get
 from rucio.common.utils import generate_uuid as uuid
-from rucio.tests.common import execute
-
+from rucio.tests.common import execute, account_name_generator, rse_name_generator
 
 class TestBinRucio():
 
@@ -32,9 +31,6 @@ class TestBinRucio():
         self.marker = '$> '
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
-
-    def tearDown(self):
-        pass
 
     def test_rucio_version(self):
         """CLI: Get Version"""
@@ -50,12 +46,12 @@ class TestBinRucio():
 
     def test_add_account(self):
         """ACCOUNT (CLI): Add account"""
-        tmp_val = str(uuid()).lower()[:20]
-        cmd = 'rucio-admin account add jdoe-%s' % tmp_val
+        tmp_val = account_name_generator()
+        cmd = 'rucio-admin account add %s' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
-        nose.tools.assert_equal('Added new account: jdoe-%s\n' % tmp_val, out)
+        nose.tools.assert_equal('Added new account: %s\n' % tmp_val, out)
 
     def test_whoami(self):
         """ACCOUNT (CLI): Test whoami"""
@@ -67,51 +63,51 @@ class TestBinRucio():
 
     def test_add_identity(self):
         """ACCOUNT (CLI): Test add identity"""
-        tmp_val = str(uuid()).lower()[:20]
-        cmd = 'rucio-admin account add jdoe-%s' % tmp_val
+        tmp_val = account_name_generator()
+        cmd = 'rucio-admin account add %s' % tmp_val
         exitcode, out, err = execute(cmd)
-        nose.tools.assert_equal('Added new account: jdoe-%s\n' % tmp_val, out)
-        cmd = 'rucio-admin identity add --account jdoe-%s --type GSS --id jdoe@CERN.CH' % tmp_val
+        nose.tools.assert_equal('Added new account: %s\n' % tmp_val, out)
+        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
-        nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-jdoe-%s\n' % tmp_val, out)
+        nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val, out)
 
     def test_add_scope(self):
         """ACCOUNT (CLI): Test add identity"""
-        tmp_val = str(uuid()).lower()[:20]
-        cmd = 'rucio-admin account add jdoe-%s' % tmp_val
+        tmp_val = account_name_generator()
+        cmd = 'rucio-admin account add %s' % tmp_val
         exitcode, out, err = execute(cmd)
-        cmd = 'rucio-admin identity add --account jdoe-%s --type GSS --id jdoe@CERN.CH' % tmp_val
+        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
-        nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-jdoe-%s\n' % tmp_val, out)
+        nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val, out)
 
     def test_add_rse(self):
         """RSE (CLI): Add RSE"""
-        tmp_val = str(uuid()).upper()[:20]
-        cmd = 'rucio-admin rse add MOCK_%s' % tmp_val
+        tmp_val = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
-        nose.tools.assert_equal('Added new RSE: MOCK_%s\n' % tmp_val, out)
+        nose.tools.assert_equal('Added new RSE: %s\n' % tmp_val, out)
 
     def test_list_rses(self):
         """RSE (CLI): List RSEs"""
-        tmp_val = str(uuid()).upper()[:20]
-        cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
+        tmp_val = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio-admin rse list'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
-        nose.tools.assert_regexp_matches(out, re.compile('.*MOCK-%s.*' % tmp_val))
+        nose.tools.assert_regexp_matches(out, re.compile('.*%s.*' % tmp_val))
 
     def test_upload(self):
         """RSE (CLI): Upload"""
-        tmp_val = str(uuid())
-        cmd = 'rucio-admin rse add MOCK-%s' % tmp_val
+        tmp_val = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % tmp_val
         exitcode, out, err = execute(cmd)
         cmd = 'rucio upload'
         print self.marker + cmd
