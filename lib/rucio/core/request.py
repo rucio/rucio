@@ -30,7 +30,7 @@ def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None)
     :returns: Request-ID as a 32 character hex string.
     """
 
-    new_request = models.Request(type=req_type,
+    new_request = models.Request(is_type=req_type,
                                  scope=scope,
                                  name=name,
                                  dest_rse_id=dest_rse_id,
@@ -92,7 +92,7 @@ def get_next(req_type, state, session=None):
     tmp = session.query(models.Request).add_columns(models.Request.id,
                                                     models.Request.scope,
                                                     models.Request.name,
-                                                    models.Request.dest_rse_id).filter_by(type=req_type, state=state).first()
+                                                    models.Request.dest_rse_id).filter_by(is_type=req_type, state=state).first()
 
     if tmp is None:
         return None

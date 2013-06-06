@@ -32,7 +32,7 @@ def exist_identity_account(identity, type, account, session=None):
     :returns: True if identity is mapped to account, otherwise False
     """
 
-    return session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account).first() is not None
+    return session.query(models.IdentityAccountAssociation).filter_by(identity=identity, is_type=type, account=account).first() is not None
 
 
 @transactional_session
@@ -56,7 +56,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     if not account_exists(account, session=session):
         return None
 
-    result = session.query(models.Identity).filter_by(identity=username, type=IdentityType.USERPASS).first()
+    result = session.query(models.Identity).filter_by(identity=username, is_type=IdentityType.USERPASS).first()
 
     db_salt = result['salt']
     db_password = result['password']
@@ -65,7 +65,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
         return None
 
     # get account identifier
-    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, type=IdentityType.USERPASS).first()
+    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, is_type=IdentityType.USERPASS).first()
     db_account = result['account']
 
     # remove expired tokens

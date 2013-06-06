@@ -102,8 +102,11 @@ def get_rse(rse, session=None):
 
     :raises RSENotFound: If referred RSE was not found in the database.
     """
+
     try:
-        return session.query(models.RSE).filter_by(rse=rse).one()
+        tmp = session.query(models.RSE).filter_by(rse=rse).one()
+        tmp['type'] = tmp.is_type
+        return tmp
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
 
@@ -396,10 +399,10 @@ def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, d
         if pfn:
             raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
 
-    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, type=DIDType.FILE).first()
+    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, is_type=DIDType.FILE).first()
     if not did:
         try:
-            new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
+            new_did = models.DataIdentifier(scope=scope, name=name, account=account, is_type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
             new_did = session.merge(new_did)
             new_did.save(session=session)
         except IntegrityError, e:
