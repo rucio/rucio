@@ -49,9 +49,9 @@ class DIDType(DeclEnum):
     FILE = 'F', 'FILE'
     DATASET = 'D', 'DATASET'
     CONTAINER = 'C', 'CONTAINER'
-    DELETED_FILE = 'DF', 'DELETED_FILE'
-    DELETED_DATASET = 'DD', 'DELETED_DATASET'
-    DELETED_CONTAINER = 'DC', 'DELETED_CONTAINER'
+    DELETED_FILE = 'X', 'DELETED_FILE'
+    DELETED_DATASET = 'Y', 'DELETED_DATASET'
+    DELETED_CONTAINER = 'Z', 'DELETED_CONTAINER'
 
 
 class DIDShortType(DeclEnum):
@@ -67,9 +67,9 @@ class DIDAvailability(DeclEnum):
 
 
 class DIDReEvaluation(DeclEnum):
-    ATTACH = 'ATTACH', 'ATTACH'
-    DETACH = 'DETACH', 'DETACH'
-    BOTH = 'BOTH', 'BOTH'
+    ATTACH = 'A', 'ATTACH'
+    DETACH = 'D', 'DETACH'
+    BOTH = 'B', 'BOTH'
 
 
 class KeyType(DeclEnum):
@@ -96,7 +96,7 @@ class RuleState(DeclEnum):
     REPLICATING = 'R', 'REPLICATING'
     OK = 'O', 'OK'
     STUCK = 'S', 'STUCK'
-    SUSPENDED = 'S', 'SUSPENDED'
+    SUSPENDED = 'U', 'SUSPENDED'
 
 
 class RuleGrouping(DeclEnum):

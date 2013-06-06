@@ -12,7 +12,6 @@ from traceback import format_exc
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 
-from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.db import session, models, test_models
 from rucio.db.constants import AccountStatus, AccountType, IdentityType
@@ -22,15 +21,8 @@ def build_database(echo=True, tests=False):
     """ Applies the schema to the database. Run this command once to build the database. """
     engine = session.get_engine(echo=echo)
     models.register_models(engine)
-
     if tests:
         test_models.register_models(engine)
-
-    try:
-        sql_connection = config_get('database', 'default')
-    except exception.DatabaseMigrationError:
-        # Can happen if the DB exists and is under version control
-        pass
 
 
 def dump_schema():

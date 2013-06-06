@@ -10,12 +10,12 @@
           "hostname": "swift.cern.ch",
           "port": 443,
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -37,12 +37,12 @@
           "impl": "rucio.rse.protocols.sftp.Default",
           "port": 22,
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -63,12 +63,12 @@
         "file": {
           "prefix": "/tmp/rucio_rse/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -88,12 +88,12 @@
         "mock": {
           "impl": "rucio.rse.protocols.mock.Default",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -116,12 +116,12 @@
           "impl": "rucio.rse.protocols.mock.Default",
           "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -143,12 +143,12 @@
           "impl": "rucio.rse.protocols.posix.Default",
           "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -170,12 +170,12 @@
           "impl": "rucio.rse.protocols.posix.Default",
           "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -197,12 +197,12 @@
           "impl": "rucio.rse.protocols.posix.Default",
           "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -223,12 +223,12 @@
           "hostname": "https://t-dpm.grid.sinica.edu.tw",
           "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -240,12 +240,12 @@
           "hostname": "srm://t-dpm.grid.sinica.edu.tw",
           "prefix": "/dpm/grid.sinica.edu.tw/home/atlas/atlasppsscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -267,12 +267,12 @@
           "port": 2880,
           "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -284,12 +284,12 @@
           "hostname": "srm://lcg-se0.ifh.de",
           "prefix": "/pnfs/ifh.de/data/atlas/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -311,12 +311,12 @@
           "port": 2880,
           "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -328,12 +328,12 @@
           "hostname": "srm://lcg-se0.ifh.de",
           "prefix": "/pnfs/ifh.de/data/atlas/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -355,12 +355,12 @@
           "port": 2880,
           "prefix": "/dq2/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -372,12 +372,12 @@
           "hostname": "srm://dcache-se-atlas.desy.de",
           "prefix": "/pnfs/desy.de/atlas/dq2/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -399,12 +399,12 @@
           "port": 2880,
           "prefix": "/dq2/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -416,12 +416,12 @@
           "hostname": "srm://dcache-se-atlas.desy.de",
           "prefix": "/pnfs/desy.de/atlas/dq2/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -442,12 +442,12 @@
           "hostname": "https://lcg-lrz-dc66.grid.lrz.de",
           "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -459,12 +459,12 @@
           "hostname": "srm://lcg-lrz-se.lrz-muenchen.de",
           "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -485,12 +485,12 @@
           "hostname": "https://lcg-lrz-dc66.grid.lrz.de",
           "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -502,12 +502,12 @@
           "hostname": "srm://lcg-lrz-se.lrz-muenchen.de",
           "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -528,12 +528,12 @@
           "hostname": "https://lcg-lrz-dc66.grid.lrz.de",
           "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -545,12 +545,12 @@
           "hostname": "srm://lcg-lrz-se.lrz-muenchen.de",
           "prefix": "/pnfs/lrz-muenchen.de/data/atlas/dq2/atlasppsscratchdisk/rucio/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -573,12 +573,12 @@
           "scheme": "https",
           "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -590,12 +590,12 @@
           "hostname": "srm://atlassrm-fzk.gridka.de",
           "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 2,
               "write": 2,
               "delete": 2
             },
-            "WAN": {
+            "wan": {
               "read": 2,
               "write": 2,
               "delete": 2
@@ -618,12 +618,12 @@
           "scheme": "https",
           "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -635,12 +635,12 @@
           "hostname": "srm://atlassrm-fzk.gridka.de",
           "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -662,12 +662,12 @@
           "port": 2881,
           "prefix": "/atlas/disk/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -679,12 +679,12 @@
           "hostname": "srm://srm.ndgf.org",
           "prefix": "/atlas/disk/atlasdatadisk/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -707,12 +707,12 @@
           "port": 8443,
           "prefix": "srm/manager2/castor/cern.ch/grid/atlas/tzero/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -725,12 +725,12 @@
           "port": 9002,
           "prefix": "/castor/cern.ch/grid/atlas/tzero/",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -756,12 +756,12 @@
           "prefix": "/castor/cern.ch/grid/atlas/tmpdisk/rucio_tests/",
           "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1
@@ -775,12 +775,12 @@
           "prefix": "/castor/cern.ch/grid/atlas/tmpdisk/rucio_tests/",
           "extended_attributes": "{'STAGE_SVCCLASS': 't0atlas'}",
           "domains": {
-            "LAN": {
+            "lan": {
               "read": 1,
               "write": 1,
               "delete": 1
             },
-            "WAN": {
+            "wan": {
               "read": 1,
               "write": 1,
               "delete": 1

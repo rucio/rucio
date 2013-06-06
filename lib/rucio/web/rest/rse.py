@@ -82,10 +82,10 @@ class RSEs:
 
 
 class RSE:
-    """ Create, update, get and disable location. """
+    """ Create, update, get and disable RSE. """
 
     def POST(self, rse):
-        """ Create RSE with given location name.
+        """ Create RSE with given name.
 
         HTTP Success:
             201 Created

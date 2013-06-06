@@ -386,12 +386,12 @@ class RSEProtocols(BASE, ModelBase):
     port = Column(Integer, default=0)  # like host, for local protocol the port 0 is assumed to be default
     prefix = Column(String(1024), nullable=True)
     impl = Column(String(255), nullable=False)
-    read_LAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    write_LAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    delete_LAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    read_WAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    write_WAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    delete_WAN = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    read_lan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    write_lan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    delete_lan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    read_wan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    write_wan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    delete_wan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(1024), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
