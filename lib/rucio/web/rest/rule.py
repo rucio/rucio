@@ -11,12 +11,14 @@
 
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
+from traceback import format_exc
 
 from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized, OK
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
-from rucio.common.exception import InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression, InvalidReplicationRule
+from rucio.common.exception import (InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression,
+                                    InvalidReplicationRule, RucioException)
 from rucio.common.utils import generate_http_error, render_json
 
 logger = getLogger("rucio.rule")
@@ -110,8 +112,13 @@ class Rule:
             raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
         except InvalidReplicationRule, e:
             raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
+            print e
+            print format_exc()
             raise InternalError(e)
+
         raise Created(dumps(rule_ids))
 
     def DELETE(self, rule_id):

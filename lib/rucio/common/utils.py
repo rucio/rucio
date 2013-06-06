@@ -214,4 +214,4 @@ def rse_supported_protocol_operations():
 
 def rse_supported_protocol_domains():
     """ Returns a list with all supoorted RSE protocol domains."""
-    return ['LAN', 'WAN']
+    return ['lan', 'wan']

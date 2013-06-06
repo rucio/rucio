@@ -18,5 +18,5 @@
 from rucio.db.util import build_database, create_root_account
 
 if __name__ == '__main__':
-    build_database()
+#    build_database()
     create_root_account()

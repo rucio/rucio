@@ -51,7 +51,7 @@ def add_rse(rse, deterministic=True, volatile=False, session=None):
     except IntegrityError:
         raise exception.Duplicate('RSE \'%(rse)s\' already exists!' % locals())
     except DatabaseError, e:
-        raise exception.RucioException(e.args[0][0])
+        raise exception.RucioException(e.args[0])
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse=rse, key=rse, value=True, session=session)
@@ -614,7 +614,7 @@ def add_protocol(rse, parameter, session=None):
     parameter['port'] = parameter.get('port', 0)
     parameter['hostname'] = parameter.get('hostname', 'localhost')
 
-    # Transform nested domains to match DB schema e.g. [domains][LAN][read] => [read_LAN]
+    # Transform nested domains to match DB schema e.g. [domains][lan][read] => [read_lan]
     if 'domains' in parameter.keys():
         for s in parameter['domains']:
             if s not in utils.rse_supported_protocol_domains():
@@ -622,7 +622,7 @@ def add_protocol(rse, parameter, session=None):
             for op in parameter['domains'][s]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = ''.join([op, '_', s])
+                op_name = ''.join([op, '_', s]).lower()
                 no = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
                                                                                getattr(models.RSEProtocols, op_name) > 0,
                                                                                )).count()
@@ -672,7 +672,7 @@ def get_protocols(rse, protocol_domain='ALL', operation=None, default=False, sch
     Returns protocol information. Parameter comibantions are: (operation OR default) XOR scheme.
 
     :param rse: The name of the rse.
-    :param protocol_domain: The domain of the requested protocol. Supported are either 'LAN', 'WAN' or, 'ALL' (as default).
+    :param protocol_domain: The domain of the requested protocol. Supported are either 'lan', 'wan' or, 'ALL' (as default).
     :param operation: The name of the requested operation (read, write, or delete).
                       If None, all operations are queried.
     :param default: Indicates if only the default operations should be returned.
@@ -739,13 +739,13 @@ def get_protocols(rse, protocol_domain='ALL', operation=None, default=False, sch
              'prefix': row.prefix,
              'impl': row.impl,
              'domains': {
-                 'LAN': {'read': row.read_LAN,
-                         'write': row.write_LAN,
-                         'delete': row.delete_LAN
+                 'lan': {'read': row.read_lan,
+                         'write': row.write_lan,
+                         'delete': row.delete_lan
                          },
-                 'WAN': {'read': row.read_WAN,
-                         'write': row.write_WAN,
-                         'delete': row.delete_WAN
+                 'wan': {'read': row.read_wan,
+                         'write': row.write_wan,
+                         'delete': row.delete_wan
                          }
              },
              'extended_attributes': row.extended_attributes
@@ -791,7 +791,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
     """
 
     rid = get_rse(rse=rse, session=session).id
-    # Transform nested domains to match DB schema e.g. [domains][LAN][read] => [read_LAN]
+    # Transform nested domains to match DB schema e.g. [domains][lan][read] => [read_lan]
     if 'domains' in data:
         for s in data['domains']:
             if s not in utils.rse_supported_protocol_domains():
