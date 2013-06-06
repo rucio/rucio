@@ -115,13 +115,13 @@ def __resolve_dids_to_locks(did, session=None):
                        # Files are in the format [{'scope': ,'name':, 'bytes':, 'locks': [{'rse_id':, 'state':, 'rule_id':}]}]
 
     # a) Resolve the did
-    if did.type == DIDType.FILE:
+    if did.is_type == DIDType.FILE:
         files = [{'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'locks': get_replica_locks(scope=did.scope, name=did.name)}]
         datasetfiles = [{'scope': None, 'name': None, 'files': files}]
-    elif did.type == DIDType.DATASET:
+    elif did.is_type == DIDType.DATASET:
         tmp_locks = get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name)
         datasetfiles = [{'scope': did.scope, 'name': did.name, 'files': tmp_locks.values()}]
-    elif did.type == DIDType.CONTAINER:
+    elif did.is_type == DIDType.CONTAINER:
         for dscont in list_child_dids(scope=did.scope, name=did.name, lock=True, session=session):
             tmp_locks = get_files_and_replica_locks_of_dataset(scope=dscont['scope'], name=dscont['name'])
             datasetfiles.append({'scope': dscont['scope'], 'name': dscont['name'], 'files': tmp_locks.values()})
@@ -461,7 +461,7 @@ def __evaluate_attach(eval_did, session=None):
 
     #Row-Lock all children of the evaluate_dids
     all_child_dscont = []
-    if new_child_dids[0].type != models.DataIdType.FILE:
+    if new_child_dids[0].is_type != models.DataIdType.FILE:
         for did in new_child_dids:
             all_child_dscont.extend(list_child_dids(scope=did.scope, name=did.name, lock=True, session=session))
 
@@ -471,7 +471,7 @@ def __evaluate_attach(eval_did, session=None):
         rules.extend(session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name']).with_lockmode('update').all())
 
     #Resolve the new_child_dids to its locks
-    if new_child_dids[0].type == models.DataIdType.FILE:
+    if new_child_dids[0].is_type == models.DataIdType.FILE:
         # All the evaluate_dids will be files!
         # Build the special files and datasetfiles object
         files = []
@@ -507,7 +507,7 @@ def __evaluate_attach(eval_did, session=None):
         # 3. Apply the Replication rule to the Files
         preferred_rse_ids = []
         # 3.1 Check if the dids in question are files added to a dataset with DATASET/ALL grouping
-        if new_child_dids[0].type == models.DataIdType.FILE and rule.grouping != RuleGrouping.NONE:
+        if new_child_dids[0].is_type == models.DataIdType.FILE and rule.grouping != RuleGrouping.NONE:
             # Are there any existing did's in this dataset
             always_false = False
             brother_did = session.query(models.DataIdentifierAssociation).filter(

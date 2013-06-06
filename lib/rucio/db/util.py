@@ -5,7 +5,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from traceback import format_exc
 
@@ -109,18 +110,18 @@ def create_root_account():
 
     s = session.get_session()
 
-    account = models.Account(account='root', type=AccountType.USER, status=AccountStatus.ACTIVE)
+    account = models.Account(account='root', is_type=AccountType.USER, status=AccountStatus.ACTIVE)
 
-    identity1 = models.Identity(identity=up_id, type=IdentityType.USERPASS, password=up_pwd, salt='0', email=up_email)
-    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, type=identity1.type, account=account.account, is_default=True)
+    identity1 = models.Identity(identity=up_id, is_type=IdentityType.USERPASS, password=up_pwd, salt='0', email=up_email)
+    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, is_type=identity1.is_type, account=account.account, is_default=True)
 
     # X509 authentication
-    identity2 = models.Identity(identity=x509_id, type=IdentityType.X509, email=x509_email)
-    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, type=identity2.type, account=account.account, is_default=True)
+    identity2 = models.Identity(identity=x509_id, is_type=IdentityType.X509, email=x509_email)
+    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, is_type=identity2.is_type, account=account.account, is_default=True)
 
     # GSS authentication
-    identity3 = models.Identity(identity=gss_id, type=IdentityType.GSS, email=gss_email)
-    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, type=identity3.type, account=account.account, is_default=True)
+    identity3 = models.Identity(identity=gss_id, is_type=IdentityType.GSS, email=gss_email)
+    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, is_type=identity3.is_type, account=account.account, is_default=True)
 
     # Apply
     s.add_all([account, identity1, identity2, identity3])

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 import hashlib
@@ -43,7 +43,7 @@ def add_identity(identity, type, password=None, session=None):
         raise exception.IdentityError('You must provide a password!')
 
     new_id = models.Identity()
-    new_id.update({'identity': identity, 'type': type})
+    new_id.update({'identity': identity, 'is_type': type})
 
     if type == identity_type.userpass and password is not None:
         salt = os.urandom(256)  # make sure the salt has the length of the hash
@@ -66,7 +66,7 @@ def del_identity(identity, type, session=None):
     :param session: The database session in use.
     """
 
-    id = session.query(models.Identity).filter_by(identity=identity, type=type).first()
+    id = session.query(models.Identity).filter_by(identity=identity, is_type=type).first()
     if id is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
     id.delete(session=session)
@@ -86,12 +86,12 @@ def add_account_identity(identity, type, account, default=False, session=None):
     if not account_exists(account, session=session):
         raise exception.AccountNotFound('Account \'%s\' does not exist.' % account)
 
-    id = session.query(models.Identity).filter_by(identity=identity, type=type).first()
+    id = session.query(models.Identity).filter_by(identity=identity, is_type=type).first()
     if id is None:
-        id = models.Identity(identity=identity, type=type)
+        id = models.Identity(identity=identity, is_type=type)
         id.save(session=session)
 
-    iaa = models.IdentityAccountAssociation(identity=id.identity, type=id.type, account=account)
+    iaa = models.IdentityAccountAssociation(identity=id.identity, is_type=id.is_type, account=account)
 
     try:
         iaa.save(session=session)
@@ -109,7 +109,7 @@ def del_account_identity(identity, type, account, session=None):
     :param account: The account name.
     :param session: The database session in use.
     """
-    aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, type=type, account=account).first()
+    aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, is_type=type, account=account).first()
     if aid is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
     aid.delete(session=session)
@@ -128,6 +128,6 @@ def list_identities(session=None, **kwargs):
     id_list = []
 
     for id in session.query(models.Identity).order_by(models.Identity.identity):
-        id_list.append((id.identity, id.type))
+        id_list.append((id.identity, id.is_type))
 
     return id_list

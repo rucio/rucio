@@ -75,17 +75,17 @@ def list_dids(scope, pattern, type='collection', ignore_case=False, session=None
     # if ignore_case
     # func.upper(models.DataIdentifier.name).like(pattern.replace('*','%'))
     if type == 'all':
-        query = query.filter(or_(models.DataIdentifier.type == DIDType.CONTAINER,
-                                 models.DataIdentifier.type == DIDType.DATASET,
-                                 models.DataIdentifier.type == DIDType.FILE))
+        query = query.filter(or_(models.DataIdentifier.is_type == DIDType.CONTAINER,
+                                 models.DataIdentifier.is_type == DIDType.DATASET,
+                                 models.DataIdentifier.is_type == DIDType.FILE))
     elif type == 'collection':
-        query = query.filter(or_(models.DataIdentifier.type == DIDType.CONTAINER, models.DataIdentifier.type == DIDType.DATASET))
+        query = query.filter(or_(models.DataIdentifier.is_type == DIDType.CONTAINER, models.DataIdentifier.is_type == DIDType.DATASET))
     elif type == 'container':
-        query = query.filter(models.DataIdentifier.type == DIDType.CONTAINER)
+        query = query.filter(models.DataIdentifier.is_type == DIDType.CONTAINER)
     elif type == 'dataset':
-        query = query.filter(models.DataIdentifier.type == DIDType.DATASET)
+        query = query.filter(models.DataIdentifier.is_type == DIDType.DATASET)
     elif type == 'file':
-        query = query.filter(models.DataIdentifier.type == DIDType.FILE)
+        query = query.filter(models.DataIdentifier.is_type == DIDType.FILE)
     #else:
     #  error
     for row in query.yield_per(5):
@@ -119,7 +119,7 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], l
         expired_at = datetime.utcnow() + timedelta(seconds=lifetime)
 
     # Insert new data identifier
-    new_did = models.DataIdentifier(scope=scope, name=name, account=account, type=type, monotonic=statuses.get('monotonic', False), open=True, expired_at=expired_at)
+    new_did = models.DataIdentifier(scope=scope, name=name, account=account, is_type=type, monotonic=statuses.get('monotonic', False), is_open=True, expired_at=expired_at)
     try:
         new_did.save(session=session)
     except IntegrityError, e:
@@ -155,14 +155,14 @@ def attach_identifier(scope, name, dids, account, session=None):
     try:
         did = query.one()
 
-        if not did.open:
+        if not did.is_open:
             raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % locals())
 
-        if did.type == DIDType.FILE:
+        if did.is_type == DIDType.FILE:
             raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % locals())
-        elif did.type == DIDType.DATASET:
+        elif did.is_type == DIDType.DATASET:
             child_type = DIDType.FILE
-        elif did.type == DIDType.CONTAINER:
+        elif did.is_type == DIDType.CONTAINER:
             child_type = None  # collection: DIDType.DATASET or DIDType.CONTAINER
 
     except NoResultFound:
@@ -175,29 +175,29 @@ def attach_identifier(scope, name, dids, account, session=None):
         did.rule_evaluation_action = DIDReEvaluation.BOTH
 
     query_all = session.query(models.DataIdentifier)
-    # query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, type=did.type)
+    # query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, is_type=did.is_type)
     for source in dids:
 
         if (scope == source['scope']) and (name == source['name']):
             raise exception.UnsupportedOperation('Self-append is not valid.')
 
-        if did.type == DIDType.CONTAINER:
+        if did.is_type == DIDType.CONTAINER:
             try:
 
                 child = query_all.filter_by(scope=source['scope'], name=source['name']).one()
 
-                if child.type == DIDType.FILE:
+                if child.is_type == DIDType.FILE:
                     raise exception.UnsupportedOperation("File '%(scope)s:%(name)s' " % source + "cannot be associated with a container '%(scope)s:%(name)s' is a file" % locals())
 
                 if not child_type:
-                    child_type = child.type
-                elif child_type != child.type:
-                    raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.type, child_type))
+                    child_type = child.is_type
+                elif child_type != child.is_type:
+                    raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.is_type, child_type))
 
             except NoResultFound:
                 raise exception.DataIdentifierNotFound("Source data identifier '%(scope)s:%(name)s' not found" % source)
 
-        elif did.type == DIDType.DATASET:
+        elif did.is_type == DIDType.DATASET:
 
             if child_type == DIDType.FILE and 'bytes' not in source:
                 raise exception.MissingFileParameter("The file bytes is missing for file '%(scope)s:%(name)s'" % source)
@@ -207,8 +207,8 @@ def attach_identifier(scope, name, dids, account, session=None):
             else:
                 try:
                     child = query_all.filter_by(scope=source['scope'], name=source['name']).one()
-                    if child.type != DIDType.FILE:
-                        raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.type, child_type))
+                    if child.is_type != DIDType.FILE:
+                        raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.is_type, child_type))
 
                     if source['bytes'] != child.bytes or source.get('adler32', None) != child.adler32 or source.get('md5', None) != child.md5:
                         errMsg = "(bytes: %s, adler32: '%s', md5: '%s') != " % (source['bytes'], source.get('adler32', None), source.get('md5', None)) + "(bytes: %s, adler32: '%s', md5: '%s')" % (child.bytes, child.adler32, child.md5)
@@ -219,7 +219,7 @@ def attach_identifier(scope, name, dids, account, session=None):
         try:
             models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'],
                                              bytes=source.get('bytes', None), adler32=source.get('adler32', None),
-                                             md5=source.get('md5', None), type=did.type, child_type=child_type).save(session=session)
+                                             md5=source.get('md5', None), is_type=did.is_type, child_type=child_type).save(session=session)
         except IntegrityError, e:
             raise exception.RucioException(e.args[0])
             #if e.args[0] == "(IntegrityError) foreign key constraint failed":
@@ -280,12 +280,12 @@ def list_rule_re_evaluation_identifier(limit=None, session=None):
 
     :param type : The DID type.
     """
-    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.type).filter_by(rule_evaluation=True, deleted=False)
+    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.is_type).filter_by(rule_evaluation=True, deleted=False)
 
     if limit:
         query = query.limit(limit)
-    for scope, name, type in query.yield_per(10):
-        yield {'scope': scope, 'name': name, 'type': type}
+    for scope, name, is_type in query.yield_per(10):
+        yield {'scope': scope, 'name': name, 'type': is_type}
 
 
 @read_session
@@ -297,11 +297,11 @@ def list_new_identifier(type, session=None):
     :param session: The database session in use.
     """
     if type:
-        query = session.query(models.DataIdentifier).filter_by(type=type, new=1)
+        query = session.query(models.DataIdentifier).filter_by(is_type=type, is_new=1)
     else:
-        query = session.query(models.DataIdentifier).filter_by(new=1)
+        query = session.query(models.DataIdentifier).filter_by(is_new=1)
     for chunk in query.yield_per(10):
-        yield {'scope': chunk.scope, 'name': chunk.name, 'type': chunk.type}  # TODO Change this to the proper filebytes [RUCIO-199]
+        yield {'scope': chunk.scope, 'name': chunk.name, 'type': chunk.is_type}  # TODO Change this to the proper filebytes [RUCIO-199]
 
 
 @transactional_session
@@ -316,7 +316,7 @@ def set_new_identifier(scope, name, new_flag, session=None):
     """
 
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)
-    rowcount = query.update({'new': new_flag})
+    rowcount = query.update({'is_new': new_flag})
 
     if not rowcount:
         query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)
@@ -362,11 +362,11 @@ def list_parent_dids(scope, name, lock=False, session=None):
 
     query = session.query(models.DataIdentifierAssociation.scope,
                           models.DataIdentifierAssociation.name,
-                          models.DataIdentifierAssociation.type).filter_by(child_scope=scope, child_name=name)
+                          models.DataIdentifierAssociation.is_type).filter_by(child_scope=scope, child_name=name)
     if lock:
         query = query.with_lockmode('update')
     for did in query.yield_per(5):
-        yield {'scope': did.scope, 'name': did.name, 'type': did.type}
+        yield {'scope': did.scope, 'name': did.name, 'type': did.is_type}
         list_parent_dids(scope=did.scope, name=did.name, session=session)
 
 
@@ -413,7 +413,7 @@ def list_files(scope, name, session=None):
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    if did.type == DIDType.FILE:
+    if did.is_type == DIDType.FILE:
         yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
     else:
         query = session.query(models.DataIdentifierAssociation)
@@ -441,14 +441,14 @@ def scope_list(scope, name=None, recursive=False, session=None):
     # TODO= Perf. tuning of the method
     # query = session.query(models.DataIdentifier).filter_by(scope=scope, deleted=False)
     # for did in query.yield_per(5):
-    #    yield {'scope': did.scope, 'name': did.name, 'type': did.type, 'parent': None, 'level': 0}
+    #    yield {'scope': did.scope, 'name': did.name, 'type': did.is_type, 'parent': None, 'level': 0}
 
     def __topdids(scope):
         c = session.query(models.DataIdentifierAssociation.child_name).filter_by(scope=scope, child_scope=scope)
-        q = session.query(models.DataIdentifier.name, models.DataIdentifier.type).filter_by(scope=scope)  # add type
+        q = session.query(models.DataIdentifier.name, models.DataIdentifier.is_type).filter_by(scope=scope)  # add type
         s = q.filter(not_(models.DataIdentifier.name.in_(c))).order_by(models.DataIdentifier.name)
         for row in s.yield_per(5):
-            yield {'scope': scope, 'name': row.name, 'type': row.type, 'parent': None, 'level': 0}
+            yield {'scope': scope, 'name': row.name, 'type': row.is_type, 'parent': None, 'level': 0}
 
     def __diddriller(pdid):
         query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=pdid['scope'], name=pdid['name'])
@@ -466,7 +466,7 @@ def scope_list(scope, name=None, recursive=False, session=None):
         topdids = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).first()
         if topdids is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-        topdids = [{'scope': topdids.scope, 'name': topdids.name, 'type': topdids.type, 'parent': None, 'level': 0}]
+        topdids = [{'scope': topdids.scope, 'name': topdids.name, 'type': topdids.is_type, 'parent': None, 'level': 0}]
 
     if name is None:
         for topdid in topdids:
@@ -494,11 +494,11 @@ def get_did(scope, name, session=None):
     try:
         r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()  # removed deleted types
         if r:
-            if r.type == DIDType.FILE:
-                did_r = {'scope': r.scope, 'name': r.name, 'type': r.type, 'account': r.account}
+            if r.is_type == DIDType.FILE:
+                did_r = {'scope': r.scope, 'name': r.name, 'type': r.is_type, 'account': r.account}
             else:
-                did_r = {'scope': r.scope, 'name': r.name, 'type': r.type,
-                         'account': r.account, 'open': r.open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
+                did_r = {'scope': r.scope, 'name': r.name, 'type': r.is_type,
+                         'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
 
             #  To add:  created_at, updated_at, deleted_at, deleted, monotonic, hidden, obsolete, complete
             #  ToDo: Add json encoder for datetime
@@ -547,7 +547,7 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
         did = get_did(scope=scope, name=name, session=session)
 
     # Check key_type
-    if k.key_type in (KeyType.FILE, KeyType.DERIVED) and did['type'] != DIDType.FILE:
+    if k.key_type in (KeyType.FILE, KeyType.DERIVED) and did['is_type'] != DIDType.FILE:
         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != file" % locals())
     elif k.key_type == KeyType.COLLECTION and did['type'] not in (DIDType.DATASET, DIDType.CONTAINER):
         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != dataset|container" % locals())
@@ -567,7 +567,7 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
 #        except IntegrityError, e:
 #            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
     # else:
-    #    new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value, type=did['type'])
+    #    new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value, is_type=did['is_type'])
     #    try:
     #        new_meta.save(session=session)
     #    except IntegrityError, e:
@@ -600,7 +600,7 @@ def get_metadata(scope, name, session=None):
     for column in r._fields:
         meta[column] = getattr(r, column)
 
-    # if r.type == DIDType.FILE and r.guid:
+    # if r.is_type == DIDType.FILE and r.guid:
     #    meta['guid'] = r.guid
 
     return meta
@@ -624,8 +624,8 @@ def set_status(scope, name, session=None, **kwargs):
         if k not in statuses:
             raise exception.UnsupportedStatus("The status %(k)s is not a valid data identifier status." % locals())
         if k == 'open':
-            query = query.filter_by(open=True).filter(models.DataIdentifier.type != DIDType.FILE)
-            values['open'] = False
+            query = query.filter_by(is_open=True).filter(models.DataIdentifier.is_type != DIDType.FILE)
+            values['is_open'] = False
 
     rowcount = query.update(values, synchronize_session='fetch')
 
