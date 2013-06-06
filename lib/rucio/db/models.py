@@ -258,7 +258,8 @@ class DataIdentifier(BASE, ModelBase):
     length = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
-    rule_evaluation = Column(DIDReEvaluation.db_type(name='DIDS_RULE_EVALUATION_CHK'))
+    rule_evaluation_action = Column(DIDReEvaluation.db_type(name='DIDS_RULE_EVALUATION_ACTION_CHK'))
+    rule_evaluation_required = Column(DateTime)
     expired_at = Column(DateTime)
     deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
@@ -270,7 +271,7 @@ class DataIdentifier(BASE, ModelBase):
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_NEW_IDX', 'new'),
                    Index('DIDS_EXPIRED_AT', 'expired_at'),
-                   Index('DIDS_RULE_EVALUATION', 'rule_evaluation'),
+                   Index('DIDS_RULE_EVALUATION_REQUIRED', 'rule_evaluation_required'),
                    )
 
 
@@ -313,8 +314,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
                    CheckConstraint('"TYPE" IS NOT NULL', name='CONTENTS_TYPE_NN'),
                    CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
-                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'),
-                   Index('CONTENTS_RULE_EVALUATION_IDX', 'rule_evaluation'))
+                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
 
 
 class RSE(BASE, SoftModelBase):
@@ -464,6 +464,8 @@ class ReplicationRule(BASE, ModelBase):
     expires_at = Column(DateTime)
     weight = Column(String(255))
     locked = Column(Boolean(name='RULES_LOCKED_CHK'), default=False)
+    locks_total_cnt = Column(BigInteger)
+    locks_not_ok_cnt = Column(BigInteger)
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),

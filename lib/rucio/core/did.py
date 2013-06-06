@@ -169,10 +169,10 @@ def attach_identifier(scope, name, dids, account, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     # Mark for rule re-evaluation
-    if did.rule_evaluation is None:
-        did.rule_evaluation = DIDReEvaluation.ATTACH
-    elif did.rule_evaluation == DIDReEvaluation.DETACH:
-        did.rule_evaluation = DIDReEvaluation.BOTH
+    if did.rule_evaluation_action is None:
+        did.rule_evaluation_action = DIDReEvaluation.ATTACH
+    elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
+        did.rule_evaluation_action = DIDReEvaluation.BOTH
 
     query_all = session.query(models.DataIdentifier)
     # query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, type=did.type)
@@ -219,8 +219,7 @@ def attach_identifier(scope, name, dids, account, session=None):
         try:
             models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'],
                                              bytes=source.get('bytes', None), adler32=source.get('adler32', None),
-                                             md5=source.get('md5', None), type=did.type, child_type=child_type,
-                                             rule_evaluation=True).save(session=session)
+                                             md5=source.get('md5', None), type=did.type, child_type=child_type).save(session=session)
         except IntegrityError, e:
             raise exception.RucioException(e.args[0])
             #if e.args[0] == "(IntegrityError) foreign key constraint failed":
@@ -252,10 +251,10 @@ def detach_identifier(scope, name, dids, issuer, session=None):
     try:
         did = query.one()
         # Mark for rule re-evaluation
-        if did.rule_evaluation is None:
-            did.rule_evaluation = DIDReEvaluation.DETACH
-        elif did.rule_evaluation == DIDReEvaluation.ATTACH:
-            did.rule_evaluation = DIDReEvaluation.BOTH
+        if did.rule_evaluation_action is None:
+            did.rule_evaluation_action = DIDReEvaluation.DETACH
+        elif did.rule_evaluation_action == DIDReEvaluation.ATTACH:
+            did.rule_evaluation_action = DIDReEvaluation.BOTH
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
