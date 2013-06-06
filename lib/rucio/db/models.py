@@ -271,7 +271,7 @@ class DataIdentifier(BASE, ModelBase):
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_NEW_IDX', 'new'),
                    Index('DIDS_EXPIRED_AT', 'expired_at'),
-                   Index('DIDS_RULE_EVALUATION_REQUIRED', 'rule_evaluation_required'),
+                   Index('DIDS_RULE_EVAL_REQUIRED', 'rule_evaluation_required'),
                    )
 
 
