@@ -28,7 +28,7 @@ from rucio.core.did import list_dids
 from rucio.common.exception import (DataIdentifierNotFound, UnsupportedOperation,
                                     UnsupportedStatus)
 from rucio.common.utils import generate_uuid
-from rucio.tests.common import scope_name_generator
+from rucio.tests.common import rse_name_generator, scope_name_generator
 
 
 class TestDIDCore():
@@ -91,7 +91,7 @@ class TestDIDClients():
         self.scope_client.add_scope('jdoe', tmp_scope)
 
         dataset_meta = {'project': 'data13_hip',
-                        'run_number': str(generate_uuid()),
+                        'run_number': 300000,
                         'stream_name': 'physics_CosmicCalo',
                         'prod_step': 'merge',
                         'datatype': 'NTUP_TRIG',
@@ -236,7 +236,7 @@ class TestDIDClients():
         # create some dummy data
         self.tmp_accounts = ['jdoe' for i in xrange(3)]
         self.tmp_scopes = [scope_name_generator() for i in xrange(3)]
-        self.tmp_rses = ['MOCK_%s' % generate_uuid()[:20] for i in xrange(3)]
+        self.tmp_rses = [rse_name_generator() for i in xrange(3)]
         self.tmp_files = ['file_%s' % generate_uuid() for i in xrange(3)]
         self.tmp_datasets = ['dataset_%s' % generate_uuid() for i in xrange(3)]
         self.tmp_containers = ['container_%s' % generate_uuid() for i in xrange(3)]
