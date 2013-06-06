@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 
@@ -17,8 +17,8 @@ import re
 
 from rucio import version
 from rucio.common.config import config_get
-from rucio.common.utils import generate_uuid as uuid
 from rucio.tests.common import execute, account_name_generator, rse_name_generator
+
 
 class TestBinRucio():
 
