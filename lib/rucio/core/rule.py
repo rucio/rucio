@@ -349,6 +349,8 @@ def delete_replication_rule(rule_id, session=None):
             #TODO Cancel Transfer
             #cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], req_type='transfer')
             continue
+        #TODO Different way of deleting the locks (resolve did)
+        session.query(models.ReplicaLock).filter_by(rule_id=rule_id).delete()
         rule.delete(session=session)
 
 
