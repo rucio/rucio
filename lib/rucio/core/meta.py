@@ -50,10 +50,10 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
     ctx = MigrationContext.configure(session.connection())
     op = Operations(ctx)
 
-    if key.upper() == 'GUID':
-        op.add_column(models.DataIdentifier.__table__.name, Column(key, GUID()))
-    else:
-        op.add_column(models.DataIdentifier.__table__.name, Column(key, models.String(50)))
+#    if key.upper() == 'GUID':
+#        op.add_column(models.DataIdentifier.__table__.name, Column(key, GUID()))
+#    else:
+#        op.add_column(models.DataIdentifier.__table__.name, Column(key, models.String(50)))
 
 
 @transactional_session

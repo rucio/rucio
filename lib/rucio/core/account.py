@@ -30,7 +30,7 @@ def add_account(account, type, session=None):
     :param type: the type of the new account.
     :param session: the database session in use.
     """
-    new_account = models.Account(account=account, is_type=type, status=AccountStatus.ACTIVE)
+    new_account = models.Account(account=account, account_type=type, status=AccountStatus.ACTIVE)
     try:
         new_account.save(session=session)
     except IntegrityError:
@@ -123,7 +123,7 @@ def list_accounts(session=None):
 
     query = session.query(models.Account).filter_by(status=AccountStatus.ACTIVE)
     for row in query.order_by(models.Account.account).yield_per(25):
-        yield {'account': row.account, 'type': row.is_type}
+        yield {'account': row.account, 'type': row.account_type}
 
 
 @read_session
@@ -145,6 +145,6 @@ def list_identities(account, session=None):
 
     query = session.query(models.IdentityAccountAssociation).filter_by(account=account)
     for identity in query:
-        identity_list.append({'type': identity.is_type, 'identity': identity.identity})
+        identity_list.append({'type': identity.identity_type, 'identity': identity.identity})
 
     return identity_list

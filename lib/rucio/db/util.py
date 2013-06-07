@@ -72,12 +72,14 @@ def drop_everything(echo=True):
 
     for fkc in all_fks:
         try:
+            print str(DropConstraint(fkc)) + ';'
             conn.execute(DropConstraint(fkc))
         except:
             print format_exc()
 
     for table in tbs:
         try:
+            print str(DropTable(table)).strip() + ';'
             conn.execute(DropTable(table))
         except:
             print format_exc()
@@ -110,18 +112,18 @@ def create_root_account():
 
     s = session.get_session()
 
-    account = models.Account(account='root', is_type=AccountType.USER, status=AccountStatus.ACTIVE)
+    account = models.Account(account='root', account_type=AccountType.USER, status=AccountStatus.ACTIVE)
 
-    identity1 = models.Identity(identity=up_id, is_type=IdentityType.USERPASS, password=up_pwd, salt='0', email=up_email)
-    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, is_type=identity1.is_type, account=account.account, is_default=True)
+    identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=up_pwd, salt='0', email=up_email)
+    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
 
     # X509 authentication
-    identity2 = models.Identity(identity=x509_id, is_type=IdentityType.X509, email=x509_email)
-    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, is_type=identity2.is_type, account=account.account, is_default=True)
+    identity2 = models.Identity(identity=x509_id, identity_type=IdentityType.X509, email=x509_email)
+    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, identity_type=identity2.identity_type, account=account.account, is_default=True)
 
     # GSS authentication
-    identity3 = models.Identity(identity=gss_id, is_type=IdentityType.GSS, email=gss_email)
-    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, is_type=identity3.is_type, account=account.account, is_default=True)
+    identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
+    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
 
     # Apply
     s.add_all([account, identity1, identity2, identity3])

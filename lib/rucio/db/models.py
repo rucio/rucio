@@ -182,12 +182,12 @@ class Account(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
     account = Column(String(25))
-    is_type = Column(AccountType.db_type(name='ACCOUNTS_IS_TYPE_CHK'))
+    account_type = Column(AccountType.db_type(name='ACCOUNTS_TYPE_CHK'))
     status = Column(AccountStatus.db_type(default=AccountStatus.ACTIVE, name='ACCOUNTS_STATUS_CHK'))
     suspended_at = Column(DateTime)
     deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
-                   CheckConstraint('"IS_TYPE" IS NOT NULL', name='ACCOUNTS_IS_TYPE_NN'),
+                   CheckConstraint('"ACCOUNT_TYPE" IS NOT NULL', name='ACCOUNTS_TYPE_NN'),
                    CheckConstraint('"STATUS" IS NOT NULL', name='ACCOUNTS_STATUS_NN')
                    )
 
@@ -196,13 +196,13 @@ class Identity(BASE, SoftModelBase):
     """Represents an identity"""
     __tablename__ = 'identities'
     identity = Column(String(255))
-    is_type = Column(IdentityType.db_type(name='IDENTITIES_IS_TYPE_CHK'))
+    identity_type = Column(IdentityType.db_type(name='IDENTITIES_TYPE_CHK'))
     username = Column(String(255))
     password = Column(String(255))
     salt = Column(LargeBinary(255))
     email = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('identity', 'is_type', name='IDENTITIES_PK'),
-                   CheckConstraint('"IS_TYPE" IS NOT NULL', name='IDENTITIES_IS_TYPE_NN'),
+    _table_args = (PrimaryKeyConstraint('identity', 'identity_type', name='IDENTITIES_PK'),
+                   CheckConstraint('"IDENTITY_TYPE" IS NOT NULL', name='IDENTITIES_TYPE_NN'),
                    #CheckConstraint('"EMAIL" IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
                    )
 
@@ -211,14 +211,14 @@ class IdentityAccountAssociation(BASE, ModelBase):
     """Represents a map account-identity"""
     __tablename__ = 'account_map'
     identity = Column(String(255))
-    is_type = Column(IdentityType.db_type(name='ACCOUNT_MAP_IS_TYPE_CHK'))
+    identity_type = Column(IdentityType.db_type(name='ACCOUNT_MAP_ID_TYPE_CHK'))
     account = Column(String(25))
     is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
-    _table_args = (PrimaryKeyConstraint('identity', 'is_type', 'account', name='ACCOUNT_MAP_PK'),
+    _table_args = (PrimaryKeyConstraint('identity', 'identity_type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['identity', 'is_type'], ['identities.identity', 'identities.is_type'], name='ACCOUNT_MAP_ID_IS_TYPE_FK'),
+                   ForeignKeyConstraint(['identity', 'identity_type'], ['identities.identity', 'identities.identity_type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
                    CheckConstraint('is_default IS NOT NULL', name='ACCOUNT_MAP_IS_DEFAULT_NN'),
-                   CheckConstraint('"IS_TYPE" IS NOT NULL', name='ACCOUNT_MAP_IS_TYPE_NN'),
+                   CheckConstraint('"IDENTITY_TYPE" IS NOT NULL', name='ACCOUNT_MAP_ID_TYPE_NN'),
                    )
 
 
@@ -245,7 +245,7 @@ class DataIdentifier(BASE, ModelBase):
     scope = Column(String(25))
     name = Column(String(255))
     account = Column(String(25))
-    is_type = Column(DIDType.db_type(name='DIDS_IS_TYPE_CHK'))
+    did_type = Column(DIDType.db_type(name='DIDS_TYPE_CHK'))
     is_open = Column(Boolean(name='DIDS_IS_OPEN_CHK'))
     monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
     hidden = Column(Boolean(name='DIDS_HIDDEN_CHK'), server_default='0')
@@ -258,7 +258,7 @@ class DataIdentifier(BASE, ModelBase):
     length = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
-    rule_evaluation_action = Column(DIDReEvaluation.db_type(name='DIDS_RULE_EVALUATION_ACTION_CHK'))
+    rule_evaluation_action = Column(DIDReEvaluation.db_type(name='DIDS_RULE_EVAL_ACTION_CHK'))
     rule_evaluation_required = Column(DateTime)
     expired_at = Column(DateTime)
     deleted_at = Column(DateTime)
@@ -279,11 +279,11 @@ class DIDKey(BASE, ModelBase):
     """Represents Data IDentifier property keys"""
     __tablename__ = 'did_keys'
     key = Column(String(255))
-    key_type = Column(KeyType.db_type(name='DID_KEYS_KEY_TYPE_CHK'))
+    key_type = Column(KeyType.db_type(name='DID_KEYS_TYPE_CHK'))
     value_type = Column(String(255))
     value_regexp = Column(String(255))
     _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),
-                   CheckConstraint('key_type IS NOT NULL', name='DID_KEYS_KEY_TYPE_NN'),
+                   CheckConstraint('key_type IS NOT NULL', name='DID_KEYS_TYPE_NN'),
                    )
 
 
@@ -303,7 +303,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
     name = Column(String(255))          # dataset name
     child_scope = Column(String(25))    # Provenance scope
     child_name = Column(String(255))    # Provenance name
-    is_type = Column(DIDShortType.db_type(name='CONTENTS_IS_TYPE_CHK'))
+    did_type = Column(DIDShortType.db_type(name='CONTENTS_DID_TYPE_CHK'))
     child_type = Column(DIDShortType.db_type(name='CONTENTS_CHILD_TYPE_CHK'))
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
@@ -312,7 +312,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
-                   CheckConstraint('"IS_TYPE" IS NOT NULL', name='CONTENTS_IS_TYPE_NN'),
+                   CheckConstraint('"DID_TYPE" IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
                    CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
 
@@ -322,7 +322,7 @@ class RSE(BASE, SoftModelBase):
     __tablename__ = 'rses'
     id = Column(GUID(), default=utils.generate_uuid)
     rse = Column(String(255))
-    is_type = Column(RSEType.db_type(name='RSES_IS_TYPE_CHK'), default=RSEType.DISK)
+    rse_type = Column(RSEType.db_type(name='RSES_TYPE_CHK'), default=RSEType.DISK)
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
@@ -330,7 +330,7 @@ class RSE(BASE, SoftModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
                    CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint('"IS_TYPE" IS NOT NULL', name='RSES_IS_TYPE_NN'),)
+                   CheckConstraint('"RSE_TYPE" IS NOT NULL', name='RSES_TYPE_NN'),)
 
 
 class RSELimit(BASE, ModelBase):
@@ -456,7 +456,7 @@ class ReplicationRule(BASE, ModelBase):
     account = Column(String(25))
     scope = Column(String(25))
     name = Column(String(255))
-    is_type = Column(DIDShortType.db_type(name='RULES_IS_TYPE_CHK'))
+    did_type = Column(DIDShortType.db_type(name='RULES_DID_TYPE_CHK'))
     state = Column(RuleState.db_type(name='RULES_STATE_CHK'), default=RuleState.REPLICATING)
     error = Column(String(255))
     rse_expression = Column(String(255))
@@ -518,7 +518,7 @@ class Request(BASE, ModelBase, Versioned):
     """Represents a request for a single file with a third party service"""
     __tablename__ = 'requests'
     id = Column(GUID(), default=utils.generate_uuid)
-    is_type = Column(RequestType.db_type(name='REQUESTS_IS_TYPE_CHK'), default=RequestType.TRANSFER)
+    request_type = Column(RequestType.db_type(name='REQUESTS_TYPE_CHK'), default=RequestType.TRANSFER)
     scope = Column(String(25))
     name = Column(String(255))
     dest_rse_id = Column(GUID())
@@ -532,7 +532,7 @@ class Request(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
                    Index('REQUESTS_ID_IDX', 'id'),
-                   Index('REQUESTS_IS_TYPE_STATE_IDX', 'is_type', 'state')
+                   Index('REQUESTS_TYPE_STATE_IDX', 'request_type', 'state')
                    )
 
 
