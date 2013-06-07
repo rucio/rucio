@@ -120,6 +120,11 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], l
 
     # Insert new data identifier
     new_did = models.DataIdentifier(scope=scope, name=name, account=account, did_type=type, monotonic=statuses.get('monotonic', False), is_open=True, expired_at=expired_at)
+
+    # Add meta-data
+    for key in meta:
+        new_did.update({key: meta[key]})
+
     try:
         new_did.save(session=session)
     except IntegrityError, e:
@@ -151,7 +156,9 @@ def attach_identifier(scope, name, dids, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name)  # and DIDType
+
+    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name).\
+        filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     try:
         did = query.one()
 
@@ -552,11 +559,11 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     elif k.key_type == KeyType.COLLECTION and did['type'] not in (DIDType.DATASET, DIDType.CONTAINER):
         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != dataset|container" % locals())
 
-    models.DataIdentifier.__table__.append_column(Column(key, models.String(50)))
-    # session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
-    values = {key: value}
-    stmt = models.DataIdentifier.__table__.update().where(models.DataIdentifier.__table__.c.scope == bindparam('s')).where(models.DataIdentifier.__table__.c.name == bindparam('n')).values(**values)
-    session.execute(stmt, [{'s': scope, 'n': name}, ])
+    # models.DataIdentifier.__table__.append_column(Column(key, models.String(50)))
+    session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
+    # values = {key: value}
+    # stmt = models.DataIdentifier.__table__.update().where(models.DataIdentifier.__table__.c.scope == bindparam('s')).where(models.DataIdentifier.__table__.c.name == bindparam('n')).values(**values)
+    # session.execute(stmt, [{'s': scope, 'n': name}, ])
 
 
 #    if key == 'guid':
