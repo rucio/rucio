@@ -66,15 +66,15 @@ def get_engine(echo=True):
     """ Creates a engine to a specific database.
         :returns: engine """
 
-    database = config_get('database', 'default')
+    sql_connection = config_get('database', 'default')
     #  pool_size = config_get('database', 'pool_size')
     #  max_overflow = config_get('database', 'max_overflow')
     #  pool_timeout = config_get('database', 'pool_timeout')
-    engine = create_engine(database, echo=False, echo_pool=False, pool_recycle=3600, pool_reset_on_return='rollback')
+    engine = create_engine(sql_connection, echo=False, echo_pool=False, pool_recycle=3600, pool_reset_on_return='rollback')
     # pool_size=5, max_overflow=10, pool_timeout=30 Should be in configuration file
-    if 'mysql' in database:
+    if 'mysql' in sql_connection:
         event.listen(engine, 'checkout', mysql_ping_listener)
-    if 'sqlite' in database:
+    if 'sqlite' in sql_connection:
         event.listen(engine, 'connect', _fk_pragma_on_connect)
     # Override engine.connect method with db error wrapper
     # To have auto_reconnect (will come in next sqlalchemy releases)
@@ -104,6 +104,7 @@ def get_dump_engine(echo=False):
         else:
             print statement
     sql_connection = config_get('database', 'default')
+
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
     return engine
 

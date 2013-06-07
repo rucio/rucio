@@ -17,15 +17,8 @@ from sqlalchemy.exc import IntegrityError
 from rucio.common import exception
 from rucio.core.account import account_exists
 from rucio.db import models
+from rucio.db.constants import IdentityType
 from rucio.db.session import read_session, transactional_session
-
-
-class identity_type:
-    """ Enumerated type for identity type """
-    # As the corresponding column on the db is of type enum, no integers are used
-    x509 = 'x509'
-    gss = 'gss'
-    userpass = 'userpass'
 
 
 @transactional_session
@@ -39,13 +32,13 @@ def add_identity(identity, type, password=None, session=None):
     :param session: The database session in use.
     """
 
-    if type == identity_type.userpass and password is None:
+    if type == IdentityType.USERPASS and password is None:
         raise exception.IdentityError('You must provide a password!')
 
     new_id = models.Identity()
-    new_id.update({'identity': identity, 'is_type': type})
+    new_id.update({'identity': identity, 'identity_type': type})
 
-    if type == identity_type.userpass and password is not None:
+    if type == IdentityType.USERPASS and password is not None:
         salt = os.urandom(256)  # make sure the salt has the length of the hash
         password = hashlib.sha256('%s%s' % (salt, password)).hexdigest()  # hash it
         new_id.update({'salt': salt, 'password': password})
@@ -66,7 +59,7 @@ def del_identity(identity, type, session=None):
     :param session: The database session in use.
     """
 
-    id = session.query(models.Identity).filter_by(identity=identity, is_type=type).first()
+    id = session.query(models.Identity).filter_by(identity=identity, identity_type=type).first()
     if id is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
     id.delete(session=session)
@@ -86,12 +79,12 @@ def add_account_identity(identity, type, account, default=False, session=None):
     if not account_exists(account, session=session):
         raise exception.AccountNotFound('Account \'%s\' does not exist.' % account)
 
-    id = session.query(models.Identity).filter_by(identity=identity, is_type=type).first()
+    id = session.query(models.Identity).filter_by(identity=identity, identity_type=type).first()
     if id is None:
-        id = models.Identity(identity=identity, is_type=type)
+        id = models.Identity(identity=identity, identity_type=type)
         id.save(session=session)
 
-    iaa = models.IdentityAccountAssociation(identity=id.identity, is_type=id.is_type, account=account)
+    iaa = models.IdentityAccountAssociation(identity=id.identity, identity_type=id.identity_type, account=account)
 
     try:
         iaa.save(session=session)
@@ -109,7 +102,7 @@ def del_account_identity(identity, type, account, session=None):
     :param account: The account name.
     :param session: The database session in use.
     """
-    aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, is_type=type, account=account).first()
+    aid = session.query(models.IdentityAccountAssociation).filter_by(identity=identity, identity_type=type, account=account).first()
     if aid is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type))
     aid.delete(session=session)
@@ -128,6 +121,6 @@ def list_identities(session=None, **kwargs):
     id_list = []
 
     for id in session.query(models.Identity).order_by(models.Identity.identity):
-        id_list.append((id.identity, id.is_type))
+        id_list.append((id.identity, id.identity_type))
 
     return id_list
