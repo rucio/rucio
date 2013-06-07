@@ -262,6 +262,16 @@ class DataIdentifier(BASE, ModelBase):
     rule_evaluation_required = Column(DateTime)
     expired_at = Column(DateTime)
     deleted_at = Column(DateTime)
+    # hardcoded meta-data to populate the db
+    events = Column(BigInteger)
+    guid = Column(GUID())
+    project = Column(String(50))
+    datatype = Column(String(50))
+    run_number = Column(Integer)
+    stream_name = Column(String(50))
+    prod_step = Column(String(50))
+    version = Column(String(50))
+    campaign = Column(String(50))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
