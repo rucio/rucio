@@ -54,12 +54,6 @@ class DIDType(DeclEnum):
     DELETED_CONTAINER = 'Z', 'DELETED_CONTAINER'
 
 
-class DIDShortType(DeclEnum):
-    FILE = 'F', 'FILE'
-    DATASET = 'D', 'DATASET'
-    CONTAINER = 'C', 'CONTAINER'
-
-
 class DIDAvailability(DeclEnum):
     LOST = 'L', 'LOST'
     DELETED = 'D', 'DELETED'

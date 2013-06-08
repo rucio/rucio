@@ -391,7 +391,9 @@ class TestDIDClients():
         self.did_client.add_datasets_to_container(scope, container, datasets)
 
         # List file content
-        for d in self.did_client.list_files(scope, files1[i]['name']):
+        content = self.did_client.list_files(scope, files1[i]['name'])
+        assert_true(content is not None)
+        for d in content:
             assert_true(d == files1[i])
 
         # List container content
