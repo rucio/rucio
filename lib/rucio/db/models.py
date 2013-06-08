@@ -26,7 +26,7 @@ from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
-                                DIDShortType, KeyType, IdentityType, LockState, RuleGrouping,
+                                KeyType, IdentityType, LockState, RuleGrouping,
                                 RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                 ScopeStatus, SubscriptionState)
 from rucio.db.history import Versioned
@@ -313,8 +313,8 @@ class DataIdentifierAssociation(BASE, ModelBase):
     name = Column(String(255))          # dataset name
     child_scope = Column(String(25))    # Provenance scope
     child_name = Column(String(255))    # Provenance name
-    did_type = Column(DIDShortType.db_type(name='CONTENTS_DID_TYPE_CHK'))
-    child_type = Column(DIDShortType.db_type(name='CONTENTS_CHILD_TYPE_CHK'))
+    did_type = Column(DIDType.db_type(name='CONTENTS_DID_TYPE_CHK'))
+    child_type = Column(DIDType.db_type(name='CONTENTS_CHILD_TYPE_CHK'))
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
@@ -466,7 +466,7 @@ class ReplicationRule(BASE, ModelBase):
     account = Column(String(25))
     scope = Column(String(25))
     name = Column(String(255))
-    did_type = Column(DIDShortType.db_type(name='RULES_DID_TYPE_CHK'))
+    did_type = Column(DIDType.db_type(name='RULES_DID_TYPE_CHK'))
     state = Column(RuleState.db_type(name='RULES_STATE_CHK'), default=RuleState.REPLICATING)
     error = Column(String(255))
     rse_expression = Column(String(255))

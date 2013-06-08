@@ -287,7 +287,7 @@ def list_rule_re_evaluation_identifier(limit=None, session=None):
 
     :param type : The DID type.
     """
-    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter_by(rule_evaluation=True, deleted=False)
+    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter_by(rule_evaluation=True)
 
     if limit:
         query = query.limit(limit)
@@ -470,7 +470,7 @@ def scope_list(scope, name=None, recursive=False, session=None):
     if name is None:
         topdids = __topdids(scope)
     else:
-        topdids = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, deleted=False).first()
+        topdids = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).first()
         if topdids is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
         topdids = [{'scope': topdids.scope, 'name': topdids.name, 'type': topdids.did_type, 'parent': None, 'level': 0}]
