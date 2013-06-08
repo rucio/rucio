@@ -72,7 +72,7 @@ class DeclEnum(object):
     @classmethod
     def from_sym(cls, value):
         try:
-            return cls._syms[value]
+            return cls._syms[value.upper()]
         except KeyError:
             raise ValueError("Invalid value for %r: %r" % (cls.__name__, value))
 
