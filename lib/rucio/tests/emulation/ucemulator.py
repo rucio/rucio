@@ -90,11 +90,17 @@ class UCEmulator(object):
                 self.__intervals[uc] = 1.0 / ucs[uc]
         print '== Assigned Frequencies for %s: %s' % (self.__module__.split('.')[-1], self.__intervals)
 
-    def update_ctx(self, ctx):
+    def update_ctx(self, key_chain, value):
         """ If the behaviour of this method must be adapted in order to work with a given usecase it must be overwritten in the according UseCaseDefintion class. """
-        for m in ctx:
-            setattr(self.__ctx, m, ctx[m])
-        print '== Updated context of module %s: %s' % (self.__module__.split('.')[-1], ctx)
+        print '== Updating context: %s -> %s' % (key_chain, value)
+        if len(key_chain) == 1:
+            setattr(self.__ctx, key_chain[0], value)
+        else:
+            attr = getattr(self.__ctx, key_chain[0])
+            for key in key_chain[1:-1]:
+                attr = attr[key]
+            attr[key_chain[-1]] = value
+        return self.__ctx
 
     def get_intervals(self):
         """
@@ -159,15 +165,19 @@ class UCEmulator(object):
             :param call: Name of the use case to be submitted.
         """
         uc_data = {'uc_name': call, 'class_name': '.'.join([self.__module__, self.__class__.__name__]), 'input_data': {}}
+        uc_data['input_data'] = {}
         if self.__call_methods[call]['input'] is not None:
             uc_data['input_data'] = self.__call_methods[call]['input'](self.__ctx)
-            if uc_data['input_data'] is None:
-                uc_data['input_data'] = {}
+            if uc_data['input_data'] is None:  # Allows the input - method to save the excution of the actual usecase e.g. if no data is ready for it
+                return
         if self.__call_methods[call]['output'] is not None:
             # Gearman call must wait for the return of the job
             # Submitt job in separate thread and wait for response
             t = threading.Thread(target=self.await_gearman_results, kwargs={'data': uc_data})
-            t.start()
+            try:
+                t.start()
+            except Exception, e:
+                print '!! ERROR !! run_gearman: %s' % e
         else:
             # Gearman job can just be executed, no waiting necessary
             self.__gearman_client.submit_job(task='execute_uc', data=str(uc_data), unique=str(uuid()), background=True)
@@ -181,11 +191,20 @@ class UCEmulator(object):
         """
         try:
             client = GearmanClient(self.__gearman_server)
-            request = client.submit_job(task='execute_uc', data=str(data), unique=str(uuid()), background=False, wait_until_complete=True)
-            self.__call_methods[data['uc_name']]['output'](self.__ctx, ast.literal_eval(request.result)[1])
+            request = None
+            try:
+                request = client.submit_job(task='execute_uc', data=str(data), unique=str(uuid()), background=False, wait_until_complete=True)
+                if request.result == 'False':
+                    print '!! ERROR !! %s failed' % data['uc_name']
+                    return
+                result = ast.literal_eval(request.result)[1]
+            except Exception, e:
+                print e
+                return
+            self.__call_methods[data['uc_name']]['output'](self.__ctx, result)
         except Exception, e:
             print e
-            raise e
+            print traceback.format_exc()
 
     def run_threaded(self, call):
         """
@@ -197,7 +216,10 @@ class UCEmulator(object):
         """
         # TODO: Later consider to create a pool of threads for each 'call' and re-use them to potentially save time?
         t = threading.Thread(target=self.time_uc, kwargs={'fn': self.__call_methods[call]})
-        t.start()
+        try:
+            t.start()
+        except Exception, e:
+            print '!! ERROR !! threaded: %s' % e
 
     def run_verbose(self, call):
         """
@@ -225,8 +247,11 @@ class UCEmulator(object):
         fin = time.time()
         resp = (fin - start) * 1000  # Converting seconds to milliseconds (needed by pystatsd)
         if self.__carbon_server:
-            self.__carbon_server.timing(fn.__name__, resp)
-        return res
+            try:
+                self.__carbon_server.timing(fn.__name__, resp)
+            except Exception, e:
+                print '!! ERROR !! Error reporting to grapthite: %s' % e
+            return res
 
     def time_uc(self, fn):
         """
@@ -255,10 +280,16 @@ class UCEmulator(object):
         if self.__carbon_server:
             if (fn['main'].__name__ == '__execute__'):  # a wrapped use case is executed, if res is False, an exception occurred and was already reported by the wrapper
                 if res:
-                    self.__carbon_server.timing(res[0], resp)
+                    try:
+                        self.__carbon_server.timing(res[0], resp)
+                    except Exception, e:
+                        print '!! ERROR !! Error reporting to grapthite: %s' % e
                     res = res[1]
             else:
-                self.__carbon_server.timing(fn.__name__, resp)
+                try:
+                    self.__carbon_server.timing(fn.__name__, resp)
+                except Exception, e:
+                    print '!! ERROR !! Error reporting to grapthite: %s' % e
         return res
 
     def inc(self, metric, value=1):
@@ -266,7 +297,10 @@ class UCEmulator(object):
             Increments the referred metric by value.
         """
         if self.__carbon_server:
-            self.__carbon_server.update_stats(metric, value)
+            try:
+                self.__carbon_server.update_stats(metric, value)
+            except Exception, e:
+                print '!! ERROR !! Error reporting to grapthite: %s' % e
 
     @classmethod
     def UseCase(cls, func):
