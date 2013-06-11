@@ -8,17 +8,31 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
-
+import fcntl
 import json
+import os
+import resource
 import time
 import threading
 import traceback
-import os
+import socket
 
 from pystatsd import Client
 
 
 class UCProcess(object):
+
+    def get_open_fds(self):
+        fds = []
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        for fd in range(0, soft):
+            try:
+                fcntl.fcntl(fd, fcntl.F_GETFD)
+            except IOError:
+                continue
+            fds.append(fd)
+        return len(fds)
+
     def __init__(self, cfg, mod_list, stop_event):
         self.pid = os.getpid()
         self.cfg = cfg
@@ -74,12 +88,35 @@ class UCProcess(object):
             print traceback.format_exc()
 
         try:
+            sock = None
+            prev = int(time.time())
             while not self.stop_event.is_set():
-                print '= (PID: %s) Checking for updates' % self.pid
+                if sock is None:
+                    sock = socket.socket()
+                    sock.connect((self.cfg['global']['carbon']['CARBON_SERVER'], 2003))
+                    #sock.connect((self.cfg['global']['carbon']['CARBON_SERVER'], self.cfg['global']['carbon']['CARBON_PORT']))
+                #self.cs.update_stats('emulator.counts.threads.%s' % self.pid, threading.active_count())
+                now = int(time.time())
+                ta = threading.active_count()
+                of = self.get_open_fds()
+                for i in xrange(now - prev):
+                    sock.sendall('stats.%s.emulator.counts.threads.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], self.pid, ta, prev + i))
+                    sock.sendall('stats.%s.emulator.counts.files.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], self.pid, of, prev + i))
+                prev = now
+                print '= (PID: %s) File count: %s' % (self.pid, self.get_open_fds())
+                print '= (PID: %s) Thread count: %s' % (self.pid, threading.active_count())
+                #self.cs.update_stats('emulator.counts.files.%s' % self.pid, self.get_open_fds())
                 time.sleep(self.update)
-                with open('/opt/rucio/etc/emulation.cfg') as f:
-                    cfg = json.load(f)
+                try:
+                    with open('/opt/rucio/etc/emulation.cfg') as f:
+                        cfg = json.load(f)
+                except Exception, e:
+                    print 'Unable to check configuration for updates. Retry in %s seconds ...' % self.update
+                    print e
+                    continue
                 for mod in self.mod_list:
+                    print '= (PID: %s) Checking context of %s for updates ...' % (self.pid, mod)
+                    # Check frequencies
                     ups = {}
                     for uc in self.cfg[mod]:
                         if uc != 'context':
@@ -87,17 +124,29 @@ class UCProcess(object):
                             if self.cfg[mod][uc] != cfg[mod][uc]:
                                 ups[uc] = cfg[mod][uc]
                                 self.cfg[mod][uc] = cfg[mod][uc]
-                    if self.cfg[mod]['context'] != cfg[mod]['context']:
-                        self.uc_array[mod].update_ctx(cfg[mod]['context'])
-                        self.cfg[mod]['context'] = cfg[mod]['context']
                     if len(ups.keys()):
                         self.uc_array[mod].update_ucs(ups)
+
+                    # Check context variables
+                    try:
+                        self.diff_context(self.cfg[mod]['context'], cfg[mod]['context'], ['context'], self.uc_array[mod])
+                    except Exception, e:
+                        print '!! ERROR !! Error while updaeting context: %s' % e
+
+                    # Updated local cfg
+                    self.cfg[mod]['context'] = cfg[mod]['context']
                 self.update = cfg['global']['update_interval']
         except Exception, e:
             print e
             print traceback.format_exc()
+            try:
+                sock.close()
+            except Exception:
+                pass
+            sock = None
         except KeyboardInterrupt:
             pass
+        sock.close()
 
     def stop(self):
         print '= (PID: %s) Stopping threads ....' % self.pid
@@ -106,3 +155,14 @@ class UCProcess(object):
             mod[1].stop()
         print '= (PID: %s) Stopped successfully' % self.pid
         exit(0)
+
+    def diff_context(self, current, new, key_chain, uc):
+        nk = new.keys()
+        for key in current:  # Check if keys are changed
+            if key in nk:
+                if type(current[key]) == dict:
+                    self.diff_context(current[key], new[key], key_chain + [key], uc)
+                else:
+                    if current[key] != new[key]:
+                        print key_chain, current[key], new[key]
+                        uc.update_ctx((key_chain + [key])[1:], new[key])
