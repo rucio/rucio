@@ -19,7 +19,6 @@ from sqlalchemy import or_, Column
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
-from sqlalchemy.sql.expression import bindparam
 
 from rucio.common import exception
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
@@ -400,7 +399,7 @@ def list_child_dids(scope, name, lock=False, session=None):
         query = query.with_lockmode('update')
     for child_scope, child_name, child_type in query.yield_per(5):
         yield {'scope': child_scope, 'name': child_name, 'type': child_type}
-        if child_type == 'container':
+        if child_type == DIDType.CONTAINER:
             list_child_dids(scope=child_scope, name=child_name, session=session)
 
 
@@ -414,7 +413,7 @@ def list_files(scope, name, session=None):
     :param session:    The database session in use.
     """
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)   # avoid deleted data
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)   # TODO avoid deleted data
     try:
         did = query.one()
     except NoResultFound:
