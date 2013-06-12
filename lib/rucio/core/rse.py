@@ -24,7 +24,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import case
+from sqlalchemy.sql.expression import case, and_
 
 from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
@@ -466,6 +466,54 @@ def get_file_replica(rse, scope, name, rse_id=None, session=None):
     for column in row.__table__.columns:
         d[column.name] = getattr(row, column.name)
     return d
+
+
+@transactional_session
+def get_and_lock_file_replicas(scope, name, session=None):
+    """
+    Get file replicas for a specific scope:name.
+
+    :param scope:    The scope of the did.
+    :param name:     The name of the did.
+    :param session:  The db session in use.
+    :returns:        List of SQLAlchemy Replica Objects
+    """
+
+    return session.query(models.RSEFileAssociation).filter_by(scope=scope,
+                                                              name=name).with_lockmode('update').all()
+
+
+@transactional_session
+def get_and_lock_file_replicas_for_dataset(scope, name, session=None):
+    """
+    Get file replicas for all files of a dataset.
+
+    :param scope:    The scope of the dataset.
+    :param name:     The name of the dataset.
+    :param session:  The db session in use.
+    :returns:        List of dict.
+    """
+
+    files = {}
+
+    query = session.query(models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.bytes,
+                          models.RSEFileAssociation).outerjoin(models.RSEFileAssociation, and_(
+                              models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                              models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).filter(
+                                  models.DataIdentifierAssociation.scope == scope,
+                                  models.DataIdentifierAssociation.name == name).with_lockmode('update')
+
+    for child_scope, child_name, bytes, replica in query:
+        if replica is None:
+            files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'replicas': []}
+        else:
+            if (child_scope, child_name) in files:
+                files[(child_scope, child_name)]['replicas'].append(replica)
+            else:
+                files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'replicas': [replica]}
+    return files
 
 
 @read_session
