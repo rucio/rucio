@@ -41,7 +41,6 @@ The following concepts define how data is organised, accessed, and catalogued by
     overview_Accounting_and_quota
     overview_Notifications
     overview_Subscriptions
-    overview_Scheduled_Transfers
 
 Architecture
 ============
@@ -51,6 +50,8 @@ Architecture
 
     overview_Architecture
     overview_Rucio_Storage_Element_Manager
+    overview_Scheduled_Transfers
+    overview_Data_Deletion
     overview_Database_Schema
     overview_Exception_Handling
     usecases
