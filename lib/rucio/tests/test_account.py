@@ -8,7 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from json import dumps, loads
@@ -88,6 +88,7 @@ class TestAccountRestApi():
 
         headers = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'type': 'USER'})
+        r1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
         r1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
 
         assert_equal(r1.status, 409)

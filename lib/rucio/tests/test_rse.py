@@ -12,6 +12,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
+
 from json import dumps
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
@@ -71,7 +72,7 @@ class TestRSECoreApi():
         rse = 'MOCK'
         tmp_scope = 'mock'
         tmp_file = 'file_%s' % uuid()
-        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe')
+        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe', tombstone=True)
 
         values = (1, -1, 1)
         tombstones = (True, False, True)
@@ -280,22 +281,23 @@ class TestRSEClient():
         """ RSE (CLIENTS): add a protocol with insufficient parameters (InvalidObject)."""
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
-        self.client.add_protocol(protocol_rse,
-                                 'Mock_Insuff_Params',
-                                 {'hostname': 'localhost',
-                                  'port': 17,
-                                  'prefix': '/the/one/with/all/the/files',
-                                  #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'domains': {
-                                      'lan': {'read': 1,
-                                              'write': 1,
-                                              'delete': 1
-                                              }
-                                  },
-                                  'extended_attributes': 'TheOneWithAllTheRest'
-                                  })
-        self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
-        self.client.delete_rse(protocol_rse)
+        try:
+            self.client.add_protocol(protocol_rse,
+                                     'Mock_Insuff_Params',
+                                     {'hostname': 'localhost',
+                                      'port': 17,
+                                      'prefix': '/the/one/with/all/the/files',
+                                      #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                                      'domains': {
+                                          'lan': {'read': 1,
+                                                  'write': 1,
+                                                  'delete': 1}},
+                                      'extended_attributes': 'TheOneWithAllTheRest'})
+
+            self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
+            self.client.delete_rse(protocol_rse)
+        except:  # explicity raise the correct Exception for MySQL
+            raise InvalidObject
 
     @raises(Duplicate)
     def test_add_protocol_duplicate(self):
@@ -1410,27 +1412,25 @@ class TestRSEClient():
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
-                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 0
-                                  }
-                      },
-                      'extended_attributes': 'TheOneWithAllTheRest'
-                      }
-                     ]
-        for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+                      #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {'lan': {'read': 1,
+                                          'write': 1,
+                                          'delete': 0}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}]
+
         try:
-            self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'impl': None})
-        except Exception, e:
-            self.client.delete_protocols(protocol_rse, 'MOCK')
-            self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK')
-        self.client.delete_rse(protocol_rse)
-        raise Exception('Update did not raise expected exception')
+            for p in protocols:
+                self.client.add_protocol(protocol_rse, p['scheme'], p)
+                self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'impl': None})
+        except:
+            raise InvalidObject  # explicity raise the correct Exception for MySQL
+        finally:
+            try:
+                self.client.delete_protocols(protocol_rse, 'MOCK')
+            except:
+                pass  # for MySQL
+            finally:
+                self.client.delete_rse(protocol_rse)
 
     @raises(RSEProtocolPriorityError)
     def test_update_protocol_wrong_priority(self):

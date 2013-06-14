@@ -40,8 +40,8 @@ def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, files
                               'checksum': str(checksum)}],
                    'params': {'verify_checksum': 'true',
                               'job_metadata': job_metadata,
-                              'spacetoken': dest_spacetoken,
-                              'source_spacetoken': src_spacetoken}}
+                              'spacetoken': dest_spacetoken if dest_spacetoken is not None else 'None',
+                              'source_spacetoken': src_spacetoken if src_spacetoken is not None else 'None'}}
 
     # only " is valid in JSON
     params_str = str(params_dict).replace("'", '"')
