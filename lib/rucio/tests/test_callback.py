@@ -22,6 +22,6 @@ class TestCallbackCoreApi():
     def test_add_callback(self):
         """ CALLBACK (CORE): Test add callback """
         callback_id = add_callback(event_type='NEW_DID', payload={'name': 'name', 'name_Y': 'scope_X', 'type': 'file', 'created_at':  datetime.utcnow()})
-        assert_regexp_matches(callback_id, compile('[A-F0-9]{8}[A-F0-9]{4}[A-F0-9]{4}[A-F0-9]{4}[A-F0-9]{12}'))
+        assert_regexp_matches(callback_id, compile('[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}'))
         with assert_raises(InvalidObject):
                 add_callback(event_type='NEW_DID', payload={'name': 'name', 'name_Y': 'scope_X', 'type':  int})

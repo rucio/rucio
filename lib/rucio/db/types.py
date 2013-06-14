@@ -37,7 +37,7 @@ class GUID(TypeDecorator):
         if value is None:
             return value
         elif dialect.name == 'postgresql':
-            return str(value)
+            return str(value).lower()
         elif dialect.name == 'oracle':
             return uuid.UUID(value).bytes
         else:
@@ -51,6 +51,6 @@ class GUID(TypeDecorator):
         if value is None:
             return value
         elif dialect.name == 'oracle':
-            return str(uuid.UUID(bytes=value)).replace('-', '').upper()
+            return str(uuid.UUID(bytes=value)).replace('-', '').lower()
         else:
-            return str(uuid.UUID(value)).replace('-', '').upper()
+            return str(uuid.UUID(value)).replace('-', '').lower()

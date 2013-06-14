@@ -13,26 +13,28 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
-from re import match
+# from re import match
 
-from sqlalchemy import or_, Column
+from sqlalchemy import or_  # , Column
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
 
+
 from rucio.common import exception
-from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
-from rucio.core.rse import add_file_replica
+# from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
+from rucio.core.rse import add_replica
+from rucio.core.rse_counter import increase
 from rucio.db import models
-from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState, KeyType
+from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState  # , KeyType
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
 
 @read_session
-def list_replicas(scope, name, schemes=None, session=None):
+def __list_replicas(scope, name, schemes=None, session=None):
     """
-    List file replicas for a data identifier.
+    List file replicas for a file.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -40,24 +42,7 @@ def list_replicas(scope, name, schemes=None, session=None):
     :param session: The database session in use.
 
     """
-#    rsemgr = rsemanager.RSEMgr(server_mode=True)
-#     for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
-#         did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
-#         if did:
-#             if did.did_type == DIDType.FILE:
-#                 yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
-#             else:
-#                 query = session.query(models.DataIdentifierAssociation)
-#                 dids = [(scope, name), ]
-#                 while dids:
-#                     s, n = dids.pop()
-#                     for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
-#                         if tmp_did.child_type == DIDType.FILE:
-#                             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-#                                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
-#                         else:
-#                             dids.append((tmp_did.child_scope, tmp_did.child_name))
-#     raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    rsemgr = rsemanager.RSEMgr(server_mode=True)
     try:
         query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state=ReplicaState.AVAILABLE)
         for row in query.yield_per(5):
@@ -73,6 +58,39 @@ def list_replicas(scope, name, schemes=None, session=None):
                 pass
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found")
+
+
+@read_session
+def list_replicas(scope, name, schemes=None, session=None):
+    """
+    List file replicas for a data identifier.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
+    :param session: The database session in use.
+
+    """
+    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
+        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
+        if did:
+            if did.did_type == DIDType.FILE:
+                for replica in __list_replicas(scope=scope, name=name, session=session):
+                    yield replica
+                raise StopIteration
+            else:
+                query = session.query(models.DataIdentifierAssociation)
+                dids = [(scope, name)]
+                while dids:
+                    s, n = dids.pop()
+                    for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
+                        if tmp_did.child_type == DIDType.FILE:
+                            for replica in __list_replicas(scope=tmp_did.child_scope, name=tmp_did.child_name, session=session):
+                                yield replica
+                        else:
+                            dids.append((tmp_did.child_scope, tmp_did.child_name))
+                raise StopIteration
+    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
 @read_session
@@ -184,7 +202,7 @@ def attach_identifier(scope, name, dids, account, session=None):
     :param session: The database session in use.
     """
 
-    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name).\
+    query = session.query(models.DataIdentifier.did_type, models.DataIdentifier.is_open, models.DataIdentifier.rule_evaluation_action).with_lockmode('update').filter_by(scope=scope, name=name).\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     try:
         did = query.one()
@@ -203,13 +221,14 @@ def attach_identifier(scope, name, dids, account, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
     # Mark for rule re-evaluation
+    # To replace with an update at the end of the transaction
     if did.rule_evaluation_action is None:
         did.rule_evaluation_action = DIDReEvaluation.ATTACH
     elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
         did.rule_evaluation_action = DIDReEvaluation.BOTH
 
-    query_source = session.query(models.DataIdentifier)
-    # query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, did_type=did.did_type)
+    query_source = session.query(models.DataIdentifier.did_type)
+    rse_counters = {}
     for source in dids:
 
         if (scope == source['scope']) and (name == source['name']):
@@ -232,18 +251,24 @@ def attach_identifier(scope, name, dids, account, session=None):
 
         elif did.did_type == DIDType.DATASET:
 
-            if child_type == DIDType.FILE and 'bytes' not in source:
-                raise exception.MissingFileParameter("The file bytes is missing for file '%(scope)s:%(name)s'" % source)
-
             if child_type == DIDType.FILE and 'rse' in source:
-                add_file_replica(account=account, session=session, **source)
+
+                if 'bytes' not in source:
+                    raise exception.MissingFileParameter("The file bytes is missing for file '%(scope)s:%(name)s'" % source)
+
+                if source['rse'] not in rse_counters:
+                    rse_counters[source['rse']] = {'bytes': source['bytes'], 'files': 1}
+                else:
+                    rse_counters[source['rse']]['bytes'] += source['bytes']
+                    rse_counters[source['rse']]['files'] += 1
+                rse_counters[source['rse']]['rse_id'] = add_replica(account=account, session=session, **source)
             else:
                 try:
                     child = query_source.filter_by(scope=source['scope'], name=source['name'], did_type=DIDType.FILE).one()
 
-                    if source['bytes'] != child.bytes or source.get('adler32', None) != child.adler32 or source.get('md5', None) != child.md5:
-                        errMsg = "(bytes: %s, adler32: '%s', md5: '%s') != " % (source['bytes'], source.get('adler32', None), source.get('md5', None)) + "(bytes: %s, adler32: '%s', md5: '%s')" % (child.bytes, child.adler32, child.md5)
-                        raise exception.FileConsistencyMismatch(errMsg)
+                    # if source['bytes'] != child.bytes or source.get('adler32', None) != child.adler32 or source.get('md5', None) != child.md5:
+                    #    errMsg = "(bytes: %s, adler32: '%s', md5: '%s') != " % (source['bytes'], source.get('adler32', None), source.get('md5', None)) + "(bytes: %s, adler32: '%s', md5: '%s')" % (child.bytes, child.adler32, child.md5)
+                    #    raise exception.FileConsistencyMismatch(errMsg)
                 except NoResultFound:
                     # raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.did_type, child_type))
                     raise exception.DataIdentifierNotFound("Source file '%(scope)s:%(name)s' not found" % source)
@@ -260,6 +285,9 @@ def attach_identifier(scope, name, dids, account, session=None):
             #    append_did.update({'deleted': False})
             #else:
             #    raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
+
+    for rse in rse_counters:
+        increase(rse_id=rse_counters[rse]['rse_id'], delta=rse_counters[rse]['files'], bytes=rse_counters[rse]['bytes'], session=session)
 
 
 @transactional_session
@@ -439,6 +467,7 @@ def list_files(scope, name, session=None):
         if did:
             if did.did_type == DIDType.FILE:
                 yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
+                raise StopIteration
             else:
                 query = session.query(models.DataIdentifierAssociation)
                 dids = [(scope, name), ]
@@ -450,6 +479,7 @@ def list_files(scope, name, session=None):
                                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
                         else:
                             dids.append((tmp_did.child_scope, tmp_did.child_name))
+                raise StopIteration
     raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
@@ -523,7 +553,6 @@ def get_did(scope, name, session=None):
                 did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type,
                          'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
             return did_r
-
     raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 

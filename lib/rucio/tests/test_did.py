@@ -429,10 +429,14 @@ class TestDIDClients():
         self.did_client.add_dataset(scope, dsn2)
         self.did_client.add_files_to_dataset(scope, dsn2, files2)
 
-        self.did_client.add_datasets_to_container(scope, cnt, dsn1)
-        self.did_client.add_datasets_to_container(scope, cnt, dsn2)
+        self.did_client.add_container(scope, cnt)
+        self.did_client.add_datasets_to_container(scope, cnt, [{'scope': scope, 'name': dsn1}, {'scope': scope, 'name': dsn2}])
 
-        # self.did_client.list_replicas
+        replicas = self.did_client.list_replicas(scope=scope, name=dsn1)
+        assert_true(replicas is not None)
+
+        replicas = self.did_client.list_replicas(scope=scope, name=cnt)
+        assert_true(replicas is not None)
 
     @raises(UnsupportedOperation)
     def test_close(self):
