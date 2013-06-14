@@ -32,3 +32,4 @@ pycrypto==2.6
 s3cmd==1.5.0-alpha3        # Package built from http://s3tools.org/download
 python-magic==0.4.2        # Dependency for S3, but unfortunately not installed by it automatically
 gearman==2.0.2             # Used only gor emulation framework
+stomp.py==3.1.3            # ActiveMQ Messaging Protocol
