@@ -36,6 +36,8 @@ def submitter(once=False):
 
     while not graceful_stop.is_set():
 
+        time.sleep(1)
+
         print 'submitter: submitting transfer request'
 
         try:
@@ -46,7 +48,13 @@ def submitter(once=False):
 
             sources = sum([[str(pfn) for pfn in source['pfns']] for source in did.list_replicas(scope=req['scope'], name=req['name'])], [])
             rse_name = rse.get_rse_by_id(req['dest_rse_id'])['rse']
-            destinations = [str(d) for d in rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'filename': req['name']}])]
+
+            pfn = rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'filename': req['name']}])
+            if isinstance(pfn, list):
+                destinations = [str(d) for d in pfn]
+            else:
+                destinations = [str(pfn)]
+
             request.submit_transfer(req['request_id'], sources, destinations, 'fts3-mock', {'issuer': 'rucio-conveyor'})
 
         except:
@@ -54,8 +62,6 @@ def submitter(once=False):
 
         if once:
             return
-
-        time.sleep(1)
 
     print 'submitter: graceful stop requested'
 
@@ -73,22 +79,22 @@ def poller(once=False):
 
     while not graceful_stop.is_set():
 
+        time.sleep(1)
+
         try:
             print 'poller: retrieving external state of request'
 
-            req_id = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED)['request_id']
-            if req_id is None:
+            req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED)
+            if req is None:
                 continue
 
-            request.query_request(req_id)
+            request.query_request(req['request_id'])
 
         except:
             print traceback.format_exc()
 
         if once:
             return
-
-        time.sleep(1)
 
     print 'poller: graceful stop requested'
 

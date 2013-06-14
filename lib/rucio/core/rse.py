@@ -19,7 +19,6 @@ import json
 import sqlalchemy
 import sqlalchemy.orm
 
-#  from sqlalchemy import exists, and_
 from sqlalchemy import func, and_, or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
@@ -57,7 +56,7 @@ def add_rse(rse, deterministic=True, volatile=False, session=None):
     add_rse_attribute(rse=rse, key=rse, value=True, session=session)
 
     # Add counter to monitor the space usage
-    add_counter(rse_id=new_rse.id)
+    add_counter(rse_id=new_rse.id, session=session)
 
     return new_rse.id
 
@@ -638,7 +637,7 @@ def list_unlocked_replicas(rse, bytes, limit, rse_id=None, session=None):
     none_value = None  # Hack to get pep8 happy...
     query = session.query(models.RSEFileAssociation).\
         filter(models.RSEFileAssociation.tombstone != none_value).filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE).\
-        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id),]) == rse_id).\
+        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         order_by(models.RSEFileAssociation.tombstone).\
         order_by(models.RSEFileAssociation.created_at).limit(limit)
 
@@ -995,7 +994,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
 
         up.update(data, flush=True, session=session)
     except IntegrityError, e:
-        if 'unique' in e.args[0]:  # Covers SQLite and Orcale error message
+        if 'unique' in e.args[0] or 'Duplicate' in e.args[0]:  # Covers SQLite, Oracle and MySQL error
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
         elif 'may not be NULL' in e.args[0]:
             raise exception.InvalidObject('Invalid values: %s' % e.args[0])

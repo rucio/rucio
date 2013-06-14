@@ -10,24 +10,22 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-testopts=""
+testopts="-t"
 noseopts="--exclude=.*test_rse_protocol_.* "
 
 function usage {
-  echo "Usage: $0 [OPTION]..."
-  echo "Run Rucio's test suite(s)"
-  echo ""
-  echo "  -h    Show usage."
-  echo "  -r    Do not skip RSE tests."
-  echo "  -c    Include only named class."
-  echo "  -t    Include tables required for testing."
-  echo "  -i    Do only the initialization."
-  echo "  -d    Delete the sqlite db file."
-  echo "  -1    Only run once."
-
+  echo 'Usage: $0 [OPTION]...'
+  echo 'Run Rucio test suite'
+  echo ''
+  echo '  -h    Show usage.'
+  echo '  -r    Do not skip RSE tests.'
+  echo '  -c    Include only named class.'
+  echo '  -t    Do not include mock tables.'
+  echo '  -i    Do only the initialization.'
+  echo '  -d    Delete the sqlite db file.'
+  echo '  -1    Only run once.'
   exit
 }
-
 
 seq_tool=`which seq`
 if [ $? != 0 ]; then
@@ -36,33 +34,31 @@ else
     range=$(seq 1 2)
 fi
 
-
 while getopts hrctid1 opt
 do
   case "$opt" in
     h) usage;;
     r) noseopts="";;
     c) noseopts="$OPTARG";;
-    t) testopts="-t";;
+    t) testopts="";;
     i) init_only="true";;
     d) delete_sqlite="true";;
     1) range=1;;
   esac
 done
 
+echo 'Cleaning *.pyc files'
+find lib -iname "*.pyc" | xargs rm
 
-echo "Cleaning *.pyc files"
-find lib -iname '*.pyc' | xargs rm
-
-echo "Cleaning old authentication tokens"
+echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/
 
 if test ${delete_sqlite+defined}; then
-    echo "Removing old database"
-    rm -f /tmp/rucio.db
+    echo 'Removing old databases'
+    rm -f /tmp/rucio.db /tmp/mock-fts.db
 fi
 
-echo "Resetting database tables" $testopts
+echo 'Resetting database tables'
 tools/reset_database.py $testopts
 
 if [ $? != 0 ]; then
@@ -70,10 +66,17 @@ if [ $? != 0 ]; then
     exit
 fi
 
-echo "Disable database access restriction"
-chmod 777 /tmp/rucio.db
+if [ -f /tmp/rucio.db ]; then
+    echo 'Disable database access restriction'
+    chmod 777 /tmp/rucio.db
+fi
 
-echo 'Sync rse_repository with Rucio core'
+if [ -f /tmp/mock-fts.db ]; then
+    echo 'Disable mock FTS database access restriction'
+    chmod 777 /tmp/mock-fts.db
+fi
+
+echo 'Sync rse_repository'
 tools/sync_rses.py
 
 echo 'Sync metadata keys'
@@ -88,9 +91,7 @@ fi
 
 for i in $range
 do
-    echo "Running tests with nose - Iteration $i"
-    echo nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
-    nosetests -v --logging-filter=-sqlalchemy,-migrate,-requests,-rucio.client.baseclient $noseopts
+    echo 'Running tests with nose - Iteration' $i
+    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
 done
-
-echo "Finished"

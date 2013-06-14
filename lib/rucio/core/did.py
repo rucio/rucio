@@ -15,17 +15,15 @@
 from datetime import datetime, timedelta
 from re import match
 
-from sqlalchemy import and_, or_  # , Column
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
 
-
 from rucio.common import exception
-# from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.core.rse import add_replicas
 from rucio.db import models
-from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState  # , KeyType
+from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 

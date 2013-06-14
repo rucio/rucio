@@ -15,7 +15,7 @@ import threading
 import time
 import traceback
 
-from rucio.db.constants import RequestType
+from rucio.db.constants import DIDType, RequestType
 from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid
 from rucio.core import did, rse, scope, request
@@ -34,6 +34,8 @@ def request_transfer(once=False):
 
     while not graceful_stop.is_set():
 
+        time.sleep(1)
+
         try:
             print 'request: create new scope-dataset-file and request transfer'
 
@@ -45,19 +47,17 @@ def request_transfer(once=False):
             except Duplicate:
                 pass
 
-            did.add_identifier(scope=tmp_scope, name='dataset-%s' % tmp_name, type='dataset', issuer='root')
-            rse.add_file_replica(rse='MOCK', scope=tmp_scope, name='file-%s' % tmp_name, size=1, issuer='root')
-            did.attach_identifier(scope=tmp_scope, name='dataset-%s' % tmp_name, dids=[{'scope': tmp_scope, 'name': 'file-%s' % tmp_name}], issuer='root')
+            did.add_identifier(scope=tmp_scope, name='dataset-%s' % tmp_name, type=DIDType.DATASET, account='root')
+            rse.add_file_replica(rse='MOCK', scope=tmp_scope, name='file-%s' % tmp_name, bytes=1, account='root')
+            did.attach_identifier(scope=tmp_scope, name='dataset-%s' % tmp_name, dids=[{'scope': tmp_scope, 'name': 'file-%s' % tmp_name, 'bytes': 1}], account='root')
 
-            request.queue_request(tmp_scope, 'file-%s' % tmp_name, 'MOCK3', RequestType.TRANSFER, {'random': 'metadata'})
+            request.queue_request(tmp_scope, 'file-%s' % tmp_name, 'ef1e2ea6520c4769bce514d97f838120', RequestType.TRANSFER, {'random': 'metadata'})
 
         except:
             print traceback.format_exc()
 
         if once:
             return
-
-        time.sleep(1)
 
     print 'request: graceful stop requested'
 
