@@ -146,6 +146,24 @@ def add_file_replica(rse, scope, name, bytes, issuer, account=None, adler32=None
     rse_module.add_file_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, account=account or issuer, pfn=pfn, dsn=dsn)
 
 
+def add_replicas(rse, files, issuer):
+    """
+    Bulk Add file replicas.
+
+    :param rse: The RSE name.
+    :param files: The list of files.
+    :param issuer: The issuer account.
+    :param account: The account owner. If None, then issuer is selected.
+
+    :returns: True is successful, False otherwise
+    """
+
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
+    rse_module.add_replicas(rse=rse, files=files, account=issuer)
+
+
 def add_protocol(rse, issuer, **data):
     """
     Creates a new protocol entry for an existing RSE.

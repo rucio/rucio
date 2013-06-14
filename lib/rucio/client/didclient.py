@@ -14,7 +14,7 @@ from json import dumps
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
-from rucio.common.utils import build_url, render_json
+from rucio.common.utils import build_url, render_json, render_json_list
 
 
 class DIDClient(BaseClient):
@@ -52,7 +52,7 @@ class DIDClient(BaseClient):
 
     def add_identifier(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None):
         """
-        Add data identifier for a data@transactional_sessionset or container.
+        Add data identifier for a dataset or container.
 
         :param scope: The scope name.
         :param name: The data identifier name.
@@ -81,6 +81,19 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
+    def add_dids(self, dids):
+        """
+        Buld add datasets/containers.
+        """
+        path = '/'.join([self.DIDS_BASEURL])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='POST', data=render_json_list(dids))
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
     def add_dataset(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
         """
         Add data identifier for a dataset.
@@ -94,6 +107,14 @@ class DIDClient(BaseClient):
         """
         return self.add_identifier(scope=scope, name=name, type='DATASET', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
+    def add_datasets(self, dsns):
+        """
+        Bulk add datasets.
+
+        :param dsns: A list of datasets.
+        """
+        return self.add_dids(dids=[dict(dsn.items() + [('type', 'DATASET')]) for dsn in dsns])
+
     def add_container(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
         """
         Add data identifier for a container.
@@ -106,6 +127,14 @@ class DIDClient(BaseClient):
         :param lifetime: DID's lifetime (in seconds).
         """
         return self.add_identifier(scope=scope, name=name, type='CONTAINER', statuses=statuses, meta=meta, rules=rules)
+
+    def add_containers(self, cnts):
+        """
+        Bulk add containers.
+
+        :param cnts: A list of containers.
+        """
+        return self.add_dids(dids=[dict(cnts.items() + [('type', 'CONTAINER')]) for cnt in cnts])
 
     def attach_identifier(self, scope, name, dids):
         """

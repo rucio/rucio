@@ -40,7 +40,24 @@ def list_replicas(scope, name, schemes=None, session=None):
     :param session: The database session in use.
 
     """
-    rsemgr = rsemanager.RSEMgr(server_mode=True)
+#    rsemgr = rsemanager.RSEMgr(server_mode=True)
+#     for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
+#         did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
+#         if did:
+#             if did.did_type == DIDType.FILE:
+#                 yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
+#             else:
+#                 query = session.query(models.DataIdentifierAssociation)
+#                 dids = [(scope, name), ]
+#                 while dids:
+#                     s, n = dids.pop()
+#                     for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
+#                         if tmp_did.child_type == DIDType.FILE:
+#                             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+#                                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
+#                         else:
+#                             dids.append((tmp_did.child_scope, tmp_did.child_name))
+#     raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
     try:
         query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state=ReplicaState.AVAILABLE)
         for row in query.yield_per(5):
@@ -70,20 +87,20 @@ def list_dids(scope, pattern, type='collection', ignore_case=False, session=None
     :param session: The database session in use.
     """
 
-    query = session.query(models.DataIdentifier).filter(models.DataIdentifier.name.like(pattern.replace('*', '%')))
+    query = session.query(models.DataIdentifier).filter_by(scope=scope).filter(models.DataIdentifier.name.like(pattern.replace('*', '%')))
     # if ignore_case
     # func.upper(models.DataIdentifier.name).like(pattern.replace('*','%'))
     if type == 'all':
         query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
                                  models.DataIdentifier.did_type == DIDType.DATASET,
                                  models.DataIdentifier.did_type == DIDType.FILE))
-    elif type == 'collection':
+    elif type.lower() == 'collection':
         query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
-    elif type == 'container':
+    elif type.lower() == 'container':
         query = query.filter(models.DataIdentifier.did_type == DIDType.CONTAINER)
-    elif type == 'dataset':
+    elif type.lower() == 'dataset':
         query = query.filter(models.DataIdentifier.did_type == DIDType.DATASET)
-    elif type == 'file':
+    elif type.lower() == 'file':
         query = query.filter(models.DataIdentifier.did_type == DIDType.FILE)
     #else:
     #  error
@@ -95,7 +112,7 @@ def list_dids(scope, pattern, type='collection', ignore_case=False, session=None
 
 
 @transactional_session
-def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, session=None):
+def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, flush=True, session=None):
     """
     Add data identifier.
 
@@ -134,14 +151,25 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], l
         # msg for oracle / mysql
         raise exception.RucioException(e.args[0])
 
-    # Add meta-data
-    for key in meta:
-        set_metadata(scope=scope, name=name, key=key, value=meta[key], type=type, did=new_did, session=session)
-
     # Add rules
     # for rule in rules:
     #    add_replication_rule(dids=[{'scope': scope, 'name': name}, ], account=issuer, copies=rule['copies'],
     #                         rse_expression=rule['rse_expression'], parameters={}, session=session)  # lifetime + grouping
+
+
+@transactional_session
+def add_dids(dids, account, session=None):
+    """
+    Bulk add data identifiers.
+
+    :param dids: A list of dids.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    for did in dids:
+        add_identifier(scope=did['scope'], name=did['name'], type=DIDType.from_sym(did['type']), account=did.get('account') or account, statuses=did.get('statuses') or {},
+                       meta=did.get('meta'), rules=did.get('rules'), lifetime=did.get('lifetime'), flush=False, session=session)
+    session.flush()
 
 
 @transactional_session
@@ -180,7 +208,7 @@ def attach_identifier(scope, name, dids, account, session=None):
     elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
         did.rule_evaluation_action = DIDReEvaluation.BOTH
 
-    query_all = session.query(models.DataIdentifier)
+    query_source = session.query(models.DataIdentifier)
     # query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name, did_type=did.did_type)
     for source in dids:
 
@@ -190,10 +218,8 @@ def attach_identifier(scope, name, dids, account, session=None):
         if did.did_type == DIDType.CONTAINER:
             try:
 
-                child = query_all.filter_by(scope=source['scope'], name=source['name']).one()
-
-                if child.did_type == DIDType.FILE:
-                    raise exception.UnsupportedOperation("File '%(scope)s:%(name)s' " % source + "cannot be associated with a container '%(scope)s:%(name)s' is a file" % locals())
+                child = query_source.filter_by(scope=source['scope'], name=source['name']).\
+                    filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).one()
 
                 if not child_type:
                     child_type = child.did_type
@@ -201,6 +227,7 @@ def attach_identifier(scope, name, dids, account, session=None):
                     raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.did_type, child_type))
 
             except NoResultFound:
+                # raise exception.UnsupportedOperation("File '%(scope)s:%(name)s' " % source + "cannot be associated with a container '%(scope)s:%(name)s' is a file" % locals())
                 raise exception.DataIdentifierNotFound("Source data identifier '%(scope)s:%(name)s' not found" % source)
 
         elif did.did_type == DIDType.DATASET:
@@ -212,14 +239,13 @@ def attach_identifier(scope, name, dids, account, session=None):
                 add_file_replica(account=account, session=session, **source)
             else:
                 try:
-                    child = query_all.filter_by(scope=source['scope'], name=source['name']).one()
-                    if child.did_type != DIDType.FILE:
-                        raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.did_type, child_type))
+                    child = query_source.filter_by(scope=source['scope'], name=source['name'], did_type=DIDType.FILE).one()
 
                     if source['bytes'] != child.bytes or source.get('adler32', None) != child.adler32 or source.get('md5', None) != child.md5:
                         errMsg = "(bytes: %s, adler32: '%s', md5: '%s') != " % (source['bytes'], source.get('adler32', None), source.get('md5', None)) + "(bytes: %s, adler32: '%s', md5: '%s')" % (child.bytes, child.adler32, child.md5)
                         raise exception.FileConsistencyMismatch(errMsg)
                 except NoResultFound:
+                    # raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.did_type, child_type))
                     raise exception.DataIdentifierNotFound("Source file '%(scope)s:%(name)s' not found" % source)
 
         try:
@@ -235,10 +261,6 @@ def attach_identifier(scope, name, dids, account, session=None):
             #else:
             #    raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
 
-        if 'meta' in source:
-            for key in source['meta']:
-                set_metadata(scope=source['scope'], name=source['name'], key=key, type=child_type, value=source['meta'][key], session=session)
-
 
 @transactional_session
 def detach_identifier(scope, name, dids, issuer, session=None):
@@ -251,9 +273,9 @@ def detach_identifier(scope, name, dids, issuer, session=None):
     :param issuer: The issuer account.
     :param session: The database session in use.
     """
-
     #Row Lock the parent did
-    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name)  # add type
+    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name).\
+        filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     try:
         did = query.one()
         # Mark for rule re-evaluation
@@ -412,26 +434,23 @@ def list_files(scope, name, session=None):
     :param name:       The data identifier name.
     :param session:    The database session in use.
     """
-
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)   # TODO avoid deleted data
-    try:
-        did = query.one()
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-
-    if did.did_type == DIDType.FILE:
-        yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
-    else:
-        query = session.query(models.DataIdentifierAssociation)
-        dids = [(scope, name), ]
-        while dids:
-            s, n = dids.pop()
-            for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
-                if tmp_did.child_type == DIDType.FILE:
-                    yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                           'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
-                else:
-                    dids.append((tmp_did.child_scope, tmp_did.child_name))
+    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
+        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
+        if did:
+            if did.did_type == DIDType.FILE:
+                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
+            else:
+                query = session.query(models.DataIdentifierAssociation)
+                dids = [(scope, name), ]
+                while dids:
+                    s, n = dids.pop()
+                    for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
+                        if tmp_did.child_type == DIDType.FILE:
+                            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
+                        else:
+                            dids.append((tmp_did.child_scope, tmp_did.child_name))
+    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
 @read_session
@@ -495,23 +514,17 @@ def get_did(scope, name, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-
-    did_r = {'scope': None, 'name': None, 'type': None}
-    try:
-        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()  # removed deleted types
+    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
+        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
         if r:
             if r.did_type == DIDType.FILE:
                 did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type, 'account': r.account}
             else:
                 did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type,
                          'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
+            return did_r
 
-            #  To add:  created_at, updated_at, deleted_at, deleted, monotonic, hidden, obsolete, complete
-            #  ToDo: Add json encoder for datetime
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-
-    return did_r
+    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
 @transactional_session
@@ -526,37 +539,37 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     :paran did: The data identifier info.
     :param session: The database session in use.
     """
-    # Check enum types
-    enum = session.query(models.DIDKeyValueAssociation).filter_by(key=key).first()
-    if enum:
-        try:
-            session.query(models.DIDKeyValueAssociation).filter_by(key=key, value=value).one()
-        except NoResultFound:
-            raise exception.InvalidValueForKey("The value '%(value)s' is invalid for the key '%(key)s'" % locals())
-
-    # Check constraints
-    try:
-        k = session.query(models.DIDKey).filter_by(key=key).one()
-    except NoResultFound:
-        raise exception.KeyNotFound("'%(key)s' not found." % locals())
-
-    # Check value against regexp, if defined
-    if k.value_regexp and not match(k.value_regexp, str(value)):
-        raise exception.InvalidValueForKey("The value '%s' for the key '%s' does not match the regular expression '%s'" % (value, key, k.value_regexp))
-
-    # Check value type, if defined
-    type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
-    if k.value_type and not isinstance(value, type_map.get(k.value_type)):
-            raise exception.InvalidValueForKey("The value '%s' for the key '%s' does not match the required type '%s'" % (value, key, k.value_type))
-
-    if not did:
-        did = get_did(scope=scope, name=name, session=session)
-
-    # Check key_type
-    if k.key_type in (KeyType.FILE, KeyType.DERIVED) and did['type'] != DIDType.FILE:
-        raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != file" % locals())
-    elif k.key_type == KeyType.COLLECTION and did['type'] not in (DIDType.DATASET, DIDType.CONTAINER):
-        raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != dataset|container" % locals())
+# Check enum types
+#     enum = session.query(models.DIDKeyValueAssociation).filter_by(key=key).first()
+#     if enum:
+#         try:
+#             session.query(models.DIDKeyValueAssociation).filter_by(key=key, value=value).one()
+#         except NoResultFound:
+#             raise exception.InvalidValueForKey("The value '%(value)s' is invalid for the key '%(key)s'" % locals())
+#
+# Check constraints
+#     try:
+#         k = session.query(models.DIDKey).filter_by(key=key).one()
+#     except NoResultFound:
+#         raise exception.KeyNotFound("'%(key)s' not found." % locals())
+#
+# Check value against regexp, if defined
+#     if k.value_regexp and not match(k.value_regexp, str(value)):
+#         raise exception.InvalidValueForKey("The value '%s' for the key '%s' does not match the regular expression '%s'" % (value, key, k.value_regexp))
+#
+# Check value type, if defined
+#     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
+#     if k.value_type and not isinstance(value, type_map.get(k.value_type)):
+#             raise exception.InvalidValueForKey("The value '%s' for the key '%s' does not match the required type '%s'" % (value, key, k.value_type))
+#
+#     if not did:
+#         did = get_did(scope=scope, name=name, session=session)
+#
+# Check key_type
+#     if k.key_type in (KeyType.FILE, KeyType.DERIVED) and did['type'] != DIDType.FILE:
+#         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != file" % locals())
+#     elif k.key_type == KeyType.COLLECTION and did['type'] not in (DIDType.DATASET, DIDType.CONTAINER):
+#         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != dataset|container" % locals())
 
     # models.DataIdentifier.__table__.append_column(Column(key, models.String(50)))
     session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
@@ -594,22 +607,26 @@ def get_metadata(scope, name, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    for key in session.query(models.DIDKey):
-        models.DataIdentifier.__table__.append_column(Column(key.key, models.String(50)))
-
-    try:
-        r = session.query(models.DataIdentifier.__table__).filter_by(scope=scope, name=name).one()   # remove deleted data
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-
-    meta = {}
-    for column in r._fields:
-        meta[column] = getattr(r, column)
+    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
+        row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
+        if row:
+            d = {}
+            for column in row.__table__.columns:
+                d[column.name] = getattr(row, column.name)
+            return d
+    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+#    try:
+#        r = session.query(models.DataIdentifier.__table__).filter_by(scope=scope, name=name).one()   # remove deleted data
+#    except NoResultFound:
+#        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+#    for key in session.query(models.DIDKey):
+#        models.DataIdentifier.__table__.append_column(Column(key.key, models.String(50)))
+#    meta = {}
+#    for column in r._fields:
+#        meta[column] = getattr(r, column)
 
     # if r.did_type == DIDType.FILE and r.guid:
     #    meta['guid'] = r.guid
-
-    return meta
 
 
 @transactional_session
@@ -624,7 +641,8 @@ def set_status(scope, name, session=None, **kwargs):
     """
     statuses = ['open', ]
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)   # need to add the DIDType
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+        filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     values = {}
     for k in kwargs:
         if k not in statuses:

@@ -18,7 +18,7 @@ from urlparse import parse_qs
 from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized, OK
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.did import (list_replicas, add_identifier, list_content,
+from rucio.api.did import (list_replicas, add_identifier, add_dids, list_content,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_identifier, detach_identifier)
 from rucio.api.rule import list_replication_rules
@@ -40,6 +40,7 @@ urls = (
     '/(.*)/(.*)/status', 'DIDs',
     '/(.*)/(.*)/rules', 'Rules',
     '/(.*)/(.*)', 'DIDs',
+    '', 'BulkDIDS',
 )
 
 
@@ -98,6 +99,56 @@ class Scope:
 
     def POST(self):
         header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+
+class BulkDIDS:
+
+    def GET(self, scope):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def POST(self):
+        header('Content-Type', 'application/json')
+
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        try:
+            json_data = loads(data())
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_dids(json_data, issuer=auth['account'])
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except DuplicateContent, e:
+            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
+        except DataIdentifierAlreadyExists, e:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+        raise Created()
+
         raise BadRequest()
 
 

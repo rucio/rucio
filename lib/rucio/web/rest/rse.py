@@ -18,16 +18,18 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
                            list_rse_attributes, del_rse_attribute, add_file_replica,
+                           add_replicas,
                            add_protocol, get_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
                            set_rse_limits, get_rse_limits)
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
-from rucio.common.utils import generate_http_error, render_json
+from rucio.common.utils import generate_http_error, parse_response, render_json
 
 urls = (
     '/(.+)/attr/(.+)', 'Attributes',
     '/(.+)/attr/', 'Attributes',
+    '/(.+)/files', 'BulkFiles',
     '/(.+)/files/(.+)/(.+)', 'Files',
     '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # Updates (PUT) protocol attributes
     '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # delete (DELETE) a specific protocol
@@ -351,6 +353,68 @@ class Files:
 
         try:
             add_file_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=auth['account'])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+        raise Created()
+
+    def GET(self):
+        raise BadRequest()
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+
+class BulkFiles:
+
+    def POST(self, rse):
+        """
+        Create file replicas at a given RSE.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            409 Conflict
+            500 Internal Error
+
+        :param rse: The RSE name.
+        :param scope: the name of the scope.
+        :param name: the data identifier name.
+
+        """
+        header('Content-Type', 'application/octet-stream')
+
+        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+
+        auth = validate_auth_token(auth_token)
+
+        if auth is None:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+
+        json_data = data()
+        try:
+            parameters = parse_response(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_replicas(rse=rse, files=parameters, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
