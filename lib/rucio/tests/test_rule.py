@@ -25,9 +25,7 @@ from rucio.core.did import add_identifier, attach_identifier
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, add_file_replica, get_rse
 from rucio.core.rule import add_replication_rule, get_replication_rule, delete_replication_rule
-from rucio.core.scope import add_scope
 from rucio.db.constants import DIDType
-from rucio.tests.common import scope_name_generator
 
 
 def _create_test_files(nrfiles, scope, rse, bytes=1):
@@ -87,8 +85,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_file_none(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         add_replication_rule(dids=files, account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
@@ -101,8 +98,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_dataset_none(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, NONE Grouping"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -123,8 +119,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_container_none(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, NONE Grouping"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         container = 'container_' + str(uuid())
         add_identifier(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
@@ -144,8 +139,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_dataset_all(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, ALL Grouping"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -165,8 +159,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_container_all(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, ALL Grouping"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         container = 'container_' + str(uuid())
         add_identifier(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
@@ -191,8 +184,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_dataset_dataset(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, DATASET Grouping"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -212,8 +204,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_container_dataset(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, DATASET Grouping"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         container = 'container_' + str(uuid())
         add_identifier(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
@@ -241,8 +232,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_dataset_none_with_weights(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, NONE Grouping, WEIGHTS"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -259,8 +249,7 @@ class TestReplicationRuleCore():
 
     def test_add_replication_rule_container_dataset_with_weights(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, DATASET Grouping, WEIGHTS"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         container = 'container_' + str(uuid())
         add_identifier(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         all_files = []
@@ -289,21 +278,19 @@ class TestReplicationRuleCore():
 
     def test_get_rule(self):
         """ REPLICATION RULE (CORE): Test to get a previously created rule"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_identifier(scope, dataset, files, 'jdoe')
 
         rule_id = add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
-        assert(rule_id == get_replication_rule(rule_id)['id'].replace('-', '').upper())
+        assert(rule_id == get_replication_rule(rule_id)['id'].replace('-', '').lower())
         assert_raises(RuleNotFound, get_replication_rule, uuid())
 
     def delete_rule(self):
         """ REPLICATION RULE (CORE): Test to delete a previously created rule"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -319,8 +306,7 @@ class TestReplicationRuleCore():
 
     def delete_rule_and_cancel_transfers(self):
         """ REPLICATION RULE (CORE): Test to delete a previously created rule and do not cancel overlapping transfers"""
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -381,9 +367,7 @@ class TestReplicationRuleClient():
 
     def test_add_replication_rule(self):
         """ REPLICATION RULE (CLIENT): Add a replication rule """
-
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -395,9 +379,7 @@ class TestReplicationRuleClient():
     #TODO: Needs to be fixed!
     def DISABLED_delete_replication_rule(self):
         """ REPLICATION RULE (CLIENT): Delete a replication rule """
-
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -411,9 +393,7 @@ class TestReplicationRuleClient():
 
     def test_list_rules_by_did(self):
         """ DID (CLIENT): List Replication Rules per DID """
-
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -432,9 +412,7 @@ class TestReplicationRuleClient():
 
     def test_get_rule(self):
         """ REPLICATION RULE (CLIENT): Get Replication Rule by id """
-
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -442,14 +420,11 @@ class TestReplicationRuleClient():
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
         get = self.rule_client.get_replication_rule(ret[0])
-
         assert(ret[0] == get['id'])
 
     def test_get_rule_by_account(self):
         """ ACCOUNT (CLIENT): Get Replication Rule by account """
-
-        scope = scope_name_generator()
-        add_scope(scope, 'jdoe')
+        scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
         add_identifier(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')

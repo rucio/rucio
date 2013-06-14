@@ -26,10 +26,12 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import case, and_
 
+
 from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
 from rucio.db.constants import ReplicaState, DIDType, OBSOLETE
+from rucio.db.sautils import InsertFromSelect
 from rucio.db.session import read_session, transactional_session
 from rucio.rse.rsemanager import RSEMgr
 
@@ -426,7 +428,7 @@ def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, d
 
 
 @transactional_session
-def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn=None, path=None, meta=None, rules=None, tombstone=None, session=None):
+def add_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=None, path=None, meta={}, rules=None, tombstone=None, rse_id=None, pfn=None, session=None):
     """
     Add File replica.
 
@@ -445,7 +447,10 @@ def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn
 
     :returns: True is successful.
     """
-    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).first()
+    if not rse_id:
+        rse_id = get_rse_id(rse=rse, session=session)
+
+    did = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).filter_by(scope=scope, name=name, did_type=DIDType.FILE).first()
     if not did:
         new_did = models.DataIdentifier(scope=scope, name=name, account=account, did_type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
         # Add meta-data
@@ -457,14 +462,47 @@ def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn
             if e.args[0] == "(IntegrityError) foreign key constraint failed":
                 raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
             raise exception.RucioException(e.args[0])
-    else:
-        if bytes != did.bytes or adler32 != did.adler32 or md5 != did.md5:
-            raise exception.FileConsistencyMismatch("(bytes: %s, adler32: '%s', md5: '%s') != (bytes: %s, adler32: '%s', md5: '%s')" % (did.bytes, did.adler32, did.md5, bytes, adler32, md5))
+    #else:
+    #    if bytes != did.bytes or adler32 != did.adler32 or md5 != did.md5:
+    #        raise exception.FileConsistencyMismatch("(bytes: %s, adler32: '%s', md5: '%s') != (bytes: %s, adler32: '%s', md5: '%s')" % (did.bytes, did.adler32, did.md5, bytes, adler32, md5))
 
-    new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=scope, name=name, bytes=bytes, path=path, state=ReplicaState.AVAILABLE,
-                                            md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
+    insert = InsertFromSelect([models.RSEFileAssociation.__table__.c.rse_id,
+                               models.RSEFileAssociation.__table__.c.scope,
+                               models.RSEFileAssociation.__table__.c.name,
+                               models.RSEFileAssociation.__table__.c.bytes,
+                               models.RSEFileAssociation.__table__.c.md5,
+                               models.RSEFileAssociation.__table__.c.adler32,
+                               models.RSEFileAssociation.__table__.c.path,
+                               models.RSEFileAssociation.__table__.c.state,
+                               models.RSEFileAssociation.__table__.c.lock_cnt,
+                               models.RSEFileAssociation.__table__.c.accessed_at,
+                               models.RSEFileAssociation.__table__.c.tombstone,
+                               models.RSEFileAssociation.__table__.c.updated_at,
+                               models.RSEFileAssociation.__table__.c.created_at],
+                              select([bindparam('rse_id'),
+                                      models.DataIdentifier.__table__.c.scope,
+                                      models.DataIdentifier.__table__.c.name,
+                                      models.DataIdentifier.__table__.c.bytes,
+                                      models.DataIdentifier.__table__.c.md5,
+                                      models.DataIdentifier.__table__.c.adler32,
+                                      bindparam('path'),
+                                      bindparam('replica_state'),
+                                      0,
+                                      None,
+                                      bindparam('tombstone'),
+                                      bindparam('updated_at'),
+                                      bindparam('created_at')]).
+                              where(models.DataIdentifier.__table__.c.scope == scope).
+                              where(models.DataIdentifier.__table__.c.name == name).
+                              where(models.DataIdentifier.__table__.c.did_type == DIDType.FILE))
+    now = datetime.utcnow()
     try:
-        new_replica.save(session=session)
+        session.execute(insert, {'rse_id': rse_id, 'path': path, 'replica_state': ReplicaState.AVAILABLE.value, 'tombstone': tombstone and now, 'updated_at': now, 'created_at': now})
+        #print result_proxy.rowcount
+        return rse_id
+#    new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=scope, name=name, bytes=bytes, path=path, state=ReplicaState.AVAILABLE,
+#                                            md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
+#    new_replica.save(session=session)
     except IntegrityError:
         raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
     except DatabaseError, e:
@@ -494,7 +532,7 @@ def add_replicas(rse, files, account, session=None):
             tmp = RSEMgr(server_mode=True).parse_pfn(rse_id=rse, pfn=file['pfn'])
             path = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
 
-        add_replica(rse_id=replica_rse.id, scope=file['scope'], name=file['name'], bytes=file['bytes'], account=file.get('account') or account,
+        add_replica(rse=rse, rse_id=replica_rse.id, scope=file['scope'], name=file['name'], bytes=file['bytes'], account=file.get('account') or account,
                     adler32=file.get('adler32'), md5=file.get('md5'), dsn=None, path=path, meta=file.get('meta'),
                     rules=file.get('rules'), tombstone=file.get('tombstone'), session=session)
         nbfiles += 1

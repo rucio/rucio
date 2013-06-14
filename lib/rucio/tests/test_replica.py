@@ -32,10 +32,10 @@ class TestReplica():
     def test_add_replicas(self):
         """ REPLICA (CLIENT): Bulk add replicas """
         tmp_scope = 'mock'
-        tmp_rse = 'MOCK'
-        nbfiles = 3
+        nbfiles = 1000
         files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
-        self.rse_client.add_replicas(rse=tmp_rse, files=files)
+        self.rse_client.add_replicas(rse='MOCK', files=files)
+        self.rse_client.add_replicas(rse='MOCK3', files=files)
 
     def test_add_list_replica(self):
         """ REPLICA (CLIENT): Add and list file replica """

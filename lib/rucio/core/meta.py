@@ -13,14 +13,14 @@ from re import match
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import Column
+# from sqlalchemy import Column
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 from rucio.common.exception import Duplicate, RucioException, KeyNotFound, InvalidValueForKey, UnsupportedValueType
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
-from rucio.db.types import GUID
+# from rucio.db.types import GUID
 
 
 @transactional_session
