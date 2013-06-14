@@ -9,10 +9,10 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
-from nose.tools import assert_equal, assert_in, assert_raises
+from nose.tools import assert_equal, assert_in  # , assert_raises
 
 from rucio.client.didclient import DIDClient
-from rucio.common.exception import InvalidValueForKey, UnsupportedOperation
+# from rucio.common.exception import InvalidValueForKey, UnsupportedOperation
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
