@@ -14,7 +14,7 @@ from json import dumps, loads
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, render_json_list
 
 
 class RSEClient(BaseClient):
@@ -185,6 +185,25 @@ class RSEClient(BaseClient):
         path = '/'.join([self.RSE_BASEURL, rse, 'files', scope, name])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
+
+    def add_replicas(self, rse, files):
+        """
+        Bulk Add file replicas to a RSE.
+
+        :param rse: the RSE name.
+        :param files: The list of files.
+
+        :return: True if file was created successfully else False.
+        :raises Duplicate: if file replica already exists.
+        """
+        path = '/'.join([self.RSE_BASEURL, rse, 'files'])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='POST', data=render_json_list(files))
         if r.status_code == codes.created:
             return True
         else:

@@ -20,7 +20,7 @@ class TestMetaClient():
     def setup(self):
         self.meta_client = MetaClient()
 
-    def test_add_and_list_keys(self):
+    def xtest_add_and_list_keys(self):
         """ META (CLIENTS): Add a key and List all keys."""
         key = 'key_' + str(uuid())[:20]
         ret = self.meta_client.add_key(key=key, key_type='ALL')
@@ -29,7 +29,7 @@ class TestMetaClient():
         assert_is_instance(keys, list)
         assert_in(key, keys)
 
-    def test_add_and_list_values(self):
+    def xtest_add_and_list_values(self):
         """ META (CLIENTS): Add a value and List all values."""
         key = 'key_' + str(uuid())[:20]
         value = 'value_' + str(uuid())
@@ -44,7 +44,7 @@ class TestMetaClient():
         assert_in(value, values)
 
     @raises(InvalidValueForKey)
-    def test_add_value_with_type(self):
+    def xtest_add_value_with_type(self):
         """ META (CLIENTS):  Add a new value to a key with a type constraint"""
         key = 'key_' + str(uuid())[:20]
         value = 'value_' + str(uuid())
@@ -55,7 +55,7 @@ class TestMetaClient():
         self.meta_client.add_value(key=key, value=1234)
 
     @raises(InvalidValueForKey)
-    def test_add_value_with_regexp(self):
+    def xtest_add_value_with_regexp(self):
         """ META (CORE):  Add a new value to a key with a regexp constraint"""
         key = 'guid' + str(uuid())[:20]
         value = str(uuid())
@@ -68,13 +68,13 @@ class TestMetaClient():
         self.meta_client.add_value(key=key, value='Nimportnawak')
 
     @raises(UnsupportedValueType)
-    def test_add_unsupported_type(self):
+    def xtest_add_unsupported_type(self):
         """ META (CLIENTS):  Add an unsupported value for type """
         key = 'key_' + str(uuid())[:20]
         self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
 
     @raises(KeyNotFound)
-    def test_add_value_to_bad_key(self):
+    def xtest_add_value_to_bad_key(self):
         """ META (CLIENTS):  Add a new value to a non existing key """
         value = 'value_' + str(uuid())
         self.meta_client.add_value(key="Nimportnawak", value=value)

@@ -299,7 +299,7 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None):
     for row in query:
         usage.append({'rse': rse, 'source': row.source,
                       'used': row.used, 'free': row.free,
-                      'total': row.free + row.used,
+                      'total': (row.free or 0) + (row.used or 0),
                       'updated_at': row.updated_at})
     return usage
 
@@ -364,7 +364,7 @@ def list_rse_usage_history(rse, source=None, session=None):
 
 
 @transactional_session
-def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=None, tombstone=None, session=None):
+def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=None, pfn=None, meta={}, rules=None, tombstone=None, session=None):
     """
     Add File replica.
 
@@ -387,14 +387,13 @@ def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, d
     # TODO: If the dsn is used to attach the file to a dataset, the right locking for replication rules has to be done
     # TODO: Ask Martin about that!
     replica_rse = get_rse(rse=rse, session=session)
+
     path = None
     if not replica_rse.deterministic:
         if not pfn:
             raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-
         tmp = RSEMgr(server_mode=True).parse_pfn(rse_id=rse, pfn=pfn)
         path = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
-
     else:
         if pfn:
             raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
@@ -403,7 +402,9 @@ def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, d
     if not did:
         try:
             new_did = models.DataIdentifier(scope=scope, name=name, account=account, did_type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
-            new_did = session.merge(new_did)
+            for key in meta:
+                new_did.update({key: meta[key]})
+            # new_did = session.merge(new_did)
             new_did.save(session=session)
         except IntegrityError, e:
             if e.args[0] == "(IntegrityError) foreign key constraint failed":
@@ -421,8 +422,84 @@ def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, d
         raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
     except DatabaseError, e:
         raise exception.RucioException(e.args[0])
-
     increase(rse_id=replica_rse.id, delta=1, bytes=bytes, session=session)
+
+
+@transactional_session
+def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn=None, path=None, meta=None, rules=None, tombstone=None, session=None):
+    """
+    Add File replica.
+
+    :param rse_id: the RSE id.
+    :param scope: the tag name.
+    :param name: The data identifier name.
+    :param bytes: the size of the file.
+    :param account: The account owner.
+    :param md5: The md5 checksum.
+    :param adler32: The adler32 checksum.
+    :param pfn: Physical file name (for nondeterministic rse).
+    :param meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
+    :param rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :param tombstone: If True, create replica with a tombstone.
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).first()
+    if not did:
+        new_did = models.DataIdentifier(scope=scope, name=name, account=account, did_type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
+        # Add meta-data
+        for key in meta:
+            new_did.update({key: meta[key]})
+        try:
+            new_did.save(session=session)
+        except IntegrityError, e:
+            if e.args[0] == "(IntegrityError) foreign key constraint failed":
+                raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
+            raise exception.RucioException(e.args[0])
+    else:
+        if bytes != did.bytes or adler32 != did.adler32 or md5 != did.md5:
+            raise exception.FileConsistencyMismatch("(bytes: %s, adler32: '%s', md5: '%s') != (bytes: %s, adler32: '%s', md5: '%s')" % (did.bytes, did.adler32, did.md5, bytes, adler32, md5))
+
+    new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=scope, name=name, bytes=bytes, path=path, state=ReplicaState.AVAILABLE,
+                                            md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
+    try:
+        new_replica.save(session=session)
+    except IntegrityError:
+        raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
+    except DatabaseError, e:
+        raise exception.RucioException(e.args[0])
+    # increase(rse_id=replica_rse.id, delta=1, bytes=bytes, session=session)
+
+
+@transactional_session
+def add_replicas(rse, files, account, session=None):
+    """
+    Bulk add file replicas.
+
+    :param rse: the rse name.
+    :param files: the list of files.
+    :param account: The account owner.
+    :param session: The database session in use.
+
+    :returns: True is successful.
+    """
+    replica_rse = get_rse(rse=rse, session=session)
+    nbfiles, bytes = 0, 0
+    for file in files:
+        path = None
+        if not replica_rse.deterministic:
+            if 'pfn' not in file:
+                raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
+            tmp = RSEMgr(server_mode=True).parse_pfn(rse_id=rse, pfn=file['pfn'])
+            path = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
+
+        add_replica(rse_id=replica_rse.id, scope=file['scope'], name=file['name'], bytes=file['bytes'], account=file.get('account') or account,
+                    adler32=file.get('adler32'), md5=file.get('md5'), dsn=None, path=path, meta=file.get('meta'),
+                    rules=file.get('rules'), tombstone=file.get('tombstone'), session=session)
+        nbfiles += 1
+        bytes += file['bytes']
+    increase(rse_id=replica_rse.id, delta=nbfiles, bytes=bytes, session=session)
 
 
 @transactional_session

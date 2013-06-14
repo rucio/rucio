@@ -51,6 +51,20 @@ def add_identifier(scope, name, type, issuer, account=None, statuses={}, meta=[]
     return did.add_identifier(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
 
+def add_dids(dids, issuer):
+    """
+    Bulk Add did.
+
+    :param dids: A list of dids.
+    :param issuer: The issuer account.
+    """
+    kwargs = {'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='add_dids', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier to scope %s' % (issuer))
+
+    return did.add_dids(dids, account=issuer)
+
+
 def attach_identifier(scope, name, dids, issuer, account=None):
     """
     Append content to data did.
