@@ -17,7 +17,6 @@ from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.tests.common import scope_name_generator
 
 
 class TestMetaDIDClient():
@@ -31,8 +30,7 @@ class TestMetaDIDClient():
     def test_add_list_meta(self):
         """ META DID (CLIENTS):  Add metadata to a data identifier"""
         # Add a scope
-        tmp_scope = scope_name_generator()
-        self.scope_client.add_scope('root', tmp_scope)
+        tmp_scope = 'mock'
 
         # Add a dataset
         tmp_dataset = 'dsn_%s' % uuid()
@@ -40,10 +38,8 @@ class TestMetaDIDClient():
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
 
         # Add a key
-        key = 'key_' + str(uuid())[:20]
-        self.meta_client.add_key(key=key, key_type='COLLECTION')
-
-        value = 'value_' + str(uuid())
+        key = 'project'
+        value = 'data13_hip'
         self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key, value=value)
 
         meta = self.did_client.get_metadata(scope=tmp_scope, name=tmp_dataset)
@@ -51,22 +47,22 @@ class TestMetaDIDClient():
         assert_equal(meta[key], value)
 
         # Add a new key with a value
-        key2 = 'key_' + str(uuid())[:20]
-        value2 = 'value_' + str(uuid())
-        self.meta_client.add_key(key=key2, key_type='COLLECTION')
-        self.meta_client.add_value(key=key2, value=value2)
-
-        # Try a add a wrong value
-        with assert_raises(InvalidValueForKey):
-            self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key2, value='Nimportnawak')
-
-        # Add a new key with a value
-        key3 = 'key_' + str(uuid())[:20]
-        value3 = 'value_' + str(uuid())
-        self.meta_client.add_key(key=key3, key_type='FILE')
-        self.meta_client.add_value(key=key3, value=value3)
-
-        with assert_raises(UnsupportedOperation):
-            self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key3, value=value3)
+#         key2 = 'datatype'
+#         value2 = 'value_' + str(uuid())
+#         self.meta_client.add_key(key=key2, key_type='COLLECTION')
+#         self.meta_client.add_value(key=key2, value=value2)
+#
+#         # Try a add a wrong value
+#         with assert_raises(InvalidValueForKey):
+#             self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key2, value='Nimportnawak')
+#
+#         # Add a new key with a value
+#         key3 = 'key_' + str(uuid())[:20]
+#         value3 = 'value_' + str(uuid())
+#         self.meta_client.add_key(key=key3, key_type='FILE')
+#         self.meta_client.add_value(key=key3, value=value3)
+#
+#         with assert_raises(UnsupportedOperation):
+#             self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key3, value=value3)
 
         #self.did_client.delete_metadata(scope=tmp_scope, name=tmp_dataset, key=key)

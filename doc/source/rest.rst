@@ -101,8 +101,7 @@ Rucio account
 RSE (Rucio Storage Element)
 ============================
 
-* :ref:`POST /rses/{rse_name}`: Create a RSE
-
+* :ref:`POST /rses/(rse_name)`: Create a RSE
   - Command: :ref:`rucio-admin rse add`
   - Method: :ref:`add_rse`
 

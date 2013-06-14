@@ -163,6 +163,12 @@ def render_json(**data):
     return json.dumps(data, cls=APIEncoder)
 
 
+def render_json_list(l):
+    """ JSON render function for list
+    """
+    return json.dumps(l, cls=APIEncoder)
+
+
 def datetime_parser(dct):
     """ datetime parser
     """
