@@ -37,7 +37,7 @@ class MgrTestCases():
                                                            {'filename': '3_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': self.static_file},
                                                            {'filename': '4_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn_b}],
                                             self.tmpdir,
-                                            protocol_domain='LAN', default=True)
+                                            protocol_domain='lan', default=True)
         if not (status and details['user.%s:1_rse_remote_get.raw' % self.user] and details['user.%s:2_rse_remote_get.raw' % self.user] and details['user.%s:3_rse_remote_get.raw' % self.user] and details['user.%s:4_rse_remote_get.raw' % self.user]):
             raise Exception('Return not as expected: %s, %s' % (status, details))
 

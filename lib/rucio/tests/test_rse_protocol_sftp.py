@@ -44,7 +44,6 @@ class TestRseSFTP():
         with open('etc/rse-accounts.cfg') as f:
             data = json.load(f)
         credentials = data['LXPLUS']
-        credentials['host'] = 'lxplus.cern.ch'
         lxplus = pysftp.Connection(**credentials)
         with open('etc/rse_repository.json') as f:
             prefix = json.load(f)['LXPLUS']['protocols']['supported']['sftp']['prefix']
@@ -64,9 +63,7 @@ class TestRseSFTP():
         credentials = {}
         with open('etc/rse-accounts.cfg') as f:
             data = json.load(f)
-        credentials['username'] = str(data['LXPLUS']['username'])
-        credentials['password'] = str(data['LXPLUS']['password'])
-        credentials['host'] = 'lxplus.cern.ch'
+        credentials = data['LXPLUS']
         lxplus = pysftp.Connection(**credentials)
         with open('etc/rse_repository.json') as f:
             prefix = json.load(f)['LXPLUS']['protocols']['supported']['sftp']['prefix']
