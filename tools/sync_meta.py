@@ -22,11 +22,11 @@ OK = 0
 
 if __name__ == '__main__':
 
-    meta_keys = [('project', 'ALL', None, ['data13_hip', ]),
-                 ('run_number', 'ALL', None, []),
-                 ('stream_name', 'ALL', None, []),
-                 ('prod_step', 'ALL', None, []),
-                 ('datatype', 'ALL', None, []),
+    meta_keys = [('project', 'ALL', None, ['data13_hip', 'NoProjectDefined']),
+                 ('run_number', 'ALL', None, ['NoRunNumberDefined']),
+                 ('stream_name', 'ALL', None, ['NoStreamNameDefined']),
+                 ('prod_step', 'ALL', None, ['merge', 'recon', 'simul', 'evgen', 'NoProdstepDefined', 'user']),
+                 ('datatype', 'ALL', None, ['HITS', 'AOD', 'EVNT', 'NoDatatypeDefined', 'DPD']),
                  ('version', 'ALL', None, []),
                  ('campaign', 'ALL', None, []),
                  ('guid', 'FILE', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
