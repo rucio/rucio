@@ -10,7 +10,7 @@
 
 from random import uniform, shuffle
 
-from rucio.common.exception import InvalidReplicationRule, InsufficientQuota
+from rucio.common.exception import InvalidReplicationRule, InsufficientQuota, InsufficientTargetRSEs
 from rucio.core.quota import list_account_limits, list_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.db.session import read_session
@@ -57,23 +57,32 @@ class RSESelector():
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
 
-    def select_rse(self, size, preferred_rse_ids):
+    def select_rse(self, size, preferred_rse_ids, blacklist=[]):
         """
         Select n RSEs to replicate data to.
 
         :param size:               Size of the block being replicated.
         :param preferred_rse_ids:  Ordered list of preferred rses. (If possible replicate to them)
+        :param blacklist:          List of blacklisted rses. (Do not put replicas on these sites)
         :returns:                  List of RSE ids.
-        :raises:                   InsufficientQuota
+        :raises:                   InsufficientQuota, InsufficientTargetRSEs
         """
 
         result = []
         for copy in range(self.copies):
+            #Remove blacklisted sites
+            if len(blacklist) > 0:
+                rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
+            else:
+                rses = self.rses
+            if not rses:
+                #There are no target RSE's left to fulfill the selection request
+                raise InsufficientTargetRSEs('There are not enough target RSEs (due to blacklisting) to fulfil the request at this time.')
             #Only use RSEs which have enough quota
-            rses = [rse for rse in self.rses if rse['quota_left'] > size and rse['rse_id'] not in result]
+            rses = [rse for rse in rses if rse['quota_left'] > size and rse['rse_id'] not in result]
             if not rses:
                 #No site has enough quota
-                raise InsufficientQuota('There is insufficient quota on any of the RSE\'s to fullfill the operation')
+                raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
             #Filter the preferred RSEs to those with enough quota
             #preferred_rses = [x for x in preferred_rse_ids if x in [rse['rse_id'] for rse in rses]]
             preferred_rses = [rse for rse in rses if rse['rse_id'] in preferred_rse_ids]

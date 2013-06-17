@@ -17,14 +17,12 @@ from rucio.db.session import read_session, transactional_session
 
 
 @read_session
-def get_replica_locks(scope, name, rule_id=None, account=None, db_lock=True, session=None):
+def get_replica_locks(scope, name, db_lock=True, session=None):
     """
     Get the active replica locks for a file
 
     :param scope:    Scope of the did.
     :param name:     Name of the did.
-    :param rule_id:  Filter on rule_id.
-    :param account:  If specified, only list replica locks of this account.
     :param db_lock:  If the database should lock the read rows.
     :param session:  The db session.
     :return:         List of dicts {'rse': ..., 'state': ...}
@@ -34,10 +32,6 @@ def get_replica_locks(scope, name, rule_id=None, account=None, db_lock=True, ses
     rses = []
     try:
         query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
-        if account is not None:
-            query = query.filter_by(account=account)
-        if rule_id is not None:
-            query = query.filter_by(rule_id=rule_id)
         if db_lock:
             query = query.with_lockmode("update")
         for row in query:
@@ -84,31 +78,28 @@ def get_files_and_replica_locks_of_dataset(scope, name, db_lock=True, session=No
                      and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
     :raises:         NoResultFound
     """
-    locks = {}
-    try:
-        query = session.query(models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.DataIdentifierAssociation.bytes,
-                              models.ReplicaLock.rse_id,
-                              models.ReplicaLock.state,
-                              models.ReplicaLock.rule_id).outerjoin(models.ReplicaLock, and_(
-                                  models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                                  models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
-                                      models.DataIdentifierAssociation.scope == scope,
-                                      models.DataIdentifierAssociation.name == name)
-        if db_lock:
-            query = query.with_lockmode('update')
-        for child_scope, child_name, bytes, rse_id, state, rule_id in query:
-            if rse_id is None:
-                locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': []}
+    files = {}
+    query = session.query(models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.bytes,
+                          models.ReplicaLock.rse_id,
+                          models.ReplicaLock.state,
+                          models.ReplicaLock.rule_id).outerjoin(models.ReplicaLock, and_(
+                              models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                              models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
+                                  models.DataIdentifierAssociation.scope == scope,
+                                  models.DataIdentifierAssociation.name == name)
+    if db_lock:
+        query = query.with_lockmode('update')
+    for child_scope, child_name, bytes, rse_id, state, rule_id in query:
+        if rse_id is None:
+            files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': []}
+        else:
+            if (child_scope, child_name) in files:
+                files[(child_scope, child_name)]['locks'].append({'rse_id': rse_id, 'state': state, 'rule_id': rule_id})
             else:
-                if (child_scope, child_name) in locks:
-                    locks[(child_scope, child_name)]['locks'].append({'rse_id': rse_id, 'state': state, 'rule_id': rule_id})
-                else:
-                    locks[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': [{'rse_id': rse_id, 'state': state, 'rule_id': rule_id}]}
-        return locks
-    except NoResultFound:  # TODO: Actually raise the exception?
-        pass
+                files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': [{'rse_id': rse_id, 'state': state, 'rule_id': rule_id}]}
+    return files
 
 
 @transactional_session

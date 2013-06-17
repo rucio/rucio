@@ -228,6 +228,12 @@ class InsufficientQuota(RucioException):
         self._message = "There is not enough quota to fulfil the operation."
 
 
+class InsufficientTargetRSEs(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InsufficientTargetRSEs, self).__init__(args, kwargs)
+        self._message = "There are not enough target RSEs (due to blacklisting) to fulfil the request at this time."
+
+
 class InvalidMetadata(RucioException):
     def __init__(self, *args, **kwargs):
         super(InvalidMetadata, self).__init__(args, kwargs)
@@ -310,6 +316,12 @@ class NotAFile(RucioException):
     def __init__(self, *args, **kwargs):
         super(NotAFile, self).__init__(args, kwargs)
         self._message = 'Specified name is not a file'
+
+
+class ReplicationRuleCreationFailed(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ReplicationRuleCreationFailed, self).__init__(args, kwargs)
+        self._message = "The creation of the replication rule failed at this time. Please try again later."
 
 
 class RSEAccessDenied(RucioException):
