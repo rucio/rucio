@@ -9,8 +9,10 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 
+import fcntl
 import json
 import multiprocessing
+import resource
 import operator
 import os
 import sys
@@ -30,14 +32,34 @@ from rucio.tests.emulation.ucprocess import UCProcess
 """
 
 
+def get_open_fds():
+    fds = []
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    for fd in range(0, soft):
+        try:
+            fcntl.fcntl(fd, fcntl.F_GETFD)
+        except IOError:
+            continue
+        fds.append(fd)
+    return len(fds)
+
+
 def observe_gearman_queue(cfg, stop_event):
     ac = GearmanAdminClient(cfg['gearman'])
     cs = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
+    count = 0
+    pid = os.getpid()
     while stop_event.is_set() is False:
         stat = ac.get_status()
         for task in stat:
             if task['task'] == 'execute_uc':
-                cs.update_stats('gearman.queue', task['queued'])
+                cs.update_stats('emulator.counts.gearman', task['queued'])
+                cs.update_stats('emulator.counts.files.%s' % pid, get_open_fds())
+                if not count % 10:
+                    print '= (PID: %s) Gearman-Queue size: %s' % (pid, task['queued'])
+                    print '= (PID: %s) File count: %s' % (pid, get_open_fds())
+                count += 1
+
         try:
             stop_event.wait(1.0)
         except KeyboardInterrupt:
