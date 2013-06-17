@@ -12,21 +12,19 @@
 import ast
 import gearman
 import json
+import pystatsd
 import time
-
-from pystatsd import Client
 
 
 def exec_uc(gearman_worker, gearman_job):
-    uc_data = ast.literal_eval(gearman_job.data)
-    if uc_data['class_name'] not in imported_ucs:
-        mod_name = '.'.join(uc_data['class_name'].split('.')[:-1])
-        class_name = uc_data['class_name'].split('.')[-1]
-        mod = __import__(mod_name, fromlist=[class_name])
-        cls = getattr(mod, class_name)
-        imported_ucs[uc_data['class_name']] = cls(worker_mode=True, carbon_server=carbon_server)
-
     try:
+        uc_data = ast.literal_eval(gearman_job.data)
+        if uc_data['class_name'] not in imported_ucs:
+            mod_name = '.'.join(uc_data['class_name'].split('.')[:-1])
+            class_name = uc_data['class_name'].split('.')[-1]
+            mod = __import__(mod_name, fromlist=[class_name])
+            cls = getattr(mod, class_name)
+            imported_ucs[uc_data['class_name']] = cls(worker_mode=True, carbon_server=carbon_server)
         start = time.time()
         ret = str(getattr(imported_ucs[uc_data['class_name']], uc_data['uc_name'])(**uc_data['input_data']))
         fin = time.time()
@@ -50,7 +48,7 @@ except Exception, e:
     exit(1)
 
 try:
-    carbon_server = Client(host=cfg['global']['carbon']['CARBON_SERVER'], port=cfg['global']['carbon']['CARBON_PORT'], prefix=cfg['global']['carbon']['USER_SCOPE'])
+    carbon_server = pystatsd.Client(host=cfg['global']['carbon']['CARBON_SERVER'], port=cfg['global']['carbon']['CARBON_PORT'], prefix=cfg['global']['carbon']['USER_SCOPE'])
 except Exception, e:
     print 'Unable to connect to carbon server %s on port %s.' % (cfg['carbon']['CARBON_SERVER'], cfg['carbon']['CARBON_PORT'])
     print e
