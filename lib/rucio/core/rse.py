@@ -20,18 +20,16 @@ import sqlalchemy
 import sqlalchemy.orm
 
 #  from sqlalchemy import exists, and_
-from sqlalchemy import func
+from sqlalchemy import func, and_, or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import case, and_
-
+from sqlalchemy.sql.expression import case
 
 from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
 from rucio.db.constants import ReplicaState, DIDType, OBSOLETE
-from rucio.db.sautils import InsertFromSelect
 from rucio.db.session import read_session, transactional_session
 from rucio.rse.rsemanager import RSEMgr
 
@@ -53,7 +51,7 @@ def add_rse(rse, deterministic=True, volatile=False, session=None):
     except IntegrityError:
         raise exception.Duplicate('RSE \'%(rse)s\' already exists!' % locals())
     except DatabaseError, e:
-        raise exception.RucioException(e.args[0])
+        raise exception.RucioException(e.args)
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse=rse, key=rse, value=True, session=session)
@@ -366,7 +364,95 @@ def list_rse_usage_history(rse, source=None, session=None):
 
 
 @transactional_session
-def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=None, pfn=None, meta={}, rules=None, tombstone=None, session=None):
+def __bulk_add_new_file_dids(files, account, session=None):
+    """
+    Bulk add new dids.
+
+    :param dids: the list of new files.
+    :param account: The account owner.
+    :param session: The database session in use.
+    :returns: True is successful.
+    """
+    for file in files:
+        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'], account=file.get('account') or account, did_type=DIDType.FILE, bytes=file['bytes'], md5=file.get('md5'), adler32=file.get('adler32'))
+        for key in file.get('meta', []):
+            new_did.update({key: file['meta'][key]})
+        new_did.save(session=session, flush=False)
+    try:
+        session.flush()
+    except IntegrityError, e:
+        raise exception.RucioException(e.args)
+    except DatabaseError, e:
+        raise exception.RucioException(e.args)
+    return True
+
+
+@transactional_session
+def __bulk_add_file_dids(files, account, session=None):
+    """
+    Bulk add new dids.
+
+    :param dids: the list of files.
+    :param account: The account owner.
+    :param session: The database session in use.
+    :returns: True is successful.
+    """
+    condition = or_()
+    for f in files:
+        condition.append(and_(models.DataIdentifier.scope == f['scope'], models.DataIdentifier.name == f['name'], models.DataIdentifier.did_type == DIDType.FILE))
+
+    q = session.query(models.DataIdentifier.scope,
+                      models.DataIdentifier.name,
+                      models.DataIdentifier.bytes,
+                      models.DataIdentifier.adler32,
+                      models.DataIdentifier.md5).filter(condition)
+    available_files = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
+    new_files = list()
+    for file in files:
+        found = False
+        for available_file in available_files:
+            if file['scope'] == available_file['scope'] and file['name'] == available_file['name']:
+                found = True
+                break
+        if not found:
+            new_files.append(file)
+    __bulk_add_new_file_dids(files=new_files, account=account, session=session)
+    return new_files + available_files
+
+
+@transactional_session
+def __bulk_add_replicas(rse_id, files, account, session=None):
+    """
+    Bulk add new dids.
+
+    :param rse_id: the RSE id.
+    :param dids: the list of files.
+    :param account: The account owner.
+    :param session: The database session in use.
+    :returns: True is successful.
+    """
+    nbfiles, bytes = 0, 0
+    for file in files:
+        nbfiles += 1
+        bytes += file['bytes']
+        new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'], path=file.get('path'), state=ReplicaState.AVAILABLE,
+                                                md5=file.get('md5'), adler32=file.get('adler32'), tombstone=file.get('tombstone') and datetime.utcnow())
+        new_replica.save(session=session, flush=False)
+    try:
+        session.flush()
+        return nbfiles, bytes
+    except IntegrityError, e:
+        if match('.*IntegrityError.*ORA-00001: unique constraint .*REPLICAS_PK.*violated.*', e.args[0]):
+            raise exception.Duplicate("File replica already exists!")
+        elif e.args[0] == "(IntegrityError) columns rse_id, scope, name are not unique":
+            raise exception.Duplicate("File replica already exists!")
+        raise exception.RucioException(e.args)
+    except DatabaseError, e:
+        raise exception.RucioException(e.args)
+
+
+@transactional_session
+def add_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=None, pfn=None, meta={}, rules=[], tombstone=None, session=None):
     """
     Add File replica.
 
@@ -385,129 +471,7 @@ def add_file_replica(rse, scope, name, bytes, account, adler32=None, md5=None, d
 
     :returns: True is successful.
     """
-
-    # TODO: If the dsn is used to attach the file to a dataset, the right locking for replication rules has to be done
-    # TODO: Ask Martin about that!
-    replica_rse = get_rse(rse=rse, session=session)
-
-    path = None
-    if not replica_rse.deterministic:
-        if not pfn:
-            raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-        tmp = RSEMgr(server_mode=True).parse_pfn(rse_id=rse, pfn=pfn)
-        path = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
-    else:
-        if pfn:
-            raise exception.UnsupportedOperation('PFN not needed for this (deterministic) RSE %(rse)s ' % locals())
-
-    did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).first()
-    if not did:
-        try:
-            new_did = models.DataIdentifier(scope=scope, name=name, account=account, did_type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
-            for key in meta:
-                new_did.update({key: meta[key]})
-            # new_did = session.merge(new_did)
-            new_did.save(session=session)
-        except IntegrityError, e:
-            if e.args[0] == "(IntegrityError) foreign key constraint failed":
-                raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
-            raise exception.RucioException(e.args[0])
-    else:
-        if bytes != did.bytes or adler32 != did.adler32 or md5 != did.md5:
-            raise exception.FileConsistencyMismatch("(bytes: %s, adler32: '%s', md5: '%s') != (bytes: %s, adler32: '%s', md5: '%s')" % (did.bytes, did.adler32, did.md5, bytes, adler32, md5))
-
-    new_replica = models.RSEFileAssociation(rse_id=replica_rse.id, scope=scope, name=name, bytes=bytes, path=path, state=ReplicaState.AVAILABLE,
-                                            md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
-    try:
-        new_replica.save(session=session)
-    except IntegrityError:
-        raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
-    except DatabaseError, e:
-        raise exception.RucioException(e.args[0])
-    increase(rse_id=replica_rse.id, delta=1, bytes=bytes, session=session)
-
-
-@transactional_session
-def add_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=None, path=None, meta={}, rules=None, tombstone=None, rse_id=None, pfn=None, session=None):
-    """
-    Add File replica.
-
-    :param rse_id: the RSE id.
-    :param scope: the tag name.
-    :param name: The data identifier name.
-    :param bytes: the size of the file.
-    :param account: The account owner.
-    :param md5: The md5 checksum.
-    :param adler32: The adler32 checksum.
-    :param pfn: Physical file name (for nondeterministic rse).
-    :param meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
-    :param rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
-    :param tombstone: If True, create replica with a tombstone.
-    :param session: The database session in use.
-
-    :returns: True is successful.
-    """
-    if not rse_id:
-        rse_id = get_rse_id(rse=rse, session=session)
-
-    did = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).filter_by(scope=scope, name=name, did_type=DIDType.FILE).first()
-    if not did:
-        new_did = models.DataIdentifier(scope=scope, name=name, account=account, did_type=DIDType.FILE, bytes=bytes, md5=md5, adler32=adler32)
-        # Add meta-data
-        for key in meta:
-            new_did.update({key: meta[key]})
-        try:
-            new_did.save(session=session)
-        except IntegrityError, e:
-            if e.args[0] == "(IntegrityError) foreign key constraint failed":
-                raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
-            raise exception.RucioException(e.args[0])
-    #else:
-    #    if bytes != did.bytes or adler32 != did.adler32 or md5 != did.md5:
-    #        raise exception.FileConsistencyMismatch("(bytes: %s, adler32: '%s', md5: '%s') != (bytes: %s, adler32: '%s', md5: '%s')" % (did.bytes, did.adler32, did.md5, bytes, adler32, md5))
-
-    insert = InsertFromSelect([models.RSEFileAssociation.__table__.c.rse_id,
-                               models.RSEFileAssociation.__table__.c.scope,
-                               models.RSEFileAssociation.__table__.c.name,
-                               models.RSEFileAssociation.__table__.c.bytes,
-                               models.RSEFileAssociation.__table__.c.md5,
-                               models.RSEFileAssociation.__table__.c.adler32,
-                               models.RSEFileAssociation.__table__.c.path,
-                               models.RSEFileAssociation.__table__.c.state,
-                               models.RSEFileAssociation.__table__.c.lock_cnt,
-                               models.RSEFileAssociation.__table__.c.accessed_at,
-                               models.RSEFileAssociation.__table__.c.tombstone,
-                               models.RSEFileAssociation.__table__.c.updated_at,
-                               models.RSEFileAssociation.__table__.c.created_at],
-                              select([bindparam('rse_id'),
-                                      models.DataIdentifier.__table__.c.scope,
-                                      models.DataIdentifier.__table__.c.name,
-                                      models.DataIdentifier.__table__.c.bytes,
-                                      models.DataIdentifier.__table__.c.md5,
-                                      models.DataIdentifier.__table__.c.adler32,
-                                      bindparam('path'),
-                                      bindparam('replica_state'),
-                                      0,
-                                      None,
-                                      bindparam('tombstone'),
-                                      bindparam('updated_at'),
-                                      bindparam('created_at')]).
-                              where(models.DataIdentifier.__table__.c.scope == scope).
-                              where(models.DataIdentifier.__table__.c.name == name).
-                              where(models.DataIdentifier.__table__.c.did_type == DIDType.FILE))
-    now = datetime.utcnow()
-    try:
-        session.execute(insert, {'rse_id': rse_id, 'path': path, 'replica_state': ReplicaState.AVAILABLE.value, 'tombstone': tombstone and now, 'updated_at': now, 'created_at': now})
-        #print result_proxy.rowcount
-        return rse_id
-#    new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=scope, name=name, bytes=bytes, path=path, state=ReplicaState.AVAILABLE,
-#                                            md5=md5, adler32=adler32, tombstone=tombstone and datetime.utcnow())
-#    new_replica.save(session=session)
-    except IntegrityError:
-        raise exception.Duplicate("File replica '%(scope)s:%(name)s-%(rse)s' already exists!" % locals())
-    except DatabaseError, e:
-        raise exception.RucioException(e.args[0])
-    # increase(rse_id=replica_rse.id, delta=1, bytes=bytes, session=session)
+    return add_replicas(rse=rse, files=[{'scope': scope, 'name': name, 'bytes': bytes, 'pfn': pfn, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone}, ], account=account, session=session)
 
 
 @transactional_session
@@ -523,27 +487,26 @@ def add_replicas(rse, files, account, session=None):
     :returns: True is successful.
     """
     replica_rse = get_rse(rse=rse, session=session)
-    nbfiles, bytes = 0, 0
-    for file in files:
-        path = None
-        if not replica_rse.deterministic:
+
+    replicas = __bulk_add_file_dids(files=files, account=account, session=session)
+
+    if not replica_rse.deterministic:
+        rse_manager = RSEMgr(server_mode=True)
+        for file in files:
             if 'pfn' not in file:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-            tmp = RSEMgr(server_mode=True).parse_pfn(rse_id=rse, pfn=file['pfn'])
-            path = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
+            tmp = rse_manager.parse_pfn(rse_id=rse, pfn=file['pfn'])
+            file['path'] = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
 
-        add_replica(rse=rse, rse_id=replica_rse.id, scope=file['scope'], name=file['name'], bytes=file['bytes'], account=file.get('account') or account,
-                    adler32=file.get('adler32'), md5=file.get('md5'), dsn=None, path=path, meta=file.get('meta'),
-                    rules=file.get('rules'), tombstone=file.get('tombstone'), session=session)
-        nbfiles += 1
-        bytes += file['bytes']
+    nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)
     increase(rse_id=replica_rse.id, delta=nbfiles, bytes=bytes, session=session)
+    return replicas
 
 
 @transactional_session
-def del_file_replica(rse, scope, name, session=None):
+def del_replica(rse, scope, name, session=None):
     """
-    Add File replica.
+    Delete file replica.
 
     :param rse: the rse name.
     :param scope: the scope name.
@@ -557,11 +520,11 @@ def del_file_replica(rse, scope, name, session=None):
     query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name)
     for row in query:
         row.delete(session=session)
-        decrease(rse_id=replica_rse.id, delta=1, bytes=row['size'], session=session)
+        decrease(rse_id=replica_rse.id, delta=1, bytes=row['bytes'], session=session)
 
 
 @transactional_session
-def get_file_replica(rse, scope, name, rse_id=None, session=None):
+def get_replica(rse, scope, name, rse_id=None, session=None):
     """
     Get File replica.
 
@@ -673,10 +636,13 @@ def list_unlocked_replicas(rse, bytes, limit, rse_id=None, session=None):
         rse_id = get_rse_id(rse=rse, session=session)
 
     none_value = None  # Hack to get pep8 happy...
-    query = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == rse_id).\
+    query = session.query(models.RSEFileAssociation).\
         filter(models.RSEFileAssociation.tombstone != none_value).filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE).\
+        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id),]) == rse_id).\
         order_by(models.RSEFileAssociation.tombstone).\
         order_by(models.RSEFileAssociation.created_at).limit(limit)
+
+    #  filter(models.RSEFileAssociation.rse_id == rse_id).
 
     neededSpace = bytes
     rows = list()
@@ -687,7 +653,7 @@ def list_unlocked_replicas(rse, bytes, limit, rse_id=None, session=None):
         rows.append(d)
 
         if d['tombstone'] != OBSOLETE:
-            neededSpace -= d['size']
+            neededSpace -= d['bytes']
 
         if not max(neededSpace, 0):
             break
@@ -705,7 +671,7 @@ def get_sum_count_being_deleted(rse_id, session=None):
     :returns: A dictionary with total and bytes.
     """
     none_value = None
-    total, bytes = session.query(func.count(models.RSEFileAssociation.tombstone), func.sum(models.RSEFileAssociation.size)).filter_by(rse_id=rse_id).\
+    total, bytes = session.query(func.count(models.RSEFileAssociation.tombstone), func.sum(models.RSEFileAssociation.bytes)).filter_by(rse_id=rse_id).\
         filter(models.RSEFileAssociation.tombstone != none_value).\
         filter(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED).\
         one()
@@ -713,7 +679,7 @@ def get_sum_count_being_deleted(rse_id, session=None):
 
 
 @transactional_session
-def update_file_replica_state(rse, scope, name, state, session=None):
+def update_replica_state(rse, scope, name, state, session=None):
     """
     Update File replica information and state.
 
