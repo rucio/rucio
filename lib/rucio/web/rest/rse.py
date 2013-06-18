@@ -17,8 +17,8 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.authentication import validate_auth_token
 from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
-                           list_rse_attributes, del_rse_attribute, add_file_replica,
-                           add_replicas,
+                           list_rse_attributes, del_rse_attribute,
+                           add_replica, add_replicas,
                            add_protocol, get_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
@@ -352,7 +352,7 @@ class Files:
             raise generate_http_error(400, 'TypeError', 'Body must be a json dictionary')
 
         try:
-            add_file_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=auth['account'])
+            add_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=auth['account'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
