@@ -15,7 +15,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.common.exception import FileConsistencyMismatch, UnsupportedOperation
+from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid
 from rucio.rse.rsemanager import RSEMgr
 
@@ -29,13 +29,22 @@ class TestReplica():
         self.did_client = DIDClient()
         self.rse_client = RSEClient()
 
-    def test_add_replicas(self):
+    def test_bulk_add_replicas(self):
         """ REPLICA (CLIENT): Bulk add replicas """
         tmp_scope = 'mock'
-        nbfiles = 1000
+        nbfiles = 5
         files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         self.rse_client.add_replicas(rse='MOCK', files=files)
         self.rse_client.add_replicas(rse='MOCK3', files=files)
+
+    def test_bulk_add_existing_replicas(self):
+        """ REPLICA (CLIENT): Bulk add replicas with existing dids"""
+        tmp_scope = 'mock'
+        nbfiles = 5
+        files1 = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        self.rse_client.add_replicas(rse='MOCK', files=files1)
+        files2 = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        self.rse_client.add_replicas(rse='MOCK3', files=files1 + files2)
 
     def test_add_list_replica(self):
         """ REPLICA (CLIENT): Add and list file replica """
@@ -43,29 +52,18 @@ class TestReplica():
         tmp_file = 'file_%s' % generate_uuid()
         tmp_pfn = 'mock://localhost/tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
 
-        self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
+        self.rse_client.add_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
 
-        with assert_raises(UnsupportedOperation):
-            self.rse_client.add_file_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
+        with assert_raises(Duplicate):
+            self.rse_client.add_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
-        with assert_raises(UnsupportedOperation):
-            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
-
-        with assert_raises(FileConsistencyMismatch):
-            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=2L, adler32='0cc737eb', pfn=tmp_pfn)
-
-        with assert_raises(FileConsistencyMismatch):
-            self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc837eb', pfn=tmp_pfn)
-
-        self.rse_client.add_file_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
+        self.rse_client.add_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
 
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
+
         assert_equal(len(replicas), 2)
 
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, schemes=['mock'])]
-        print '---'
-        print replicas
-        print '---'
         assert_equal(len(replicas), 2)
         for replica in replicas:
             pfn_gen = RSEMgr().lfn2pfn(replica['rse'], {'scope': tmp_scope, 'filename': tmp_file}, scheme='mock')

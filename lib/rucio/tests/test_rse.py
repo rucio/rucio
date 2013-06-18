@@ -17,11 +17,12 @@ from nose.tools import raises, assert_equal, assert_true, assert_in, assert_rais
 from paste.fixture import TestApp
 
 from rucio.client.rseclient import RSEClient
-from rucio.common.exception import Duplicate, RSENotFound, RSEProtocolNotSupported, RSEOperationNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
+from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported, RSEOperationNotSupported,
+                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError)
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.rse import (add_rse, add_file_replica, del_rse, list_rses,
+from rucio.core.rse import (add_rse, add_replica, del_rse, list_rses,
                             rse_exists, add_rse_attribute, list_rse_attributes,
-                            update_replica_lock_counter, get_file_replica)
+                            update_replica_lock_counter, get_replica)
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
@@ -70,7 +71,7 @@ class TestRSECoreApi():
         rse = 'MOCK'
         tmp_scope = 'mock'
         tmp_file = 'file_%s' % uuid()
-        add_file_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe')
+        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe')
 
         values = (1, -1, 1)
         tombstones = (True, False, True)
@@ -78,7 +79,7 @@ class TestRSECoreApi():
         for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
             status = update_replica_lock_counter(rse=rse, scope=tmp_scope, name=tmp_file, value=value)
             assert_equal(status, True)
-            replica = get_file_replica(rse=rse, scope=tmp_scope, name=tmp_file)
+            replica = get_replica(rse=rse, scope=tmp_scope, name=tmp_file)
             assert_equal(replica['tombstone'] is None, tombstone)
             assert_equal(lock_counter, replica['lock_cnt'])
 

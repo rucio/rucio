@@ -28,8 +28,8 @@ class TestPermissionCoreApi():
         """ PERMISSION(CORE): Check permission to add a did"""
         scope = scope_name_generator()
         add_scope(scope=scope, account='root')
-        assert_true(has_permission(issuer='panda', action='add_identifier', kwargs={'scope': scope}))
-        assert_false(has_permission(issuer='spock', action='add_identifier', kwargs={'scope': scope}))
+        assert_true(has_permission(issuer='panda', action='add_did', kwargs={'scope': scope}))
+        assert_false(has_permission(issuer='spock', action='add_did', kwargs={'scope': scope}))
 
     def test_permission_add_account(self):
         """ PERMISSION(CORE): Check permission to add account """

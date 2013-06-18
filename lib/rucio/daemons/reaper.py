@@ -95,7 +95,7 @@ def reaper(once=False):
                 freed_space, deleted_files = 0, 0
                 for replica in replicas:
                     print 'Mark the file replica %(scope)s:%(name)s as beeing deleted' % replica
-                    f = rse_core.update_file_replica_state(rse=rse['rse'], scope=replica['scope'], name=replica['name'], state=ReplicaState.BEING_DELETED)
+                    f = rse_core.update_replica_state(rse=rse['rse'], scope=replica['scope'], name=replica['name'], state=ReplicaState.BEING_DELETED)
                     if f:
                         monitor.record(timeseries='reaper.deletion.being_deleted',  delta=1)
                         print 'Delete the file %(scope)s:%(name)s' % replica
@@ -105,11 +105,11 @@ def reaper(once=False):
                         # except:
                               # ToDo: Add failure management
                         # Remove file replica information
-                        print 'Remove file replica information with size %(size)s for file %(scope)s:%(name)s' % replica
+                        print 'Remove file replica information with size %(bytes)s for file %(scope)s:%(name)s' % replica
                         deleted_files += 1
-                        rse_core.del_file_replica(rse=rse['rse'], scope=replica['scope'], name=replica['name'])
+                        rse_core.del_replica(rse=rse['rse'], scope=replica['scope'], name=replica['name'])
                         monitor.record(timeseries='reaper.deletion.done',  delta=1)
-                        freed_space += replica['size']
+                        freed_space += replica['bytes']
                 print 'RSE: %(rse)s' % rse + '#deleted files: %(deleted_files)s, Freed space: %(freed_space)s, Needed freed space: %(needed_free_space)s' % locals()
         except:
             print traceback.format_exc()
