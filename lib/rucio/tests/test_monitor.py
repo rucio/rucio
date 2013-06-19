@@ -24,3 +24,11 @@ class TestMonitor():
     def test_monitor_record_message(self):
         """MONITOR (CORE): Send a message to graphite """
         monitor.record('test.stuff', 10)
+
+    def test_monitor_gaude_message(self):
+        """MONITOR (CORE): Send a message to graphite """
+        monitor.gauge('test.gauge', 10)
+
+    def test_monitor_timing_message(self):
+        """MONITOR (CORE): Send a message to graphite """
+        monitor.timing('test.runtime', 500)

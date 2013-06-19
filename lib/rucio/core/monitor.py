@@ -26,3 +26,23 @@ def record(timeseries, delta=1):
     :param delta: The increment for the timeseries, by default increment by 1.
     """
     pystatsd_client.update_stats(timeseries, delta)
+
+
+def gauge(stat, value):
+    """
+     Log gauge information for a single stat
+
+    :param stat: The name of the stat to be updated.
+    :param value: The value to log.
+    """
+    pystatsd_client.gauge(stat, value)
+
+
+def timing(stat, time):
+    """
+     Log timing information for a single stat (in miliseconds)
+
+    :param stat: The name of the stat to be updated.
+    :param value: The time to log.
+    """
+    pystatsd_client.timing(stat, time)
