@@ -94,18 +94,14 @@ class UCProcess(object):
                 if sock is None:
                     sock = socket.socket()
                     sock.connect((self.cfg['global']['carbon']['CARBON_SERVER'], 2003))
-                    #sock.connect((self.cfg['global']['carbon']['CARBON_SERVER'], self.cfg['global']['carbon']['CARBON_PORT']))
-                #self.cs.update_stats('emulator.counts.threads.%s' % self.pid, threading.active_count())
                 now = int(time.time())
                 ta = threading.active_count()
                 of = self.get_open_fds()
                 for i in xrange(now - prev):
                     sock.sendall('stats.%s.emulator.counts.threads.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], self.pid, ta, prev + i))
                     sock.sendall('stats.%s.emulator.counts.files.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], self.pid, of, prev + i))
-                prev = now
                 print '= (PID: %s) File count: %s' % (self.pid, self.get_open_fds())
                 print '= (PID: %s) Thread count: %s' % (self.pid, threading.active_count())
-                #self.cs.update_stats('emulator.counts.files.%s' % self.pid, self.get_open_fds())
                 time.sleep(self.update)
                 try:
                     with open('/opt/rucio/etc/emulation.cfg') as f:
@@ -136,6 +132,21 @@ class UCProcess(object):
                     # Updated local cfg
                     self.cfg[mod]['context'] = cfg[mod]['context']
                 self.update = cfg['global']['update_interval']
+
+                # Reporting cfg - setting to graphite
+                for mod in cfg:
+                    if mod == 'global':
+                        for i in xrange(now - prev):
+                            sock.sendall('stats.%s.emulator.cfg.multiplier %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], cfg['global']['multiplier'], prev + i))
+                            sock.sendall('stats.%s.emulator.cfg.update_interval %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], cfg['global']['update_interval'], prev + i))
+                    else:
+                        for frequ in cfg[mod]:
+                            if frequ == 'context':
+                                self.report_context(sock, cfg[mod]['context'], 'stats.%s.emulator.cfg.%s.context' % (self.cfg['global']['carbon']['USER_SCOPE'], mod), now, prev)
+                            else:
+                                for i in xrange(now - prev):
+                                    sock.sendall('stats.%s.emulator.cfg.%s.frequency.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], mod, frequ, cfg[mod][frequ], prev + i))
+                prev = now
         except Exception, e:
             print e
             print traceback.format_exc()
@@ -166,3 +177,20 @@ class UCProcess(object):
                     if current[key] != new[key]:
                         print key_chain, current[key], new[key]
                         uc.update_ctx((key_chain + [key])[1:], new[key])
+
+    def report_context(self, sock, ctx, prefix, now, prev):
+        for key in ctx:
+            if type(ctx[key]) == dict:
+                self.report_context(sock, ctx[key], '%s.%s' % (prefix, key), now, prev)
+            elif type(ctx[key]) == unicode:
+                if ctx[key] == 'True':
+                    for i in xrange(now - prev):
+                        sock.sendall('%s.%s %s %d\n' % (prefix, key, 1, prev + i))
+                elif ctx[key] == 'False':
+                    for i in xrange(now - prev):
+                        sock.sendall('%s.%s %s %d\n' % (prefix, key, 0, prev + i))
+            elif isinstance(ctx[key], (int, long, float)):
+                for i in xrange(now - prev):
+                    sock.sendall('%s.%s %s %d\n' % (prefix, key, ctx[key], prev + i))
+            else:
+                print '%s\tCannot report\t%s.%s\t(type:\t%s)\t%s' % (now, prefix, key, type(ctx[key]), ctx[key])
