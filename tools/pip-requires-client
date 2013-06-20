@@ -7,5 +7,5 @@ kerberos==1.1.1          # Kerberos high-level interface
 requests==0.14.2         # Python HTTP for Humans
 #  TODO: requests-kerberos
 #  TODO: requests-cache
-urllib3==1.5             # HTTP library with thread-safe connection pooling and file post support
+urllib3==1.6             # HTTP library with thread-safe connection pooling and file post support
 wsgiref==0.1.2           # WSGI (PEP 333) Reference Library
