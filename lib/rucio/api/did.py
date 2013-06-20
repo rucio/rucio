@@ -29,6 +29,19 @@ def list_replicas(scope, name, schemes=None):
     return did.list_replicas(scope=scope, name=name, schemes=schemes)
 
 
+def list_dids(scope, pattern, type, ignore_case=False):
+    """
+    List dids in a scope.
+
+    :param scope: The scope name.
+    :param pattern: The wildcard pattern.
+    :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
+    :param ignore_case: Ignore case distinctions.
+    """
+
+    return did.list_dids(scope=scope, pattern=pattern, type=type, ignore_case=ignore_case)
+
+
 def add_did(scope, name, type, issuer, account=None, statuses={}, meta=[], rules=[], lifetime=None):
     """
     Add data did.

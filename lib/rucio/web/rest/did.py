@@ -17,7 +17,7 @@ from traceback import format_exc
 from urlparse import parse_qs
 from web import application, ctx, data, Created, header, InternalError, BadRequest, OK, loadhook
 
-from rucio.api.did import (list_replicas, add_did, add_dids, list_content,
+from rucio.api.did import (list_replicas, add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids)
 from rucio.api.rule import list_replication_rules
@@ -32,6 +32,7 @@ from rucio.web.rest.common import authenticate
 
 urls = (
     '/(.*)/', 'Scope',
+    '/(.*)/dids/search', 'Search',
     '/(.*)/(.*)/rses', 'Replicas',
     '/(.*)/(.*)/files', 'Files',
     '/(.*)/(.*)/dids', 'Content',
@@ -86,6 +87,52 @@ class Scope:
         raise BadRequest()
 
     def POST(self):
+        raise BadRequest()
+
+
+class Search:
+
+    def GET(self, scope):
+        """
+        List all data identifiers in a scope which match a given pattern.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            409 UnsupportedOperation
+
+        :param scope: The scope name.
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+        name = None
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            name = params['name'][0]
+            if 'type' in params:
+                type = params['type'][0]
+
+        try:
+            for did in list_dids(scope=scope, pattern=name, type=type):
+                yield render_json(**did) + '\n'
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+    def PUT(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def DELETE(self):
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
+
+    def POST(self):
+        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
