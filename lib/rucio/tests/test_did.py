@@ -88,6 +88,42 @@ class TestDIDClients:
         self.did_client = DIDClient()
         self.rse_client = RSEClient()
 
+    def test_list_dids(self):
+        """ DATA IDENTIFIERS (CLIENT): List dids by pattern."""
+        tmp_scope = scope_name_generator()
+        tmp_files = []
+        tmp_files.append('file_a_1%s' % generate_uuid())
+        tmp_files.append('file_a_2%s' % generate_uuid())
+        tmp_files.append('file_b_1%s' % generate_uuid())
+        tmp_rse = 'MOCK'
+
+        self.scope_client.add_scope('jdoe', tmp_scope)
+        for tmp_file in tmp_files:
+            self.rse_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+
+        results = []
+        for result in self.did_client.list_dids(tmp_scope, 'file\_a\_*', type='file'):
+            results.append(result)
+        assert_equal(len(results), 2)
+        results = []
+        for result in self.did_client.list_dids(tmp_scope, 'file\_a\_1*', type='file'):
+            results.append(result)
+        assert_equal(len(results), 1)
+        results = []
+        for result in self.did_client.list_dids(tmp_scope, 'file\__\_1*', type='file'):
+            results.append(result)
+        assert_equal(len(results), 2)
+        results = []
+        for result in self.did_client.list_dids(tmp_scope, 'file*', type='file'):
+            results.append(result)
+        assert_equal(len(results), 3)
+        results = []
+        for result in self.did_client.list_dids(tmp_scope, 'file*'):
+            results.append(result)
+        assert_equal(len(results), 0)
+        with assert_raises(UnsupportedOperation):
+            self.did_client.list_dids(tmp_scope, 'file*', type='whateverytype')
+
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
         tmp_scope = 'mock'

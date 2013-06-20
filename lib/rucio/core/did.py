@@ -94,7 +94,7 @@ def list_replicas(scope, name, schemes=None, session=None):
 @read_session
 def list_dids(scope, pattern, type='collection', ignore_case=False, session=None):
     """
-    List dids in a scope.
+    List all data identifiers in a scope which match a given pattern.
 
     :param scope: The scope name.
     :param pattern: The wildcard pattern.
@@ -102,8 +102,13 @@ def list_dids(scope, pattern, type='collection', ignore_case=False, session=None
     :param ignore_case: Ignore case distinctions.
     :param session: The database session in use.
     """
+    types = ['all', 'collection', 'container', 'dataset', 'file']
+    if type not in types:
+        raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
 
-    query = session.query(models.DataIdentifier).filter_by(scope=scope).filter(models.DataIdentifier.name.like(pattern.replace('*', '%')))
+    query = session.query(models.DataIdentifier)
+    query = query.filter(and_(models.DataIdentifier.scope == scope,
+                              models.DataIdentifier.name.like(pattern.replace('*', '%'), escape='\\')))
     # if ignore_case
     # func.upper(models.DataIdentifier.name).like(pattern.replace('*','%'))
     if type == 'all':
@@ -111,7 +116,8 @@ def list_dids(scope, pattern, type='collection', ignore_case=False, session=None
                                  models.DataIdentifier.did_type == DIDType.DATASET,
                                  models.DataIdentifier.did_type == DIDType.FILE))
     elif type.lower() == 'collection':
-        query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
+        query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
+                                 models.DataIdentifier.did_type == DIDType.DATASET))
     elif type.lower() == 'container':
         query = query.filter(models.DataIdentifier.did_type == DIDType.CONTAINER)
     elif type.lower() == 'dataset':

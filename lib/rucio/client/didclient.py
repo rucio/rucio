@@ -50,6 +50,31 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
+    def list_dids(self, scope, pattern, type='collection'):
+        """
+        List all data identifiers in a scope which match a given pattern.
+
+        :param scope: The scope name.
+        :param pattern: The wildcard pattern.
+        :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
+        :param ignore_case: Ignore case distinctions.
+        :param session: The database session in use.
+        """
+
+        path = '/'.join([self.DIDS_BASEURL, scope, 'dids', 'search'])
+        payload = {}
+        payload['name'] = pattern
+        payload['type'] = type
+        url = build_url(self.host, path=path, params=payload)
+
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            dids = self._load_json_data(r)
+            return dids
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
     def add_did(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None):
         """
         Add data identifier for a dataset or container.
