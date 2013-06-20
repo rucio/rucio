@@ -18,17 +18,17 @@ scope = config_get('monitor', 'user_scope')
 pystatsd_client = Client(host=server, port=port, prefix=scope)
 
 
-def record(timeseries, delta=1):
+def record_counter(counters, delta=1):
     """
-    Updates one or more timeseries counters by arbitrary amounts
+    Log one or more counters by arbitrary amounts
 
-    :param timeseries: The timeseries or a list of timeseries to be updated.
-    :param delta: The increment for the timeseries, by default increment by 1.
+    :param counters: The counter or a list of counters to be updated.
+    :param delta: The increment for the counter, by default increment by 1.
     """
-    pystatsd_client.update_stats(timeseries, delta)
+    pystatsd_client.update_stats(counters, delta)
 
 
-def gauge(stat, value):
+def record_gauge(stat, value):
     """
      Log gauge information for a single stat
 
@@ -38,7 +38,7 @@ def gauge(stat, value):
     pystatsd_client.gauge(stat, value)
 
 
-def timing(stat, time):
+def record_timer(stat, time):
     """
      Log timing information for a single stat (in miliseconds)
 

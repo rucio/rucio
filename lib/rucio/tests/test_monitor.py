@@ -21,14 +21,14 @@ class TestMonitor():
     def tearDownClass(cls):
         pass
 
-    def test_monitor_record_message(self):
-        """MONITOR (CORE): Send a message to graphite """
-        monitor.record('test.stuff', 10)
+    def test_monitor_record_counter_message(self):
+        """MONITOR (CORE): Send a counter message to graphite """
+        monitor.record_counter('test.stuff', 10)
 
-    def test_monitor_gaude_message(self):
-        """MONITOR (CORE): Send a message to graphite """
-        monitor.gauge('test.gauge', 10)
+    def test_monitor_record_gauge_message(self):
+        """MONITOR (CORE): Send a gauge message to graphite """
+        monitor.record_gauge('test.gauge', 10)
 
-    def test_monitor_timing_message(self):
-        """MONITOR (CORE): Send a message to graphite """
-        monitor.timing('test.runtime', 500)
+    def test_monitor_record_timer_message(self):
+        """MONITOR (CORE): Send a timer message to graphite """
+        monitor.record_timer('test.runtime', 500)
