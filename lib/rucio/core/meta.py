@@ -107,7 +107,7 @@ def add_value(key, value, session=None):
         if e.args[0] == "(IntegrityError) (1452, 'Cannot add or update a child row: a foreign key constraint fails (`rucio`.`did_key_map`, CONSTRAINT `DID_MAP_KEYS_FK` FOREIGN KEY (`key`) REFERENCES `did_keys` (`key`))')":
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
 
-        raise RucioException(e.args[0])
+        raise RucioException(e.args)
 
     k = session.query(models.DIDKey).filter_by(key=key).one()
 

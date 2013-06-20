@@ -165,7 +165,7 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_file_replica(self, rse, scope, name, bytes, adler32=None, md5=None, pfn=None, dsn=None):
+    def add_replica(self, rse, scope, name, bytes, adler32=None, md5=None, pfn=None, dsn=None):
         """
         Add a file replica to a RSE.
 

@@ -68,7 +68,7 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTION_NAME_ACCOUNT_UQ.*violated.*', e.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
-        raise RucioException(e.args[0])
+        raise RucioException(e.args)
 
 
 @transactional_session
@@ -125,7 +125,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
         if rowcount == 0:
             raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
     except IntegrityError, e:
-        raise RucioException(e.args[0])
+        raise RucioException(e.args)
     #except IntegrityError, e:
     #    print e
     #    raise
