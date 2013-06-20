@@ -18,9 +18,9 @@ from urlparse import parse_qs
 from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized, OK
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.did import (list_replicas, add_identifier, add_dids, list_content,
+from rucio.api.did import (list_replicas, add_did, add_dids, list_content,
                            list_files, scope_list, get_did, set_metadata,
-                           get_metadata, set_status, attach_identifier, detach_identifier)
+                           get_metadata, set_status, attach_dids, detach_dids)
 from rucio.api.rule import list_replication_rules
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -143,7 +143,8 @@ class BulkDIDS:
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
         except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+            print e
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             print format_exc()
             raise InternalError(e)
@@ -232,7 +233,7 @@ class DIDs:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            add_identifier(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, issuer=auth['account'])
+            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, issuer=auth['account'])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -365,14 +366,18 @@ class Content:
         if auth is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
+        rse = None
         try:
             json_data = loads(data())
-            if 'dids' in json_data:
-                dids = json_data['dids']
+            dids = json_data['dids']
+
+            if 'rse' in json_data:
+                rse = json_data['rse']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
         try:
-            attach_identifier(scope=scope, name=name, dids=dids, issuer=auth['account'])
+            attach_dids(scope=scope, name=name, dids=dids, issuer=auth['account'], rse=rse)
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -384,7 +389,7 @@ class Content:
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             print format_exc()
             raise InternalError(e)
@@ -426,7 +431,7 @@ class Content:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            detach_identifier(scope=scope, name=name, dids=dids, issuer=auth['account'])
+            detach_dids(scope=scope, name=name, dids=dids, issuer=auth['account'])
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
         except DataIdentifierNotFound, e:

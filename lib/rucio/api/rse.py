@@ -121,9 +121,9 @@ def list_rse_attributes(rse):
     return rse_module.list_rse_attributes(rse=rse)
 
 
-def add_file_replica(rse, scope, name, bytes, issuer, account=None, adler32=None, md5=None, pfn=None, dsn=None):
+def add_replica(rse, scope, name, bytes, issuer, account=None, adler32=None, md5=None, pfn=None, dsn=None):
     """
-    Add File replica.
+    Add file replica.
 
     :param rse: The RSE name.
     :param scope: The scope name.
@@ -140,10 +140,10 @@ def add_file_replica(rse, scope, name, bytes, issuer, account=None, adler32=None
     """
 
     kwargs = {'rse': rse, 'scope': scope, 'name': name, 'bytes': bytes, 'md5': md5, 'adler32': adler32, 'dsn': dsn, 'account': account}
-    if not permission.has_permission(issuer=issuer, action='add_file_replica', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, action='add_replica', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
 
-    rse_module.add_file_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, account=account or issuer, pfn=pfn, dsn=dsn)
+    rse_module.add_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, account=account or issuer, pfn=pfn, dsn=dsn)
 
 
 def add_replicas(rse, files, issuer):

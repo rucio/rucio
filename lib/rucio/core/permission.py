@@ -81,9 +81,9 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
             'add_account_identity': perm_add_account_identity,
-            'add_identifier': perm_add_identifier,
-            'attach_identifier': perm_attach_identifier,
-            'detach_identifier': perm_detach_identifier,
+            'add_did': perm_add_did,
+            'attach_dids': perm_attach_dids,
+            'detach_dids': perm_detach_dids,
             'set_status': perm_set_status,
             'queue_request': perm_queue_request,
             'submit_deletion': perm_submit_transfer,
@@ -251,7 +251,7 @@ def perm_add_account_identity(issuer, kwargs):
     return issuer == 'root' or issuer == kwargs.get('account')
 
 
-def perm_add_identifier(issuer, kwargs):
+def perm_add_did(issuer, kwargs):
     """
     Checks if an account can add an data identifier to a scope.
 
@@ -262,7 +262,7 @@ def perm_add_identifier(issuer, kwargs):
     return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
-def perm_attach_identifier(issuer, kwargs):
+def perm_attach_dids(issuer, kwargs):
     """
     Checks if an account can append an data identifier to the other data identifier.
 
@@ -288,7 +288,7 @@ def perm_del_rule(issuer, kwargs):
     return True
 
 
-def perm_detach_identifier(issuer, kwargs):
+def perm_detach_dids(issuer, kwargs):
     """
     Checks if an account can detach an data identifier from the other data identifier.
 
@@ -296,7 +296,7 @@ def perm_detach_identifier(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return perm_attach_identifier(issuer, kwargs)
+    return perm_attach_dids(issuer, kwargs)
 
 
 def perm_set_status(issuer, kwargs):

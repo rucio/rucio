@@ -40,7 +40,7 @@ def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None)
     try:
         new_request.save(session=session)
     except IntegrityError, e:
-        raise RucioException(e.args[0])
+        raise RucioException(e.args)
 
 
 @transactional_session
@@ -115,7 +115,7 @@ def __get_external_id(request_id, session=None):
     try:
         return session.query(models.Request).add_columns(models.Request.external_id).filter_by(id=request_id).one()[1]
     except IntegrityError, e:
-        raise RucioException(e.args[0])
+        raise RucioException(e.args)
 
 
 def query_request(request_id):
@@ -156,7 +156,7 @@ def set_request_state(request_id, new_state, session=None):
     try:
         session.query(models.Request).filter_by(id=request_id).update({'state': new_state})
     except IntegrityError, e:
-        raise RucioException(e.args[0])
+        raise RucioException(e.args)
 
 
 def cancel_request(request_id):

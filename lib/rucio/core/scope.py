@@ -44,7 +44,7 @@ def add_scope(scope, account, session=None):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
         if e.args[0] == "(IntegrityError) column scope is not unique":
             raise Duplicate('Scope \'%s\' already exists!' % scope)
-        raise RucioException(e.args[0])
+        raise RucioException(e.args)
 
 
 @read_session
