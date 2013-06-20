@@ -129,7 +129,7 @@ def add_replicas(args):
     for lfn, rse, checksum, size in zip(args.lfns, args.rses, args.checksums, args.sizes):
         try:
             scope, name = lfn.split(':')
-            client.add_file_replica(scope=scope, name=name, rse=rse, adler32=checksum, size=size)
+            client.add_replica(scope=scope, name=name, rse=rse, adler32=checksum, size=size)
             print 'Added file replica %(lfn)s at %(rse)s' % locals()
         except Exception, e:
             print 'Failed to add file replica %(lfn)s at %(rse)s' % locals()
@@ -301,7 +301,7 @@ def attach(args):
         print e
 
     try:
-        client.attach_identifier(scope=scope, name=name, dids=dids)
+        client.attach_dids(scope=scope, name=name, dids=dids)
     except Exception, e:
         print 'Failed to attach data identifier'
         print e
@@ -331,7 +331,7 @@ def detach(args):
         print e
 
     try:
-        client.detach_identifier(scope=scope, name=name, dids=dids)
+        client.detach_dids(scope=scope, name=name, dids=dids)
     except Exception, e:
         print 'Failed to detach data identifier'
         print e
@@ -562,7 +562,7 @@ def upload(args):
         try:
             size = os.stat(filename).st_size
             checksum = adler32(filename)
-            client.add_file_replica(scope=args.scope, name=filename, rse=args.rse, adler32=checksum, size=size, dsn=dsn)
+            client.add_replica(scope=args.scope, name=filename, rse=args.rse, adler32=checksum, size=size, dsn=dsn)
             rsemgr.upload(args.rse, lfns=[{'filename': filename, 'scope': args.scope}, ])
             print 'download operation for %s done' % filename
         except Exception, e:

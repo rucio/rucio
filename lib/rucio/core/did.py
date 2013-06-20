@@ -13,9 +13,9 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
-# from re import match
+from re import match
 
-from sqlalchemy import or_  # , Column
+from sqlalchemy import and_, or_  # , Column
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
@@ -23,8 +23,7 @@ from sqlalchemy.sql import not_
 
 from rucio.common import exception
 # from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
-from rucio.core.rse import add_replica
-from rucio.core.rse_counter import increase
+from rucio.core.rse import add_replicas
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState  # , KeyType
 from rucio.db.session import read_session, transactional_session
@@ -130,7 +129,7 @@ def list_dids(scope, pattern, type='collection', ignore_case=False, session=None
 
 
 @transactional_session
-def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, flush=True, session=None):
+def add_did(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, session=None):
     """
     Add data identifier.
 
@@ -144,35 +143,7 @@ def add_identifier(scope, name, type, account, statuses={}, meta=[], rules=[], l
     :param lifetime: DID's lifetime (in seconds).
     :param session: The database session in use.
     """
-    if type == DIDType.FILE:
-        raise exception.UnsupportedOperation("Only collection (dataset/container) can be registered." % locals())
-
-    # Lifetime
-    expired_at = None
-    if lifetime:
-        expired_at = datetime.utcnow() + timedelta(seconds=lifetime)
-
-    # Insert new data identifier
-    new_did = models.DataIdentifier(scope=scope, name=name, account=account, did_type=type, monotonic=statuses.get('monotonic', False), is_open=True, expired_at=expired_at)
-
-    # Add meta-data
-    for key in meta:
-        new_did.update({key: meta[key]})
-
-    try:
-        new_did.save(session=session)
-    except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) columns scope, name are not unique":
-            raise exception.DataIdentifierAlreadyExists('Data identifier %(scope)s:%(name)s already exists!' % locals())
-        elif e.args[0] == "(IntegrityError) foreign key constraint failed":
-            raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
-        # msg for oracle / mysql
-        raise exception.RucioException(e.args[0])
-
-    # Add rules
-    # for rule in rules:
-    #    add_replication_rule(dids=[{'scope': scope, 'name': name}, ], account=issuer, copies=rule['copies'],
-    #                         rse_expression=rule['rse_expression'], parameters={}, session=session)  # lifetime + grouping
+    return add_dids(dids=[{'scope': scope, 'name': name, 'type': type, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}], account=account, session=session)
 
 
 @transactional_session
@@ -185,13 +156,126 @@ def add_dids(dids, account, session=None):
     :param session: The database session in use.
     """
     for did in dids:
-        add_identifier(scope=did['scope'], name=did['name'], type=DIDType.from_sym(did['type']), account=did.get('account') or account, statuses=did.get('statuses') or {},
-                       meta=did.get('meta'), rules=did.get('rules'), lifetime=did.get('lifetime'), flush=False, session=session)
-    session.flush()
+        try:
+
+            if isinstance(did['type'], str) or isinstance(did['type'], unicode):
+                did['type'] = DIDType.from_sym(did['type'])
+
+            if did['type'] == DIDType.FILE:
+                raise exception.UnsupportedOperation("Only collection (dataset/container) can be registered." % locals())
+
+            # Lifetime
+            expired_at = None
+            if did.get('lifetime'):
+                expired_at = datetime.utcnow() + timedelta(seconds=did['lifetime'])
+
+            # Insert new data identifier
+            new_did = models.DataIdentifier(scope=did['scope'], name=did['name'], account=did.get('account') or account,
+                                            did_type=did['type'], monotonic=did.get('statuses', {}).get('monotonic', False),
+                                            is_open=True, expired_at=expired_at)
+            # Add metadata
+            # ToDo: metadata validation
+            for key in did.get('meta', {}):
+                new_did.update({key: did['meta'][key]})
+
+            new_did.save(session=session, flush=False)
+        except KeyError, e:
+            # ToDo
+            raise
+
+    try:
+        session.flush()
+    except IntegrityError, e:
+        if e.args[0] == "(IntegrityError) columns scope, name are not unique":
+            raise exception.DataIdentifierAlreadyExists('Data identifier already exists!')
+        elif match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]):
+            raise exception.DataIdentifierAlreadyExists('Data identifier already exists!')
+        elif e.args[0] == "(IntegrityError) foreign key constraint failed":
+            raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
+        # msg for oracle / mysql
+        raise exception.RucioException(e.args)
+
+    # Add rules
+    # for rule in rules:
+    #    add_replication_rule(dids=[{'scope': scope, 'name': name}, ], account=issuer, copies=rule['copies'],
+    #                         rse_expression=rule['rse_expression'], parameters={}, session=session)  # lifetime + grouping
 
 
 @transactional_session
-def attach_identifier(scope, name, dids, account, session=None):
+def __add_files_to_dataset(scope, name, files, account, rse, session):
+    """
+    Add files to dataset.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param files: .
+    :param account: The account owner.
+    :param rse: The RSE name for the replicas.
+    :param session: The database session in use.
+    """
+    replicas = rse and add_replicas(rse=rse, files=files, account=account, session=session)
+
+    for file in replicas or files:
+        did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
+                                                    bytes=file['bytes'], adler32=file.get('adler32'),
+                                                    md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE)
+        did_asso.save(session=session, flush=False)
+    try:
+        session.flush()
+    except IntegrityError, e:
+        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]):
+            raise exception.DataIdentifierNotFound("Data identifier not found")
+        elif e.args[0] == "(IntegrityError) foreign key constraint failed":
+            raise exception.DataIdentifierNotFound("Data identifier not found")
+        raise exception.RucioException(e.args)
+
+
+@transactional_session
+def __add_collections_to_container(scope, name, collections, account, session):
+    """
+    Add collections (datasets or containers) to container.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param collections: .
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    condition = or_()
+    condition_type = or_(models.DataIdentifier.did_type == DIDType.DATASET, models.DataIdentifier.did_type == DIDType.CONTAINER)
+    for c in collections:
+
+        if (scope == c['scope']) and (name == c['name']):
+            raise exception.UnsupportedOperation('Self-append is not valid!')
+
+        condition.append(and_(models.DataIdentifier.scope == c['scope'],
+                              models.DataIdentifier.name == c['name'],
+                              condition_type))
+
+    available_dids = {}
+    child_type = None
+    for row in session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter(condition):
+
+        if not child_type:
+            child_type = row.did_type
+
+        available_dids[row.scope + row.name] = row.did_type
+
+        if child_type != row.did_type:
+            raise exception.UnsupportedOperation("Mixed collection is not allowed: '%s:%s' is a %s(expected type: %s)" % (row.scope, row.name, row.did_type, child_type))
+
+    for c in collections:
+        did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=c['scope'], child_name=c['name'],
+                                                    did_type=DIDType.CONTAINER, child_type=available_dids.get(c['scope'] + c['name']))
+        did_asso.save(session=session, flush=False)
+    try:
+        session.flush()
+    except IntegrityError, e:
+        raise exception.RucioException(e.args)
+
+
+@transactional_session
+def attach_dids(scope, name, dids, account, rse=None, session=None):
     """
     Append data identifier.
 
@@ -199,6 +283,7 @@ def attach_identifier(scope, name, dids, account, session=None):
     :param name: The data identifier name.
     :param dids: The content.
     :param account: The account owner.
+    :param rse: The RSE name for the replicas.
     :param session: The database session in use.
     """
 
@@ -213,85 +298,22 @@ def attach_identifier(scope, name, dids, account, session=None):
         if did.did_type == DIDType.FILE:
             raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % locals())
         elif did.did_type == DIDType.DATASET:
-            child_type = DIDType.FILE
+            __add_files_to_dataset(scope=scope, name=name, files=dids, account=account, rse=rse, session=session)
         elif did.did_type == DIDType.CONTAINER:
-            child_type = None  # collection: DIDType.DATASET or DIDType.CONTAINER
+            __add_collections_to_container(scope=scope, name=name, collections=dids, account=account, session=session)
+
+        # Mark for rule re-evaluation
+        if not did.rule_evaluation_action:
+            did.rule_evaluation_action = DIDReEvaluation.ATTACH
+        elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
+            did.rule_evaluation_action = DIDReEvaluation.BOTH
 
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    # Mark for rule re-evaluation
-    # To replace with an update at the end of the transaction
-    if did.rule_evaluation_action is None:
-        did.rule_evaluation_action = DIDReEvaluation.ATTACH
-    elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
-        did.rule_evaluation_action = DIDReEvaluation.BOTH
-
-    query_source = session.query(models.DataIdentifier.did_type)
-    rse_counters = {}
-    for source in dids:
-
-        if (scope == source['scope']) and (name == source['name']):
-            raise exception.UnsupportedOperation('Self-append is not valid.')
-
-        if did.did_type == DIDType.CONTAINER:
-            try:
-
-                child = query_source.filter_by(scope=source['scope'], name=source['name']).\
-                    filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).one()
-
-                if not child_type:
-                    child_type = child.did_type
-                elif child_type != child.did_type:
-                    raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.did_type, child_type))
-
-            except NoResultFound:
-                # raise exception.UnsupportedOperation("File '%(scope)s:%(name)s' " % source + "cannot be associated with a container '%(scope)s:%(name)s' is a file" % locals())
-                raise exception.DataIdentifierNotFound("Source data identifier '%(scope)s:%(name)s' not found" % source)
-
-        elif did.did_type == DIDType.DATASET:
-
-            if child_type == DIDType.FILE and 'rse' in source:
-
-                if 'bytes' not in source:
-                    raise exception.MissingFileParameter("The file bytes is missing for file '%(scope)s:%(name)s'" % source)
-
-                if source['rse'] not in rse_counters:
-                    rse_counters[source['rse']] = {'bytes': source['bytes'], 'files': 1}
-                else:
-                    rse_counters[source['rse']]['bytes'] += source['bytes']
-                    rse_counters[source['rse']]['files'] += 1
-                rse_counters[source['rse']]['rse_id'] = add_replica(account=account, session=session, **source)
-            else:
-                try:
-                    child = query_source.filter_by(scope=source['scope'], name=source['name'], did_type=DIDType.FILE).one()
-
-                    # if source['bytes'] != child.bytes or source.get('adler32', None) != child.adler32 or source.get('md5', None) != child.md5:
-                    #    errMsg = "(bytes: %s, adler32: '%s', md5: '%s') != " % (source['bytes'], source.get('adler32', None), source.get('md5', None)) + "(bytes: %s, adler32: '%s', md5: '%s')" % (child.bytes, child.adler32, child.md5)
-                    #    raise exception.FileConsistencyMismatch(errMsg)
-                except NoResultFound:
-                    # raise exception.UnsupportedOperation("Mixed collection is not allowed: '%(scope)s:%(name)s' " % source + "is a %s(expected type: %s)" % (child.did_type, child_type))
-                    raise exception.DataIdentifierNotFound("Source file '%(scope)s:%(name)s' not found" % source)
-
-        try:
-            models.DataIdentifierAssociation(scope=scope, name=name, child_scope=source['scope'], child_name=source['name'],
-                                             bytes=source.get('bytes', None), adler32=source.get('adler32', None),
-                                             md5=source.get('md5', None), did_type=did.did_type, child_type=child_type).save(session=session)
-        except IntegrityError, e:
-            raise exception.RucioException(e.args[0])
-            #if e.args[0] == "(IntegrityError) foreign key constraint failed":
-            # append_did = query_associ.filter_by(child_scope=source['scope'], child_name=source['name'], child_type=child_type).first()
-            #if append_did and append_did.deleted:
-            #    append_did.update({'deleted': False})
-            #else:
-            #    raise exception.DuplicateContent('The data identifier {0[source][scope]}:{0[source][name]} has been already added to {0[scope]}:{0[name]}.'.format(locals()))
-
-    for rse in rse_counters:
-        increase(rse_id=rse_counters[rse]['rse_id'], delta=rse_counters[rse]['files'], bytes=rse_counters[rse]['bytes'], session=session)
-
 
 @transactional_session
-def detach_identifier(scope, name, dids, issuer, session=None):
+def detach_dids(scope, name, dids, issuer, session=None):
     """
     Detach data identifier
 

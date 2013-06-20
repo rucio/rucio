@@ -50,7 +50,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add_identifier(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None):
+    def add_did(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None):
         """
         Add data identifier for a dataset or container.
 
@@ -105,7 +105,7 @@ class DIDClient(BaseClient):
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         """
-        return self.add_identifier(scope=scope, name=name, type='DATASET', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
+        return self.add_did(scope=scope, name=name, type='DATASET', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
     def add_datasets(self, dsns):
         """
@@ -126,7 +126,7 @@ class DIDClient(BaseClient):
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         """
-        return self.add_identifier(scope=scope, name=name, type='CONTAINER', statuses=statuses, meta=meta, rules=rules)
+        return self.add_did(scope=scope, name=name, type='CONTAINER', statuses=statuses, meta=meta, rules=rules)
 
     def add_containers(self, cnts):
         """
@@ -136,18 +136,20 @@ class DIDClient(BaseClient):
         """
         return self.add_dids(dids=[dict(cnts.items() + [('type', 'CONTAINER')]) for cnt in cnts])
 
-    def attach_identifier(self, scope, name, dids):
+    def attach_dids(self, scope, name, dids, rse=None):
         """
         Attach data identifier.
 
         :param scope: The scope name.
         :param name: The data identifier name.
         :param dids: The content.
+        :param rse: The RSE name when registering replicas.
         """
-
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
         url = build_url(self.host, path=path)
         data = {'dids': dids}
+        if rse:
+            data['rse'] = rse
         r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
@@ -155,7 +157,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def detach_identifier(self, scope, name, dids):
+    def detach_dids(self, scope, name, dids):
         """
         Detach data identifier
 
@@ -174,15 +176,16 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add_files_to_dataset(self, scope, name, files):
+    def add_files_to_dataset(self, scope, name, files, rse=None):
         """
         Add files to datasets.
 
         :param scope: The scope name.
         :param name: The dataset name.
         :param files: The content.
+        :param rse: The RSE name when registering replicas.
         """
-        return self.attach_identifier(scope=scope, name=name, dids=files)
+        return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
 
     def add_datasets_to_container(self, scope, name, dsns):
         """
@@ -192,7 +195,7 @@ class DIDClient(BaseClient):
         :param name: The dataset name.
         :param dsns: The content.
         """
-        return self.attach_identifier(scope=scope, name=name, dids=dsns)
+        return self.attach_dids(scope=scope, name=name, dids=dsns)
 
     def add_containers_to_container(self, scope, name, cnts):
         """
@@ -202,7 +205,7 @@ class DIDClient(BaseClient):
         :param name: The dataset name.
         :param dsns: The content.
         """
-        return self.attach_identifier(scope=scope, name=name, dids=cnts)
+        return self.attach_dids(scope=scope, name=name, dids=cnts)
 
     def list_content(self, scope, name):
         """
