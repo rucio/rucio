@@ -45,9 +45,9 @@ def __list_replicas(scope, name, schemes=None, session=None):
         for row in query.yield_per(5):
             try:
                 pfns = list()
-                for protocol in rsemgr.list_protocols(rse_id=row.rse.rse):
+                for protocol in rsemgr.list_protocols(rse_id=row.rse.rse, session=session):
                     if not schemes or protocol['scheme'] in schemes:
-                        pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': scope, 'filename': name}, properties=protocol))
+                        pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': scope, 'filename': name}, properties=protocol, session=session))
                 if pfns:
                     yield {'scope': row.scope, 'name': row.name, 'bytes': row.bytes,
                            'rse': row.rse.rse, 'md5': row.md5, 'adler32': row.adler32, 'pfns': pfns}
@@ -173,6 +173,7 @@ def add_dids(dids, account, session=None):
                                             is_open=True, expired_at=expired_at)
             # Add metadata
             # ToDo: metadata validation
+            # validate_meta(did.get('meta', {}))
             for key in did.get('meta', {}):
                 new_did.update({key: did['meta'][key]})
 

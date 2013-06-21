@@ -188,8 +188,7 @@ def read_session(function):
                 session.rollback()
                 raise
             finally:
-                if session.bind.dialect.name == 'mysql':
-                    session.close()
+                session.close()
         else:
             result = function(*args, **kwargs)
         return result
@@ -219,8 +218,7 @@ def transactional_session(function):
             else:
                 session.commit()
             finally:
-                if session.bind.dialect.name == 'mysql':
-                    session.close()
+                session.close()
         else:
             result = function(*args, **kwargs)
         return result
@@ -252,8 +250,7 @@ def in_transaction(nested=False):
                 else:
                     session.commit()
                 finally:
-                    if session.bind.dialect.name == 'mysql':
-                        session.close()
+                    session.close()
             else:
                 result = function(*args, **kwargs)
             return result
