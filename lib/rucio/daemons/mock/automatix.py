@@ -12,13 +12,13 @@ Automatix is a daemon to queue file transfers for testing purposes.
 """
 
 import threading
-import time
 import traceback
 
-from rucio.db.constants import DIDType, RequestType
 from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid
 from rucio.core import did, rse, scope, request
+from rucio.core.monitor import record_counter
+from rucio.db.constants import DIDType, RequestType
 
 graceful_stop = threading.Event()
 
@@ -34,11 +34,7 @@ def request_transfer(once=False):
 
     while not graceful_stop.is_set():
 
-        time.sleep(1)
-
         try:
-            print 'request: create new scope-dataset-file and request transfer'
-
             tmp_scope = generate_uuid()[:3]  # distribute between 1000 scopes
             tmp_name = generate_uuid()
 
@@ -47,11 +43,13 @@ def request_transfer(once=False):
             except Duplicate:
                 pass
 
-            did.add_identifier(scope=tmp_scope, name='dataset-%s' % tmp_name, type=DIDType.DATASET, account='root')
-            rse.add_file_replica(rse='MOCK', scope=tmp_scope, name='file-%s' % tmp_name, bytes=1, account='root')
-            did.attach_identifier(scope=tmp_scope, name='dataset-%s' % tmp_name, dids=[{'scope': tmp_scope, 'name': 'file-%s' % tmp_name, 'bytes': 1}], account='root')
+            did.add_did(scope=tmp_scope, name='dataset-%s' % tmp_name, type=DIDType.DATASET, account='root')
+            rse.add_replica(rse='MOCK', scope=tmp_scope, name='file-%s' % tmp_name, bytes=1, account='root')
+            did.attach_dids(scope=tmp_scope, name='dataset-%s' % tmp_name, dids=[{'scope': tmp_scope, 'name': 'file-%s' % tmp_name, 'bytes': 1}], account='root')
 
-            request.queue_request(tmp_scope, 'file-%s' % tmp_name, 'ef1e2ea6520c4769bce514d97f838120', RequestType.TRANSFER, {'random': 'metadata'})
+            request.queue_request(tmp_scope, 'file-%s' % tmp_name, rse.get_rse('MOCK3')['id'], RequestType.TRANSFER, {'random': 'metadata'})
+
+            record_counter('daemons.mock.automatix.request_transfer')
 
         except:
             print traceback.format_exc()

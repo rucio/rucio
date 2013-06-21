@@ -8,9 +8,12 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
+import random
+
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.exception import RucioException
+from rucio.core.monitor import record_counter
 from rucio.db import models
 from rucio.db.constants import RequestState
 from rucio.db.session import read_session, transactional_session
@@ -29,6 +32,8 @@ def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None)
     :param metadata: Metadata key/value pairs as a dictionary.
     :returns: Request-ID as a 32 character hex string.
     """
+
+    record_counter('core.request.queue_request')
 
     new_request = models.Request(request_type=req_type,
                                  scope=scope,
@@ -52,7 +57,7 @@ def submit_deletion(url, session=None):
     :returns: Deletiontool external ID.
     """
 
-    pass
+    record_counter('core.request.submit_deletion')
 
 
 @transactional_session
@@ -67,6 +72,8 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
     :param metadata: Metadata key/value pairs as a dictionary.
     :returns: Transfertool external ID.
     """
+
+    record_counter('core.request.submit_transfer')
 
     transfer_id = None
 
@@ -89,18 +96,23 @@ def get_next(req_type, state, session=None):
     :returns: Request as a dictionary.
     """
 
+    record_counter('core.request.get_next.%s-%s' % (req_type, state))
+
+    # TODO: There are many smarter ways to do this. To be continued...
+
     tmp = session.query(models.Request).add_columns(models.Request.id,
                                                     models.Request.scope,
                                                     models.Request.name,
-                                                    models.Request.dest_rse_id).filter_by(request_type=req_type, state=state).first()
+                                                    models.Request.dest_rse_id).filter_by(request_type=req_type, state=state).all()
 
-    if tmp is None:
+    if tmp == [] or tmp is None:
         return None
     else:
-        return {'request_id': tmp[1],
-                'scope': tmp[2],
-                'name': tmp[3],
-                'dest_rse_id': tmp[4]}
+        rsel = random.sample(tmp, 1)[0]
+        return {'request_id': rsel[1],
+                'scope': rsel[2],
+                'name': rsel[3],
+                'dest_rse_id': rsel[4]}
 
 
 @read_session
@@ -125,6 +137,8 @@ def query_request(request_id):
     :param request_id: Request-ID as a 32 character hex string.
     :returns: Request status information as a dictionary.
     """
+
+    record_counter('core.request.query_request')
 
     transfertool = 'fts3-mock'
 
@@ -153,6 +167,8 @@ def set_request_state(request_id, new_state, session=None):
     :param new_state: New state as string.
     """
 
+    record_counter('core.request.set_request_state')
+
     try:
         session.query(models.Request).filter_by(id=request_id).update({'state': new_state})
     except IntegrityError, e:
@@ -165,6 +181,8 @@ def cancel_request(request_id):
 
     :param request_id: Request Identifier as a 32 character hex string.
     """
+
+    record_counter('core.request.cancel_request')
 
     # select correct transfertool and external transfer id based on rucio transfer id entry in database
     transfertool = 'fts3-mock'
@@ -185,6 +203,8 @@ def cancel_request_did(scope, name, dest_rse, req_type):
     :param dest_rse: RSE name as a string.
     :param req_type: Type of the request as a string.
     """
+
+    record_counter('core.request.cancel_request_did')
 
     # select correct transfertool and external transfer id based on request entry in database
     transfertool = 'fts3-mock'

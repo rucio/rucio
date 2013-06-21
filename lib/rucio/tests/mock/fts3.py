@@ -7,42 +7,58 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
+import datetime
 import random
-import sqlite3
-import uuid
 
-from rucio.db.constants import FTSState, RequestState
+from sqlalchemy import and_, or_
+
+from rucio.common.utils import generate_uuid
+from rucio.core.monitor import record_counter
+from rucio.db import test_models
+from rucio.db.constants import FTSState
+from rucio.db.session import read_session, transactional_session
 
 """
-This mock FTS3 server provides basic job control, with a random job progression model:
+This mock FTS3 server provides basic job control, with a random job progression model.
 """
 
 
-def list_all():
+@read_session
+def list_all(session):
     """
     List all transfer jobs.
 
     :returns: List of dictionaries with job information
     """
 
-    t = sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('SELECT * FROM transfers ORDER BY lastmodified DESC')
-    return t.fetchall()
+    record_counter('daemons.mock.fts3.list_all')
+
+    query = session.query(test_models.MockFTSTransfer).order_by(test_models.MockFTSTransfer.lastmodified.desc())
+    for row in query.yield_per(5):
+        yield row
 
 
-def submit(tinfo):
+@transactional_session
+def submit(tinfo, session):
     """
     Create a new transfer job in state QUEUED.
 
-    :param tinfo: The transfer job information, like source, destination.
+    :param tinfo: The transfer job information as a string.
     :returns: The transfer job id.
     """
 
-    tid = str(uuid.uuid4())
-    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('INSERT INTO transfers(tid, timestart, lastmodified, state, tinfo) VALUES (?, datetime(\'now\'), datetime(\'now\'), ?, ?)', [tid, RequestState.QUEUED, str(tinfo)])
+    record_counter('daemons.mock.fts3.submit')
+
+    tid = generate_uuid()
+
+    new_transfer = test_models.MockFTSTransfer(transfer_id=tid, transfer_metadata=str(tinfo))
+    new_transfer.save(session=session)
+
     return {'job_id': tid}
 
 
-def query(tid):
+@transactional_session
+def query(tid, session):
     """
     Query the transfer job information of a single job. Has a chance to progress the job from QUEUED to either DONE or FAILED.
 
@@ -50,30 +66,35 @@ def query(tid):
     :returns: The transfer job information.
     """
 
+    record_counter('daemons.mock.fts3.query')
+
     new_state = random.sample(sum([[FTSState.FINISHED]*15, [FTSState.FAILED]*3, [FTSState.FINISHEDDIRTY]*2, [FTSState.ACTIVE]*80], []), 1)[0]
 
-    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('UPDATE transfers SET state=?, lastmodified=datetime(\'now\') WHERE tid=? AND (state == ? OR state == ?)', [new_state, tid, RequestState.ACTIVE, RequestState.QUEUED])
-    t = sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('SELECT state FROM transfers WHERE tid=?', [tid])
-    tr = t.fetchone()[0]
+    query = session.query(test_models.MockFTSTransfer).filter(and_(test_models.MockFTSTransfer.transfer_id == tid,
+                                                                   or_(test_models.MockFTSTransfer.state == FTSState.SUBMITTED,
+                                                                       test_models.MockFTSTransfer.state == FTSState.ACTIVE)))
+    query.update({'state': new_state,
+                  'last_modified': datetime.datetime.utcnow()})
 
-    r = {'job_state': tr}
+    r = {'job_state': str(new_state)}
 
-    if tr == FTSState.FAILED or tr == FTSState.FINISHEDDIRTY:
+    if new_state == FTSState.FAILED or new_state == FTSState.FINISHEDDIRTY:
         r['reason'] = 'Mock FTS decided to kill your transfer.'
         r['files'] = [{'source_surl': 'mock_src', 'dest_surl': 'mock_dest', 'reason': 'mock failure'}]
 
     return r
 
 
-def cancel(tid):
+@transactional_session
+def cancel(tid, session):
     """
     Kills a transfer by setting its state to CANCELLED.
 
     :param tid: The transfer job id.
     """
 
-    sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('UPDATE transfers SET lastmodified=datetime(\'now\'), state=? WHERE tid=? AND state!=?', [FTSState.CANCELED, tid, RequestState.DONE])
+    record_counter('daemons.mock.fts3.cancel')
 
-
-# one time setup
-sqlite3.connect('/tmp/mock-fts.db', isolation_level=None).cursor().execute('CREATE TABLE IF NOT EXISTS transfers (tid PRIMARY KEY, timestart, lastmodified, state, tinfo)')
+    query = session.query(test_models.MockFTSTransfer).filter(tid=tid)
+    query.update({'state': FTSState.CANCELED,
+                  'last_modified': datetime.datetime.utcnow()})
