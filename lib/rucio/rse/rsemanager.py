@@ -43,7 +43,7 @@ class RSEMgr(object):
             from rucio.client.rseclient import RSEClient
             self.__rse_client = RSEClient()
 
-    def __select_protocol(self, rse_id, protocol_domain='ALL', operation=None, default=False, scheme=None, properties=None):
+    def __select_protocol(self, rse_id, protocol_domain='ALL', operation=None, default=False, scheme=None, properties=None, session=None):
         """
             This method checks which protocol should be used depending on the operation and additional constraints like protocol domain,
             marked as default protocol, protocol scheme. If properties is given it checks if the referred protocol (scheme, hostname, and port)
@@ -56,6 +56,7 @@ class RSEMgr(object):
             :param scheme: Indicating the protocol scheme to use
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
+            :param session: The database session in use.
 
             :returns: an instance of a protocol supporting the requested operation and applying to the provided constraints
 
@@ -64,7 +65,10 @@ class RSEMgr(object):
             :raises RSENotFound: if the provided RSE coud not be found in the database.
         """
         if rse_id not in self.__rses:  # Site is accessed for the first time or no matching protocol was instanciated so far
-            self.__rses[rse_id] = self.__rse_client.get_rse(rse_id)
+            if self.__server_mode:
+                self.__rses[rse_id] = self.__rse_client.get_rse(rse_id, session=session)
+            else:
+                self.__rses[rse_id] = self.__rse_client.get_rse(rse_id)
             self.__rses[rse_id]['protocols'] = dict()
             self.__rses[rse_id]['client'] = self.__rse_client
 
@@ -83,7 +87,10 @@ class RSEMgr(object):
                         raise exception.RSEOperationNotSupported('Protocol %s doesn\'t support %s in domain %s' % (pid, operation, domain))
                 return self.__rses[rse_id]['protocols'][pid]
             else:  # Protocol not instanciated so far, check if it is known by the database
-                candidates = self.__rse_client.get_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation)
+                if self.__server_mode:
+                    candidates = self.__rse_client.get_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation, session=session)
+                else:
+                    candidates = self.__rse_client.get_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation)
                 for protocol in candidates:
                     if (protocol['hostname'] == properties['hostname']) and (protocol['port'] == properties['port']):
                         self.__rses[rse_id]['protocols'][pid] = RSEProtocolWrapper(rse_id, protocol, self.__rses[rse_id])
@@ -108,7 +115,10 @@ class RSEMgr(object):
             return best_choice
 
         # So far, no protocol supported the operation -> check database for more protocols of this RSE
-        candidates = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
+        if self.__server_mode:
+            candidates = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
+        else:
+            candidates = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
         for protocol in candidates:
             pid = '_'.join([protocol['scheme'], protocol['hostname'], str(protocol['port'])])
             self.__rses[rse_id]['protocols'][pid] = RSEProtocolWrapper(rse_id, protocol, self.__rses[rse_id])
@@ -270,7 +280,7 @@ class RSEMgr(object):
             protocol.connect(self.__credentials.get(rse_id, {}))
         return protocol.exists(files)
 
-    def lfn2pfn(self, rse_id, lfns, protocol_domain='ALL', default=False, scheme=None, properties=None):
+    def lfn2pfn(self, rse_id, lfns, protocol_domain='ALL', default=False, scheme=None, properties=None, session=None):
         """
             Convert the lfn to a pfn
 
@@ -281,15 +291,16 @@ class RSEMgr(object):
             :param scheme: Indicating the protocol scheme to use
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
+            :param session: The database session in use.
 
             :returns: URI/PFN for a single file or a dict object with scope:filename as keys and the URI for each file in bulk mode, e.g. sftp://mock.cern.ch:22/some/prefix/user/17/18/some_file.raw
 
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
             :raises InvalidObject: If the properties parameter doesn't include scheme, hostname, and port as keys
         """
-        return self.__select_protocol(rse_id, protocol_domain=protocol_domain, operation=None, default=default, scheme=scheme, properties=properties).lfn2pfn(lfns)
+        return self.__select_protocol(rse_id, protocol_domain=protocol_domain, operation=None, default=default, scheme=scheme, properties=properties, session=session).lfn2pfn(lfns)
 
-    def list_protocols(self, rse_id, protocol_domain='ALL', default=False, operation=None, scheme=None, properties=None):
+    def list_protocols(self, rse_id, protocol_domain='ALL', default=False, operation=None, scheme=None, properties=None, session=None):
         """
             List the supported protocols by the RSE.
 
@@ -300,6 +311,8 @@ class RSEMgr(object):
             :param scheme: Indicating the protocol scheme to use
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
+            :param session: The database session in use.
+
 
             :returns: A list of supported protocols.
 
@@ -307,15 +320,18 @@ class RSEMgr(object):
             :raises InvalidObject: If the properties parameter doesn't include scheme, hostname, and port as keys
             :raises RSEOperationNotSupported: If no matching protocol was found for the requested operation
         """
+        if self.__server_mode:
+            return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
         return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
 
-    def parse_pfn(self, rse_id, pfn, protocol=None):
+    def parse_pfn(self, rse_id, pfn, protocol=None, session=None):
         """
             Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
             :param rse_id: Name of the RSE
             :param pfn: PFN of the file
             :param protocol: A protocol descrciption as returned by list_protocols identifying a specific protocol supoorted be the referred RSE
+            :param session: The database session in use.
 
             :returns: A dict with the parts known by the selected protocol e.g. scheme, hostname, prefix, path, filename
 
@@ -324,7 +340,7 @@ class RSEMgr(object):
             :raises InvalidObject: If the properties parameter doesn't include scheme, hostname, and port as keys
             :raises RSEOperationNotSupported: If no matching protocol was found for the requested operation
         """
-        return self.__select_protocol(rse_id, scheme=pfn.split('://')[0], properties=protocol).split_pfn(pfn)
+        return self.__select_protocol(rse_id, scheme=pfn.split('://')[0], properties=protocol, session=session).split_pfn(pfn)
 
 
 class RSEProtocolWrapper(object):

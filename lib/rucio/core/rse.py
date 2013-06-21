@@ -494,7 +494,7 @@ def add_replicas(rse, files, account, session=None):
         for file in files:
             if 'pfn' not in file:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-            tmp = rse_manager.parse_pfn(rse_id=rse, pfn=file['pfn'])
+            tmp = rse_manager.parse_pfn(rse_id=rse, pfn=file['pfn'], session=session)
             file['path'] = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)

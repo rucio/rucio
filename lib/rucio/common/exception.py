@@ -264,6 +264,12 @@ class InvalidRSEExpression(RucioException):
         self._message = "Provided RSE expression is considered invalid."
 
 
+class InvalidType(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidType, self).__init__(args, kwargs)
+        self._message = "Provided type is considered invalid."
+
+
 class InvalidValueForKey(RucioException):
     def __init__(self, *args, **kwargs):
         super(InvalidValueForKey, self).__init__(args, kwargs)

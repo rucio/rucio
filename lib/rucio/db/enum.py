@@ -16,6 +16,8 @@ ref. http://techspot.zzzeek.org/2011/01/14/the-enum-recipe/
 
 from sqlalchemy.types import SchemaType, TypeDecorator, Enum
 
+from rucio.common.exception import InvalidType
+
 
 class EnumSymbol(object):
     """Define a fixed symbol tied to a parent class."""
@@ -98,9 +100,12 @@ class DeclEnumType(SchemaType, TypeDecorator):
         return DeclEnumType(self.enum)
 
     def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        return value.value
+        try:
+            if value is None:
+                return None
+            return value.value
+        except AttributeError:
+            raise InvalidType('Invalid value/type %s for %s' % (value, self.enum))
 
     def process_result_value(self, value, dialect):
         if value is None:
