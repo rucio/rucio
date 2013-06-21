@@ -16,8 +16,9 @@ import threading
 import time
 import traceback
 
-from rucio.db.constants import RequestType, RequestState
 from rucio.core import did, request, rse
+from rucio.core.monitor import record_counter
+from rucio.db.constants import RequestType, RequestState
 from rucio.rse import rsemanager
 
 graceful_stop = threading.Event()
@@ -36,14 +37,14 @@ def submitter(once=False):
 
     while not graceful_stop.is_set():
 
-        time.sleep(1)
-
-        print 'submitter: submitting transfer request'
-
         try:
 
             req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED)
             if req is None:
+                if once:
+                    break
+                print 'submitter: idling'
+                time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
             sources = sum([[str(pfn) for pfn in source['pfns']] for source in did.list_replicas(scope=req['scope'], name=req['name'])], [])
@@ -56,6 +57,8 @@ def submitter(once=False):
                 destinations = [str(pfn)]
 
             request.submit_transfer(req['request_id'], sources, destinations, 'fts3-mock', {'issuer': 'rucio-conveyor'})
+
+            record_counter('daemons.conveyor.submitter.submit_request')
 
         except:
             print traceback.format_exc()
@@ -79,16 +82,16 @@ def poller(once=False):
 
     while not graceful_stop.is_set():
 
-        time.sleep(1)
-
         try:
-            print 'poller: retrieving external state of request'
-
             req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED)
-            if req is None:
+            if req is [] or req is None:
+                print 'poller: idling'
+                time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
             request.query_request(req['request_id'])
+
+            record_counter('daemons.conveyor.poller.query_request')
 
         except:
             print traceback.format_exc()
