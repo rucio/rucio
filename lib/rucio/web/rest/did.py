@@ -15,9 +15,8 @@
 from json import dumps, loads
 from traceback import format_exc
 from urlparse import parse_qs
-from web import application, ctx, data, header, Created, InternalError, BadRequest, Unauthorized, OK
+from web import application, ctx, data, Created, header, InternalError, BadRequest, OK, loadhook
 
-from rucio.api.authentication import validate_auth_token
 from rucio.api.did import (list_replicas, add_did, add_dids, list_content,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids)
@@ -29,6 +28,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
+from rucio.web.rest.common import authenticate
 
 urls = (
     '/(.*)/', 'Scope',
@@ -41,6 +41,7 @@ urls = (
     '/(.*)/(.*)/rules', 'Rules',
     '/(.*)/(.*)', 'DIDs',
     '', 'BulkDIDS',
+    '/attachments', 'Attachments',
 )
 
 
@@ -59,18 +60,7 @@ class Scope:
 
         :param scope: The scope name.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         name = None
         recursive = False
         if ctx.query:
@@ -90,48 +80,34 @@ class Scope:
             raise InternalError(e)
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def POST(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
 class BulkDIDS:
 
     def GET(self, scope):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def POST(self):
-        header('Content-Type', 'application/json')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             json_data = loads(data())
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_dids(json_data, issuer=auth['account'])
+            add_dids(json_data, issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -150,7 +126,43 @@ class BulkDIDS:
             raise InternalError(e)
         raise Created()
 
+
+class Attachments:
+
+    def GET(self, scope):
         raise BadRequest()
+
+    def PUT(self):
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
+
+    def POST(self):
+        try:
+            json_data = loads(data())
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            json_data
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except DuplicateContent, e:
+            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
+        except DataIdentifierAlreadyExists, e:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+        raise Created()
 
 
 class DIDs:
@@ -169,18 +181,7 @@ class DIDs:
         :param scope: The scope name.
         :param name: The data identifier name.
         """
-
         header('Content-Type', 'application/json')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             did = get_did(scope=scope, name=name)
             return render_json(**did)
@@ -208,15 +209,6 @@ class DIDs:
         :param scope: Create the data identifier within this scope.
         :param name: Create the data identifier with this name.
         """
-
-        header('Content-Type', 'application/json')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         statuses, meta, rules, lifetime = {}, [], [], None
         try:
             json_data = loads(data())
@@ -233,7 +225,7 @@ class DIDs:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, issuer=auth['account'])
+            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -265,14 +257,6 @@ class DIDs:
         :param scope: data identifier scope.
         :param name: data identifier name.
         """
-        header('Content-Type', 'application/json')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
         try:
             kwargs = loads(json_data)
@@ -280,7 +264,7 @@ class DIDs:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json data parameter')
 
         try:
-            set_status(scope=scope, name=name, issuer=auth['account'], **kwargs)
+            set_status(scope=scope, name=name, issuer=ctx.env.get('issuer'), **kwargs)
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except UnsupportedStatus, e:
@@ -298,7 +282,6 @@ class DIDs:
         raise OK()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -320,18 +303,7 @@ class Content:
 
         :returns: A list with the contents.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             for did in list_content(scope=scope, name=name):
                 yield render_json(**did) + '\n'
@@ -357,15 +329,6 @@ class Content:
         :param scope: Create the data identifier within this scope.
         :param name: Create the data identifier with this name.
         """
-
-        header('Content-Type', 'application/json')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         rse = None
         try:
             json_data = loads(data())
@@ -377,7 +340,7 @@ class Content:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            attach_dids(scope=scope, name=name, dids=dids, issuer=auth['account'], rse=rse)
+            attach_dids(scope=scope, name=name, dids=dids, issuer=ctx.env.get('issuer'), rse=rse)
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -397,7 +360,6 @@ class Content:
         raise Created()
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self, scope, name):
@@ -414,15 +376,6 @@ class Content:
         :param scope: Detach the data identifier from this scope.
         :param name: Detach the data identifier from this name.
         """
-
-        header('Content-Type', 'application/json')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             json_data = loads(data())
             if 'dids' in json_data:
@@ -431,7 +384,7 @@ class Content:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            detach_dids(scope=scope, name=name, dids=dids, issuer=auth['account'])
+            detach_dids(scope=scope, name=name, dids=dids, issuer=ctx.env.get('issuer'))
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
         except DataIdentifierNotFound, e:
@@ -463,18 +416,7 @@ class Replicas:
 
         :returns: A dictionary containing all replicas information.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         schemes = list()
         if ctx.query:
             filters = parse_qs(ctx.query[1:])
@@ -492,11 +434,9 @@ class Replicas:
             raise InternalError(e)
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -517,18 +457,7 @@ class Files:
 
         :returns: A dictionary containing all replicas information.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             for file in list_files(scope=scope, name=name):
                 yield dumps(file) + "\n"
@@ -541,11 +470,9 @@ class Files:
             raise InternalError(e)
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -567,17 +494,7 @@ class Meta:
 
         :returns: A dictionary containing all meta.
         """
-
         header('Content-Type', 'application/json')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         try:
             meta = get_metadata(scope=scope, name=name)
             return render_json(**meta)
@@ -588,11 +505,9 @@ class Meta:
             raise InternalError(e)
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self, scope, name, key):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def POST(self, scope, name, key):
@@ -613,15 +528,6 @@ class Meta:
         :param key: the key.
 
         """
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         json_data = data()
         try:
             params = loads(json_data)
@@ -629,7 +535,7 @@ class Meta:
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            set_metadata(scope=scope, name=name, key=key, value=value, issuer=auth['account'])
+            set_metadata(scope=scope, name=name, key=key, value=value, issuer=ctx.env.get('issuer'))
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except KeyNotFound, e:
@@ -660,17 +566,7 @@ class Rules:
 
         :param scope: The scope name.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         try:
             for rule in list_replication_rules({'scope': scope, 'name': name}):
                 yield dumps(rule, cls=APIEncoder) + '\n'
@@ -695,4 +591,5 @@ class Rules:
 ----------------------"""
 
 app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()
