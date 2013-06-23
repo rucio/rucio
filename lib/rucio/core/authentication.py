@@ -158,7 +158,6 @@ def validate_auth_token(token, session=None):
         token = token.strip()
     else:
         return None
-
     r = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
 
     if r is not None and r != []:

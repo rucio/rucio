@@ -71,26 +71,31 @@ class RSEMgr(object):
                 self.__rses[rse_id] = self.__rse_client.get_rse(rse_id)
             self.__rses[rse_id]['protocols'] = dict()
             self.__rses[rse_id]['client'] = self.__rse_client
-
         # A specific protocol implementation is requested
         if properties is not None:
             try:
                 pid = '_'.join([properties['scheme'], properties['hostname'], str(properties['port'])])
             except KeyError:
                 raise exception.InvalidObject('Properties object not including all mandatory keys i.e. scheme, hostname, port.')
+
             if pid in self.__rses[rse_id]['protocols']:  # Protocol already instanciated, check if requested operation is supported by it
+
                 if operation is None:  # only lfn2pfn conversion is requested
                     return self.__rses[rse_id]['protocols'][pid]
+
                 domains = [protocol_domain] if protocol_domain != 'ALL' else utils.rse_supported_protocol_domains()
                 for domain in domains:
                     if not self.__rses[rse_id]['protocols'][pid]['domains'][domain][operation]:
                         raise exception.RSEOperationNotSupported('Protocol %s doesn\'t support %s in domain %s' % (pid, operation, domain))
+
                 return self.__rses[rse_id]['protocols'][pid]
+
             else:  # Protocol not instanciated so far, check if it is known by the database
                 if self.__server_mode:
                     candidates = self.__rse_client.get_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation, session=session)
                 else:
                     candidates = self.__rse_client.get_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation)
+
                 for protocol in candidates:
                     if (protocol['hostname'] == properties['hostname']) and (protocol['port'] == properties['port']):
                         self.__rses[rse_id]['protocols'][pid] = RSEProtocolWrapper(rse_id, protocol, self.__rses[rse_id])
@@ -100,7 +105,9 @@ class RSEMgr(object):
                             else:
                                 self.__rses[rse_id]['protocols'][pid].get_path = self.__rses[rse_id]['protocols'][pid].get_path_nd_client
                         return self.__rses[rse_id]['protocols'][pid]
+
                 raise exception.RSEOperationNotSupported('Protocol %s doesn\'t support %s in domain %s' % (pid, operation, protocol_domain))
+        print 3
 
         # Check if one of the instanciated protocols supports the requested operation
         best_choice_priority = -1

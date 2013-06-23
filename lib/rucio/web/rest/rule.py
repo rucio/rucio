@@ -13,13 +13,13 @@ from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
 from traceback import format_exc
 
-from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized, OK
+from web import application, ctx, data, BadRequest, header, Created, InternalError, OK, loadhook
 
-from rucio.api.authentication import validate_auth_token
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
 from rucio.common.exception import (InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException)
 from rucio.common.utils import generate_http_error, render_json
+from rucio.web.rest.common import authenticate
 
 logger = getLogger("rucio.rule")
 sh = StreamHandler()
@@ -46,13 +46,7 @@ class Rule:
 
         :returns: JSON dict containing informations about the requested user.
         """
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+        header('Content-Type', 'application/json')
         try:
             rule = get_replication_rule(rule_id)
         except RuleNotFound, e:
@@ -79,15 +73,6 @@ class Rule:
             409 Conflict
             500 Internal Error
         """
-
-        header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         json_data = data()
         try:
             params = loads(json_data)
@@ -104,7 +89,7 @@ class Rule:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            rule_ids = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, weight=weight, lifetime=lifetime, grouping=grouping, account=account, locked=locked, subscription_id=subscription_id, issuer=auth['account'])
+            rule_ids = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, weight=weight, lifetime=lifetime, grouping=grouping, account=account, locked=locked, subscription_id=subscription_id, issuer=ctx.env.get('issuer'))
         #TODO: Add all other error cases here
         except InsufficientQuota, e:
             raise generate_http_error(409, 'InsufficientQuota', e.args[0][0])
@@ -133,16 +118,8 @@ class Rule:
             404 Not Found
             500 Internal Error
         """
-
-        header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
         try:
-            delete_replication_rule(rule_id=rule_id, issuer=auth['account'])
+            delete_replication_rule(rule_id=rule_id, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RuleNotFound, e:
@@ -157,4 +134,5 @@ class Rule:
 ----------------------"""
 
 app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()
