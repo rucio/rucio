@@ -16,11 +16,12 @@ from time import sleep
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, DBAPIError
+from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, DBAPIError, TimeoutError
 from sqlalchemy.ext.declarative import declarative_base
 
+
 from rucio.common.config import config_get
-from rucio.common.exception import RucioException
+from rucio.common.exception import RucioException, DatabaseException
 
 BASE = declarative_base()
 try:
@@ -64,14 +65,19 @@ def mysql_ping_listener(dbapi_conn, connection_rec, connection_proxy):
 
 def get_engine(echo=True):
     """ Creates a engine to a specific database.
-        :returns: engine """
-
+        :returns: engine
+    """
     sql_connection = config_get('database', 'default')
-    #  pool_size = config_get('database', 'pool_size')
-    #  max_overflow = config_get('database', 'max_overflow')
-    #  pool_timeout = config_get('database', 'pool_timeout')
-    engine = create_engine(sql_connection, echo=False, echo_pool=False, pool_recycle=3600, pool_reset_on_return='rollback')
-    # pool_size=5, max_overflow=10, pool_timeout=30 Should be in configuration file
+    config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
+                     ('pool_recycle', int), ('echo', int), ('echo_pool', str),
+                     ('pool_reset_on_return', str), ('use_threadlocal', int)]
+    params = {}
+    for param, param_type in config_params:
+        try:
+            params[param] = param_type(config_get('database', param))
+        except NoOptionError:
+            pass
+    engine = create_engine(sql_connection, **params)
     if 'mysql' in sql_connection:
         event.listen(engine, 'checkout', mysql_ping_listener)
     if 'sqlite' in sql_connection:
@@ -184,6 +190,9 @@ def read_session(function):
             try:
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
+            except TimeoutError, e:
+                session.rollback()
+                raise DatabaseException(str(e))
             except:
                 session.rollback()
                 raise
@@ -212,6 +221,9 @@ def transactional_session(function):
             try:
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
+            except TimeoutError, e:
+                session.rollback()
+                raise DatabaseException(str(e))
             except:
                 session.rollback()
                 raise
@@ -244,6 +256,9 @@ def in_transaction(nested=False):
                 try:
                     kwargs['session'] = session
                     result = function(*args, **kwargs)
+                except TimeoutError, e:
+                    session.rollback()
+                    raise DatabaseException(str(e))
                 except:
                     session.rollback()
                     raise

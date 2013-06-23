@@ -24,7 +24,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.core.did import list_dids
+from rucio.core.did import list_dids, add_did, delete_dids
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     UnsupportedOperation, UnsupportedStatus)
 from rucio.common.utils import generate_uuid
@@ -37,6 +37,14 @@ class TestDIDCore:
         """ DATA IDENTIFIERS (CORE): List dids """
         for d in list_dids(scope='data13_hip', pattern='*', type='collection'):
             print d
+
+    def test_delete_dids(self):
+        """ DATA IDENTIFIERS (CORE): Delete dids """
+        tmp_scope = 'mock'
+        dsns = [{'name': 'dsn_%s' % generate_uuid(), 'scope': tmp_scope} for i in xrange(5)]
+        for dsn in dsns:
+            add_did(scope=tmp_scope, name=dsn['name'], type='DATASET', account='root')
+        delete_dids(dids=dsns, account='root')
 
 
 class TestDIDApi:
@@ -127,6 +135,13 @@ class TestDIDClients:
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
 
         self.did_client.close(scope=tmp_scope, name=tmp_dsn)
+
+    def test_attach_dids_to_dids(self):
+        """ DATA IDENTIFIERS (CLIENT): Attach dids to dids"""
+        # tmp_scope = 'mock'
+        # tmp_rse = 'MOCK2'
+        # tmp_dsn = 'dsn_%s' % generate_uuid()
+        self.did_client.attach_dids_to_dids(attachments=[])
 
     def test_add_dataset(self):
         """ DATA IDENTIFIERS (CLIENT): Add dataset """

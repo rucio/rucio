@@ -19,6 +19,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
+from sqlalchemy.sql.expression import case
 
 from rucio.common import exception
 from rucio.core.rse import add_replicas
@@ -309,6 +310,26 @@ def attach_dids(scope, name, dids, account, rse=None, session=None):
 
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def delete_dids(dids, account, session=None):
+    """
+    Delete data identifiers
+
+    :param dids: The list of dids to delete.
+    :param account: The account.
+    :param session: The database session in use.
+    """
+    for did in dids:
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).\
+            filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
+            update({'did_type': case([(models.DataIdentifier.did_type == DIDType.DATASET, DIDType.DELETED_DATASET.value),
+                                      (models.DataIdentifier.did_type == DIDType.CONTAINER, DIDType.DELETED_CONTAINER.value)])},
+                   synchronize_session=False)
+
+        if not rowcount:
+            raise exception.DataIdentifierNotFound("Dataset or container '%(scope)s:%(name)s' not found" % did)
 
 
 @transactional_session

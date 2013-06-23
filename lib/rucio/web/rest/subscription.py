@@ -11,13 +11,13 @@
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 
-from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized
+from web import application, ctx, data, header, BadRequest, Created, InternalError, loadhook
 
-from rucio.api.authentication import validate_auth_token
 from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
 from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
+from rucio.web.rest.common import authenticate
 
 logger = getLogger("rucio.subscription")
 sh = StreamHandler()
@@ -49,15 +49,7 @@ class Subscription:
         :param account: The account name.
         :param name: The subscription name.
         """
-        #header('Content-Type', 'application/json')
-        #header('Content-Type', 'application/octet-stream')
         header('Content-Type', 'application/x-json-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             for subscription in list_subscriptions(name=name, account=account):
                 yield dumps(subscription, cls=APIEncoder) + '\n'
@@ -79,15 +71,6 @@ class Subscription:
             404 Not Found
             500 Internal Error
         """
-        #header('Content-Type', 'application/octet-stream')
-        header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         json_data = data()
         try:
             params = loads(json_data)
@@ -120,7 +103,7 @@ class Subscription:
             dry_run = None
 
         try:
-            update_subscription(name=name, account=auth['account'], filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+            update_subscription(name=name, account=ctx.env.get('issuer'), filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionNotFound, e:
             raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
         #except Exception, e:
@@ -141,15 +124,6 @@ class Subscription:
             409 Conflict
             500 Internal Error
         """
-
-        header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         dry_run = 0
         json_data = data()
         try:
@@ -164,7 +138,7 @@ class Subscription:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_subscription(name=name, account=auth['account'], filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+            add_subscription(name=name, account=ctx.env.get('issuer'), filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionDuplicate as e:
             raise generate_http_error(409, 'SubscriptionDuplicate', e.args[0][0])
         except RucioException, e:
@@ -193,18 +167,7 @@ class Rules:
 
         :param scope: The scope name.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             for rule in list_replication_rules({'subscription_id': id}):
                 yield dumps(rule, cls=APIEncoder) + '\n'
@@ -229,4 +192,5 @@ class Rules:
 ----------------------"""
 
 app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()
