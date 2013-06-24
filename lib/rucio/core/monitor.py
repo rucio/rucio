@@ -12,6 +12,8 @@ from pystatsd import Client
 
 from rucio.common.config import config_get
 
+import time
+
 server = config_get('monitor', 'carbon_server')
 port = config_get('monitor', 'carbon_port')
 scope = config_get('monitor', 'user_scope')
@@ -46,3 +48,26 @@ def record_timer(stat, time):
     :param value: The time to log.
     """
     pystatsd_client.timing(stat, time)
+
+
+class record_timer_block(object):
+    """
+    A context manager for timing a block of code.
+
+    Usage:
+        with monitor.record_timer_block('test.context_timer'):
+            stuff1()
+            stuff2()
+    """
+
+    def __init__(self, stat):
+        self.stat = stat
+
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, typ, value, tb):
+        dt = time.time() - self.start
+        ms = int(round(1000 * dt))  # Convert to ms.
+        record_timer(self.stat, ms)
