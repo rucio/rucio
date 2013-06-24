@@ -90,6 +90,12 @@ class ConfigurationError(RucioException):
         self._message = "Error during configuration."
 
 
+class DatabaseException(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DatabaseException, self).__init__(args, kwargs)
+        self._message = "Database exception."
+
+
 class DatasetAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(DatasetAccessDenied, self).__init__(args, kwargs)
@@ -196,6 +202,12 @@ class FileReplicaAlreadyExists(RucioException):
     def __init__(self, *args, **kwargs):
         super(FileReplicaAlreadyExists, self).__init__(args, kwargs)
         self._message = "File name in specified scope already exists"
+
+
+class ReplicaNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ReplicaNotFound, self).__init__(args, kwargs)
+        self._message = "Replica not found"
 
 
 class ForbiddenSearch(RucioException):

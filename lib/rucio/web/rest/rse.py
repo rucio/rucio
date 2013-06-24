@@ -13,9 +13,8 @@
 
 from json import dumps, loads
 from traceback import format_exc
-from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input
+from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input, loadhook
 
-from rucio.api.authentication import validate_auth_token
 from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
                            list_rse_attributes, del_rse_attribute,
                            add_replica, add_replicas,
@@ -25,6 +24,7 @@ from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
                            set_rse_limits, get_rse_limits)
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
 from rucio.common.utils import generate_http_error, parse_response, render_json
+from rucio.web.rest.common import authenticate
 
 urls = (
     '/(.+)/attr/(.+)', 'Attributes',
@@ -59,17 +59,7 @@ class RSEs:
 
         :returns: A list containing all RSEs.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         for rse in list_rses():
             yield render_json(**rse) + '\n'
 
@@ -98,19 +88,6 @@ class RSE:
             500 Internal Error
 
         """
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        try:
-            auth = validate_auth_token(auth_token)
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, str(e.args[0]))
-
-        # invalid username/password;
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         prefix, deterministic, volatile = None, True, False
         json_data = data()
         try:
@@ -123,7 +100,7 @@ class RSE:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            add_rse(rse, deterministic=deterministic, volatile=volatile, issuer=auth['account'])
+            add_rse(rse, deterministic=deterministic, volatile=volatile, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -152,14 +129,7 @@ class RSE:
 
         :returns: A list containing all RSEs.
         """
-
         header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             rse_prop = get_rse(rse=rse)
             ret = dict()
@@ -172,7 +142,6 @@ class RSE:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self, rse):
@@ -188,16 +157,8 @@ class RSE:
 
         :param rse: RSE name.
         """
-
-        header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
-            del_rse(rse=rse, issuer=auth['account'])
+            del_rse(rse=rse, issuer=ctx.env.get('issuer'))
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e.args[0][0])
         except AccessDenied, e:
@@ -224,15 +185,7 @@ class Attributes:
         :param key: Key attribute.
 
         """
-        header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
-
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -244,7 +197,7 @@ class Attributes:
             raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
 
         try:
-            add_rse_attribute(rse=rse, key=key, value=value, issuer=auth['account'])
+            add_rse_attribute(rse=rse, key=key, value=value, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -268,33 +221,15 @@ class Attributes:
 
         :returns: A list containing all RSE attributes.
         """
-        header('Content-Type', 'application/octet-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
+        header('Content-Type', 'application/json')
         return dumps(list_rse_attributes(rse))
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self, rse, key):
-        header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
-            del_rse_attribute(rse=rse, key=key, issuer=auth['account'])
+            del_rse_attribute(rse=rse, key=key, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Exception, e:
@@ -322,15 +257,6 @@ class Files:
         :param name: the data identifier name.
 
         """
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
         try:
             parameter = loads(json_data)
@@ -352,7 +278,7 @@ class Files:
             raise generate_http_error(400, 'TypeError', 'Body must be a json dictionary')
 
         try:
-            add_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=auth['account'])
+            add_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -371,11 +297,9 @@ class Files:
         raise BadRequest()
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -398,15 +322,6 @@ class BulkFiles:
         :param name: the data identifier name.
 
         """
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
         try:
             parameters = parse_response(json_data)
@@ -414,7 +329,7 @@ class BulkFiles:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_replicas(rse=rse, files=parameters, issuer=auth['account'])
+            add_replicas(rse=rse, files=parameters, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -433,11 +348,9 @@ class BulkFiles:
         raise BadRequest()
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -446,7 +359,6 @@ class Protocols:
 
     def POST(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def GET(self, rse):
@@ -462,20 +374,13 @@ class Protocols:
         :returns: A list containing all supported protocols and all their attributes.
         """
         header('Content-Type', 'application/json')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         p_list = None
         params = input()
         operation = params.operation if 'operation' in params.keys() else None
         default = params.default if 'default' in params.keys() else False
         protocol_domain = params.protocol_domain if 'protocol_domain' in params.keys() else 'ALL'
         try:
-            p_list = get_protocols(rse, issuer=auth['account'], protocol_domain=protocol_domain, operation=operation, default=default)
+            p_list = get_protocols(rse, issuer=ctx.env.get('issuer'), protocol_domain=protocol_domain, operation=operation, default=default)
         except RSEOperationNotSupported, e:
             raise generate_http_error(404, 'RSEOperationNotSupported', e[0][0])
         except RSENotFound, e:
@@ -492,12 +397,10 @@ class Protocols:
 
     def PUT(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -519,15 +422,7 @@ class Protocol:
             500 Internal Error
 
         """
-        header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
-
         try:
             parameters = loads(json_data)
         except ValueError:
@@ -537,7 +432,7 @@ class Protocol:
         parameters['scheme'] = scheme
 
         try:
-            add_protocol(rse, issuer=auth['account'], data=parameters)
+            add_protocol(rse, issuer=ctx.env.get('issuer'), data=parameters)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except AccessDenied, e:
@@ -570,18 +465,10 @@ class Protocol:
 
         :returns: A list with detailed protocol information.
         """
-
         header('Content-Type', 'application/json')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         p_list = None
         try:
-            p_list = get_protocols(rse, issuer=auth['account'], scheme=scheme)
+            p_list = get_protocols(rse, issuer=ctx.env.get('issuer'), scheme=scheme)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RSEProtocolNotSupported, e:
@@ -609,14 +496,6 @@ class Protocol:
             409 Conflict
             500 InternalError
         """
-
-        header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
         try:
             parameter = loads(json_data)
@@ -624,7 +503,7 @@ class Protocol:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            update_protocols(rse, issuer=auth['account'], scheme=scheme, hostname=hostname, port=port, data=parameter)
+            update_protocols(rse, issuer=ctx.env.get('issuer'), scheme=scheme, hostname=hostname, port=port, data=parameter)
         except InvalidObject, e:
             raise generate_http_error(400, 'InvalidObject', e[0][0])
         except RSEProtocolNotSupported, e:
@@ -656,16 +535,8 @@ class Protocol:
             404 Resource not Found
             500 InternalError
         """
-
-        header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
-            del_protocols(rse, issuer=auth['account'], scheme=scheme, hostname=hostname, port=port)
+            del_protocols(rse, issuer=ctx.env.get('issuer'), scheme=scheme, hostname=hostname, port=port)
         except RSEProtocolNotSupported, e:
             raise generate_http_error(404, 'RSEProtocolNotSupported', e[0][0])
         except RSENotFound, e:
@@ -684,7 +555,6 @@ class Usage:
 
     def POST(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def GET(self, rse):
@@ -694,15 +564,9 @@ class Usage:
         :param rse: the RSE name.
         """
         header('Content-Type', 'application/x-json-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         usage = None
         try:
-            usage = get_rse_usage(rse, issuer=auth['account'], source=None)
+            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=None)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:
@@ -728,14 +592,6 @@ class Usage:
 
         :param rse: The RSE name.
         """
-
-        header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
         try:
             parameter = loads(json_data)
@@ -743,7 +599,7 @@ class Usage:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            set_rse_usage(rse=rse, issuer=auth['account'], **parameter)
+            set_rse_usage(rse=rse, issuer=ctx.env.get('issuer'), **parameter)
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RucioException, e:
@@ -756,7 +612,6 @@ class Usage:
 
     def DELETE(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -764,7 +619,6 @@ class UsageHistory:
 
     def POST(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def GET(self, rse):
@@ -774,14 +628,8 @@ class UsageHistory:
         :param rse: the RSE name.
         """
         header('Content-Type', 'application/x-json-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
-            for usage in list_rse_usage_history(rse=rse, issuer=auth['account'], source=None):
+            for usage in list_rse_usage_history(rse=rse, issuer=ctx.env.get('issuer'), source=None):
                 yield render_json(**usage) + '\n'
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
@@ -793,12 +641,10 @@ class UsageHistory:
 
     def PUT(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -806,7 +652,6 @@ class Limits:
 
     def POST(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def GET(self, rse):
@@ -816,14 +661,8 @@ class Limits:
         :param rse: the RSE name.
         """
         header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
-            limits = get_rse_limits(rse=rse, issuer=auth['account'])
+            limits = get_rse_limits(rse=rse, issuer=ctx.env.get('issuer'))
             return render_json(**limits)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
@@ -847,22 +686,14 @@ class Limits:
 
         :param rse: The RSE name.
         """
-
         header('Content-Type', 'application/json')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
         try:
             parameter = loads(json_data)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
-
         try:
-            set_rse_limits(rse=rse, issuer=auth['account'], **parameter)
+            set_rse_limits(rse=rse, issuer=ctx.env.get('issuer'), **parameter)
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RucioException, e:
@@ -875,7 +706,6 @@ class Limits:
 
     def DELETE(self, rse):
         """ Not supported. """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 """----------------------
@@ -883,4 +713,5 @@ class Limits:
 ----------------------"""
 
 app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()

@@ -10,6 +10,7 @@
 
 from nose.tools import assert_equal, assert_raises
 
+
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
@@ -17,10 +18,22 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid
+from rucio.core.rse import add_replicas, delete_replicas
 from rucio.rse.rsemanager import RSEMgr
 
 
-class TestReplica():
+class TestReplicaCore:
+
+    def test_delete_replicas(self):
+        """ REPLICA (CORE): Delete replicas """
+        tmp_scope = 'mock'
+        nbfiles = 5
+        files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        add_replicas(rse='MOCK', files=files, account='root')
+        delete_replicas(rse='MOCK', files=files)
+
+
+class TestReplica:
 
     def setup(self):
         self.account_client = AccountClient()

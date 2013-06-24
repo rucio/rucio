@@ -11,13 +11,12 @@
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, header, BadRequest, Created, InternalError, Unauthorized
+from web import application, header, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.scope import add_scope, get_scopes, list_scopes
-from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.common.utils import generate_http_error
-
+from rucio.web.rest.common import authenticate
 
 logger = getLogger("rucio.scope")
 sh = StreamHandler()
@@ -42,18 +41,6 @@ class Scope:
         HTTP Success:
             200 Success
         """
-
-        header('Content-Type', 'application/octet-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         return dumps(list_scopes())
 
     def PUT(self):
@@ -76,15 +63,6 @@ class Scope:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         try:
             add_scope(scope, account)
         except Duplicate, e:
@@ -122,17 +100,6 @@ class ScopeList:
         :returns: A list containing all scope names for an account.
         """
         header('Content-Type', 'application/json')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         try:
             scopes = get_scopes(account)
         except AccountNotFound, e:
@@ -146,15 +113,12 @@ class ScopeList:
         return dumps(scopes)
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def POST(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -163,4 +127,5 @@ class ScopeList:
 ----------------------"""
 
 app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()

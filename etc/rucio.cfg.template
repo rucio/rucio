@@ -28,7 +28,9 @@ request_retries = 3
 sqlite = sqlite:////tmp/rucio.db
 mysql = mysql://ddmlab:ddmlab@localhost/rucio
 default = sqlite:////tmp/rucio.db
-
+pool_recycle=3600
+echo=0
+pool_reset_on_return=rollback
 
 [bootstrap]
 # Hardcoded salt = 0, String = secret, Python: hashlib.sha256("0secret").hexdigest()

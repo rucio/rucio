@@ -11,12 +11,12 @@
 
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, ctx, data, header, BadRequest, Created, InternalError, Unauthorized
+from web import application, ctx, data, BadRequest, Created, InternalError, loadhook, header
 
-from rucio.api.authentication import validate_auth_token
 from rucio.api.meta import add_key, add_value, list_keys, list_values
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException
 from rucio.common.utils import generate_http_error
+from rucio.web.rest.common import authenticate
 
 
 logger = getLogger("rucio.meta")
@@ -40,18 +40,7 @@ class Meta:
         HTTP Success:
             200 Success
         """
-
-        header('Content-Type', 'application/octet-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
+        header('Content-Type', 'application/json')
         return dumps(list_keys())
 
     def PUT(self):
@@ -74,16 +63,6 @@ class Meta:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         type, regexp = None, None
         json_data = data()
         try:
@@ -98,7 +77,7 @@ class Meta:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, issuer=auth['account'])
+            add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, issuer=ctx.env.get('issuer'))
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except UnsupportedValueType, e:
@@ -125,17 +104,7 @@ class Values:
         HTTP Success:
             200 Success
         """
-
-        header('Content-Type', 'application/octet-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+        header('Content-Type', 'application/json')
         return dumps(list_values(key=key))
 
     def PUT(self):
@@ -158,15 +127,6 @@ class Values:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-
-        header('Content-Type', 'application/octet-stream')
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise Unauthorized()
-
         json_data = data()
         try:
             params = loads(json_data)
@@ -175,7 +135,7 @@ class Values:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_value(key=key, value=value, issuer=auth['account'])
+            add_value(key=key, value=value, issuer=ctx.env.get('issuer'))
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except InvalidValueForKey, e:
@@ -199,4 +159,5 @@ class Values:
 ----------------------"""
 
 app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()

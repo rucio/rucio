@@ -13,16 +13,15 @@ from datetime import datetime
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
-from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK
-
+from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK, loadhook
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
-from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_account_identity
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
+from rucio.web.rest.common import authenticate
 
 logger = getLogger("rucio.account")
 sh = StreamHandler()
@@ -57,17 +56,6 @@ class Scopes:
         :returns: A list containing all scope names for an account.
         """
         header('Content-Type', 'application/json')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             scopes = get_scopes(account)
         except AccountNotFound, e:
@@ -100,18 +88,8 @@ class Scopes:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if not auth:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
-            add_scope(scope, account, issuer=auth.get('account'))
+            add_scope(scope, account, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -146,22 +124,10 @@ class AccountParameter:
 
         :returns: JSON dict containing informations about the requested user.
         """
-
         header('Content-Type', 'application/json')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         if account == 'whoami':
             # Redirect to the account uri
-            raise seeother(auth['account'])
+            raise seeother(ctx.env.get('issuer'))
 
         acc = None
         try:
@@ -181,7 +147,6 @@ class AccountParameter:
 
     def PUT(self, account):
         """ update account informations for given account name """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def POST(self, account):
@@ -200,17 +165,7 @@ class AccountParameter:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Type: the type of the new account.
         """
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
-
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -227,7 +182,7 @@ class AccountParameter:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account(account, type, issuer=auth.get('account'))
+            add_account(account, type, issuer=ctx.env.get('issuer'))
         except Duplicate as e:
             raise generate_http_error(409, 'Duplicate', e.args[0][0])
         except AccessDenied, e:
@@ -255,17 +210,8 @@ class AccountParameter:
         :param Rucio-Auth-Token: as an 32 character hex string.
         """
 
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
-            del_account(account, issuer=auth.get('account'))
+            del_account(account, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except AccountNotFound, e:
@@ -291,32 +237,17 @@ class Account:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :returns: A list containing all account names as dict.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         for account in list_accounts():
             yield render_json(**account) + "\n"
 
     def PUT(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def POST(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -327,16 +258,13 @@ class AccountLimits:
 
     def PUT(self):
         """ update the limits for an account """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def POST(self):
         """ set the limits for an account """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -355,18 +283,7 @@ class Identities:
 
         :param account: Account identifier.
         """
-
-        header('Content-Type', 'application/octet-stream')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         json_data = data()
-
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -382,7 +299,7 @@ class Identities:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, type=authtype, account=account, issuer=auth.get('account'))
+            add_account_identity(identity_key=identity, type=authtype, account=account, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate as e:
@@ -396,17 +313,6 @@ class Identities:
 
     def GET(self, account):
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-
         try:
             for identity in list_identities(account):
                 yield dumps(identity) + "\n"
@@ -418,11 +324,9 @@ class Identities:
 
     def PUT(self):
         """ update the limits for an account """
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
     def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
@@ -441,17 +345,7 @@ class Rules:
 
         :param scope: The scope name.
         """
-
         header('Content-Type', 'application/x-json-stream')
-        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        header('Cache-Control', 'post-check=0, pre-check=0', False)
-        header('Pragma', 'no-cache')
-
-        auth_token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         try:
             for rule in list_replication_rules({'account': account}):
                 yield dumps(rule, cls=APIEncoder) + '\n'
@@ -475,4 +369,5 @@ class Rules:
 ----------------------"""
 
 app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()

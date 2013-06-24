@@ -289,11 +289,13 @@ class DIDKey(BASE, ModelBase):
     """Represents Data IDentifier property keys"""
     __tablename__ = 'did_keys'
     key = Column(String(255))
+    is_enum = Column(Boolean(name='DID_KEYS_IS_ENUM_CHK'), server_default='0')
     key_type = Column(KeyType.db_type(name='DID_KEYS_TYPE_CHK'))
     value_type = Column(String(255))
     value_regexp = Column(String(255))
     _table_args = (PrimaryKeyConstraint('key', name='DID_KEYS_PK'),
                    CheckConstraint('key_type IS NOT NULL', name='DID_KEYS_TYPE_NN'),
+                   CheckConstraint('is_enum IS NOT NULL', name='DID_KEYS_IS_ENUM_NN'),
                    )
 
 
