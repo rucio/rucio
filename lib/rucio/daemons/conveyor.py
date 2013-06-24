@@ -17,7 +17,7 @@ import time
 import traceback
 
 from rucio.core import did, request, rse
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import RequestType, RequestState
 from rucio.rse import rsemanager
 
@@ -39,7 +39,10 @@ def submitter(once=False):
 
         try:
 
+            ts = time.time()
             req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED)
+            record_timer('daemons.conveyor.submitter.000-get_next', time.time()-ts)
+
             if req is None:
                 if once:
                     break
@@ -47,16 +50,26 @@ def submitter(once=False):
                 time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
+            ts = time.time()
             sources = sum([[str(pfn) for pfn in source['pfns']] for source in did.list_replicas(scope=req['scope'], name=req['name'])], [])
-            rse_name = rse.get_rse_by_id(req['dest_rse_id'])['rse']
+            record_timer('daemons.conveyor.submitter.001-list_replicas', time.time()-ts)
 
+            ts = time.time()
+            rse_name = rse.get_rse_by_id(req['dest_rse_id'])['rse']
+            record_timer('daemons.conveyor.submitter.002-get_rse', time.time()-ts)
+
+            ts = time.time()
             pfn = rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'filename': req['name']}])
+            record_timer('daemons.conveyor.submitter.003-lfn2pfn', time.time()-ts)
+
             if isinstance(pfn, list):
                 destinations = [str(d) for d in pfn]
             else:
                 destinations = [str(pfn)]
 
+            ts = time.time()
             request.submit_transfer(req['request_id'], sources, destinations, 'fts3-mock', {'issuer': 'rucio-conveyor'})
+            record_timer('daemons.conveyor.submitter.004-submit_transfer', time.time()-ts)
 
             record_counter('daemons.conveyor.submitter.submit_request')
 
@@ -83,13 +96,18 @@ def poller(once=False):
     while not graceful_stop.is_set():
 
         try:
+            ts = time.time()
             req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED)
+            record_timer('daemons.conveyor.poller.000-get_next', time.time()-ts)
+
             if req is [] or req is None:
                 print 'poller: idling'
                 time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
+            ts = time.time()
             request.query_request(req['request_id'])
+            record_timer('daemons.conveyor.poller.001-query_request', time.time()-ts)
 
             record_counter('daemons.conveyor.poller.query_request')
 

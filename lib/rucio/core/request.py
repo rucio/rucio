@@ -88,7 +88,7 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
 @read_session
 def get_next(req_type, state, session=None):
     """
-    Retrieve the next request matching the request type and state.
+    Retrieve the next random request matching the request type and state.
 
     :param account: Account identifier as a string.
     :param req_type: Type of the request as a string.
@@ -98,21 +98,22 @@ def get_next(req_type, state, session=None):
 
     record_counter('core.request.get_next.%s-%s' % (req_type, state))
 
-    # TODO: There are many smarter ways to do this. To be continued...
+    #  TODO: Still stupid, but better than .all()
 
-    tmp = session.query(models.Request).add_columns(models.Request.id,
-                                                    models.Request.scope,
-                                                    models.Request.name,
-                                                    models.Request.dest_rse_id).filter_by(request_type=req_type, state=state).all()
+    tmp_q = session.query(models.Request).add_columns(models.Request.id,
+                                                      models.Request.scope,
+                                                      models.Request.name,
+                                                      models.Request.dest_rse_id)\
+                                         .filter_by(request_type=req_type, state=state)
+    tmp = tmp_q.offset(random.randint(0, tmp_q.count())).first()
 
     if tmp == [] or tmp is None:
         return None
     else:
-        rsel = random.sample(tmp, 1)[0]
-        return {'request_id': rsel[1],
-                'scope': rsel[2],
-                'name': rsel[3],
-                'dest_rse_id': rsel[4]}
+        return {'request_id': tmp[1],
+                'scope': tmp[2],
+                'name': tmp[3],
+                'dest_rse_id': tmp[4]}
 
 
 @read_session
