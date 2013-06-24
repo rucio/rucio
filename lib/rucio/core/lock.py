@@ -8,11 +8,10 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_
 
 from rucio.db import models
-from rucio.db.constants import LockState
+from rucio.db.constants import LockState, RuleState
 from rucio.db.session import read_session, transactional_session
 
 
@@ -30,14 +29,13 @@ def get_replica_locks(scope, name, db_lock=True, session=None):
     """
 
     rses = []
-    try:
-        query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
-        if db_lock:
-            query = query.with_lockmode("update")
-        for row in query:
-            rses.append({'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
-    except NoResultFound:  # TODO: Actually raise the exception?
-        rses = []
+
+    query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
+    if db_lock:
+        query = query.with_lockmode("update")
+    for row in query:
+        rses.append({'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
+
     return rses
 
 
@@ -54,14 +52,13 @@ def get_replica_locks_for_rule(rule_id, db_lock=True, session=None):
     """
 
     locks = []
-    try:
-        query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
-        if db_lock:
-            query = query.with_lockmode("update")
-        for row in query:
-            locks.append({'scope': row.scope, 'name': row.name, 'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
-    except NoResultFound:  # TODO: Actually raise the exception?
-        locks = []
+
+    query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
+    if db_lock:
+        query = query.with_lockmode("update")
+    for row in query:
+        locks.append({'scope': row.scope, 'name': row.name, 'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
+
     return locks
 
 
@@ -115,11 +112,21 @@ def successful_transfer(scope, name, rse_id, session=None):
     locks = session.query(models.ReplicaLock).with_lockmode('update').filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         lock.state = LockState.OK
-        # Check if the rule_id of the lock has any REPLICATING locks LEFT
-        # TODO This query does not work with the new schema, as rule_id is not INDEXED on the locks table
-        if session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == lock.rule_id,
-                                                    models.ReplicaLock.state != LockState.OK).count() == 0:
-            session.query(models.ReplicationRule).filter_by(id=lock.rule_id).one().state = LockState.OK
+
+        # Update the rule counters
+        rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=lock.rule_id).one()
+        rule.lock_replicating_cnt -= 1
+        rule.lock_ok_cnt += 1
+
+        # Update the rule state
+        if (rule.state == RuleState.SUSPENDED):
+            continue
+        elif (rule.error is not None):
+            rule.state = RuleState.STUCK
+        elif (rule.locks_stuck_cnt > 0):
+            rule.state = RuleState.STUCK
+        elif (rule.locks_replicating.cnt == 0):
+            rule.state = RuleState.OK
 
 
 @transactional_session
@@ -135,8 +142,16 @@ def failed_transfer(scope, name, rse_id, session=None):
     locks = session.query(models.ReplicaLock).with_lockmode('update').filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         lock.state = LockState.STUCK
-        # Check if the rule_id of the lock has any REPLICATING locks LEFT
-        # TODO This query does not work with the new schema, as rule_id is not INDEXED on the locks table
-        if session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == lock.rule_id,
-                                                    models.ReplicaLock.state != LockState.OK).count() == 0:
-            session.query(models.ReplicationRule).filter_by(id=lock.rule_id).one().state = LockState.STUCK
+
+        # Update the rule counters
+        rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=lock.rule_id).one()
+        rule.lock_replicating_cnt -= 1
+        rule.lock_stuck_cnt += 1
+
+        # Update the rule state
+        if (rule.state == RuleState.SUSPENDED):
+            continue
+        elif (rule.error is not None):
+            rule.state = RuleState.STUCK
+        elif (rule.locks_stuck_cnt > 0):
+            rule.state = RuleState.STUCK
