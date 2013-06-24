@@ -8,9 +8,12 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
+import time
+
 from random import uniform, shuffle
 
-from rucio.common.exception import InvalidReplicationRule, InsufficientQuota, InsufficientTargetRSEs
+from rucio.common.exception import InsufficientQuota, InsufficientTargetRSEs, InvalidRSEExpression
+from rucio.core.monitor import record_timer
 from rucio.core.quota import list_account_limits, list_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.db.session import read_session
@@ -31,9 +34,10 @@ class RSESelector():
         :param weight:   Weighting to use.
         :param copies:   Number of copies to create.
         :param session:  DB Session in use.
-        :raises:         InvalidReplicationRule
+        :raises:         InvalidRSEExpression, InsufficientTargetRSEs
         """
 
+        start_time = time.time()
         self.account = account
         self.rses = []
         self.copies = copies
@@ -45,17 +49,19 @@ class RSESelector():
                 try:
                     self.rses.append({'rse_id': rse_id, 'weight': float(attributes[weight])})
                 except ValueError:
-                    raise InvalidReplicationRule('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse_id, weight))
+                    raise InvalidRSEExpression('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse_id, weight))
         else:
             self.rses = [{'rse_id': rse_id, 'weight': 1} for rse_id in rse_ids]
         if not self.rses:
-            raise InvalidReplicationRule('Target RSE set empty (Check if weight attribute is set for the specified RSEs)')
+            raise InsufficientTargetRSEs('Target RSE set empty (Check if weight attribute is set for the specified RSEs)')
 
         for rse in self.rses:
             #TODO: Add RSE-space-left here!
             rse['quota_left'] = list_account_limits(account=account, rse_id=rse['rse_id'], session=session) - list_account_usage(account=account, rse_id=rse['rse_id'], session=session)
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
+        end_time = time.time()
+        record_timer(stat='rse_selector.create', time=end_time - start_time)
 
     def select_rse(self, size, preferred_rse_ids, blacklist=[]):
         """
