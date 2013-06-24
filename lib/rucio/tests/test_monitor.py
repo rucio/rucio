@@ -23,7 +23,7 @@ class TestMonitor():
 
     def test_monitor_record_counter_message(self):
         """MONITOR (CORE): Send a counter message to graphite """
-        monitor.record_counter('test.stuff', 10)
+        monitor.record_counter('test.counter', 10)
 
     def test_monitor_record_gauge_message(self):
         """MONITOR (CORE): Send a gauge message to graphite """
@@ -32,3 +32,9 @@ class TestMonitor():
     def test_monitor_record_timer_message(self):
         """MONITOR (CORE): Send a timer message to graphite """
         monitor.record_timer('test.runtime', 500)
+
+    def test_monitor_context_record_timer(self):
+        """MONITOR (CORE): Send a timer message to graphite using context """
+        with monitor.record_timer_block('test.context_timer'):
+            a = 2 * 100
+            a = a * 1
