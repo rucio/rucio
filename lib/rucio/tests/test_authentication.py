@@ -35,7 +35,6 @@ class TestAuthRestApi():
 
     def test_userpass_success(self):
         """AUTHENTICATION (REST): Username and password (correct credentials)."""
-
         mw = []
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r = TestApp(app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)

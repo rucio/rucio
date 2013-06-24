@@ -7,11 +7,12 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
-import web
+from web import application, ctx, BadRequest, Created, InternalError, loadhook
 
-from rucio.api.authentication import validate_auth_token
 from rucio.api.identity import add_identity, add_account_identity
+from rucio.rest.common import authenticate
 
 urls = (
     '/(.+)/userpass', 'UserPass',
@@ -24,8 +25,7 @@ class UserPass:
     """ Manage a username/password identity for an account. """
 
     def GET(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self, account):
         """
@@ -44,51 +44,38 @@ class UserPass:
         :param Rucio-Password: the desired password.
         :param account: the affected account via URL.
         """
-
-        web.header('Content-Type', 'application/octet-stream')
-
-        auth_token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise web.Unauthorized()
-
-        username = web.ctx.env.get('HTTP_X_RUCIO_USERNAME')
-        password = web.ctx.env.get('HTTP_X_RUCIO_PASSWORD')
+        username = ctx.env.get('HTTP_X_RUCIO_USERNAME')
+        password = ctx.env.get('HTTP_X_RUCIO_PASSWORD')
 
         if username is None or password is None:
-            raise web.BadRequest('Username and Password must be set.')
+            raise BadRequest('Username and Password must be set.')
 
         try:
             add_identity(username, 'userpass', password)
         except Exception, e:
             # TODO: Proper rollback
-            raise web.InternalError(e)
+            raise InternalError(e)
 
         try:
             add_account_identity(username, 'userpass', account)
         except Exception, e:
             # TODO: Proper rollback
-            raise web.InternalError(e)
+            raise InternalError(e)
 
-        raise web.Created()
+        raise Created()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
 
 class x509:
     """ Manage an x509 identity for an account. """
 
     def GET(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self, account):
         """
@@ -106,47 +93,33 @@ class x509:
         :param SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
         :param account: the affected account via URL.
         """
-
-        web.header('Content-Type', 'application/octet-stream')
-
-        auth_token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise web.Unauthorized()
-
-        dn = web.ctx.env.get('SSL_CLIENT_S_DN')
-
+        dn = ctx.env.get('SSL_CLIENT_S_DN')
         try:
             add_identity(dn, 'x509')
         except Exception, e:
             # TODO: Proper rollback
-            raise web.InternalError(e)
+            raise InternalError(e)
 
         try:
             add_account_identity(dn, 'x509', account)
         except Exception, e:
             # TODO: Proper rollback
-            raise web.InternalError(e)
+            raise InternalError(e)
 
-        raise web.Created()
+        raise Created()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
 
 class GSS:
     """ Manage a GSS identity for an account. """
 
     def GET(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self, account):
         """
@@ -164,43 +137,31 @@ class GSS:
         :param SavedCredentials: Apache mod_auth_kerb SavedCredentials.
         :param account: the affected account via URL.
         """
-
-        web.header('Content-Type', 'application/octet-stream')
-
-        auth_token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
-
-        auth = validate_auth_token(auth_token)
-
-        if auth is None:
-            raise web.Unauthorized()
-
-        gsscred = web.ctx.env.get('REMOTE_USER')
-
+        gsscred = ctx.env.get('REMOTE_USER')
         try:
             add_identity(gsscred, 'gss')
         except Exception, e:
             # TODO: Proper rollback
-            raise web.InternalError(e)
+            raise InternalError(e)
 
         try:
             add_account_identity(gsscred, 'gss', account)
         except Exception, e:
             # TODO: Proper rollback
-            raise web.InternalError(e)
+            raise InternalError(e)
 
-        raise web.Created()
+        raise Created()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        raise BadRequest()
 
 """----------------------
    Web service startup
    ----------------------"""
 
-app = web.application(urls, globals())
+app = application(urls, globals())
+app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()

@@ -172,9 +172,23 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='DEL', data=render_json(**data))
         if r.status_code == codes.ok:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+        raise exc_cls(exc_msg)
+
+    def attach_dids_to_dids(self, attachments, rse=None):
+        """
+        Add dids to dids.
+
+        :param attachments: The attachments.
+        :param rse: The RSE name when registering replicas.
+        """
+        path = '/'.join([self.DIDS_BASEURL, 'attachments'])
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='POST', data=render_json_list(attachments))
+        if r.status_code == codes.created:
+            return True
+        exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+        raise exc_cls(exc_msg)
 
     def add_files_to_dataset(self, scope, name, files, rse=None):
         """

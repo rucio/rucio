@@ -19,7 +19,7 @@ import json
 import sqlalchemy
 import sqlalchemy.orm
 
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
@@ -514,12 +514,65 @@ def del_replica(rse, scope, name, session=None):
 
     :returns: True is successful.
     """
+    return delete_replicas(rse=rse, files=[{'scope': scope, 'name': name}, ], session=session)
+
+
+@transactional_session
+def delete_replicas(rse, files, session=None):
+    """
+    Delete file replicas.
+
+    :param rse: the rse name.
+    :param files: the list of files to delete.
+    :param session: The database session in use.
+    """
     replica_rse = get_rse(rse=rse, session=session)
 
-    query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name)
-    for row in query:
-        row.delete(session=session)
-        decrease(rse_id=replica_rse.id, delta=1, bytes=row['bytes'], session=session)
+    condition = or_()
+    replicas = {}
+    for file in files:
+        replicas['%(scope)s:%(name)s' % file] = None
+        condition.append(and_(models.RSEFileAssociation.scope == file['scope'],
+                              models.RSEFileAssociation.name == file['name'],
+                              models.RSEFileAssociation.rse_id == replica_rse.id))
+
+    delta, bytes = 0, 0
+    for replica in session.query(models.RSEFileAssociation).filter(condition):
+
+        replica.delete(session=session, flush=False)
+
+        # List all parents datasets
+        for parent in session.query(models.DataIdentifierAssociation.name, models.DataIdentifierAssociation.scope).filter_by(child_scope=file['scope'], child_name=file['name']):
+
+            # Remove the file from the content for the last replica
+            session.query(models.DataIdentifierAssociation).filter_by(scope=parent['scope'], name=parent['name'], child_scope=replica['scope'], child_name=replica['name']).\
+                filter(~exists([1]).where(and_(models.RSEFileAssociation.scope == replica['scope'], models.RSEFileAssociation.name == replica['name']))).\
+                delete(synchronize_session=False)
+
+            # Flag as deleted empty closed datasets
+            session.query(models.DataIdentifier).filter_by(scope=parent['scope'], name=parent['name'], did_type=DIDType.DATASET, is_open=False).\
+                filter(~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent['scope'], models.DataIdentifierAssociation.name == parent['name']))).\
+                update({'did_type': DIDType.DELETED_DATASET}, synchronize_session=False)
+
+            # Parent containers missing
+
+        # Flag as deleted file with no replicas
+        session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
+            filter(~exists([1]).where(and_(models.RSEFileAssociation.scope == replica['scope'], models.RSEFileAssociation.name == replica['name']))).\
+            update({'did_type': DIDType.DELETED_FILE}, synchronize_session=False)
+
+        del replicas['%s:%s' % (replica.scope, replica.name)]
+        bytes += replica['bytes']
+        delta += 1
+
+    if replicas:
+        raise exception.ReplicaNotFound(str(replicas))
+
+    # Error handling foreign key constraint violation
+    session.flush()
+
+    # Decrease RSE counter
+    decrease(rse_id=replica_rse.id, delta=delta, bytes=bytes, session=session)
 
 
 @transactional_session
