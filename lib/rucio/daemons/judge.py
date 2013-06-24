@@ -38,7 +38,7 @@ def re_evaluator(once=False):
         if once:
             return
         if not wait:
-            time.sleep(10)  # TODO
+            time.sleep(10)  # TODO get from config
 
     print 're_evaluator: graceful stop requested'
 
@@ -64,7 +64,7 @@ def rule_cleaner(once=False):
         if once:
             return
         if not wait:
-            time.sleep(10)  # TODO
+            time.sleep(10)  # TODO get from config
 
     print 'rule_cleaner: graceful stop requested'
 

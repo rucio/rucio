@@ -182,7 +182,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     for file in replicas or files:
         did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
                                                     bytes=file['bytes'], adler32=file.get('adler32'),
-                                                    md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE)
+                                                    md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE, rule_evaluation=True)
         did_asso.save(session=session, flush=False)
     try:
         session.flush()
@@ -230,7 +230,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
 
     for c in collections:
         did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=c['scope'], child_name=c['name'],
-                                                    did_type=DIDType.CONTAINER, child_type=available_dids.get(c['scope'] + c['name']))
+                                                    did_type=DIDType.CONTAINER, child_type=available_dids.get(c['scope'] + c['name']), rule_evaluation=True)
         did_asso.save(session=session, flush=False)
     try:
         session.flush()
@@ -251,7 +251,7 @@ def attach_dids(scope, name, dids, account, rse=None, session=None):
     :param session: The database session in use.
     """
 
-    query = session.query(models.DataIdentifier.did_type, models.DataIdentifier.is_open, models.DataIdentifier.rule_evaluation_action).with_lockmode('update').filter_by(scope=scope, name=name).\
+    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name).\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     try:
         did = query.one()
@@ -271,6 +271,7 @@ def attach_dids(scope, name, dids, account, rse=None, session=None):
             did.rule_evaluation_action = DIDReEvaluation.ATTACH
         elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
             did.rule_evaluation_action = DIDReEvaluation.BOTH
+        did.rule_evaluation_required = datetime.utcnow()
 
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
@@ -317,6 +318,7 @@ def detach_dids(scope, name, dids, issuer, session=None):
             did.rule_evaluation_action = DIDReEvaluation.DETACH
         elif did.rule_evaluation_action == DIDReEvaluation.ATTACH:
             did.rule_evaluation_action = DIDReEvaluation.BOTH
+        did.rule_evaluation_required = datetime.utcnow()
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 

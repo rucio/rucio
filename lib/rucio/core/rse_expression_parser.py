@@ -13,8 +13,10 @@ import abc
 import random
 import re
 import string
+import time
 
 from rucio.common.exception import InvalidRSEExpression
+from rucio.core.monitor import record_timer
 from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
 
@@ -41,6 +43,7 @@ def parse_expression(expression, session=None):
     :raises:            InvalidRSEExpression, RSENotFound
     """
     #Evaluate the correctness of the parantheses
+    start_time = time.time()
     parantheses_open_count = 0
     parantheses_close_count = 0
     for char in expression:
@@ -65,6 +68,8 @@ def parse_expression(expression, session=None):
     random.shuffle(result)
     if not result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
+    end_time = time.time()
+    record_timer(stat='rse_expression.parse', time=end_time - start_time)
     return result
 
 
