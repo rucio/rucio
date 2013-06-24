@@ -10,14 +10,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 
-import re
-import web
+from re import search
+from web import application, ctx, BadRequest, header
 
-from rucio.api.authentication import get_auth_token_user_pass
-from rucio.api.authentication import get_auth_token_gss
-from rucio.api.authentication import get_auth_token_x509
-from rucio.api.authentication import validate_auth_token
+from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, validate_auth_token
 from rucio.common.exception import AccessDenied
+from rucio.common.utils import generate_http_error
+
 
 urls = (
     '/userpass', 'UserPass',
@@ -48,48 +47,45 @@ class UserPass:
         :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
-        web.header('Pragma', 'no-cache')
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
-        account = web.ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
-        username = web.ctx.env.get('HTTP_X_RUCIO_USERNAME')
-        password = web.ctx.env.get('HTTP_X_RUCIO_PASSWORD')
-        appid = web.ctx.env.get('HTTP_X_RUCIO_APPID')
+        account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+        username = ctx.env.get('HTTP_X_RUCIO_USERNAME')
+        password = ctx.env.get('HTTP_X_RUCIO_PASSWORD')
+        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
             appid = 'unknown'
-        ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
-            ip = web.ctx.ip
+            ip = ctx.ip
 
         try:
             result = get_auth_token_user_pass(account, username, password, appid, ip)
-        except AccessDenied as e:
-            exc = web.Unauthorized()
-            exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
-            exc.data = e[0][0]
-            raise web.Unauthorized()
+        except AccessDenied:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         if result is None:
-            raise web.Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         else:
-            web.header('X-Rucio-Auth-Token', result)
+            header('X-Rucio-Auth-Token', result)
             return str()
 
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 class GSS:
@@ -111,46 +107,44 @@ class GSS:
         :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
-        web.header('Pragma', 'no-cache')
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
-        account = web.ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
-        gsscred = web.ctx.env.get('REMOTE_USER')
-        appid = web.ctx.env.get('HTTP_X_RUCIO_APPID')
+        account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+        gsscred = ctx.env.get('REMOTE_USER')
+        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
             appid = 'unknown'
-        ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
-            ip = web.ctx.ip
+            ip = ctx.ip
 
         try:
             result = get_auth_token_gss(account, gsscred, appid, ip)
-        except AccessDenied as e:
-            exc = web.Unauthorized()
-            exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
-            raise exc
+        except AccessDenied:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         if result is None:
-            raise web.Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         else:
-            web.header('X-Rucio-Auth-Token', result)
+            header('X-Rucio-Auth-Token', result)
             return str()
 
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 class x509:
@@ -172,19 +166,19 @@ class x509:
         :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
-        web.header('Pragma', 'no-cache')
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
-        account = web.ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
-        dn = web.ctx.env.get('SSL_CLIENT_S_DN')
-        appid = web.ctx.env.get('HTTP_X_RUCIO_APPID')
+        account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+        dn = ctx.env.get('SSL_CLIENT_S_DN')
+        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
             appid = 'unknown'
-        ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR')
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
-            ip = web.ctx.ip
+            ip = ctx.ip
 
         # If we get a valid proxy certificate we have to strip this postfix,
         # otherwise we would have to store the proxy DN in the database as well.
@@ -196,35 +190,33 @@ class x509:
         if dn.endswith('/CN=proxy'):
             while dn.endswith('/CN=proxy'):
                 dn = dn[:-9]
-        elif re.search('/CN=[0-9]*$', dn):
+        elif search('/CN=[0-9]*$', dn):
             dn = dn.rpartition('/')[0]
 
         try:
             result = get_auth_token_x509(account, dn, appid, ip)
-        except AccessDenied as e:
-            exc = web.Unauthorized()
-            exc.headers = {'Content-Type': 'text/html', 'ExceptionClass': 'AccessDenied', 'ExceptionMessage': e[0][0]}
-            raise exc
+        except AccessDenied:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
         if result is None:
-            raise web.Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         else:
-            web.header('X-Rucio-Auth-Token', result)
+            header('X-Rucio-Auth-Token', result)
             return str()
 
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 class Validate:
@@ -244,37 +236,38 @@ class Validate:
         :returns: Tuple(account name, token lifetime).
         """
 
-        web.header('Content-Type', 'application/octet-stream')
-        web.header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        web.header('Cache-Control', 'post-check=0, pre-check=0', False)
-        web.header('Pragma', 'no-cache')
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
 
-        token = web.ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+        token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+
         result = validate_auth_token(token)
 
         if result is None:
-            raise web.Unauthorized()
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
         else:
             return result
 
-        raise web.BadRequest()
+        raise BadRequest()
 
     def PUT(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def POST(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
     def DELETE(self):
-        web.header('Content-Type', 'application/octet-stream')
-        raise web.BadRequest()
+        header('Content-Type', 'application/octet-stream')
+        raise BadRequest()
 
 
 """----------------------
    Web service startup
 ----------------------"""
 
-app = web.application(urls, globals())
+app = application(urls, globals())
 application = app.wsgifunc()
