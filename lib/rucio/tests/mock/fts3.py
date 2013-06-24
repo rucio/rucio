@@ -9,11 +9,12 @@
 
 import datetime
 import random
+import time
 
 from sqlalchemy import and_, or_
 
 from rucio.common.utils import generate_uuid
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import record_counter, record_timer
 from rucio.db import test_models
 from rucio.db.constants import FTSState
 from rucio.db.session import read_session, transactional_session
@@ -49,10 +50,14 @@ def submit(tinfo, session):
 
     record_counter('daemons.mock.fts3.submit')
 
+    ts = time.time()
     tid = generate_uuid()
+    record_timer('daemons.mock.fts3.submit.000-generate_uuid', time.time()-ts)
 
+    ts = time.time()
     new_transfer = test_models.MockFTSTransfer(transfer_id=tid, transfer_metadata=str(tinfo))
     new_transfer.save(session=session)
+    record_timer('daemons.mock.fts3.submit.001-new_transfer', time.time()-ts)
 
     return {'job_id': tid}
 
@@ -68,16 +73,19 @@ def query(tid, session):
 
     record_counter('daemons.mock.fts3.query')
 
+    ts = time.time()
     new_state = random.sample(sum([[FTSState.FINISHED]*15, [FTSState.FAILED]*3, [FTSState.FINISHEDDIRTY]*2, [FTSState.ACTIVE]*80], []), 1)[0]
+    record_timer('daemons.mock.fts3.query.000-random_sample', time.time()-ts)
 
+    ts = time.time()
     query = session.query(test_models.MockFTSTransfer).filter(and_(test_models.MockFTSTransfer.transfer_id == tid,
                                                                    or_(test_models.MockFTSTransfer.state == FTSState.SUBMITTED,
                                                                        test_models.MockFTSTransfer.state == FTSState.ACTIVE)))
     query.update({'state': new_state,
                   'last_modified': datetime.datetime.utcnow()})
+    record_timer('daemons.mock.fts3.query.001-update_state', time.time()-ts)
 
     r = {'job_state': str(new_state)}
-
     if new_state == FTSState.FAILED or new_state == FTSState.FINISHEDDIRTY:
         r['reason'] = 'Mock FTS decided to kill your transfer.'
         r['files'] = [{'source_surl': 'mock_src', 'dest_surl': 'mock_dest', 'reason': 'mock failure'}]
@@ -95,6 +103,8 @@ def cancel(tid, session):
 
     record_counter('daemons.mock.fts3.cancel')
 
+    ts = time.time()
     query = session.query(test_models.MockFTSTransfer).filter(tid=tid)
     query.update({'state': FTSState.CANCELED,
                   'last_modified': datetime.datetime.utcnow()})
+    record_timer('daemons.mock.fts3.cancel.update_state', time.time()-ts)
