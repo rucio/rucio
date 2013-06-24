@@ -12,6 +12,7 @@ import datetime
 import os
 import threading
 import time
+import traceback
 
 from Queue import PriorityQueue, Empty
 from random import choice, gauss, sample, random, randint
@@ -28,46 +29,43 @@ class UseCaseDefinition(UCEmulator):
     """
 
     @UCEmulator.UseCase
-    def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration):
+    def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk):
         create_dis_ds = (input['dis_ds_probability'] > random())
-        print 'CREATE TASK: %s (dis-ds: %s)' % (task_type, create_dis_ds)
-        print 'Using input ds: %s:%s' % (input['scope'], input['ds_name'])
         client = Client()
 
-        meta = {'project': 'NoProjectDefined',
-                'prod_step': 'NoProdstepDefined',
-                'datatype': 'NoDatatypeDefined',
-                'version': uuid()
-                }
-        meta.update({'run_number': 'NoRunNumberDefined', 'stream_name': 'NoStreamNameDefined'})
+        files = [f for f in self.time_it(fn=client.list_replicas, kwargs={'scope': input['scope'], 'name': input['ds_name']})]
 
+        print '%s using %s file (dis-ds: %s)' % (task_type, len(files), create_dis_ds)
         # Determine metadata for output dataset
+        meta = dict()
         try:
-            #meta.update(client.get_metadata(scope=input['scope'], name=input['ds_name']))
-            meta.update(self.time_it(fn=client.get_metadata, kwargs={'scope': input['scope'], 'name': input['ds_name']}))
+            meta_i = self.time_it(fn=client.get_metadata, kwargs={'scope': input['scope'], 'name': input['ds_name']})
         except Exception, e:
-            print '!! ERROR !! Getting metadata from input dataset failed'  # : %s' % e
-            pass
-        meta.update(output['meta'])
+            print '!! ERROR !! Getting metadata from input dataset failed: %s' % e
+            meta_i = {'stream_name': None, 'run_number': 0, 'project': None}
 
-        #for key in client.
+        for key in ['stream_name', 'run_number', 'project']:
+            if meta_i[key] is not None:
+                meta[key] = meta_i[key]
+            else:
+                meta[key] = 'NotGivenByInput'
+
+        meta['guid'] = uuid()
+        meta['version'] = uuid()
+        meta['datatype'] = output['meta']['datatype']
+        meta['prod_step'] = output['meta']['prod_step']
         # Create final output - dataset
-        final_ds = '.'.join([meta['project'], meta['run_number'], meta['stream_name'], meta['prod_step'], meta['datatype'], meta['version']])
+        final_ds = '.'.join([meta['project'], str(meta['run_number']), meta['stream_name'], meta['prod_step'], meta['datatype'], meta['version']])
         self.time_it(fn=client.add_container, kwargs={'scope': output['scope'], 'name': 'cnt_%s' % final_ds, 'lifetime': output['lifetime'],
                                                       'rules': [{'account': output['account'], 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}]}
                      )
-        #client.add_container(scope=output['scope'], name='cnt_%s' % final_ds, lifetime=output['lifetime'],
-        #                     rules=[{'account': output['account'], 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}]
-        #                     )
         try:
-            client.add_dataset(scope=output['scope'], name=final_ds, meta=meta)
+            self.time_it(fn=client.add_dataset, kwargs={'scope': output['scope'], 'name': final_ds, 'meta': meta})
+            print 'Final DS: %s:%s' % (output['scope'], final_ds)
         except Exception, e:
             print '!! ERROR !! Failed creating output dataset: %s' % e
-            return {'job_finish': [], 'task_finish': []}
-        #client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % final_ds, dsns=[{'scope': output['scope'], 'name': final_ds}])
+            return False
         self.time_it(fn=client.add_datasets_to_container, kwargs={'scope': output['scope'], 'name': 'cnt_%s' % final_ds, 'dsns': [{'scope': output['scope'], 'name': final_ds}]})
-        print 'Created output dataset: %s' % final_ds
-        print 'Metadata for output dataset: %s' % meta
 
         # List files in input dataset and create _dis datasets (input for 20 jobs per DS)
         sub_dss = []
@@ -75,12 +73,21 @@ class UseCaseDefinition(UCEmulator):
         dis_ds = None
         sub_ds = None
         computing_rse = None
-        #for f in client.list_files(scope=input['scope'], name=input['ds_name']):
-        for f in self.time_it(fn=client.list_files, kwargs={'scope': input['scope'], 'name': input['ds_name']}):
+
+        file_keys = list()  # Should be removed if the retruned dict from list_replicas is changed
+        inserts = list()
+
+        for f in files:
             if len(files_in_ds) == (20 * input['number_of_inputfiles_per_job']):
                 if create_dis_ds:
-                    #client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)
-                    self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'files': files_in_ds})
+                    if bulk:
+                        inserts.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400,
+                                        'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}],
+                                        'dids': files_in_ds})  # Create DIS-Datasets
+                        print 'Prep dis: %s' % (dis_ds)
+                    else:
+                        self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'files': files_in_ds})
+                        print 'Fill dis: %s' % (dis_ds)
                 sub_dss.append((sub_ds, 20, computing_rse))
                 files_in_ds = []
             if len(files_in_ds) == 0:  # Create dis - dataset and sub - dataset
@@ -88,42 +95,53 @@ class UseCaseDefinition(UCEmulator):
                 dis_ds = '%s_DIS_%s' % (input['ds_name'], id)
                 sub_ds = '%s_SUB_%s' % (input['ds_name'], id)
                 computing_rse = choice(rses)
-                if create_dis_ds:
-                    #client.add_dataset(scope='Manure', name=dis_ds, lifetime=86400, rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}])  # Create DIS-Datasets
-                    self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400, 'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}]})  # Create DIS-Datasets
-                #client.add_dataset(scope='Manure', name=sub_ds, lifetime=86400,
-                #                   rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
-                #                          {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
-                #                          ]
-                self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': sub_ds, 'lifetime': 86400,
-                                                            'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
-                                                                      {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
-                                                                      ]})  # Create SUB-Datasets
-            files_in_ds.append(f)
+                if bulk:
+                    inserts.append({'scope': 'Manure', 'name': sub_ds, 'lifetime': 86400, 'dids': [],
+                                   'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
+                                             {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
+                                             ]})  # Create SUB-Datasets
+                    print 'Prep sub_ds: %s' % sub_ds
+                else:
+                    if create_dis_ds:
+                        self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400, 'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}]})  # Create DIS-Datasets
+                        print 'Create dis_ds: %s' % dis_ds
+                    self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': sub_ds, 'lifetime': 86400,
+                                                                'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
+                                                                          {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
+                                                                          ]})  # Create SUB-Datasets
+                    print 'Create sub_ds: %s' % sub_ds
 
-        if (not len(sub_dss)) and (not len(files_in_ds)):
-            print '!! ERROR !! Empty input dataset provided'
+            # Should be changed when the response from list_replicas is updated
+            if '%s:%s' % (f['scope'], f['name']) not in file_keys:
+                file_keys.append('%s:%s' % (f['scope'], f['name']))
+                files_in_ds.append({'scope': f['scope'], 'name': f['name'], 'bytes': f['bytes']})
+
         # Last DIS-DS: Add files to dis - dataset and replication rule
         if len(files_in_ds):
-            id = uuid()
-            dis_ds = '%s_DIS_%s' % (input['ds_name'], id)
-            sub_ds = '%s_SUB_%s' % (input['ds_name'], id)
-            computing_rse = choice(rses)
             if create_dis_ds:
-                #client.add_dataset(scope='Manure', name=dis_ds, lifetime=86400, rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}])  # Create DIS-Datasets
-                #client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)
-                self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400, 'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}]})  # Create DIS-Datasets
-                self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'files': files_in_ds})
-            #client.add_dataset(scope='Manure', name=sub_ds, lifetime=86400,
-            #                   rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
-            #                          {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
-            #                          ]
-            #                   )  # Create SUB-Datasets
-            self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': sub_ds, 'lifetime': 86400,
-                                                        'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
-                                                                  {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
-                                                                  ]})  # Create SUB-Datasets
+                if bulk:
+                    inserts.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400,
+                                    'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}],
+                                    'dids': files_in_ds})  # Create DIS-Datasets
+                    print 'Prep remaining dis: %s' % dis_ds
+                else:
+                    try:
+                        self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'files': files_in_ds})
+                        print 'Fill remaining %s to dis: %s' % (len(files_in_ds), dis_ds)
+                    except Exception, e:
+                        print '!! ERROR !! Failed adding files to dis-ds %s: %s' % (dis_ds, e)
             sub_dss.append((sub_ds, int(round(len(files_in_ds) / input['number_of_inputfiles_per_job'])), computing_rse))
+
+        # Bulk inserting all dis- and sub datasets (including files)
+        if bulk:
+            print '-' * 100
+            print inserts
+            try:
+                self.time_it(fn=client.attach_dids_to_dids, kwargs={'attachments': inserts})
+            except Exception, e:
+                print e
+                print traceback.format_exc()
+            print '-' * 100
 
         # Calculate times
         job_finish = []         # When each job finishes -> register output files(s)
@@ -148,7 +166,6 @@ class UseCaseDefinition(UCEmulator):
             task_finish = (max_job_completion + gauss(**file_transfer_duration), (output['scope'], final_ds), sub_ds_names)  # Again, adding 5 seconds for safety
         else:
             task_finish = (max_job_completion + 5, (output['scope'], final_ds), sub_ds_names)  # Again, adding 5 seconds for safety
-        print 'Task successful created'
         return {'job_finish': job_finish, 'task_finish': task_finish}
 
     def CREATE_TASK_input(self, ctx):
@@ -166,16 +183,17 @@ class UseCaseDefinition(UCEmulator):
         input_ds = self.select_input_ds(task_type, ctx)
         ret['input']['ds_name'] = input_ds[1]
         ret['input']['scope'] = input_ds[0]
-        #ret['input']['ds_name'] = ctx.ds_name
-        #ret['input']['scope'] = 'InputGrove'
+        #ret['input']['ds_name'] = 'd320d3f3703d42dfaaf9f413ed4f9bb9'
+        #ret['input']['scope'] = 'mock'
 
-        if task_type == 'user':
+        if task_type.split(',')[0] == 'user':
             user = choice(ctx.users)
-            ret['output']['scope'] = user
+            ret['output']['scope'] = 'user.%s' % user
             ret['output']['account'] = user
         else:
             ret['output']['scope'] = 'OutputGrove'
             ret['output']['account'] = 'panda'
+        ret['bulk'] = ctx.bulk == 'True'
         return ret
 
     def CREATE_TASK_output(self, ctx, output):
@@ -186,25 +204,36 @@ class UseCaseDefinition(UCEmulator):
 
     @UCEmulator.UseCase
     def FINISH_JOB(self, jobs, threads):
-        print 'jobs finished: %s ' % len(jobs)
         self.inc('panda.jobs.finished', len(jobs))
+        print 'Finish jobs: %s' % len(jobs)
         client = Client()
         mgr = rsemanager.RSEMgr()
-        for job in jobs:
-            if threads == 'True':
-                t = threading.Thread(target=self.register_replica, kwargs={'client': client, 'dsn': job['sub_ds'], 'rse': job['rse'], 'mgr': mgr})
-                t.start()
-            else:
-                self.register_replica(client, job['sub_ds'], job['rse'], mgr)
+        if threads == 'True':
+            for job in jobs:
+                    t = threading.Thread(target=self.register_replica, kwargs={'client': client, 'dsn': job['sub_ds'], 'rse': job['rse'], 'mgr': mgr})
+                    t.start()
+        else:
+            subs = dict()
+            for job in jobs:
+                if job['sub_ds'] not in subs.keys():
+                    subs[job['sub_ds']] = [0, '']
+                subs[job['sub_ds']][0] += 1
+                subs[job['sub_ds']][1] = job['rse']
+            for ds in subs:
+                files = list()
+                for i in xrange(subs[ds][0]):
+                    fn = uuid()
+                    for ext in ['out', 'log']:
+                        files.append({'scope': 'Manure', 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+                self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': ds, 'files': files, 'rse': subs[ds][1]})
 
     def register_replica(self, client, dsn, rse, mgr):
         fn = 'Bamboo_%s' % uuid()
         files = list()
         for ext in ['out', 'log']:
-            files.append({'scope': 'InputGrove', 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid()), 'events': 10}, 'rse': rse, 'bytes': 2048})
+            files.append({'scope': 'InputGrove', 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
         try:
-            #client.add_files_to_dataset(scope='Manure', name=dsn, files=files)
-            self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dsn, 'files': files})
+            self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dsn, 'files': files, 'rse': rse})
         except Exception, e:
             print '!! ERROR !! Finish job: %s' % e
 
@@ -228,23 +257,26 @@ class UseCaseDefinition(UCEmulator):
 
     @UCEmulator.UseCase
     def FINISH_TASK(self, tasks, threads):
-        print 'tasks finished: %s ' % len(tasks)
         self.inc('panda.tasks.finished', len(tasks))
+        print 'Finish tasks: %s' % len(tasks)
         client = Client()
+        threads = list()
         for task in tasks:
             for sub_ds in task['sub_dss']:
                 if threads == 'True':
                     t = threading.Thread(target=self.aggregate_output, kwargs={'client': client, 'source_ds': sub_ds, 'target_ds': task['output_ds']})
                     t.start()
+                    threads.append(t)
                 else:
                     self.aggregate_output(client, sub_ds, task['output_ds'])
+        if threads == 'True':
+            for t in threads:
+                t.join()
+        for task in tasks:
+            self.time_it(fn=client.close, kwargs={'scope': task['output_ds'][0], 'name': task['output_ds'][1]})
 
     def aggregate_output(self, client, source_ds, target_ds):
-        files = list()
-        #for f in client.list_files(scope='Manure', name=source_ds):
-        for f in self.time_it(fn=client.list_files, kwargs={'scope': 'Manure', 'name': source_ds}):
-            files.append(f)
-        #client.add_files_to_dataset(scope=target_ds[0], name=target_ds[1], files=files)
+        files = [f for f in self.time_it(fn=client.list_files, kwargs={'scope': 'Manure', 'name': source_ds})]
         self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': target_ds[0], 'name': target_ds[1], 'files': files})
 
     def FINISH_TASK_input(self, ctx):
@@ -271,7 +303,6 @@ class UseCaseDefinition(UCEmulator):
     def QUEUE_OBSERVER_input(self, ctx):
         self.inc('panda.tasks.queue', ctx.task_queue.qsize())
         self.inc('panda.jobs.queue', ctx.job_queue.qsize())
-        print '= Task / Job - Queue: %s / %s' % (ctx.task_queue.qsize(), ctx.job_queue.qsize())
         return None  # Indicates that no further action is required
 
     def setup(self, ctx):
@@ -286,93 +317,48 @@ class UseCaseDefinition(UCEmulator):
         ctx.task_queue = PriorityQueue()
         ctx.input_files = {}
 
-        client = client = Client()
-        ctx.users = ['ralph', 'thomas', 'martin', 'mario', 'cedric', 'vincent', 'luc', 'armin']
-        for user in ctx.users:
-            try:
-                client.add_account(user, 'USER')
-                client.add_scope(user, user)
-            except Exception, e:
-                pass
+        client = Client()
+        ctx.users = list()
+        try:
+            for a in client.list_accounts():
+                if a['type'] == 'USER':
+                    ctx.users.append(a['account'])
+        except Exception, e:
+            print '!! ERROR !! Unable to read registered users: %s' % e
+            ctx.users = ['ralph', 'thomas', 'martin', 'mario', 'cedric', 'vincent', 'luc', 'armin']
+            for u in ctx.users:
+                try:
+                    client.add_account(u, 'USER')
+                except Exception, e:
+                    print e
+                try:
+                    client.add_scope(u, 'USER')
+                except Exception, e:
+                    print e
+        try:
+            client.add_account('panda', 'SERVICE')
+            print 'Account added'
+        except Exception, e:
+            print e
+        try:
+            client.add_scope('panda', 'Manure')
+            print 'scope added'
+        except Exception, e:
+            print e
+        try:
+            client.add_scope('panda', 'OutputGrove')
+            print 'scope added'
+        except Exception, e:
+            print e
 
-        # Create account 'Panda'
-
-        #try:
-        #    client.add_account('panda', 'SERVICE')
-        #except Exception:
-        #    pass
-        ## Create scopes for input, output (temp and perm)
-        #try:
-        #    client.add_scope('panda', 'InputGrove')
-        #except Exception:
-        #    pass
-        #try:
-        #    client.add_scope('panda', 'OutputGrove')
-        #except Exception:
-        #    pass
-        #try:
-        #    client.add_scope('panda', 'Manure')
-        #except Exception:
-        #    pass
-        #defaults = {'project': 'NoProjectDefined',
-        #            'prod_step': 'NoProdstepDefined',
-        #            'datatype': 'NoDatatypeDefined',
-        #            'run_number': 'NoRunNumberDefined',
-        #            'stream_name': 'NoStreamNameDefined'
-        #            }
-        #for k in defaults:
-        #    try:
-        #        client.add_value(k, defaults[k])
-        #    except Exception, e:
-        #        print '!! ERROR !! %s' % e
-        #        pass
-        # Create DS name
-        success = True
-        nf = 190
-        while not success and nf:
-            ctx.ds_name = 'Grove_%s' % uuid()
-            client.add_dataset(scope='InputGrove', name=ctx.ds_name, meta={'prod_step': 'evgen', 'datatype': 'HITS'})
-            print 'Dataset %s created' % ctx.ds_name
-            ctx.rses = []
+        ctx.rses = []
+        try:
             for rse in client.list_rses():
                 if rse['deterministic']:
                     ctx.rses.append(rse['rse'])
-            rse_name = choice(ctx.rses)
-            # Create dataset
-            # Fill dataset with 100 files
-            files = []
-            for i in xrange(nf):
-                name = 'Bamboo_%s' % uuid()
-                #files.append({'scope': 'InputGrove', 'name': name, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid()), 'events': 10}, 'rse': rse_name, 'bytes': 2048})
-                files.append({'scope': 'InputGrove', 'name': name, 'bytes': 12345L, 'adler32': '0cc737eb', 'rse': rse_name, 'bytes': 2048})
-            # Register file replica to dataset
-            now = time.time()
-            print 'Adding %s files to DS' % nf
-            try:
-                client.add_files_to_dataset(scope='InputGrove', name=ctx.ds_name, files=files)
-                fin = time.time()
-                success = True
-                count = 0
-                for f in client.list_files('InputGrove', ctx.ds_name):
-                    count += 1
-                print 'Added %s (of %s) files successfuly in %s seconds' % (count, nf, fin - now)
-            except Exception, e:
-                print 'Failed after %s seconds' % (time.time() - now)
-                nf -= 10
-
-        # Request a list with all avaliable RSEs
-        success = False
-        ctx.rses = []
-        while not success:
-            try:
-                for rse in client.list_rses():
-                    if not rse['deleted'] and rse['deterministic']:
-                        ctx.rses.append(rse['rse'])
-                success = True
-                print 'Imported %s RSEs' % len(ctx.rses)
-            except Exception, e:
-                print 'Failed requesteing RSEs from server'
-                print e
+        except Exception, e:
+            print 'Failed reading RSEs: %s' % e
+            ctx.rses = ['MOCK_642', 'MOCK_641', 'MOCK_640', 'MOCK_639', 'MOCK_638', 'MOCK_637']
 
         # TODO: Could be done in a more elegant way I guess
         ctx.task_distribution = list()
@@ -415,18 +401,23 @@ class UseCaseDefinition(UCEmulator):
                 else:  # Some in between element
                     age = randint(distr[i - 1][0] + 1, distr[i][0])
 
+                # Select random input ds-type
+                input_ds_type = choice(ctx.tasks[task_type]['input']['meta'])
+
                 # Select random dataset from file with according age
                 date = datetime.date.today() - datetime.timedelta(days=age)
-                dist_file = '%s/%02d/%02d/listfiles.txt' % (date.year, date.month, date.day)
-                #dist_file = '/data/mounted_hdfs/user/serfon/listdatasets/%s/%02d/%02d/listfiles.%s.%s.txt' % (date.year, date.month, date.day, task_type.split('.')[0], task_type.split('.')[1])
+                dist_file = '%s/%02d/%02d/listfiles_%s_%s.txt' % (date.year, date.month, date.day, input_ds_type.split('.')[0], input_ds_type.split('.')[1])
                 path = dist_prefix + dist_file
                 if dist_file not in ctx.input_files:  # File is used for the first time
                     ctx.input_files[dist_file] = (os.path.getsize(path) / 287)
+                if ctx.input_files[dist_file] is False:  # It is known that this file doen't exists
+                    continue
                 offset = randint(0, ctx.input_files[dist_file] - 1) * 287  # -1 due to index origin zero
                 with open(path) as f:
                     f.seek(offset)
                     ds = f.readline().split()
                 success = True
             except Exception, e:
+                ctx.input_files[dist_file] = False  # Remeber that this file doen't exist
                 print '!! ERROR !! Can read dataset name from distribution file: %s' % e
         return ds
