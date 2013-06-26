@@ -62,11 +62,10 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     try:
         new_subscription.save(session=session)
     except IntegrityError, e:
-        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTION_PK.*violated.*', e.args[0]):
-            raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
-        if re.match(".*columns name, account are not unique.*", e.args[0]):
-            raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
-        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTION_NAME_ACCOUNT_UQ.*violated.*', e.args[0]):
+        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTION_PK.*violated.*', e.args[0])\
+           or re.match(".*columns name, account are not unique.*", e.args[0])\
+           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTION_NAME_ACCOUNT_UQ.*violated.*', e.args[0])\
+           or re.match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         raise RucioException(e.args)
 

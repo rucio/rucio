@@ -32,10 +32,7 @@ def add_counter(rse_id, account, session=None):
     """
     for num in xrange(MAX_COUNTERS):
         new_counter = models.AccountCounter(rse_id=rse_id, num=num, account=account, files=0, bytes=0)
-
-        # need to merge into the session, not save
-        # otherwise PK will raise integrity errors on delayed writes
-        session.merge(new_counter)
+        new_counter.save(flush=False, session=session)
 
 
 @transactional_session
