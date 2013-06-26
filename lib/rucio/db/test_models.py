@@ -29,7 +29,7 @@ class MockFTSTransfer(BASE, ModelBase):
     last_modified = Column(DateTime, default=datetime.utcnow)
     state = Column(FTSState.db_type(name='MOCK_FTS_TRANSFERS_STATE_CHK'), default=FTSState.SUBMITTED)
     transfer_metadata = Column(String(4000))
-    _table_args = (PrimaryKeyConstraint('transfer_id', name='MOCK_FTS_TRANSFERS_PK'), )
+    _table_args = (PrimaryKeyConstraint('transfer_id', 'state', name='MOCK_FTS_TRANSFERS_PK'), )
 
 
 def register_models(engine):
