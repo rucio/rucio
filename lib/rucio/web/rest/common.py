@@ -11,8 +11,10 @@
 REST utilities
 """
 
-from web import ctx, header, InternalError
+from json import loads
 from traceback import format_exc
+from web import BadRequest, ctx, data, header, InternalError
+from web.webapi import Created, HTTPError, OK
 
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException
@@ -20,8 +22,7 @@ from rucio.common.utils import generate_http_error
 
 
 def authenticate():
-    """ Hook to authenticate
-    """
+    """ Hook to authenticate. """
     if ctx.env.get('REQUEST_METHOD') == 'GET':
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
         header('Cache-Control', 'post-check=0, pre-check=0', False)
@@ -43,3 +44,48 @@ def authenticate():
 
     # Propagate the issuer to the controller
     ctx.env['issuer'] = auth.get('account')
+
+
+def load_json_data():
+    """ Hook to load json data. """
+    json_data = data()
+    try:
+        ctx.env['parameters'] = json_data and loads(json_data)
+    except ValueError:
+        raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary/list')
+
+
+def exception_wrapper(f):
+    """ Decorator to catch exception. """
+    def decorated(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except (Created, HTTPError, OK):
+            raise
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print type(e)
+            print format_exc()
+            raise InternalError(e)
+    return decorated
+
+
+class RucioController:
+    """ Default Rucio Controller class. """
+
+    def POST(self, rse):
+        """ Not supported. """
+        raise BadRequest()
+
+    def GET(self, rse):
+        """ Not supported. """
+        raise BadRequest()
+
+    def PUT(self, rse):
+        """ Not supported. """
+        raise BadRequest()
+
+    def DELETE(self, rse):
+        """ Not supported. """
+        raise BadRequest()
