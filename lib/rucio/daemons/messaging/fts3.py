@@ -20,7 +20,7 @@ import json
 import stomp
 
 from rucio.db.constants import FTSState, RequestState
-from rucio.core.monitor import record
+from rucio.core.monitor import record_counter
 from rucio.core.request import set_request_state
 from rucio.common.config import config_get, config_get_int
 
@@ -33,11 +33,11 @@ class Consumer(object):
         self.__broker = broker
 
     def on_error(self, headers, message):
-        record('messaging.fts3.error')
+        record_counter('daemons.messaging.fts3.error')
         print '[%s %s] ERROR: %s' % (self.__broker, datetime.datetime.now(), message)
 
     def on_message(self, headers, message):
-        record('messaging.fts3.message')
+        record_counter('daemons.messaging.fts3.message')
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
 
         if msg['job_metadata'] != '':
@@ -74,7 +74,7 @@ def consumer():
             if not conn.is_connected():
 
                 print 'consumer: connecting to', conn._Connection__host_and_ports[0][0]
-                record('messaging.fts3.reconnect.%s' % conn._Connection__host_and_ports[0][0].split('.')[0])
+                record_counter('daemons.messaging.fts3.reconnect.%s' % conn._Connection__host_and_ports[0][0].split('.')[0])
 
                 conn.set_listener('rucio-messaging-fts3', Consumer(broker=conn._Connection__host_and_ports[0]))
                 conn.start()
