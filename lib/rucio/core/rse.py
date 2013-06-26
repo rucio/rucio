@@ -529,50 +529,72 @@ def delete_replicas(rse, files, session=None):
     replica_rse = get_rse(rse=rse, session=session)
 
     condition = or_()
-    replicas = {}
     for file in files:
-        replicas['%(scope)s:%(name)s' % file] = None
         condition.append(and_(models.RSEFileAssociation.scope == file['scope'],
                               models.RSEFileAssociation.name == file['name'],
                               models.RSEFileAssociation.rse_id == replica_rse.id))
 
     delta, bytes = 0, 0
+    parent_condition = or_()
+    replicas = list()
     for replica in session.query(models.RSEFileAssociation).filter(condition):
 
-        replica.delete(session=session, flush=False)
+        replica.delete(session=session)
 
-        # List all parents datasets
-        for parent in session.query(models.DataIdentifierAssociation.name, models.DataIdentifierAssociation.scope).filter_by(child_scope=file['scope'], child_name=file['name']):
+        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == replica.scope,
+                                     models.DataIdentifierAssociation.child_name == replica.name,
+                                     ~exists([1]).where(and_(models.RSEFileAssociation.scope == replica.scope, models.RSEFileAssociation.name == replica.name))))
 
-            # Remove the file from the content for the last replica
-            session.query(models.DataIdentifierAssociation).filter_by(scope=parent['scope'], name=parent['name'], child_scope=replica['scope'], child_name=replica['name']).\
-                filter(~exists([1]).where(and_(models.RSEFileAssociation.scope == replica['scope'], models.RSEFileAssociation.name == replica['name']))).\
-                delete(synchronize_session=False)
-
-            # Flag as deleted empty closed datasets
-            session.query(models.DataIdentifier).filter_by(scope=parent['scope'], name=parent['name'], did_type=DIDType.DATASET, is_open=False).\
-                filter(~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent['scope'], models.DataIdentifierAssociation.name == parent['name']))).\
-                update({'did_type': DIDType.DELETED_DATASET}, synchronize_session=False)
-
-            # Parent containers missing
-
-        # Flag as deleted file with no replicas
-        session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
-            filter(~exists([1]).where(and_(models.RSEFileAssociation.scope == replica['scope'], models.RSEFileAssociation.name == replica['name']))).\
-            update({'did_type': DIDType.DELETED_FILE}, synchronize_session=False)
-
-        del replicas['%s:%s' % (replica.scope, replica.name)]
+        replicas.append((replica.scope, replica.name))
         bytes += replica['bytes']
         delta += 1
 
-    if replicas:
+    if len(replicas) != len(files):
         raise exception.ReplicaNotFound(str(replicas))
 
-    # Error handling foreign key constraint violation
     session.flush()
+
+    # while True:
+
+    # Delete did from the content for the last did
+    query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
+                          models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).filter(parent_condition)
+
+    parent_datasets = list()
+    for parent_scope, parent_name, child_scope, child_name in query:
+        rowcount = session.query(models.DataIdentifierAssociation).filter_by(scope=parent_scope, name=parent_name, child_scope=child_scope, child_name=child_name).\
+            delete(synchronize_session=False)
+
+        (parent_scope, parent_name) not in parent_datasets and parent_datasets.append((parent_scope, parent_name))
+
+    # Delete empty closed collections
+    # parent_condition = or_()
+    deleted_parents = list()
+    for parent_scope, parent_name in parent_datasets:
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name, did_type=DIDType.DATASET, is_open=False).\
+            filter(~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))).\
+            update({'did_type': DIDType.DELETED_DATASET}, synchronize_session=False)
+
+        if rowcount:
+            deleted_parents.append((parent_scope, parent_name))
+    #        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope,
+    #                                     models.DataIdentifierAssociation.child_name == parent_name,
+    #                                     ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
+    #                                                             models.DataIdentifierAssociation.name == parent_name))))
+    #   if not deleted_parents:
+    #        break
+
+    # ToDo: delete empty datasets from container and delete empty close containers
+
+    # Delete file with no replicas
+    for replica_scope, replica_name in replicas:
+        session.query(models.DataIdentifier).filter_by(scope=replica_scope, name=replica_name, did_type=DIDType.FILE).\
+            filter(~exists([1]).where(and_(models.RSEFileAssociation.scope == replica_scope, models.RSEFileAssociation.name == replica_name))).\
+            update({'did_type': DIDType.DELETED_FILE}, synchronize_session=False)
 
     # Decrease RSE counter
     decrease(rse_id=replica_rse.id, delta=delta, bytes=bytes, session=session)
+    # Error handling foreign key constraint violation on commit
 
 
 @transactional_session
