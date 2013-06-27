@@ -68,8 +68,7 @@ def parse_expression(expression, session=None):
     random.shuffle(result)
     if not result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
-    end_time = time.time()
-    record_timer(stat='rse_expression.parse', time=end_time - start_time)
+    record_timer(stat='rule.rse_expression_parse', time=(time.time() - start_time)*1000)
     return result
 
 

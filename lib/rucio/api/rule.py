@@ -39,7 +39,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     #TODO Check for valid parameters: dids, copies etc.
     if lifetime:
         lifetime = datetime.utcnow() + timedelta(seconds=lifetime)
-    return rule.add_replication_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)
+    return rule.add_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)
 
 
 def get_replication_rule(rule_id):
@@ -48,7 +48,7 @@ def get_replication_rule(rule_id):
 
     :param rule_id: The rule_id to get.
     """
-    return rule.get_replication_rule(rule_id)
+    return rule.get_rule(rule_id)
 
 
 def list_replication_rules(filters={}):
@@ -57,7 +57,7 @@ def list_replication_rules(filters={}):
 
     :param filters: dictionary of attributes by which the results should be filtered.
     """
-    return rule.list_replication_rules(filters)
+    return rule.list_rules(filters)
 
 
 def delete_replication_rule(rule_id, issuer):
@@ -71,7 +71,7 @@ def delete_replication_rule(rule_id, issuer):
     kwargs = {'rule_id': rule_id}
     if not has_permission(issuer=issuer, action='del_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not remove this replication rule.' % (issuer))
-    rule.delete_replication_rule(rule_id)
+    rule.delete_rule(rule_id)
 
 
 def set_replication_rule():

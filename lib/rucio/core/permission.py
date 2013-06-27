@@ -19,7 +19,7 @@ import time
 import rucio.core.authentication
 import rucio.core.scope
 from rucio.common.config import config_get
-from rucio.core.rule import get_replication_rule
+from rucio.core.rule import get_rule
 from rucio.db.constants import IdentityType
 
 
@@ -283,7 +283,7 @@ def perm_del_rule(issuer, kwargs):
     """
     if issuer == 'root':
         return True
-    if get_replication_rule(kwargs['rule_id'])['account'] != issuer:
+    if get_rule(kwargs['rule_id'])['account'] != issuer:
         return False
     return True
 
