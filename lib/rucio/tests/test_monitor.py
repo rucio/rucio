@@ -38,3 +38,11 @@ class TestMonitor():
         with monitor.record_timer_block('test.context_timer'):
             a = 2 * 100
             a = a * 1
+
+        with monitor.record_timer_block(['test.context_timer']):
+            a = 2 * 100
+            a = a * 1
+
+        with monitor.record_timer_block(['test.context_timer', ('test.context_timer_normal10', 10)]):
+            a = 2 * 100
+            a = a * 1

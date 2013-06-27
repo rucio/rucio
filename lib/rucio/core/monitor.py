@@ -54,14 +54,23 @@ class record_timer_block(object):
     """
     A context manager for timing a block of code.
 
+    :param stats: The name of the stat or list of stats that should be updated.
+        Each stat can be a simple string or a tuple (string, divisor)
+
     Usage:
         with monitor.record_timer_block('test.context_timer'):
             stuff1()
             stuff2()
+
+       with monitor.record_timer_block(['test.context_timer', ('test.context_timer_normalised', 10)]):
+            stuff1()
+            stuff2()
     """
 
-    def __init__(self, stat):
-        self.stat = stat
+    def __init__(self, stats):
+        if not isinstance(stats, list):
+            stats = [stats]
+        self.stats = stats
 
     def __enter__(self):
         self.start = time.time()
@@ -70,4 +79,9 @@ class record_timer_block(object):
     def __exit__(self, typ, value, tb):
         dt = time.time() - self.start
         ms = int(round(1000 * dt))  # Convert to ms.
-        record_timer(self.stat, ms)
+        for s in self.stats:
+            if isinstance(s, str):
+                record_timer(s, ms)
+            elif isinstance(s, tuple):
+                ms = ms / s[1]
+                record_timer(s[0], ms)
