@@ -243,7 +243,7 @@ class InsufficientQuota(RucioException):
 class InsufficientTargetRSEs(RucioException):
     def __init__(self, *args, **kwargs):
         super(InsufficientTargetRSEs, self).__init__(args, kwargs)
-        self._message = "There are not enough target RSEs (due to blacklisting) to fulfil the request at this time."
+        self._message = "There are not enough target RSEs to fulfil the request at this time."
 
 
 class InvalidMetadata(RucioException):
