@@ -98,8 +98,9 @@ class UCProcess(object):
                 ta = threading.active_count()
                 of = self.get_open_fds()
                 for i in xrange(now - prev):
-                    sock.sendall('stats.%s.emulator.counts.threads.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], self.pid, ta, prev + i))
-                    sock.sendall('stats.%s.emulator.counts.files.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], self.pid, of, prev + i))
+                    sock.sendall('stats.%s.emulator.counts.threads %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], ta, prev + i))
+                    sock.sendall('stats.%s.emulator.counts.files %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], of, prev + i))
+                    print '=
                 print '= (PID: %s) File count: %s' % (self.pid, self.get_open_fds())
                 print '= (PID: %s) Thread count: %s' % (self.pid, threading.active_count())
                 time.sleep(self.update)
@@ -193,4 +194,5 @@ class UCProcess(object):
                 for i in xrange(now - prev):
                     sock.sendall('%s.%s %s %d\n' % (prefix, key, ctx[key], prev + i))
             else:
-                print '%s\tCannot report\t%s.%s\t(type:\t%s)\t%s' % (now, prefix, key, type(ctx[key]), ctx[key])
+                #print '%s\tCannot report\t%s.%s\t(type:\t%s)\t%s' % (now, prefix, key, type(ctx[key]), ctx[key])
+                pass
