@@ -48,11 +48,11 @@ class UseCaseDefinition(UCEmulator):
     def setup(self, ctx):
         d = date.today()
         ctx.runnumber = long('%02d%02d%02d00' % (d.year - 2000, d.month, d.day))
+        #used_runnnumbers = Client(account='tier0').list_values('run_number')
         used_runnnumbers = Client().list_values('run_number')
-        print used_runnnumbers
         while unicode(ctx.runnumber) in used_runnnumbers:
             ctx.runnumber += 1
-        print 'TZeros starts with runnumber offset: %s' % ctx.runnumber
+        print '== TZero: starts with runnumber offset: %s' % ctx.runnumber
         #try:
         #    Client().add_key('run_number', 'ALL')
         #except Exception, e:
@@ -72,11 +72,19 @@ class UseCaseDefinition(UCEmulator):
 
     @UCEmulator.UseCase
     def EMULATION_RUN(self, interval, filescale, dataXX, runnumber, runspertag, calibfraction, timespan):
+        tz_account = 'tier0'
+        tz_group = 'tier0'
+        tz_provenance = 'T0'
+        tz_rse = 'MOCK3'
+        tz_filesize = 2000000000     # 2GB
+
+        runnumber = random.randrange(400000, 500000)
+        #client = Client(account=tz_account)
         client = Client()
 
         # Initializing run data
         if random.random() > calibfraction:
-            print 'Starting calibration run no. %s' % runnumber
+            print '== TZero: Starting calibration run no. %s' % runnumber
             pattern = [('data12_8TeV.NNNNNNNN.calibration_LArCellsEmpty.daq.RAW', 36),
                        ('data12_8TeV.NNNNNNNN.calibration_Tile.daq.RAW', 36),
                        ('data12_8TeV.NNNNNNNN.calibration_lucid.daq.RAW', 6),
@@ -107,7 +115,7 @@ class UseCaseDefinition(UCEmulator):
                        ('data12_8TeV.NNNNNNNN.physics_Standby.recon.ESD.x1', 207),
                        ]
         else:
-            print 'Starting data run no. %s' % runnumber
+            print '== TZero: Starting data run no. %s' % runnumber
             pattern = [('data12_8TeV.NNNNNNNN.calibration_IDTracks.daq.RAW', 141),
                        ('data12_8TeV.NNNNNNNN.calibration_LArCells.daq.RAW', 63),
                        ('data12_8TeV.NNNNNNNN.calibration_LArCellsEmpty.daq.RAW', 63),
@@ -220,14 +228,6 @@ class UseCaseDefinition(UCEmulator):
                        ('data12_calib.0NNNNNNNN.calibration_MuonAll.daq.RAW', 70),
                        ]
 
-        tz_account = 'tier0'
-        tz_group = 'tier0'
-        tz_provenance = 'T0'
-        tz_rse = 'MOCK3'
-        tz_filesize = 2000000000     # 2GB
-
-        runnumber = random.randrange(400000, 500000)
-
         factor = runnumber / runspertag
         tagdict = {'x1': 'x%s' % (factor * 1 + 1),
                    'f1': 'f%s' % (factor * 2 + 1),
@@ -242,48 +242,64 @@ class UseCaseDefinition(UCEmulator):
                    }
 
         # pre compute all datasets
-        ds = []
-        tmp_uuid = uuid()
-        for n, s in pattern:
-            #newname = n.replace('data12', dataXX).replace('NNNNNNNN', str(runnumber).zfill(8)) % tagdict
-            # TODO: fix when meta-data is working properly
-            newname = n.replace('data12', dataXX).replace('NNNNNNNN', tmp_uuid) % tagdict
-            newscope = newname.split('.')[0]
-            newsize = s * filescale
-            ds.append([newscope, newname, newsize, 0])  # 0 is initial value of file counter
+        success = False
+        while not success:
+            try:
+                ds = []
+                tmp_uuid = uuid()
+                for n, s in pattern:
+                    #newname = n.replace('data12', dataXX).replace('NNNNNNNN', str(runnumber).zfill(8)) % tagdict
+                    # TODO: fix when meta-data is working properly
+                    newname = n.replace('data12', dataXX).replace('NNNNNNNN', tmp_uuid) % tagdict
+                    newscope = newname.split('.')[0]
+                    newsize = s * filescale
+                    ds.append([newscope, newname, newsize, 0])  # 0 is initial value of file counter
 
-        # register run number
-        #client.add_value('run_number', runnumber)
+                # register run number
+                #client.add_value('run_number', runnumber)
 
-        # open all datasets
-        for scope, datasetname, s, c in ds:
-            pcs = datasetname.split('.')
-            meta = {'project': pcs[0],
-                    'stream_name': pcs[2],
-                    'prod_step': pcs[3],
-                    'datatype': pcs[4],
-                    #'version': pcs[5],
-                    'guid': uuid(),
-                    }
-            meta['group'] = tz_group
-            meta['provenance'] = tz_provenance
-            meta['run_number'] = runnumber
-            print 'Creating dataset: %s:%s' % (scope, datasetname)
-            with monitor.record_timer_block('tzero.add_dataset'):
-                client.add_dataset(scope=scope, name=datasetname,
-                                   statuses={'monotonic': True}, meta=meta,
-                                   rules=[{'account': tz_account, 'copies': 1, 'rse_expression': tz_rse, 'grouping': 'DATASET'}])  # The missing lifetime attribute indicated an infinite lifetime
+                # open all datasets
+                open_ds = list()
+                for scope, datasetname, s, c in ds:
+                    pcs = datasetname.split('.')
+                    meta = {'project': pcs[0],
+                            'stream_name': pcs[2],
+                            'prod_step': pcs[3],
+                            'datatype': pcs[4],
+                            #'version': pcs[5],
+                            'guid': uuid(),
+                            }
+                    meta['group'] = tz_group
+                    meta['provenance'] = tz_provenance
+                    meta['run_number'] = runnumber
+                    open_ds.append({'scope': scope, 'name': datasetname,
+                                    'statuses': {'monotonic': True}, 'meta': meta,
+                                    'rules': [{'account': tz_account, 'copies': 1,
+                                    'rse_expression': tz_rse, 'grouping': 'DATASET'}]})  # The missing lifetime attribute indicated an infinite lifetime
+                with monitor.record_timer_block(['tzero.add_datasets', ('tzero.add_datasets.normalized', len(open_ds))]):
+                    client.add_datasets(open_ds)
+                dids = [{'scope': d['scope'], 'name': d['name']} for d in open_ds]
+                with monitor.record_timer_block(['tzero.add_replication_rule', ('tzero.add_replication_rule.normalized', len(open_ds))]):
+                    client.add_replication_rule(dids, copies=1, rse_expression=tz_rse,
+                                                grouping='DATASET', account=tz_account)
+                success = True
+            except Exception, e:
+                monitor.record_counter('exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
+                print e
 
         t = 0
         duration = 0
         while t < timespan:
             t += interval
             if (interval - duration) > 1:
-                print 'Sleeping for %s seconds' % (interval - duration)
+                print '== TZero: Sleeping for %s seconds' % (interval - duration)
                 time.sleep(interval - duration)
             else:
-                print 'Adding files took longer than the defined interval'
+                print '== TZero: Adding files took longer than the defined interval'
             now = time.time()
+
+            no_files = 0
+            print '== TZero: Begin adding files to datasets'
             for d in ds:
                 scope, datasetname, s, c = d
                 # calculate target file counter
@@ -298,16 +314,28 @@ class UseCaseDefinition(UCEmulator):
                         # TODO: fix when meta-data is working properly
                         filename = datasetname + '._' + uuid()
                         onefile = {'name': filename, 'scope': scope, 'bytes': tz_filesize}
+                        no_files += 1
                         newfiles.append(onefile)
                     d[3] = target
-                    print 'Appending %s files to %s:%s' % (len(newfiles), scope, datasetname)
+                    #with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
+                    #   client.attach_dids_to_dids(attachments=inserts)
                     with monitor.record_timer_block(['tzero.add_files_to_dataset', ('tzero.add_files_to_dataset.normalized', len(newfiles))]):
-                        client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles, rse=tz_rse)
-            duration = time.time() - now
-            print 'Adding files took %s seconds' % duration
+                        try:
+                            client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles, rse=tz_rse)
+                        except Exception, e:
+                            monitor.record_counter('exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
+                            print e
+            delta = time.time() - now
+            print '== TZero: Appending %s files to %s datasets took %s seconds' % (no_files, len(ds), delta)
+            monitor.record_timer('tzero.registering_all_replicas', delta)
+            monitor.record_timer('tzero.registering_all_replicas.normalized', delta / no_files)
 
         # close all datasets
         for scope, datasetname, s, c in ds:
-            print 'CLose dataset %s:%s' % (scope, datasetname)
+            print '== TZero: Close dataset %s:%s' % (scope, datasetname)
             with monitor.record_timer_block('tzero.close'):
-                client.close(scope=scope, name=datasetname)
+                try:
+                    client.close(scope=scope, name=datasetname)
+                except Exception, e:
+                    monitor.record_counter('exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
+                    print e

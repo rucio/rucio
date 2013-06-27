@@ -14,9 +14,11 @@ import gearman
 import json
 import pystatsd
 import time
+import traceback
 
 
 def exec_uc(gearman_worker, gearman_job):
+    ret = str()
     try:
         uc_data = ast.literal_eval(gearman_job.data)
         if uc_data['class_name'] not in imported_ucs:
@@ -28,15 +30,14 @@ def exec_uc(gearman_worker, gearman_job):
         start = time.time()
         ret = str(getattr(imported_ucs[uc_data['class_name']], uc_data['uc_name'])(**uc_data['input_data']))
         fin = time.time()
-        carbon_server.timing(uc_data['uc_name'], (fin - start) * 1000)
+        carbon_server.timing('%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name']), (fin - start) * 1000)
     except Exception, e:
-        carbon_server.update_stats('exceptions.%s.%s' % (uc_data['class_name'], uc_data['uc_name']), 1)
-        print 'Error in: %s.%s: %s' % (uc_data['class_name'], uc_data['uc_name'], e)
-        print e
+        print('== Worker: exceptions.%s.%s.%s: %s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (e.__class__.__name__).split('.')[-1], e))
+        print traceback.format_exc()
+        carbon_server.update_stats('exceptions.%s.%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (e.__class__.__name__).split('.')[-1]), 1)
     return ret
 
 
-print 'Loading configuration from /opt/rucio/etc/emulation.cfg'
 with open('/opt/rucio/etc/emulation.cfg') as f:
     cfg = json.load(f)
 
@@ -48,9 +49,9 @@ except Exception, e:
     exit(1)
 
 try:
-    carbon_server = pystatsd.Client(host=cfg['global']['carbon']['CARBON_SERVER'], port=cfg['global']['carbon']['CARBON_PORT'], prefix=cfg['global']['carbon']['USER_SCOPE'])
+    carbon_server = pystatsd.Client(host=cfg['global']['carbon']['CARBON_SERVER'], port=cfg['global']['carbon']['CARBON_PORT'], prefix='%s.%s' % (cfg['global']['carbon']['USER_SCOPE'], 'emulator'))
 except Exception, e:
-    print 'Unable to connect to carbon server %s on port %s.' % (cfg['carbon']['CARBON_SERVER'], cfg['carbon']['CARBON_PORT'])
+    print 'Unable to connect to carbon server %s on port %s.' % (cfg['global']['carbon']['CARBON_SERVER'], cfg['global']['carbon']['CARBON_PORT'])
     print e
     exit(2)
 
@@ -58,4 +59,6 @@ except Exception, e:
 # Enter our work loop and call gm_worker.after_poll() after each time we timeout/see socket activity
 imported_ucs = dict()
 gm_worker.register_task('execute_uc', exec_uc)
+print 'Worker registered ...'
 gm_worker.work()
+print 'Worker started ...'
