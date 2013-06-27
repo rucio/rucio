@@ -19,6 +19,7 @@ from random import choice, gauss, sample, random, randint
 
 from rucio.client import Client
 from rucio.common.utils import generate_uuid as uuid
+from rucio.core import monitor
 from rucio.rse import rsemanager
 from rucio.tests.emulation.ucemulator import UCEmulator
 
@@ -30,16 +31,20 @@ class UseCaseDefinition(UCEmulator):
 
     @UCEmulator.UseCase
     def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk):
+        print 'CTreate task'
         create_dis_ds = (input['dis_ds_probability'] > random())
         client = Client()
 
-        files = [f for f in self.time_it(fn=client.list_replicas, kwargs={'scope': input['scope'], 'name': input['ds_name']})]
+        files = dict()
+        with monitor.record_timer_block('panda.list_replicas'):
+            files = [f for f in client.list_replicas(scope=input['scope'], name=input['ds_name'])]
 
         print '%s using %s file (dis-ds: %s)' % (task_type, len(files), create_dis_ds)
         # Determine metadata for output dataset
         meta = dict()
         try:
-            meta_i = self.time_it(fn=client.get_metadata, kwargs={'scope': input['scope'], 'name': input['ds_name']})
+            with monitor.record_timer_block('panda.get_metadata'):
+                meta_i = client.get_metadata(scope=input['scope'], name=input['ds_name'])
         except Exception, e:
             print '!! ERROR !! Getting metadata from input dataset failed: %s' % e
             meta_i = {'stream_name': None, 'run_number': 0, 'project': None}
@@ -56,16 +61,18 @@ class UseCaseDefinition(UCEmulator):
         meta['prod_step'] = output['meta']['prod_step']
         # Create final output - dataset
         final_ds = '.'.join([meta['project'], str(meta['run_number']), meta['stream_name'], meta['prod_step'], meta['datatype'], meta['version']])
-        self.time_it(fn=client.add_container, kwargs={'scope': output['scope'], 'name': 'cnt_%s' % final_ds, 'lifetime': output['lifetime'],
-                                                      'rules': [{'account': output['account'], 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}]}
-                     )
+        with monitor.record_timer_block('panda.add_container'):
+            client.add_container(scope=output['scope'], name='cnt_%s' % final_ds, lifetime=output['lifetime'],
+                                 rules=[{'account': output['account'], 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}])
         try:
-            self.time_it(fn=client.add_dataset, kwargs={'scope': output['scope'], 'name': final_ds, 'meta': meta})
+            with monitor.record_timer_block('panda.add_dataset'):
+                client.add_dataset(scope=output['scope'], name=final_ds, meta=meta)
             print 'Final DS: %s:%s' % (output['scope'], final_ds)
         except Exception, e:
             print '!! ERROR !! Failed creating output dataset: %s' % e
             return False
-        self.time_it(fn=client.add_datasets_to_container, kwargs={'scope': output['scope'], 'name': 'cnt_%s' % final_ds, 'dsns': [{'scope': output['scope'], 'name': final_ds}]})
+        with monitor.record_timer_block('panda.add_datasets_to_container'):
+            client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % final_ds, dsns=[{'scope': output['scope'], 'name': final_ds}])
 
         # List files in input dataset and create _dis datasets (input for 20 jobs per DS)
         sub_dss = []
@@ -86,7 +93,8 @@ class UseCaseDefinition(UCEmulator):
                                         'dids': files_in_ds})  # Create DIS-Datasets
                         print 'Prep dis: %s' % (dis_ds)
                     else:
-                        self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'files': files_in_ds})
+                        with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
+                            client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)
                         print 'Fill dis: %s' % (dis_ds)
                 sub_dss.append((sub_ds, 20, computing_rse))
                 files_in_ds = []
@@ -103,12 +111,13 @@ class UseCaseDefinition(UCEmulator):
                     print 'Prep sub_ds: %s' % sub_ds
                 else:
                     if create_dis_ds:
-                        self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400, 'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}]})  # Create DIS-Datasets
+                        with monitor.record_timer_block('panda.add_dataset'):
+                            client.add_dataset(scope='Manure', name=dis_ds, lifetime=86400, rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}])  # Create DIS-Datasets
                         print 'Create dis_ds: %s' % dis_ds
-                    self.time_it(fn=client.add_dataset, kwargs={'scope': 'Manure', 'name': sub_ds, 'lifetime': 86400,
-                                                                'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
-                                                                          {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
-                                                                          ]})  # Create SUB-Datasets
+                    with monitor.record_timer_block('panda.add_dataset'):
+                        client.add_dataset(scope='Manure', name=sub_ds, lifetime=86400,
+                                           rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
+                                                  {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}])  # Create SUB-Datasets
                     print 'Create sub_ds: %s' % sub_ds
 
             # Should be changed when the response from list_replicas is updated
@@ -126,7 +135,8 @@ class UseCaseDefinition(UCEmulator):
                     print 'Prep remaining dis: %s' % dis_ds
                 else:
                     try:
-                        self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dis_ds, 'files': files_in_ds})
+                        with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
+                            client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)
                         print 'Fill remaining %s to dis: %s' % (len(files_in_ds), dis_ds)
                     except Exception, e:
                         print '!! ERROR !! Failed adding files to dis-ds %s: %s' % (dis_ds, e)
@@ -134,10 +144,12 @@ class UseCaseDefinition(UCEmulator):
 
         # Bulk inserting all dis- and sub datasets (including files)
         if bulk:
-            print '-' * 100
-            print inserts
+            no_files = 0
+            for ds in inserts:
+                no_files += len(ds['dids'])
             try:
-                self.time_it(fn=client.attach_dids_to_dids, kwargs={'attachments': inserts})
+                with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
+                    client.attach_dids_to_dids(attachments=inserts)
             except Exception, e:
                 print e
                 print traceback.format_exc()
@@ -149,13 +161,13 @@ class UseCaseDefinition(UCEmulator):
 
         # When jobs are finished for dataset
         sub_ds_names = []
+        max_job_completion = 0
         for ds in sub_dss:
             # ds[0] = sub-ds name, ds[1] = number of jobs, ds[2] = computing RSE
             sub_ds_names.append(ds[0])
             dis_completion = now
             if create_dis_ds:
                 dis_completion += gauss(**file_transfer_duration)  # Determines the time it takes to move all files to the target RSE
-            max_job_completion = 0
             for i in xrange(ds[1]):  # Determine the finishing time of each job using again a gaussian distribution
                 job_completion = dis_completion + gauss(**output['duration_job'])
                 if job_completion > max_job_completion:
@@ -204,6 +216,7 @@ class UseCaseDefinition(UCEmulator):
 
     @UCEmulator.UseCase
     def FINISH_JOB(self, jobs, threads):
+        print 'finish job'
         self.inc('panda.jobs.finished', len(jobs))
         print 'Finish jobs: %s' % len(jobs)
         client = Client()
@@ -225,7 +238,8 @@ class UseCaseDefinition(UCEmulator):
                     fn = uuid()
                     for ext in ['out', 'log']:
                         files.append({'scope': 'Manure', 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-                self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': ds, 'files': files, 'rse': subs[ds][1]})
+                with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
+                    client.add_files_to_dataset(scope='Manure', name=ds, files=files, rse=subs[ds][1])
 
     def register_replica(self, client, dsn, rse, mgr):
         fn = 'Bamboo_%s' % uuid()
@@ -233,7 +247,8 @@ class UseCaseDefinition(UCEmulator):
         for ext in ['out', 'log']:
             files.append({'scope': 'InputGrove', 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
         try:
-            self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': 'Manure', 'name': dsn, 'files': files, 'rse': rse})
+            with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
+                client.add_files_to_dataset(scope='Manure', name=dsn, files=files, rse=rse)
         except Exception, e:
             print '!! ERROR !! Finish job: %s' % e
 
@@ -257,6 +272,7 @@ class UseCaseDefinition(UCEmulator):
 
     @UCEmulator.UseCase
     def FINISH_TASK(self, tasks, threads):
+        print 'Finish tasl'
         self.inc('panda.tasks.finished', len(tasks))
         print 'Finish tasks: %s' % len(tasks)
         client = Client()
@@ -273,11 +289,14 @@ class UseCaseDefinition(UCEmulator):
             for t in threads:
                 t.join()
         for task in tasks:
-            self.time_it(fn=client.close, kwargs={'scope': task['output_ds'][0], 'name': task['output_ds'][1]})
+            with monitor.record_timer_block('panda.close'):
+                client.close(scope=task['output_ds'][0], name=task['output_ds'][1])
 
     def aggregate_output(self, client, source_ds, target_ds):
-        files = [f for f in self.time_it(fn=client.list_files, kwargs={'scope': 'Manure', 'name': source_ds})]
-        self.time_it(fn=client.add_files_to_dataset, kwargs={'scope': target_ds[0], 'name': target_ds[1], 'files': files})
+        with monitor.record_timer_block('panda.list_files'):
+            files = [f for f in client.list_files(scope='Manure', name=source_ds)]
+        with monitor.record_timer_block('panda.add_files_to_dataset'):
+            client.add_files_to_dataset(scope=target_ds[0], name=target_ds[1], files=files)
 
     def FINISH_TASK_input(self, ctx):
         now = time.time()
@@ -406,7 +425,7 @@ class UseCaseDefinition(UCEmulator):
 
                 # Select random dataset from file with according age
                 date = datetime.date.today() - datetime.timedelta(days=age)
-                dist_file = '%s/%02d/%02d/listfiles_%s_%s.txt' % (date.year, date.month, date.day, input_ds_type.split('.')[0], input_ds_type.split('.')[1])
+                dist_file = '%s/%02d/%02d/listfiles.%s.%s.txt' % (date.year, date.month, date.day, input_ds_type.split('.')[0], input_ds_type.split('.')[1])
                 path = dist_prefix + dist_file
                 if dist_file not in ctx.input_files:  # File is used for the first time
                     ctx.input_files[dist_file] = (os.path.getsize(path) / 287)

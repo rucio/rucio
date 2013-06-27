@@ -54,7 +54,7 @@ def observe_gearman_queue(cfg, stop_event):
         for task in stat:
             if task['task'] == 'execute_uc':
                 cs.update_stats('emulator.counts.gearman', task['queued'])
-                cs.update_stats('emulator.counts.files.%s' % pid, get_open_fds())
+                cs.update_stats('emulator.counts.files', get_open_fds())
                 if not count % 10:
                     print '= (PID: %s) Gearman-Queue size: %s' % (pid, task['queued'])
                     print '= (PID: %s) File count: %s' % (pid, get_open_fds())
