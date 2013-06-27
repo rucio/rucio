@@ -15,7 +15,7 @@ import threading
 import time
 import traceback
 
-from rucio.core.rule import re_evaluate_did, delete_expired_replication_rule
+from rucio.core.rule import re_evaluate_did, delete_expired_rule
 
 graceful_stop = threading.Event()
 
@@ -57,7 +57,7 @@ def rule_cleaner(once=False):
     wait = False
     while not graceful_stop.is_set():
         try:
-            wait = delete_expired_replication_rule()
+            wait = delete_expired_rule()
         except:
             print traceback.format_exc()
 

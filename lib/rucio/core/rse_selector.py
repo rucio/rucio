@@ -60,8 +60,7 @@ class RSESelector():
             rse['quota_left'] = list_account_limits(account=account, rse_id=rse['rse_id'], session=session) - list_account_usage(account=account, rse_id=rse['rse_id'], session=session)
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
-        end_time = time.time()
-        record_timer(stat='rse_selector.create', time=end_time - start_time)
+        record_timer(stat='rule.rse_selector_create', time=(time.time() - start_time)*1000)
 
     def select_rse(self, size, preferred_rse_ids, blacklist=[]):
         """
@@ -76,16 +75,18 @@ class RSESelector():
 
         result = []
         for copy in range(self.copies):
+            rses = self.rses
+            #Remove files already in the result set
+            rses = [rse for rse in rses if rse['rse_id'] not in result]
+            if not rses:
+                raise InsufficientTargetRSEs('There are not enough target RSEs to fulfil the request at this time.')
             #Remove blacklisted sites
             if len(blacklist) > 0:
                 rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
-            else:
-                rses = self.rses
             if not rses:
-                #There are no target RSE's left to fulfill the selection request
                 raise InsufficientTargetRSEs('There are not enough target RSEs (due to blacklisting) to fulfil the request at this time.')
             #Only use RSEs which have enough quota
-            rses = [rse for rse in rses if rse['quota_left'] > size and rse['rse_id'] not in result]
+            rses = [rse for rse in rses if rse['quota_left'] > size]
             if not rses:
                 #No site has enough quota
                 raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
