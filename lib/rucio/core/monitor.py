@@ -83,5 +83,6 @@ class record_timer_block(object):
             if isinstance(s, str):
                 record_timer(s, ms)
             elif isinstance(s, tuple):
-                ms = ms / s[1]
-                record_timer(s[0], ms)
+                if s[1] != 0:
+                    ms = ms / s[1]
+                    record_timer(s[0], ms)
