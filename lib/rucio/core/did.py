@@ -91,48 +91,6 @@ def list_replicas(scope, name, schemes=None, session=None):
     raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
-@read_session
-def list_dids(scope, pattern, type='collection', ignore_case=False, session=None):
-    """
-    List all data identifiers in a scope which match a given pattern.
-
-    :param scope: The scope name.
-    :param pattern: The wildcard pattern.
-    :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
-    :param ignore_case: Ignore case distinctions.
-    :param session: The database session in use.
-    """
-    types = ['all', 'collection', 'container', 'dataset', 'file']
-    if type not in types:
-        raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
-
-    query = session.query(models.DataIdentifier)
-    query = query.filter(and_(models.DataIdentifier.scope == scope,
-                              models.DataIdentifier.name.like(pattern.replace('*', '%'), escape='\\')))
-    # if ignore_case
-    # func.upper(models.DataIdentifier.name).like(pattern.replace('*','%'))
-    if type == 'all':
-        query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
-                                 models.DataIdentifier.did_type == DIDType.DATASET,
-                                 models.DataIdentifier.did_type == DIDType.FILE))
-    elif type.lower() == 'collection':
-        query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
-                                 models.DataIdentifier.did_type == DIDType.DATASET))
-    elif type.lower() == 'container':
-        query = query.filter(models.DataIdentifier.did_type == DIDType.CONTAINER)
-    elif type.lower() == 'dataset':
-        query = query.filter(models.DataIdentifier.did_type == DIDType.DATASET)
-    elif type.lower() == 'file':
-        query = query.filter(models.DataIdentifier.did_type == DIDType.FILE)
-    #else:
-    #  error
-    for row in query.yield_per(5):
-        d = {}
-        for column in row.__table__.columns:
-            d[column.name] = getattr(row, column.name)
-        yield d
-
-
 @transactional_session
 def add_did(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, session=None):
     """
@@ -737,3 +695,48 @@ def set_status(scope, name, session=None, **kwargs):
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
         raise exception.UnsupportedOperation("The status of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
+
+
+@read_session
+def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, session=None):
+    """
+    Search data identifiers
+
+    :param scope: the scope name.
+    :param filters: dictionary of attributes by which the results should be filtered.
+    :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+    :param ignore_case: ignore case distinctions.
+    :param limit: limit number.
+    :param offset: offset number.
+    :param session: The database session in use.
+    """
+    query = session.query(models.DataIdentifier.name).filter(models.DataIdentifier.scope == scope)
+    if type == 'all':
+        query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
+                                 models.DataIdentifier.did_type == DIDType.DATASET,
+                                 models.DataIdentifier.did_type == DIDType.FILE))
+    elif type.lower() == 'collection':
+        query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
+                                 models.DataIdentifier.did_type == DIDType.DATASET))
+    elif type.lower() == 'container':
+        query = query.filter(models.DataIdentifier.did_type == DIDType.CONTAINER)
+    elif type.lower() == 'dataset':
+        query = query.filter(models.DataIdentifier.did_type == DIDType.DATASET)
+    elif type.lower() == 'file':
+        query = query.filter(models.DataIdentifier.did_type == DIDType.FILE)
+
+    for (k, v) in filters.items():
+
+        if not hasattr(models.DataIdentifier, k):
+            raise exception.KeyNotFound(k)
+
+        if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
+            query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%'), escape='\\'))
+        else:
+            query = query.filter(getattr(models.DataIdentifier, k) == v)
+
+    if limit:
+        query = query.limit(limit)
+
+    for name in query.yield_per(5):
+        yield name
