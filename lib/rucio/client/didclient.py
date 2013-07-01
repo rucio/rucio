@@ -50,7 +50,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list_dids(self, scope, pattern, type='collection'):
+    def list_dids(self, scope, filters, type='collection'):
         """
         List all data identifiers in a scope which match a given pattern.
 
@@ -63,8 +63,10 @@ class DIDClient(BaseClient):
 
         path = '/'.join([self.DIDS_BASEURL, scope, 'dids', 'search'])
         payload = {}
-        payload['name'] = pattern
+        for k, v in filters.items():
+            payload[k] = v
         payload['type'] = type
+
         url = build_url(self.host, path=path, params=payload)
 
         r = self._send_request(url, type='GET')
