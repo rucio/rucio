@@ -97,7 +97,7 @@ def reaper(once=False):
                     print 'Mark the file replica %(scope)s:%(name)s as beeing deleted' % replica
                     f = rse_core.update_replica_state(rse=rse['rse'], scope=replica['scope'], name=replica['name'], state=ReplicaState.BEING_DELETED)
                     if f:
-                        monitor.record(timeseries='reaper.deletion.being_deleted',  delta=1)
+                        monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=1)
                         print 'Delete the file %(scope)s:%(name)s' % replica
                         # Should delegate the deletion to a backend
                         # try:
@@ -108,7 +108,7 @@ def reaper(once=False):
                         print 'Remove file replica information with size %(bytes)s for file %(scope)s:%(name)s' % replica
                         deleted_files += 1
                         rse_core.del_replica(rse=rse['rse'], scope=replica['scope'], name=replica['name'])
-                        monitor.record(timeseries='reaper.deletion.done',  delta=1)
+                        monitor.record_counter(counters='reaper.deletion.done',  delta=1)
                         freed_space += replica['bytes']
                 print 'RSE: %(rse)s' % rse + '#deleted files: %(deleted_files)s, Freed space: %(freed_space)s, Needed freed space: %(needed_free_space)s' % locals()
         except:

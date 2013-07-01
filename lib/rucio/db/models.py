@@ -280,7 +280,7 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
-                   Index('DIDS_EXPIRED_AT', 'expired_at'),
+                   Index('DIDS_EXPIRED_AT_IDX', 'expired_at'),
                    Index('DIDS_RULE_EVAL_REQUIRED', 'rule_evaluation_required'),
                    )
 

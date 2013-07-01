@@ -26,7 +26,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.core.did import list_dids, add_did, delete_dids
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
-                                    KeyNotFound, UnsupportedOperation, UnsupportedStatus)
+                                    KeyNotFound, UnsupportedOperation, UnsupportedStatus, ScopeNotFound)
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -191,6 +191,10 @@ class TestDIDClients:
                         'version': 'f392_m927',
                         }
         rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+
+        with assert_raises(ScopeNotFound):
+            self.did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
+
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
 
         with assert_raises(DataIdentifierNotFound):

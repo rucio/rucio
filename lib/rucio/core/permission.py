@@ -129,7 +129,7 @@ def perm_add_rule(issuer, kwargs):
     """
     if kwargs['account'] == issuer:
         return True
-    if issuer == 'root':
+    if issuer == 'root' or issuer in get_special_accounts():
         return True
     return False
 
