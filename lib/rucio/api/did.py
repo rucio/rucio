@@ -29,7 +29,7 @@ def list_replicas(scope, name, schemes=None):
     return did.list_replicas(scope=scope, name=name, schemes=schemes)
 
 
-def list_dids(scope, pattern, type, ignore_case=False):
+def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None):
     """
     List dids in a scope.
 
@@ -39,7 +39,7 @@ def list_dids(scope, pattern, type, ignore_case=False):
     :param ignore_case: Ignore case distinctions.
     """
 
-    return did.list_dids(scope=scope, pattern=pattern, type=type, ignore_case=ignore_case)
+    return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case, limit=limit, offset=offset)
 
 
 def add_did(scope, name, type, issuer, account=None, statuses={}, meta=[], rules=[], lifetime=None):

@@ -26,7 +26,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.core.did import list_dids, add_did, delete_dids
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
-                                    UnsupportedOperation, UnsupportedStatus)
+                                    KeyNotFound, UnsupportedOperation, UnsupportedStatus)
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -35,7 +35,7 @@ class TestDIDCore:
 
     def test_list_dids(self):
         """ DATA IDENTIFIERS (CORE): List dids """
-        for d in list_dids(scope='data13_hip', pattern='*', type='collection'):
+        for d in list_dids(scope='data13_hip', filters={'name': '*'}, type='collection'):
             print d
 
     def test_delete_dids(self):
@@ -102,27 +102,79 @@ class TestDIDClients:
             self.rse_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 
         results = []
-        for result in self.did_client.list_dids(tmp_scope, 'file\_a\_*', type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file\_a\_*'}, type='file'):
             results.append(result)
         assert_equal(len(results), 2)
         results = []
-        for result in self.did_client.list_dids(tmp_scope, 'file\_a\_1*', type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file\_a\_1*'}, type='file'):
             results.append(result)
         assert_equal(len(results), 1)
         results = []
-        for result in self.did_client.list_dids(tmp_scope, 'file\__\_1*', type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file\__\_1*'}, type='file'):
             results.append(result)
         assert_equal(len(results), 2)
         results = []
-        for result in self.did_client.list_dids(tmp_scope, 'file*', type='file'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='file'):
             results.append(result)
         assert_equal(len(results), 3)
         results = []
-        for result in self.did_client.list_dids(tmp_scope, 'file*'):
+        for result in self.did_client.list_dids(tmp_scope, {'name': 'file*'}):
             results.append(result)
         assert_equal(len(results), 0)
         with assert_raises(UnsupportedOperation):
-            self.did_client.list_dids(tmp_scope, 'file*', type='whateverytype')
+            self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='whateverytype')
+
+    def test_list_by_metadata(self):
+        """ DATA IDENTIFIERS (CLIENT): List did with metadata"""
+        dsns = []
+        tmp_scope = 'mock'
+        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        dsns.append(tmp_dsn1)
+
+        dataset_meta = {'project': 'data12_8TeV',
+                        'run_number': 400000,
+                        'stream_name': 'physics_CosmicCalo',
+                        'prod_step': 'merge',
+                        'datatype': 'NTUP_TRIG',
+                        'version': 'f392_m920',
+                        }
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn1, meta=dataset_meta)
+        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+        dsns.append(tmp_dsn2)
+        dataset_meta['run_number'] = 400001
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn2, meta=dataset_meta)
+
+        tmp_dsn3 = 'dsn_%s' % generate_uuid()
+        dsns.append(tmp_dsn3)
+        dataset_meta['stream_name'] = 'physics_Egamma'
+        dataset_meta['datatype'] = 'NTUP_SMWZ'
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn3, meta=dataset_meta)
+
+        dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
+        results = []
+        for did in dids:
+            results.append(did)
+        for dsn in dsns:
+            assert_in(dsn, results)
+        dsns.remove(tmp_dsn1)
+
+        dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
+        results = []
+        for did in dids:
+            results.append(did)
+        for dsn in dsns:
+            assert_in(dsn, results)
+        dsns.remove(tmp_dsn2)
+
+        dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
+        results = []
+        for did in dids:
+            results.append(did)
+        for dsn in dsns:
+            assert_in(dsn, results)
+
+        with assert_raises(KeyNotFound):
+            self.did_client.list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
 
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
