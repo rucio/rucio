@@ -16,10 +16,9 @@ from datetime import datetime, timedelta
 from re import match
 
 from sqlalchemy import and_, or_
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
-from sqlalchemy.sql.expression import case
 
 from rucio.common import exception
 from rucio.core.rse import add_replicas
@@ -27,35 +26,6 @@ from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
 from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
-
-
-@read_session
-def __list_replicas(scope, name, schemes=None, session=None):
-    """
-    List file replicas for a file.
-
-    :param scope: The scope name.
-    :param name: The data identifier name.
-    :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
-    :param session: The database session in use.
-
-    """
-    rsemgr = rsemanager.RSEMgr(server_mode=True)
-    try:
-        query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, state=ReplicaState.AVAILABLE)
-        for row in query.yield_per(5):
-            try:
-                pfns = list()
-                for protocol in rsemgr.list_protocols(rse_id=row.rse.rse, session=session):
-                    if not schemes or protocol['scheme'] in schemes:
-                        pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': scope, 'filename': name}, properties=protocol, session=session))
-                if pfns:
-                    yield {'scope': row.scope, 'name': row.name, 'bytes': row.bytes,
-                           'rse': row.rse.rse, 'md5': row.md5, 'adler32': row.adler32, 'pfns': pfns}
-            except (exception.RSENotFound, exception.RSEProtocolNotSupported):
-                pass
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found")
 
 
 @read_session
@@ -69,26 +39,65 @@ def list_replicas(scope, name, schemes=None, session=None):
     :param session: The database session in use.
 
     """
-    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
-        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
-        if did:
-            if did.did_type == DIDType.FILE:
-                for replica in __list_replicas(scope=scope, name=name, session=session):
-                    yield replica
-                raise StopIteration
-            else:
-                query = session.query(models.DataIdentifierAssociation)
-                dids = [(scope, name)]
-                while dids:
-                    s, n = dids.pop()
-                    for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
-                        if tmp_did.child_type == DIDType.FILE:
-                            for replica in __list_replicas(scope=tmp_did.child_scope, name=tmp_did.child_name, session=session):
-                                yield replica
-                        else:
-                            dids.append((tmp_did.child_scope, tmp_did.child_name))
-                raise StopIteration
-    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    try:
+        did = session.query(models.DataIdentifier.did_type).filter_by(scope=scope, name=name).one()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+    replica_condition = or_()
+    if did.did_type == DIDType.FILE:
+        replica_condition.append(and_(models.RSEFileAssociation.scope == scope,
+                                      models.RSEFileAssociation.name == name,
+                                      models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+    else:
+        content_query = session.query(models.DataIdentifierAssociation)
+        dids = [(scope, name)]
+        while dids:
+            s, n = dids.pop()
+            for tmp_did in content_query.filter_by(scope=s, name=n):
+                if tmp_did.child_type == DIDType.FILE:
+                    replica_condition.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
+                                                  models.RSEFileAssociation.name == tmp_did.child_name,
+                                                  models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+                else:
+                    dids.append((tmp_did.child_scope, tmp_did.child_name))
+
+    # Get replicas
+    rsemgr = rsemanager.RSEMgr(server_mode=True)
+    protocols = {}
+    for replica, rse in session.query(models.RSEFileAssociation, models.RSE.rse).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).filter(replica_condition).yield_per(5):
+        try:
+
+            # if row.rse.rse not in protocols:
+            #    protocols[row.rse.rse] = rsemgr.list_protocols(rse_id=row.rse.rse, session=session)
+
+            # for protocol in protocols[row.rse.rse]:
+             #   if not schemes or protocol['scheme'] in schemes:
+             #       pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': row.scope, 'filename': row.name}, properties=protocol, session=session))
+            yield {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
+                   'rse': rse, 'md5': replica.md5, 'adler32': replica.adler32, 'pfns': list()}
+
+        except (exception.RSENotFound, exception.RSEProtocolNotSupported):
+            pass
+
+
+@read_session
+def list_expired_dids(limit=None, session=None):
+    """
+    List expired data identifiers.
+
+    :param limit: limit number.
+    :param session: The database session in use.
+    """
+    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).\
+        filter(models.DataIdentifier.expired_at < datetime.utcnow()).\
+        with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
+
+    if limit:
+        query = query.limit(limit)
+
+    for scope, name in query.yield_per(10):
+        yield {'scope': scope, 'name': name}
 
 
 @transactional_session
@@ -155,9 +164,13 @@ def add_dids(dids, account, session=None):
         elif match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data identifier already exists!')
         elif e.args[0] == "(IntegrityError) foreign key constraint failed":
-            raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
+            raise exception.ScopeNotFound('Scope not found!')
         # msg for oracle / mysql
-        raise exception.RucioException(e.args)
+        raise exception.DatabaseException(e.args)
+    except DatabaseError, e:
+        if str(e.args[0]).strip() == "(DatabaseError) ORA-14400: inserted partition key does not map to any partition":
+            raise exception.ScopeNotFound('Scope not found!' % locals())
+        raise exception.DatabaseException(e.args)
 
     # Add rules
     # for rule in rules:
@@ -187,7 +200,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     try:
         session.flush()
     except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]):
+        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_DID_FK.*violated - parent key not found.*', e.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif e.args[0] == "(IntegrityError) foreign key constraint failed":
             raise exception.DataIdentifierNotFound("Data identifier not found")
@@ -289,10 +302,7 @@ def delete_dids(dids, account, session=None):
     for did in dids:
         rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).\
             filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
-            update({'did_type': case([(models.DataIdentifier.did_type == DIDType.DATASET, DIDType.DELETED_DATASET.value),
-                                      (models.DataIdentifier.did_type == DIDType.CONTAINER, DIDType.DELETED_CONTAINER.value)])},
-                   synchronize_session=False)
-
+            delete(synchronize_session=False)
         if not rowcount:
             raise exception.DataIdentifierNotFound("Dataset or container '%(scope)s:%(name)s' not found" % did)
 
@@ -360,12 +370,11 @@ def list_new_identifier(type, session=None):
     :param type : The DID type.
     :param session: The database session in use.
     """
+    query = session.query(models.DataIdentifier).filter_by(is_new=1).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
     if type:
-        query = session.query(models.DataIdentifier).filter_by(did_type=type, is_new=1)
-    else:
-        query = session.query(models.DataIdentifier).filter_by(is_new=1)
-    for chunk in query.yield_per(10):
-        yield {'scope': chunk.scope, 'name': chunk.name, 'type': chunk.did_type}  # TODO Change this to the proper filebytes [RUCIO-199]
+        query = query.filter(models.DataIdentifier.did_type == type)
+    for row in query.yield_per(10):
+        yield {'scope': row.scope, 'name': row.name, 'type': row.did_type}  # TODO Change this to the proper filesize [RUCIO-199]
 
 
 @transactional_session
@@ -470,25 +479,23 @@ def list_files(scope, name, session=None):
     :param name:       The data identifier name.
     :param session:    The database session in use.
     """
-    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
-        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
-        if did:
-            if did.did_type == DIDType.FILE:
-                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
-                raise StopIteration
-            else:
-                query = session.query(models.DataIdentifierAssociation)
-                dids = [(scope, name), ]
-                while dids:
-                    s, n = dids.pop()
-                    for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
-                        if tmp_did.child_type == DIDType.FILE:
-                            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
-                        else:
-                            dids.append((tmp_did.child_scope, tmp_did.child_name))
-                raise StopIteration
-    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    try:
+        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        if did.did_type == DIDType.FILE:
+            yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
+        else:
+            query = session.query(models.DataIdentifierAssociation)
+            dids = [(scope, name), ]
+            while dids:
+                s, n = dids.pop()
+                for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
+                    if tmp_did.child_type == DIDType.FILE:
+                        yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+                               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
+                    else:
+                        dids.append((tmp_did.child_scope, tmp_did.child_name))
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
 @read_session
@@ -552,16 +559,16 @@ def get_did(scope, name, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
-        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
-        if r:
-            if r.did_type == DIDType.FILE:
-                did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type, 'account': r.account}
-            else:
-                did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type,
-                         'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
-            return did_r
-    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    try:
+        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        if r.did_type == DIDType.FILE:
+            did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type, 'account': r.account}
+        else:
+            did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type,
+                     'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
+        return did_r
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
 @transactional_session
@@ -644,14 +651,14 @@ def get_metadata(scope, name, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    for did_type in [DIDType.DATASET, DIDType.CONTAINER, DIDType.FILE]:
-        row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=did_type).first()
-        if row:
-            d = {}
-            for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            return d
-    raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    try:
+        row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        d = {}
+        for column in row.__table__.columns:
+            d[column.name] = getattr(row, column.name)
+        return d
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 #    try:
 #        r = session.query(models.DataIdentifier.__table__).filter_by(scope=scope, name=name).one()   # remove deleted data
 #    except NoResultFound:
@@ -712,7 +719,6 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param offset: offset number.
     :param session: The database session in use.
     """
-
     types = ['all', 'collection', 'container', 'dataset', 'file']
     if type not in types:
         raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
