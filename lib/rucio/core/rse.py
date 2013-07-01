@@ -571,9 +571,9 @@ def delete_replicas(rse, files, session=None):
     # parent_condition = or_()
     deleted_parents = list()
     for parent_scope, parent_name in parent_datasets:
-        rowcount = session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name, did_type=DIDType.DATASET, is_open=False).\
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name, is_open=False).\
             filter(~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))).\
-            update({'did_type': DIDType.DELETED_DATASET}, synchronize_session=False)
+            delete(synchronize_session=False)
 
         if rowcount:
             deleted_parents.append((parent_scope, parent_name))
@@ -588,9 +588,9 @@ def delete_replicas(rse, files, session=None):
 
     # Delete file with no replicas
     for replica_scope, replica_name in replicas:
-        session.query(models.DataIdentifier).filter_by(scope=replica_scope, name=replica_name, did_type=DIDType.FILE).\
+        session.query(models.DataIdentifier).filter_by(scope=replica_scope, name=replica_name).\
             filter(~exists([1]).where(and_(models.RSEFileAssociation.scope == replica_scope, models.RSEFileAssociation.name == replica_name))).\
-            update({'did_type': DIDType.DELETED_FILE}, synchronize_session=False)
+            delete(synchronize_session=False)
 
     # Decrease RSE counter
     decrease(rse_id=replica_rse.id, delta=delta, bytes=bytes, session=session)

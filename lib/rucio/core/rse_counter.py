@@ -16,7 +16,6 @@ from sqlalchemy import func
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 
-
 MAX_COUNTERS = 1000
 
 
