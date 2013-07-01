@@ -94,31 +94,37 @@ class Search:
 
     def GET(self, scope):
         """
-        List all data identifiers in a scope which match a given pattern.
+        List all data identifiers in a scope which match a given metadata.
 
         HTTP Success:
             200 OK
 
         HTTP Error:
             401 Unauthorized
+            404 KeyNotFound
             409 UnsupportedOperation
 
         :param scope: The scope name.
         """
 
         header('Content-Type', 'application/x-json-stream')
-        name = None
+        filters = {}
         if ctx.query:
             params = parse_qs(ctx.query[1:])
-            name = params['name'][0]
-            if 'type' in params:
-                type = params['type'][0]
+
+            for k, v in params.items():
+                if k == 'type':
+                    type = v[0]
+                else:
+                    filters[k] = v[0]
 
         try:
-            for did in list_dids(scope=scope, pattern=name, type=type):
-                yield render_json(**did) + '\n'
+            for did in list_dids(scope=scope, filters=filters, type=type):
+                yield dumps(*did) + '\n'
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except KeyNotFound, e:
+            raise generate_http_error(404, 'KeyNotFound', e.args[0][0])
         except Exception, e:
             print format_exc()
             raise InternalError(e)

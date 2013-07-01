@@ -712,6 +712,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param offset: offset number.
     :param session: The database session in use.
     """
+
+    types = ['all', 'collection', 'container', 'dataset', 'file']
+    if type not in types:
+        raise exception.UnsupportedOperation("Valid type are: %(types)s" % locals())
+
     query = session.query(models.DataIdentifier.name).filter(models.DataIdentifier.scope == scope)
     if type == 'all':
         query = query.filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
