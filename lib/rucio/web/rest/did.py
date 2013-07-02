@@ -23,7 +23,7 @@ from rucio.api.did import (list_replicas, add_did, add_dids, list_content, list_
 from rucio.api.rule import list_replication_rules
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
-                                    AccessDenied, KeyNotFound,
+                                    AccessDenied, KeyNotFound, DatabaseException,
                                     Duplicate, InvalidValueForKey,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound)
@@ -171,8 +171,9 @@ class BulkDIDS:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except DatabaseException, e:
+            raise generate_http_error(500, 'DatabaseException', e.args)
         except RucioException, e:
-            print e
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             print format_exc()
@@ -289,6 +290,8 @@ class DIDs:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except UnsupportedOperation, e:
             raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except DatabaseException, e:
+            raise generate_http_error(500, 'DatabaseException', e.args)
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:

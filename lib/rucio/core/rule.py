@@ -18,8 +18,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
-from rucio.core.did import list_child_dids, list_parent_dids, list_files
-from rucio.common.exception import InvalidRSEExpression, InvalidReplicationRule, InsufficientQuota, DataIdentifierNotFound, RuleNotFound, RSENotFound, ReplicationRuleCreationFailed, InsufficientTargetRSEs
+import rucio.core.did
+
+from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientQuota,
+                                    DataIdentifierNotFound, RuleNotFound, RSENotFound,
+                                    ReplicationRuleCreationFailed, InsufficientTargetRSEs)
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.monitor import record_timer
 from rucio.core.rse import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
@@ -76,6 +79,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
         record_timer(stat='rule.lock_did', time=(time.time() - start_time)*1000)
         start_time = time.time()
+
         # 3. Create the replication rule
         if grouping == 'ALL':
             grouping = RuleGrouping.ALL
@@ -144,6 +148,7 @@ def add_rules(dids, rules, session=None):
                     models.DataIdentifier.did_type == DIDType.CONTAINER)).with_lockmode('update').one()
         except NoResultFound:
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+
         # 2. Resolve the did
         datasetfiles = __resolve_dids_to_locks(did, session=session)
 
@@ -151,12 +156,12 @@ def add_rules(dids, rules, session=None):
             rule_start_time = time.time()
             # 3. Resolve the rse_expression into a list of RSE-ids
             rse_ids = parse_expression(rule['rse_expression'], session=session)
-            selector = RSESelector(account=rule['account'], rse_ids=rse_ids, weight=rule['weight'], copies=rule['copies'], session=session)
+            selector = RSESelector(account=rule['account'], rse_ids=rse_ids, weight=rule.get('weight'), copies=rule['copies'], session=session)
 
             # 4. Create the replication rule for every did
-            if rule['grouping'] == 'ALL':
+            if rule.get('grouping') == 'ALL':
                 grouping = RuleGrouping.ALL
-            elif rule['grouping'] == 'NONE':
+            elif rule.get('grouping') == 'NONE':
                 grouping = RuleGrouping.NONE
             else:
                 grouping = RuleGrouping.DATASET
@@ -165,15 +170,16 @@ def add_rules(dids, rules, session=None):
                                               scope=did.scope,
                                               copies=rule['copies'],
                                               rse_expression=rule['rse_expression'],
-                                              locked=rule['locked'],
+                                              locked=rule.get('locked'),
                                               grouping=grouping,
-                                              expires_at=rule['lifetime'],
-                                              weight=rule['weight'],
-                                              subscription_id=rule['subscription_id'])
+                                              expires_at=rule.get('lifetime'),
+                                              weight=rule.get('weight'),
+                                              subscription_id=rule.get('subscription_id'))
             try:
                 new_rule.save(session=session)
             except IntegrityError, e:
                 raise InvalidReplicationRule(e.args[0])
+
             rule_id = new_rule.id
             rule_ids[(did.scope, did.name)].append(rule_id)
             # 5. Apply the replication rule to create locks and return a list of transfers
@@ -195,7 +201,7 @@ def add_rules(dids, rules, session=None):
             start_time = time.time()
             for transfer in transfers_to_create:
                 queue_request(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], req_type=RequestType.TRANSFER, session=session)
-            session.flush()
+
             record_timer(stat='rule.queuing_transfers', time=(time.time() - start_time)*1000)
             record_timer(stat='rule.add_rule', time=(time.time() - rule_start_time)*1000)
 
@@ -228,7 +234,7 @@ def __resolve_dids_to_locks(did, session=None):
             tmp_replicas[(lock['scope'], lock['name'])]['locks'] = lock['locks']
         datasetfiles = [{'scope': did.scope, 'name': did.name, 'files': tmp_replicas.values()}]
     elif did.did_type == DIDType.CONTAINER:
-        for dscont in list_child_dids(scope=did.scope, name=did.name, lock=True, session=session):
+        for dscont in rucio.core.did.list_child_dids(scope=did.scope, name=did.name, lock=True, session=session):
             tmp_locks = get_files_and_replica_locks_of_dataset(scope=dscont['scope'], name=dscont['name'], session=session)
             tmp_replicas = get_and_lock_file_replicas_for_dataset(scope=dscont['scope'], name=dscont['name'], session=session)
             for lock in tmp_locks.values():
@@ -512,7 +518,7 @@ def delete_rule(rule_id, session=None):
                      models.DataIdentifierAssociation.name == did['name'],
                      models.ReplicaLock.rule_id == rule_id).all()
     else:
-        child_dids = list_child_dids(scope=rule.scope, name=rule.name, lock=True, session=session)
+        child_dids = rucio.core.did.list_child_dids(scope=rule.scope, name=rule.name, lock=True, session=session)
         locks = []
         for did in child_dids:
             locks.extend(session.query(models.ReplicaLock).join(
@@ -523,6 +529,7 @@ def delete_rule(rule_id, session=None):
                          models.DataIdentifierAssociation.name == did['name'],
                          models.ReplicaLock.rule_id == rule_id).all())
 
+    # Remove locks, set tombstone if applicable
     transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
     for lock in locks:
         replica = session.query(models.RSEFileAssociation).filter(
@@ -602,7 +609,7 @@ def __evaluate_detach(eval_did, session=None):
 
     start_time = time.time()
     #Get all parent DID's and row-lock them
-    parent_dids = list_parent_dids(scope=eval_did.scope, name=eval_did.name, lock=True, session=session)
+    parent_dids = rucio.core.did.list_parent_dids(scope=eval_did.scope, name=eval_did.name, lock=True, session=session)
 
     #Get all RR from parents and eval_did
     rules = session.query(models.ReplicationRule).filter_by(scope=eval_did.scope, name=eval_did.name).with_lockmode('update').all()
@@ -611,7 +618,7 @@ def __evaluate_detach(eval_did, session=None):
 
     #Get all the files of eval_did
     files = {}
-    for file in list_files(scope=eval_did.scope, name=eval_did.name, session=session):
+    for file in rucio.core.did.list_files(scope=eval_did.scope, name=eval_did.name, session=session):
         files[(file['scope'], file['name'])] = True
 
     #Iterate rules and delete locks
@@ -655,7 +662,7 @@ def __evaluate_attach(eval_did, session=None):
 
     start_time = time.time()
     #Get all parent DID's and row-lock them
-    parent_dids = list_parent_dids(scope=eval_did.scope, name=eval_did.name, lock=True, session=session)
+    parent_dids = rucio.core.did.list_parent_dids(scope=eval_did.scope, name=eval_did.name, lock=True, session=session)
 
     #Get and row-lock immediate child DID's
     always_true = True
@@ -674,7 +681,7 @@ def __evaluate_attach(eval_did, session=None):
         all_child_dscont = []
         if new_child_dids[0].did_type != DIDType.FILE:
             for did in new_child_dids:
-                all_child_dscont.extend(list_child_dids(scope=did.scope, name=did.name, lock=True, session=session))
+                all_child_dscont.extend(rucio.core.did.list_child_dids(scope=did.scope, name=did.name, lock=True, session=session))
 
         #Get all unsuspended RR from parents and eval_did
         rules = session.query(models.ReplicationRule).filter(
