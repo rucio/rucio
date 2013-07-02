@@ -19,6 +19,7 @@ import re
 import subprocess
 import zlib
 
+from itertools import izip_longest
 from urllib import urlencode
 from uuid import uuid4 as uuid
 
@@ -221,3 +222,10 @@ def rse_supported_protocol_operations():
 def rse_supported_protocol_domains():
     """ Returns a list with all supoorted RSE protocol domains."""
     return ['lan', 'wan']
+
+
+def grouper(iterable, n, fillvalue=None):
+    """ Collect data into fixed-length chunks or blocks """
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
+    args = [iter(iterable)] * n
+    return izip_longest(*args, fillvalue=fillvalue)

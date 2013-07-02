@@ -59,10 +59,10 @@ def parse_expression(expression, session=None):
     #Check the expression pattern
     match = re.match(PATTERN, expression)
     if match is None:
-        raise InvalidRSEExpression()
+        raise InvalidRSEExpression('')
     else:
         if match.group() != expression:
-            raise InvalidRSEExpression()
+            raise InvalidRSEExpression('')
 
     result = list(resolve_term_expression(expression)[0].resolve_elements(session=session))
     random.shuffle(result)

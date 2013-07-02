@@ -11,7 +11,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from re import match
 from StringIO import StringIO
 
@@ -435,7 +435,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         nbfiles += 1
         bytes += file['bytes']
         new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'], path=file.get('path'), state=ReplicaState.AVAILABLE,
-                                                md5=file.get('md5'), adler32=file.get('adler32'), tombstone=file.get('tombstone') and datetime.utcnow())
+                                                md5=file.get('md5'), adler32=file.get('adler32'), tombstone=file.get('tombstone') or datetime.utcnow() + timedelta(weeks=2))
         new_replica.save(session=session, flush=False)
     try:
         session.flush()
