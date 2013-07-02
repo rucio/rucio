@@ -192,7 +192,7 @@ class TestDIDClients:
                         'datatype': 'NTUP_TRIG',
                         'version': 'f392_m927',
                         }
-        rules = [{'copies': 1, 'rse_expression': 'rse=CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        rules = [{'copies': 1, 'rse_expression': 'MOCK', 'account': 'root'}]
 
         with assert_raises(ScopeNotFound):
             self.did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
