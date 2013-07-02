@@ -47,12 +47,13 @@ class UseCaseDefinition(UCEmulator):
         files = list()
         file_keys = list()
         for r in replicas:
-            if '%s:%s' % (f['scope'], f['name']) not in file_keys:
-                file_keys.append('%s:%s' % (f['scope'], f['name']))
-                files.append({'scope': f['scope'], 'name': f['name'], 'bytes': f['bytes']})
-        file_keys = None
+            if '%s:%s' % (r['scope'], r['name']) not in file_keys:
+                file_keys.append('%s:%s' % (r['scope'], r['name']))
+                files.append({'scope': r['scope'], 'name': r['name'], 'bytes': r['bytes']})
 
-        print '== PanDA: Create task  with %s files (dis: %s)' % (len(files), create_dis_ds)
+        print '== PanDA: Create task  with %s files (dis: %s / repl: %s)' % (len(files), create_dis_ds, len(replicas))
+        file_keys = None
+        replicas = None
 
         # Determine metadata for output dataset
         meta = dict()
@@ -67,8 +68,10 @@ class UseCaseDefinition(UCEmulator):
 
         meta['guid'] = uuid()
         meta['version'] = uuid()
-        meta['datatype'] = output['meta']['datatype']
         meta['prod_step'] = output['meta']['prod_step']
+        meta['datatype'] = output['meta']['datatype']
+        #meta['prod_step'] = out_ds.split('.')[0]
+        #meta['datatype'] = out_ds.split('.')[1]
         # Create final output - dataset
         final_ds = '.'.join([meta['project'], str(meta['run_number']), meta['stream_name'], meta['prod_step'], meta['datatype'], meta['version']])
         with monitor.record_timer_block('panda.add_container'):
