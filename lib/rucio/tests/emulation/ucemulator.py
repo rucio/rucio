@@ -181,7 +181,6 @@ class UCEmulator(object):
         else:
             # Gearman job can just be executed, no waiting necessary
             self.__gearman_client.submit_job(task='execute_uc', data=str(uc_data), unique=str(uuid()), background=True)
-        self.inc('.'.join([call, 'gearman.submitted']))  # Logs to graphite the submission of the given usecase
 
     def await_gearman_results(self, data):
         """
@@ -240,7 +239,7 @@ class UCEmulator(object):
         """
         self.__running = False
 
-    def time_it(self, fn, kwargs={}):
+    def __OUT__time_it(self, fn, kwargs={}):
         res = None
         start = time.time()
         res = fn(**kwargs)
