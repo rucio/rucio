@@ -54,7 +54,7 @@ def observe_gearman_queue(cfg, stop_event):
         for task in stat:
             if task['task'] == 'execute_uc':
                 cs.update_stats('emulator.counts.gearman', task['queued'])
-                cs.update_stats('emulator.counts.files.%s' % pid, get_open_fds())
+                cs.update_stats('emulator.counts.files', get_open_fds())
                 if not count % 10:
                     print '= (PID: %s) Gearman-Queue size: %s' % (pid, task['queued'])
                     print '= (PID: %s) File count: %s' % (pid, get_open_fds())
@@ -73,6 +73,32 @@ if __name__ == '__main__':
     stop_event = multiprocessing.Event()
     with open('/opt/rucio/etc/emulation.cfg') as f:
         cfg = json.load(f)
+
+    # Check sysargs for modules
+    exec_mods = list()
+
+    if '--help' in sys.argv:
+        print 'Spported command line arguments:'
+        print '\t--exclude uc1 uc2 ... ucN\texclude the provided usecase modules from emulation'
+        print '\t--only uc1 uc2 ... ucN\tncludes only the provided usecase modules for emulation'
+    elif '--only' in sys.argv:
+        for mod in cfg['global']['modules']:
+            if mod in sys.argv:
+                exec_mods.append(mod)
+
+    elif '--exclude' in sys.argv:
+        for mod in cfg['global']['modules']:
+            if mod not in sys.argv:
+                exec_mods.append(mod)
+    else:
+        exec_mods = cfg['global']['modules']
+
+    # Load module sepcific configurations
+    for mod in exec_mods:
+        with open('/opt/rucio/etc/%s.cfg' % mod) as f:
+            mcfg = json.load(f)
+        cfg.update(mcfg)
+
     print '=' * 80
     print '=' * 35 + ' SETTINGS ' + '=' * 35
     # Printing configuration for testrun
