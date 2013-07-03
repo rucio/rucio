@@ -200,9 +200,9 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     try:
         session.flush()
     except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_DID_FK.*violated - parent key not found.*', e.args[0]):
-            raise exception.DataIdentifierNotFound("Data identifier not found")
-        elif e.args[0] == "(IntegrityError) foreign key constraint failed":
+        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]) \
+        or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
+        or e.args[0] == "(IntegrityError) foreign key constraint failed":
             raise exception.DataIdentifierNotFound("Data identifier not found")
         raise exception.RucioException(e.args)
 
