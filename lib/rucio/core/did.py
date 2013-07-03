@@ -160,8 +160,8 @@ def add_dids(dids, account, session=None):
         session.flush()
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
-        or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
-        or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+                or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data identifier already exists!')
 
         if e.args[0] == "(IntegrityError) foreign key constraint failed":
@@ -198,8 +198,8 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
         session.flush()
     except IntegrityError, e:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]) \
-        or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
-        or e.args[0] == "(IntegrityError) foreign key constraint failed":
+                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
+                or e.args[0] == "(IntegrityError) foreign key constraint failed":
             raise exception.DataIdentifierNotFound("Data identifier not found")
         raise exception.RucioException(e.args)
 
@@ -360,7 +360,7 @@ def list_rule_re_evaluation_identifier(limit=None, session=None):
 
 
 @read_session
-def list_new_identifier(type, session=None):
+def list_new_dids(type, session=None):
     """
     List recent identifiers.
 
@@ -368,35 +368,33 @@ def list_new_identifier(type, session=None):
     :param session: The database session in use.
     """
     query = session.query(models.DataIdentifier).filter_by(is_new=1).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
-    if type:
-        query = query.filter(models.DataIdentifier.did_type == type)
-    for row in query.yield_per(10):
-        yield {'scope': row.scope, 'name': row.name, 'type': row.did_type}  # TODO Change this to the proper filesize [RUCIO-199]
+    if type and (isinstance(type, str) or isinstance(type, unicode)):
+        query = query.filter(models.DataIdentifier).filter_by(did_type=DIDType.from_sym(type))
+    for chunk in query.yield_per(10):
+        yield {'scope': chunk.scope, 'name': chunk.name, 'did_type': chunk.did_type}  # TODO Change this to the proper filebytes [RUCIO-199]
 
 
 @transactional_session
-def set_new_identifier(scope, name, new_flag, session=None):
+def set_new_dids(dids, new_flag, session=None):
     """
     Set/reset the flag new
 
-    :param scope: The scope name.
-    :param name: The data identifier name.
+    :param dids: A list of dids
     :param new_flag: A boolean to flag new DIDs.
     :param session: The database session in use.
     """
-
-    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)
-    rowcount = query.update({'is_new': new_flag})
-
-    if not rowcount:
-        query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name)
-        try:
-            query.one()
-        except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-        raise exception.UnsupportedOperation("The new flag of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
-    else:
-        return rowcount
+    for did in dids:
+        query = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'])
+        rowcount = query.update({'is_new': new_flag}, synchronize_session=False)
+        if not rowcount:
+            raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
+    try:
+        session.flush()
+    except IntegrityError, e:
+        raise exception.RucioException(e.args[0])
+    except DatabaseError, e:
+        raise exception.RucioException(e.args[0])
+    return True
 
 
 @read_session

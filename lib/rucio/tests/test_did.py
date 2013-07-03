@@ -19,6 +19,7 @@ from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_tru
 
 from rucio.api import did
 from rucio.api import scope
+from rucio.db.constants import DIDType
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
@@ -49,34 +50,35 @@ class TestDIDCore:
 
 class TestDIDApi:
 
-    def test_list_new_identifiers(self):
+    def test_list_new_dids(self):
         """ DATA IDENTIFIERS (API): List new identifiers """
         tmp_scope = scope_name_generator()
         tmp_dsn = 'dsn_%s' % generate_uuid()
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
         for i in xrange(0, 5):
             did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root')
-        for i in did.list_new_identifier('DATASET'):
+        for i in did.list_new_dids('DATASET'):
             assert_not_equal(i, {})
-            assert_equal(str(i['type']), 'DATASET')
+            assert_equal(str(i['did_type']), 'DATASET')
             break
-        for i in did.list_new_identifier():
+        for i in did.list_new_dids():
             assert_not_equal(i, {})
             break
 
-    def test_update_new_identifiers(self):
+    def test_update_new_dids(self):
         """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
         tmp_scope = scope_name_generator()
         tmp_dsn = 'dsn_%s' % generate_uuid()
         scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
+        dids = []
         for i in xrange(0, 5):
+            d = {'scope': tmp_scope, 'name': '%s-%i' % (tmp_dsn, i), 'did_type': DIDType.DATASET}
             did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root')
-        for i in did.list_new_identifier('DATASET'):
-            st = did.set_new_identifier(i['scope'], i['name'])
-            assert_not_equal(st, 0)
-            break
+            dids.append(d)
+        st = did.set_new_dids(dids, None)
+        assert_true(st)
         with assert_raises(DataIdentifierNotFound):
-            did.set_new_identifier('dummyscope', 'dummyname', 0)
+            did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None)
 
 
 class TestDIDClients:
