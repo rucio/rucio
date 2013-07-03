@@ -8,6 +8,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 
+import datetime
 import re
 import time
 
@@ -20,9 +21,10 @@ from traceback import format_exception
 
 from gearman import GearmanWorker, GearmanClient, GearmanAdminClient
 
-from rucio.api.did import list_new_identifier, set_new_identifier, get_metadata
+from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.rule import add_replication_rule
 from rucio.api.subscription import list_subscriptions
+from rucio.db.constants import DIDType, SubscriptionState
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidReplicationRule
 from rucio.core import monitor
@@ -38,7 +40,7 @@ logger.setLevel(INFO)
 
 
 class Supervisor(object):
-    def __init__(self, chunksize=400):
+    def __init__(self, chunksize=40):
         """
         Create a Supervisor agent that sends chunks of new DIDs to Workers that identify the ones that match subscriptions.
         It polls regularly the state of the jobs processed by the workers and resubmit the jobs that failed.
@@ -73,11 +75,12 @@ class Supervisor(object):
         chunks = []
         chunk = []
         nbdids = 0
-        for did in list_new_identifier():
+        for did in list_new_dids():
             nbdids += 1
             logger.debug(did)
+            d = {'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']}
             if len(chunk) < self.__chunksize:
-                chunk.append(did)
+                chunk.append(d)
             else:
                 chunks.append(chunk)
                 chunk = []
@@ -96,8 +99,19 @@ class Supervisor(object):
         """
         list_of_jobs = []
         submitted_requests = []
+        subscriptions = []
+        for sub in list_subscriptions(None, None, SubscriptionState.ACTIVE):
+            subs = {}
+            for key in sub:
+                if type(sub[key]) is datetime.datetime:
+                    subs[key] = str(sub[key])
+                elif key == 'state':
+                    subs[key] = str(sub[key])
+                else:
+                    subs[key] = sub[key]
+            subscriptions.append(subs)
         for chunk in chunks:
-            list_of_jobs.append(dict(task='evaluate_subscriptions', data=dumps(chunk)))
+            list_of_jobs.append(dict(task='evaluate_subscriptions', data=dumps([subscriptions, chunk])))
         if list_of_jobs != []:
             submitted_requests = self.__gm_client.submit_multiple_jobs(list_of_jobs, background=False, wait_until_complete=False, max_retries=4)
             return submitted_requests
@@ -219,7 +233,6 @@ class Supervisor(object):
             logger.info('##################### Submitting %i chunks representing %s new DIDs' % (len(chunks), nbdids))
             submitted_requests = self.submit_tasks(chunks)
             logger.info(submitted_requests)
-            #self.query_requests_simple(submitted_requests)
             self.query_requests(submitted_requests)
         else:
             logger.info('##################### No new DIDs to submit in this cycle')
@@ -293,16 +306,18 @@ class Worker(GearmanWorker):
             results = {}
             start_time = time.time()
             logger.debug('Process %s' % (self.__pid))
-            subscriptions = [sub for sub in list_subscriptions(None, None, 'ACTIVE')]
             logger.debug('In transmogrifier worker')
-            #dids, subscriptions = loads(job.data)
-            dids = loads(job.data)
+            data = loads(job.data)
+            subscriptions = data[0]
+            dids = data[1]
+            identifiers = []
             for did in dids:
-                if did['type'] != 'file':
+                if (did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER)):
                     results['%s:%s' % (did['scope'], did['name'])] = []
                     metadata = get_metadata(did['scope'], did['name'])
                     for subscription in subscriptions:
                         if self.is_matching_subscription(subscription, did, metadata) is True:
+                            stime = time.time()
                             results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
                             logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['id']))
                             for rule in loads(subscription['replication_rules']):
@@ -313,18 +328,28 @@ class Worker(GearmanWorker):
                                 try:
                                     add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rule['rse_expression'],
                                                          grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=subscription['id'], issuer='root')
-                                    monitor.record(timeseries='transmogrifier.addnewrule.done',  delta=1)
+                                    monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
                                 except InvalidReplicationRule, e:
                                     logger.error(e)
-                set_new_identifier(did['scope'], did['name'], 0)
-                monitor.record(timeseries='transmogrifier.did.processed',  delta=1)
+                                    monitor.record_counter(counters='transmogrifier.addnewrule.error',  delta=1)
+                            logger.info('Rule inserted in %f seconds' % (time.time()-stime))
+                monitor.record_counter(counters='transmogrifier.did.processed',  delta=1)
+                identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
+            time1 = time.time()
+            set_new_dids(identifiers, None)
+            #logger.info(dids)
+            logger.info('Time to set the new flag : %f' % (time.time() - time1))
             logger.debug('Matching subscriptions '+dumps(results))
-            logger.info('It took %f seconds to process %i DIDs by worker %s' % (time.time() - start_time, len(dids), self.__pid))
-            monitor.record(timeseries='transmogrifier.job.done',  delta=1)
+            tottime = time.time() - start_time
+            logger.info('It took %f seconds to process %i DIDs by worker %s' % (tottime, len(dids), self.__pid))
+            monitor.record_counter(counters='transmogrifier.job.done',  delta=1)
+            monitor.record_timer(stat='transmogrifier.job.duration',  time=tottime)
             return dumps(results)
         except:
             exc_type, exc_value, exc_traceback = exc_info()
             logger.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            monitor.record_counter(counters='transmogrifier.job.error',  delta=1)
+            monitor.record_counter(counters='transmogrifier.addnewrule.error',  delta=1)
             raise
 
 
@@ -339,7 +364,7 @@ def launch_transmogrifier(once=False):
     In production, they should be launch via supervisord.
     """
     workers_pid = []
-    for i in xrange(0, 20):
+    for i in xrange(0, 10):
         newpid = fork()
         if newpid == 0:
             worker = Worker(['127.0.0.1', ])

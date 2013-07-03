@@ -113,16 +113,16 @@ def detach_dids(scope, name, dids, issuer):
     return did.detach_dids(scope=scope, name=name, dids=dids, issuer=issuer)
 
 
-def list_new_identifier(type=None):
+def list_new_dids(type=None):
     """
     List recent identifiers.
 
     :param type : The DID type.
     """
-    return did.list_new_identifier(type=type and DIDType.from_sym(type))
+    return did.list_new_dids(type=type and DIDType.from_sym(type))
 
 
-def set_new_identifier(scope, name, new_flag=True):
+def set_new_dids(dids, new_flag=True):
     """
     Set/reset the flag new
 
@@ -130,7 +130,7 @@ def set_new_identifier(scope, name, new_flag=True):
     :param name: The data identifier name.
     :param new_flag: A boolean to flag new DIDs.
     """
-    return did.set_new_identifier(scope, name, new_flag)
+    return did.set_new_dids(dids, new_flag)
 
 
 def list_content(scope, name):
