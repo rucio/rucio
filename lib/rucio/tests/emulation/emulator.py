@@ -50,16 +50,17 @@ def observe_gearman_queue(cfg, stop_event):
     count = 0
     pid = os.getpid()
     while stop_event.is_set() is False:
-        stat = ac.get_status()
-        for task in stat:
-            if task['task'] == 'execute_uc':
-                cs.update_stats('emulator.counts.gearman', task['queued'])
-                cs.update_stats('emulator.counts.files', get_open_fds())
-                if not count % 10:
-                    print '= (PID: %s) Gearman-Queue size: %s' % (pid, task['queued'])
-                    print '= (PID: %s) File count: %s' % (pid, get_open_fds())
-                count += 1
-
+        try:
+            stat = ac.get_status()
+            for task in stat:
+                if task['task'] == 'execute_uc':
+                    cs.update_stats('emulator.counts.gearman', task['queued'])
+                    cs.update_stats('emulator.counts.files', get_open_fds())
+                    if not count % 10:
+                        print '= (PID: %s [%s]) Gearman-Queue size: %s' % (pid, time.strftime('%H:%M:%S', time.gmtime()), task['queued'])
+                    count += 1
+        except Exception:
+            print traceback.format_exc()
         try:
             stop_event.wait(1.0)
         except KeyboardInterrupt:
@@ -121,19 +122,6 @@ if __name__ == '__main__':
             print e
             print traceback.format_exc()
 
-    # Start Gearman queue observer
-    if cfg['global']['operation_mode'] == 'gearman':
-        print '=' * 36 + ' GEARMAN ' + '=' * 35
-        try:
-            t = threading.Thread(target=observe_gearman_queue, args=[cfg['global'], stop_event])
-            t.deamon = True
-            t.start()
-            print '= Setting up gearman queue observer ... OK'
-        except Exception, e:
-            print '!! Unable to connect to Gearman-Server !!'
-            print e
-            print traceback.format_exc()
-
     print '=' * 31 + ' INCLUDED USECASES ' + '=' * 30
     uc_array = dict()
 
@@ -159,6 +147,19 @@ if __name__ == '__main__':
         proc_load[smallest] += uc[1]
         proc_mod[smallest].append(uc[0])
 
+   # Start Gearman queue observer
+    if cfg['global']['operation_mode'] == 'gearman':
+        print '=' * 36 + ' GEARMAN ' + '=' * 35
+        try:
+            t = threading.Thread(target=observe_gearman_queue, args=[cfg['global'], stop_event])
+            t.deamon = True
+            t.start()
+            print '= Setting up gearman queue observer ... OK'
+        except Exception, e:
+            print '!! Unable to connect to Gearman-Server !!'
+            print e
+            print traceback.format_exc()
+
     # Starting all processes
     procs = []
     for proc in proc_mod:
@@ -175,8 +176,6 @@ if __name__ == '__main__':
         pid = os.getpid()
         while True:
             time.sleep(10)
-            print '= (PID: %s) Main Process' % pid
-
     except KeyboardInterrupt:
         print 'Stopping emulation ...'
         stop_event.set()
