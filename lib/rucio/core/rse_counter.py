@@ -29,7 +29,7 @@ def add_counter(rse_id, session=None):
     """
     for num in xrange(MAX_COUNTERS):
         new_counter = models.RSECounter(rse_id=rse_id, num=num, files=0, bytes=0)
-        new_counter.save(flush=False, session=session)
+        session.merge(new_counter)
 
 
 @transactional_session
