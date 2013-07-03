@@ -107,7 +107,6 @@ class RSEMgr(object):
                         return self.__rses[rse_id]['protocols'][pid]
 
                 raise exception.RSEOperationNotSupported('Protocol %s doesn\'t support %s in domain %s' % (pid, operation, protocol_domain))
-        print 3
 
         # Check if one of the instanciated protocols supports the requested operation
         best_choice_priority = -1
