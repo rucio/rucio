@@ -1,8 +1,8 @@
 # All dependencies needed to run rucio client should be defined here
 
 argparse==1.2.1          # Command-line parsing library
-distribute==0.6.40       # Easily download, build, install, upgrade, and uninstall Python packages
-argcomplete==0.5.4       # Bash tab completion for argparse
+distribute==0.6.48       # Easily download, build, install, upgrade, and uninstall Python packages
+argcomplete==0.5.5       # Bash tab completion for argparse
 kerberos==1.1.1          # Kerberos high-level interface
 requests==0.14.2         # Python HTTP for Humans
 #  TODO: requests-kerberos
