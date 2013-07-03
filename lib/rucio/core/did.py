@@ -159,18 +159,15 @@ def add_dids(dids, account, session=None):
     try:
         session.flush()
     except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) columns scope, name are not unique":
+        if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
+        or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+        or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data identifier already exists!')
-        elif match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]):
-            raise exception.DataIdentifierAlreadyExists('Data identifier already exists!')
-        elif e.args[0] == "(IntegrityError) foreign key constraint failed":
-            raise exception.ScopeNotFound('Scope not found!')
-        # msg for oracle / mysql
-        raise exception.DatabaseException(e.args)
-    except DatabaseError, e:
-        if str(e.args[0]).strip() == "(DatabaseError) ORA-14400: inserted partition key does not map to any partition":
-            raise exception.ScopeNotFound('Scope not found!' % locals())
-        raise exception.DatabaseException(e.args)
+
+        if e.args[0] == "(IntegrityError) foreign key constraint failed":
+            raise exception.ScopeNotFound('Scope %(scope)s not found!' % locals())
+
+        raise exception.RucioException(e.args)
 
     # Add rules
     # for rule in rules:
