@@ -63,7 +63,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
         return None
 
     # get account identifier
-    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, identity_type=IdentityType.USERPASS).first()
+    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username, identity_type=IdentityType.USERPASS, account=account).first()
     db_account = result['account']
 
     # remove expired tokens
