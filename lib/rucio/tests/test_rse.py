@@ -72,7 +72,7 @@ class TestRSECoreApi():
         rse = 'MOCK'
         tmp_scope = 'mock'
         tmp_file = 'file_%s' % uuid()
-        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe', tombstone=True)
+        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe')
 
         values = (1, -1, 1)
         tombstones = (True, False, True)

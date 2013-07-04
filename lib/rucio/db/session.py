@@ -193,6 +193,9 @@ def read_session(function):
             except TimeoutError, e:
                 session.rollback()
                 raise DatabaseException(str(e))
+            except DatabaseError, e:
+                session.rollback()
+                raise DatabaseException(str(e))
             except:
                 session.rollback()
                 raise
@@ -222,6 +225,9 @@ def transactional_session(function):
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
             except TimeoutError, e:
+                session.rollback()
+                raise DatabaseException(str(e))
+            except DatabaseError, e:
                 session.rollback()
                 raise DatabaseException(str(e))
             except:
