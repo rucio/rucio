@@ -21,7 +21,7 @@ from tempfile import mkstemp
 from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
-from requests import delete, get, post, put
+from requests import session
 from requests.auth import HTTPKerberosAuth
 from requests.status_codes import codes, _codes
 from requests.exceptions import SSLError
@@ -62,6 +62,7 @@ class BaseClient(object):
 
         self.host = rucio_host
         self.auth_host = auth_host
+        self.session = session(config={'keep-alive': True})
 
         try:
             if self.host is None:
@@ -195,13 +196,13 @@ class BaseClient(object):
         while retry < self.request_retries:
             try:
                 if type == 'GET':
-                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, prefetch=False)  # `stream=True` for newer versions of requests
+                    r = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, prefetch=False)  # `stream=True` for newer versions of requests
                 elif type == 'PUT':
-                    r = put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    r = post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'DEL':
-                    r = delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
             except SSLError:
@@ -232,7 +233,7 @@ class BaseClient(object):
         retry = 0
         while retry < self.AUTH_RETRIES:
             try:
-                r = get(url, headers=headers, verify=self.ca_cert)
+                r = self.session.get(url, headers=headers, verify=self.ca_cert)
             except SSLError:
                 LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
                 self.ca_cert = False
@@ -288,7 +289,7 @@ class BaseClient(object):
 
         while retry < self.AUTH_RETRIES:
             try:
-                r = get(url, headers=headers, cert=cert, verify=self.ca_cert)
+                r = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
             except SSLError, e:
                 if 'error:14090086' not in e.args[0][0]:
                     return False
@@ -324,7 +325,7 @@ class BaseClient(object):
         retry = 0
         while retry < self.AUTH_RETRIES:
             try:
-                r = get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
+                r = self.session.get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
             except SSLError:
                 LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
                 self.ca_cert = False

@@ -15,6 +15,7 @@ import requests
 FTSHOST = 'https://fts3-pilot.cern.ch:8446'
 FTSHOST_MOCK = 'https://localhost/mockfts3'
 
+s = requests.session(config={'keep_alive': True})
 
 def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, filesize=None, checksum=None, overwrite=False, job_metadata={}, mock=False):
     """
@@ -56,11 +57,11 @@ def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, files
     if mock:
         HOST = FTSHOST_MOCK
 
-    r = requests.post('%s/jobs' % HOST,
-                      data=params_str,
-                      headers={'Content-Type': 'application/json'},
-                      cert='/home/mario/dev/rucio/etc/web/x509up',
-                      verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = s.post('%s/jobs' % HOST,
+               data=params_str,
+               headers={'Content-Type': 'application/json'},
+               cert='/home/mario/dev/rucio/etc/web/x509up',
+               verify='/home/mario/dev/rucio/etc/web/ca.crt')
 
     if r.status_code == 200:
         return r.json['job_id']
@@ -80,10 +81,10 @@ def query(transfer_id, mock=False):
     if mock:
         HOST = FTSHOST_MOCK
 
-    r = requests.get('%s/jobs/%s' % (HOST, transfer_id),
-                     headers={'Content-Type': 'application/json'},
-                     cert='/home/mario/dev/rucio/etc/web/x509up',
-                     verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = s.get('%s/jobs/%s' % (HOST, transfer_id),
+              headers={'Content-Type': 'application/json'},
+              cert='/home/mario/dev/rucio/etc/web/x509up',
+              verify='/home/mario/dev/rucio/etc/web/ca.crt')
 
     if r.status_code == 200:
         return r.json
@@ -114,10 +115,10 @@ def whoami(mock=False):
     if mock:
         HOST = FTSHOST_MOCK
 
-    r = requests.get('%s/whoami' % HOST,
-                     headers={'Content-Type': 'application/json'},
-                     cert='/home/mario/dev/rucio/etc/web/x509up',
-                     verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = s.get('%s/whoami' % HOST,
+              headers={'Content-Type': 'application/json'},
+              cert='/home/mario/dev/rucio/etc/web/x509up',
+              verify='/home/mario/dev/rucio/etc/web/ca.crt')
 
     if r.status_code == 200:
         return r.json
@@ -136,10 +137,10 @@ def version(mock=False):
     if mock:
         HOST = FTSHOST_MOCK
 
-    r = requests.get('%s/whoami' % HOST,
-                     headers={'Content-Type': 'application/json'},
-                     cert='/home/mario/dev/rucio/etc/web/x509up',
-                     verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = s.get('%s/whoami' % HOST,
+              headers={'Content-Type': 'application/json'},
+              cert='/home/mario/dev/rucio/etc/web/x509up',
+              verify='/home/mario/dev/rucio/etc/web/ca.crt')
 
     if r.status_code == 200:
         return r.json
