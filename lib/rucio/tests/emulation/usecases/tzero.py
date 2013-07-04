@@ -268,7 +268,7 @@ class UseCaseDefinition(UCEmulator):
                 success = True
             except Exception, e:
                 monitor.record_counter('emolator.exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
-                print traceback.format_ecx()
+                print traceback.format_exc()
 
         t = 0
         duration = 0
@@ -307,7 +307,7 @@ class UseCaseDefinition(UCEmulator):
                             client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles, rse=tz_rse)
                         except Exception, e:
                             monitor.record_counter('emolator.exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
-                            print traceback.format_ecx()
+                            print traceback.format_exc()
             delta = time.time() - now
             print '== TZero: Appending %s files to %s datasets took %s seconds' % (no_files, len(ds), delta)
             monitor.record_timer('tzero.registering_all_replicas', delta * 1000)
@@ -321,4 +321,4 @@ class UseCaseDefinition(UCEmulator):
                     client.close(scope=scope, name=datasetname)
                 except Exception, e:
                     monitor.record_counter('emolator.exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
-                    print traceback.format_ecx()
+                    print traceback.format_exc()
