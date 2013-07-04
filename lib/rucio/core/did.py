@@ -13,6 +13,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
+from hashlib import md5
 from re import match
 
 from sqlalchemy import and_, or_
@@ -20,7 +21,10 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
 
+import rucio.core.rule
+
 from rucio.common import exception
+from rucio.common.utils import grouper
 from rucio.core.rse import add_replicas
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
@@ -44,11 +48,12 @@ def list_replicas(scope, name, schemes=None, session=None):
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    replica_condition = or_()
+    replica_conditions = list()
+
     if did.did_type == DIDType.FILE:
-        replica_condition.append(and_(models.RSEFileAssociation.scope == scope,
-                                      models.RSEFileAssociation.name == name,
-                                      models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+        replica_conditions.append(and_(models.RSEFileAssociation.scope == scope,
+                                       models.RSEFileAssociation.name == name,
+                                       models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
     else:
         content_query = session.query(models.DataIdentifierAssociation)
         dids = [(scope, name)]
@@ -56,33 +61,33 @@ def list_replicas(scope, name, schemes=None, session=None):
             s, n = dids.pop()
             for tmp_did in content_query.filter_by(scope=s, name=n):
                 if tmp_did.child_type == DIDType.FILE:
-                    replica_condition.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
-                                                  models.RSEFileAssociation.name == tmp_did.child_name,
-                                                  models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+                    replica_conditions.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
+                                                   models.RSEFileAssociation.name == tmp_did.child_name,
+                                                   models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
                 else:
                     dids.append((tmp_did.child_scope, tmp_did.child_name))
 
     # Get replicas
     rsemgr = rsemanager.RSEMgr(server_mode=True)
-    protocols = {}
-    for replica, rse in session.query(models.RSEFileAssociation, models.RSE.rse).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).filter(replica_condition).yield_per(5):
-        try:
+    # protocols = {}
+    is_none = None
+    for replica_condition in grouper(replica_conditions, 10, and_(models.RSEFileAssociation.scope == is_none, models.RSEFileAssociation.name == is_none, models.RSEFileAssociation.state == is_none)):
+        for replica, rse in session.query(models.RSEFileAssociation, models.RSE.rse).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).filter(or_(*replica_condition)).yield_per(5):
+            try:
+                # if row.rse.rse not in protocols:
+                #    protocols[row.rse.rse] = rsemgr.list_protocols(rse_id=row.rse.rse, session=session)
 
-            # if row.rse.rse not in protocols:
-            #    protocols[row.rse.rse] = rsemgr.list_protocols(rse_id=row.rse.rse, session=session)
-
-            # for protocol in protocols[row.rse.rse]:
-             #   if not schemes or protocol['scheme'] in schemes:
-             #       pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': row.scope, 'filename': row.name}, properties=protocol, session=session))
-            yield {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
-                   'rse': rse, 'md5': replica.md5, 'adler32': replica.adler32, 'pfns': list()}
-
-        except (exception.RSENotFound, exception.RSEProtocolNotSupported):
-            pass
+                # for protocol in protocols[row.rse.rse]:
+                 #   if not schemes or protocol['scheme'] in schemes:
+                 #       pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': row.scope, 'filename': row.name}, properties=protocol, session=session))
+                yield {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
+                       'rse': rse, 'md5': replica.md5, 'adler32': replica.adler32, 'pfns': list()}
+            except (exception.RSENotFound, exception.RSEProtocolNotSupported):
+                pass
 
 
 @read_session
-def list_expired_dids(limit=None, session=None):
+def list_expired_dids(worker_number=None, total_workers=None, limit=None, session=None):
     """
     List expired data identifiers.
 
@@ -93,11 +98,27 @@ def list_expired_dids(limit=None, session=None):
         filter(models.DataIdentifier.expired_at < datetime.utcnow()).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
+    if worker_number and total_workers:
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers, worker_number-1))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers, worker_number-1))
+        elif session.bind.dialect.name == 'sqlite':
+            row_count = 0
+            for scope, name in query.yield_per(10):
+                if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
+                    yield {'scope': scope, 'name': name}
+                    row_count += 1
+
+                if limit and row_count >= limit:
+                    raise StopIteration
+            raise StopIteration
+
     if limit:
         query = query.limit(limit)
 
     for scope, name in query.yield_per(10):
-        yield {'scope': scope, 'name': name}
+            yield {'scope': scope, 'name': name}
 
 
 @transactional_session
@@ -127,36 +148,41 @@ def add_dids(dids, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    for did in dids:
-        try:
-
-            if isinstance(did['type'], str) or isinstance(did['type'], unicode):
-                did['type'] = DIDType.from_sym(did['type'])
-
-            if did['type'] == DIDType.FILE:
-                raise exception.UnsupportedOperation("Only collection (dataset/container) can be registered." % locals())
-
-            # Lifetime
-            expired_at = None
-            if did.get('lifetime'):
-                expired_at = datetime.utcnow() + timedelta(seconds=did['lifetime'])
-
-            # Insert new data identifier
-            new_did = models.DataIdentifier(scope=did['scope'], name=did['name'], account=did.get('account') or account,
-                                            did_type=did['type'], monotonic=did.get('statuses', {}).get('monotonic', False),
-                                            is_open=True, expired_at=expired_at)
-            # Add metadata
-            # ToDo: metadata validation
-            # validate_meta(did.get('meta', {}))
-            for key in did.get('meta', {}):
-                new_did.update({key: did['meta'][key]})
-
-            new_did.save(session=session, flush=False)
-        except KeyError, e:
-            # ToDo
-            raise
-
     try:
+
+        for did in dids:
+            try:
+
+                if isinstance(did['type'], str) or isinstance(did['type'], unicode):
+                    did['type'] = DIDType.from_sym(did['type'])
+
+                if did['type'] == DIDType.FILE:
+                    raise exception.UnsupportedOperation("Only collection (dataset/container) can be registered." % locals())
+
+                # Lifetime
+                expired_at = None
+                if did.get('lifetime'):
+                    expired_at = datetime.utcnow() + timedelta(seconds=did['lifetime'])
+
+                # Insert new data identifier
+                new_did = models.DataIdentifier(scope=did['scope'], name=did['name'], account=did.get('account') or account,
+                                                did_type=did['type'], monotonic=did.get('statuses', {}).get('monotonic', False),
+                                                is_open=True, expired_at=expired_at)
+                # Add metadata
+                # ToDo: metadata validation
+                # validate_meta(did.get('meta', {}))
+                for key in did.get('meta', {}):
+                    new_did.update({key: did['meta'][key]})
+
+                new_did.save(session=session, flush=False)
+
+                if 'rules' in did:
+                    rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
+
+            except KeyError, e:
+                # ToDo
+                raise
+
         session.flush()
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
@@ -169,11 +195,6 @@ def add_dids(dids, account, session=None):
             raise exception.ScopeNotFound('Scope not found!')
 
         raise exception.RucioException(e.args)
-
-    # Add rules
-    # for rule in rules:
-    #    add_replication_rule(dids=[{'scope': scope, 'name': name}, ], account=issuer, copies=rule['copies'],
-    #                         rse_expression=rule['rse_expression'], parameters={}, session=session)  # lifetime + grouping
 
 
 @transactional_session
@@ -298,9 +319,24 @@ def delete_dids(dids, account, session=None):
     :param session: The database session in use.
     """
     for did in dids:
+
+        # remove rules
+        for (rule_id,) in session.query(models.ReplicationRule.id).filter_by(scope=did['scope'], name=did['name']):
+            rucio.core.rule.delete_rule(rule_id, session=session)
+
+        # remove did from parent content
+        rowcount = session.query(models.DataIdentifierAssociation).filter_by(child_scope=did['scope'], child_name=did['name']).\
+            delete(synchronize_session=False)
+
+        # remove content
+        rowcount = session.query(models.DataIdentifierAssociation).filter_by(scope=did['scope'], name=did['name']).\
+            delete(synchronize_session=False)
+
+        # remove data identifier
         rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).\
             filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
             delete(synchronize_session=False)
+
         if not rowcount:
             raise exception.DataIdentifierNotFound("Dataset or container '%(scope)s:%(name)s' not found" % did)
 
