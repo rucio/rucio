@@ -160,12 +160,12 @@ def add_dids(dids, account, session=None):
         session.flush()
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
-        or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
-        or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+                or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
         if e.args[0] == "(IntegrityError) foreign key constraint failed" \
-        or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]):
+                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
 
         raise exception.RucioException(e.args)
@@ -385,10 +385,13 @@ def set_new_dids(dids, new_flag, session=None):
     :param session: The database session in use.
     """
     for did in dids:
-        query = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'])
-        rowcount = query.update({'is_new': new_flag}, synchronize_session=False)
-        if not rowcount:
-            raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
+        try:
+            session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).with_lockmode('update_nowait').first()
+            rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).update({'is_new': new_flag}, synchronize_session=False)
+            if not rowcount:
+                raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
+        except DatabaseError, e:
+            raise exception.DatabaseException('%s : Cannot update %s:%s' % (e.args[0], did['scope'], did['name']))
     try:
         session.flush()
     except IntegrityError, e:
