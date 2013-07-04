@@ -19,6 +19,7 @@ import traceback
 
 def exec_uc(gearman_worker, gearman_job):
     ret = str()
+    #print '== Worker [%s]: %s' % (time.strftime('%H:%M:%S', time.gmtime()), gearman_job)
     try:
         uc_data = ast.literal_eval(gearman_job.data)
         if uc_data['class_name'] not in imported_ucs:
@@ -32,7 +33,7 @@ def exec_uc(gearman_worker, gearman_job):
         fin = time.time()
         carbon_server.timing('%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name']), (fin - start) * 1000)
     except Exception, e:
-        print('== Worker: exceptions.%s.%s.%s: %s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (e.__class__.__name__).split('.')[-1], e))
+        print('== Worker [%s]: exceptions.%s.%s.%s: %s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (time.strftime('%H:%M:%S', time.gmtime()), e.__class__.__name__).split('.')[-1], e))
         print traceback.format_exc()
         carbon_server.update_stats('exceptions.%s.%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (e.__class__.__name__).split('.')[-1]), 1)
     return ret
@@ -61,4 +62,3 @@ imported_ucs = dict()
 gm_worker.register_task('execute_uc', exec_uc)
 print 'Worker registered ...'
 gm_worker.work()
-print 'Worker started ...'
