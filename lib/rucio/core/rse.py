@@ -442,9 +442,9 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         return nbfiles, bytes
     except IntegrityError, e:
         if match('.*IntegrityError.*ORA-00001: unique constraint .*REPLICAS_PK.*violated.*', e.args[0]) \
-        or match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
-        or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique':
-            raise exception.Duplicate("File replica already exists!")
+            or match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
+                or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique':
+                raise exception.Duplicate("File replica already exists!")
         raise exception.RucioException(e.args)
     except DatabaseError, e:
         raise exception.RucioException(e.args)

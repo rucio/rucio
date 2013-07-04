@@ -17,6 +17,7 @@ FTSHOST_MOCK = 'https://localhost/mockfts3'
 
 s = requests.session(config={'keep_alive': True})
 
+
 def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, filesize=None, checksum=None, overwrite=False, job_metadata={}, mock=False):
     """
     Submit a transfer to FTS3 via JSON.
