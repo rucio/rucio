@@ -64,6 +64,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
     for elem in dids:
         # 2. Get and lock the did
+        start_time = time.time()
         try:
             did = session.query(models.DataIdentifier).filter(
                 models.DataIdentifier.scope == elem['scope'],
@@ -73,6 +74,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     models.DataIdentifier.did_type == DIDType.CONTAINER)).with_lockmode('update').one()
         except NoResultFound:
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+        record_timer(stat='rule.lock_did', time=(time.time() - start_time)*1000)
+        start_time = time.time()
         # 3. Create the replication rule
         if grouping == 'ALL':
             grouping = RuleGrouping.ALL
@@ -87,6 +90,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             raise InvalidReplicationRule(e.args[0])
         rule_id = new_rule.id
         rule_ids.append(rule_id)
+        record_timer(stat='rule.create_rule', time=(time.time() - start_time)*1000)
         # 4. Resolve the did
         datasetfiles = __resolve_dids_to_locks(did, session=session)
         # 5. Apply the replication rule to create locks and return a list of transfers
