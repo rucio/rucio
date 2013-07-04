@@ -35,8 +35,7 @@ class UseCaseDefinition(UCEmulator):
         else:  # Production task output stuff is created
             exts = ['log', 'out']
             create_dis_ds = (input['dis_ds_probability'] > random())
-        #client = Client(account='panda')
-        client = Client()
+        client = Client(account='panda')
 
         # ----------------------- List replicas and derive list of files from it -------------------
         now = time.time()
@@ -170,7 +169,7 @@ class UseCaseDefinition(UCEmulator):
                 else:
                     with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
                         client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)
-            #nof = int(round(len(files_in_ds) / input['number_of_inputfiles_per_job']))
+            #nof = float(round(len(files_in_ds) / input['number_of_inputfiles_per_job']))
             if len(files_in_ds) % input['number_of_inputfiles_per_job']:
                 nof = (len(files_in_ds) / input['number_of_inputfiles_per_job']) + 1
             else:
@@ -296,8 +295,7 @@ class UseCaseDefinition(UCEmulator):
     @UCEmulator.UseCase
     def FINISH_JOB(self, jobs, threads):
         monitor.record_counter('panda.jobs.finished', len(jobs))
-        #client = Client(account='panda')
-        client = Client()
+        client = Client(account='panda')
 
         # Group jobs by sub - dataset
         subs = dict()
@@ -351,8 +349,7 @@ class UseCaseDefinition(UCEmulator):
     def FINISH_TASK(self, tasks, threads):
         monitor.record_counter('panda.tasks.finished', len(tasks))
         print '== PanDA: Finish tasks: %s' % len(tasks)
-        #client = Client(account='panda')
-        client = Client()
+        client = Client(account='panda')
         ts = list()
         for task in tasks:
             # -------------- Group sub datasets to their related output datasets ----------------------------------------------
@@ -463,8 +460,7 @@ class UseCaseDefinition(UCEmulator):
         ctx.task_queue = PriorityQueue()
         ctx.input_files = {}
 
-        #client = Client(account='panda')
-        client = Client()
+        client = Client(account='panda')
         ctx.users = list()
         try:
             for a in client.list_accounts():
