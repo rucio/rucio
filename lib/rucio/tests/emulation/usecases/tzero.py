@@ -261,10 +261,10 @@ class UseCaseDefinition(UCEmulator):
                                     'rse_expression': tz_rse, 'grouping': 'DATASET'}]})  # The missing lifetime attribute indicated an infinite lifetime
                 with monitor.record_timer_block(['tzero.add_datasets', ('tzero.add_datasets.normalized', len(open_ds))]):
                     client.add_datasets(open_ds)
-                dids = [{'scope': d['scope'], 'name': d['name']} for d in open_ds]
-                with monitor.record_timer_block(['tzero.add_replication_rule', ('tzero.add_replication_rule.normalized', len(open_ds))]):
-                    client.add_replication_rule(dids, copies=1, rse_expression=tz_rse,
-                                                grouping='DATASET', account=tz_account)
+                #dids = [{'scope': d['scope'], 'name': d['name']} for d in open_ds]
+                #with monitor.record_timer_block(['tzero.add_replication_rule', ('tzero.add_replication_rule.normalized', len(open_ds))]):
+                #    client.add_replication_rule(dids, copies=1, rse_expression=tz_rse,
+                #                                grouping='DATASET', account=tz_account)
                 success = True
             except Exception, e:
                 monitor.record_counter('emulator.exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
