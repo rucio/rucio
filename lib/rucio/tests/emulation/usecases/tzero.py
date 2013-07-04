@@ -21,6 +21,7 @@ tzero use case:
 
 import random
 import time
+import traceback
 
 from datetime import date
 
@@ -48,27 +49,10 @@ class UseCaseDefinition(UCEmulator):
     def setup(self, ctx):
         d = date.today()
         ctx.runnumber = long('%02d%02d%02d00' % (d.year - 2000, d.month, d.day))
-        #used_runnnumbers = Client(account='tier0').list_values('run_number')
-        used_runnnumbers = Client().list_values('run_number')
+        used_runnnumbers = Client(account='tier0').list_values('run_number')
         while unicode(ctx.runnumber) in used_runnnumbers:
             ctx.runnumber += 1
         print '== TZero: starts with runnumber offset: %s' % ctx.runnumber
-        #try:
-        #    Client().add_key('run_number', 'ALL')
-        #except Exception, e:
-        #    print e
-        #try:
-        #    Client().add_scope('panda', 'data12_8TeV')
-        #except Exception, e:
-        #    print e
-        #try:
-        #    Client().add_scope('panda', 'data12_calib')
-        #except Exception, e:
-        #    print e
-        #try:
-        #    Client().add_account('tier0', 'SERVICE')
-        #except Exception, e:
-        #    print e
 
     @UCEmulator.UseCase
     def EMULATION_RUN(self, interval, filescale, dataXX, runnumber, runspertag, calibfraction, timespan):
@@ -79,8 +63,7 @@ class UseCaseDefinition(UCEmulator):
         tz_filesize = 2000000000     # 2GB
 
         runnumber = random.randrange(400000, 500000)
-        #client = Client(account=tz_account)
-        client = Client()
+        client = Client(account=tz_account)
 
         # Initializing run data
         if random.random() > calibfraction:
@@ -284,8 +267,8 @@ class UseCaseDefinition(UCEmulator):
                                                 grouping='DATASET', account=tz_account)
                 success = True
             except Exception, e:
-                monitor.record_counter('exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
-                print e
+                monitor.record_counter('emolator.exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
+                print traceback.format_ecx()
 
         t = 0
         duration = 0
@@ -323,12 +306,12 @@ class UseCaseDefinition(UCEmulator):
                         try:
                             client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles, rse=tz_rse)
                         except Exception, e:
-                            monitor.record_counter('exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
-                            print e
+                            monitor.record_counter('emolator.exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
+                            print traceback.format_ecx()
             delta = time.time() - now
             print '== TZero: Appending %s files to %s datasets took %s seconds' % (no_files, len(ds), delta)
-            monitor.record_timer('tzero.registering_all_replicas', delta)
-            monitor.record_timer('tzero.registering_all_replicas.normalized', delta / no_files)
+            monitor.record_timer('tzero.registering_all_replicas', delta * 1000)
+            monitor.record_timer('tzero.registering_all_replicas.normalized', (delta * 1000) / no_files)
 
         # close all datasets
         for scope, datasetname, s, c in ds:
@@ -337,5 +320,5 @@ class UseCaseDefinition(UCEmulator):
                 try:
                     client.close(scope=scope, name=datasetname)
                 except Exception, e:
-                    monitor.record_counter('exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
-                    print e
+                    monitor.record_counter('emolator.exceptions.tzero.EMULATION_RUN.%s' % e.__class__.__name__, 1)
+                    print traceback.format_ecx()
