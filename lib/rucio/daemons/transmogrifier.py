@@ -15,6 +15,7 @@ import time
 from copy import copy
 from json import loads, dumps
 from logging import getLogger, FileHandler, Formatter, INFO, DEBUG
+from math import exp
 from os import getpid, fork, kill
 from sys import exc_info, exit
 from traceback import format_exception
@@ -25,6 +26,7 @@ from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.rule import add_replication_rule
 from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
+from rucio.common.exception import DatabaseException
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidReplicationRule
 from rucio.core import monitor
@@ -37,6 +39,26 @@ hdlr.setFormatter(formatter)
 logger.addHandler(hdlr)
 logger.setLevel(DEBUG)
 logger.setLevel(INFO)
+
+
+def _retrial(func, *args, **kwargs):
+    delay = 0
+    while True:
+        try:
+            return apply(func, args, kwargs)
+        except DatabaseException, e:
+            logger.error(e)
+            if exp(delay) > 600:
+                logger.error('Cannot execute %s after %i attempt. Failing the job.' % (func.__name__, delay))
+                raise
+            else:
+                logger.error('Failure to execute %s. Retrial will be done in %d seconds ' % (func.__name__, exp(delay)))
+            time.sleep(exp(delay))
+            delay += 1
+        except:
+            exc_type, exc_value, exc_traceback = exc_info()
+            logger.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            raise
 
 
 class Supervisor(object):
@@ -336,7 +358,7 @@ class Worker(GearmanWorker):
                 monitor.record_counter(counters='transmogrifier.did.processed',  delta=1)
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
             time1 = time.time()
-            set_new_dids(identifiers, None)
+            _retrial(set_new_dids, identifiers, None)
             #logger.info(dids)
             logger.info('Time to set the new flag : %f' % (time.time() - time1))
             logger.debug('Matching subscriptions '+dumps(results))
