@@ -28,6 +28,7 @@ def exec_uc(gearman_worker, gearman_job):
             mod = __import__(mod_name, fromlist=[class_name])
             cls = getattr(mod, class_name)
             imported_ucs[uc_data['class_name']] = cls(worker_mode=True, carbon_server=carbon_server)
+        print '== Worker [%s]: %s.%s' % (time.strftime('%H:%M:%S', time.gmtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'])
         start = time.time()
         ret = str(getattr(imported_ucs[uc_data['class_name']], uc_data['uc_name'])(**uc_data['input_data']))
         fin = time.time()
