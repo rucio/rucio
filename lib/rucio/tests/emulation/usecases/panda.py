@@ -11,15 +11,18 @@
 import datetime
 import os
 import threading
+import sys
 import time
 
-from Queue import PriorityQueue, Empty
+from Queue import PriorityQueue, Empty, Queue
 from random import choice, gauss, sample, random, randint
 
 from rucio.client import Client
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core import monitor
 from rucio.tests.emulation.ucemulator import UCEmulator
+
+g_sem = threading.Semaphore()
 
 
 class UseCaseDefinition(UCEmulator):
@@ -189,9 +192,10 @@ class UseCaseDefinition(UCEmulator):
             #with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
             #   client.attach_dids_to_dids(attachments=inserts)
             ts = list()
+            ts_res = Queue()
             for ds in inserts_dis:
                 if threads == 'True':
-                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'files_in_ds': files_in_ds})
+                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'files_in_ds': files_in_ds, 'ret': Queue()})
                     t.start()
                     ts.append(t)
                 else:
@@ -199,6 +203,11 @@ class UseCaseDefinition(UCEmulator):
             if threads == 'True':
                 for t in ts:
                     t.join()
+            while not ts_res.empty():
+                ret = ts_res.get()
+                if not ret[0]:
+                    print ret[1][2]
+                    raise ret[1][0]
 
             # Group datasets by RSE to bulk-add rule for computing rse
             #rses = dict()
@@ -248,9 +257,17 @@ class UseCaseDefinition(UCEmulator):
             task_finish = (max_job_completion + 60, (output['scope'], final_dss), sub_ds_names)  # Again, adding 60 seconds for safety
         return {'job_finish': job_finish, 'task_finish': [task_finish]}
 
-    def add_files_ds(self, client, ds, files_in_ds):
-        with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
-            client.add_files_to_dataset(scope=ds['scope'], name=ds['name'], files=ds['dids'])
+    def add_files_ds(self, client, ds, files_in_ds, ret=None):
+        client = Client(account='panda')
+        try:
+            with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
+                client.add_files_to_dataset(scope=ds['scope'], name=ds['name'], files=ds['dids'])
+        except:
+            e = sys.exc_info()
+            if ret:
+                ret.put((False, e))
+        if ret:
+            ret.put((True, None))
 
     #def add_repl_rule(self, client, dsns, rse):
     #    with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(dsns))]):
@@ -306,9 +323,10 @@ class UseCaseDefinition(UCEmulator):
 
         print '== PanDA: Finish jobs: %s for %s sub - datasets' % (len(jobs), len(subs))
         ts = list()
+        ts_res = Queue()
         for ds in subs:
             if threads == 'True':
-                t = threading.Thread(target=self.register_replica, kwargs={'client': client, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]}, 'rse': subs[ds][1], 'jobs': subs[ds][0]})
+                t = threading.Thread(target=self.register_replica, kwargs={'client': client, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]}, 'rse': subs[ds][1], 'jobs': subs[ds][0], 'ret': ts_res})
                 t.start()
                 ts.append(t)
             else:
@@ -316,15 +334,36 @@ class UseCaseDefinition(UCEmulator):
         if threads == 'True':
             for t in ts:
                 t.join()
+        while not ts_res.empty():
+            ret = ts_res.get()
+            if not ret[0]:
+                print ret[1][2]
+                raise ret[1][0]
 
-    def register_replica(self, client, dsn, rse, jobs):
+    def register_replica(self, client, dsn, rse, jobs, ret=None):
         files = list()
+        client = Client(account='panda')
         for i in xrange(jobs):
             fn = uuid()
             for ext in ['out', 'log']:
                 files.append({'scope': dsn['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-        with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
-            client.add_files_to_dataset(scope='Manure', name=dsn['name'], files=files, rse=rse)
+        now = time.time()
+        try:
+            with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
+                client.add_files_to_dataset(scope='Manure', name=dsn['name'], files=files, rse=rse)
+        except:
+            e = sys.exc_info()
+            g_sem.acquire()
+            print '-' * 80
+            print 'Failed after %s seconds' % (time.time() - now)
+            print 'Manure:%s' % dsn['name']
+            print files
+            print '-' * 80
+            g_sem.release()
+            if ret:
+                ret.put((False, e))
+        if ret:
+            ret.put((True, None))
 
     def FINISH_JOB_input(self, ctx):
         now = time.time()
