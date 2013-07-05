@@ -100,9 +100,9 @@ class UseCaseDefinition(UCEmulator):
 
         # As rules are currently ignored in the add_ - methods they are added explicetly here. This should be removed when rules are considered during adding dataset
         # All rules for containers added in bulk as they all end up on the same RSE
-        with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(datasets))]):
-            client.add_replication_rule(datasets, copies=1, rse_expression=target_rse,
-                                        grouping='DATASET', lifetime=output['lifetime'], account=output['account'])
+        #with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(datasets))]):
+        #    client.add_replication_rule(datasets, copies=1, rse_expression=target_rse,
+        #                                grouping='DATASET', lifetime=output['lifetime'], account=output['account'])
 
         # -------------------------------- Derive/Create dis and subdatasets ------------------------------------------
         sub_dss = []
@@ -137,26 +137,25 @@ class UseCaseDefinition(UCEmulator):
                 if bulk:
                     for ds in sub_ds:
                         inserts_sub.append({'scope': 'Manure', 'name': ds, 'lifetime': 86400, 'dids': [],
-                                            'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'},
-                                                      {'account': 'panda', 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}
-                                                      ]})  # Create SUB-Datasets
+                                            'rules': [{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rse),
+                                            'grouping': 'DATASET'}]})  # Create SUB-Datasets
                 else:
                     if create_dis_ds:
                         with monitor.record_timer_block('panda.add_dataset'):
                             client.add_dataset(scope='Manure', name=dis_ds, lifetime=86400,
                                                rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}])  # Create DIS-Datasets
-                            # As rules are currently ignored in the add_ - methods they are added explicetly here. This should be removed when rules are considered during adding dataset
-                        with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule', 1)]):
-                            client.add_replication_rule([{'scope': 'Manure', 'name': dis_ds}], copies=1, rse_expression=computing_rse,
-                                                        grouping='DATASET', lifetime=86400, account='panda')
+                        #    # As rules are currently ignored in the add_ - methods they are added explicetly here. This should be removed when rules are considered during adding dataset
+                        #with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule', 1)]):
+                        #    client.add_replication_rule([{'scope': 'Manure', 'name': dis_ds}], copies=1, rse_expression=computing_rse,
+                        #                                grouping='DATASET', lifetime=86400, account='panda')
                     for ds in sub_ds:
                         with monitor.record_timer_block('panda.add_dataset'):
                             client.add_dataset(scope='Manure', name=ds, lifetime=86400,
                                                rules=[{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rse), 'grouping': 'DATASET'}])  # Create SUB-Datasets
                     # As rules are currently ignored in the add_ - methods they are added explicetly here. This should be removed when rules are considered during adding dataset
-                    with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule', len(sub_ds))]):
-                        client.add_replication_rule([{'scope': 'Manure', 'name': ds}], copies=2, rse_expression='%s|%s' % (computing_rse, target_rse),
-                                                    grouping='DATASET', lifetime=86400, account='panda')
+                    #with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule', len(sub_ds))]):
+                    #    client.add_replication_rule([{'scope': 'Manure', 'name': ds}], copies=2, rse_expression='%s|%s' % (computing_rse, target_rse),
+                    #                                grouping='DATASET', lifetime=86400, account='panda')
             files_in_ds.append(f)
 
         # Last DIS-DS: Add files to dis - dataset and replication rule
@@ -180,7 +179,7 @@ class UseCaseDefinition(UCEmulator):
 
         # -------------------------------------- Perform bulk inserts ----------------------------------------
         if bulk:
-            no_files = 0
+            #no_files = 0
             # Add all dis and sub datasets
             datasets = inserts_dis + inserts_sub
             with monitor.record_timer_block(['panda.add_datasets', ('panda.add_datasets.normalized', len(datasets))]):
@@ -202,26 +201,26 @@ class UseCaseDefinition(UCEmulator):
                     t.join()
 
             # Group datasets by RSE to bulk-add rule for computing rse
-            rses = dict()
-            for ds in datasets:
-                rses.setdefault(ds['rules'][0]['rse_expression'], list()).append({'scope': ds['scope'], 'name': ds['name']})
-                no_files += len(ds['dids'])
-            ts = list()
-            for computing_rse in rses:
-                if threads == 'True':
-                    t = threading.Thread(target=self.add_repl_rule, kwargs={'client': client, 'dsns': rses[computing_rse], 'rse': computing_rse})
-                    t.start()
-                    ts.append(t)
-                else:
-                    self.add_repl_rule(client, rses[computing_rse], computing_rse)
-            if threads == 'True':
-                for t in ts:
-                    t.join()
+            #rses = dict()
+            #for ds in datasets:
+            #    rses.setdefault(ds['rules'][0]['rse_expression'], list()).append({'scope': ds['scope'], 'name': ds['name']})
+            #    no_files += len(ds['dids'])
+            #ts = list()
+            #for computing_rse in rses:
+            #    if threads == 'True':
+            #        t = threading.Thread(target=self.add_repl_rule, kwargs={'client': client, 'dsns': rses[computing_rse], 'rse': computing_rse})
+            #        t.start()
+            #        ts.append(t)
+            #    else:
+            #        self.add_repl_rule(client, rses[computing_rse], computing_rse)
+            #if threads == 'True':
+            #    for t in ts:
+            #        t.join()
 
-            # Add additional rule for sub datasets ending up on target RSE
-            with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(inserts_sub))]):
-                client.add_replication_rule(inserts_sub, copies=1, rse_expression=target_rse,
-                                            grouping='DATASET', account='panda')
+            # Add additional rule for sub datasets ending up on target RSE (explicit because of bulk add_datasets above)
+            #with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(inserts_sub))]):
+            #    client.add_replication_rule(inserts_sub, copies=1, rse_expression=target_rse,
+            #                                grouping='DATASET', account='panda')
 
         # --------------------------------------- Calculate finishing times ----------------------------------
         job_finish = []         # When each job finishes -> register output files(s)
@@ -253,10 +252,10 @@ class UseCaseDefinition(UCEmulator):
         with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
             client.add_files_to_dataset(scope=ds['scope'], name=ds['name'], files=ds['dids'])
 
-    def add_repl_rule(self, client, dsns, rse):
-        with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(dsns))]):
-            client.add_replication_rule(dsns, copies=1, rse_expression=rse,
-                                        grouping='DATASET', account='panda')
+    #def add_repl_rule(self, client, dsns, rse):
+    #    with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(dsns))]):
+    #        client.add_replication_rule(dsns, copies=1, rse_expression=rse,
+    #                                    grouping='DATASET', account='panda')
 
     def CREATE_TASK_input(self, ctx):
         # Select input DS from file provided by Cedric using observed age distribution from Thomas
