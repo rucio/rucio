@@ -508,10 +508,9 @@ class ReplicaLock(BASE, ModelBase):
     bytes = Column(BigInteger)
     state = Column(LockState.db_type(name='LOCKS_STATE_CHK'), default=LockState.REPLICATING)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='LOCKS_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='LOCKS_DID_FK'),
+                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replicas.rse_id', 'replicas.scope', 'replicas.name'], name='LOCKS_REPLICAS_FK'),
                    ForeignKeyConstraint(['rule_id'], ['rules.id'], name='LOCKS_RULE_ID_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='LOCKS_RSES_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='LOCKS_STATE_NN'),
                    Index('LOCKS_RULE_ID_IDX', 'rule_id')
                    )

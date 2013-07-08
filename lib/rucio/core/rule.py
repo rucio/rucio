@@ -423,9 +423,10 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         locks_replicating_cnt += 1
 
     # d) Put the locks to the DB, Put the Replicas in the DBreturn the transfers
-    session.add_all(locks_to_create)
-    session.add_all(replicas_to_create)
     try:
+        session.add_all(replicas_to_create)
+        session.flush()
+        session.add_all(locks_to_create)
         session.flush()
     except IntegrityError, e:
         raise ReplicationRuleCreationFailed(e.args[0])
