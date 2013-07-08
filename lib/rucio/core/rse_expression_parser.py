@@ -64,7 +64,7 @@ def parse_expression(expression, session=None):
         if match.group() != expression:
             raise InvalidRSEExpression('')
 
-    result = list(resolve_term_expression(expression)[0].resolve_elements(session=session))
+    result = list(__resolve_term_expression(expression)[0].resolve_elements(session=session))
     random.shuffle(result)
     if not result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
@@ -72,7 +72,7 @@ def parse_expression(expression, session=None):
     return result
 
 
-def resolve_term_expression(expression):
+def __resolve_term_expression(expression):
     """
     Resolves a Term Expression and returns an object of type BaseExpressionElement
 
@@ -89,11 +89,11 @@ def resolve_term_expression(expression):
             return (left_term, original_expression)
         elif expression[0] == "(":
             if (left_term is None):
-                left_term, termexpression = resolve_term_expression(extract_term(expression))
+                left_term, termexpression = __resolve_term_expression(__extract_term(expression))
                 expression = expression[len(termexpression)+2:]
                 continue
             else:
-                right_term, termexpression = resolve_term_expression(extract_term(expression))
+                right_term, termexpression = __resolve_term_expression(__extract_term(expression))
                 expression = expression[len(termexpression)+2:]
                 operator.set_left_term(left_term)
                 operator.set_right_term(right_term)
@@ -114,11 +114,11 @@ def resolve_term_expression(expression):
             continue
         else:
             if (left_term is None):
-                left_term, primitiveexpression = resolve_primitive_expression(expression)
+                left_term, primitiveexpression = __resolve_primitive_expression(expression)
                 expression = expression[len(primitiveexpression):]
                 continue
             else:
-                right_term, primitiveexpression = resolve_primitive_expression(expression)
+                right_term, primitiveexpression = __resolve_primitive_expression(expression)
                 expression = expression[len(primitiveexpression):]
                 operator.set_left_term(left_term)
                 operator.set_right_term(right_term)
@@ -127,7 +127,7 @@ def resolve_term_expression(expression):
                 continue
 
 
-def resolve_primitive_expression(expression):
+def __resolve_primitive_expression(expression):
     """
     Resolve a primitive expression and return a RSEAttribute object
 
@@ -142,7 +142,7 @@ def resolve_primitive_expression(expression):
         return (RSEAttribute(keyvalue[0]), primitiveexpression)
 
 
-def extract_term(expression):
+def __extract_term(expression):
     """
     Extract a term from an expression with parantheses
 
