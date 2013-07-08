@@ -440,7 +440,6 @@ class TestReplicationRuleClient():
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
         assert_is_instance(ret, list)
 
-    #TODO: Needs to be fixed!
     def test_delete_rule(self):
         """ REPLICATION RULE (CLIENT): Delete a replication rule """
         scope = 'mock'
