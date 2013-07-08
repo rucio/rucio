@@ -573,18 +573,19 @@ def get_rule(rule_id, session=None):
 
 
 @transactional_session
-def re_evaluate_did(session=None):
+def re_evaluate_did(timedeltaseconds=5, session=None):
     """
     Fetches the next did to re-evaluate and re-evaluates it.
 
-    :param session: The database session in use.
-    :returns:       True if a rule was re-evaluated; False otherwise.
+    :param timedeltaseconds:  Delay to consider dids for re-evaluation.
+    :param session:           The database session in use.
+    :returns:                 True if a rule was re-evaluated; False otherwise.
     """
 
     # Get DID which needs re-evaluation
     # TODO This needs to skip locks
     did = session.query(models.DataIdentifier).filter(
-        models.DataIdentifier.rule_evaluation_required < datetime.utcnow() - timedelta(seconds=5)).with_lockmode('update_nowait').first()
+        models.DataIdentifier.rule_evaluation_required < datetime.utcnow() - timedelta(seconds=timedeltaseconds)).with_lockmode('update_nowait').first()
     if did is None:
         return False
     print 're_evaluator: evaluating %s:%s for %s' % (did.scope, did.name, did.rule_evaluation_action)
