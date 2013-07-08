@@ -193,12 +193,19 @@ class UCEmulator(object):
             request = None
             try:
                 request = client.submit_job(task='execute_uc', data=str(data), unique=str(uuid()), background=False, wait_until_complete=True)
-                if request.result == 'False':
+                if request.state == 'FAILED' and not request.timed_out:  # Can only happen when import on the worker fails
+                    print '!! ERROR !! Worker failed while executing %s.%s (Note: do Rucio imports work for the workers?)' % (data['class_name'], data['uc_name'])
+                    return
+                elif request.timed_out:  # Can only happen when import on the worker fails
+                    print '!! ERROR !! Worker timed out while executing %s.%s' % (data['class_name'], data['uc_name'])
+                    return
+                elif request.result == 'False':
                     print '!! ERROR !! %s failed' % data['uc_name']
                     return
                 result = ast.literal_eval(request.result)[1]
             except Exception, e:
                 print e
+                print traceback.format_exc()
                 return
             self.__call_methods[data['uc_name']]['output'](self.__ctx, result)
         except Exception, e:
@@ -231,6 +238,7 @@ class UCEmulator(object):
             self.time_uc(self.__call_methods[call])
         except Exception, e:
             print e
+            print traceback.format_exc()
             self.inc('exceptions.%s' % e.__class__.__name__)
 
     def stop(self):

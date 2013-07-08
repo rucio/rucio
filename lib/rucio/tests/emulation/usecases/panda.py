@@ -31,7 +31,7 @@ class UseCaseDefinition(UCEmulator):
     """
 
     @UCEmulator.UseCase
-    def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk, threads):
+    def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk, threads, jobs_per_dis):
         if task_type.split('.')[0] == 'user':  # User task is created
             exts = ['user']
             create_dis_ds = False
@@ -118,7 +118,7 @@ class UseCaseDefinition(UCEmulator):
         inserts_sub = list()
 
         for f in files:
-            if len(files_in_ds) == (20 * input['number_of_inputfiles_per_job']):
+            if len(files_in_ds) == (jobs_per_dis * input['number_of_inputfiles_per_job']):
                 if create_dis_ds:
                     if bulk:
                         inserts_dis.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400,
@@ -195,7 +195,7 @@ class UseCaseDefinition(UCEmulator):
             ts_res = Queue()
             for ds in inserts_dis:
                 if threads == 'True':
-                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'files_in_ds': files_in_ds, 'ret': Queue()})
+                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': None, 'ds': ds, 'files_in_ds': files_in_ds, 'ret': Queue()})
                     t.start()
                     ts.append(t)
                 else:
@@ -258,7 +258,8 @@ class UseCaseDefinition(UCEmulator):
         return {'job_finish': job_finish, 'task_finish': [task_finish]}
 
     def add_files_ds(self, client, ds, files_in_ds, ret=None):
-        client = Client(account='panda')
+        if not client:
+            client = Client(account='panda')
         try:
             with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
                 client.add_files_to_dataset(scope=ds['scope'], name=ds['name'], files=ds['dids'])
@@ -283,7 +284,8 @@ class UseCaseDefinition(UCEmulator):
                'task_type': task_type,
                'rses': [ctx.rses[i] for i in sample(xrange(len(ctx.rses)), 4)],
                'target_rse': choice(ctx.rses),
-               'file_transfer_duration': ctx.file_transfer_duration
+               'file_transfer_duration': ctx.file_transfer_duration,
+               'jobs_per_dis': ctx.jobs_per_dis
                }
         input_ds = self.select_input_ds(task_type, ctx)
         ret['input']['ds_name'] = input_ds[1]
@@ -326,7 +328,7 @@ class UseCaseDefinition(UCEmulator):
         ts_res = Queue()
         for ds in subs:
             if threads == 'True':
-                t = threading.Thread(target=self.register_replica, kwargs={'client': client, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]}, 'rse': subs[ds][1], 'jobs': subs[ds][0], 'ret': ts_res})
+                t = threading.Thread(target=self.register_replica, kwargs={'client': None, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]}, 'rse': subs[ds][1], 'jobs': subs[ds][0], 'ret': ts_res})
                 t.start()
                 ts.append(t)
             else:
@@ -342,7 +344,8 @@ class UseCaseDefinition(UCEmulator):
 
     def register_replica(self, client, dsn, rse, jobs, ret=None):
         files = list()
-        client = Client(account='panda')
+        if not client:
+            client = Client(account='panda')
         for i in xrange(jobs):
             fn = uuid()
             for ext in ['out', 'log']:
@@ -398,7 +401,7 @@ class UseCaseDefinition(UCEmulator):
                         sub_dss.append(sub_ds)
 
                 if threads == 'True':
-                    t = threading.Thread(target=self.fin_task, kwargs={'client': client, 'task': {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]}, 'threads': threads})
+                    t = threading.Thread(target=self.fin_task, kwargs={'client': None, 'task': {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]}, 'threads': threads})
                     t.start()
                     ts.append(t)
                 else:
@@ -410,10 +413,12 @@ class UseCaseDefinition(UCEmulator):
     def fin_task(self, client, task, threads):
         files = list()
         ts = list()
+        if not client:
+            client = Client(account='panda')
         sem = threading.Semaphore()
         for sub_ds in task['sub_dss']:
             if threads == 'True':
-                t = threading.Thread(target=self.aggregate_input, kwargs={'client': client, 'source_ds': sub_ds, 'files': files, 'sem': sem})
+                t = threading.Thread(target=self.aggregate_input, kwargs={'client': None, 'source_ds': sub_ds, 'files': files, 'sem': sem})
                 t.start()
                 ts.append(t)
             else:
@@ -446,6 +451,8 @@ class UseCaseDefinition(UCEmulator):
 
     def aggregate_input(self, client, source_ds, files, sem=None):
         now = time.time()
+        if not client:
+            client = Client(account='panda')
         with monitor.record_timer_block('panda.list_files'):
             fs = [f for f in client.list_files(scope='Manure', name=source_ds)]
         if not len(fs):

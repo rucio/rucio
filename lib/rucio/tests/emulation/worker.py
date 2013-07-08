@@ -37,7 +37,11 @@ def exec_uc(gearman_worker, gearman_job):
         print('== Worker [%s]: exceptions.%s.%s.%s: %s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (time.strftime('%H:%M:%S', time.gmtime()), e.__class__.__name__).split('.')[-1], e))
         print traceback.format_exc()
         carbon_server.update_stats('exceptions.%s.%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (e.__class__.__name__).split('.')[-1]), 1)
-    return ret
+    if ret:
+        return ret
+    else:
+        print('== Worker [%s]: !! Return-value error: %s.%s: Returned "None"' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (time.strftime('%H:%M:%S', time.gmtime())).split('.')[-1]))
+        return "False"
 
 
 with open('/opt/rucio/etc/emulation.cfg') as f:
