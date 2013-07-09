@@ -96,7 +96,11 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     headers = {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
     data = ': '.join([exc_cls, str(exc_msg).strip()])
 
-    return HTTPError(status, headers=headers, data=data)
+    try:
+        return HTTPError(status, headers=headers, data=data)
+    except:
+        print {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+        raise
 
 
 def adler32(file):
