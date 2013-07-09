@@ -30,7 +30,7 @@ from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
 from rucio.db.constants import ReplicaState, DIDType, OBSOLETE
 from rucio.db.session import read_session, transactional_session
-from rucio.rse.rsemanager import RSEMgr
+# from rucio.rse.rsemanager import RSEMgr
 
 
 @transactional_session
@@ -490,12 +490,13 @@ def add_replicas(rse, files, account, session=None):
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
     if not replica_rse.deterministic:
-        rse_manager = RSEMgr(server_mode=True)
+        #rse_manager = RSEMgr(server_mode=True)
         for file in files:
             if 'pfn' not in file:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-            tmp = rse_manager.parse_pfn(rse_id=rse, pfn=file['pfn'], session=session)
-            file['path'] = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
+            # tmp = rse_manager.parse_pfn(rse_id=rse, pfn=file['pfn'], session=session)
+            file['path'] = ''
+            #.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)
     increase(rse_id=replica_rse.id, delta=nbfiles, bytes=bytes, session=session)
