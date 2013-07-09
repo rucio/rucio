@@ -9,7 +9,6 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2013
 
-
 from ConfigParser import NoOptionError
 from functools import wraps
 from threading import Lock
@@ -179,7 +178,7 @@ def get_session():
             _get_session()
         finally:
             _LOCK.release()
-    assert _SESSION
+    assert(_SESSION)
     return _SESSION
 
 
@@ -187,9 +186,9 @@ def _get_session(autocommit=False, autoflush=True, expire_on_commit=True):
     """Internal method to grab session"""
     global _SESSION, _ENGINE
     if not _SESSION:
-        assert _ENGINE
+        assert(_ENGINE)
         _SESSION = scoped_session(sessionmaker(bind=_ENGINE, autocommit=autocommit, autoflush=autoflush, expire_on_commit=expire_on_commit))
-    assert _SESSION
+    assert(_SESSION)
 
 
 def read_session(function):
@@ -203,8 +202,7 @@ def read_session(function):
     '''
     @wraps(function)
     def new_funct(*args, **kwargs):
-        s = kwargs.get('session', '')
-        if not s:
+        if not kwargs.get('session'):
             session = get_session()
             try:
                 kwargs['session'] = session
@@ -238,8 +236,7 @@ def transactional_session(function):
     '''
     @wraps(function)
     def new_funct(*args, **kwargs):
-        s = kwargs.get('session', '')
-        if not s:
+        if not kwargs.get('session'):
             session = get_session()
             # session.begin(subtransactions=True)
             try:
