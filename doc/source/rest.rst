@@ -94,6 +94,7 @@ Rucio account
 * :ref:`GET /accounts/{account_name}/usage`: Get account usage information
 * :ref:`GET /accounts/{account_name}/limits`: Get limits
 * :ref:`PUT /accounts/{account_name}/limits`: Set limits for a account and a value
+* :ref:`GET /accounts/{account_name}/rules`: Get all rules of the account
 * :ref:`GET /accounts/whoami`: Get information about account whose token is used
 * :ref:`GET /accounts/`:  List available accounts
 * :ref:`DELETE /accounts/{account_name}`: Disable account name
@@ -149,6 +150,7 @@ Data identifiers
 * :ref:`GET /dids/{scope_name}/{did}/`: List content of data identifier
 * :ref:`PUT /dids/{scope_name}/{did}/status`: Update data identifier status
 * :ref:`GET /dids/{scope_name}/{did}/status`: Get data identifier status
+* :ref:`GET /dids/{scope_name}/{did}/rules`: List all rules of this did
 * :ref:`GET /dids/{scope_name}/{did}/meta/`: List all keys of the data identifier with their respective values
 * :ref:`GET /dids/{scope_name}/{did}/meta/{key}`: Retrieve the selected key value pair for the given data identifier
 * :ref:`PUT /dids/{scope_name}/{did}/meta/{key}`: Set the value of the key to NULL ?
@@ -170,9 +172,9 @@ Metadata
 Replication rule
 =================
 
-* :ref:`POST /rules/{account_name}/{scope_name}/{did}`: Create a rule on a data identifier
-* :ref:`GET /rules/{account_name}/{scope_name}/{did}`: Get all the rules associated to a data identifier
-* :ref:`DELETE /rules/{account_name}/{scope_name}/{did}`: Delete a rule
+* :ref:`POST /rules/`: Create a rule on a data identifier
+* :ref:`GET /rules/{rule_id}`: Get all the rules associated to a data identifier
+* :ref:`DELETE /rules/{rule_id}`: Delete a rule
 
 
 Subscriptions
@@ -182,6 +184,7 @@ Subscriptions
 * :ref:`DELETE /subscriptions/{subscription_id}`: Delete a subscription
 * :ref:`GET /subscriptions/{subscription_id}`: Get subscription info
 * :ref:`GET /subscriptions/`: List all subscriptions
+* :ref:`GET /subscriptions/{subscription_id}/rules`: Get all rules of this subscription
 
 
 .. Status legend:
