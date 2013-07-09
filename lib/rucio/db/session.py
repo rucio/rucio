@@ -12,6 +12,7 @@
 
 from ConfigParser import NoOptionError
 from functools import wraps
+from threading import Lock
 from time import sleep
 
 from sqlalchemy import create_engine, event
@@ -29,7 +30,7 @@ try:
 except NoOptionError:
     pass
 
-_SESSION = None
+_SESSION, _ENGINE, _LOCK = None, None, Lock()
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):
@@ -67,26 +68,29 @@ def get_engine(echo=True):
     """ Creates a engine to a specific database.
         :returns: engine
     """
-    sql_connection = config_get('database', 'default')
-    config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
-                     ('pool_recycle', int), ('echo', int), ('echo_pool', str),
-                     ('pool_reset_on_return', str), ('use_threadlocal', int)]
-    params = {}
-    for param, param_type in config_params:
-        try:
-            params[param] = param_type(config_get('database', param))
-        except NoOptionError:
-            pass
-    engine = create_engine(sql_connection, **params)
-    if 'mysql' in sql_connection:
-        event.listen(engine, 'checkout', mysql_ping_listener)
-    if 'sqlite' in sql_connection:
-        event.listen(engine, 'connect', _fk_pragma_on_connect)
-    # Override engine.connect method with db error wrapper
-    # To have auto_reconnect (will come in next sqlalchemy releases)
-    engine.connect = wrap_db_error(engine.connect)
-    engine.connect()
-    return engine
+    global _ENGINE
+    if not _ENGINE:
+        sql_connection = config_get('database', 'default')
+        config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
+                         ('pool_recycle', int), ('echo', int), ('echo_pool', str),
+                         ('pool_reset_on_return', str), ('use_threadlocal', int)]
+        params = {}
+        for param, param_type in config_params:
+            try:
+                params[param] = param_type(config_get('database', param))
+            except NoOptionError:
+                pass
+        _ENGINE = create_engine(sql_connection, **params)
+        if 'mysql' in sql_connection:
+            event.listen(_ENGINE, 'checkout', mysql_ping_listener)
+        if 'sqlite' in sql_connection:
+            event.listen(_ENGINE, 'connect', _fk_pragma_on_connect)
+        # Override engine.connect method with db error wrapper
+        # To have auto_reconnect (will come in next sqlalchemy releases)
+        _ENGINE.connect = wrap_db_error(_ENGINE.connect)
+        _ENGINE.connect()
+    assert(_ENGINE)
+    return _ENGINE
 
 
 def get_dump_engine(echo=False):
@@ -165,12 +169,27 @@ def wrap_db_error(f):
 
 def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
-        :returns: session """
-    global _SESSION
+        :returns: session
+    """
+    global _SESSION, _LOCK
     if not _SESSION:
-        engine = get_engine(echo=True)
-        _SESSION = scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=True, expire_on_commit=True))
+        _LOCK.acquire()
+        try:
+            get_engine()
+            _get_session()
+        finally:
+            _LOCK.release()
+    assert _SESSION
     return _SESSION
+
+
+def _get_session(autocommit=False, autoflush=True, expire_on_commit=True):
+    """Internal method to grab session"""
+    global _SESSION, _ENGINE
+    if not _SESSION:
+        assert _ENGINE
+        _SESSION = scoped_session(sessionmaker(bind=_ENGINE, autocommit=autocommit, autoflush=autoflush, expire_on_commit=expire_on_commit))
+    assert _SESSION
 
 
 def read_session(function):
@@ -191,16 +210,18 @@ def read_session(function):
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
             except TimeoutError, e:
+                print e
                 session.rollback()
                 raise DatabaseException(str(e))
             except DatabaseError, e:
+                print e
                 session.rollback()
                 raise DatabaseException(str(e))
             except:
                 session.rollback()
                 raise
             finally:
-                session.close()
+                session.remove()
         else:
             result = function(*args, **kwargs)
         return result
@@ -225,9 +246,11 @@ def transactional_session(function):
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
             except TimeoutError, e:
+                print e
                 session.rollback()
                 raise DatabaseException(str(e))
             except DatabaseError, e:
+                print e
                 session.rollback()
                 raise DatabaseException(str(e))
             except:
@@ -236,7 +259,7 @@ def transactional_session(function):
             else:
                 session.commit()
             finally:
-                session.close()
+                session.remove()
         else:
             result = function(*args, **kwargs)
         return result
