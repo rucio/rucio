@@ -24,7 +24,7 @@ from rucio.common.exception import RuleNotFound
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, add_replica, get_rse
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules
+from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, re_evaluate_did
 from rucio.db.constants import DIDType
 
 
@@ -48,6 +48,11 @@ def _create_test_files(nrfiles, scope, rse, bytes=1):
 
 def _tag_generator(size=8, chars=string.ascii_uppercase):
     return ''.join(random.choice(chars) for x in range(size))
+
+
+def _fake_judge():
+    while re_evaluate_did(timedeltaseconds=0):
+        pass
 
 
 class TestReplicationRuleCore():
@@ -364,6 +369,25 @@ class TestReplicationRuleCore():
             assert(len(rse_locks) == 7)
             #TODO Need to check transfer queue here, this is actually not the check of this test case
         assert_raises(RuleNotFound, delete_rule, uuid())
+
+    def test_judge_add_files_to_dataset(self):
+        """ REPLICATION RULE (CORE): Test the judge when adding files to dataset"""
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+
+        #Add a first rule to the DS
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        #Fake judge
+        _fake_judge()
+
+        #Check if the Locks are created properly
+        for file in files:
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
 
 
 class TestReplicationRuleClient():
