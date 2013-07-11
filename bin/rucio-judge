@@ -23,9 +23,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--cleaner-workers", action="store", default=1, type=int, help='Total number of cleaner workers')
+    parser.add_argument("--re-evaluate-workers", action="store", default=1, type=int, help='Total number of re-evaluator workers')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once)
+        run(once=args.run_once, re_evaluate_workers=args.re_evaluate_workers, cleaner_workers=args.cleaner_workers)
     except KeyboardInterrupt:
         stop()

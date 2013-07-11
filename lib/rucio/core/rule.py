@@ -13,6 +13,7 @@
 import time
 
 from datetime import datetime, timedelta
+from hashlib import md5
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -466,19 +467,39 @@ def list_rules(filters={}, session=None):
 
 
 @transactional_session
-def delete_expired_rule(session=None):
+def delete_expired_rule(worker_number=None, total_workers=None, timedeltaseconds=5, session=None):
     """
     Delete all expired replication rules.
 
-    :param session:  The DB Session in use.
-    :returns:        True if something expired, false otherwise.
+    :param worker_number:     The worker id of the worker executing this method.
+    :param total_workers:     Number of total workers.
+    :param timedeltaseconds:  Time in seconds to delay the check.
+    :param session:           The DB Session in use.
+    :returns:                 True if something expired, false otherwise.
     """
 
     # Get Rule which needs deletion
     # TODO This needs to skip locks
-    rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.expires_at < datetime.utcnow()).with_lockmode('update_nowait').first()
+    query = session.query(models.ReplicationRule).filter(models.ReplicationRule.expires_at < (datetime.utcnow() - timedelta(seconds=timedeltaseconds))).with_lockmode('update_nowait')
+
+    if worker_number and total_workers:
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers, worker_number-1))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers, worker_number-1))
+        elif session.bind.dialect.name == 'sqlite':
+            for rule in query.yield_per(10):
+                if int(md5(rule.name).hexdigest(), 16) % total_workers == worker_number-1:
+                    print 'rule_cleaner: deleting %s' % rule.id
+                    delete_rule(rule_id=rule.id, session=session)
+                    return True
+            return False
+
+    rule = query.first()
+
     if rule is None:
         return False
+
     print 'rule_cleaner: deleting %s' % rule.id
     delete_rule(rule_id=rule.id, session=session)
     return True
@@ -573,10 +594,12 @@ def get_rule(rule_id, session=None):
 
 
 @transactional_session
-def re_evaluate_did(timedeltaseconds=5, session=None):
+def re_evaluate_did(worker_number=None, total_workers=None, timedeltaseconds=5, session=None):
     """
     Fetches the next did to re-evaluate and re-evaluates it.
 
+    :param worker_number:     The worker id of the worker executing this method.
+    :param total_workers:     Number of total workers.
     :param timedeltaseconds:  Delay to consider dids for re-evaluation.
     :param session:           The database session in use.
     :returns:                 True if a rule was re-evaluated; False otherwise.
@@ -584,10 +607,33 @@ def re_evaluate_did(timedeltaseconds=5, session=None):
 
     # Get DID which needs re-evaluation
     # TODO This needs to skip locks
-    did = session.query(models.DataIdentifier).filter(
-        models.DataIdentifier.rule_evaluation_required < datetime.utcnow() - timedelta(seconds=timedeltaseconds)).with_lockmode('update_nowait').first()
+    query = session.query(models.DataIdentifier).filter(
+        models.DataIdentifier.rule_evaluation_required < datetime.utcnow() - timedelta(seconds=timedeltaseconds)).with_lockmode('update_nowait')
+
+    if worker_number and total_workers:
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers, worker_number-1))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers, worker_number-1))
+        elif session.bind.dialect.name == 'sqlite':
+            for did in query.yield_per(10):
+                if int(md5(did.name).hexdigest(), 16) % total_workers == worker_number-1:
+                    print 're_evaluator: evaluating %s:%s for %s' % (did.scope, did.name, did.rule_evaluation_action)
+                    if did.rule_evaluation_action == DIDReEvaluation.ATTACH:
+                        __evaluate_attach(did, session=session)
+                    elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
+                        __evaluate_detach(did, session=session)
+                    else:
+                        __evaluate_detach(did, session=session)
+                        __evaluate_attach(did, session=session)
+                    return True
+            return False
+
+    did = query.first()
+
     if did is None:
         return False
+
     print 're_evaluator: evaluating %s:%s for %s' % (did.scope, did.name, did.rule_evaluation_action)
     if did.rule_evaluation_action == DIDReEvaluation.ATTACH:
         __evaluate_attach(did, session=session)
