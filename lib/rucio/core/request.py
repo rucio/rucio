@@ -131,6 +131,7 @@ def __get_external_id(request_id, session=None):
         raise RucioException(e.args)
 
 
+@read_session
 def query_request(request_id):
     """
     Query the status of a request.
@@ -143,7 +144,7 @@ def query_request(request_id):
 
     transfertool = 'fts3-mock'
 
-    external_id = __get_external_id(request_id)
+    external_id = __get_external_id(request_id, session=session)
 
     req_status = {'request_id': request_id}
 
