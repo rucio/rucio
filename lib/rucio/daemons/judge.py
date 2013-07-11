@@ -20,7 +20,7 @@ from rucio.core.rule import re_evaluate_did, delete_expired_rule
 graceful_stop = threading.Event()
 
 
-def re_evaluator(once=False):
+def re_evaluator(once=False, worker_number=1, total_workers=1):
     """
     Main loop to check the re-evaluation of dids.
     """
@@ -32,7 +32,7 @@ def re_evaluator(once=False):
     wait = False
     while not graceful_stop.is_set():
         try:
-            wait = re_evaluate_did()
+            wait = re_evaluate_did(worker_number=worker_number, total_workers=total_workers)
         except:
             print traceback.format_exc()
         if once:
@@ -45,7 +45,7 @@ def re_evaluator(once=False):
     print 're_evaluator: graceful stop done'
 
 
-def rule_cleaner(once=False):
+def rule_cleaner(once=False, worker_number=1, total_workers=1,):
     """
     Main loop to check for expired replication rules
     """
@@ -57,7 +57,7 @@ def rule_cleaner(once=False):
     wait = False
     while not graceful_stop.is_set():
         try:
-            wait = delete_expired_rule()
+            wait = delete_expired_rule(worker_number=worker_number, total_workers=total_workers)
         except:
             print traceback.format_exc()
 
@@ -79,7 +79,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False):
+def run(once=False, re_evaluate_workers=1, cleaner_workers=1):
     """
     Starts up the Judge thread.
     """
@@ -90,10 +90,11 @@ def run(once=False):
         rule_cleaner(once)
     else:
         print 'main: starting threads'
-        threads = [threading.Thread(target=re_evaluator),
-                   threading.Thread(target=rule_cleaner)]
+        threads = [threading.Thread(target=re_evaluator, kwargs={'worker_number': i, 'total_workers': re_evaluate_workers, 'once': once}) for i in xrange(1, re_evaluate_workers+1)]
+        threads.extend([threading.Thread(target=rule_cleaner, kwargs={'worker_number': i, 'total_workers': cleaner_workers, 'once': once}) for i in xrange(1, cleaner_workers+1)])
+
         [t.start() for t in threads]
         print 'main: waiting for interrupts'
         # Interruptible joins require a timeout.
-        while threads[0].is_alive() and threads[1].is_alive():
+        while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]
