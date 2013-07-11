@@ -455,6 +455,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='REPLICAS_STATE_NN'),
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
+                   CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
@@ -476,9 +477,9 @@ class ReplicationRule(BASE, ModelBase):
     expires_at = Column(DateTime)
     weight = Column(String(255))
     locked = Column(Boolean(name='RULES_LOCKED_CHK'), default=False)
-    locks_ok_cnt = Column(BigInteger)
-    locks_replicating_cnt = Column(BigInteger)
-    locks_stuck_cnt = Column(BigInteger)
+    locks_ok_cnt = Column(BigInteger, default=0)
+    locks_replicating_cnt = Column(BigInteger, default=0)
+    locks_stuck_cnt = Column(BigInteger, default=0)
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
@@ -488,6 +489,9 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('"GROUPING" IS NOT NULL', name='RULES_GROUPING_NN'),
                    CheckConstraint('"COPIES" IS NOT NULL', name='RULES_COPIES_NN'),
                    CheckConstraint('"LOCKED" IS NOT NULL', name='RULES_LOCKED_NN'),
+                   CheckConstraint('"LOCKS_OK_CNT" IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
+                   CheckConstraint('"LOCKS_REPLICATING_CNT" IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
+                   CheckConstraint('"LOCKS_STUCK_CNT" IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
                    UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='RULES_UQ'),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'))
