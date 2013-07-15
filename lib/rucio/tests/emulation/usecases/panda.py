@@ -32,6 +32,7 @@ class UseCaseDefinition(UCEmulator):
 
     @UCEmulator.UseCase
     def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk, threads, jobs_per_dis):
+        monitor.record_counter('panda.tasks.%s.dispatched' % task_type, 1)  # Reports the task type which is dipsatched
         if task_type.split('.')[0] == 'user':  # User task is created
             exts = ['user']
             create_dis_ds = False
@@ -50,6 +51,7 @@ class UseCaseDefinition(UCEmulator):
             monitor.record_counter('panda.tasks.EmptyInputDataset', 1)
             return {'job_finish': [], 'task_finish': []}
         monitor.record_timer('panda.list_replicas.normalized', delta / len(replicas))
+        monitor.record_counter('panda.tasks.%s.input_files' % task_type, len(replicas))  # Reports the number of files in the intput dataset of the task type
 
         # Should be changed when the response from list_replicas is updated
         files = list()
@@ -91,6 +93,8 @@ class UseCaseDefinition(UCEmulator):
             for ext in exts:
                 datasets.append({'scope': output['scope'], 'name': '%s.%s' % (ds, ext)})
 
+        monitor.record_counter('panda.tasks.%s.output_datasets' % task_type, len(datasets))  # Reports the number of output datasets for the tasktype (including log datasets)
+
         for ds in datasets:
             with monitor.record_timer_block('panda.add_container'):
                 client.add_container(scope=output['scope'], name='cnt_%s' % ds['name'], lifetime=output['lifetime'],
@@ -127,14 +131,14 @@ class UseCaseDefinition(UCEmulator):
                     else:
                         with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
                             client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)
-                sub_dss.append((sub_ds, 20, computing_rse))
+                sub_dss.append((sub_ds, 20, computing_rse, task_type))
                 files_in_ds = []
             if len(files_in_ds) == 0:  # Create dis - dataset and sub - dataset
                 id = uuid()
                 dis_ds = '%s_DIS_%s' % (input['ds_name'], id)
                 sub_ds = list()
                 for fin_ds in final_dss:
-                    sub_ds.append('%s_SUB_%s_%s' % (input['ds_name'], id, fin_ds))
+                    sub_ds.append('%s_SUB_%s_%s' % (input['ds_name'], id, fin_ds))  # Input DS: e.g. data13_14TeV.0197473.physics_Egamma.merge.D2AOD_DIPHO.8961
                 while (target_rse == computing_rse) or (computing_rse is None):
                     computing_rse = choice(rses)
                 if bulk:
@@ -151,10 +155,12 @@ class UseCaseDefinition(UCEmulator):
                         #with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule', 1)]):
                         #    client.add_replication_rule([{'scope': 'Manure', 'name': dis_ds}], copies=1, rse_expression=computing_rse,
                         #                                grouping='DATASET', lifetime=86400, account='panda')
+                        monitor.record_counter('panda.tasks.%s.dis_datasets' % task_type, 1)  # Reports the creation of a dis dataset for the given task type
                     for ds in sub_ds:
                         with monitor.record_timer_block('panda.add_dataset'):
                             client.add_dataset(scope='Manure', name=ds, lifetime=86400,
                                                rules=[{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rse), 'grouping': 'DATASET'}])  # Create SUB-Datasets
+                        monitor.record_counter('panda.tasks.%s.sub_datasets' % task_type, 1)  # Reports the creation of a sub dataset for the given task type
                     # As rules are currently ignored in the add_ - methods they are added explicetly here. This should be removed when rules are considered during adding dataset
                     #with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule', len(sub_ds))]):
                     #    client.add_replication_rule([{'scope': 'Manure', 'name': ds}], copies=2, rse_expression='%s|%s' % (computing_rse, target_rse),
@@ -178,7 +184,7 @@ class UseCaseDefinition(UCEmulator):
                 nof = len(files_in_ds) / input['number_of_inputfiles_per_job']
             if not nof:
                 nof = 1  # needed for datasets with 1 file but jobs needs mor than one input file
-            sub_dss.append((sub_ds, nof, computing_rse))
+            sub_dss.append((sub_ds, nof, computing_rse, task_type))
 
         # -------------------------------------- Perform bulk inserts ----------------------------------------
         if bulk:
@@ -187,6 +193,9 @@ class UseCaseDefinition(UCEmulator):
             datasets = inserts_dis + inserts_sub
             with monitor.record_timer_block(['panda.add_datasets', ('panda.add_datasets.normalized', len(datasets))]):
                 client.add_datasets(datasets)
+
+            monitor.record_counter('panda.tasks.%s.sub_datasets' % task_type, len(inserts_sub))  # Reports the creation of a sub dataset for the given task type
+            monitor.record_counter('panda.tasks.%s.dis_datasets' % task_type, len(inserts_dis))  # Reports the creation of a dis dataset for the given task type
 
             # Fill dis - datasets with files
             #with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
@@ -239,7 +248,7 @@ class UseCaseDefinition(UCEmulator):
         max_job_completion = 0
         dis_completion = time.time()
         for ds in sub_dss:
-            # ds[0] = sub-ds name, ds[1] = number of jobs, ds[2] = computing RSE
+            # ds[0] = sub-ds name(s), ds[1] = number of jobs, ds[2] = computing RSE, ds[3] = task type
             for dsn in ds[0]:
                 sub_ds_names.append(dsn)
             if create_dis_ds:
@@ -249,12 +258,13 @@ class UseCaseDefinition(UCEmulator):
                 if job_completion > max_job_completion:
                     max_job_completion = job_completion
                 for dsn in ds[0]:
-                    job_finish.append((job_completion, [{'scope': output['scope'], 'name': dsn}, ds[2]]))
+                    job_finish.append((job_completion, [{'scope': output['scope'], 'name': dsn}, ds[2], ds[3]]))
             max_job_completion += 60  # Note: Triggers FINISH_TASK some time later to avoid conflicts
         if create_dis_ds:
-            task_finish = (max_job_completion + gauss(**file_transfer_duration), (output['scope'], final_dss), sub_ds_names)  # Again, adding 5 seconds for safety
+            task_finish = (max_job_completion + gauss(**file_transfer_duration), (output['scope'], final_dss), sub_ds_names, task_type)  # Again, adding 5 seconds for safety
         else:
-            task_finish = (max_job_completion + 60, (output['scope'], final_dss), sub_ds_names)  # Again, adding 60 seconds for safety
+            task_finish = (max_job_completion + 60, (output['scope'], final_dss), sub_ds_names, task_type)  # Again, adding 60 seconds for safety
+        monitor.record_counter('panda.tasks.%s.number_job' % task_type, len(job_finish))  # Reports the number of jobs spawned from the given task
         return {'job_finish': job_finish, 'task_finish': [task_finish]}
 
     def add_files_ds(self, client, ds, files_in_ds, ret=None):
@@ -320,7 +330,7 @@ class UseCaseDefinition(UCEmulator):
         for job in jobs:
             dsn = '%s:%s' % (job['sub_ds']['scope'], job['sub_ds']['name'])
             if dsn not in subs.keys():
-                subs[dsn] = [0, job['rse']]  # Note: one sub ds is always exactly on one rse
+                subs[dsn] = [0, job['rse'], job['task_type']]  # Note: one sub ds is always exactly on one rse and task type
             subs[dsn][0] += 1
 
         print '== PanDA: Finish jobs: %s for %s sub - datasets' % (len(jobs), len(subs))
@@ -328,11 +338,12 @@ class UseCaseDefinition(UCEmulator):
         ts_res = Queue()
         for ds in subs:
             if threads == 'True':
-                t = threading.Thread(target=self.register_replica, kwargs={'client': None, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]}, 'rse': subs[ds][1], 'jobs': subs[ds][0], 'ret': ts_res})
+                t = threading.Thread(target=self.register_replica, kwargs={'client': None, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]},
+                                                                           'rse': subs[ds][1], 'jobs': subs[ds][0], 'task_type': subs[ds][2], 'ret': ts_res})
                 t.start()
                 ts.append(t)
             else:
-                self.register_replica(client, ds, subs[ds][1], subs[ds][0])
+                self.register_replica(client, ds, subs[ds][1], subs[ds][0], subs[ds][2])
         if threads == 'True':
             for t in ts:
                 t.join()
@@ -342,7 +353,7 @@ class UseCaseDefinition(UCEmulator):
                 print ret[1][2]
                 raise ret[1][0]
 
-    def register_replica(self, client, dsn, rse, jobs, ret=None):
+    def register_replica(self, client, dsn, rse, jobs, task_type, ret=None):
         files = list()
         if not client:
             client = Client(account='panda')
@@ -354,6 +365,7 @@ class UseCaseDefinition(UCEmulator):
         try:
             with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
                 client.add_files_to_dataset(scope='Manure', name=dsn['name'], files=files, rse=rse)
+            monitor.record_counter('panda.tasks.%s.replicas' % task_type, len(files))  # Reports the creation of a new replica (including log files) fof the given task type
         except:
             e = sys.exc_info()
             g_sem.acquire()
@@ -379,7 +391,7 @@ class UseCaseDefinition(UCEmulator):
             if job[0] > now:
                 ctx.job_queue.put(job)
                 break
-            jobs.append({'sub_ds': job[1][0], 'rse': job[1][1]})
+            jobs.append({'sub_ds': job[1][0], 'rse': job[1][1], 'task_type': job[1][2]})
             ctx.job_queue.task_done()
         if len(jobs):
             return {'jobs': jobs, 'threads': ctx.threads}
@@ -393,6 +405,7 @@ class UseCaseDefinition(UCEmulator):
         client = Client(account='panda')
         ts = list()
         for task in tasks:
+            task_type = task['task_type']
             # -------------- Group sub datasets to their related output datasets ----------------------------------------------
             for out_ds in task['output_ds'][1]:  # Iterates over every output - type of the task
                 sub_dss = list()
@@ -401,16 +414,17 @@ class UseCaseDefinition(UCEmulator):
                         sub_dss.append(sub_ds)
 
                 if threads == 'True':
-                    t = threading.Thread(target=self.fin_task, kwargs={'client': None, 'task': {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]}, 'threads': threads})
+                    t = threading.Thread(target=self.fin_task, kwargs={'client': None, 'task': {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]},
+                                                                       'task_type': task_type, 'threads': threads})
                     t.start()
                     ts.append(t)
                 else:
-                    self.fin_task(client, {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]}, threads)
+                    self.fin_task(client, {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]}, task_type, threads)
         if threads == 'True':
             for t in ts:
                 t.join()
 
-    def fin_task(self, client, task, threads):
+    def fin_task(self, client, task, task_type, threads):
         files = list()
         ts = list()
         if not client:
@@ -427,6 +441,7 @@ class UseCaseDefinition(UCEmulator):
             for t in ts:
                 t.join()
         user = 'other.notype' in task['output_ds'][1]
+        monitor.record_counter('panda.tasks.%s.output_ds_size' % task_type, len(files))  # Reports the number of files added to the output dataset
         print '== PanDA: Adding %s (user: %s) files to %s:%s' % (len(files), user, task['output_ds'][0], task['output_ds'][1])
         if not len(files):
             monitor.record_counter('panda.tasks.EmptySubDatasets', 1)
@@ -477,7 +492,7 @@ class UseCaseDefinition(UCEmulator):
             if task[0] > now:
                 ctx.task_queue.put(task)
                 break
-            tasks.append({'output_ds': task[1], 'sub_dss': task[2]})
+            tasks.append({'output_ds': task[1], 'sub_dss': task[2], 'task_type': task[3]})
             ctx.task_queue.task_done()
         if len(tasks):
             return {'tasks': tasks, 'threads': ctx.threads}
