@@ -152,14 +152,13 @@ def validate_auth_token(token, session=None):
 
     :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
     """
+    if token is None:
+        return
 
     # Be gentle with bash variables, there can be whitespace
-    if token is not None:
-        token = token.strip()
-    else:
-        return None
-    r = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
+    token = token.strip()
 
+    r = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
     if r is not None and r != []:
         return {'account': r[0][0], 'lifetime': r[0][1]}
 

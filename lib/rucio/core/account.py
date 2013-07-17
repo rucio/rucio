@@ -18,7 +18,7 @@ from sqlalchemy.orm import exc
 
 from rucio.common import exception
 from rucio.db import models
-from rucio.db.session import read_session, transactional_session
+from rucio.db.session import read_session, transactional_session, stream_session
 from rucio.db.constants import AccountStatus
 
 
@@ -112,7 +112,7 @@ def set_account_status(account, status, session=None):
     session.query(models.Account).filter_by(account=account).update({'status': status})
 
 
-@read_session
+@stream_session
 def list_accounts(session=None):
     """ Returns a list of all account names.
 

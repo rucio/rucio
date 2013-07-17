@@ -40,7 +40,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
 
     while not graceful_stop.is_set():
         try:
-            dids = [did for did in list_expired_dids(worker_number=worker_number, total_workers=total_workers, limit=chunk_size)]
+            dids = list_expired_dids(worker_number=worker_number, total_workers=total_workers, limit=chunk_size)
             if not dids:
                 print 'Undertaker(%s): Nothing to do. sleep 1.' % worker_number
                 time.sleep(1)
@@ -71,7 +71,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_workers=1, chunk_size=5):
+def run(once=False, total_workers=1, chunk_size=10):
     """
     Starts up the undertaker threads.
     """
