@@ -32,7 +32,7 @@ from rucio.core.request import queue_request, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDReEvaluation, DIDType, RequestType, ReplicaState
-from rucio.db.session import read_session, transactional_session
+from rucio.db.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
@@ -435,7 +435,7 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
     return(transfers_to_create, locks_ok_cnt, locks_replicating_cnt)
 
 
-@read_session
+@stream_session
 def list_rules(filters={}, session=None):
     """
     List replication rules.

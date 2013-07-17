@@ -28,11 +28,11 @@ from rucio.common.utils import grouper
 from rucio.core.rse import add_replicas
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
-from rucio.db.session import read_session, transactional_session
+from rucio.db.session import read_session, transactional_session, stream_session
 from rucio.rse import rsemanager
 
 
-@read_session
+@stream_session
 def list_replicas(scope, name, schemes=None, session=None):
     """
     List file replicas for a data identifier.
@@ -100,25 +100,24 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
     if worker_number and total_workers:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers, worker_number-1))
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers, worker_number-1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
+            dids = list()
             for scope, name in query.yield_per(10):
                 if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
-                    yield {'scope': scope, 'name': name}
+                    dids.append({'scope': scope, 'name': name})
                     row_count += 1
-
                 if limit and row_count >= limit:
-                    raise StopIteration
-            raise StopIteration
+                    return dids
+            return dids
 
     if limit:
         query = query.limit(limit)
 
-    for scope, name in query.yield_per(10):
-            yield {'scope': scope, 'name': name}
+    return [{'scope': scope, 'name': name} for scope, name in query]
 
 
 @transactional_session
@@ -381,7 +380,7 @@ def detach_dids(scope, name, dids, issuer, session=None):
         associ_did.delete(session=session)
 
 
-@read_session
+@stream_session
 def list_rule_re_evaluation_identifier(limit=None, session=None):
     """
     List identifiers which need rule re-evaluation.
@@ -396,7 +395,7 @@ def list_rule_re_evaluation_identifier(limit=None, session=None):
         yield {'scope': scope, 'name': name, 'type': did_type}
 
 
-@read_session
+@stream_session
 def list_new_dids(type, session=None):
     """
     List recent identifiers.
@@ -437,7 +436,7 @@ def set_new_dids(dids, new_flag, session=None):
     return True
 
 
-@read_session
+@stream_session
 def list_content(scope, name, session=None):
     """
     List data identifier contents.
@@ -455,7 +454,7 @@ def list_content(scope, name, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
-@read_session
+@stream_session
 def list_parent_dids(scope, name, lock=False, session=None):
     """
     List all parent datasets and containers of a did.
@@ -478,7 +477,7 @@ def list_parent_dids(scope, name, lock=False, session=None):
         list_parent_dids(scope=did.scope, name=did.name, session=session)
 
 
-@read_session
+@stream_session
 def list_child_dids(scope, name, lock=False, session=None):
     """
     List all child datasets and containers of a did.
@@ -505,7 +504,7 @@ def list_child_dids(scope, name, lock=False, session=None):
             list_child_dids(scope=child_scope, name=child_name, session=session)
 
 
-@read_session
+@stream_session
 def list_files(scope, name, session=None):
     """
     List data identifier file contents.
@@ -533,7 +532,7 @@ def list_files(scope, name, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
-@read_session
+@stream_session
 def scope_list(scope, name=None, recursive=False, session=None):
     """
     List data identifiers in a scope.
@@ -741,7 +740,7 @@ def set_status(scope, name, session=None, **kwargs):
         raise exception.UnsupportedOperation("The status of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
 
 
-@read_session
+@stream_session
 def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, session=None):
     """
     Search data identifiers
@@ -782,6 +781,9 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
             query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%'), escape='\\'))
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
+
+        if k == 'name':
+            query = query.with_hint(models.DataIdentifier, "NO_INDEX(dids(SCOPE,NAME))", 'oracle')
 
     if limit:
         query = query.limit(limit)

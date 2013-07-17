@@ -29,7 +29,7 @@ from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
 from rucio.db.constants import ReplicaState, DIDType, OBSOLETE
-from rucio.db.session import read_session, transactional_session
+from rucio.db.session import read_session, transactional_session, stream_session
 # from rucio.rse.rsemanager import RSEMgr
 
 
@@ -345,7 +345,7 @@ def get_rse_limits(rse, name=None, rse_id=None, session=None):
     return limits
 
 
-@read_session
+@stream_session
 def list_rse_usage_history(rse, source=None, session=None):
     """
     List location usage history information.
@@ -669,7 +669,7 @@ def get_and_lock_file_replicas_for_dataset(scope, name, session=None):
     return files
 
 
-@read_session
+@stream_session
 def list_replicas(rse, filters={}, session=None):
     """
     List RSE File replicas.
