@@ -23,6 +23,7 @@ from rucio.common.utils import generate_http_error
 
 def authenticate():
     """ Hook to authenticate. """
+
     if ctx.env.get('REQUEST_METHOD') == 'GET':
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
         header('Cache-Control', 'post-check=0, pre-check=0', False)

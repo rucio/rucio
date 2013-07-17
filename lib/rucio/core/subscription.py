@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
 from rucio.db import models
 from rucio.db.constants import SubscriptionState
-from rucio.db.session import read_session, transactional_session
+from rucio.db.session import transactional_session, stream_session
 
 
 @transactional_session
@@ -130,7 +130,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     #    raise
 
 
-@read_session
+@stream_session
 def list_subscriptions(name=None, account=None, state=None, session=None):
     """
     Returns a dictionary with the subscription information :

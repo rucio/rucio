@@ -11,6 +11,7 @@
 
 from ConfigParser import NoOptionError
 from functools import wraps
+from inspect import isgeneratorfunction
 from threading import Lock
 from time import sleep
 
@@ -18,7 +19,6 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, DBAPIError, TimeoutError
 from sqlalchemy.ext.declarative import declarative_base
-
 
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException
@@ -29,7 +29,7 @@ try:
 except NoOptionError:
     pass
 
-_SESSION, _ENGINE, _LOCK = None, None, Lock()
+_MAKER, _ENGINE, _LOCK = None, None, Lock()
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):
@@ -166,29 +166,33 @@ def wrap_db_error(f):
     return _wrap
 
 
+def get_maker():
+    """Return a SQLAlchemy sessionmaker."""
+    """May assign __MAKER if not already assigned"""
+    global _MAKER, _ENGINE
+    assert _ENGINE
+    if not _MAKER:
+        _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True)
+    return _MAKER
+
+
 def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
         :returns: session
     """
-    global _SESSION, _LOCK
-    if not _SESSION:
+    global _MAKER, _LOCK
+    if not _MAKER:
         _LOCK.acquire()
         try:
             get_engine()
-            _get_session()
+            get_maker()
         finally:
             _LOCK.release()
-    assert(_SESSION)
-    return _SESSION
-
-
-def _get_session(autocommit=False, autoflush=True, expire_on_commit=True):
-    """Internal method to grab session"""
-    global _SESSION, _ENGINE
-    if not _SESSION:
-        assert(_ENGINE)
-        _SESSION = scoped_session(sessionmaker(bind=_ENGINE, autocommit=autocommit, autoflush=autoflush, expire_on_commit=expire_on_commit))
-    assert(_SESSION)
+    assert(_MAKER)
+#    session = _MAKER()
+    session = scoped_session(_MAKER)
+#    session = scoped_session(sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True))
+    return session
 
 
 def read_session(function):
@@ -202,11 +206,55 @@ def read_session(function):
     '''
     @wraps(function)
     def new_funct(*args, **kwargs):
+
+        if isgeneratorfunction(function):
+            raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
+
         if not kwargs.get('session'):
             session = get_session()
             try:
                 kwargs['session'] = session
-                result = function(*args, **kwargs)
+                return function(*args, **kwargs)
+            except TimeoutError, e:
+                print e
+                session.rollback()
+                raise DatabaseException(str(e))
+            except DatabaseError, e:
+                print e
+                session.rollback()
+                raise DatabaseException(str(e))
+            except:
+                session.rollback()
+                raise
+            finally:
+                session.remove()
+        return function(*args, **kwargs)
+    new_funct.__doc__ = function.__doc__
+    return new_funct
+
+
+def stream_session(function):
+    '''
+    decorator that set the session variable to use inside a function.
+    With that decorator it's possible to use the session variable like if a global variable session is declared.
+
+    session is a sqlalchemy session, and you can get one calling get_session().
+    This is useful if only SELECTs and the like are being done; anything involving
+    INSERTs, UPDATEs etc should use transactional_session.
+    '''
+    @wraps(function)
+    def new_funct(*args, **kwargs):
+
+        if not isgeneratorfunction(function):
+            raise RucioException('stream_session decorator should be used only with generator. Use read_session instead.')
+
+        if not kwargs.get('session'):
+            session = get_session()
+            try:
+                kwargs['session'] = session
+                # print isgeneratorfunction(function)
+                for row in function(*args, **kwargs):
+                    yield row
             except TimeoutError, e:
                 print e
                 session.rollback()
@@ -221,8 +269,8 @@ def read_session(function):
             finally:
                 session.remove()
         else:
-            result = function(*args, **kwargs)
-        return result
+            for row in function(*args, **kwargs):
+                yield row
     new_funct.__doc__ = function.__doc__
     return new_funct
 
@@ -238,7 +286,6 @@ def transactional_session(function):
     def new_funct(*args, **kwargs):
         if not kwargs.get('session'):
             session = get_session()
-            # session.begin(subtransactions=True)
             try:
                 kwargs['session'] = session
                 result = function(*args, **kwargs)

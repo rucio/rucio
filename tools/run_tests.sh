@@ -23,6 +23,7 @@ function usage {
   echo '  -t    Do not include mock tables.'
   echo '  -i    Do only the initialization.'
   echo '  -d    Delete the sqlite db file.'
+  echo '  -u    Update pip dependencies.'
   echo '  -1    Only run once.'
   exit
 }
@@ -34,7 +35,7 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrctid1 opt
+while getopts hrctid1u opt
 do
   case "$opt" in
     h) usage;;
@@ -43,9 +44,17 @@ do
     t) testopts="";;
     i) init_only="true";;
     d) delete_sqlite="true";;
+    u) update_deps="true";;
     1) range=1;;
   esac
 done
+
+if test ${update_deps}; then
+    echo 'Update pip dependencies'
+    pip install -r tools/pip-requires
+    pip install -r tools/pip-requires-client
+    pip install -r tools/pip-requires-test
+fi
 
 echo 'Cleaning *.pyc files'
 find lib -iname "*.pyc" | xargs rm
