@@ -275,9 +275,11 @@ class DIDs:
                 rules = json_data['rules']
             if 'lifetime' in json_data:
                 lifetime = json_data['lifetime']
-
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        except KeyError, e:
+            raise generate_http_error(400, 'ValueError', str(e))
+
         try:
             add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound, e:
