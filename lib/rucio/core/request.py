@@ -8,9 +8,8 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
-import random
-
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql.expression import asc
 
 from rucio.common.exception import RucioException
 from rucio.core.monitor import record_counter
@@ -85,35 +84,48 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
     session.query(models.Request).filter_by(id=request_id).update({'state': RequestState.SUBMITTED, 'external_id': transfer_id})
 
 
-@read_session
-def get_next(req_type, state, session=None):
+@transactional_session
+def get_next(req_type, state, limit=1, worker_number=None, total_workers=None, session=None):
     """
-    Retrieve the next random request matching the request type and state.
+    Retrieve the next requests matching the request type and state.
+    Workers are balanced via hashing to reduce concurrency on database.
 
     :param account: Account identifier as a string.
     :param req_type: Type of the request as a string.
     :param state: State of the request as a string.
+    :param n: Integer of requests to retrieve.
+    :param worker_number: Identifier of the caller as an integer.
+    :param total_workers: Maximum number of workers as an integer.
     :returns: Request as a dictionary.
     """
 
     record_counter('core.request.get_next.%s-%s' % (req_type, state))
 
-    #  TODO: Still stupid, but better than .all()
-
-    tmp_q = session.query(models.Request).add_columns(models.Request.id,
+    query = session.query(models.Request).add_columns(models.Request.id,
                                                       models.Request.scope,
                                                       models.Request.name,
                                                       models.Request.dest_rse_id)\
-                                         .filter_by(request_type=req_type, state=state)
-    tmp = tmp_q.offset(random.randint(0, tmp_q.count())).first()
+                                         .filter_by(request_type=req_type, state=state)\
+                                         .order_by(asc(models.Request.created_at))
+
+    if worker_number and total_workers:
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
+
+    tmp = query.limit(limit).all()
 
     if tmp == [] or tmp is None:
-        return None
+        return
     else:
-        return {'request_id': tmp[1],
-                'scope': tmp[2],
-                'name': tmp[3],
-                'dest_rse_id': tmp[4]}
+        result = []
+        for t in tmp:
+            result.append({'request_id': t[1],
+                           'scope': t[2],
+                           'name': t[3],
+                           'dest_rse_id': t[4]})
+        return result
 
 
 @read_session
@@ -132,7 +144,7 @@ def __get_external_id(request_id, session=None):
 
 
 @read_session
-def query_request(request_id):
+def query_request(request_id, session=None):
     """
     Query the status of a request.
 
