@@ -261,6 +261,7 @@ class UseCaseDefinition(UCEmulator):
                                     'rse_expression': tz_rse, 'grouping': 'DATASET'}]})  # The missing lifetime attribute indicated an infinite lifetime
                 with monitor.record_timer_block(['tzero.add_datasets', ('tzero.add_datasets.normalized', len(open_ds))]):
                     client.add_datasets(open_ds)
+                monitor.record_counter('tzero.datasets', len(open_ds))
                 #dids = [{'scope': d['scope'], 'name': d['name']} for d in open_ds]
                 #with monitor.record_timer_block(['tzero.add_replication_rule', ('tzero.add_replication_rule.normalized', len(open_ds))]):
                 #    client.add_replication_rule(dids, copies=1, rse_expression=tz_rse,
@@ -307,6 +308,7 @@ class UseCaseDefinition(UCEmulator):
                             client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles, rse=tz_rse)
                         except Exception, e:
                             print traceback.format_exc()
+                    monitor.record_counter('tzero.files', len(newfiles))
             delta = time.time() - now
             print '== TZero: Appending %s files to %s datasets took %s seconds' % (no_files, len(ds), delta)
             monitor.record_timer('tzero.registering_all_replicas', delta * 1000)
