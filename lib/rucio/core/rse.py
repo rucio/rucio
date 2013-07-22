@@ -770,6 +770,24 @@ def update_replica_state(rse, scope, name, state, session=None):
 
 
 @transactional_session
+def update_replicas_state(replicas, session=None):
+    """
+    Update File replica information and state.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param name: The data identifier name.
+    :param state: The state.
+    :param session: The database session in use.
+    """
+
+    for replica in replicas:
+        pass
+    #replica_rse = get_rse(rse=rse, session=session)
+    #    return session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name, lock_cnt=0).update({'state': state})
+
+
+@transactional_session
 def update_replica_lock_counter(rse, scope, name, value, rse_id=None, session=None):
     """
     Update File replica lock counters.

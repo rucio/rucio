@@ -8,30 +8,157 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
-from json import loads
 from jsonschema import validate, ValidationError
 
-from rucio.common.config import get_schema_dir
-from rucio.common.exception import ConfigurationError, InvalidObject
+from rucio.common.exception import InvalidObject
 
 
-def get_schema(name):
-    """
-    Return the json schema for a specific name
+account = {"description": "Account name",
+           "type": "string",
+           "pattern": "^[a-z0-9-]{1,30}$"}
 
-    TODO: Memoize this method (cache, decorator, etc) to avoid i/o
+account_type = {"description": "Account type",
+                "type": "string",
+                "enum": ["USER", "GROUP", "SERVICE"]}
 
-    :param name: The json schema name.
-    """
-    try:
-        schema_dir = get_schema_dir()  # NOQA
-        match = '%(schema_dir)s/%(name)s.json' % locals()
-        with open(match) as schema_file:
-            return loads(schema_file.read())
-    except IOError, e:
-        if e[0] == 2:
-            raise ConfigurationError('Could not find schema properties file %(schema_dir)s/%(name)s.json' % locals())
-        raise
+scope = {"description": "Scope name",
+         "type": "string",
+         "pattern": "^[a-zA-Z'_'.0-9]{1,30}$"}
+
+name = {"description": "Data Identifier name",
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9\.\-\_]{1,255}$"}
+
+rse = {"description": "RSE name",
+       "type": "string",
+       "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
+
+did_type = {"description": "DID type",
+            "type": "string",
+            "enum": ["DATASET", "CONTAINER", "FILE"]}
+
+bytes = {"description": "Size in bytes",
+         "type": "integer"}
+
+adler32 = {"description": "adler32",
+           "type": "string",
+           "pattern": "^[a-fA-F\d]{8}$"}
+
+md5 = {"description": "md5",
+       "type": "string",
+       "pattern": "^[a-fA-F\d]{32}$"}
+
+uuid = {"description": "Universally Unique Identifier (UUID)",
+        "type": "string",
+        "pattern": '^[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}$'}
+
+meta = {"description": "Data Identifier(DID) metadata",
+        "type": "object",
+        "properties": {"guid": uuid},
+        "additionalProperties": True}
+
+pfn = {"description": "Physical File Name", "type": "string"}
+
+copies = {"description": "Number of replica copies", "type": "integer"}
+
+rse_expression = {"description": "RSE expression", "type": "string"}
+
+lifetime = {"description": "Lifetime", "type": "number"}
+
+rule = {"description": "Replication rule",
+        "type": "object",
+        "properties": {"copies": copies,
+                       "rse_expression": rse_expression,
+                       "lifetime": lifetime},
+        "required": ["copies", "rse_expression"],
+        "additionalProperties": False}
+
+rules = {"description": "Array of replication rules",
+         "type": "array",
+         "items": rule,
+         "minItems": 1,
+         "maxItems": 1000}
+
+collection_type = {"description": "Dataset or container type",
+                   "type": "string",
+                   "enum": ["DATASET", "CONTAINER"]}
+
+collection = {"description": "Dataset or container",
+              "type": "object",
+              "properties": {"scope": scope,
+                             "name": name,
+                             "type": collection_type,
+                             "meta": meta,
+                             "rules": rules},
+              "required": ["scope", "name", "type"],
+              "additionalProperties": False}
+
+collections = {"description": "Array of datasets or containers",
+               "type": "array",
+               "items": collection,
+               "minItems": 1,
+               "maxItems": 1000}
+
+did = {"description": "Data Identifier(DID)",
+       "type": "object",
+       "properties": {"scope": scope,
+                      "name": name,
+                      "type": did_type,
+                      "meta": meta,
+                      "rules": rules,
+                      "bytes": bytes,
+                      "adler32": adler32,
+                      "md5": md5,
+                      "pfn": pfn},
+       "required": ["scope", "name"],
+       "additionalProperties": False}
+
+dids = {"description": "Array of Data Identifiers(DIDs)",
+        "type": "array",
+        "items": did,
+        "minItems": 1,
+        "maxItems": 1000}
+
+attachment = {"description": "Attachement",
+              "type": "object",
+              "properties": {"scope": scope,
+                             "name": name,
+                             "rse": rse,
+                             "dids": dids},
+              "required": ["dids"],
+              "additionalProperties": False}
+
+attachments = {"description": "Array of attachments",
+               "type": "array",
+               "items": attachment,
+               "minItems": 1,
+               "maxItems": 1000}
+
+subscription_filter = {"type": "object",
+                       "properties": {"datatype": {"type": "array"},
+                                      "prod_step": {"type": "array"},
+                                      "stream_name": {"type": "array"},
+                                      "project": {"type": "array"},
+                                      "scope": {"type": "array"},
+                                      "pattern": {"type": "string"},
+                                      "excluded_pattern": {"type": "string"},
+                                      "group": {"type": "string"},
+                                      "provenance": {"type": "string"},
+                                      "account": {"type": "string", "pattern": "^[a-z0-9-]{1,30}$"},
+                                      "grouping": {"type": "string"}}}
+
+schemas = {'account': account,
+           'account_type': account_type,
+           'name': name,
+           'rse': rse,
+           'scope': scope,
+           'did': did,
+           'dids': dids,
+           'collection': collection,
+           'collections': collections,
+           'attachment': attachment,
+           'attachments': attachments,
+           'subscription_filter': subscription_filter}
 
 
 def validate_schema(name, obj):
@@ -42,6 +169,6 @@ def validate_schema(name, obj):
     :param obj: The object to validate.
     """
     try:
-        validate(obj, get_schema(name))
+        validate(obj, schemas.get(name, {}))
     except ValidationError, e:  # NOQA
         raise InvalidObject("%(e)s" % locals())

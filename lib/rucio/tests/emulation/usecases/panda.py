@@ -41,6 +41,7 @@ class UseCaseDefinition(UCEmulator):
             exts = ['log', 'out']
             create_dis_ds = (input['dis_ds_probability'] > random())
             create_sub_ds = True
+
         client = Client(account='panda')
 
         # ----------------------- List replicas and derive list of files from it -------------------

@@ -83,6 +83,13 @@ def generate_uuid_bytes():
     return uuid().bytes
 
 
+def clean_headers(msg):
+    invalid_characters = ['\n', '\r']
+    for c in invalid_characters:
+        msg = str(msg).replace(c, ' ')
+    return msg
+
+
 def generate_http_error(status_code, exc_cls, exc_msg):
     """
     utitily function to generate a complete HTTP error response.
@@ -93,7 +100,7 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     """
 
     status = codes[status_code]
-    headers = {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()}
+    headers = {'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': clean_headers(exc_msg)}
     data = ': '.join([exc_cls, str(exc_msg).strip()])
 
     try:
