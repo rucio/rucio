@@ -51,6 +51,11 @@ carbon_server = voatlas70.cern.ch
 carbon_port = 8125
 user_scope = rucio
 
+[conveyor]
+transfertool = fts3
+#ftshost = https://fts3-pilot.cern.ch:8446
+ftshost = http://voatlas304.cern.ch/mockfts3
+
 [messaging-fts3]
 port = 6162
 ssl_key_file = /home/mario/.ssh/hostkey.pem

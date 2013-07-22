@@ -78,8 +78,6 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
 
     if transfertool == 'fts3':
         transfer_id = fts3.submit(src_urls=src_urls, dest_urls=dest_urls, filesize=None, checksum=None, overwrite=False, job_metadata=metadata)
-    elif transfertool == 'fts3-mock':
-        transfer_id = fts3.submit(src_urls=src_urls, dest_urls=dest_urls, filesize=None, checksum=None, overwrite=False, job_metadata=metadata, mock=True)
 
     session.query(models.Request).filter_by(id=request_id).update({'state': RequestState.SUBMITTED, 'external_id': transfer_id})
 
@@ -144,7 +142,7 @@ def __get_external_id(request_id, session=None):
 
 
 @read_session
-def query_request(request_id, session=None):
+def query_request(request_id, transfertool, session=None):
     """
     Query the status of a request.
 
@@ -154,16 +152,12 @@ def query_request(request_id, session=None):
 
     record_counter('core.request.query_request')
 
-    transfertool = 'fts3-mock'
-
     external_id = __get_external_id(request_id, session=session)
 
     req_status = {'request_id': request_id}
 
     if transfertool == 'fts3':
         response = fts3.query(external_id)
-    elif transfertool == 'fts3-mock':
-        response = fts3.query(external_id, mock=True)
 
     if response is None:
         raise Exception('The external tool does not know about request %(external_id)s' % locals())
@@ -189,7 +183,7 @@ def set_request_state(request_id, new_state, session=None):
         raise RucioException(e.args)
 
 
-def cancel_request(request_id):
+def cancel_request(request_id, transfertool):
     """
     Cancel a request.
 
@@ -199,13 +193,10 @@ def cancel_request(request_id):
     record_counter('core.request.cancel_request')
 
     # select correct transfertool and external transfer id based on rucio transfer id entry in database
-    transfertool = 'fts3-mock'
     transfer_id = request_id
 
     if transfertool == 'fts3':
         return fts3.cancel(transfer_id)
-    elif transfertool == 'fts3-mock':
-        return fts3.cancel(transfer_id, mock=True)
 
 
 def cancel_request_did(scope, name, dest_rse, req_type):
@@ -221,10 +212,9 @@ def cancel_request_did(scope, name, dest_rse, req_type):
     record_counter('core.request.cancel_request_did')
 
     # select correct transfertool and external transfer id based on request entry in database
-    transfertool = 'fts3-mock'
     transfer_id = 'whatever'
 
-    if transfertool == 'fts3':
-        return fts3.cancel(transfer_id)
-    elif transfertool == 'fts3-mock':
-        return fts3.cancel(transfer_id, mock=True)
+    #if transfertool == 'fts3':
+    #    return fts3.cancel(transfer_id)
+
+    return fts3.cancel(transfer_id)  # hardcoded for now
