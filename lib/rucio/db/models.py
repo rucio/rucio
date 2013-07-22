@@ -548,7 +548,7 @@ class Request(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
                    Index('REQUESTS_ID_IDX', 'id'),
-                   Index('REQUESTS_TYPE_STATE_IDX', 'request_type', 'state')
+                   Index('REQUESTS_TYP_STA_CRE_IDX', 'request_type', 'state', 'created_at')
                    )
 
 
