@@ -9,16 +9,17 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import json
-
 import requests
 
-FTSHOST = 'https://fts3-pilot.cern.ch:8446'
-FTSHOST_MOCK = 'https://localhost/mockfts3'
+from rucio.common.config import config_get
 
-s = requests.session(config={'keep_alive': True})
+__HOST = config_get('conveyor', 'ftshost')  # keep it simple for now
 
 
-def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, filesize=None, checksum=None, overwrite=False, job_metadata={}, mock=False):
+def submit(src_urls, dest_urls,
+           src_spacetoken=None, dest_spacetoken=None,
+           filesize=None, checksum=None,
+           overwrite=False, job_metadata={}):
     """
     Submit a transfer to FTS3 via JSON.
 
@@ -54,15 +55,9 @@ def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, files
     except Exception, e:
         raise Exception('Could not build valid JSON: %s' % str(e))
 
-    HOST = FTSHOST
-    if mock:
-        HOST = FTSHOST_MOCK
-
-    r = s.post('%s/jobs' % HOST,
-               data=params_str,
-               headers={'Content-Type': 'application/json'},
-               cert='/home/mario/dev/rucio/etc/web/x509up',
-               verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = requests.post('%s/jobs' % __HOST,
+                      data=params_str,
+                      headers={'Content-Type': 'application/json'})
 
     if r.status_code == 200:
         return r.json['job_id']
@@ -70,7 +65,7 @@ def submit(src_urls, dest_urls, src_spacetoken=None, dest_spacetoken=None, files
         raise Exception('Could not submit transfer: %s', r.content)
 
 
-def query(transfer_id, mock=False):
+def query(transfer_id):
     """
     Query the status of a transfer in FTS3 via JSON.
 
@@ -78,14 +73,8 @@ def query(transfer_id, mock=False):
     :returns: Transfer status information as a dictionary.
     """
 
-    HOST = FTSHOST
-    if mock:
-        HOST = FTSHOST_MOCK
-
-    r = s.get('%s/jobs/%s' % (HOST, transfer_id),
-              headers={'Content-Type': 'application/json'},
-              cert='/home/mario/dev/rucio/etc/web/x509up',
-              verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
+                     headers={'Content-Type': 'application/json'})
 
     if r.status_code == 200:
         return r.json
@@ -95,7 +84,7 @@ def query(transfer_id, mock=False):
         raise Exception('Could not retrieve transfer information: %s', r.content)
 
 
-def cancel(transfer_id, mock=False):
+def cancel(transfer_id):
     """
     Cancel a transfer that has been submitted to FTS via JSON.
 
@@ -105,21 +94,15 @@ def cancel(transfer_id, mock=False):
     pass
 
 
-def whoami(mock=False):
+def whoami():
     """
     Returns credential information from the FTS3 server.
 
     :returns: Credentials as stored by the FTS3 server as a dictionary.
     """
 
-    HOST = FTSHOST
-    if mock:
-        HOST = FTSHOST_MOCK
-
-    r = s.get('%s/whoami' % HOST,
-              headers={'Content-Type': 'application/json'},
-              cert='/home/mario/dev/rucio/etc/web/x509up',
-              verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = requests.get('%s/whoami' % __HOST,
+                     headers={'Content-Type': 'application/json'})
 
     if r.status_code == 200:
         return r.json
@@ -127,21 +110,15 @@ def whoami(mock=False):
         raise Exception('Could not retrieve credentials: %s', r.content)
 
 
-def version(mock=False):
+def version():
     """
     Returns FTS3 server information.
 
     :returns: FTS3 server information as a dictionary.
     """
 
-    HOST = FTSHOST
-    if mock:
-        HOST = FTSHOST_MOCK
-
-    r = s.get('%s/whoami' % HOST,
-              headers={'Content-Type': 'application/json'},
-              cert='/home/mario/dev/rucio/etc/web/x509up',
-              verify='/home/mario/dev/rucio/etc/web/ca.crt')
+    r = requests.get('%s/whoami' % __HOST,
+                     headers={'Content-Type': 'application/json'})
 
     if r.status_code == 200:
         return r.json

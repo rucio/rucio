@@ -72,7 +72,7 @@ def submitter(once=False, worker_number=1, total_workers=1):
                 destinations = [str(pfn)]
 
             ts = time.time()
-            request.submit_transfer(req['request_id'], sources, destinations, 'fts3-mock', {'issuer': 'rucio-conveyor'})
+            request.submit_transfer(req['request_id'], sources, destinations, 'fts3', {'issuer': 'rucio-conveyor'})
             record_timer('daemons.conveyor.submitter.004-submit_transfer', time.time()-ts)
 
             record_counter('daemons.conveyor.submitter.submit_request')
@@ -113,7 +113,7 @@ def poller(once=False, worker_number=1, total_workers=1):
             req = req[0]
 
             ts = time.time()
-            request.query_request(req['request_id'])
+            request.query_request(req['request_id'], 'fts3')
             record_timer('daemons.conveyor.poller.001-query_request', time.time()-ts)
 
             record_counter('daemons.conveyor.poller.query_request')
