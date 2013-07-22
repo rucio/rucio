@@ -790,5 +790,33 @@
       }
     },
     "storage_usage_tool": "rucio.rse.protocols.webdav.Default.getSpace"
+  },
+  "WJ-XROOTD":{
+    "backend_type": "XROOTD",
+    "deterministic": true,
+    "protocols": {
+      "default": "xroot",
+      "supported": {
+        "xroot": {
+          "prefix": "/tmp/rucio_rse",
+          "impl": "rucio.rse.protocols.xrootd.Default",
+          "hostname": "wj-xrootd.cern.ch",
+          "port": 1094,
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.xrootd.Default.getSpace"
   }
 }
