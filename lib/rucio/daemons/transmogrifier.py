@@ -26,9 +26,8 @@ from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.rule import add_replication_rule
 from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound, InvalidReplicationRule
 from rucio.common.config import config_get, config_get_int
-from rucio.common.exception import InvalidReplicationRule
 from rucio.core import monitor
 
 
@@ -46,6 +45,9 @@ def _retrial(func, *args, **kwargs):
     while True:
         try:
             return apply(func, args, kwargs)
+        except DataIdentifierNotFound, e:
+            logger.warning(e)
+            return 1
         except DatabaseException, e:
             logger.error(e)
             if exp(delay) > 600:
@@ -336,25 +338,28 @@ class Worker(GearmanWorker):
             for did in dids:
                 if (did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER)):
                     results['%s:%s' % (did['scope'], did['name'])] = []
-                    metadata = get_metadata(did['scope'], did['name'])
-                    for subscription in subscriptions:
-                        if self.is_matching_subscription(subscription, did, metadata) is True:
-                            stime = time.time()
-                            results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
-                            logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['id']))
-                            for rule in loads(subscription['replication_rules']):
-                                try:
-                                    grouping = rule['grouping']
-                                except:
-                                    grouping = 'NONE'
-                                try:
-                                    add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rule['rse_expression'],
-                                                         grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=subscription['id'], issuer='root')
-                                    monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
-                                except InvalidReplicationRule, e:
-                                    logger.error(e)
-                                    monitor.record_counter(counters='transmogrifier.addnewrule.error',  delta=1)
-                            logger.info('Rule inserted in %f seconds' % (time.time()-stime))
+                    try:
+                        metadata = get_metadata(did['scope'], did['name'])
+                        for subscription in subscriptions:
+                            if self.is_matching_subscription(subscription, did, metadata) is True:
+                                stime = time.time()
+                                results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
+                                logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['id']))
+                                for rule in loads(subscription['replication_rules']):
+                                    try:
+                                        grouping = rule['grouping']
+                                    except:
+                                        grouping = 'NONE'
+                                    try:
+                                        add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rule['rse_expression'],
+                                                             grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=subscription['id'], issuer='root')
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
+                                    except InvalidReplicationRule, e:
+                                        logger.error(e)
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.error',  delta=1)
+                                logger.info('Rule inserted in %f seconds' % (time.time()-stime))
+                    except DataIdentifierNotFound, e:
+                        logger.warning(e)
                 monitor.record_counter(counters='transmogrifier.did.processed',  delta=1)
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
             time1 = time.time()
