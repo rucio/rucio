@@ -37,6 +37,10 @@ class UseCaseDefinition(UCEmulator):
             exts = ['user']
             create_dis_ds = False
             create_sub_ds = False
+        elif task_type.split('.')[0] == 'group':  # Group task is created
+            exts = ['group']
+            create_dis_ds = False
+            create_sub_ds = False
         else:  # Production task output stuff is created
             exts = ['log', 'out']
             create_dis_ds = (input['dis_ds_probability'] > random())
@@ -100,6 +104,7 @@ class UseCaseDefinition(UCEmulator):
                 with monitor.record_timer_block('panda.add_container'):
                     client.add_container(scope=output['scope'], name='cnt_%s' % dsn, lifetime=output['lifetime'],
                                          rules=[{'account': output['account'], 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}])
+                monitor.record_counter('panda.tasks.%s.container' % task_type, 1)  # Reports the creation of a container
                 meta = final_dss[fds]
                 with monitor.record_timer_block('panda.add_dataset'):
                     client.add_dataset(scope=output['scope'], name=dsn, meta=meta.update({'guid': str(uuid())}))
@@ -152,6 +157,7 @@ class UseCaseDefinition(UCEmulator):
                     with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
                         client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)  # Add files to DIS - dataset
                 monitor.record_counter('panda.tasks.%s.dis_datasets' % task_type, 1)  # Reports the creation of a dis dataset for the given task type
+                monitor.record_counter('panda.tasks.%s.dis_files' % task_type, len(files_in_ds))  # Reports the number of files in the dis - dataset
 
             if create_sub_ds:  # Creating SUB - datsets
                 for ds in ['%s_SUB_%s_%s' % (input['ds_name'], id, fin_ds) for fin_ds in final_dss]:
@@ -181,7 +187,7 @@ class UseCaseDefinition(UCEmulator):
             ts_res = Queue()
             for ds in inserts_dis:
                 if threads == 'True':
-                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': None, 'ds': ds, 'files_in_ds': files_in_ds, 'ret': Queue()})
+                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'files_in_ds': files_in_ds, 'ret': Queue()})
                     t.start()
                     ts.append(t)
                 else:
@@ -270,6 +276,10 @@ class UseCaseDefinition(UCEmulator):
             user = choice(ctx.users)
             ret['output']['scope'] = 'user.%s' % user
             ret['output']['account'] = user
+        elif task_type.split(',')[0] == 'group':
+            group = choice(ctx.groups)
+            ret['output']['scope'] = 'group.%s' % group
+            ret['output']['account'] = group
         else:
             ret['output']['scope'] = input_ds[0]
             ret['output']['account'] = 'panda'
@@ -301,7 +311,7 @@ class UseCaseDefinition(UCEmulator):
         ts_res = Queue()
         for ds in subs:
             if threads == 'True':
-                t = threading.Thread(target=self.register_replica, kwargs={'client': None, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]},
+                t = threading.Thread(target=self.register_replica, kwargs={'client': client, 'dsn': {'scope': ds.split(':')[0], 'name': ds.split(':')[1]},
                                                                            'rse': subs[ds][1], 'jobs': subs[ds][0], 'task_type': subs[ds][2], 'ret': ts_res})
                 t.start()
                 ts.append(t)
@@ -373,6 +383,10 @@ class UseCaseDefinition(UCEmulator):
                 dsn = '%s.%s' % (task['output_ds'][1].keys()[0], 'user')
                 with monitor.record_timer_block('panda.close'):
                     client.close(scope=task['output_ds'][0], name=dsn)
+            if task_type.startswith('group'):
+                dsn = '%s.%s' % (task['output_ds'][1].keys()[0], 'group')
+                with monitor.record_timer_block('panda.close'):
+                    client.close(scope=task['output_ds'][0], name=dsn)
 
             # -------------- Group sub datasets to their related output datasets ----------------------------------------------
             for out_ds in task['output_ds'][1]:  # Iterates over every output - type of the task
@@ -381,7 +395,7 @@ class UseCaseDefinition(UCEmulator):
                     if sub_ds.endswith(out_ds):  # Checks if the sub dataset is realted to the current output dataset
                         sub_dss.append(sub_ds)
                 if threads == 'True':
-                    t = threading.Thread(target=self.fin_task, kwargs={'client': None, 'task': {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]},
+                    t = threading.Thread(target=self.fin_task, kwargs={'client': client, 'task': {'sub_dss': sub_dss, 'output_ds': [task['output_ds'][0], out_ds]},
                                                                        'task_type': task_type, 'threads': threads})
                     t.start()
                     ts.append(t)
@@ -399,7 +413,7 @@ class UseCaseDefinition(UCEmulator):
         sem = threading.Semaphore()
         for sub_ds in task['sub_dss']:
             if threads == 'True':
-                t = threading.Thread(target=self.aggregate_input, kwargs={'client': None, 'source_ds': sub_ds, 'files': files, 'sem': sem})
+                t = threading.Thread(target=self.aggregate_input, kwargs={'client': client, 'source_ds': sub_ds, 'files': files, 'sem': sem})
                 t.start()
                 ts.append(t)
             else:
@@ -407,9 +421,9 @@ class UseCaseDefinition(UCEmulator):
         if threads == 'True':
             for t in ts:
                 t.join()
-        user = task_type.startswith('user')
+        user = (task_type.startswith('user') or task_type.startswith('group'))
         monitor.record_counter('panda.tasks.%s.output_ds_size' % task_type, len(files))  # Reports the number of files added to the output dataset
-        print '== PanDA: Adding %s (user: %s) files to %s:%s' % (len(files), user, task['output_ds'][0], task['output_ds'][1])
+        print '== PanDA: Adding %s (user/group: %s) files to %s:%s' % (len(files), user, task['output_ds'][0], task['output_ds'][1])
         if not len(files):
             monitor.record_counter('panda.tasks.EmptySubDatasets', 1)
         else:
@@ -430,9 +444,6 @@ class UseCaseDefinition(UCEmulator):
             client = Client(account='panda')
         with monitor.record_timer_block('panda.list_files'):
             fs = [f for f in client.list_files(scope='Manure', name=source_ds)]
-        if not len(fs):
-            monitor.record_counter('panda.tasks.EmptySubDataset', 1)
-            return
         monitor.record_timer('panda.list_files.normalized', (time.time() - now) / len(fs))
         if sem is None:
             files += fs
@@ -482,13 +493,17 @@ class UseCaseDefinition(UCEmulator):
 
         client = Client(account='panda')
         ctx.users = list()
+        ctx.groups = list()
         try:
             for a in client.list_accounts():
                 if a['type'] == 'USER':
                     ctx.users.append(a['account'])
+                if a['type'] == 'GROUP':
+                    ctx.groups.append(a['account'])
         except Exception, e:
             print '!! ERROR !! Unable to read registered users: %s' % e
             ctx.users = ['ralph', 'thomas', 'martin', 'mario', 'cedric', 'vincent', 'luc', 'armin']
+            ctx.users = ['group1', 'group2', 'group3', 'group4']
             for u in ctx.users:
                 try:
                     client.add_account(u, 'USER')
@@ -496,6 +511,15 @@ class UseCaseDefinition(UCEmulator):
                     pass
                 try:
                     client.add_scope(u, 'USER')
+                except Exception, e:
+                    pass
+            for u in ctx.groups:
+                try:
+                    client.add_account(u, 'GROUP')
+                except Exception, e:
+                    pass
+                try:
+                    client.add_scope(u, 'GROUP')
                 except Exception, e:
                     pass
         try:
