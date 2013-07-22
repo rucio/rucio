@@ -13,7 +13,6 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
-
 from datetime import datetime, timedelta
 from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_true, assert_in, assert_not_in, raises
 
@@ -232,10 +231,27 @@ class TestDIDClients:
 
     def test_attach_dids_to_dids(self):
         """ DATA IDENTIFIERS (CLIENT): Attach dids to dids"""
-        # tmp_scope = 'mock'
-        # tmp_rse = 'MOCK2'
-        # tmp_dsn = 'dsn_%s' % generate_uuid()
-        self.did_client.attach_dids_to_dids(attachments=[])
+        tmp_scope = 'mock'
+        tmp_rse = 'MOCK'
+        nb_datasets = 5
+        nb_files = 5
+        attachments, dsns = list(), list()
+        for i in xrange(nb_datasets):
+            attachment = {}
+            attachment['scope'] = tmp_scope
+            attachment['name'] = 'dsn.%s' % str(generate_uuid())
+            attachment['rse'] = tmp_rse
+            files = []
+            for i in xrange(nb_files):
+                files.append({'scope': tmp_scope, 'name': 'lfn.%s' % str(generate_uuid()),
+                              'bytes': 724963570L, 'adler32': '0cc737eb',
+                              'meta': {'guid': str(generate_uuid()), 'events': 100}})
+            attachment['dids'] = files
+            dsns.append({'scope': tmp_scope, 'name': attachment['name']})
+            attachments.append(attachment)
+
+        self.did_client.add_datasets(dsns=dsns)
+        self.did_client.attach_dids_to_dids(attachments=attachments)
 
     def test_add_dataset(self):
         """ DATA IDENTIFIERS (CLIENT): Add dataset """
@@ -455,8 +471,8 @@ class TestDIDClients:
         dataset1 = generate_uuid()
         dataset2 = generate_uuid()
         container = generate_uuid()
-        files1 = [{'scope': scope, 'name': generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'rse': rse} for i in xrange(nbfiles)]
-        files2 = [{'scope': scope, 'name': generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'rse': rse} for i in xrange(nbfiles)]
+        files1 = [{'scope': scope, 'name': generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb'} for i in xrange(nbfiles)]
+        files2 = [{'scope': scope, 'name': generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb'} for i in xrange(nbfiles)]
 
         self.did_client.add_dataset(scope, dataset1)
 

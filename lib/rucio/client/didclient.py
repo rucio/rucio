@@ -202,12 +202,11 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
 
-    def attach_dids_to_dids(self, attachments, rse=None):
+    def attach_dids_to_dids(self, attachments):
         """
         Add dids to dids.
 
         :param attachments: The attachments.
-        :param rse: The RSE name when registering replicas.
         """
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
         url = build_url(self.host, path=path)
@@ -216,6 +215,30 @@ class DIDClient(BaseClient):
             return True
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
+
+    def add_files_to_datasets(self, attachments):
+        """
+        Add files to datasets.
+
+        :param attachments: The attachments.
+        """
+        return self.attach_dids_to_dids(attachments=attachments)
+
+    def add_datasets_to_containers(self, attachments):
+        """
+        Add datasets_to_containers.
+
+        :param attachments: The attachments.
+        """
+        return self.attach_dids_to_dids(attachments=attachments)
+
+    def add_containers_to_containers(self, attachments):
+        """
+        Add containers_to_containers.
+
+        :param attachments: The attachments.
+        """
+        return self.attach_dids_to_dids(attachments=attachments)
 
     def add_files_to_dataset(self, scope, name, files, rse=None):
         """

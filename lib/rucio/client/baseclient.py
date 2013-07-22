@@ -21,7 +21,7 @@ from tempfile import mkstemp
 from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
-from requests import session
+from requests import get, post, put, delete
 from requests.auth import HTTPKerberosAuth
 from requests.status_codes import codes, _codes
 from requests.exceptions import SSLError
@@ -62,7 +62,7 @@ class BaseClient(object):
 
         self.host = rucio_host
         self.auth_host = auth_host
-        self.session = session(config={'keep-alive': True})
+        # self.session = session(config={'Keep-Alive': True})
 
         try:
             if self.host is None:
@@ -185,10 +185,9 @@ class BaseClient(object):
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :return: the HTTP return body.
         """
-
         r = None
         retry = 0
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': ''}
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': '', 'Connection': 'Keep-Alive'}
 
         if headers is not None:
             hds.update(headers)
@@ -196,13 +195,13 @@ class BaseClient(object):
         while retry < self.request_retries:
             try:
                 if type == 'GET':
-                    r = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, prefetch=False)  # `stream=True` for newer versions of requests
+                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, prefetch=False)  # `stream=True` for newer versions of requests
                 elif type == 'PUT':
-                    r = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    r = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'DEL':
-                    r = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
             except SSLError:
@@ -233,7 +232,7 @@ class BaseClient(object):
         retry = 0
         while retry < self.AUTH_RETRIES:
             try:
-                r = self.session.get(url, headers=headers, verify=self.ca_cert)
+                r = get(url, headers=headers, verify=self.ca_cert)
             except SSLError:
                 LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
                 self.ca_cert = False
@@ -289,7 +288,7 @@ class BaseClient(object):
 
         while retry < self.AUTH_RETRIES:
             try:
-                r = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
+                r = get(url, headers=headers, cert=cert, verify=self.ca_cert)
             except SSLError, e:
                 if 'error:14090086' not in e.args[0][0]:
                     return False
@@ -325,7 +324,7 @@ class BaseClient(object):
         retry = 0
         while retry < self.AUTH_RETRIES:
             try:
-                r = self.session.get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
+                r = get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
             except SSLError:
                 LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
                 self.ca_cert = False

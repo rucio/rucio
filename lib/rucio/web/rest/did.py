@@ -15,11 +15,12 @@
 from json import dumps, loads
 from traceback import format_exc
 from urlparse import parse_qs
-from web import application, ctx, data, Created, header, InternalError, BadRequest, OK, loadhook
+from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
 from rucio.api.did import (list_replicas, add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
-                           get_metadata, set_status, attach_dids, detach_dids)
+                           get_metadata, set_status, attach_dids, detach_dids,
+                           attach_dids_to_dids)
 from rucio.api.rule import list_replication_rules
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -28,14 +29,14 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
-from rucio.web.rest.common import authenticate
+from rucio.web.rest.common import authenticate, RucioController
 
 urls = (
     '/(.*)/', 'Scope',
     '/(.*)/dids/search', 'Search',
     '/(.*)/(.*)/rses', 'Replicas',
     '/(.*)/(.*)/files', 'Files',
-    '/(.*)/(.*)/dids', 'Content',
+    '/(.*)/(.*)/dids', 'Attachment',
     '/(.*)/(.*)/meta/(.*)', 'Meta',
     '/(.*)/(.*)/meta', 'Meta',
     '/(.*)/(.*)/status', 'DIDs',
@@ -46,7 +47,7 @@ urls = (
 )
 
 
-class Scope:
+class Scope(RucioController):
 
     def GET(self, scope):
         """
@@ -80,17 +81,8 @@ class Scope:
             print format_exc()
             raise InternalError(e)
 
-    def PUT(self):
-        raise BadRequest()
 
-    def DELETE(self):
-        raise BadRequest()
-
-    def POST(self):
-        raise BadRequest()
-
-
-class Search:
+class Search(RucioController):
 
     def GET(self, scope):
         """
@@ -129,29 +121,8 @@ class Search:
             print format_exc()
             raise InternalError(e)
 
-    def PUT(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
 
-    def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def POST(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-
-class BulkDIDS:
-
-    def GET(self, scope):
-        raise BadRequest()
-
-    def PUT(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
+class BulkDIDS(RucioController):
 
     def POST(self):
         try:
@@ -181,25 +152,18 @@ class BulkDIDS:
         raise Created()
 
 
-class Attachments:
-
-    def GET(self, scope):
-        raise BadRequest()
-
-    def PUT(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
+class Attachments(RucioController):
 
     def POST(self):
+
+        # To be moved in a common processor
         try:
             json_data = loads(data())
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            json_data
+            attach_dids_to_dids(attachments=json_data, issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -219,7 +183,7 @@ class Attachments:
         raise Created()
 
 
-class DIDs:
+class DIDs(RucioController):
 
     def GET(self, scope, name):
         """
@@ -339,11 +303,8 @@ class DIDs:
 
         raise OK()
 
-    def DELETE(self):
-        raise BadRequest()
 
-
-class Content:
+class Attachment(RucioController):
 
     def GET(self, scope, name):
         """
@@ -387,18 +348,13 @@ class Content:
         :param scope: Create the data identifier within this scope.
         :param name: Create the data identifier with this name.
         """
-        rse = None
         try:
             json_data = loads(data())
-            dids = json_data['dids']
-
-            if 'rse' in json_data:
-                rse = json_data['rse']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            attach_dids(scope=scope, name=name, dids=dids, issuer=ctx.env.get('issuer'), rse=rse)
+            attach_dids(scope=scope, name=name, attachment=json_data, issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
@@ -416,9 +372,6 @@ class Content:
             raise InternalError(e)
 
         raise Created()
-
-    def PUT(self):
-        raise BadRequest()
 
     def DELETE(self, scope, name):
         """
@@ -456,10 +409,7 @@ class Content:
         raise OK()
 
 
-class Replicas:
-
-    def POST(self, scope, name):
-        raise BadRequest()
+class Replicas(RucioController):
 
     def GET(self, scope, name):
         """
@@ -491,17 +441,8 @@ class Replicas:
             print format_exc()
             raise InternalError(e)
 
-    def PUT(self):
-        raise BadRequest()
 
-    def DELETE(self):
-        raise BadRequest()
-
-
-class Files:
-
-    def POST(self, scope, name):
-        raise BadRequest()
+class Files(RucioController):
 
     def GET(self, scope, name):
         """ List all replicas of a data identifier.
@@ -527,14 +468,8 @@ class Files:
             print format_exc()
             raise InternalError(e)
 
-    def PUT(self):
-        raise BadRequest()
 
-    def DELETE(self):
-        raise BadRequest()
-
-
-class Meta:
+class Meta(RucioController):
 
     def GET(self, scope, name):
         """
@@ -561,12 +496,6 @@ class Meta:
         except Exception, e:
             print format_exc()
             raise InternalError(e)
-
-    def PUT(self):
-        raise BadRequest()
-
-    def DELETE(self, scope, name, key):
-        raise BadRequest()
 
     def POST(self, scope, name, key):
         """
@@ -609,7 +538,7 @@ class Meta:
         raise Created()
 
 
-class Rules:
+class Rules(RucioController):
 
     def GET(self, scope, name):
         """
@@ -635,14 +564,6 @@ class Rules:
         except Exception, e:
             raise InternalError(e)
 
-    def PUT(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
-
-    def POST(self):
-        raise BadRequest()
 
 """----------------------
    Web service startup

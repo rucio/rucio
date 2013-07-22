@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, case
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
@@ -25,6 +25,7 @@ import rucio.core.rule
 
 from rucio.common import exception
 from rucio.common.utils import grouper
+from rucio.core.monitor import record_timer_block
 from rucio.core.rse import add_replicas
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
@@ -281,31 +282,46 @@ def attach_dids(scope, name, dids, account, rse=None, session=None):
     :param rse: The RSE name for the replicas.
     :param session: The database session in use.
     """
+    return attach_dids_to_dids(attachments=[{'scope': scope, 'name': name, 'dids': dids, 'rse': rse}], account=account, session=session)
 
-    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name).\
-        filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
-    try:
-        did = query.one()
 
-        if not did.is_open:
-            raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % locals())
+@transactional_session
+def attach_dids_to_dids(attachments, account, session=None):
+    """
+    Append content to dids.
 
-        if did.did_type == DIDType.FILE:
-            raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % locals())
-        elif did.did_type == DIDType.DATASET:
-            __add_files_to_dataset(scope=scope, name=name, files=dids, account=account, rse=rse, session=session)
-        elif did.did_type == DIDType.CONTAINER:
-            __add_collections_to_container(scope=scope, name=name, collections=dids, account=account, session=session)
+    :param attachments: The contents.
+    :param account: The account.
+    :param session: The database session in use.
+    """
+    parent_dids = list()
+    for attachment in attachments:
+        try:
+            parent_did = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=attachment['scope'], name=attachment['name']).\
+                filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
+                one()
 
+            if not parent_did.is_open:
+                raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is closed" % attachment)
+
+            if parent_did.did_type == DIDType.FILE:
+                raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % attachment)
+            elif parent_did.did_type == DIDType.DATASET:
+                __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'], files=attachment['dids'], account=account, rse=attachment['rse'], session=session)
+            elif parent_did.did_type == DIDType.CONTAINER:
+                __add_collections_to_container(scope=attachment['scope'], name=attachment['name'], collections=attachment['dids'], account=account, session=session)
+
+            parent_dids.append(parent_did)
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % attachment())
+
+    for did in parent_dids:
         # Mark for rule re-evaluation
         if not did.rule_evaluation_action:
             did.rule_evaluation_action = DIDReEvaluation.ATTACH
         elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
             did.rule_evaluation_action = DIDReEvaluation.BOTH
         did.rule_evaluation_required = datetime.utcnow()
-
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
 @transactional_session
@@ -317,27 +333,75 @@ def delete_dids(dids, account, session=None):
     :param account: The account.
     :param session: The database session in use.
     """
+    content_clause, parent_content_clause = list(), list()
+    did_clause, rule_id_clause = list(), list()
     for did in dids:
+        parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
+        did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
+        content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
+        rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
-        # remove rules
-        for (rule_id,) in session.query(models.ReplicationRule.id).filter_by(scope=did['scope'], name=did['name']):
-            rucio.core.rule.delete_rule(rule_id, session=session)
+    rule_clause, lock_clause = list(), list()
+    for (rule_id, ) in session.query(models.ReplicationRule.id).filter(or_(*rule_id_clause)).yield_per(10):
+        rule_clause.append(models.ReplicationRule.id == rule_id)
+        lock_clause.append(models.ReplicaLock.rule_id == rule_id)
 
-        # remove did from parent content
-        rowcount = session.query(models.DataIdentifierAssociation).filter_by(child_scope=did['scope'], child_name=did['name']).\
-            delete(synchronize_session=False)
+    replica_clauses, lock_clauses = list(), list()
+    for (rse_id, scope, name, rule_id) in session.query(models.ReplicaLock.rse_id, models.ReplicaLock.scope, models.ReplicaLock.name, models.ReplicaLock.rule_id).filter(or_(*lock_clause)).yield_per(10):
+        replica_clauses.append(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id))
+        lock_clauses.append(and_(models.ReplicaLock.rse_id == rse_id, models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rule_id == rule_id))
 
-        # remove content
-        rowcount = session.query(models.DataIdentifierAssociation).filter_by(scope=did['scope'], name=did['name']).\
-            delete(synchronize_session=False)
+    # Update the replica's tombstones
+    # s = time()
+    with record_timer_block('undertaker.tombstones'):
+        for replica_clause in grouper(replica_clauses, 10):
+            rowcount = session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
+                update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
+                        'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
+                       synchronize_session=False)
+    # print "Update replica's tombstones", time() - s
 
-        # remove data identifier
-        rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).\
+    # Remove the locks
+    # s = time()
+    with record_timer_block('undertaker.locks'):
+        for lock_clause in grouper(lock_clauses, 10):
+            rowcount = session.query(models.ReplicaLock).filter(or_(*lock_clause)).delete(synchronize_session=False)
+    # print 'delete locks', time() - s
+
+    # Remove the rules
+    # s = time()
+    if rule_clause:
+        with record_timer_block('undertaker.rules'):
+            rowcount = session.query(models.ReplicationRule).filter(or_(*rule_clause)).delete(synchronize_session=False)
+    # print 'delete rules', time() - s
+    # filter(exists([1]).where(or_(*lock_clause))).delete(synchronize_session=False)
+
+    # s = time()
+    # remove from parent content
+    if parent_content_clause:
+        with record_timer_block('undertaker.parent_content'):
+            rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)).\
+                delete(synchronize_session=False)
+    # print 'delete parent content', time() - s
+
+    # s = time()
+    # remove content
+    if content_clause:
+        with record_timer_block('undertaker.content'):
+            rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*content_clause)).\
+                delete(synchronize_session=False)
+    # print 'delete content', time() - s
+
+    # s = time()
+    # remove data identifier
+    with record_timer_block('undertaker.dids'):
+        rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
             filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
             delete(synchronize_session=False)
+    # print 'delete dids', time() - s
 
-        if not rowcount:
-            raise exception.DataIdentifierNotFound("Dataset or container '%(scope)s:%(name)s' not found" % did)
+    if not rowcount and len(dids) != rowcount:
+        raise exception.DataIdentifierNotFound("Datasets or containers not found")
 
 
 @transactional_session
