@@ -25,6 +25,7 @@ import rucio.core.rule
 
 from rucio.common import exception
 from rucio.common.utils import grouper
+from rucio.core.callback import add_callback
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import add_replicas
 from rucio.db import models
@@ -792,6 +793,7 @@ def set_status(scope, name, session=None, **kwargs):
         if k == 'open':
             query = query.filter_by(is_open=True).filter(models.DataIdentifier.did_type != DIDType.FILE)
             values['is_open'] = False
+            add_callback(event_type='CLOSE', payload={'scope': scope, 'name': name}, session=session)
 
     rowcount = query.update(values, synchronize_session='fetch')
 
