@@ -754,6 +754,29 @@ def get_sum_count_being_deleted(rse_id, session=None):
 
 
 @transactional_session
+def update_replicas_states(replicas, session=None):
+    """
+    Update File replica information and state.
+
+    :param rse: the rse name.
+    :param scope: the tag name.
+    :param name: The data identifier name.
+    :param state: The state.
+    :param session: The database session in use.
+    """
+
+    rse_ids = {}
+    for replica in replicas:
+        if 'rse_id' not in replica:
+            if not replica['rse'] in rse_ids:
+                rse_ids[replica['rse']] = get_rse(rse=replica['rse'], session=session).id
+            replica['rse_id'] = rse_ids[replica['rse']]
+
+        session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], lock_cnt=0).\
+            update({'state': replica['state']})
+
+
+@transactional_session
 def update_replica_state(rse, scope, name, state, session=None):
     """
     Update File replica information and state.
@@ -764,27 +787,7 @@ def update_replica_state(rse, scope, name, state, session=None):
     :param state: The state.
     :param session: The database session in use.
     """
-
-    replica_rse = get_rse(rse=rse, session=session)
-    return session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name, lock_cnt=0).update({'state': state})
-
-
-@transactional_session
-def update_replicas_state(replicas, session=None):
-    """
-    Update File replica information and state.
-
-    :param rse: the rse name.
-    :param scope: the tag name.
-    :param name: The data identifier name.
-    :param state: The state.
-    :param session: The database session in use.
-    """
-
-    for replica in replicas:
-        pass
-    #replica_rse = get_rse(rse=rse, session=session)
-    #    return session.query(models.RSEFileAssociation).filter_by(rse_id=replica_rse.id, scope=scope, name=name, lock_cnt=0).update({'state': state})
+    return update_replicas_states(replicas=[{'scope': scope, 'name': name, 'state': state}], session=session)
 
 
 @transactional_session
