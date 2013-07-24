@@ -18,15 +18,15 @@ from rucio.common.schema import validate_schema
 from rucio.db.constants import DIDType
 
 
-def list_replicas(scope, name, schemes=None):
+def list_replicas(dids, schemes=None):
     """
     List file replicas for a data did.
 
-    :param scope: The scope name.
-    :param name: The data identifier name.
-    :param schemes: A list of schemes to filter the replicas.
+    :param dids: The list of data identifiers (DIDs).
+    :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
+    :param session: The database session in use.
     """
-    return did.list_replicas(scope=scope, name=name, schemes=schemes)
+    return did.list_replicas(dids=dids, schemes=schemes)
 
 
 def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, offset=None):

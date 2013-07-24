@@ -431,7 +431,7 @@ class Replicas(RucioController):
             if 'schemes' in filters:
                 schemes = [item for sublist in filters['schemes'] for item in sublist.split(',')]
         try:
-            for replica in list_replicas(scope=scope, name=name, schemes=schemes):
+            for replica in list_replicas(dids=[{'scope': scope, 'name': name}], schemes=schemes):
                 yield dumps(replica) + '\n'
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
