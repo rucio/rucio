@@ -19,12 +19,27 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import add_replicas, delete_replicas
-from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
+from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, list_replicas
 from rucio.db.constants import DIDType
 # from rucio.rse.rsemanager import RSEMgr
 
 
 class TestReplicaCore:
+
+    def test_add_list_replicas(self):
+        """ REPLICA (CORE): Add and list file replicas """
+        tmp_scope = 'mock'
+        nbfiles = 13
+        files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        rses = ['MOCK', 'MOCK3']
+        for rse in rses:
+            add_replicas(rse=rse, files=files, account='root')
+
+        replica_cpt = 0
+        for replica in list_replicas(dids=files):
+            replica_cpt += 1
+
+        assert_equal(nbfiles, replica_cpt)
 
     def test_delete_replicas(self):
         """ REPLICA (CORE): Delete replicas """
@@ -113,7 +128,7 @@ class TestReplica:
 
         replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
 
-        assert_equal(len(replicas), 2)
+        assert_equal(len(replicas), 1)
 
         # replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, schemes=['mock'])]
         # assert_equal(len(replicas), 2)
