@@ -32,7 +32,9 @@ def re_evaluator(once=False, worker_number=1, total_workers=1):
     wait = False
     while not graceful_stop.is_set():
         try:
+            start_time = time.time()
             wait = re_evaluate_did(worker_number=worker_number, total_workers=total_workers)
+            print 'Evaluation took %f' % (time.time() - start_time)
         except:
             print traceback.format_exc()
         if once:
