@@ -83,6 +83,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             grouping = RuleGrouping.NONE
         else:
             grouping = RuleGrouping.DATASET
+        if lifetime is not None:
+            lifetime = datetime.utcnow() + timedelta(seconds=lifetime)
         new_rule = models.ReplicationRule(account=account, name=elem['name'], scope=elem['scope'], copies=copies, rse_expression=rse_expression, locked=locked, grouping=grouping, expires_at=lifetime, weight=weight, subscription_id=subscription_id)
         try:
             new_rule.save(session=session)
