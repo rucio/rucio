@@ -8,6 +8,8 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
+from re import match
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc
 
@@ -44,7 +46,12 @@ def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None)
     try:
         new_request.save(session=session)
     except IntegrityError, e:
-        raise RucioException(e.args)
+        if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+            pass  # silently accept - we already have a transfer request for this DID@RSE
+        else:
+            raise RucioException(e.args)
 
 
 @transactional_session
