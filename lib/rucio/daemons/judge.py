@@ -21,7 +21,7 @@ from rucio.common.exception import DatabaseException
 from rucio.db import session as rucio_session
 from rucio.db import models
 from rucio.core.rule import re_evaluate_did, delete_expired_rule
-from rucio.core.monitor import record_gauge, record_timer
+from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
 
@@ -71,10 +71,10 @@ def re_evaluator(once=False, worker_number=1, total_workers=1):
                         re_evaluate_did(scope=scope, name=name, worker_number=worker_number, total_workers=total_workers)
                         record_gauge('rule.judge.re_evaluate.threads.%d' % worker_number, 0)
                     except (DatabaseException, DatabaseError), e:
-                        record_timer('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         print 're_evaluator[%s/%s]: Locks detected for %s:%s' % (worker_number, total_workers, scope, name)
-        except e:
-            record_timer('rule.judge.exceptions.%s' % e.__class__.__name__)
+        except Exception, e:
+            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             print traceback.format_exc()
         if once:
             return
