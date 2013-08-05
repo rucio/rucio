@@ -344,7 +344,8 @@ class Worker(GearmanWorker):
                             if self.is_matching_subscription(subscription, did, metadata) is True:
                                 stime = time.time()
                                 results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
-                                logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['id']))
+                                #logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['id']))
+                                logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
                                 for rule in loads(subscription['replication_rules']):
                                     try:
                                         grouping = rule['grouping']
@@ -354,12 +355,27 @@ class Worker(GearmanWorker):
                                         add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rule['rse_expression'],
                                                              grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=subscription['id'], issuer='root')
                                         monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
+                                        if subscription['name'].startswith('group'):
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.activity.group', delta=1)
+                                        elif subscription['name'].startswith('tier0export'):
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.activity.tier0export', delta=1)
+                                        elif subscription['name'].endswith('export'):
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.activity.dataconsolidation', delta=1)
+                                        else:
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.activity.other', delta=1)
+
                                     except InvalidReplicationRule, e:
                                         logger.error(e)
-                                        monitor.record_counter(counters='transmogrifier.addnewrule.error',  delta=1)
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
                                 logger.info('Rule inserted in %f seconds' % (time.time()-stime))
                     except DataIdentifierNotFound, e:
                         logger.warning(e)
+                if did['did_type'] == str(DIDType.FILE):
+                    monitor.record_counter(counters='transmogrifier.did.file.processed',  delta=1)
+                elif did['did_type'] == str(DIDType.DATASET):
+                    monitor.record_counter(counters='transmogrifier.did.dataset.processed',  delta=1)
+                elif did['did_type'] == str(DIDType.CONTAINER):
+                    monitor.record_counter(counters='transmogrifier.did.container.processed',  delta=1)
                 monitor.record_counter(counters='transmogrifier.did.processed',  delta=1)
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
             time1 = time.time()
@@ -370,7 +386,7 @@ class Worker(GearmanWorker):
             tottime = time.time() - start_time
             logger.info('It took %f seconds to process %i DIDs by worker %s' % (tottime, len(dids), self.__pid))
             monitor.record_counter(counters='transmogrifier.job.done',  delta=1)
-            monitor.record_timer(stat='transmogrifier.job.duration',  time=tottime)
+            monitor.record_timer(stat='transmogrifier.job.duration',  time=1000*tottime)
             return dumps(results)
         except:
             exc_type, exc_value, exc_traceback = exc_info()
