@@ -16,23 +16,23 @@ from rucio.db.session import read_session, transactional_session
 
 
 @read_session
-def get_replica_locks(scope, name, db_lock=True, session=None):
+def get_replica_locks(scope, name, lockmode, session=None):
     """
     Get the active replica locks for a file
 
-    :param scope:    Scope of the did.
-    :param name:     Name of the did.
-    :param db_lock:  If the database should lock the read rows.
-    :param session:  The db session.
-    :return:         List of dicts {'rse': ..., 'state': ...}
-    :raises:         NoResultFound
+    :param scope:     Scope of the did.
+    :param name:      Name of the did.
+    :param lockmode:  The lockmode to be used by the session.
+    :param session:   The db session.
+    :return:          List of dicts {'rse': ..., 'state': ...}
+    :raises:          NoResultFound
     """
 
     rses = []
 
     query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
-    if db_lock:
-        query = query.with_lockmode("update")
+    if lockmode is not None:
+        query = query.with_lockmode(lockmode)
     for row in query:
         rses.append({'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
 
@@ -40,12 +40,12 @@ def get_replica_locks(scope, name, db_lock=True, session=None):
 
 
 @read_session
-def get_replica_locks_for_rule(rule_id, db_lock=True, session=None):
+def get_replica_locks_for_rule(rule_id, lockmode, session=None):
     """
     Get the active replica locks for a file
 
     :param rule_id:  Filter on rule_id.
-    :param db_lock:  If the database should lock the read rows.
+    :param lockmode:  The lockmode to be used by the session.
     :param session:  The db session.
     :return:         List of dicts {'scope':, 'name':, 'rse': ..., 'state': ...}
     :raises:         NoResultFound
@@ -54,8 +54,8 @@ def get_replica_locks_for_rule(rule_id, db_lock=True, session=None):
     locks = []
 
     query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
-    if db_lock:
-        query = query.with_lockmode("update")
+    if lockmode is not None:
+        query = query.with_lockmode(lockmode)
     for row in query:
         locks.append({'scope': row.scope, 'name': row.name, 'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
 
@@ -63,13 +63,13 @@ def get_replica_locks_for_rule(rule_id, db_lock=True, session=None):
 
 
 @read_session
-def get_files_and_replica_locks_of_dataset(scope, name, db_lock=True, session=None):
+def get_files_and_replica_locks_of_dataset(scope, name, lockmode, session=None):
     """
     Get all the files of a dataset and, if existing, all locks of the file.
 
     :param scope:    Scope of the dataset
     :param name:     Name of the datset
-    :param db_lock:  If the database should lock the read rows.
+    :param lockmode:  The lockmode to be used by the session.
     :param session:  The db session.
     :return:         Dictionary with keys: (scope, name)
                      and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
@@ -86,8 +86,8 @@ def get_files_and_replica_locks_of_dataset(scope, name, db_lock=True, session=No
                               models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
                                   models.DataIdentifierAssociation.scope == scope,
                                   models.DataIdentifierAssociation.name == name)
-    if db_lock:
-        query = query.with_lockmode('update')
+    if lockmode is not None:
+        query = query.with_lockmode(lockmode)
     for child_scope, child_name, bytes, rse_id, state, rule_id in query:
         if rse_id is None:
             files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': []}

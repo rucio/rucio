@@ -461,21 +461,6 @@ def detach_dids(scope, name, dids, issuer, session=None):
 
 
 @stream_session
-def list_rule_re_evaluation_identifier(limit=None, session=None):
-    """
-    List identifiers which need rule re-evaluation.
-
-    :param type : The DID type.
-    """
-    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter_by(rule_evaluation=True)
-
-    if limit:
-        query = query.limit(limit)
-    for scope, name, did_type in query.yield_per(10):
-        yield {'scope': scope, 'name': name, 'type': did_type}
-
-
-@stream_session
 def list_new_dids(type, session=None):
     """
     List recent identifiers.
@@ -535,39 +520,39 @@ def list_content(scope, name, session=None):
 
 
 @stream_session
-def list_parent_dids(scope, name, lock=False, session=None):
+def list_parent_dids(scope, name, lockmode, session=None):
     """
     List all parent datasets and containers of a did.
 
-    :param scope:    The scope.
-    :param name:     The name.
-    :param lock:     If the rows should be locked.
-    :param session:  The database session.
-    :returns:        List of dids.
-    :rtype:          Generator.
+    :param scope:     The scope.
+    :param name:      The name.
+    :param lockmode:  The lockmode the session should use.
+    :param session:   The database session.
+    :returns:         List of dids.
+    :rtype:           Generator.
     """
 
     query = session.query(models.DataIdentifierAssociation.scope,
                           models.DataIdentifierAssociation.name,
                           models.DataIdentifierAssociation.did_type).filter_by(child_scope=scope, child_name=name)
-    if lock:
-        query = query.with_lockmode('update')
+    if lockmode is not None:
+        query = query.with_lockmode(lockmode)
     for did in query.yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
-        list_parent_dids(scope=did.scope, name=did.name, session=session)
+        list_parent_dids(scope=did.scope, name=did.name, lockmode=lockmode, session=session)
 
 
 @stream_session
-def list_child_dids(scope, name, lock=False, session=None):
+def list_child_dids(scope, name, lockmode, session=None):
     """
     List all child datasets and containers of a did.
 
-    :param scope:    The scope.
-    :param name:     The name.
-    :param lock:     If the rows should be locked.
-    :param session:  The database session
-    :returns:        List of dids
-    :rtype:          Generator
+    :param scope:     The scope.
+    :param name:      The name.
+    :param lockmode:  Lockmode the session should use.
+    :param session:   The database session
+    :returns:         List of dids
+    :rtype:           Generator
     """
 
     query = session.query(models.DataIdentifierAssociation.child_scope,
@@ -576,12 +561,12 @@ def list_child_dids(scope, name, lock=False, session=None):
                               models.DataIdentifierAssociation.scope == scope,
                               models.DataIdentifierAssociation.name == name,
                               models.DataIdentifierAssociation.child_type != DIDType.FILE)
-    if lock:
-        query = query.with_lockmode('update')
+    if lockmode is not None:
+        query = query.with_lockmode(lockmode)
     for child_scope, child_name, child_type in query.yield_per(5):
         yield {'scope': child_scope, 'name': child_name, 'type': child_type}
         if child_type == DIDType.CONTAINER:
-            list_child_dids(scope=child_scope, name=child_name, session=session)
+            list_child_dids(scope=child_scope, name=child_name, lockmode=lockmode, session=session)
 
 
 @stream_session

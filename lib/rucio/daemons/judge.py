@@ -15,7 +15,13 @@ import threading
 import time
 import traceback
 
+from sqlalchemy.exc import DatabaseError
+
+from rucio.common.exception import DatabaseException
+from rucio.db import session as rucio_session
+from rucio.db import models
 from rucio.core.rule import re_evaluate_did, delete_expired_rule
+from rucio.core.monitor import record_gauge
 
 graceful_stop = threading.Event()
 
@@ -29,20 +35,50 @@ def re_evaluator(once=False, worker_number=1, total_workers=1):
 
     print 're_evaluator: started'
 
-    wait = False
     while not graceful_stop.is_set():
         try:
-            start_time = time.time()
-            wait = re_evaluate_did(worker_number=worker_number, total_workers=total_workers)
-            print 'Evaluation took %f' % (time.time() - start_time)
+            # Select a bunch of dids for re evaluation for this worker
+            session = rucio_session.get_session()
+            none_value = None
+            query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).\
+                filter(models.DataIdentifier.rule_evaluation_required != none_value).\
+                with_hint(models.DataIdentifier, "index(dids DIDS_RULE_EVALUATION_REQUIRED)", 'oracle').\
+                order_by(models.DataIdentifier.rule_evaluation_required)
+
+            if worker_number and total_workers:
+                if session.bind.dialect.name == 'oracle':
+                    query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
+                elif session.bind.dialect.name == 'mysql':
+                    query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
+                elif session.bind.dialect.name == 'sqlite':
+                    pass
+
+            start = time.time()
+            dids = query.limit(1000).all()
+            session.commit()
+            session.remove()
+            print 'Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids))
+
+            if not dids:
+                print 'Worker %s did not get any work' % (worker_number)
+                time.sleep(10)
+            else:
+                for scope, name in dids:
+                    if graceful_stop.is_set():
+                        break
+                    try:
+                        record_gauge('rule.judge.re_evaluate.threads.%d' % worker_number, 1)
+                        re_evaluate_did(scope=scope, name=name, worker_number=worker_number, total_workers=total_workers)
+                        record_gauge('rule.judge.re_evaluate.threads.%d' % worker_number, 0)
+                    except (DatabaseException, DatabaseError):
+                        print 're_evaluator[%s/%s]: Locks detected for %s:%s' % (worker_number, total_workers, scope, name)
         except:
             print traceback.format_exc()
         if once:
             return
-        if not wait:
-            time.sleep(10)  # TODO get from config
 
     print 're_evaluator: graceful stop requested'
+    record_gauge('rule.judge.re_evaluate.threads.%d' % worker_number, 0)
 
     print 're_evaluator: graceful stop done'
 
@@ -85,6 +121,8 @@ def run(once=False, re_evaluate_workers=1, cleaner_workers=1):
     """
     Starts up the Judge thread.
     """
+    for i in xrange(1, 100):
+        record_gauge('rule.judge.re_evaluate.threads.%d' % i, 0)
 
     if once:
         print 'main: executing one iteration only'
