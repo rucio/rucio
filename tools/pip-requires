@@ -5,6 +5,7 @@
 SQLAlchemy==0.8.1          # db backend
 alembic==0.5.0             # Lightweight database migration tool for SQLAlchemy
 #Jinja2>=2.3               # Template engine
+dogpile.cache==0.5         # Caching for RSE Expression and other methods
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
 web.py==0.37               # Python web framework
 #python-memcached          # Cache

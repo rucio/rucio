@@ -15,6 +15,9 @@ import re
 import string
 import time
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
+
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.monitor import record_timer
 from rucio.core.rse import list_rses
@@ -32,8 +35,21 @@ COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
 PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 
+def my_key_generator(namespace, fn, **kw):
+    fname = fn.__name__
+
+    def generate_key(*arg, **kw):
+        return namespace + "_" + fname + "_".join(str(s) for s in arg)
+
+    return generate_key
+
+region = make_region(function_key_generator=my_key_generator).configure(
+    'dogpile.cache.memory',
+    expiration_time=3600)
+
+
 @transactional_session
-def parse_expression(expression, session=None):
+def parse_expression(expression, session):
     """
     Parse a RSE expression and return the list of RSE-ids
 
@@ -44,30 +60,32 @@ def parse_expression(expression, session=None):
     """
     #Evaluate the correctness of the parantheses
     start_time = time.time()
-    parantheses_open_count = 0
-    parantheses_close_count = 0
-    for char in expression:
-        if (char == '('):
-            parantheses_open_count += 1
-        elif (char == ')'):
-            parantheses_close_count += 1
-        if (parantheses_close_count > parantheses_open_count):
+    result = region.get(expression)
+    if type(result) is NoValue:
+        parantheses_open_count = 0
+        parantheses_close_count = 0
+        for char in expression:
+            if (char == '('):
+                parantheses_open_count += 1
+            elif (char == ')'):
+                parantheses_close_count += 1
+            if (parantheses_close_count > parantheses_open_count):
+                raise InvalidRSEExpression('Problem with parantheses.')
+        if (parantheses_open_count != parantheses_close_count):
             raise InvalidRSEExpression('Problem with parantheses.')
-    if (parantheses_open_count != parantheses_close_count):
-        raise InvalidRSEExpression('Problem with parantheses.')
 
-    #Check the expression pattern
-    match = re.match(PATTERN, expression)
-    if match is None:
-        raise InvalidRSEExpression('')
-    else:
-        if match.group() != expression:
+        #Check the expression pattern
+        match = re.match(PATTERN, expression)
+        if match is None:
             raise InvalidRSEExpression('')
-
-    result = list(__resolve_term_expression(expression)[0].resolve_elements(session=session))
-    random.shuffle(result)
-    if not result:
-        raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
+        else:
+            if match.group() != expression:
+                raise InvalidRSEExpression('')
+        result = list(__resolve_term_expression(expression)[0].resolve_elements(session=session))
+        random.shuffle(result)
+        if not result:
+            raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
+        region.set(expression, result)
     record_timer(stat='rule.rse_expression_parse', time=(time.time() - start_time)*1000)
     return result
 
