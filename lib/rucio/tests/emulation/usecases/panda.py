@@ -18,7 +18,7 @@ from Queue import PriorityQueue, Empty, Queue
 from random import choice, gauss, sample, random, randint
 
 from rucio.client import Client
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core import monitor
 from rucio.tests.emulation.ucemulator import UCEmulator
@@ -39,11 +39,14 @@ class UseCaseDefinition(UCEmulator):
                 output_datasets_per_datatype = int(output_datasets_per_datatype) if ((output_datasets_per_datatype % 1) < random()) else int(output_datasets_per_datatype) + 1
         else:
             output_datasets_per_datatype = 1
+
         input_ds_used = False if input['dss'] is None else True
+
         if 'create_subs' in output.keys():
             create_sub_ds = output['create_subs'] == "True"
         else:
             create_sub_ds = False
+
         if (task_type.startswith('user') or task_type.startswith('group')):  # User task is created
             ext = task_type.split('.')[0]
             create_dis_ds = False
@@ -76,7 +79,7 @@ class UseCaseDefinition(UCEmulator):
                 try:
                     with monitor.record_timer_block('panda.list_replicas'):
                         replicas = [f for f in client.list_replicas(scope=temp[0], name=temp[1])]
-                except DatabaseException:
+                except (DatabaseException, DataIdentifierNotFound):
                     replicas = list()
                     pass
                 delta = time.time() - now
@@ -260,7 +263,7 @@ class UseCaseDefinition(UCEmulator):
                 try:
                     files_in_ds = [files[r] for r in range(start, end)]
                 except IndexError:
-                    print '== PanDA Warning: Missing proper number of files per DIS (%s - %s (%s)) cosen %s - %s instead' % (start, end, len(files), int(len(files) - fpd), len(files))
+                    print '== PanDA Warning: Missing proper number of files per DIS (%s - %s (%s)) chosen %s - %s instead' % (start, end, len(files), int(len(files) - fpd), len(files))
                 if not len(files_in_ds):
                     break
                 if create_sub_ds:
@@ -305,10 +308,10 @@ class UseCaseDefinition(UCEmulator):
                     fpd = int(fpd) + 1
                 for i in range(int(output_datasets_per_datatype)):
                     files_in_ds = []
-                    start = int(i * fpd)
+                    start = int(i * fpd) if ((i * fpd) >= len(files)) else int(len(files) - fpd)
                     end = int(start + fpd) if (start + fpd) < len(files) else len(files)
                     try:
-                        files_in_ds = [files[i] for i in range(start, end)]
+                        files_in_ds = [files[f] for f in range(start, end)]
                     except IndexError:
                         print '== PanDA Warning: Missing proper number of files per out-DS (%s - %s (%s))' % (start, end, len(files))
                     if not len(files_in_ds):
@@ -320,9 +323,7 @@ class UseCaseDefinition(UCEmulator):
                         with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(files_in_ds))]):
                             client.add_replication_rule(files_in_ds, copies=1, rse_expression=computing_rse,
                                                         grouping='NONE', account='panda', lifetime=86400)
-                    temp_job_count = int(float(len(files_in_ds)) / input['number_of_inputfiles_per_job'])
-                    if temp_job_count > input['jobs_per_dis']:
-                        temp_job_count = input['jobs_per_dis']
+                    temp_job_count = int(float(len(files_in_ds)) / input['number_of_inputfiles_per_job']) + 1
 
                     if computing_rse not in used_rses.keys():
                         used_rses[computing_rse] = list()
@@ -393,15 +394,16 @@ class UseCaseDefinition(UCEmulator):
                 sub_ds_names += job_set[1]
         max_job_completion += 600  # Note: Triggers FINISH_TASK some time later to avoid conflicts if job is stuck in gearman queue
 
-        if not create_sub_ds:
+        if create_sub_ds:
+            max_job_completion += gauss(**file_transfer_duration)
+        else:
             sub_ds_names = []  # Empty list of sub datasets to avoid data moving when task is finished
-            max_job_completion + gauss(**file_transfer_duration)
         task_finish = (max_job_completion, {'scope': output['scope'], 'targets': final_dss, 'inputs': [sub for sub in set(sub_ds_names)], 'task_type': task_type, 'log_ds': log_ds})
         monitor.record_counter('panda.tasks.%s.dispatched' % task_type, 1)  # Reports the task type which is dipsatched
         print '== PanDA: Create %s task with %s files (%s repl.) with output scope %s (dis: %s / sub: %s / log_ds: %s / out_ds: %s / jobs: %s (%s))' % (task_type, len(files), len(replicas),
                                                                                                                                                         output['scope'], len(inserts_dis),
                                                                                                                                                         len(inserts_sub), log_ds,
-                                                                                                                                                        len(final_dss), job_count, len(job_finish))
+                                                                                                                                                        final_dss, job_count, len(job_finish))
         return {'jobs': job_finish, 'task': task_finish}
 
     def add_files_ds(self, client, ds, files_in_ds, ret=None, sem=None):
