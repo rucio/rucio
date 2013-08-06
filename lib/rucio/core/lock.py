@@ -8,7 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-from sqlalchemy.sql.expression import and_
+from sqlalchemy.sql.expression import and_, or_
 
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState
@@ -16,21 +16,28 @@ from rucio.db.session import read_session, transactional_session
 
 
 @read_session
-def get_replica_locks(scope, name, lockmode, session=None):
+def get_replica_locks(scope, name, lockmode, restrict_rses=None, session=None):
     """
     Get the active replica locks for a file
 
-    :param scope:     Scope of the did.
-    :param name:      Name of the did.
-    :param lockmode:  The lockmode to be used by the session.
-    :param session:   The db session.
-    :return:          List of dicts {'rse': ..., 'state': ...}
-    :raises:          NoResultFound
+    :param scope:          Scope of the did.
+    :param name:           Name of the did.
+    :param lockmode:       The lockmode to be used by the session.
+    :param restrict_rses:  Possible RSE_ids to filter on.
+    :param session:        The db session.
+    :return:               List of dicts {'rse': ..., 'state': ...}
+    :raises:               NoResultFound
     """
 
     rses = []
 
     query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
+    if restrict_rses is not None:
+        rse_clause = []
+        for rse_id in restrict_rses:
+            rse_clause.append(models.ReplicaLock.rse_id == rse_id)
+        if rse_clause:
+            query = query.filter(or_(*rse_clause))
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
     for row in query:
@@ -44,11 +51,11 @@ def get_replica_locks_for_rule(rule_id, lockmode, session=None):
     """
     Get the active replica locks for a file
 
-    :param rule_id:  Filter on rule_id.
-    :param lockmode:  The lockmode to be used by the session.
-    :param session:  The db session.
-    :return:         List of dicts {'scope':, 'name':, 'rse': ..., 'state': ...}
-    :raises:         NoResultFound
+    :param rule_id:        Filter on rule_id.
+    :param lockmode:       The lockmode to be used by the session.
+    :param session:        The db session.
+    :return:               List of dicts {'scope':, 'name':, 'rse': ..., 'state': ...}
+    :raises:               NoResultFound
     """
 
     locks = []
@@ -63,17 +70,18 @@ def get_replica_locks_for_rule(rule_id, lockmode, session=None):
 
 
 @read_session
-def get_files_and_replica_locks_of_dataset(scope, name, lockmode, session=None):
+def get_files_and_replica_locks_of_dataset(scope, name, lockmode, restrict_rses=None, session=None):
     """
     Get all the files of a dataset and, if existing, all locks of the file.
 
-    :param scope:    Scope of the dataset
-    :param name:     Name of the datset
-    :param lockmode:  The lockmode to be used by the session.
-    :param session:  The db session.
-    :return:         Dictionary with keys: (scope, name)
-                     and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
-    :raises:         NoResultFound
+    :param scope:          Scope of the dataset
+    :param name:           Name of the datset
+    :param lockmode:       The lockmode to be used by the session.
+    :param restrict_rses:  Possible RSE_ids to filter on.
+    :param session:        The db session.
+    :return:               Dictionary with keys: (scope, name)
+                           and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
+    :raises:               NoResultFound
     """
     files = {}
     query = session.query(models.DataIdentifierAssociation.child_scope,
@@ -84,6 +92,22 @@ def get_files_and_replica_locks_of_dataset(scope, name, lockmode, session=None):
                           models.ReplicaLock.rule_id).outerjoin(models.ReplicaLock, and_(
                               models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
                               models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
+                                  models.DataIdentifierAssociation.scope == scope,
+                                  models.DataIdentifierAssociation.name == name)
+    if restrict_rses is not None:
+        rse_clause = []
+        for rse_id in restrict_rses:
+            rse_clause.append(models.ReplicaLock.rse_id == rse_id)
+        if rse_clause:
+            session.query(models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.bytes,
+                          models.ReplicaLock.rse_id,
+                          models.ReplicaLock.state,
+                          models.ReplicaLock.rule_id).outerjoin(models.ReplicaLock, and_(
+                              models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                              models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                              or_(*rse_clause))).filter(
                                   models.DataIdentifierAssociation.scope == scope,
                                   models.DataIdentifierAssociation.name == name)
     if lockmode is not None:
