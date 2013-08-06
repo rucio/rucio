@@ -12,8 +12,7 @@
 
 import time
 
-from datetime import datetime, timedelta
-from hashlib import md5
+from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -60,7 +59,6 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
     # 1. Resolve the rse_expression into a list of RSE-ids
     rse_ids = parse_expression(rse_expression, session=session)
-    print rse_ids
     selector = RSESelector(account=account, rse_ids=rse_ids, weight=weight, copies=copies, session=session)
 
     transfers_to_create = []
@@ -137,7 +135,6 @@ def add_rules(dids, rules, session=None):
     restrict_rses = []
     for rule in rules:
         restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
-    print restrict_rses
 
     for elem in dids:
         rule_ids[(elem['scope'], elem['name'])] = []
@@ -242,12 +239,10 @@ def __resolve_dids_to_locks(did, lockmode, restrict_rses=None, session=None):
     elif did.did_type == DIDType.CONTAINER:
         for dscont in rucio.core.did.list_child_dids(scope=did.scope, name=did.name, lockmode=None, session=session):
             tmp_locks = get_files_and_replica_locks_of_dataset(scope=dscont['scope'], name=dscont['name'], lockmode=lockmode, restrict_rses=restrict_rses, session=session)
-            print tmp_locks
             tmp_replicas = __get_and_lock_file_replicas_for_dataset(scope=dscont['scope'], name=dscont['name'], lockmode=lockmode, restrict_rses=restrict_rses, session=session)
             for lock in tmp_locks.values():
                 tmp_replicas[(lock['scope'], lock['name'])]['locks'] = lock['locks']
             datasetfiles.append({'scope': dscont['scope'], 'name': dscont['name'], 'files': tmp_replicas.values()})
-        print datasetfiles
     else:
         raise InvalidReplicationRule('The did \"%s:%s\" has been deleted.' % (did.scope, did.name))
     record_timer(stat='rule.resolve_dids_to_locks', time=(time.time() - start_time)*1000)
@@ -475,85 +470,23 @@ def list_rules(filters={}, session=None):
 
 
 @transactional_session
-def delete_expired_rule(worker_number=None, total_workers=None, timedeltaseconds=5, session=None):
-    """
-    Delete all expired replication rules.
-
-    :param worker_number:     The worker id of the worker executing this method.
-    :param total_workers:     Number of total workers.
-    :param timedeltaseconds:  Time in seconds to delay the check.
-    :param session:           The DB Session in use.
-    :returns:                 True if something expired, false otherwise.
-    """
-
-    # Get Rule which needs deletion
-    # TODO This needs to skip locks
-    query = session.query(models.ReplicationRule).filter(models.ReplicationRule.expires_at < (datetime.utcnow() - timedelta(seconds=timedeltaseconds))).with_lockmode('update_nowait')
-
-    if worker_number and total_workers:
-        if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
-        elif session.bind.dialect.name == 'sqlite':
-            for rule in query.yield_per(10):
-                if int(md5(rule.name).hexdigest(), 16) % total_workers == worker_number-1:
-                    print 'rule_cleaner: deleting %s' % rule.id
-                    delete_rule(rule_id=rule.id, session=session)
-                    return True
-            return False
-
-    rule = query.first()
-
-    if rule is None:
-        return False
-
-    print 'rule_cleaner: deleting %s' % rule.id
-    delete_rule(rule_id=rule.id, session=session)
-    return True
-
-
-@transactional_session
-def delete_rule(rule_id, session=None):
+def delete_rule(rule_id, lockmode='update', session=None):
     """
     Delete a replication rule.
 
-    :param rule_id: The rule to delete.
-    :param session: The database session in use.
-    :raises:        RuleNotFound if no Rule can be found.
+    :param rule_id:   The rule to delete.
+    :param lockmode:  The lockmode to be used by the session.
+    :param session:   The database session in use.
+    :raises:          RuleNotFound if no Rule can be found.
     """
 
     start_time = time.time()
     try:
-        rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=rule_id).one()
+        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_lockmode(lockmode).one()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
 
-    did = session.query(models.DataIdentifier).filter(
-        models.DataIdentifier.scope == rule.scope,
-        models.DataIdentifier.name == rule.name).with_lockmode('update').one()
-
-    if did.did_type == DIDType.FILE:
-        locks = session.query(models.ReplicaLock).filter_by(scope=rule.scope, name=rule.name, rule_id=rule_id).all()
-    elif did.did_type == DIDType.DATASET:
-        locks = session.query(models.ReplicaLock).join(
-            models.DataIdentifierAssociation,
-            and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                 models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
-                     models.DataIdentifierAssociation.scope == did['scope'],
-                     models.DataIdentifierAssociation.name == did['name'],
-                     models.ReplicaLock.rule_id == rule_id).all()
-    else:
-        child_dids = rucio.core.did.list_child_dids(scope=rule.scope, name=rule.name, lock=True, session=session)
-        locks = []
-        for did in child_dids:
-            locks.extend(session.query(models.ReplicaLock).join(
-                models.DataIdentifierAssociation,
-                and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                     models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
-                         models.DataIdentifierAssociation.scope == did['scope'],
-                         models.DataIdentifierAssociation.name == did['name'],
-                         models.ReplicaLock.rule_id == rule_id).all())
+    locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == rule_id).with_lockmode(lockmode).all()
 
     # Remove locks, set tombstone if applicable
     transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
@@ -561,7 +494,7 @@ def delete_rule(rule_id, session=None):
         replica = session.query(models.RSEFileAssociation).filter(
             models.RSEFileAssociation.scope == lock.scope,
             models.RSEFileAssociation.name == lock.name,
-            models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode('update').one()
+            models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode(lockmode).one()
         replica.lock_cnt -= 1
         if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
             transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
@@ -614,7 +547,7 @@ def re_evaluate_did(scope, name, worker_number=None, total_workers=None, timedel
     did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
                                                       models.DataIdentifier.name == name).with_lockmode('update_nowait').one()
 
-    print 're_evaluator[%s/%s]: evaluating %s:%s for %s with %s' % (worker_number, total_workers, did.scope, did.name, did.rule_evaluation_action, did.rule_evaluation_required)
+    action = did.rule_evaluation_action
 
     if did.rule_evaluation_action == DIDReEvaluation.ATTACH:
         __evaluate_attach(did, session=session)
@@ -623,7 +556,8 @@ def re_evaluate_did(scope, name, worker_number=None, total_workers=None, timedel
     else:
         __evaluate_detach(did, session=session)
         __evaluate_attach(did, session=session)
-    print 'Evaluation took %f' % (time.time() - start_time)
+
+    print 're_evaluator[%s/%s]: evaluation of %s:%s for %s took %f' % (worker_number, total_workers, did.scope, did.name, action, time.time() - start_time)
 
 
 @transactional_session
@@ -768,9 +702,9 @@ def __evaluate_attach(eval_did, session=None):
                         break
                 rse_clause1 = []
                 rse_clause2 = []
-                for rse in possible_rses:
-                    rse_clause1.append(models.RSEFileAssociation.rse == rse)
-                    rse_clause2.append(models.ReplicaLock.rse_id == rse)
+                for rse_id in possible_rses:
+                    rse_clause1.append(models.RSEFileAssociation.rse_id == rse_id)
+                    rse_clause2.append(models.ReplicaLock.rse_id == rse_id)
                 locks = session.query(models.ReplicaLock).filter(or_(*lock_clause), or_(*rse_clause2)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_lockmode("update_nowait").all()
                 replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause), or_(*rse_clause1)).with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').with_lockmode('update_nowait').all()
                 for did in temp_dids:
