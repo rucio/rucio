@@ -139,8 +139,8 @@ def successful_transfer(scope, name, rse_id, session=None):
 
         # Update the rule counters
         rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=lock.rule_id).one()
-        rule.lock_replicating_cnt -= 1
-        rule.lock_ok_cnt += 1
+        rule.locks_replicating_cnt -= 1
+        rule.locks_ok_cnt += 1
 
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
@@ -149,7 +149,7 @@ def successful_transfer(scope, name, rse_id, session=None):
             rule.state = RuleState.STUCK
         elif (rule.locks_stuck_cnt > 0):
             rule.state = RuleState.STUCK
-        elif (rule.locks_replicating.cnt == 0):
+        elif (rule.locks_replicating_cnt == 0):
             rule.state = RuleState.OK
 
 
@@ -169,8 +169,8 @@ def failed_transfer(scope, name, rse_id, session=None):
 
         # Update the rule counters
         rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=lock.rule_id).one()
-        rule.lock_replicating_cnt -= 1
-        rule.lock_stuck_cnt += 1
+        rule.locks_replicating_cnt -= 1
+        rule.locks_stuck_cnt += 1
 
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):

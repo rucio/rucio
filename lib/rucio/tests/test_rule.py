@@ -13,6 +13,8 @@
 import string
 import random
 
+from datetime import datetime, timedelta
+
 from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises
 
 from rucio.client.accountclient import AccountClient
@@ -24,7 +26,8 @@ from rucio.common.exception import RuleNotFound
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, add_replica, get_rse
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, re_evaluate_did
+from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules
+from rucio.daemons.judge import re_evaluator, rule_cleaner
 from rucio.db.constants import DIDType
 
 
@@ -48,11 +51,6 @@ def _create_test_files(nrfiles, scope, rse, bytes=1):
 
 def _tag_generator(size=8, chars=string.ascii_uppercase):
     return ''.join(random.choice(chars) for x in range(size))
-
-
-def _fake_judge():
-    while re_evaluate_did(timedeltaseconds=0):
-        pass
 
 
 class TestReplicationRuleCore():
@@ -345,7 +343,6 @@ class TestReplicationRuleCore():
         delete_rule(rule_id)
         for file in files:
             rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
-            print rse_locks
             assert(len(rse_locks) == 0)
         assert_raises(RuleNotFound, delete_rule, uuid())
 
@@ -365,12 +362,11 @@ class TestReplicationRuleCore():
 
         for file in files:
             rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
-            print rse_locks
             assert(len(rse_locks) == 7)
             #TODO Need to check transfer queue here, this is actually not the check of this test case
         assert_raises(RuleNotFound, delete_rule, uuid())
 
-    def DONOTtest_judge_add_files_to_dataset(self):
+    def test_judge_add_files_to_dataset(self):
         """ REPLICATION RULE (CORE): Test the judge when adding files to dataset"""
         scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
@@ -383,11 +379,29 @@ class TestReplicationRuleCore():
         attach_dids(scope, dataset, files, 'jdoe')
 
         #Fake judge
-        _fake_judge()
+        re_evaluator(once=True)
 
         #Check if the Locks are created properly
         for file in files:
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)) == 2)
+
+    def test_judge_expire_rule(self):
+        """ REPLICATION RULE (CORE): Test the judge when deleting expired rules"""
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=datetime.utcnow() - timedelta(seconds=5), locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=3, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=4, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+
+        rule_cleaner(once=True)
+
+        for file in files:
+            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
+            assert(len(rse_locks) == 7)
 
 
 class TestReplicationRuleClient():
