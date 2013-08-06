@@ -60,6 +60,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
     # 1. Resolve the rse_expression into a list of RSE-ids
     rse_ids = parse_expression(rse_expression, session=session)
+    print rse_ids
     selector = RSESelector(account=account, rse_ids=rse_ids, weight=weight, copies=copies, session=session)
 
     transfers_to_create = []
@@ -93,7 +94,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
         rule_ids.append(rule_id)
         record_timer(stat='rule.create_rule', time=(time.time() - start_time)*1000)
         # 4. Resolve the did
-        datasetfiles = __resolve_dids_to_locks(did, lockmode='update',  session=session)
+        datasetfiles = __resolve_dids_to_locks(did, lockmode='update', restrict_rses=rse_ids, session=session)
         # 5. Apply the replication rule to create locks and return a list of transfers
         transfers_to_create, locks_ok_cnt, locks_replicating_cnt = __create_locks_for_rule(datasetfiles=datasetfiles,
                                                                                            rseselector=selector,
@@ -133,6 +134,11 @@ def add_rules(dids, rules, session=None):
 
     rule_ids = {}
 
+    restrict_rses = []
+    for rule in rules:
+        restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
+    print restrict_rses
+
     for elem in dids:
         rule_ids[(elem['scope'], elem['name'])] = []
         # 1. Get and lock the dids
@@ -144,7 +150,7 @@ def add_rules(dids, rules, session=None):
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
 
         # 2. Resolve the did
-        datasetfiles = __resolve_dids_to_locks(did, lockmode='update', session=session)
+        datasetfiles = __resolve_dids_to_locks(did, lockmode='update', restrict_rses=restrict_rses, session=session)
 
         for rule in rules:
             rule_start_time = time.time()
@@ -203,14 +209,15 @@ def add_rules(dids, rules, session=None):
 
 
 @transactional_session
-def __resolve_dids_to_locks(did, lockmode, session=None):
+def __resolve_dids_to_locks(did, lockmode, restrict_rses=None, session=None):
     """
     Resolves a did to its constituent childs and reads the locks of all the constituent files.
 
-    :param did:          The db object of the did the rule is applied on.
-    :param lockmode:     Lockmode the session should use.
-    :param session:      Session of the db.
-    :returns:            datasetfiles dict.
+    :param did:            The db object of the did the rule is applied on.
+    :param lockmode:       Lockmode the session should use.
+    :param restrict_rses:  Possible rses of the rule, so only these replica/locks should be considered.
+    :param session:        Session of the db.
+    :returns:              datasetfiles dict.
     """
 
     start_time = time.time()
@@ -222,23 +229,25 @@ def __resolve_dids_to_locks(did, lockmode, session=None):
         files = [{'scope': did.scope,
                   'name': did.name,
                   'bytes': did.bytes,
-                  'locks': get_replica_locks(scope=did.scope, name=did.name, lockmode=lockmode, session=session),
-                  'replicas': __get_and_lock_file_replicas(scope=did.scope, name=did.name, lockmode=lockmode, session=session)}]
+                  'locks': get_replica_locks(scope=did.scope, name=did.name, lockmode=lockmode, restrict_rses=restrict_rses, session=session),
+                  'replicas': __get_and_lock_file_replicas(scope=did.scope, name=did.name, lockmode=lockmode, restrict_rses=restrict_rses, session=session)}]
         datasetfiles = [{'scope': None, 'name': None, 'files': files}]
     elif did.did_type == DIDType.DATASET:
         files = []
-        tmp_locks = get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, lockmode=lockmode, session=session)
-        tmp_replicas = __get_and_lock_file_replicas_for_dataset(scope=did.scope, name=did.name, lockmode=lockmode, session=session)
+        tmp_locks = get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, lockmode=lockmode, restrict_rses=restrict_rses, session=session)
+        tmp_replicas = __get_and_lock_file_replicas_for_dataset(scope=did.scope, name=did.name, lockmode=lockmode, restrict_rses=restrict_rses, session=session)
         for lock in tmp_locks.values():
             tmp_replicas[(lock['scope'], lock['name'])]['locks'] = lock['locks']
         datasetfiles = [{'scope': did.scope, 'name': did.name, 'files': tmp_replicas.values()}]
     elif did.did_type == DIDType.CONTAINER:
         for dscont in rucio.core.did.list_child_dids(scope=did.scope, name=did.name, lockmode=None, session=session):
-            tmp_locks = get_files_and_replica_locks_of_dataset(scope=dscont['scope'], name=dscont['name'], lockmode=lockmode, session=session)
-            tmp_replicas = __get_and_lock_file_replicas_for_dataset(scope=dscont['scope'], name=dscont['name'], lockmode=lockmode, session=session)
+            tmp_locks = get_files_and_replica_locks_of_dataset(scope=dscont['scope'], name=dscont['name'], lockmode=lockmode, restrict_rses=restrict_rses, session=session)
+            print tmp_locks
+            tmp_replicas = __get_and_lock_file_replicas_for_dataset(scope=dscont['scope'], name=dscont['name'], lockmode=lockmode, restrict_rses=restrict_rses, session=session)
             for lock in tmp_locks.values():
                 tmp_replicas[(lock['scope'], lock['name'])]['locks'] = lock['locks']
             datasetfiles.append({'scope': dscont['scope'], 'name': dscont['name'], 'files': tmp_replicas.values()})
+        print datasetfiles
     else:
         raise InvalidReplicationRule('The did \"%s:%s\" has been deleted.' % (did.scope, did.name))
     record_timer(stat='rule.resolve_dids_to_locks', time=(time.time() - start_time)*1000)
@@ -706,22 +715,33 @@ def __evaluate_attach(eval_did, session=None):
 
         #Get all unsuspended RR from parents and eval_did
         qtime = time.time()
-        # TODO OR CLAUSES FOR THAT
-        rules = session.query(models.ReplicationRule).filter(
-            models.ReplicationRule.scope == eval_did.scope,
-            models.ReplicationRule.name == eval_did.name,
-            models.ReplicationRule.state != RuleState.SUSPENDED).all()
-        record_timer(stat='rule.opt_evaluate.get_eval_did_rules', time=(time.time() - qtime)*1000)
-        qtime = time.time()
+        rule_clauses = []
         for did in parent_dids:
-            rules.extend(session.query(models.ReplicationRule).filter(
-                models.ReplicationRule.scope == did['scope'],
-                models.ReplicationRule.name == did['name'],
-                models.ReplicationRule.state != RuleState.SUSPENDED).all())
-        record_timer(stat='rule.opt_evaluate.get_parent_did_rules', time=(time.time() - qtime)*1000)
+            rule_clauses.append(and_(models.ReplicationRule.scope == did['scope'],
+                                     models.ReplicationRule.name == did['name']))
+        rule_clauses.append(and_(models.ReplicationRule.scope == eval_did.scope,
+                                 models.ReplicationRule.name == eval_did.name))
+        rules = session.query(models.ReplicationRule).filter(or_(*rule_clauses),
+                                                             models.ReplicationRule.state != RuleState.SUSPENDED).all()
+        record_timer(stat='rule.opt_evaluate.get_rules', time=(time.time() - qtime)*1000)
 
         #Resolve the new_child_dids to its locks
         qtime = time.time()
+
+        #Resolve the rules to possible target rses:
+        possible_rses = []
+        if session.bind.dialect.name != 'sqlite':
+            session.begin_nested()
+        try:
+            for rule in rules:
+                rse_ids = parse_expression(rule.rse_expression, session=session)
+                possible_rses.extend(rse_ids)
+        except:
+            session.rollback()
+            possible_rses = []
+        if session.bind.dialect.name != 'sqlite':
+            session.commit()
+
         if new_child_dids[0].did_type == DIDType.FILE:
             # All the evaluate_dids will be files!
             # Build the special files and datasetfiles object
@@ -746,8 +766,13 @@ def __evaluate_attach(eval_did, session=None):
                     temp_dids.append(dids.pop())
                     if len(temp_dids) == 10:
                         break
-                locks = session.query(models.ReplicaLock).filter(or_(*lock_clause)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_lockmode("update_nowait").all()
-                replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').with_lockmode('update_nowait').all()
+                rse_clause1 = []
+                rse_clause2 = []
+                for rse in possible_rses:
+                    rse_clause1.append(models.RSEFileAssociation.rse == rse)
+                    rse_clause2.append(models.ReplicaLock.rse_id == rse)
+                locks = session.query(models.ReplicaLock).filter(or_(*lock_clause), or_(*rse_clause2)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_lockmode("update_nowait").all()
+                replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause), or_(*rse_clause1)).with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').with_lockmode('update_nowait').all()
                 for did in temp_dids:
                     files.append({'scope': did.scope,
                                   'name': did.name,
@@ -758,7 +783,7 @@ def __evaluate_attach(eval_did, session=None):
         else:
             datasetfiles = []
             for did in new_child_dids:
-                datasetfiles.extend(__resolve_dids_to_locks(did, lockmode='update_nowait', session=session))
+                datasetfiles.extend(__resolve_dids_to_locks(did, lockmode='update_nowait', restrict_rses=possible_rses, session=session))
         record_timer(stat='rule.opt_evaluate.resolve_did_to_locks_and_replicas', time=(time.time() - qtime)*1000)
 
         qtime = time.time()
@@ -839,6 +864,7 @@ def __evaluate_attach(eval_did, session=None):
         record_timer(stat='rule.opt_evaluate.evaluate_rules', time=(time.time() - qtime)*1000)
         always_true = True
         qtime = time.time()
+        #TODO: Do this file by file
         session.query(models.DataIdentifierAssociation).filter(
             models.DataIdentifierAssociation.scope == eval_did.scope,
             models.DataIdentifierAssociation.name == eval_did.name,
@@ -857,33 +883,41 @@ def __evaluate_attach(eval_did, session=None):
 
 
 @transactional_session
-def __get_and_lock_file_replicas(scope, name, lockmode, session=None):
+def __get_and_lock_file_replicas(scope, name, lockmode, restrict_rses=None, session=None):
     """
     Get file replicas for a specific scope:name.
 
-    :param scope:     The scope of the did.
-    :param name:      The name of the did.
-    :param lockmode:  Lockmode the session has to use.
-    :param session:   The db session in use.
-    :returns:         List of SQLAlchemy Replica Objects
+    :param scope:          The scope of the did.
+    :param name:           The name of the did.
+    :param lockmode:       Lockmode the session has to use.
+    :param restrict_rses:  Possible RSE_ids to filter on.
+    :param session:        The db session in use.
+    :returns:              List of SQLAlchemy Replica Objects
     """
 
     query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name)
+    if restrict_rses is not None:
+        rse_clause = []
+        for rse_id in restrict_rses:
+            rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+        if rse_clause:
+            query = query.filter(or_(*rse_clause))
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
     return query.all()
 
 
 @transactional_session
-def __get_and_lock_file_replicas_for_dataset(scope, name, lockmode, session=None):
+def __get_and_lock_file_replicas_for_dataset(scope, name, lockmode, restrict_rses=None, session=None):
     """
     Get file replicas for all files of a dataset.
 
-    :param scope:     The scope of the dataset.
-    :param name:      The name of the dataset.
-    :param lockmode:  Lockmode the session has to use.
-    :param session:   The db session in use.
-    :returns:         List of dict.
+    :param scope:          The scope of the dataset.
+    :param name:           The name of the dataset.
+    :param lockmode:       Lockmode the session has to use.
+    :param restrict_rses:  Possible RSE_ids to filter on.
+    :param session:        The db session in use.
+    :returns:              List of dict.
     """
 
     files = {}
@@ -897,15 +931,29 @@ def __get_and_lock_file_replicas_for_dataset(scope, name, lockmode, session=None
                                   models.DataIdentifierAssociation.scope == scope,
                                   models.DataIdentifierAssociation.name == name)
 
+    if restrict_rses is not None:
+        rse_clause = []
+        for rse_id in restrict_rses:
+            rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+        if rse_clause:
+            query = session.query(models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.bytes,
+                                  models.RSEFileAssociation).outerjoin(models.RSEFileAssociation, and_(
+                                      models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                      models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                      or_(*rse_clause))).filter(
+                                          models.DataIdentifierAssociation.scope == scope,
+                                          models.DataIdentifierAssociation.name == name)
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
 
     for child_scope, child_name, bytes, replica in query:
         if replica is None:
-            files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'replicas': []}
+            files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'replicas': [], 'locks': []}
         else:
             if (child_scope, child_name) in files:
                 files[(child_scope, child_name)]['replicas'].append(replica)
             else:
-                files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'replicas': [replica]}
+                files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'replicas': [replica], 'locks': []}
     return files
