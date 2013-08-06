@@ -15,12 +15,14 @@ import threading
 import time
 import traceback
 
+from datetime import datetime
+
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.exception import DatabaseException
 from rucio.db import session as rucio_session
 from rucio.db import models
-from rucio.core.rule import re_evaluate_did, delete_expired_rule
+from rucio.core.rule import re_evaluate_did, delete_rule
 from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
@@ -53,14 +55,14 @@ def re_evaluator(once=False, worker_number=1, total_workers=1):
                 elif session.bind.dialect.name == 'sqlite':
                     pass
 
-            start = time.time()
+            start = time.time()  # NOQA
             dids = query.limit(1000).all()
             session.commit()
             session.remove()
-            print 'Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids))
+            #print 'Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids))
 
-            if not dids:
-                print 'Worker %s did not get any work' % (worker_number)
+            if not dids and not once:
+                print 're_evaluator[%s/%s] did not get any work' % (worker_number, total_workers)
                 time.sleep(10)
             else:
                 for scope, name in dids:
@@ -94,20 +96,53 @@ def rule_cleaner(once=False, worker_number=1, total_workers=1,):
 
     print 'rule_cleaner: started'
 
-    wait = False
     while not graceful_stop.is_set():
         try:
-            wait = delete_expired_rule(worker_number=worker_number, total_workers=total_workers)
-        except:
-            print traceback.format_exc()
+            # Select a bunch of rules for this worker to clean
+            session = rucio_session.get_session()
+            query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.expires_at < datetime.utcnow()).\
+                with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
+                order_by(models.ReplicationRule.expires_at)
 
+            if worker_number and total_workers:
+                if session.bind.dialect.name == 'oracle':
+                    query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
+                elif session.bind.dialect.name == 'mysql':
+                    query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
+                elif session.bind.dialect.name == 'sqlite':
+                    pass
+
+            start = time.time()
+            rules = query.limit(1000).all()
+            session.commit()
+            session.remove()
+            print 'rule_cleaner index query time %f rule-size=%d' % (time.time() - start, len(rules))
+
+            if not rules and not once:
+                print 'rule_cleaner[%s/%s] did not get any work' % (worker_number, total_workers)
+                time.sleep(10)
+            else:
+                for rule_id in rules:
+                    rule_id = rule_id[0]
+                    if graceful_stop.is_set():
+                        break
+                    try:
+                        record_gauge('rule.judge.cleaner.threads.%d' % worker_number, 1)
+                        start = time.time()
+                        delete_rule(rule_id=rule_id, lockmode='update_nowait')
+                        print 'rule_cleaner[%s/%s]: deletion of %s took %f' % (worker_number, total_workers, rule_id, time.time() - start)
+                        record_gauge('rule.judge.cleaner.threads.%d' % worker_number, 0)
+                    except (DatabaseException, DatabaseError), e:
+                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        print 'rule_cleaner[%s/%s]: Locks detected for %s' % (worker_number, total_workers, id)
+        except Exception, e:
+            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+            print traceback.format_exc()
         if once:
             return
-        if not wait:
-            time.sleep(10)  # TODO get from config
 
     print 'rule_cleaner: graceful stop requested'
-
+    record_gauge('rule.judge.cleaner.threads.%d' % worker_number, 0)
     print 'rule_cleaner: graceful stop done'
 
 
@@ -125,6 +160,7 @@ def run(once=False, re_evaluate_workers=1, cleaner_workers=1):
     """
     for i in xrange(1, 100):
         record_gauge('rule.judge.re_evaluate.threads.%d' % i, 0)
+        record_gauge('rule.judge.cleaner.threads.%d' % i, 0)
 
     if once:
         print 'main: executing one iteration only'
