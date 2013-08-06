@@ -52,12 +52,12 @@ def submit(tinfo, session):
 
     ts = time.time()
     tid = generate_uuid()
-    record_timer('daemons.mock.fts3.submit.000-generate_uuid', time.time()-ts)
+    record_timer('daemons.mock.fts3.submit.000-generate_uuid', (time.time()-ts)*1000)
 
     ts = time.time()
     new_transfer = test_models.MockFTSTransfer(transfer_id=tid, transfer_metadata=str(tinfo))
     new_transfer.save(session=session)
-    record_timer('daemons.mock.fts3.submit.001-new_transfer', time.time()-ts)
+    record_timer('daemons.mock.fts3.submit.001-new_transfer', (time.time()-ts)*1000)
 
     return {'job_id': tid}
 
@@ -75,15 +75,17 @@ def query(tid, session):
 
     ts = time.time()
     new_state = random.sample(sum([[FTSState.FINISHED]*15, [FTSState.FAILED]*3, [FTSState.FINISHEDDIRTY]*2, [FTSState.ACTIVE]*80], []), 1)[0]
-    record_timer('daemons.mock.fts3.query.000-random_sample', time.time()-ts)
+    record_timer('daemons.mock.fts3.query.000-random_sample', (time.time()-ts)*1000)
 
     ts = time.time()
+
     query = session.query(test_models.MockFTSTransfer).filter(and_(test_models.MockFTSTransfer.transfer_id == tid,
                                                                    or_(test_models.MockFTSTransfer.state == FTSState.SUBMITTED,
                                                                        test_models.MockFTSTransfer.state == FTSState.ACTIVE)))
-    query.update({'state': new_state,
-                  'last_modified': datetime.datetime.utcnow()})
-    record_timer('daemons.mock.fts3.query.001-update_state', time.time()-ts)
+
+    if query.update({'state': new_state,
+                     'last_modified': datetime.datetime.utcnow()}) == 0:
+        return None
 
     r = {'job_state': str(new_state)}
     if new_state == FTSState.FAILED or new_state == FTSState.FINISHEDDIRTY:
@@ -107,4 +109,4 @@ def cancel(tid, session):
     query = session.query(test_models.MockFTSTransfer).filter(tid=tid)
     query.update({'state': FTSState.CANCELED,
                   'last_modified': datetime.datetime.utcnow()})
-    record_timer('daemons.mock.fts3.cancel.update_state', time.time()-ts)
+    record_timer('daemons.mock.fts3.cancel.update_state', (time.time()-ts)*1000)

@@ -16,9 +16,42 @@ from sqlalchemy.sql.expression import asc
 from rucio.common.exception import RucioException
 from rucio.core.monitor import record_counter
 from rucio.db import models
-from rucio.db.constants import RequestState
+from rucio.db.constants import RequestState, FTSState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
+
+
+@transactional_session
+def queue_requests(requests, session=None):
+    """
+    Submit transfer or deletion requests on a destination RSE for a data identifier.
+
+    :param requests: Dictionary containing 'scope', 'name', 'dest_rse_id', 'req_type', 'metadata'
+    :returns: List of Request-IDs as 32 character hex strings
+    """
+
+    record_counter('core.request.queue_requests')
+
+    try:
+        for req in requests:
+            new_request = models.Request(request_type=req['req_type'],
+                                         scope=req['scope'],
+                                         name=req['name'],
+                                         dest_rse_id=req['dest_rse_id'],
+                                         attributes=str(req['metadata']),
+                                         state=RequestState.QUEUED)
+
+            new_request.save(session=session, flush=False)
+        session.flush()
+    except IntegrityError, e:
+        if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+            pass  # silently accept - we already have a transfer request for this DID@RSE
+        else:
+            raise RucioException(e.args)
+    except:
+        raise
 
 
 @transactional_session
@@ -67,6 +100,30 @@ def submit_deletion(url, session=None):
 
 
 @transactional_session
+def submit_transfers(transfers, transfertool, job_metadata={}, session=None):
+    """
+    Submit transfer request to a transfertool.
+
+    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls'
+    :param transfertool: Transfertool as a string.
+    :param job_metadata: Metadata key/value pairs for all files as a dictionary.
+    :returns: Transfertool external ID.
+    """
+
+    record_counter('core.request.submit_transfer')
+
+    transfer_id = None
+
+    if transfertool == 'fts3':
+        transfer_ids = fts3.submit_transfers(transfers=transfers, job_metadata=job_metadata)
+
+    for transfer_id in transfer_ids:
+        session.query(models.Request)\
+               .filter_by(id=transfer_id)\
+               .update({'state': RequestState.SUBMITTED, 'external_id': transfer_ids[transfer_id]}, synchronize_session=False)
+
+
+@transactional_session
 def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, session=None):
     """
     Submit a transfer request to a transfertool.
@@ -84,7 +141,7 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
     transfer_id = None
 
     if transfertool == 'fts3':
-        transfer_id = fts3.submit(src_urls=src_urls, dest_urls=dest_urls, filesize=None, checksum=None, overwrite=False, job_metadata=metadata)
+        transfer_id = fts3.submit(src_urls=src_urls, dest_urls=dest_urls, filesize=12345L, checksum='ad:123456', job_metadata=metadata)
 
     session.query(models.Request).filter_by(id=request_id).update({'state': RequestState.SUBMITTED, 'external_id': transfer_id})
 
@@ -161,16 +218,25 @@ def query_request(request_id, transfertool, session=None):
 
     external_id = __get_external_id(request_id, session=session)
 
-    req_status = {'request_id': request_id}
+    req_status = {'request_id': request_id,
+                  'new_state': None}
 
     if transfertool == 'fts3':
         response = fts3.query(external_id)
 
-    if response is None:
-        raise Exception('The external tool does not know about request %(external_id)s' % locals())
+        if response is None:
+            req_status['new_state'] = RequestState.FAILED
+        else:
+
+            if response['job_state'] == str(FTSState.FAILED) or response['job_state'] == str(FTSState.FINISHEDDIRTY):
+                req_status['new_state'] = RequestState.FAILED
+            elif response['job_state'] == str(FTSState.FINISHED):
+                req_status['new_state'] = RequestState.DONE
+
     else:
-        req_status['state'] = response['job_state']
-        return req_status
+        raise NotImplementedError
+
+    return req_status
 
 
 @transactional_session

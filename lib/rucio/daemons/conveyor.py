@@ -16,9 +16,10 @@ import threading
 import time
 import traceback
 
-from rucio.core import did, request, rse
+from rucio.core import did, request, rse, lock
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.constants import RequestType, RequestState
+from rucio.db.session import get_session
+from rucio.db.constants import RequestType, RequestState, ReplicaState
 from rucio.rse import rsemanager
 
 graceful_stop = threading.Event()
@@ -32,6 +33,7 @@ def submitter(once=False, worker_number=1, total_workers=1):
     print 'submitter: starting'
 
     rsemgr = rsemanager.RSEMgr(server_mode=True)
+    session = get_session()
 
     print 'submitter: started'
 
@@ -40,9 +42,9 @@ def submitter(once=False, worker_number=1, total_workers=1):
         try:
 
             ts = time.time()
-            req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED, worker_number=worker_number, total_workers=total_workers)
+            req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED, worker_number=worker_number, total_workers=total_workers, session=session)
 
-            record_timer('daemons.conveyor.submitter.000-get_next', time.time()-ts)
+            record_timer('daemons.conveyor.submitter.000-get_next', (time.time()-ts)*1000)
 
             if req is None:
                 if once:
@@ -54,17 +56,25 @@ def submitter(once=False, worker_number=1, total_workers=1):
             req = req[0]
 
             ts = time.time()
-            sources = sum([[str(pfn) for pfn in source['pfns']] for source in did.list_replicas(scope=req['scope'], name=req['name'])], [])
+            tmpsrc = sum([[str(source['rses'][pfn]) for pfn in source['rses'].keys()] for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], session=session)], [])
 
-            record_timer('daemons.conveyor.submitter.001-list_replicas', time.time()-ts)
+            #  dummy replacement: list_replicas does not yet set the PFN
+            sources = []
+            for tmp in tmpsrc:
+                if tmp == '[]':
+                    sources.append('mock://dummyhost/dummyfile.root')
+                else:
+                    sources.append(tmp)
+
+            record_timer('daemons.conveyor.submitter.001-list_replicas', (time.time()-ts)*1000)
 
             ts = time.time()
-            rse_name = rse.get_rse_by_id(req['dest_rse_id'])['rse']
-            record_timer('daemons.conveyor.submitter.002-get_rse', time.time()-ts)
+            rse_name = rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse']
+            record_timer('daemons.conveyor.submitter.002-get_rse', (time.time()-ts)*1000)
 
             ts = time.time()
-            pfn = rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'filename': req['name']}])
-            record_timer('daemons.conveyor.submitter.003-lfn2pfn', time.time()-ts)
+            pfn = rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'filename': req['name']}], session=session)
+            record_timer('daemons.conveyor.submitter.003-lfn2pfn', (time.time()-ts)*1000)
 
             if isinstance(pfn, list):
                 destinations = [str(d) for d in pfn]
@@ -72,12 +82,32 @@ def submitter(once=False, worker_number=1, total_workers=1):
                 destinations = [str(pfn)]
 
             ts = time.time()
-            request.submit_transfer(req['request_id'], sources, destinations, 'fts3', {'issuer': 'rucio-conveyor'})
-            record_timer('daemons.conveyor.submitter.004-submit_transfer', time.time()-ts)
+            request.submit_transfers(transfers=[{'request_id': req['request_id'],
+                                                 'src_urls': sources,
+                                                 'dest_urls': destinations,
+                                                 'filesize': 12345L,
+                                                 'checksum': 'ad:123456',
+                                                 'src_spacetoken': None,
+                                                 'dest_spacetoken': None}],
+                                     transfertool='fts3',
+                                     job_metadata={'issuer': 'rucio-conveyor'},
+                                     session=session)
+            record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time()-ts)*1000)
+
+            ts = time.time()
+            rse.update_replicas_states([{'rse': rse_name,
+                                         'scope': req['scope'],
+                                         'name': req['name'],
+                                         'state': ReplicaState.COPYING}],
+                                       session=session)
+            record_timer('daemons.conveyor.submitter.005-replica-set_copying', (time.time()-ts)*1000)
 
             record_counter('daemons.conveyor.submitter.submit_request')
 
+            session.commit()
+
         except:
+            session.rollback()
             print traceback.format_exc()
 
         if once:
@@ -95,15 +125,16 @@ def poller(once=False, worker_number=1, total_workers=1):
 
     print 'poller: starting'
 
+    session = get_session()
+
     print 'poller: started'
 
     while not graceful_stop.is_set():
 
         try:
             ts = time.time()
-            req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED, worker_number=worker_number, total_workers=total_workers)
-
-            record_timer('daemons.conveyor.poller.000-get_next', time.time()-ts)
+            req = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED, worker_number=worker_number, total_workers=total_workers, session=session)
+            record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
 
             if req is [] or req is None:
                 print 'poller: idling'
@@ -113,12 +144,41 @@ def poller(once=False, worker_number=1, total_workers=1):
             req = req[0]
 
             ts = time.time()
-            request.query_request(req['request_id'], 'fts3')
-            record_timer('daemons.conveyor.poller.001-query_request', time.time()-ts)
+
+            response = request.query_request(req['request_id'], 'fts3', session=session)
+
+            if response['new_state'] is not None:
+                request.set_request_state(req['request_id'], response['new_state'], session=session)
+                if response['new_state'] == RequestState.DONE:
+                    tss = time.time()
+                    lock.successful_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
+                    record_timer('daemons.conveyor.poller.002-lock-successful_transfer', (time.time()-tss)*1000)
+
+                    tss = time.time()
+                    rse_name = rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse']
+                    record_timer('daemons.conveyor.poller.003-replica-get_rse', (time.time()-ts)*1000)
+
+                    tss = time.time()
+                    rse.update_replicas_states([{'rse': rse_name,
+                                                 'scope': req['scope'],
+                                                 'name': req['name'],
+                                                 'state': ReplicaState.AVAILABLE}],
+                                               session=session)
+                    record_timer('daemons.conveyor.poller.004-replica-set_available', (time.time()-tss)*1000)
+
+                elif response['new_state'] == RequestState.FAILED:  # TODO: resubmit does not set failed_transfer
+                    tss = time.time()
+                    lock.failed_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
+                    record_timer('daemons.conveyor.poller.002-lock-failed_transfer', (time.time()-tss)*1000)
+
+            record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
 
             record_counter('daemons.conveyor.poller.query_request')
 
+            session.commit()
+
         except:
+            session.rollback()
             print traceback.format_exc()
 
         if once:
