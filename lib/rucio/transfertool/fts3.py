@@ -16,6 +16,56 @@ from rucio.common.config import config_get
 __HOST = config_get('conveyor', 'ftshost')  # keep it simple for now
 
 
+def submit_transfers(transfers, job_metadata):
+    """
+    Submit a transfer to FTS3 via JSON.
+
+    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'checksum', 'overwrite', 'job_metadata', 'src_spacetoken, 'dest_spacetoken'
+    :param job_metadata: Dictionary containing key/value pairs, for all transfers.
+    :returns: List of FTS transfer identifiers
+    """
+
+    transfer_ids = {}
+
+    job_metadata['issuer'] = 'rucio-transfertool-fts3'
+
+    # we have to loop until we get proper fts3 bulk submission
+    for transfer in transfers:
+
+        transfer_ids[transfer['request_id']] = None
+
+        params_dict = {'files': [{'sources': transfer['src_urls'],
+                                  'destinations': transfer['dest_urls'],
+                                  'metadata': {'issuer': 'rucio-transfertool-fts3'},
+                                  'filesize': str(transfer['filesize']),
+                                  'checksum': str(transfer['checksum'])}],
+                       'params': {'verify_checksum': 'true',
+                                  'overwrite': 'false',
+                                  'job_metadata': job_metadata,
+                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'None',
+                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'None'}}
+
+        # only " is valid in JSON
+        params_str = str(params_dict).replace("'", '"')
+
+        # are we still legal JSON?
+        try:
+            json.loads(params_str)
+        except:
+            raise Exception('Could not build valid JSON:\n%s' % params_str)
+
+        r = requests.post('%s/jobs' % __HOST,
+                          data=params_str,
+                          headers={'Content-Type': 'application/json'})
+
+        if r.status_code == 200:
+            transfer_ids[transfer['request_id']] = str(r.json['job_id'])
+        else:
+            raise Exception('Could not submit transfer: %s', r.content)
+
+        return transfer_ids
+
+
 def submit(src_urls, dest_urls,
            src_spacetoken=None, dest_spacetoken=None,
            filesize=None, checksum=None,
@@ -42,6 +92,7 @@ def submit(src_urls, dest_urls,
                               'filesize': str(filesize),
                               'checksum': str(checksum)}],
                    'params': {'verify_checksum': 'true',
+                              'overwrite': 'false',
                               'job_metadata': job_metadata,
                               'spacetoken': dest_spacetoken if dest_spacetoken is not None else 'None',
                               'source_spacetoken': src_spacetoken if src_spacetoken is not None else 'None'}}
