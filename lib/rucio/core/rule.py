@@ -631,20 +631,18 @@ def __evaluate_attach(eval_did, session=None):
     #Get immediate child DID's
     always_true = True
     qtime = time.time()
-    new_child_dids = session.query(models.DataIdentifier).join(models.DataIdentifierAssociation, and_(
-        models.DataIdentifierAssociation.child_scope == models.DataIdentifier.scope,
-        models.DataIdentifierAssociation.child_name == models.DataIdentifier.name)).filter(
-            models.DataIdentifierAssociation.scope == eval_did.scope,
-            models.DataIdentifierAssociation.name == eval_did.name,
-            models.DataIdentifierAssociation.rule_evaluation == always_true).all()
+    new_child_dids = session.query(models.DataIdentifierAssociation).filter(
+        models.DataIdentifierAssociation.scope == eval_did.scope,
+        models.DataIdentifierAssociation.name == eval_did.name,
+        models.DataIdentifierAssociation.rule_evaluation == always_true).all()
     record_timer(stat='rule.opt_evaluate.list_child_dids', time=(time.time() - qtime)*1000)
     if new_child_dids:
         #Row-Lock all children of the evaluate_dids
         all_child_dscont = []
-        if new_child_dids[0].did_type != DIDType.FILE:
+        if new_child_dids[0].child_type != DIDType.FILE:
             qtime = time.time()
             for did in new_child_dids:
-                all_child_dscont.extend(rucio.core.did.list_child_dids(scope=did.scope, name=did.name, lockmode=None, session=session))
+                all_child_dscont.extend(rucio.core.did.list_child_dids(scope=did.child_scope, name=did.child_name, lockmode=None, session=session))
             record_timer(stat='rule.opt_evaluate.list_child_dids2', time=(time.time() - qtime)*1000)
 
         #Get all unsuspended RR from parents and eval_did
@@ -676,7 +674,7 @@ def __evaluate_attach(eval_did, session=None):
         if session.bind.dialect.name != 'sqlite':
             session.commit()
 
-        if new_child_dids[0].did_type == DIDType.FILE:
+        if new_child_dids[0].child_type == DIDType.FILE:
             # All the evaluate_dids will be files!
             # Build the special files and datasetfiles object
             files = []
@@ -684,10 +682,10 @@ def __evaluate_attach(eval_did, session=None):
             replica_clauses = []
             dids = []
             for did in new_child_dids:
-                lock_clauses.append(and_(models.ReplicaLock.scope == did.scope,
-                                         models.ReplicaLock.name == did.name))
-                replica_clauses.append(and_(models.RSEFileAssociation.scope == did.scope,
-                                            models.RSEFileAssociation.name == did.name))
+                lock_clauses.append(and_(models.ReplicaLock.scope == did.child_scope,
+                                         models.ReplicaLock.name == did.child_name))
+                replica_clauses.append(and_(models.RSEFileAssociation.scope == did.child_scope,
+                                            models.RSEFileAssociation.name == did.child_name))
                 dids.append(did)
 
             while len(dids) > 0:
@@ -708,16 +706,17 @@ def __evaluate_attach(eval_did, session=None):
                 locks = session.query(models.ReplicaLock).filter(or_(*lock_clause), or_(*rse_clause2)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_lockmode("update_nowait").all()
                 replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause), or_(*rse_clause1)).with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').with_lockmode('update_nowait').all()
                 for did in temp_dids:
-                    files.append({'scope': did.scope,
-                                  'name': did.name,
+                    files.append({'scope': did.child_scope,
+                                  'name': did.child_name,
                                   'bytes': did.bytes,
-                                  'locks': [{'rse_id': lock.rse_id, 'state': lock.state, 'rule_id': lock.rule_id} for lock in locks if lock.scope == did.scope and lock.name == did.name],
-                                  'replicas': [replica for replica in replicas if replica.scope == did.scope and replica.name == did.name]})
+                                  'locks': [{'rse_id': lock.rse_id, 'state': lock.state, 'rule_id': lock.rule_id} for lock in locks if lock.scope == did.child_scope and lock.name == did.child_name],
+                                  'replicas': [replica for replica in replicas if replica.scope == did.child_scope and replica.name == did.child_name]})
             datasetfiles = [{'scope': None, 'name': None, 'files': files}]
         else:
             datasetfiles = []
             for did in new_child_dids:
-                datasetfiles.extend(__resolve_dids_to_locks(did, lockmode='update_nowait', restrict_rses=possible_rses, session=session))
+                dsdid = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == did.child_scope, models.DataIdentifier.name == did.child_name).one()
+                datasetfiles.extend(__resolve_dids_to_locks(dsdid, lockmode='update_nowait', restrict_rses=possible_rses, session=session))
         record_timer(stat='rule.opt_evaluate.resolve_did_to_locks_and_replicas', time=(time.time() - qtime)*1000)
 
         qtime = time.time()
@@ -798,11 +797,8 @@ def __evaluate_attach(eval_did, session=None):
         record_timer(stat='rule.opt_evaluate.evaluate_rules', time=(time.time() - qtime)*1000)
         always_true = True
         qtime = time.time()
-        #TODO: Do this file by file
-        session.query(models.DataIdentifierAssociation).filter(
-            models.DataIdentifierAssociation.scope == eval_did.scope,
-            models.DataIdentifierAssociation.name == eval_did.name,
-            models.DataIdentifierAssociation.rule_evaluation == always_true).update({'rule_evaluation': None}, synchronize_session=False)
+        for did in new_child_dids:
+            did.rule_evaluation = None
         record_timer(stat='rule.opt_evaluate.update_did', time=(time.time() - qtime)*1000)
 
     # Set the re_evaluation tag to done
