@@ -15,7 +15,6 @@ import resource
 import time
 import threading
 import traceback
-import socket
 
 from pystatsd import Client
 
@@ -88,18 +87,12 @@ class UCProcess(object):
             print traceback.format_exc()
 
         try:
-            sock = None
-            prev = int(time.time())
             while not self.stop_event.is_set():
-                if sock is None:
-                    sock = socket.socket()
-                    sock.connect((self.cfg['global']['carbon']['CARBON_SERVER'], 2003))
-                now = int(time.time())
                 ta = threading.active_count()
                 of = self.get_open_fds()
-                for i in xrange(now - prev):
-                    sock.sendall('stats.%s.emulator.counts.threads %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], ta, prev + i))
-                    sock.sendall('stats.%s.emulator.counts.files %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], of, prev + i))
+                if len(self.mod_list):
+                    self.cs.gauge('emulator.counts.threads.%s' % self.mod_list[0], ta)
+                    self.cs.gauge('emulator.counts.files.%s' % self.mod_list[0], of)
                 print '= (PID: %s) File count: %s' % (self.pid, self.get_open_fds())
                 print '= (PID: %s) Thread count: %s' % (self.pid, threading.active_count())
                 time.sleep(self.update)
@@ -140,28 +133,19 @@ class UCProcess(object):
                 # Reporting cfg - setting to graphite
                 for mod in cfg:
                     if mod == 'global':
-                        for i in xrange(now - prev):
-                            sock.sendall('stats.%s.emulator.cfg.multiplier %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], cfg['global']['multiplier'], prev + i))
-                            sock.sendall('stats.%s.emulator.cfg.update_interval %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], cfg['global']['update_interval'], prev + i))
+                        self.cs.gauge('emulator.cfg.multiplier', cfg['global']['multiplier'])
+                        self.cs.gauge('emulator.cfg.update_interval', cfg['global']['update_interval'])
                     else:
                         for frequ in cfg[mod]:
                             if frequ == 'context':
-                                self.report_context(sock, cfg[mod]['context'], 'stats.%s.emulator.cfg.%s.context' % (self.cfg['global']['carbon']['USER_SCOPE'], mod), now, prev)
+                                self.report_context(cfg[mod]['context'], 'emulator.cfg.%s.context' % mod)
                             else:
-                                for i in xrange(now - prev):
-                                    sock.sendall('stats.%s.emulator.cfg.%s.frequency.%s %s %d\n' % (self.cfg['global']['carbon']['USER_SCOPE'], mod, frequ, cfg[mod][frequ], prev + i))
-                prev = now
+                                self.cs.gauge('emulator.cfg.%s.frequency.%s' % (mod, frequ), cfg[mod][frequ])
         except Exception, e:
             print e
             print traceback.format_exc()
-            try:
-                sock.close()
-            except Exception:
-                pass
-            sock = None
         except KeyboardInterrupt:
             pass
-        sock.close()
 
     def stop(self):
         print '= (PID: %s) Stopping threads ....' % self.pid
@@ -182,20 +166,17 @@ class UCProcess(object):
                         print key_chain, current[key], new[key]
                         uc.update_ctx((key_chain + [key])[1:], new[key])
 
-    def report_context(self, sock, ctx, prefix, now, prev):
+    def report_context(self, ctx, prefix):
         for key in ctx:
             if type(ctx[key]) == dict:
-                self.report_context(sock, ctx[key], '%s.%s' % (prefix, key), now, prev)
+                self.report_context(ctx[key], '%s.%s' % (prefix, key))
             elif type(ctx[key]) == unicode:
                 if ctx[key] == 'True':
-                    for i in xrange(now - prev):
-                        sock.sendall('%s.%s %s %d\n' % (prefix, key, 1, prev + i))
+                    self.cs.gauge('%s.%s' % (prefix, key), 1)
                 elif ctx[key] == 'False':
-                    for i in xrange(now - prev):
-                        sock.sendall('%s.%s %s %d\n' % (prefix, key, 0, prev + i))
+                    self.cs.gauge('%s.%s' % (prefix, key), 0)
             elif isinstance(ctx[key], (int, long, float)):
-                for i in xrange(now - prev):
-                    sock.sendall('%s.%s %s %d\n' % (prefix, key, ctx[key], prev + i))
+                self.cs.gauge('%s.%s' % (prefix, key), ctx[key])
             else:
                 #print '%s\tCannot report\t%s.%s\t(type:\t%s)\t%s' % (now, prefix, key, type(ctx[key]), ctx[key])
                 pass
