@@ -16,9 +16,10 @@ import time
 
 from Queue import PriorityQueue, Empty, Queue
 from random import choice, gauss, sample, random, randint
+from requests.exceptions import ConnectionError
 
 from rucio.client import Client
-from rucio.common.exception import DatabaseException, DataIdentifierNotFound
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound, UnsupportedOperation
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core import monitor
 from rucio.tests.emulation.ucemulator import UCEmulator
@@ -30,7 +31,7 @@ class UseCaseDefinition(UCEmulator):
     """
 
     @UCEmulator.UseCase
-    def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk, threads):
+    def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk, threads, safety_delay):
         if threads:
             sem = threading.BoundedSemaphore(threads)
         if 'output_datasets_per_datatype' in output.keys():
@@ -79,7 +80,7 @@ class UseCaseDefinition(UCEmulator):
                 try:
                     with monitor.record_timer_block('panda.list_replicas'):
                         replicas = [f for f in client.list_replicas(scope=temp[0], name=temp[1])]
-                except (DatabaseException, DataIdentifierNotFound):
+                except (DatabaseException, DataIdentifierNotFound, ConnectionError):
                     replicas = list()
                     pass
                 delta = time.time() - now
@@ -118,7 +119,7 @@ class UseCaseDefinition(UCEmulator):
                     with monitor.record_timer_block('panda.get_metadata'):
                         meta_i = client.get_metadata(scope=input['scope'], name=input['ds_name'])
                     success = True
-                except DatabaseException:
+                except (DatabaseException, ConnectionError):
                     monitor.record_counter('panda.retry.get_metadata.%s' % (retry), 1)
                     retry += 1
                     if retry > 5:
@@ -176,7 +177,7 @@ class UseCaseDefinition(UCEmulator):
                             with monitor.record_timer_block('panda.add_dataset'):
                                 client.add_dataset(scope=output['scope'], name=dsn, meta=final_dss[fds])
                             success = True
-                        except DatabaseException:
+                        except (DatabaseException, ConnectionError):
                             monitor.record_counter('panda.retry.add_dataset.%s' % (retry), 1)
                             retry += 1
                             if retry > 5:
@@ -189,7 +190,7 @@ class UseCaseDefinition(UCEmulator):
                             with monitor.record_timer_block('panda.add_datasets_to_container'):
                                 client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % (fds), dsns=[{'scope': output['scope'], 'name': dsn}])
                             success = True
-                        except DatabaseException:
+                        except (DatabaseException, ConnectionError):
                             monitor.record_counter('panda.retry.add_datasets_to_container.%s' % (retry), 1)
                             retry += 1
                             if retry > 5:
@@ -205,7 +206,7 @@ class UseCaseDefinition(UCEmulator):
                             client.add_datasets(temp)
                         monitor.record_counter('panda.tasks.%s.output_datasets' % task_type, len(temp))  # Reports the number of output datasets for the tasktype (including log datasets)
                         success = True
-                    except DatabaseException:
+                    except (DatabaseException, ConnectionError):
                         monitor.record_counter('panda.retry.add_datasets.%s' % (retry), 1)
                         retry += 1
                         if retry > 5:
@@ -218,7 +219,7 @@ class UseCaseDefinition(UCEmulator):
                         with monitor.record_timer_block(['panda.add_datasets_to_container', ('panda.add_datasets_to_container.normailzed', len(temp))]):
                             client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % (fds), dsns=[{'scope': dsn['scope'], 'name': dsn['name']} for dsn in temp])
                         success = True
-                    except DatabaseException:
+                    except (DatabaseException, ConnectionError):
                         monitor.record_counter('panda.retry.add_datasets_to_container.%s' % (retry), 1)
                         retry += 1
                         if retry > 5:
@@ -379,48 +380,85 @@ class UseCaseDefinition(UCEmulator):
         job_finish = []         # When each job finishes -> register output files(s)
 
         # When jobs are finished for dataset
-        sub_ds_names = list()
-        max_job_completion = 0
+        sub_finish = dict()
+        max_completion = 0
         for job_set in jobs:
             # job_set: (scope, [target datasets], number of jobs, computing_rse, task_type, log_ds)
             dis_completion = time.time()
             if create_dis_ds:
                 dis_completion += gauss(**file_transfer_duration)  # Determines the time it takes to move all files to the target RSE
-            for i in xrange(job_set[2]):  # Determine the finishing time of each job using again a gaussian distribution
+
+            # Determine the finishing time of each job using again a gaussian distribution
+            max_target_completion = 0
+            for i in xrange(job_set[2]):
                 job_completion = dis_completion + gauss(**output['duration_job'])
-                if job_completion > max_job_completion:
-                    max_job_completion = job_completion
+                if job_completion > max_target_completion:
+                    max_target_completion = job_completion
                 job_finish.append((job_completion, {'scope': job_set[0], 'targets': job_set[1], 'computing_rse': job_set[3], 'task_type': task_type, 'log_ds': log_ds}))
-                sub_ds_names += job_set[1]
-        max_job_completion += 600  # Note: Triggers FINISH_TASK some time later to avoid conflicts if job is stuck in gearman queue
+
+            # Remeber last access to target dataset
+            max_target_completion += safety_delay
+            for dsn in job_set[1]:
+                if (dsn not in sub_finish.keys()) or (sub_finish[dsn][0] < max_target_completion):
+                    for fin_ds in final_dss:
+                        if dsn.endswith(fin_ds):
+                            sub_finish[dsn] = (max_target_completion, {'source': {'scope': job_set[0], 'name': dsn}, 'target': {'scope': output['scope'], 'name': fin_ds}, 'task_type': task_type})
+
+            # Update task completion
+            if max_completion < max_target_completion:
+                max_completion = max_target_completion
+
+        max_completion += safety_delay  # Note: Triggers FINISH_TASK some time later to avoid conflicts if job is stuck in gearman queue
 
         if create_sub_ds:
-            max_job_completion += gauss(**file_transfer_duration)
+            max_completion += gauss(**file_transfer_duration)
         else:
-            sub_ds_names = []  # Empty list of sub datasets to avoid data moving when task is finished
-        task_finish = (max_job_completion, {'scope': output['scope'], 'targets': final_dss, 'inputs': [sub for sub in set(sub_ds_names)], 'task_type': task_type, 'log_ds': log_ds})
+            sub_finish = {}  # Empty list of sub datasets to avoid data moving when task is finished
+        task_finish = (max_completion, {'scope': output['scope'], 'targets': final_dss, 'task_type': task_type, 'log_ds': log_ds})
         monitor.record_counter('panda.tasks.%s.dispatched' % task_type, 1)  # Reports the task type which is dipsatched
         print '== PanDA: Create %s task with %s files (%s repl.) with output scope %s (dis: %s / sub: %s / log_ds: %s / out_ds: %s / jobs: %s (%s))' % (task_type, len(files), len(replicas),
                                                                                                                                                         output['scope'], len(inserts_dis),
                                                                                                                                                         len(inserts_sub), log_ds,
                                                                                                                                                         final_dss, job_count, len(job_finish))
-        return {'jobs': job_finish, 'task': task_finish}
+        return {'jobs': job_finish, 'subs': sub_finish.values(), 'task': task_finish}
 
     def add_files_ds(self, client, ds, files_in_ds, ret=None, sem=None):
         if not client:
             client = Client(account='panda')
-        try:
-            if sem:
-                sem.acquire()
-            with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
-                client.add_files_to_dataset(scope=ds['scope'], name=ds['name'], files=ds['dids'])
-        except DatabaseException:
-            e = sys.exc_info()
-            if ret:
-                ret.put((False, e))
-        finally:
-            if sem:
-                sem.release()
+        success = False
+        retry = 1
+        while not success:
+            try:
+                if sem:
+                    sem.acquire()
+                with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
+                    client.add_files_to_dataset(scope=ds['scope'], name=ds['name'], files=ds['dids'])
+                success = True
+            except (DatabaseException, ConnectionError):
+                e = sys.exc_info()
+                monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
+                retry += 1
+                if retry > 5:
+                    if ret:
+                        ret.put((False, e))
+                        return
+                    else:
+                        print e
+                        raise
+                print '== PanDA Warning: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (retry, ds['scope'], ds['name'])
+                time.sleep(randint(1, 2))
+                if ret:
+                    ret.put((False, e))
+            except:
+                e = sys.exc_info()
+                if ret:
+                    ret.put((False, e))
+                else:
+                    print e
+                    raise
+            finally:
+                if sem:
+                    sem.release()
         if ret:
             ret.put((True, None))
 
@@ -443,6 +481,7 @@ class UseCaseDefinition(UCEmulator):
                            'rses': [ctx.rses[i] for i in sample(xrange(len(ctx.rses)), 4)],
                            'target_rse': choice(ctx.rses),
                            'file_transfer_duration': ctx.file_transfer_duration,
+                           'safety_delay': ctx.safety_delay,
                            }
                     if ('meta' in ctx.tasks[task_type]['input'].keys()) and (len(ctx.tasks[task_type]['input']['meta'])):  # Task depends on input dataset
                         ret['input']['dss'] = list()
@@ -476,6 +515,8 @@ class UseCaseDefinition(UCEmulator):
     def CREATE_TASK_output(self, ctx, output):
         for job in output['jobs']:
             ctx.job_queue.put(job)
+        for sub in output['subs']:
+            ctx.sub_queue.put(sub)
         ctx.task_queue.put(output['task'])
 
     @UCEmulator.UseCase
@@ -507,16 +548,16 @@ class UseCaseDefinition(UCEmulator):
         for job in jobs:
             targets += job['targets']
             replicas += len(job['targets']) if job['log_ds'] else (2 * len(job['targets']))
-        monitor.record_counter('panda.tasks.concurrency.replicas', replicas)  # Reports the creation of a new replica (including log files) fof the given task type
-        monitor.record_counter('panda.tasks.concurrency.datasets', len(set(targets)))  # Reports the creation of a new replica (including log files) fof the given task type
-        monitor.record_counter('panda.tasks.concurrency.jobs', len(jobs))  # Reports the creation of a new replica (including log files) fof the given task type
         print '== PanDA: Registering %s replicas from %s jobs over %s different datasets' % (replicas, len(jobs), len(set(targets)))
 
     def register_replica(self, client, job, ret=None, sem=None):
         if not client:
             client = Client(account='panda')
         count = 0
+        # TODO: Instead of this loop the attach_dids_to_dids method should be used
+        attachments = list()
         for tds in job['targets']:
+            # Create output files of the job
             fn = uuid()
             files = list()
             if not job['log_ds']:  # Add log file for each datatype if task doesn't have LOG dataset
@@ -525,42 +566,46 @@ class UseCaseDefinition(UCEmulator):
             else:
                 ext = 'out' if tds.split('.')[-2] != 'log' else 'log'
                 files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-
-            now = time.time()
-            success = False
-            retry = 1
-            e = None
-            while not success and retry < 5:
-                try:
-                    if sem:
-                        sem.acquire()
-                    with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
-                        client.add_files_to_dataset(scope=job['scope'], name=tds, files=files, rse=job['computing_rse'])
-                    success = True
-                except DatabaseException:
-                    e = sys.exc_info()
-                    monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
-                    retry += 1
-                    print '== PanDA Warning: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (retry, job['scope'], tds)
-                    monitor.record_counter('panda.tasks.concurrency.potential_lock.add_files_to_dataset', 1)
-                    time.sleep(randint(1, 2))
-                except:
-                    e = sys.exc_info()
-                    break
-                finally:
-                    if sem:
-                        sem.release()
-
-            if not success:
-                print '-' * 80
-                print 'Failed after %s seconds (retries: %s)' % ((time.time() - now), retry)
-                print '%s:%s' % (job['scope'], tds)
-                print files
-                print job['log_ds']
-                print '-' * 80
-                if ret:
-                    ret.put((False, e))
+            attachments.append({'scope': job['scope'], 'name': tds, 'rse': job['computing_rse'], 'dids': files})
             count += len(files)
+
+        success = False
+        retry = 1
+        e = None
+        now = time.time()
+        while not success:
+            try:
+                if sem:
+                    sem.acquire()
+                with monitor.record_timer_block('panda.attach_dids_to_dids'):
+                    client.attach_dids_to_dids(attachments=attachments)
+                success = True
+            except DatabaseException:
+                e = sys.exc_info()
+                monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
+                retry += 1
+                if retry > 5:
+                    break
+                print '== PanDA Warning: Failed %s times when adding files to datasets: %s' % (retry, attachments)
+                time.sleep(randint(1, 2))
+            except:
+                e = sys.exc_info()
+                break
+            finally:
+                if sem:
+                    sem.release()
+
+        if not success:
+            print '-' * 80
+            print '- Failed after %s seconds (retries: %s)' % ((time.time() - now), retry)
+            print '- %s:%s' % (job['scope'], tds)
+            print '-', files
+            print '-', job['log_ds']
+            print '-', e
+            print '-', count
+            print '-' * 80
+            if ret:
+                ret.put((False, e))
         monitor.record_counter('panda.tasks.%s.replicas' % job['task_type'], count)  # Reports the creation of a new replica (including log files) fof the given task type
         print '== PanDA: Job (%s) added %s files to %s datasets (%s:%s)' % (job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
         if ret:
@@ -589,57 +634,22 @@ class UseCaseDefinition(UCEmulator):
             return None
 
     @UCEmulator.UseCase
-    def FINISH_TASK(self, tasks, threads):
+    def POPULATE_SUB(self, subs, threads, safety_delay):
         client = Client(account='panda')
         ts = list()
         ts_res = Queue()
         if threads:
             sem = threading.BoundedSemaphore(threads)
-        for task in tasks:
-            task_type = task['task_type']
-            print '== PanDA: Finish task: %s (Output dataset(s): %s)' % (task_type, task['targets'])
-            if not len(task['inputs']):  # No SUB ha been created
-                for out_ds in task['targets']:  # Iterates over every output - type of the task
-                    now = time.time()
-                    fs = list()
-                    retry = 1
-                    while not len(fs):
-                        try:
-                            with monitor.record_timer_block('panda.list_files'):
-                                fs = [f for f in client.list_files(scope=task['scope'], name=out_ds)]
-                        except DatabaseException:
-                            time.sleep(randint(1, 2))
-                            fs = []
-                        if not len(fs):
-                            if retry > 5:
-                                print '== PanDA Warning: Well, this is embarrassing, but no task (%s) data arrived and the dataset (%s:%s) is given up.' % (task_type, task['scope'], out_ds)
-                                monitor.record_counter('panda.tasks.%s.EmptyOutputDataset' % task_type, 1)
-                                break
-                            print '== PanDA Warning: Waiting 5 seconds for task (%s) data to arrive in %s:%s (retry count: %s / task-type: %s)' % (task_type, task['scope'], out_ds, retry, task_type)
-                            monitor.record_counter('panda.retry.list_files.%s' % (retry), 1)
-                            retry += 1
-                            time.sleep(randint(1, 2))
-                    if len(fs):
-                        monitor.record_timer('panda.list_files.normalized', (time.time() - now) / len(fs))
-                        monitor.record_counter('panda.tasks.%s.output_ds_size' % task_type, len(fs))  # Reports the number of files added to the output dataset
-                        print '== PanDA: Tasks (%s) created %s output files in %s:%s' % (task_type, len(fs), task['scope'], out_ds)
+        for sub in subs:
+            print sub
+            print '== PanDA: Populating SUB-DS (%s) to target (%s) for job %s' % (sub['source'], sub['target'], sub['task_type'])
+            if threads:
+                t = threading.Thread(target=self.aggregate_output, kwargs={'client': client, 'source': sub['source'], 'target': sub['target'],
+                                                                           'task_type': sub['task_type'], 'ret': ts_res, 'sem': sem})
+                t.start()
+                ts.append(t)
             else:
-                for target in task['targets']:  # Iterates over every output - type of the task
-                    inputs = list()
-                    for input in task['inputs']:
-                        if input.endswith('_' + target):  # Checks if the sub dataset is realted to the current output dataset
-                            inputs.append(input)
-                    if len(inputs):
-                        for input in inputs:
-                            if threads:
-                                t = threading.Thread(target=self.aggregate_output, kwargs={'client': client, 'source_ds': input,
-                                                                                           'target': {'scope': task['scope'], 'name': target},
-                                                                                           'task_type': task_type, 'ret': ts_res, 'sem': sem})
-
-                                t.start()
-                                ts.append(t)
-                            else:
-                                self.aggregate_output(client, input, {'scope': task['scope'], 'name': target}, task_type)
+                self.aggregate_output(client, sub['source'], sub['target'], sub['task_type'])
         if threads:
             for t in ts:
                 t.join()
@@ -648,8 +658,148 @@ class UseCaseDefinition(UCEmulator):
             if not ret[0]:
                 print ret[1][2]
                 raise ret[1][0]
+
+    def POPULATE_SUB_input(self, ctx):
+        now = time.time()
+        subs = []
+        while True:  # Job is finished by now
+            try:
+                sub = ctx.sub_queue.get_nowait()
+            except Empty:
+                break
+            if sub[0] > now:
+                ctx.sub_queue.put(sub)
+                break
+            subs.append(sub[1])
+            ctx.sub_queue.task_done()
+        if (ctx.threads == 'False') or int(ctx.threads) < 2:
+            threads = None
+        else:
+            threads = int(ctx.threads)
+        if len(subs):
+            return {'subs': subs, 'threads': threads, 'safety_delay': ctx.safety_delay}
+        else:
+            return None
+
+    def aggregate_output(self, client, source, target, task_type, ret=None, sem=None):
+        now = time.time()
+        if not client:
+            client = Client(account='panda')
+        retry = 1
+        fs = list()
+        exc = None
+
+        # List files in SUB
+        while not len(fs):
+            try:
+                with monitor.record_timer_block('panda.list_files'):
+                    fs = [f for f in client.list_files(**source)]
+                if len(fs):
+                    monitor.record_timer('panda.list_files.normalized', (time.time() - now) / len(fs))
+            except DatabaseException:
+                exc = sys.exc_info()
+                fs = []
+                print '== PanDA: Waiting 5 seconds for task data to arrive in %s (retry count: %s / task-type: %s)' % (source, retry, task_type)
+                monitor.record_counter('panda.retry.list_files.%s' % (retry), 1)
+                retry += 1
+                if retry > 5:
+                    print '== PanDA: No data task arrived for %s. Gave up' % (source)
+                    monitor.record_counter('panda.tasks.%s.EmptySubDataset' % task_type, 1)
+                    with monitor.record_timer_block('panda.close'):
+                        client.close(**source)
+                    if ret:
+                        ret.put((False, exc))
+                    return
+                time.sleep(randint(1, 2))
+            except Exception:
+                exc = sys.exc_info()
+                if ret:
+                    ret.put((False, exc))
+                else:
+                    raise
+
+        # Append files to TID
+        try:
+            if sem:
+                sem.acquire()
+            success = False
+            retry = 1
+            while not success:
+                with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(fs))]):
+                    client.add_files_to_dataset(scope=target['scope'], name=target['name'], files=fs)
+                success = True
+        except Exception:
+            exc = sys.exc_info()
+            print '== PanDA: Waiting 5 seconds for task data to arrive in %s (retry count: %s / task-type: %s)' % (source, retry, task_type)
+            monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
+            retry += 1
+            if retry > 5:
+                if ret:
+                    ret.put((False, exc))
+                return
+        finally:
+            if sem:
+                sem.release()
+        print '== PanDA: Populated %s files from %s to %s' % (len(fs), source, target)
+
+        # Close SUB dataset
+        try:
+            if sem:
+                sem.acquire()
+            success = False
+            retry = 1
+            while not success:
+                with monitor.record_timer_block('panda.close'):
+                    client.close(**source)
+                success = True
+        except Exception:
+            exc = sys.exc_info()
+            print '== PanDA: Waiting 5 seconds for task data to arrive in %s (retry count: %s / task-type: %s)' % (source, retry, task_type)
+            monitor.record_counter('panda.retry.close.%s' % (retry), 1)
+            retry += 1
+            if retry > 5:
+                if ret:
+                    ret.put((False, exc))
+                return
+        finally:
+            if sem:
+                sem.release()
+        print '== PanDA: Closed sub dataset: %s' % (source)
+        if ret:
+            ret.put((True, None))
+
+    def FINISH_TASK(self, tasks, threads, safety_delay):
+        client = Client(account='panda')
         for task in tasks:
+            task_type = task['task_type']
             for target in task['targets']:
+                retry = 1
+                success = False
+                while not success:
+                    try:
+                        now = time.time()
+                        with monitor.record_timer_block('panda.list_files'):
+                            fs = [f for f in client.list_files(scope=task['scope'], name=target)]
+                        if len(fs):
+                            monitor.record_timer('panda.list_files.normalized', (time.time() - now) / len(fs))
+                            monitor.record_counter('panda.tasks.%s.output_ds_size' % task_type, len(fs))  # Reports the number of files added to the output dataset
+                        else:
+                            monitor.record_counter('panda.tasks.%s.EmptyOutputDataset' % task_type, 1)
+                        success = True
+                    except DatabaseException:
+                        monitor.record_counter('panda.retry.close.%s' % (retry), 1)
+                        retry += 1
+                        if retry > 5:
+                            raise
+                        print '== PanDA Warning: Failed %s times to list files in dataset (%s:%s). Will rertry in 5 seconds.' % (retry, task['scope'], target)
+                        time.sleep(randint(1, 2))
+                    except Exception:
+                        e = sys.exc_info()
+                        print '-' * 80
+                        print '- Failed listing files in TID: %s:%s' % (task['scope'], target)
+                        print '-', e
+                        print '-' * 80
+                        break
                 retry = 1
                 success = False
                 while not success:
@@ -657,11 +807,16 @@ class UseCaseDefinition(UCEmulator):
                         with monitor.record_timer_block('panda.close'):
                             client.close(scope=task['scope'], name=target)
                         success = True
+                    except UnsupportedOperation:
+                        break
                     except DatabaseException:
-                        print '== PanDA Warning: Failed %s times to close the dataset (%s:%s). Will rertry in 5 seconds.' % (retry, task['scope'], target)
                         monitor.record_counter('panda.retry.close.%s' % (retry), 1)
                         retry += 1
+                        if retry > 5:
+                            raise
+                        print '== PanDA Warning: Failed %s times to close the dataset (%s:%s). Will rertry in 5 seconds.' % (retry, task['scope'], target)
                         time.sleep(randint(1, 2))
+                print '== PanDA: Closed output dataset %s:%s from task (%s) including %s files' % (task['scope'], target, len(fs))
             monitor.record_counter('panda.tasks.%s.finished' % task_type, 1)
 
     def FINISH_TASK_input(self, ctx):
@@ -682,89 +837,13 @@ class UseCaseDefinition(UCEmulator):
         else:
             threads = int(ctx.threads)
         if len(tasks):
-            return {'tasks': tasks, 'threads': threads}
+            return {'tasks': tasks, 'threads': threads, 'safety_delay': ctx.safety_delay}
         else:
             return None
 
-    def aggregate_output(self, client, source_ds, target, task_type, ret=None, sem=None):
-        now = time.time()
-        if not client:
-            client = Client(account='panda')
-        retry = 1
-        fs = list()
-        exc = None
-        while not len(fs):
-            try:
-                with monitor.record_timer_block('panda.list_files'):
-                    fs = [f for f in client.list_files(scope='Manure', name=source_ds)]
-            except Exception:
-                exc = sys.exc_info()
-                fs = []
-            if not len(fs):
-                print '== PanDA: Waiting 5 seconds for task data to arrive in %s:%s (retry count: %s / task-type: %s)' % ('Manure', source_ds, retry, task_type)
-                monitor.record_counter('panda.retry.list_files.%s' % (retry), 1)
-                retry += 1
-                if retry > 5:
-                    print '== PanDA: No data task arrived for %s:%s. Gave up' % ('Manure', source_ds)
-                    monitor.record_counter('panda.tasks.%s.EmptySubDataset' % task_type, 1)
-                    with monitor.record_timer_block('panda.close'):
-                        client.close(scope='Manure', name=source_ds)
-                    if ret:
-                        ret.put((False, exc))
-                    return
-                time.sleep(randint(1, 2))
-            else:
-                monitor.record_timer('panda.list_files.normalized', (time.time() - now) / len(fs))
-        monitor.record_counter('panda.tasks.%s.output_ds_size' % task_type, len(fs))  # Reports the number of files added to the output dataset
-        print '== PanDA: Task (%s) created %s output files in %s' % (task_type, len(fs), target)
-        try:
-            if sem:
-                sem.acquire()
-            success = False
-            retry = 1
-            while not success:
-                with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(fs))]):
-                    client.add_files_to_dataset(scope=target['scope'], name=target['name'], files=fs)
-                success = True
-        except Exception:
-            exc = sys.exc_info()
-            print '== PanDA: Waiting 5 seconds for task data to arrive in %s:%s (retry count: %s / task-type: %s)' % ('Manure', source_ds, retry, task_type)
-            monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
-            retry += 1
-            if retry > 5:
-                if ret:
-                    ret.put((False, exc))
-                return
-        finally:
-            if sem:
-                sem.release()
-        try:
-            if sem:
-                sem.acquire()
-            success = False
-            retry = 1
-            while not success:
-                with monitor.record_timer_block('panda.close'):
-                    client.close(scope='Manure', name=source_ds)
-                success = True
-        except Exception:
-            exc = sys.exc_info()
-            print '== PanDA: Waiting 5 seconds for task data to arrive in %s:%s (retry count: %s / task-type: %s)' % ('Manure', source_ds, retry, task_type)
-            monitor.record_counter('panda.retry.close.%s' % (retry), 1)
-            retry += 1
-            if retry > 5:
-                if ret:
-                    ret.put((False, exc))
-                return
-        finally:
-            if sem:
-                sem.release()
-        if ret:
-            ret.put((True, None))
-
     def RESET_input(self, ctx):
         print '== PanDA: Reseting input files cache'
-        self.inc('panda.tasks.reset', 1)  # Reports the resetting of the caches
+        monitor.record_counter('panda.tasks.reset', 1)
         ctx.input_files = {}
         return None
 
@@ -775,9 +854,10 @@ class UseCaseDefinition(UCEmulator):
         pass  # Will never be executed, only here for sematic reasons
 
     def QUEUE_OBSERVER_input(self, ctx):
-        self.inc('panda.tasks.queue', ctx.task_queue.qsize())
-        self.inc('panda.jobs.queue', ctx.job_queue.qsize())
-        print '== PanDA: Task-Queue: %s / Job-Queue: %s' % (ctx.task_queue.qsize(), ctx.job_queue.qsize())
+        monitor.record_gauge('panda.tasks.queue', ctx.task_queue.qsize())
+        monitor.record_gauge('panda.jobs.queue', ctx.job_queue.qsize())
+        monitor.record_gauge('panda.subs.queue', ctx.sub_queue.qsize())
+        print '== PanDA: Task-Queue: %s / Job-Queue: %s / Sub-Queue: %s' % (ctx.task_queue.qsize(), ctx.job_queue.qsize(), ctx.sub_queue.qsize())
         return None  # Indicates that no further action is required
 
     def setup(self, ctx):
@@ -789,6 +869,7 @@ class UseCaseDefinition(UCEmulator):
         """
         # As long as there is no database filler, one dataset and n files are created here
         ctx.job_queue = PriorityQueue()
+        ctx.sub_queue = PriorityQueue()
         ctx.task_queue = PriorityQueue()
         ctx.input_files = {}
 
