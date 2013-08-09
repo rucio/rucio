@@ -31,7 +31,8 @@ class UseCaseDefinition(UCEmulator):
     """
 
     @UCEmulator.UseCase
-    def CREATE_TASK(self, task_type, target_rse, rses, input, output, file_transfer_duration, bulk, threads, safety_delay):
+    def CREATE_TASK(self, task_type, rses, input, output, file_transfer_duration, bulk, threads, safety_delay):
+        target_rses = list()
         if threads:
             sem = threading.BoundedSemaphore(threads)
         if 'output_datasets_per_datatype' in output.keys():
@@ -52,8 +53,16 @@ class UseCaseDefinition(UCEmulator):
             ext = task_type.split('.')[0]
             create_dis_ds = False
             log_ds = False
+            rse = None
+            for i in range(output_datasets_per_datatype):
+                while (rse is None) or (rse in target_rses):
+                    rse = choice(rses)
+                target_rses.append(rse)
         else:  # Production task output stuff is created
             ext = 'out'
+            rse = choice(rses)
+            for i in range(output_datasets_per_datatype):
+                target_rses.append(rse)
             if input_ds_used:
                 if input['dis_ds_probability'] == 0:
                     create_dis_ds = False
@@ -89,7 +98,7 @@ class UseCaseDefinition(UCEmulator):
             if len(replicas) == 0:
                 print '== PanDA: Empty input dataset provided'
                 monitor.record_counter('panda.tasks.%s.EmptyInputDataset' % task_type, 1)
-                return {'job_finish': [], 'task_finish': []}
+                return {'jobs': [], 'task': [], 'subs': []}
             input['scope'] = temp[0]
             input['ds_name'] = temp[1]
             if log_ds:  # Production task
@@ -159,23 +168,33 @@ class UseCaseDefinition(UCEmulator):
         temp_ds = list()
         for fds in final_dss:
             temp = list()
-            with monitor.record_timer_block('panda.add_container'):
-                client.add_container(scope=output['scope'], name='cnt_%s' % (fds), lifetime=output['lifetime'],
-                                     rules=[{'account': output['account'], 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET'}])
-                #client.add_container(scope=output['scope'], name='cnt_%s' % (fds),
-                #                     rules=[{'account': output['account'], 'copies': 1, 'rse_expression': target_rse, 'grouping': 'DATASET', 'lifetime': output['lifetime']}])
-            monitor.record_counter('panda.tasks.%s.container' % task_type, 1)  # Reports the creation of a container
+            success = False
+            retry = 1
+            while not success:
+                try:
+                    with monitor.record_timer_block('panda.add_container'):
+                        client.add_container(scope=output['scope'], name='cnt_%s' % (fds))
+                        monitor.record_counter('panda.tasks.%s.container' % task_type, 1)  # Reports the creation of a container
+                        success = True
+                except (DatabaseException, ConnectionError):
+                    monitor.record_counter('panda.retry.add_container.%s' % (retry), 1)
+                    retry += 1
+                    if retry > 5:
+                        raise
+                    time.sleep(randint(1, 2))
             for i in range(output_datasets_per_datatype):
                 final_dss[fds].update({'guid': str(uuid())})
                 dsn = '%s.%s' % (fds, i)
-                temp.append({'scope': output['scope'], 'name': dsn, 'dids': [], 'meta': final_dss[fds].copy()})
+                out_ds = {'scope': output['scope'], 'name': dsn, 'dids': [], 'meta': final_dss[fds].copy(),
+                          'rules': [{'account': output['account'], 'copies': 1, 'rse_expression': target_rses[i], 'grouping': 'DATASET', 'lifetime': output['lifetime']}]}
+                temp.append(out_ds)
                 if not bulk:
                     success = False
                     retry = 1
                     while not success:
                         try:
                             with monitor.record_timer_block('panda.add_dataset'):
-                                client.add_dataset(scope=output['scope'], name=dsn, meta=final_dss[fds])
+                                client.add_dataset(**out_ds)
                             success = True
                         except (DatabaseException, ConnectionError):
                             monitor.record_counter('panda.retry.add_dataset.%s' % (retry), 1)
@@ -248,7 +267,6 @@ class UseCaseDefinition(UCEmulator):
         if ('max_jobs' in input.keys()) and (job_count >= input['max_jobs']):
             job_count = input['max_jobs']
 
-        monitor.record_counter('panda.tasks.%s.number_job' % task_type, job_count)  # Reports the number of jobs spawned from the given task
         used_rses = dict()
         if create_dis_ds:  # Creating DIS - Datasets
             count_dis = float(job_count) / input['jobs_per_dis']
@@ -261,17 +279,19 @@ class UseCaseDefinition(UCEmulator):
                 fpd = int(fpd) + 1 if (fpd % 1) != 0 else int(fpd)  # Must include every file that is (partly) used
                 start = int(i * fpd)
                 end = start + fpd
-                try:
-                    files_in_ds = [files[r] for r in range(start, end)]
-                except IndexError:
-                    print '== PanDA Warning: Missing proper number of files per DIS (%s - %s (%s)) chosen %s - %s instead' % (start, end, len(files), int(len(files) - fpd), len(files))
+                if end > len(files):
+                    print '== PanDA Warning: Missing proper number of files per DIS (%s - %s (Files: %s))' % (start, end, len(files))
+                    end = len(files)
+                    start = end - fpd if (end - fpd) > 0 else 0
+                    print '== PanDA Warning: Chosen %s - %s instead' % (start, end)
+                files_in_ds = [files[r] for r in range(start, end)]
                 if not len(files_in_ds):
                     break
                 if create_sub_ds:
-                    while (target_rse == computing_rse) or (computing_rse is None):
+                    while (target_rses[0] == computing_rse) or (computing_rse is None):
                         computing_rse = choice(rses)  # Random choice of the computing RSE
                 else:
-                    computing_rse = target_rse  # If no sub, no output is moved, therefore target rse = computing rse
+                    computing_rse = target_rses[0]  # If no sub, no output is moved, therefore target rse = computing rse
 
                 temp_job_count = int(float(len(files_in_ds)) / input['number_of_inputfiles_per_job'])
                 if temp_job_count > input['jobs_per_dis']:
@@ -298,11 +318,11 @@ class UseCaseDefinition(UCEmulator):
             if task_type.startswith('prod'):  # T1 job, single RSE
                 if input_ds_used:  # Create rules to protect replicas from deletion
                     with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(files))]):
-                        client.add_replication_rule(files, copies=1, rse_expression=target_rse,
+                        client.add_replication_rule(files, copies=1, rse_expression=target_rses[0],
                                                     grouping='NONE', account='panda', lifetime=86400)
                 temp_job_count = int(float(len(files)) / input['number_of_inputfiles_per_job'])
                 temp_job_count = int(temp_job_count) + 1 if (temp_job_count % 1) != 0 else int(temp_job_count)
-                used_rses[target_rse] = [(None, temp_job_count)]
+                used_rses[target_rses[0]] = [(None, temp_job_count)]
             else:  # User or Group, each out-ds on different RSE
                 fpd = float(len(files)) / output_datasets_per_datatype
                 if (fpd % 1) != 0:
@@ -317,8 +337,8 @@ class UseCaseDefinition(UCEmulator):
                         print '== PanDA Warning: Missing proper number of files per out-DS (%s - %s (%s))' % (start, end, len(files))
                     if not len(files_in_ds):
                         break
-                    while (target_rse == computing_rse) or (computing_rse is None):
-                        computing_rse = choice(rses)  # Random choice of the computing RSE
+
+                    computing_rse = target_rses[i]
 
                     if input_ds_used:  # Create rules to protect replicas from deletion
                         with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(files_in_ds))]):
@@ -340,12 +360,12 @@ class UseCaseDefinition(UCEmulator):
                     for ds in subs:
                         if bulk:
                             inserts_sub.append({'scope': 'Manure', 'name': ds, 'lifetime': 86400, 'dids': [],
-                                                'rules': [{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rse),
+                                                'rules': [{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]),
                                                 'grouping': 'DATASET'}]})  # Create SUB-Datasets
                         else:
                             with monitor.record_timer_block('panda.add_dataset'):
                                 client.add_dataset(scope='Manure', name=ds, lifetime=86400,
-                                                   rules=[{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rse), 'grouping': 'DATASET'}])  # Create SUB-Datasets
+                                                   rules=[{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]), 'grouping': 'DATASET'}])  # Create SUB-Datasets
                         monitor.record_counter('panda.tasks.%s.sub_datasets' % task_type, 1)  # Reports the creation of a sub dataset for the given task type
         else:
             for computing_rse in used_rses:
@@ -390,7 +410,9 @@ class UseCaseDefinition(UCEmulator):
 
             # Determine the finishing time of each job using again a gaussian distribution
             max_target_completion = 0
-            for i in xrange(job_set[2]):
+            temp = float(job_set[2]) / output_datasets_per_datatype
+            temp = int(temp) + 1 if (temp % 1 != 0) else int(temp)
+            for i in xrange(temp):
                 job_completion = dis_completion + gauss(**output['duration_job'])
                 if job_completion > max_target_completion:
                     max_target_completion = job_completion
@@ -416,10 +438,14 @@ class UseCaseDefinition(UCEmulator):
             sub_finish = {}  # Empty list of sub datasets to avoid data moving when task is finished
         task_finish = (max_completion, {'scope': output['scope'], 'targets': final_dss, 'task_type': task_type, 'log_ds': log_ds})
         monitor.record_counter('panda.tasks.%s.dispatched' % task_type, 1)  # Reports the task type which is dipsatched
+        monitor.record_counter('panda.tasks.%s.number_job' % task_type, len(job_finish))  # Reports the number of jobs spawned from the given task
         print '== PanDA: Create %s task with %s files (%s repl.) with output scope %s (dis: %s / sub: %s / log_ds: %s / out_ds: %s / jobs: %s (%s))' % (task_type, len(files), len(replicas),
                                                                                                                                                         output['scope'], len(inserts_dis),
                                                                                                                                                         len(inserts_sub), log_ds,
                                                                                                                                                         final_dss, job_count, len(job_finish))
+        print '-', job_finish
+        print '-', sub_finish
+        print '-', task_finish
         return {'jobs': job_finish, 'subs': sub_finish.values(), 'task': task_finish}
 
     def add_files_ds(self, client, ds, files_in_ds, ret=None, sem=None):
@@ -478,8 +504,7 @@ class UseCaseDefinition(UCEmulator):
                     ret = {'input': ctx.tasks[task_type]['input'],
                            'output': ctx.tasks[task_type]['output'],
                            'task_type': task_type,
-                           'rses': [ctx.rses[i] for i in sample(xrange(len(ctx.rses)), 4)],
-                           'target_rse': choice(ctx.rses),
+                           'rses': [ctx.rses[i] for i in sample(xrange(len(ctx.rses)), 20)],
                            'file_transfer_duration': ctx.file_transfer_duration,
                            'safety_delay': ctx.safety_delay,
                            }
@@ -513,6 +538,9 @@ class UseCaseDefinition(UCEmulator):
             print e
 
     def CREATE_TASK_output(self, ctx, output):
+        for key in ['jobs', 'subs', 'task']:
+            if not key in output.keys():
+                return
         for job in output['jobs']:
             ctx.job_queue.put(job)
         for sub in output['subs']:
@@ -554,10 +582,8 @@ class UseCaseDefinition(UCEmulator):
         if not client:
             client = Client(account='panda')
         count = 0
-        # TODO: Instead of this loop the attach_dids_to_dids method should be used
-        attachments = list()
+
         for tds in job['targets']:
-            # Create output files of the job
             fn = uuid()
             files = list()
             if not job['log_ds']:  # Add log file for each datatype if task doesn't have LOG dataset
@@ -566,50 +592,107 @@ class UseCaseDefinition(UCEmulator):
             else:
                 ext = 'out' if tds.split('.')[-2] != 'log' else 'log'
                 files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-            attachments.append({'scope': job['scope'], 'name': tds, 'rse': job['computing_rse'], 'dids': files})
-            count += len(files)
 
-        success = False
-        retry = 1
-        e = None
-        now = time.time()
-        while not success:
-            try:
-                if sem:
-                    sem.acquire()
-                with monitor.record_timer_block('panda.attach_dids_to_dids'):
-                    client.attach_dids_to_dids(attachments=attachments)
-                success = True
-            except DatabaseException:
-                e = sys.exc_info()
-                monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
-                retry += 1
-                if retry > 5:
+            now = time.time()
+            success = False
+            retry = 1
+            e = None
+            while not success and retry < 5:
+                try:
+                    if sem:
+                        sem.acquire()
+                    with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
+                        client.add_files_to_dataset(scope=job['scope'], name=tds, files=files, rse=job['computing_rse'])
+                    success = True
+                except DatabaseException:
+                    e = sys.exc_info()
+                    monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
+                    retry += 1
+                    print '== PanDA Warning: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (retry, job['scope'], tds)
+                    time.sleep(randint(1, 2))
+                except:
+                    e = sys.exc_info()
                     break
-                print '== PanDA Warning: Failed %s times when adding files to datasets: %s' % (retry, attachments)
-                time.sleep(randint(1, 2))
-            except:
-                e = sys.exc_info()
-                break
-            finally:
-                if sem:
-                    sem.release()
+                finally:
+                    if sem:
+                        sem.release()
 
-        if not success:
-            print '-' * 80
-            print '- Failed after %s seconds (retries: %s)' % ((time.time() - now), retry)
-            print '- %s:%s' % (job['scope'], tds)
-            print '-', files
-            print '-', job['log_ds']
-            print '-', e
-            print '-', count
-            print '-' * 80
-            if ret:
-                ret.put((False, e))
+            if not success:
+                print '-' * 80
+                print '- Failed after %s seconds (retries: %s)' % ((time.time() - now), retry)
+                print '- %s:%s' % (job['scope'], tds)
+                print '-', files
+                print '-', job['log_ds']
+                print '-' * 80
+                if ret:
+                    ret.put((False, e))
+            count += len(files)
         monitor.record_counter('panda.tasks.%s.replicas' % job['task_type'], count)  # Reports the creation of a new replica (including log files) fof the given task type
         print '== PanDA: Job (%s) added %s files to %s datasets (%s:%s)' % (job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
         if ret:
             ret.put((True, count))
+
+    # ----------------------- attach_dids_to_dids ----------------------------------------------------------------
+    #def register_replica(self, client, job, ret=None, sem=None):
+    #    if not client:
+    #        client = Client(account='panda')
+    #    count = 0
+    #    # TODO: Instead of this loop the attach_dids_to_dids method should be used
+    #    attachments = list()
+    #    for tds in job['targets']:
+    #        # Create output files of the job
+    #        fn = uuid()
+    #        files = list()
+    #        if not job['log_ds']:  # Add log file for each datatype if task doesn't have LOG dataset
+    #            for ext in ['log', 'out']:
+    #                files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+    #        else:
+    #            ext = 'out' if tds.split('.')[-2] != 'log' else 'log'
+    #            files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+    #        attachments.append({'scope': job['scope'], 'name': tds, 'rse': job['computing_rse'], 'dids': files})
+    #        count += len(files)
+
+    #    success = False
+    #    retry = 1
+    #    e = None
+    #    now = time.time()
+    #    while not success:
+    #        try:
+    #            if sem:
+    #                sem.acquire()
+    #            with monitor.record_timer_block('panda.attach_dids_to_dids'):
+    #                client.attach_dids_to_dids(attachments=attachments)
+    #            success = True
+    #        except DatabaseException:
+    #            e = sys.exc_info()
+    #            monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
+    #            retry += 1
+    #            if retry > 5:
+    #                break
+    #            print '== PanDA Warning: Failed %s times when adding files to datasets: %s' % (retry, attachments)
+    #            time.sleep(randint(1, 2))
+    #        except:
+    #            e = sys.exc_info()
+    #            break
+    #        finally:
+    #            if sem:
+    #                sem.release()
+
+    #    if not success:
+    #        print '-' * 80
+    #        print '- Failed after %s seconds (retries: %s)' % ((time.time() - now), retry)
+    #        print '- %s:%s' % (job['scope'], tds)
+    #        print '-', files
+    #        print '-', job['log_ds']
+    #        print '-', e
+    #        print '-', count
+    #        print '-' * 80
+    #        if ret:
+    #            ret.put((False, e))
+    #    monitor.record_counter('panda.tasks.%s.replicas' % job['task_type'], count)  # Reports the creation of a new replica (including log files) fof the given task type
+    #    print '== PanDA: Job (%s) added %s files to %s datasets (%s:%s)' % (job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
+    #    if ret:
+    #        ret.put((True, count))
 
     def FINISH_JOB_input(self, ctx):
         now = time.time()
@@ -696,6 +779,18 @@ class UseCaseDefinition(UCEmulator):
                     fs = [f for f in client.list_files(**source)]
                 if len(fs):
                     monitor.record_timer('panda.list_files.normalized', (time.time() - now) / len(fs))
+                    monitor.record_counter('panda.tasks.%s.sub_files' % task_type, len(fs))
+                    print '== PanDA: Adding %s files from SUB (%s) to TID (%s)' % (len(fs), source, target)
+                else:
+                    print '== PanDA Warning: No data task arrived for %s. Will Retry later.' % (source)
+                    retry += 1
+                    if retry > 5:
+                        print '== PanDA Warning: No data task arrived for %s. Gave up' % (source)
+                        monitor.record_counter('panda.tasks.%s.EmptySubDataset' % task_type, 1)
+                        with monitor.record_timer_block('panda.close'):
+                            client.close(**source)
+                        return
+                    time.sleep(randint(3, 5))
             except DatabaseException:
                 exc = sys.exc_info()
                 fs = []
@@ -799,7 +894,7 @@ class UseCaseDefinition(UCEmulator):
                         print '- Failed listing files in TID: %s:%s' % (task['scope'], target)
                         print '-', e
                         print '-' * 80
-                        break
+                        raise
                 retry = 1
                 success = False
                 while not success:
@@ -816,7 +911,7 @@ class UseCaseDefinition(UCEmulator):
                             raise
                         print '== PanDA Warning: Failed %s times to close the dataset (%s:%s). Will rertry in 5 seconds.' % (retry, task['scope'], target)
                         time.sleep(randint(1, 2))
-                print '== PanDA: Closed output dataset %s:%s from task (%s) including %s files' % (task['scope'], target, len(fs))
+                print '== PanDA: Closed output dataset %s:%s from task (%s) including %s files' % (task['scope'], target, task_type, len(fs))
             monitor.record_counter('panda.tasks.%s.finished' % task_type, 1)
 
     def FINISH_TASK_input(self, ctx):
