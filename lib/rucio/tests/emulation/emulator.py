@@ -62,7 +62,7 @@ def observe_gearman_queue(cfg, stop_event):
         except Exception:
             print traceback.format_exc()
         try:
-            stop_event.wait(1.0)
+            stop_event.wait(10.0)
         except KeyboardInterrupt:
             pass
     print '= Stopping queue observer ... OK'
