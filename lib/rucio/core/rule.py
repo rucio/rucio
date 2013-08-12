@@ -12,7 +12,7 @@
 
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -46,8 +46,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                              DATASET - All files in the same dataset will be replicated to the same RSE.
                              NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
     :param weight:           Weighting scheme to be used.
-    :param lifetime:         The lifetime of the replication rule.
-    :type lifetime:          datetime.timedelta
+    :param lifetime:         The lifetime of the replication rule in seconds.
     :param locked:           If the rule is locked.
     :param subscription_id:  The subscription_id, if the rule is created by a subscription.
     :param session:          The database session in use.
@@ -164,6 +163,9 @@ def add_rules(dids, rules, session=None):
                 grouping = RuleGrouping.NONE
             else:
                 grouping = RuleGrouping.DATASET
+            lifetime = rule.get('lifetime')
+            if lifetime is not None:
+                lifetime = datetime.utcnow() + timedelta(seconds=lifetime)
             new_rule = models.ReplicationRule(account=rule['account'],
                                               name=did.name,
                                               scope=did.scope,
@@ -171,7 +173,7 @@ def add_rules(dids, rules, session=None):
                                               rse_expression=rule['rse_expression'],
                                               locked=rule.get('locked'),
                                               grouping=grouping,
-                                              expires_at=rule.get('lifetime'),
+                                              expires_at=lifetime,
                                               weight=rule.get('weight'),
                                               subscription_id=rule.get('subscription_id'))
             try:
