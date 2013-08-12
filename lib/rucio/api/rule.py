@@ -8,8 +8,6 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
-from datetime import datetime, timedelta
-
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.core import rule
@@ -23,7 +21,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param copies:           The number of replicas.
     :param rse_expression:   Boolean string expression to give the list of RSEs.
     :param weight:           If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
-    :param lifetime:         The lifetime of the replication rules (in hours).
+    :param lifetime:         The lifetime of the replication rules (in seconds).
     :param grouping:         ALL -  All files will be replicated to the same RSE.
                              DATASET - All files in the same dataset will be replicated to the same RSE.
                              NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
@@ -36,9 +34,6 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime, 'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id}
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
-    #TODO Check for valid parameters: dids, copies etc.
-    if lifetime:
-        lifetime = datetime.utcnow() + timedelta(seconds=lifetime)
     return rule.add_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)
 
 
