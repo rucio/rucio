@@ -539,7 +539,7 @@ class UseCaseDefinition(UCEmulator):
 
     def CREATE_TASK_output(self, ctx, output):
         for key in ['jobs', 'subs', 'task']:
-            if not key in output.keys():
+            if key not in output.keys():
                 return
         for job in output['jobs']:
             ctx.job_queue.put(job)
@@ -920,6 +920,10 @@ class UseCaseDefinition(UCEmulator):
         while True:  # Job is finished by now
             try:
                 task = ctx.task_queue.get_nowait()
+                if not len(task):
+                    print '!!ERROR!! Very weird, but happend before'
+                    print task
+                    continue
             except Empty:
                 break
             if task[0] > now:
