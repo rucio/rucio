@@ -63,6 +63,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     transfers_to_create = []
     rule_ids = []
 
+    if lifetime is not None:
+        expires_at = datetime.utcnow() + timedelta(seconds=lifetime)
+    else:
+        expires_at = None
+
     for elem in dids:
         # 2. Get and lock the did
         start_time = time.time()
@@ -82,9 +87,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             grouping = RuleGrouping.NONE
         else:
             grouping = RuleGrouping.DATASET
-        if lifetime is not None:
-            lifetime = datetime.utcnow() + timedelta(seconds=lifetime)
-        new_rule = models.ReplicationRule(account=account, name=elem['name'], scope=elem['scope'], copies=copies, rse_expression=rse_expression, locked=locked, grouping=grouping, expires_at=lifetime, weight=weight, subscription_id=subscription_id)
+
+        new_rule = models.ReplicationRule(account=account, name=elem['name'], scope=elem['scope'], copies=copies, rse_expression=rse_expression, locked=locked, grouping=grouping, expires_at=expires_at, weight=weight, subscription_id=subscription_id)
         try:
             new_rule.save(session=session)
         except IntegrityError, e:
