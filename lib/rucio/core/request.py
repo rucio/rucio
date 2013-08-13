@@ -46,6 +46,7 @@ def queue_requests(requests, session=None):
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
            or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*REQUESTS_PK.*violated.*', e.args[0]) \
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
             pass  # silently accept - we already have a transfer request for this DID@RSE
         else:
@@ -69,22 +70,12 @@ def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None)
 
     record_counter('core.request.queue_request')
 
-    new_request = models.Request(request_type=req_type,
-                                 scope=scope,
-                                 name=name,
-                                 dest_rse_id=dest_rse_id,
-                                 attributes=str(metadata),
-                                 state=RequestState.QUEUED)
-
-    try:
-        new_request.save(session=session)
-    except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
-            pass  # silently accept - we already have a transfer request for this DID@RSE
-        else:
-            raise RucioException(e.args)
+    queue_requests(requests=[{'scope': scope,
+                              'name': name,
+                              'dest_rse_id': dest_rse_id,
+                              'req_type': req_type,
+                              'metadata': metadata}],
+                   session=session)
 
 
 @transactional_session
@@ -104,7 +95,7 @@ def submit_transfers(transfers, transfertool, job_metadata={}, session=None):
     """
     Submit transfer request to a transfertool.
 
-    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls'
+    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'checksum'
     :param transfertool: Transfertool as a string.
     :param job_metadata: Metadata key/value pairs for all files as a dictionary.
     :returns: Transfertool external ID.
@@ -138,16 +129,18 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
 
     record_counter('core.request.submit_transfer')
 
-    transfer_id = None
-
-    if transfertool == 'fts3':
-        transfer_id = fts3.submit(src_urls=src_urls, dest_urls=dest_urls, filesize=12345L, checksum='ad:123456', job_metadata=metadata)
-
-    session.query(models.Request).filter_by(id=request_id).update({'state': RequestState.SUBMITTED, 'external_id': transfer_id})
+    submit_transfers(transfers=[{'request_id': request_id,
+                                 'src_urls': src_urls,
+                                 'dest_urls': dest_urls,
+                                 'filesize': 12345L,
+                                 'checksum': 'ad:12345',
+                                 'metadata': metadata}],
+                     transfertool=transfertool,
+                     session=session)
 
 
 @transactional_session
-def get_next(req_type, state, limit=1, worker_number=None, total_workers=None, session=None):
+def get_next(req_type, state, limit=1, process=None, total_processes=None, thread=None, total_threads=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -156,8 +149,10 @@ def get_next(req_type, state, limit=1, worker_number=None, total_workers=None, s
     :param req_type: Type of the request as a string.
     :param state: State of the request as a string.
     :param n: Integer of requests to retrieve.
-    :param worker_number: Identifier of the caller as an integer.
-    :param total_workers: Maximum number of workers as an integer.
+    :param process: Identifier of the caller process as an integer.
+    :param total_processes: Maximum number of processes as an integer.
+    :param thread: Identifier of the caller thread as an integer.
+    :param total_threads: Maximum number of threads as an integer.
     :returns: Request as a dictionary.
     """
 
@@ -170,11 +165,13 @@ def get_next(req_type, state, limit=1, worker_number=None, total_workers=None, s
                                          .filter_by(request_type=req_type, state=state)\
                                          .order_by(asc(models.Request.created_at))
 
-    if worker_number and total_workers:
+    if process and total_processes and thread and total_threads:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_processes-1, process-1))
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_threads-1, thread-1))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_processes-1, process-1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread-1))
 
     tmp = query.limit(limit).all()
 
@@ -225,7 +222,7 @@ def query_request(request_id, transfertool, session=None):
         response = fts3.query(external_id)
 
         if response is None:
-            req_status['new_state'] = RequestState.FAILED
+            req_status['new_state'] = RequestState.LOST
         else:
 
             if response['job_state'] == str(FTSState.FAILED) or response['job_state'] == str(FTSState.FINISHEDDIRTY):

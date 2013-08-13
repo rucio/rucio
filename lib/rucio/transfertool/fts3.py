@@ -11,9 +11,13 @@
 import json
 import requests
 
+from pprint import pprint
+
 from rucio.common.config import config_get
 
 __HOST = config_get('conveyor', 'ftshost')  # keep it simple for now
+__CACERT = config_get('conveyor', 'cacert')
+__USERCERT = config_get('conveyor', 'usercert')
 
 
 def submit_transfers(transfers, job_metadata):
@@ -37,13 +41,15 @@ def submit_transfers(transfers, job_metadata):
         params_dict = {'files': [{'sources': transfer['src_urls'],
                                   'destinations': transfer['dest_urls'],
                                   'metadata': {'issuer': 'rucio-transfertool-fts3'},
-                                  'filesize': str(transfer['filesize']),
+                                  'filesize': int(transfer['filesize']),
                                   'checksum': str(transfer['checksum'])}],
                        'params': {'verify_checksum': 'true',
-                                  'overwrite': 'false',
+                                  'reuse': 'true',
+                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'no_spacetoken',
+                                  'copy_pin_lifetime': -1,
                                   'job_metadata': job_metadata,
-                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'None',
-                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'None'}}
+                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'no_spacetoken',
+                                  'overwrite': 'false'}}
 
         # only " is valid in JSON
         params_str = str(params_dict).replace("'", '"')
@@ -54,11 +60,26 @@ def submit_transfers(transfers, job_metadata):
         except:
             raise Exception('Could not build valid JSON:\n%s' % params_str)
 
-        r = requests.post('%s/jobs' % __HOST,
-                          data=params_str,
-                          headers={'Content-Type': 'application/json'})
+        r = None
 
-        if r.status_code == 200:
+        if __HOST.startswith('https://'):
+            r = requests.post('%s/jobs' % __HOST,
+                              verify=__CACERT,
+                              cert=__USERCERT,
+                              data=params_str,
+                              headers={'Content-Type': 'application/json'})
+            import ast
+            print 'XXXXX'
+            pprint(ast.literal_eval(params_str))
+            print 'YYYYY'
+            pprint(r.__dict__)
+            print 'ZZZZZ'
+        else:
+            r = requests.post('%s/jobs' % __HOST,
+                              data=params_str,
+                              headers={'Content-Type': 'application/json'})
+
+        if r is not None and r.status_code == 200:
             transfer_ids[transfer['request_id']] = str(r.json['job_id'])
         else:
             raise Exception('Could not submit transfer: %s', r.content)
@@ -94,8 +115,8 @@ def submit(src_urls, dest_urls,
                    'params': {'verify_checksum': 'true',
                               'overwrite': 'false',
                               'job_metadata': job_metadata,
-                              'spacetoken': dest_spacetoken if dest_spacetoken is not None else 'None',
-                              'source_spacetoken': src_spacetoken if src_spacetoken is not None else 'None'}}
+                              'spacetoken': dest_spacetoken if dest_spacetoken is not None else 'no_spacetoken',
+                              'source_spacetoken': src_spacetoken if src_spacetoken is not None else 'no_spacetoken'}}
 
     # only " is valid in JSON
     params_str = str(params_dict).replace("'", '"')
@@ -106,11 +127,21 @@ def submit(src_urls, dest_urls,
     except Exception, e:
         raise Exception('Could not build valid JSON: %s' % str(e))
 
-    r = requests.post('%s/jobs' % __HOST,
-                      data=params_str,
-                      headers={'Content-Type': 'application/json'})
+    r = None
 
-    if r.status_code == 200:
+    if __HOST.startswith('https://'):
+        r = requests.post('%s/jobs' % __HOST,
+                          verify=__CACERT,
+                          cert=__USERCERT,
+                          data=params_str,
+                          headers={'Content-Type': 'application/json'})
+        print r
+    else:
+        r = requests.post('%s/jobs' % __HOST,
+                          data=params_str,
+                          headers={'Content-Type': 'application/json'})
+
+    if r is not None and r.status_code == 200:
         return r.json['job_id']
     else:
         raise Exception('Could not submit transfer: %s', r.content)
@@ -124,10 +155,18 @@ def query(transfer_id):
     :returns: Transfer status information as a dictionary.
     """
 
-    r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
-                     headers={'Content-Type': 'application/json'})
+    r = None
 
-    if r.status_code == 200:
+    if __HOST.startswith('https://'):
+        r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
+                         verify=__CACERT,
+                         cert=__USERCERT,
+                         headers={'Content-Type': 'application/json'})
+    else:
+        r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
+                         headers={'Content-Type': 'application/json'})
+
+    if r is not None and r.status_code == 200:
         return r.json
     elif r.status_code == 404:
         return None
@@ -152,10 +191,18 @@ def whoami():
     :returns: Credentials as stored by the FTS3 server as a dictionary.
     """
 
-    r = requests.get('%s/whoami' % __HOST,
-                     headers={'Content-Type': 'application/json'})
+    r = None
 
-    if r.status_code == 200:
+    if __HOST.startswith('https://'):
+        r = requests.get('%s/whoami' % __HOST,
+                         verify=__CACERT,
+                         cert=__USERCERT,
+                         headers={'Content-Type': 'application/json'})
+    else:
+        r = requests.get('%s/whoami' % __HOST,
+                         headers={'Content-Type': 'application/json'})
+
+    if r is not None and r.status_code == 200:
         return r.json
     else:
         raise Exception('Could not retrieve credentials: %s', r.content)
@@ -168,10 +215,18 @@ def version():
     :returns: FTS3 server information as a dictionary.
     """
 
-    r = requests.get('%s/whoami' % __HOST,
-                     headers={'Content-Type': 'application/json'})
+    r = None
 
-    if r.status_code == 200:
+    if __HOST.startswith('https://'):
+        r = requests.get('%s/' % __HOST,
+                         verify=__CACERT,
+                         cert=__USERCERT,
+                         headers={'Content-Type': 'application/json'})
+    else:
+        r = requests.get('%s/' % __HOST,
+                         headers={'Content-Type': 'application/json'})
+
+    if r is not None and r.status_code == 200:
         return r.json
     else:
         raise Exception('Could not retrieve version: %s', r.content)

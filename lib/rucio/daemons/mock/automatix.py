@@ -12,16 +12,17 @@ Automatix is a daemon to queue file transfers for testing purposes.
 """
 
 import threading
-import time
 import traceback
 
 from rucio.common.exception import Duplicate
 from rucio.common.utils import generate_uuid
 from rucio.core import did, rse, scope, request
-from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import DIDType, RequestType
+from rucio.db.session import get_session
 
 graceful_stop = threading.Event()
+
+session = get_session()
 
 
 def request_transfer(once=False):
@@ -37,37 +38,25 @@ def request_transfer(once=False):
 
         try:
 
-            ts = time.time()
             tmp_scope = generate_uuid()[:3]  # distribute between 1000 scopes
             tmp_name = generate_uuid()
-            record_timer('daemons.mock.automatix.000-generate_uuid', time.time()-ts)
 
-            ts = time.time()
             try:
                 scope.add_scope(tmp_scope, 'root')  # ignore existing scopes
             except Duplicate:
                 pass
-            record_timer('daemons.mock.automatix.001-add_scope', time.time()-ts)
 
-            ts = time.time()
-            did.add_did(scope=tmp_scope, name='dataset-%s' % tmp_name, type=DIDType.DATASET, account='root')
-            record_timer('daemons.mock.automatix.002-add_did', time.time()-ts)
+            did.add_did(scope=tmp_scope, name='dataset-%s' % tmp_name, type=DIDType.DATASET, account='root', session=session)
 
-            ts = time.time()
-            rse.add_replica(rse='MOCK', scope=tmp_scope, name='file-%s' % tmp_name, bytes=1, account='root')
-            record_timer('daemons.mock.automatix.003-add_replica', time.time()-ts)
+            rse.add_replica(rse='MOCK', scope=tmp_scope, name='file-%s' % tmp_name, bytes=1, account='root', session=session)
 
-            ts = time.time()
-            did.attach_dids(scope=tmp_scope, name='dataset-%s' % tmp_name, dids=[{'scope': tmp_scope, 'name': 'file-%s' % tmp_name, 'bytes': 1}], account='root')
-            record_timer('daemons.mock.automatix.004-attach_did', time.time()-ts)
+            did.attach_dids(scope=tmp_scope, name='dataset-%s' % tmp_name, dids=[{'scope': tmp_scope, 'name': 'file-%s' % tmp_name, 'bytes': 1}], account='root', session=session)
 
-            ts = time.time()
-            request.queue_request(tmp_scope, 'file-%s' % tmp_name, rse.get_rse('MOCK3')['id'], RequestType.TRANSFER, {'random': 'metadata'})
-            record_timer('daemons.mock.automatix.005-queue_request', time.time()-ts)
+            request.queue_request(tmp_scope, 'file-%s' % tmp_name, rse.get_rse('MOCK3')['id'], RequestType.TRANSFER, {'random': 'metadata'}, session=session)
 
-            record_counter('daemons.mock.automatix.request_transfer')
-
+            session.commit()
         except:
+            session.rollback()
             print traceback.format_exc()
 
         if once:
