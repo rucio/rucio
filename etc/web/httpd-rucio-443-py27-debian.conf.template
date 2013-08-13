@@ -32,6 +32,14 @@
 WSGIPythonHome /opt/rucio/.venv/
 WSGIPythonPath /opt/rucio/.venv/lib/python2.7/site-packages
 
+Listen 80
+<VirtualHost localhost:80>
+ ServerName localhost:80
+ ServerAdmin ph-adp-ddm-lab@cern.ch
+ LogLevel warn
+ Include /opt/rucio/etc/web/aliases-py27.conf
+</VirtualHost>
+
 Listen 443
 <VirtualHost localhost:443>
  ServerName localhost:443
