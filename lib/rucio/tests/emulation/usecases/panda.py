@@ -327,7 +327,6 @@ class UseCaseDefinition(UCEmulator):
                 fpd = float(len(files)) / output_datasets_per_datatype
                 if (fpd % 1) != 0:
                     fpd = int(fpd) + 1
-                print 'FPD:', fpd
                 for i in range(int(output_datasets_per_datatype)):
                     files_in_ds = []
                     start = int(i * fpd) if ((i * fpd) < len(files)) else int(len(files) - fpd)
@@ -439,11 +438,11 @@ class UseCaseDefinition(UCEmulator):
             sub_finish = {}  # Empty list of sub datasets to avoid data moving when task is finished
         task_finish = (max_completion, {'scope': output['scope'], 'targets': final_dss, 'task_type': task_type, 'log_ds': log_ds})
         monitor.record_counter('panda.tasks.%s.dispatched' % task_type, 1)  # Reports the task type which is dipsatched
-        monitor.record_counter('panda.tasks.%s.number_job' % task_type, len(job_finish))  # Reports the number of jobs spawned from the given task
-        print '== PanDA: Create %s task with %s files (%s repl.) with output scope %s (dis: %s / sub: %s / log_ds: %s / out_ds: %s / jobs: %s (%s))' % (task_type, len(files), len(replicas),
-                                                                                                                                                        output['scope'], len(inserts_dis),
-                                                                                                                                                        len(inserts_sub), log_ds,
-                                                                                                                                                        final_dss, job_count, len(job_finish))
+        monitor.record_counter('panda.tasks.%s.number_job' % task_type, len(job_finish) * output_datasets_per_datatype)  # Reports the number of jobs spawned from the given task
+        print '== PanDA: Create %s task with %s files (%s repl.) with output scope %s (dis: %s / sub: %s (%s)/ log_ds: %s / out_ds: %s / jobs: %s (%s))' % (task_type, len(files), len(replicas),
+                                                                                                                                                            output['scope'], len(inserts_dis),
+                                                                                                                                                            len(inserts_sub), len(sub_finish), log_ds,
+                                                                                                                                                            final_dss, job_count, len(job_finish) * output_datasets_per_datatype)
         print '-', job_finish
         print '-', sub_finish
         print '-', task_finish
