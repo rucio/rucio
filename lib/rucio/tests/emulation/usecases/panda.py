@@ -545,8 +545,8 @@ class UseCaseDefinition(UCEmulator):
             ctx.job_queue.put(job)
         for sub in output['subs']:
             ctx.sub_queue.put(sub)
-        for task in output['task']:
-            ctx.task_queue.put(task)
+        if len(output['task']):
+            ctx.task_queue.put(output['task'])
 
     @UCEmulator.UseCase
     def FINISH_JOB(self, jobs, threads):
