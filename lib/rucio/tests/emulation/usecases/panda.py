@@ -921,10 +921,6 @@ class UseCaseDefinition(UCEmulator):
         while True:  # Job is finished by now
             try:
                 task = ctx.task_queue.get_nowait()
-                if not len(task):
-                    print '!!ERROR!! Very weird, but happend before'
-                    print task
-                    continue
             except Empty:
                 break
             if task[0] > now:
