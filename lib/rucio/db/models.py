@@ -24,6 +24,7 @@ from sqlalchemy.orm import object_mapper, relationship, backref
 from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint, Table
 from sqlalchemy.types import LargeBinary
 
+
 from rucio.common import utils
 from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                 KeyType, IdentityType, LockState, RuleGrouping,
@@ -282,6 +283,20 @@ class DataIdentifier(BASE, ModelBase):
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'),
                    Index('DIDS_RULE_EVAL_REQUIRED', 'rule_evaluation_required'),
+                   )
+
+
+class UpdatedDID(BASE, ModelBase):
+    """Represents the recently updated dids"""
+    __tablename__ = 'updated_dids'
+    id = Column(GUID(), default=utils.generate_uuid)
+    scope = Column(String(25))
+    name = Column(String(255))
+    rule_evaluation_action = Column(DIDReEvaluation.db_type(name='UPDATED_DIDS_RULE_EVAL_ACT_CHK'))
+    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_DIDS_PK'),
+                   CheckConstraint('"SCOPE" IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
+                   CheckConstraint('"NAME" IS NOT NULL', name='UPDATED_DIDS_NAME_NN'),
+                   Index('UPDATED_DIDS_CREATED_AT_IDX', 'created_at'),
                    )
 
 
@@ -623,7 +638,8 @@ def register_models(engine):
               Request,
               Scope,
               Subscription,
-              Token)
+              Token,
+              UpdatedDID)
 
     for model in models:
         model.metadata.create_all(engine)
@@ -656,7 +672,9 @@ def unregister_models(engine):
               Request,
               Scope,
               Subscription,
-              Token)
+              Token,
+              UpdatedDID
+              )
 
     for model in models:
         model.metadata.drop_all(engine)
