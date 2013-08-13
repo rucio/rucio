@@ -276,8 +276,8 @@ class UseCaseDefinition(UCEmulator):
                 id = uuid()
                 dis_ds = '%s_DIS_%s' % (input['ds_name'], id)
                 fpd = float(input['jobs_per_dis']) * input['number_of_inputfiles_per_job']
+                start = int(i * fpd)  # If not int, remove digits to get the lower number
                 fpd = int(fpd) + 1 if (fpd % 1) != 0 else int(fpd)  # Must include every file that is (partly) used
-                start = int(i * fpd)
                 end = start + fpd
                 if end > len(files):
                     print '== PanDA Warning: Missing proper number of files per DIS (%s - %s (Files: %s))' % (start, end, len(files))
@@ -327,9 +327,10 @@ class UseCaseDefinition(UCEmulator):
                 fpd = float(len(files)) / output_datasets_per_datatype
                 if (fpd % 1) != 0:
                     fpd = int(fpd) + 1
+                print 'FPD:', fpd
                 for i in range(int(output_datasets_per_datatype)):
                     files_in_ds = []
-                    start = int(i * fpd) if ((i * fpd) >= len(files)) else int(len(files) - fpd)
+                    start = int(i * fpd) if ((i * fpd) < len(files)) else int(len(files) - fpd)
                     end = int(start + fpd) if (start + fpd) < len(files) else len(files)
                     try:
                         files_in_ds = [files[f] for f in range(start, end)]
