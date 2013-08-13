@@ -9,11 +9,14 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2013
 
+import sys
+
 from ConfigParser import NoOptionError
 from functools import wraps
 from inspect import isgeneratorfunction
 from threading import Lock
 from time import sleep
+from os.path import basename
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -63,6 +66,17 @@ def mysql_ping_listener(dbapi_conn, connection_rec, connection_proxy):
             raise
 
 
+def my_on_connect(dbapi_con, connection_record):
+    """ Adds information to track performance and ressource by module.
+        Info are recorded in the V$SESSION and V$SQLAREA views.
+    """
+    caller = basename(sys.argv[0])
+    dbapi_con.clientinfo = caller
+    dbapi_con.client_identifier = caller
+    dbapi_con.module = caller
+    dbapi_con.action = caller
+
+
 def get_engine(echo=True):
     """ Creates a engine to a specific database.
         :returns: engine
@@ -80,10 +94,13 @@ def get_engine(echo=True):
             except NoOptionError:
                 pass
         _ENGINE = create_engine(sql_connection, **params)
+
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
-        if 'sqlite' in sql_connection:
+        elif 'sqlite' in sql_connection:
             event.listen(_ENGINE, 'connect', _fk_pragma_on_connect)
+        elif 'oracle' in sql_connection:
+            event.listen(_ENGINE, 'connect', my_on_connect)
         # Override engine.connect method with db error wrapper
         # To have auto_reconnect (will come in next sqlalchemy releases)
         _ENGINE.connect = wrap_db_error(_ENGINE.connect)

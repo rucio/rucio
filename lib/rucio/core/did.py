@@ -310,10 +310,11 @@ def attach_dids_to_dids(attachments, account, session=None):
     :param account: The account.
     :param session: The database session in use.
     """
+    parent_did_condition = list()
     parent_dids = list()
     for attachment in attachments:
         try:
-            parent_did = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=attachment['scope'], name=attachment['name']).\
+            parent_did = session.query(models.DataIdentifier).filter_by(scope=attachment['scope'], name=attachment['name']).\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 one()
 
@@ -327,17 +328,22 @@ def attach_dids_to_dids(attachments, account, session=None):
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container(scope=attachment['scope'], name=attachment['name'], collections=attachment['dids'], account=account, session=session)
 
-            parent_dids.append(parent_did)
+            parent_did_condition.append(and_(models.DataIdentifier.scope == parent_did.scope,
+                                             models.DataIdentifier.name == parent_did.name))
+            parent_dids.append((parent_did.scope, parent_did.name))
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % attachment())
 
-    for did in parent_dids:
-        # Mark for rule re-evaluation
-        if not did.rule_evaluation_action:
-            did.rule_evaluation_action = DIDReEvaluation.ATTACH
-        elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
-            did.rule_evaluation_action = DIDReEvaluation.BOTH
-        did.rule_evaluation_required = datetime.utcnow()
+    for scope, name in parent_dids:
+        models.UpdatedDID(scope=scope, name=name, rule_evaluation_action=DIDReEvaluation.ATTACH).save(session=session, flush=False)
+
+    #is_none = None
+    #rowcount = session.query(models.DataIdentifier).filter(or_(*parent_did_condition)).\
+    #    update({'rule_evaluation_required': datetime.utcnow(),
+    #            'rule_evaluation_action': case([(models.DataIdentifier.rule_evaluation_action == DIDReEvaluation.DETACH, DIDReEvaluation.BOTH.value),
+    #                                            (models.DataIdentifier.rule_evaluation_action == is_none, DIDReEvaluation.ATTACH.value),
+    #                                            ], else_=models.DataIdentifier.rule_evaluation_action)},
+    #           synchronize_session=False)    # increase(rse_id=replica_rse.id, delta=nbfiles, bytes=bytes, session=session)
 
 
 @transactional_session
