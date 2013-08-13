@@ -56,8 +56,11 @@ class UseCaseDefinition(UCEmulator):
     def LIST_DIDS_METADATA_input(self, ctx):
         scope = random_pick(ctx.scopes, ctx.scope_probs)
 
-        metadata = ctx.metadata[scope][ctx.metadata_counter[scope]]
-        ctx.metadata_counter[scope] = (ctx.metadata_counter[scope] + 1) % ctx.metadata_len[scope]
+        try:
+            metadata = ctx.metadata[scope].next()
+        except (StopIteration, ValueError):
+            self.read_data(scope, ctx)
+            metadata = ctx.metadata[scope].next()
 
         scope = metadata['project']
         metadata.pop('name', None)
@@ -89,8 +92,11 @@ class UseCaseDefinition(UCEmulator):
     def LIST_DIDS_WILDCARD_input(self, ctx):
         scope = random_pick(ctx.scopes, ctx.scope_probs)
 
-        metadata = ctx.metadata[scope][ctx.metadata_counter[scope]]
-        ctx.metadata_counter[scope] = (ctx.metadata_counter[scope] + 1) % ctx.metadata_len[scope]
+        try:
+            metadata = ctx.metadata[scope].next()
+        except (StopIteration, ValueError):
+            self.read_data(scope, ctx)
+            metadata = ctx.metadata[scope].next()
 
         scope = metadata['project']
         wildcard = {}
@@ -101,22 +107,14 @@ class UseCaseDefinition(UCEmulator):
         return {'scope': scope,
                 'wildcard': wildcard}
 
+    def read_data(self, scope, ctx):
+        input_file = open(ctx.input_files[scope], 'r')
+        ctx.metadata[scope] = (loads(line.strip()) for line in input_file)
+
     def setup(self, ctx):
         ctx.metadata = {}
-        ctx.metadata_len = {}
-        ctx.metadata_counter = {}
         print ctx
         for scope in ctx.scopes:
-            ctx.metadata[scope] = []
-            ctx.metadata_counter[scope] = 0
-            input_file = open(ctx.input_files[scope], 'r')
-            cnt = 0
-            for line in input_file:
-                metadata = loads(line.strip())
-                ctx.metadata[scope].append(metadata)
-                cnt += 1
-            ctx.metadata_len[scope] = cnt
+            self.read_data(scope, ctx)
 
         print 'Jdoe emulation starting'
-        for scope in ctx.scopes:
-            print '%s: %d patterns' % (scope, ctx.metadata_len[scope])
