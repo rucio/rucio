@@ -125,6 +125,7 @@ class RequestState(DeclEnum):
     SUBMITTED = 'S', 'SUBMITTED'
     FAILED = 'F', 'FAILED'
     DONE = 'D', 'DONE'
+    LOST = 'L', 'LOST'
 
 
 class FTSState(DeclEnum):

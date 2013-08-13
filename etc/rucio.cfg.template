@@ -53,8 +53,10 @@ user_scope = rucio
 
 [conveyor]
 transfertool = fts3
-#ftshost = https://fts3-pilot.cern.ch:8446
-ftshost = http://voatlas304.cern.ch/mockfts3
+ftshost = https://fts3-pilot.cern.ch:8446
+#ftshost = http://voatlas304.cern.ch/mockfts3
+cacert = /opt/rucio/etc/web/ca.crt
+usercert = /home/mario/.globus/cert_and_key.pem
 
 [messaging-fts3]
 port = 6162
