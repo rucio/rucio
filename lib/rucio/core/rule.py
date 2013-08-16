@@ -835,11 +835,12 @@ def __get_and_lock_file_replicas(scope, name, lockmode, restrict_rses=None, sess
 
     query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name)
     if restrict_rses is not None:
-        rse_clause = []
-        for rse_id in restrict_rses:
-            rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
-        if rse_clause:
-            query = query.filter(or_(*rse_clause))
+        if len(restrict_rses) < 10:
+            rse_clause = []
+            for rse_id in restrict_rses:
+                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+            if rse_clause:
+                query = query.filter(or_(*rse_clause))
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
     return query.all()
@@ -870,19 +871,20 @@ def __get_and_lock_file_replicas_for_dataset(scope, name, lockmode, restrict_rse
                                   models.DataIdentifierAssociation.name == name)
 
     if restrict_rses is not None:
-        rse_clause = []
-        for rse_id in restrict_rses:
-            rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
-        if rse_clause:
-            query = session.query(models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifierAssociation.bytes,
-                                  models.RSEFileAssociation).outerjoin(models.RSEFileAssociation, and_(
-                                      models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                      models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                      or_(*rse_clause))).filter(
-                                          models.DataIdentifierAssociation.scope == scope,
-                                          models.DataIdentifierAssociation.name == name)
+        if len(restrict_rses) < 10:
+            rse_clause = []
+            for rse_id in restrict_rses:
+                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+            if rse_clause:
+                query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name,
+                                      models.DataIdentifierAssociation.bytes,
+                                      models.RSEFileAssociation).outerjoin(models.RSEFileAssociation, and_(
+                                          models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                          models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                          or_(*rse_clause))).filter(
+                                              models.DataIdentifierAssociation.scope == scope,
+                                              models.DataIdentifierAssociation.name == name)
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
 
