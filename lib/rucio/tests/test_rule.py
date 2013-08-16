@@ -25,7 +25,8 @@ from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, add_replica, get_rse
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules
-from rucio.daemons.judge import re_evaluator, rule_cleaner
+from rucio.daemons.judge_eval import re_evaluator
+from rucio.daemons.judge_clean import rule_cleaner
 from rucio.db.constants import DIDType
 
 
@@ -364,8 +365,8 @@ class TestReplicationRuleCore():
             #TODO Need to check transfer queue here, this is actually not the check of this test case
         assert_raises(RuleNotFound, delete_rule, uuid())
 
-    #TODO: This needs to be fixed with the new way of marking ds for reeval
-    def NOTtest_judge_add_files_to_dataset(self):
+    #TODO Has to be fixed with new way of marking dids for eval
+    def NOtest_judge_add_files_to_dataset(self):
         """ REPLICATION RULE (CORE): Test the judge when adding files to dataset"""
         scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)

@@ -502,7 +502,7 @@ def delete_rule(rule_id, lockmode='update', session=None):
         replica = session.query(models.RSEFileAssociation).filter(
             models.RSEFileAssociation.scope == lock.scope,
             models.RSEFileAssociation.name == lock.name,
-            models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode(lockmode).one()
+            models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode(lockmode).first()
         replica.lock_cnt -= 1
         if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
             transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
@@ -540,22 +540,18 @@ def get_rule(rule_id, session=None):
 
 
 @transactional_session
-def re_evaluate_did(scope, name, worker_number=None, total_workers=None, timedeltaseconds=5, session=None):
+def re_evaluate_did(scope, name, session=None):
     """
     Fetches the next did to re-evaluate and re-evaluates it.
 
     :param worker_number:     The worker id of the worker executing this method.
     :param total_workers:     Number of total workers.
-    :param timedeltaseconds:  Delay to consider dids for re-evaluation.
     :param session:           The database session in use.
     """
 
-    start_time = time.time()
     # Get and row-lock the did in re-evaluation itself
     did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
                                                       models.DataIdentifier.name == name).with_lockmode('update_nowait').one()
-
-    action = did.rule_evaluation_action
 
     if did.rule_evaluation_action == DIDReEvaluation.ATTACH:
         __evaluate_attach(did, session=session)
@@ -564,8 +560,6 @@ def re_evaluate_did(scope, name, worker_number=None, total_workers=None, timedel
     else:
         __evaluate_detach(did, session=session)
         __evaluate_attach(did, session=session)
-
-    print 're_evaluator[%s/%s]: evaluation of %s:%s for %s took %f' % (worker_number, total_workers, did.scope, did.name, action, time.time() - start_time)
 
 
 @transactional_session

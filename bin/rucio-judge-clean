@@ -9,13 +9,13 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 """
-Judge is a daemon to re-evaluate and execute replication rules.
+Judge-Clean is a daemon to clean expired replication rules.
 """
 
 import argparse
 import signal
 
-from rucio.daemons.judge import run, stop
+from rucio.daemons.judge-clean import run, stop
 
 if __name__ == "__main__":
 
@@ -23,11 +23,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--cleaner-workers", action="store", default=1, type=int, help='Total number of cleaner workers')
-    parser.add_argument("--re-evaluate-workers", action="store", default=1, type=int, help='Total number of re-evaluator workers')
+    parser.add_argument("--process", action="store", default=1, type=int, help='Concurrency control: current processes number')
+    parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
+    parser.add_argument("--threads-per-process", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, re_evaluate_workers=args.re_evaluate_workers, cleaner_workers=args.cleaner_workers)
+        run(once=args.run_once, process=args.process, total_processes=args.total_processes, threads_per_process=args.threads_per_process)
     except KeyboardInterrupt:
         stop()
