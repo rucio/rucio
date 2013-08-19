@@ -253,6 +253,22 @@ def set_request_state(request_id, new_state, session=None):
         raise RucioException(e.args)
 
 
+@transactional_session
+def purge_request(request_id, session=None):
+    """
+    Purge a request.
+
+    :param request_id: Request Identifier as a 32 character hex string.
+    """
+
+    record_counter('core.request.purge_request')
+
+    try:
+        session.query(models.Request).filter_by(id=request_id).delete()
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
 def cancel_request(request_id, transfertool):
     """
     Cancel a request.
