@@ -16,10 +16,11 @@ import threading
 import time
 import traceback
 
+from rucio.common.exception import DataIdentifierNotFound
 from rucio.core import did, request, rse, lock
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.session import get_session
 from rucio.db.constants import RequestType, RequestState, ReplicaState
+from rucio.db.session import get_session
 from rucio.rse import rsemanager
 
 graceful_stop = threading.Event()
@@ -49,13 +50,21 @@ def submitter(once=False, process=1, total_processes=1, thread=1, total_threads=
             if reqs is None or reqs == []:
                 if once:
                     break
+                session.commit()
                 time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
             for req in reqs:
-                print 'submitter', req
                 ts = time.time()
-                tmpsrc = sum([[str(source['rses'][pfn]) for pfn in source['rses'].keys()] for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], session=session)], [])
+                tmpsrc = []
+                try:
+                    for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], session=session):
+                        for pfn in source['rses'].keys():
+                            tmpsrc.append(str(source['rses'][pfn]))
+                except DataIdentifierNotFound:
+                    request.purge_request(req['request_id'], session=session)  # remove request if DID does not exist anymore
+                    session.commit()
+                    continue
 
                 #  dummy replacement: list_replicas does not yet set the PFN
                 sources = []
@@ -139,6 +148,7 @@ def poller(once=False, process=1, total_processes=1, thread=1, total_threads=1):
             if reqs is None or reqs == []:
                 if once:
                     break
+                session.commit()
                 time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
