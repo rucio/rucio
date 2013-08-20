@@ -15,7 +15,7 @@ Judge-Clean is a daemon to clean expired replication rules.
 import argparse
 import signal
 
-from rucio.daemons.judge-clean import run, stop
+from rucio.daemons.judge_clean import run, stop
 
 if __name__ == "__main__":
 
