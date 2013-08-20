@@ -71,6 +71,7 @@ def observe_gearman_queue(cfg, stop_event):
 if __name__ == '__main__':
     update = 500
     num_processes = 4
+    duration = 3600
     stop_event = multiprocessing.Event()
     with open('/opt/rucio/etc/emulation.cfg') as f:
         cfg = json.load(f)
@@ -109,6 +110,8 @@ if __name__ == '__main__':
             update = cfg['global'][setting]
         if setting == 'processes':
             num_processes = cfg['global'][setting]
+        if setting == 'duration':
+            duration = cfg['global'][setting]
 
     # Initialize carbon logger
     cs = None
@@ -162,8 +165,10 @@ if __name__ == '__main__':
 
     # Starting all processes
     procs = []
+    spawned_processes = []
     for proc in proc_mod:
         if len(proc_mod[proc]):
+            #ucp = UCProcess(cfg, proc_mod[proc], multiprocessing.Event())
             ucp = UCProcess(cfg, proc_mod[proc], stop_event)
             procs.append(ucp)
     print '=' * 30 + ' STARTING EXECUTION ' + '=' * 30
@@ -171,16 +176,42 @@ if __name__ == '__main__':
             p = multiprocessing.Process(target=ucp.run)
             p.deamon = True
             p.start()
+            spawned_processes.append(p)
 
     try:
         pid = os.getpid()
-        while True:
-            time.sleep(10)
-    except KeyboardInterrupt:
-        print 'Stopping emulation ...'
-        stop_event.set()
-        exit(0)
+        started_at = time.time()
 
+        # +++++++++++++++++++++++++++++++ MAIN LOOP ++++++++++++++++++++++++++
+        while (time.time() < started_at + duration):
+            try:
+                with open('emulator.stop'):
+                    pass
+                print '= Found stop file (emulator.stop) and shutting down. To restart delete this file.'
+                break
+            except IOError:
+                pass
+            time.sleep(update)
+            print '= Executing %s child processes / %s seconds remaining' % (len(spawned_processes), int((started_at + duration) - time.time()))
+            for p in spawned_processes:
+                if not p.is_alive():
+                    print 'Process died: %s' % p
+                    spawned_processes.remove(p)
+
+        print '= Shutting down emulation'
+        stop_event.set()
+        print 'Proper shutdown done.'
+    except KeyboardInterrupt:
+        print 'Stopping %s processes of emulation ...' % len(spawned_processes)
+        stop_event.set()
+        for p in spawned_processes:
+            print 'Persi ctx'
+            #p.persist_context()
+            p.join(5)
+            if p.is_alive():
+                p.terminate()
+                print 'Killed process as it looked inresponsive'
+        exit(0)
     except:
         print '%f\t Exception' % (time.time())
         traceback.print_exc(file=sys.stdout)

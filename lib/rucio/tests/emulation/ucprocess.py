@@ -12,7 +12,6 @@ import fcntl
 import json
 import os
 import resource
-import time
 import threading
 import traceback
 
@@ -95,7 +94,7 @@ class UCProcess(object):
                     self.cs.gauge('emulator.counts.files.%s' % self.mod_list[0], of)
                 print '= (PID: %s) File count: %s' % (self.pid, self.get_open_fds())
                 print '= (PID: %s) Thread count: %s' % (self.pid, threading.active_count())
-                time.sleep(self.update)
+                self.stop_event.wait(self.update)
                 try:
                     with open('/opt/rucio/etc/emulation.cfg') as f:
                         cfg = json.load(f)
@@ -141,6 +140,7 @@ class UCProcess(object):
                                 self.report_context(cfg[mod]['context'], 'emulator.cfg.%s.context' % mod)
                             else:
                                 self.cs.gauge('emulator.cfg.%s.frequency.%s' % (mod, frequ), cfg[mod][frequ])
+            self.stop()
         except Exception, e:
             print e
             print traceback.format_exc()
@@ -151,7 +151,7 @@ class UCProcess(object):
         print '= (PID: %s) Stopping threads ....' % self.pid
         for mod in self.uc_threads.items():
             print '= (PID: %s) Stopping module %s' % (self.pid, mod[0])
-            mod[1].stop()
+            mod[1].join()
         print '= (PID: %s) Stopped successfully' % self.pid
         exit(0)
 
