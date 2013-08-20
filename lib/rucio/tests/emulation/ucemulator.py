@@ -54,8 +54,8 @@ class UCEmulator(object):
             print 'Module %s has not configuration' % self.__module__.split('.')[-1]
             return
         self.__intervals = {}
-        self.__running = False
-        self.__call_methods = dict()
+        self.__call_methods = {}
+        self.__open_requests = {}
 
         # Create Context for UseCases and initilaize it with values provided in the cfg - file
         self.__ctx = Context()
@@ -122,7 +122,7 @@ class UCEmulator(object):
         for uc in self.__intervals:
             pending_calls[uc] = self.__intervals[uc] + time.time()  # Set time for first calls. Doing this in bulk could eventually save a lot of time
         nc = min(pending_calls, key=pending_calls.get)
-        while self.__running:
+        while not self.__event.is_set():
             yield nc
             # Find next pending call
             pending_calls[nc] += self.__intervals[nc]
@@ -130,6 +130,7 @@ class UCEmulator(object):
             sleep = pending_calls[nc] - time.time()  # Calculate sleep till next call
             if sleep > 0.0003:
                 self.__event.wait(sleep)
+        self.stop()
 
     def run(self, cfg_global=None, event=None):
         """
@@ -141,7 +142,6 @@ class UCEmulator(object):
         if event is None:
             return
 
-        self.__running = True
         self.__event = event
         # Making this assignement outside of the loop saves computing time by avoiding the if inside the loop
         if cfg_global['operation_mode'] == 'threaded':
@@ -155,7 +155,7 @@ class UCEmulator(object):
         else:
             raise Exception("Unknown operation mode set")
         for call in self:
-            if call and self.__running:
+            if call and not self.__event.is_set():
                 do_it(call)
         return
 
@@ -173,16 +173,18 @@ class UCEmulator(object):
         if self.__call_methods[call]['output'] is not None:
             # Gearman call must wait for the return of the job
             # Submitt job in separate thread and wait for response
-            t = threading.Thread(target=self.await_gearman_results, kwargs={'data': uc_data})
+            id = uuid()
+            t = threading.Thread(target=self.await_gearman_results, kwargs={'data': uc_data, 'uuid': id})
             try:
                 t.start()
+                self.__open_requests[id] = t
             except Exception, e:
                 print '!! ERROR !! run_gearman: %s' % e
         else:
             # Gearman job can just be executed, no waiting necessary
             self.__gearman_client.submit_job(task='execute_uc', data=str(uc_data), unique=str(uuid()), background=True)
 
-    def await_gearman_results(self, data):
+    def await_gearman_results(self, data, uuid):
         """
             Submits a job to the gearman queue and waits for the response.
 
@@ -192,7 +194,8 @@ class UCEmulator(object):
             client = GearmanClient(self.__gearman_server)
             request = None
             try:
-                request = client.submit_job(task='execute_uc', data=str(data), unique=str(uuid()), background=False, wait_until_complete=True)
+                request = client.submit_job(task='execute_uc', data=str(data), unique=uuid, background=False, wait_until_complete=True)
+                del self.__open_requests[uuid]
                 if request.state == 'FAILED' and not request.timed_out:  # Can only happen when import on the worker fails
                     print '!! ERROR !! Worker failed while executing %s.%s (Note: do Rucio imports work for the workers?)' % (data['class_name'], data['uc_name'])
                     return
@@ -206,6 +209,7 @@ class UCEmulator(object):
             except Exception, e:
                 print e
                 print traceback.format_exc()
+                del self.__open_requests[uuid]
                 return
             self.__call_methods[data['uc_name']]['output'](self.__ctx, result)
         except Exception, e:
@@ -245,7 +249,30 @@ class UCEmulator(object):
         """
             Stops the emulation.
         """
-        self.__running = False
+        retry = 0
+        pending = self.__open_requests.values()
+        print 'Open requests: %s' % len(self.__open_requests)
+        while len(pending):
+            print 'Waiting for %s pending gearman responses' % len(pending)
+            for t in pending:
+                try:
+                    t.join(30)
+                    if not t.is_alive():
+                        pending.remove(t)
+                except Exception, e:
+                    print '!! ERROR !!: %s' % e
+                    print traceback.format_exc()
+                    try:
+                        pending.remove(t)
+                    except:
+                        pass
+            if retry > 5:
+                print '!! ERROR !! Missed %s gearman results due to timeouts during shutdown' % len(pending)
+                break
+            retry += 1
+        if 'shutdown' in dir(self):  # Calls setup-method of child class to support the implementation of correlated use cases
+            self.shutdown(self.__ctx)
+        print '%s stopped' % '.'.join([self.__module__, self.__class__.__name__])
 
     def __OUT__time_it(self, fn, kwargs={}):
         res = None

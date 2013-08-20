@@ -8,6 +8,7 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
+import ast
 import datetime
 import os
 import threading
@@ -967,6 +968,18 @@ class UseCaseDefinition(UCEmulator):
         ctx.job_queue = PriorityQueue()
         ctx.sub_queue = PriorityQueue()
         ctx.task_queue = PriorityQueue()
+        try:
+            with open('panda.ctx', 'r') as f:
+                delta = time.time() - float(f.next())
+                print '== PanDA: Paused for %s seconds' % delta
+                for q in ['job', 'sub', 'task']:
+                    pq = getattr(ctx, '%s_queue' % q)
+                    items = ast.literal_eval(f.next())
+                    for item in items:
+                        pq.put((float(item[0]) + delta, item[1]))
+                    print '== PanDA: Added %s %ss to queue from former execution' % (len(items), q)
+        except IOError:
+            print '== PanDA: No information about former execution found'
         ctx.input_files = {}
 
         client = Client(account='panda')
@@ -1047,3 +1060,21 @@ class UseCaseDefinition(UCEmulator):
                 if retry > 5:
                     return 0
         return ds
+
+    def shutdown(self, ctx):
+        jobs = []
+        subs = []
+        tasks = []
+        for l, q in [(jobs, ctx.job_queue), (subs, ctx.sub_queue), (tasks, ctx.task_queue)]:
+            while True:
+                try:
+                    item = q.get_nowait()
+                    l.append(item)
+                except Empty:
+                    break
+        with open('panda.ctx', 'w') as f:
+            f.write('%s\n' % time.time())
+            for l in [jobs, subs, tasks]:
+                print 'Persisted %s items' % len(l)
+                f.write('%s\n' % l)
+        print 'Persisted context'
