@@ -498,17 +498,21 @@ def delete_rule(rule_id, lockmode='update', session=None):
 
     # Remove locks, set tombstone if applicable
     transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
+
     for lock in locks:
-        replica = session.query(models.RSEFileAssociation).filter(
-            models.RSEFileAssociation.scope == lock.scope,
-            models.RSEFileAssociation.name == lock.name,
-            models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode(lockmode).first()
-        replica.lock_cnt -= 1
-        if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
-            transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
+        try:
+            replica = session.query(models.RSEFileAssociation).filter(
+                models.RSEFileAssociation.scope == lock.scope,
+                models.RSEFileAssociation.name == lock.name,
+                models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode(lockmode).one()
+            replica.lock_cnt -= 1
+            if replica.lock_cnt == 0:
+                replica.tombstone = datetime.utcnow()
+            if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
+                transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
+        except NoResultFound:
+            pass
         lock.delete(session=session)
-        if replica.lock_cnt == 0:
-            replica.tombstone = datetime.utcnow()
 
     session.flush()
     rule.delete(session=session)
