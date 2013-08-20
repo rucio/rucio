@@ -15,7 +15,7 @@ Judge-Eval is a daemon to re-evaluate replication rules.
 import argparse
 import signal
 
-from rucio.daemons.judge-eval import run, stop
+from rucio.daemons.judge_eval import run, stop
 
 if __name__ == "__main__":
 
