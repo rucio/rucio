@@ -480,7 +480,7 @@ class TestReplicationRuleClient():
 
         rule_id_2 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse2, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
-        ret = self.did_client.list_rules(scope=scope, name=dataset)
+        ret = self.did_client.list_did_rules(scope=scope, name=dataset)
 
         ids = [rule['id'] for rule in ret]
 
@@ -508,7 +508,7 @@ class TestReplicationRuleClient():
         attach_dids(scope, dataset, files, 'jdoe')
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
-        get = self.account_client.list_rules('jdoe')
+        get = self.account_client.list_account_rules('jdoe')
         rules = [rule['id'] for rule in get]
 
         assert_in(ret[0], rules)
