@@ -720,7 +720,7 @@ def update_replicas_states(replicas, session=None):
     rse_ids = {}
     for replica in replicas:
         if 'rse_id' not in replica:
-            if not replica['rse'] in rse_ids:
+            if replica['rse'] not in rse_ids:
                 rse_ids[replica['rse']] = get_rse(rse=replica['rse'], session=session).id
             replica['rse_id'] = rse_ids[replica['rse']]
 
@@ -739,7 +739,7 @@ def update_replica_state(rse, scope, name, state, session=None):
     :param state: The state.
     :param session: The database session in use.
     """
-    return update_replicas_states(replicas=[{'scope': scope, 'name': name, 'state': state}], session=session)
+    return update_replicas_states(replicas=[{'scope': scope, 'name': name, 'state': state, 'rse': rse}], session=session)
 
 
 @transactional_session
