@@ -427,7 +427,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def list_rules(self, scope, name):
+    def list_did_rules(self, scope, name):
         """
         List the associated rules of a data identifier.
 
