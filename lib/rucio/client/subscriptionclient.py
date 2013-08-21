@@ -124,7 +124,7 @@ class SubscriptionClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list_rules(self, subscription_id):
+    def list_subscription_rules(self, subscription_id):
         """
         List the associated rules of a subscription.
 

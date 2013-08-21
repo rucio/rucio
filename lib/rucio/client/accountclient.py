@@ -153,7 +153,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list_rules(self, account):
+    def list_account_rules(self, account):
         """
         List the associated rules of an account.
 
