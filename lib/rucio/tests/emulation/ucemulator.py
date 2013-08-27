@@ -9,7 +9,8 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 
-import ast
+#import ast
+import json
 import time
 import threading
 import traceback
@@ -182,7 +183,7 @@ class UCEmulator(object):
                 print '!! ERROR !! run_gearman: %s' % e
         else:
             # Gearman job can just be executed, no waiting necessary
-            self.__gearman_client.submit_job(task='execute_uc', data=str(uc_data), unique=str(uuid()), background=True)
+            self.__gearman_client.submit_job(task='execute_uc', data=json.dumps(uc_data), unique=str(uuid()), background=True)
 
     def await_gearman_results(self, data, uuid):
         """
@@ -194,22 +195,28 @@ class UCEmulator(object):
             client = GearmanClient(self.__gearman_server)
             request = None
             try:
-                request = client.submit_job(task='execute_uc', data=str(data), unique=uuid, background=False, wait_until_complete=True)
-                del self.__open_requests[uuid]
+                request = client.submit_job(task='execute_uc', data=json.dumps(data), unique=uuid, background=False, wait_until_complete=True)
                 if request.state == 'FAILED' and not request.timed_out:  # Can only happen when import on the worker fails
-                    print '!! ERROR !! Worker failed while executing %s.%s (Note: do Rucio imports work for the workers?)' % (data['class_name'], data['uc_name'])
+                    print '!! ERROR !! [%s] Worker failed while executing %s.%s (Note: do Rucio imports work for the workers?)' % (time.strftime('%H:%M:%S', time.localtime()), data['class_name'], data['uc_name'])
                     return
                 elif request.timed_out:  # Can only happen when import on the worker fails
-                    print '!! ERROR !! Worker timed out while executing %s.%s' % (data['class_name'], data['uc_name'])
+                    print '!! ERROR !! [%s] Worker timed out while executing %s.%s' % (time.strftime('%H:%M:%S', time.localtime()), data['class_name'], data['uc_name'])
                     return
-                elif request.result == 'False':
-                    print '!! ERROR !! %s failed' % data['uc_name']
+                elif (request.result.lower() == 'false') or () or (request.result is False):
+                    print '!! ERROR !! [%s] %s failed' % (time.strftime('%H:%M:%S', time.localtime()), data['uc_name'])
                     return
-                result = ast.literal_eval(request.result)[1]
+                elif request.result is True:
+                    print '!! ERROR !! [%s] %s Hmm. Why? ' % (time.strftime('%H:%M:%S', time.localtime()), data['uc_name'])
+                    print request.result
+                else:
+                    result = json.loads(request.result)[1]
+                del self.__open_requests[uuid]
             except Exception, e:
                 print e
                 print traceback.format_exc()
                 del self.__open_requests[uuid]
+                if request:
+                    print 'Request-Object: ', request.result
                 return
             self.__call_methods[data['uc_name']]['output'](self.__ctx, result)
         except Exception, e:
@@ -251,41 +258,21 @@ class UCEmulator(object):
         """
         retry = 0
         pending = self.__open_requests.values()
-        print 'Open requests: %s' % len(self.__open_requests)
+        print '== [%s] Open requests for gearman workers: %s' % (time.strftime('%H:%M:%S', time.localtime()), len(self.__open_requests))
         while len(pending):
-            print 'Waiting for %s pending gearman responses' % len(pending)
             for t in pending:
-                try:
-                    t.join(30)
-                    if not t.is_alive():
-                        pending.remove(t)
-                except Exception, e:
-                    print '!! ERROR !!: %s' % e
-                    print traceback.format_exc()
-                    try:
-                        pending.remove(t)
-                    except:
-                        pass
-            if retry > 5:
-                print '!! ERROR !! Missed %s gearman results due to timeouts during shutdown' % len(pending)
-                break
-            retry += 1
+                if not t.is_alive():
+                    pending.remove(t)
+            if len(pending):
+                if retry > 5:
+                    print '!! ERROR !! [%s] Missed %s gearman results due to timeouts during shutdown' % (time.strftime('%H:%M:%S', time.localtime()), len(pending))
+                    break
+                print '== [%s] Waiting for %s pending gearman responses (retry: %s)' % (time.strftime('%H:%M:%S', time.localtime()), len(pending), retry)
+                retry += 1
+                time.sleep(30)
         if 'shutdown' in dir(self):  # Calls setup-method of child class to support the implementation of correlated use cases
             self.shutdown(self.__ctx)
-        print '%s stopped' % '.'.join([self.__module__, self.__class__.__name__])
-
-    def __OUT__time_it(self, fn, kwargs={}):
-        res = None
-        start = time.time()
-        res = fn(**kwargs)
-        fin = time.time()
-        resp = (fin - start) * 1000  # Converting seconds to milliseconds (needed by pystatsd)
-        if self.__carbon_server:
-            try:
-                self.__carbon_server.timing(fn.__name__, resp)
-            except Exception, e:
-                print '!! ERROR !! Error reporting to grapthite: %s' % e
-            return res
+        print '= [%s] Stopped module: %s' % (time.strftime('%H:%M:%S', time.localtime()), '.'.join([self.__module__, self.__class__.__name__]))
 
     def time_uc(self, fn):
         """

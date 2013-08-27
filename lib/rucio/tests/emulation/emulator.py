@@ -15,6 +15,7 @@ import multiprocessing
 import resource
 import operator
 import os
+import signal
 import sys
 import time
 import threading
@@ -57,7 +58,7 @@ def observe_gearman_queue(cfg, stop_event):
                     cs.gauge('emulator.counts.gearman', task['queued'])
                     cs.gauge('emulator.counts.files.emulator', get_open_fds())
                     if not count % 10:
-                        print '= (PID: %s [%s]) Gearman-Queue size: %s' % (pid, time.strftime('%H:%M:%S', time.gmtime()), task['queued'])
+                        print '= (PID: %s [%s]) Gearman-Queue size: %s' % (pid, time.strftime('%H:%M:%S', time.localtime()), task['queued'])
                     count += 1
         except Exception:
             print traceback.format_exc()
@@ -68,11 +69,43 @@ def observe_gearman_queue(cfg, stop_event):
     print '= Stopping queue observer ... OK'
 
 
-if __name__ == '__main__':
+def main_function():
     update = 500
     num_processes = 4
     duration = 3600
     stop_event = multiprocessing.Event()
+    stop = False
+    pid = os.getpid()
+    spawned_processes = []
+
+    def signal_handler(signal, frame):
+        stop_event.set()
+        print '= (PID: %s) [%s] Initiate shutdown of %s processes' % (pid, time.strftime('%H:%M:%S', time.localtime()), len(spawned_processes))
+        for n in range(3):
+            if not len(spawned_processes):
+                print '= (PID: %s) [%s] All processes finished' % (pid, time.strftime('%H:%M:%S', time.localtime()))
+                break
+            while len(spawned_processes):
+                spawned_processes[0].join(10)
+                if not spawned_processes[0].is_alive():
+                    del spawned_processes[0]
+                    if stop_event.is_set():
+                        print '= [%s] Process shutdown' % (time.strftime('%H:%M:%S', time.localtime()))
+                    else:
+                        print '= [%s] Process died' % (time.strftime('%H:%M:%S', time.localtime()))
+            print '== [%s] %s processes remaining' % (time.strftime('%H:%M:%S', time.localtime()), len(spawned_processes))
+        if len(spawned_processes):
+            print '= (PID: %s) [%s] %s processes did not finish properly. Kill them now' % (pid, time.strftime('%H:%M:%S', time.localtime()), len(spawned_processes))
+            for p in spawned_processes:
+                p.terminate()
+                print '= [%s] Process killed' % (time.strftime('%H:%M:%S', time.localtime()))
+        if timeout_event.is_set():
+            sys.exit(1)
+        else:
+            sys.exit(0)
+
+    signal.signal(signal.SIGTERM, signal_handler)
+
     with open('/opt/rucio/etc/emulation.cfg') as f:
         cfg = json.load(f)
 
@@ -112,18 +145,6 @@ if __name__ == '__main__':
             num_processes = cfg['global'][setting]
         if setting == 'duration':
             duration = cfg['global'][setting]
-
-    # Initialize carbon logger
-    cs = None
-    if 'carbon' in cfg['global']:
-        print '=' * 36 + ' CARBON ' + '=' * 36
-        try:
-            cs = Client(host=cfg['global']['carbon']['CARBON_SERVER'], port=cfg['global']['carbon']['CARBON_PORT'], prefix=cfg['global']['carbon']['USER_SCOPE'])
-            print '= Setting up carbon client ... OK'
-        except Exception, e:
-            print '!! Unable to connect to Carbon-Server !!'
-            print e
-            print traceback.format_exc()
 
     print '=' * 31 + ' INCLUDED USECASES ' + '=' * 30
     uc_array = dict()
@@ -165,56 +186,60 @@ if __name__ == '__main__':
 
     # Starting all processes
     procs = []
-    spawned_processes = []
     for proc in proc_mod:
         if len(proc_mod[proc]):
             #ucp = UCProcess(cfg, proc_mod[proc], multiprocessing.Event())
             ucp = UCProcess(cfg, proc_mod[proc], stop_event)
             procs.append(ucp)
     print '=' * 30 + ' STARTING EXECUTION ' + '=' * 30
-    for ucp in procs:
+    if len(procs) > 1:
+        for ucp in procs:
             p = multiprocessing.Process(target=ucp.run)
             p.deamon = True
             p.start()
             spawned_processes.append(p)
+    else:
+        print '= (PID: %s) Only one module found, unsing threads instead of subprocesses' % (os.getpid())
+        p = threading.Thread(target=ucp.run)
+        p.deamon = True
+        p.start()
+        spawned_processes.append(p)
 
-    try:
-        pid = os.getpid()
-        started_at = time.time()
+    timeout_event = threading.Event()
+    t = threading.Thread(target=waiting_to_stop, kwargs={'duration': duration, 'interval': update, 'stop_event': stop_event, 'timeout': timeout_event})
+    t.start()
+    while t.is_alive():
+        t.join(3)
+        if stop:
+            stop_event.set()
 
-        # +++++++++++++++++++++++++++++++ MAIN LOOP ++++++++++++++++++++++++++
-        while (time.time() < started_at + duration):
-            try:
-                with open('emulator.stop'):
-                    pass
-                print '= Found stop file (emulator.stop) and shutting down. To restart delete this file.'
-                break
-            except IOError:
+
+def waiting_to_stop(duration, interval, stop_event, timeout):
+    until = time.time() + duration
+    while True:
+        try:
+            with open('emulator.stop'):
                 pass
-            time.sleep(update)
-            print '= Executing %s child processes / %s seconds remaining' % (len(spawned_processes), int((started_at + duration) - time.time()))
-            for p in spawned_processes:
-                if not p.is_alive():
-                    print 'Process died: %s' % p
-                    spawned_processes.remove(p)
+            print '= [%s] Found stop file (emulator.stop) and shutting down. To restart delete this file.' % (time.strftime('%H:%M:%S', time.localtime()))
+            break
+        except IOError:
+            pass
+        if until < time.time():
+            print '= [%s] Emulation timed out. Going to shudown.' % (time.strftime('%H:%M:%S', time.localtime()))
+            timeout.set()
+            break
+        if stop_event.is_set():
+            print '= Received stop signal.'
+            break
+        stop_event.wait(interval)
+        print '= [%s] Time remaining before shuting down emulation: %s minutes' % (time.strftime('%H:%M:%S', time.localtime()), ((until - time.time()) / 60))
 
-        print '= Shutting down emulation'
-        stop_event.set()
-        print 'Proper shutdown done.'
-    except KeyboardInterrupt:
-        print 'Stopping %s processes of emulation ...' % len(spawned_processes)
-        stop_event.set()
-        for p in spawned_processes:
-            print 'Persi ctx'
-            #p.persist_context()
-            p.join(5)
-            if p.is_alive():
-                p.terminate()
-                print 'Killed process as it looked inresponsive'
-        exit(0)
-    except:
-        print '%f\t Exception' % (time.time())
-        traceback.print_exc(file=sys.stdout)
-        for proc in procs:
-            proc.stop()
-        exit(2)
+    print '= [%s] Shutting down emulation' % (time.strftime('%H:%M:%S', time.localtime()))
+    stop_event.set()
+    print '= [%s] Proper shutdown done.' % (time.strftime('%H:%M:%S', time.localtime()))
+
+
+if __name__ == '__main__':
+    return_value = main_function()
+    print '== Proper shutdown finished'
+    sys.exit(return_value)
