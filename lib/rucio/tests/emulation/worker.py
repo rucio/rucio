@@ -9,7 +9,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 
-import ast
+#import ast
 import gearman
 import json
 import pystatsd
@@ -19,28 +19,36 @@ import traceback
 
 def exec_uc(gearman_worker, gearman_job):
     ret = str()
-    #print '== Worker [%s]: %s' % (time.strftime('%H:%M:%S', time.gmtime()), gearman_job)
+    #print '== Worker [%s]: %s' % (time.strftime('%H:%M:%S', time.localtime()), gearman_job)
     try:
-        uc_data = ast.literal_eval(gearman_job.data)
+        try:
+            uc_data = json.loads(gearman_job.data)
+        except Exception, e:
+            print '-' * 80
+            print 'Unable to import JSON string'
+            print type(gearman_job.data)
+            print e
+            print '-' * 80
+            raise
         if uc_data['class_name'] not in imported_ucs:
             mod_name = '.'.join(uc_data['class_name'].split('.')[:-1])
             class_name = uc_data['class_name'].split('.')[-1]
             mod = __import__(mod_name, fromlist=[class_name])
             cls = getattr(mod, class_name)
             imported_ucs[uc_data['class_name']] = cls(worker_mode=True, carbon_server=carbon_server)
-        print '== Worker [%s]: %s.%s' % (time.strftime('%H:%M:%S', time.gmtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'])
+        print '== Worker [%s]: %s.%s' % (time.strftime('%H:%M:%S', time.localtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'])
         start = time.time()
-        ret = str(getattr(imported_ucs[uc_data['class_name']], uc_data['uc_name'])(**uc_data['input_data']))
+        ret = json.dumps(getattr(imported_ucs[uc_data['class_name']], uc_data['uc_name'])(**uc_data['input_data']))
         fin = time.time()
         carbon_server.timing('%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name']), (fin - start) * 1000)
     except Exception, e:
-        print('== Worker [%s]: exceptions.%s.%s.%s: %s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (time.strftime('%H:%M:%S', time.gmtime()), e.__class__.__name__).split('.')[-1], e))
+        print('== Worker [%s]: exceptions.%s.%s.%s: %s' % (time.strftime('%H:%M:%S', time.localtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'], e.__class__.__name__.split('.')[-1], e))
         print traceback.format_exc()
         carbon_server.update_stats('exceptions.%s.%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (e.__class__.__name__).split('.')[-1]), 1)
     if ret:
         return ret
     else:
-        print('== Worker [%s]: !! Return-value error: %s.%s: Returned "None"' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (time.strftime('%H:%M:%S', time.gmtime())).split('.')[-1]))
+        print('== Worker [%s]: !! Return-value error: %s.%s: Returned "None"' % ((time.strftime('%H:%M:%S', time.localtime())).split('.')[-1], uc_data['class_name'].split('.')[-2], uc_data['uc_name']))
         return "False"
 
 

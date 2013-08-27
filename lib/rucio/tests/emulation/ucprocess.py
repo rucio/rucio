@@ -12,7 +12,9 @@ import fcntl
 import json
 import os
 import resource
+import signal
 import threading
+import time
 import traceback
 
 from pystatsd import Client
@@ -71,6 +73,14 @@ class UCProcess(object):
                 print traceback.format_exc()
 
     def run(self):
+        def signal_handler(signal, frame):
+            print '= (PID: %s) [%s] received SIGTERM' % (self.pid, time.strftime('%H:%M:%S', time.localtime()))
+
+        try:
+            signal.signal(signal.SIGTERM, signal_handler)
+        except ValueError:
+            pass  # Happens when using threads instead of sub processes
+
         # Starting all defined use cases
         self.pid = os.getpid()
         try:
