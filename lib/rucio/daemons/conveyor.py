@@ -62,7 +62,9 @@ def submitter(once=False, process=1, total_processes=1, thread=1, total_threads=
                         for pfn in source['rses'].keys():
                             tmpsrc.append(str(source['rses'][pfn]))
                 except DataIdentifierNotFound:
-                    request.purge_request(req['request_id'], session=session)  # remove request if DID does not exist anymore
+                    print 'lost did'
+                    request.set_request_state(req['request_id'], RequestState.LOST, session=session)  # if the DID does not exist anymore
+                    request.archive_request(req['request_id'], session=session)
                     session.commit()
                     continue
 
@@ -176,10 +178,18 @@ def poller(once=False, process=1, total_processes=1, thread=1, total_threads=1):
                                                    session=session)
                         record_timer('daemons.conveyor.poller.004-replica-set_available', (time.time()-tss)*1000)
 
-                    elif response['new_state'] == RequestState.FAILED:  # TODO: resubmit does not set failed_transfer
+                        tss = time.time()
+                        request.archive_request(req['request_id'], session=session)
+                        record_timer('daemons.conveyor.poller.005-request-archive_successful', (time.time()-tss)*1000)
+
+                    elif response['new_state'] == RequestState.FAILED or response['new_state'] == RequestState.LOST:  # TODO: resubmit does not set failed_transfer
                         tss = time.time()
                         lock.failed_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
                         record_timer('daemons.conveyor.poller.002-lock-failed_transfer', (time.time()-tss)*1000)
+
+                        tss = time.time()
+                        request.archive_request(req['request_id'], session=session)
+                        record_timer('daemons.conveyor.poller.003-request-archive_failed', (time.time()-tss)*1000)
 
                 record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
 
