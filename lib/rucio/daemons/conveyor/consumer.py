@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 """
-This daemon consumes STOMP notifications of FTS3.
+Conveyor is a daemon to manage file transfers.
 """
 
 import datetime
@@ -33,11 +33,11 @@ class Consumer(object):
         self.__broker = broker
 
     def on_error(self, headers, message):
-        record_counter('daemons.messaging.fts3.error')
+        record_counter('daemons.conveyor.consumer.error')
         print '[%s %s] ERROR: %s' % (self.__broker, datetime.datetime.now(), message)
 
     def on_message(self, headers, message):
-        record_counter('daemons.messaging.fts3.message')
+        record_counter('daemons.conveyor.consumer.message')
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
 
         if msg['job_metadata'] != '':
@@ -45,7 +45,7 @@ class Consumer(object):
                 set_request_state(msg['job_metadata']['request_id'], RequestState.DONE)
 
 
-def consumer():
+def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -85,7 +85,7 @@ def consumer():
 
         time.sleep(1)
 
-    print 'submitter: graceful stop requested'
+    print 'consumer: graceful stop requested'
 
     for conn in conns:
         try:
@@ -93,7 +93,7 @@ def consumer():
         except:
             pass
 
-    print 'submitter: graceful stop done'
+    print 'consumer: graceful stop done'
 
 
 def stop(signum=None, frame=None):
@@ -104,18 +104,18 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run():
+def run(once=False, process=0, total_processes=1, total_threads=1):
     """
     Starts up the messenger threads
     """
 
     print 'main: starting threads'
+    threads = [threading.Thread(target=consumer, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
 
-    thread = threading.Thread(target=consumer)
-    thread.start()
+    [t.start() for t in threads]
 
     print 'main: waiting for interrupts'
 
     # Interruptible joins require a timeout.
-    while thread.is_alive:
-        thread.join(timeout=3.14)
+    while len(threads) > 0:
+        [t.join(timeout=3.14) for t in threads if t is not None and t.isAlive()]
