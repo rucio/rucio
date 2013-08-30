@@ -206,7 +206,7 @@ def __get_external_id(request_id, session=None):
         if res is None or res == []:
             return None
         else:
-            return res[1]
+            return res[0][1]
     except IntegrityError, e:
         raise RucioException(e.args)
 
