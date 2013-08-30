@@ -9,9 +9,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import json
-import requests
+import uuid
 
-from pprint import pprint
+import requests
 
 from rucio.common.config import config_get
 
@@ -62,18 +62,15 @@ def submit_transfers(transfers, job_metadata):
 
         r = None
 
+        transfer_ids[transfer['request_id']] = str(uuid.uuid4())  # mock job id
+        continue
+
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
                               verify=__CACERT,
                               cert=__USERCERT,
                               data=params_str,
                               headers={'Content-Type': 'application/json'})
-            import ast
-            print 'XXXXX'
-            pprint(ast.literal_eval(params_str))
-            print 'YYYYY'
-            pprint(r.__dict__)
-            print 'ZZZZZ'
         else:
             r = requests.post('%s/jobs' % __HOST,
                               data=params_str,
@@ -84,7 +81,7 @@ def submit_transfers(transfers, job_metadata):
         else:
             raise Exception('Could not submit transfer: %s', r.content)
 
-        return transfer_ids
+    return transfer_ids
 
 
 def submit(src_urls, dest_urls,
@@ -128,6 +125,7 @@ def submit(src_urls, dest_urls,
         raise Exception('Could not build valid JSON: %s' % str(e))
 
     r = None
+    return str(uuid.uuid4())  # mock job id
 
     if __HOST.startswith('https://'):
         r = requests.post('%s/jobs' % __HOST,
@@ -156,6 +154,8 @@ def query(transfer_id):
     """
 
     r = None
+
+    return r  # transfer is lost
 
     if __HOST.startswith('https://'):
         r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
