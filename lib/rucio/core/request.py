@@ -202,7 +202,11 @@ def __get_external_id(request_id, session=None):
     """
 
     try:
-        return session.query(models.Request).add_columns(models.Request.external_id).filter_by(id=request_id).one()[1]
+        res = session.query(models.Request).add_columns(models.Request.external_id).filter_by(id=request_id).all()
+        if res is None or res == []:
+            return None
+        else:
+            return res[1]
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -222,6 +226,10 @@ def query_request(request_id, transfertool, session=None):
 
     req_status = {'request_id': request_id,
                   'new_state': None}
+
+    if external_id is None:
+        req_status['new_state'] = RequestState.LOST
+        return req_status
 
     if transfertool == 'fts3':
         response = fts3.query(external_id)
