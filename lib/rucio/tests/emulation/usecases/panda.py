@@ -9,14 +9,14 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 import datetime
-#import json
+import bisect
 import os
 import pickle
 import sys
 import threading
 import time
 
-from Queue import PriorityQueue, Empty, Queue
+from Queue import Queue
 from random import choice, gauss, sample, random, randint
 from requests.exceptions import ConnectionError
 
@@ -384,7 +384,7 @@ class UseCaseDefinition(UCEmulator):
             ts_res = Queue()
             for ds in inserts_dis:
                 if threads:
-                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'files_in_ds': files_in_ds, 'ret': Queue(), 'sem': sem})
+                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'files_in_ds': files_in_ds, 'ret': ts_res, 'sem': sem})
                     t.start()
                     ts.append(t)
                 else:
@@ -418,7 +418,7 @@ class UseCaseDefinition(UCEmulator):
                 job_completion = dis_completion + gauss(**output['duration_job'])
                 if job_completion > max_target_completion:
                     max_target_completion = job_completion
-                job_finish.append((job_completion, {'scope': job_set[0], 'targets': job_set[1], 'computing_rse': job_set[3], 'task_type': task_type, 'log_ds': log_ds}))
+                job_finish.append((float(job_completion), {'scope': job_set[0], 'targets': job_set[1], 'computing_rse': job_set[3], 'task_type': task_type, 'log_ds': log_ds}))
 
             # Remeber last access to target dataset
             max_target_completion += safety_delay
@@ -426,7 +426,7 @@ class UseCaseDefinition(UCEmulator):
                 if (dsn not in sub_finish.keys()) or (sub_finish[dsn][0] < max_target_completion):
                     for fin_ds in final_dss:
                         if dsn.endswith(fin_ds):
-                            sub_finish[dsn] = (max_target_completion, {'source': {'scope': job_set[0], 'name': dsn}, 'target': {'scope': output['scope'], 'name': fin_ds}, 'task_type': task_type})
+                            sub_finish[dsn] = (float(max_target_completion), {'source': {'scope': job_set[0], 'name': dsn}, 'target': {'scope': output['scope'], 'name': fin_ds}, 'task_type': task_type})
 
             # Update task completion
             if max_completion < max_target_completion:
@@ -438,7 +438,7 @@ class UseCaseDefinition(UCEmulator):
             max_completion += gauss(**file_transfer_duration)
         else:
             sub_finish = {}  # Empty list of sub datasets to avoid data moving when task is finished
-        task_finish = (max_completion, {'scope': output['scope'], 'targets': final_dss, 'task_type': task_type, 'log_ds': log_ds})
+        task_finish = (float(max_completion), {'scope': output['scope'], 'targets': final_dss, 'task_type': task_type, 'log_ds': log_ds})
         monitor.record_counter('panda.tasks.%s.dispatched' % task_type, 1)  # Reports the task type which is dipsatched
         monitor.record_counter('panda.tasks.%s.number_job' % task_type, len(job_finish) * output_datasets_per_datatype)  # Reports the number of jobs spawned from the given task
         print '== PanDA: Create %s task with %s files (%s repl.) with output scope %s (dis: %s / sub: %s (%s)/ log_ds: %s / out_ds: %s / jobs: %s (%s))' % (task_type, len(files), len(replicas),
@@ -501,7 +501,7 @@ class UseCaseDefinition(UCEmulator):
                     while not exit:
                         tt = choice(ctx.task_distribution)
                         exit = (tt.startswith(task_type.split('-')[0]) or (task_type is ''))
-                    #print '== PanDA [%s]: Selecting task from group %s' % (time.strftime('%H:%M:%S', time.localtime()), tt.split('-')[0])
+                    #print '== PanDA [%s]: Selecting task from group %s' % (time.strftime('%D %H:%M:%S', time.localtime()), tt.split('-')[0])
                     task_type = tt
                     ret = {'input': ctx.tasks[task_type]['input'],
                            'output': ctx.tasks[task_type]['output'],
@@ -544,11 +544,14 @@ class UseCaseDefinition(UCEmulator):
             if key not in output.keys():
                 return
         for job in output['jobs']:
-            ctx.job_queue.put(job)
+            with ctx.job_queue_mutex:
+                bisect.insort(ctx.job_queue, job)
         for sub in output['subs']:
-            ctx.sub_queue.put(sub)
+            with ctx.sub_queue_mutex:
+                bisect.insort(ctx.sub_queue, sub)
         if len(output['task']):
-            ctx.task_queue.put(output['task'])
+            with ctx.sub_queue_mutex:
+                bisect.insort(ctx.task_queue, output['task'])
 
     @UCEmulator.UseCase
     def FINISH_JOB(self, jobs, threads):
@@ -579,7 +582,7 @@ class UseCaseDefinition(UCEmulator):
         for job in jobs:
             targets += job['targets']
             replicas += len(job['targets']) if job['log_ds'] else (2 * len(job['targets']))
-        print '== PanDA [%s]: Registering %s replicas from %s jobs over %s different datasets' % (time.strftime('%H:%M:%S', time.localtime()), replicas, len(jobs), len(set(targets)))
+        print '== PanDA [%s]: Registering %s replicas from %s jobs over %s different datasets' % (time.strftime('%D %H:%M:%S', time.localtime()), replicas, len(jobs), len(set(targets)))
 
     def register_replica(self, client, job, ret=None, sem=None):
         if not client:
@@ -611,7 +614,7 @@ class UseCaseDefinition(UCEmulator):
                     e = sys.exc_info()
                     monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
                     retry += 1
-                    print '== PanDA Warning [%s]: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (time.strftime('%H:%M:%S', time.localtime()), retry, job['scope'], tds)
+                    print '== PanDA Warning [%s]: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (time.strftime('%D %H:%M:%S', time.localtime()), retry, job['scope'], tds)
                     time.sleep(randint(1, 2))
                 except:
                     e = sys.exc_info()
@@ -622,7 +625,7 @@ class UseCaseDefinition(UCEmulator):
 
             if not success:
                 print '-' * 80
-                print '- [%s] Failed after %s seconds (retries: %s)' % (time.strftime('%H:%M:%S', time.localtime()), (time.time() - now), retry)
+                print '- [%s] Failed after %s seconds (retries: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), (time.time() - now), retry)
                 print 'Exception: ', e
                 print '- %s:%s' % (job['scope'], tds)
                 print '-', files
@@ -632,7 +635,7 @@ class UseCaseDefinition(UCEmulator):
                     ret.put((False, e))
             count += len(files)
         monitor.record_counter('panda.tasks.%s.replicas' % job['task_type'], count)  # Reports the creation of a new replica (including log files) fof the given task type
-        print '== PanDA [%s]: Job (%s) added %s files to %s datasets (%s:%s)' % (time.strftime('%H:%M:%S', time.localtime()), job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
+        print '== PanDA [%s]: Job (%s) added %s files to %s datasets (%s:%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
         if ret:
             ret.put((True, count))
 
@@ -699,26 +702,27 @@ class UseCaseDefinition(UCEmulator):
     #        ret.put((True, count))
 
     def FINISH_JOB_input(self, ctx):
+        ctx.job_print += 1
+        if not len(ctx.job_queue):
+            if not ctx.job_print % 100:
+                print '== PanDA [%s]: No jobs scheduled so far.' % (time.strftime('%D %H:%M:%S', time.localtime()))
+            return None
         now = time.time()
         jobs = []
-        while True:  # Job is finished by now
-            try:
-                job = ctx.job_queue.get_nowait()
-            except Empty:
-                break
-            if job[0] > now:
-                ctx.job_queue.put(job)
-                break
-            jobs.append(job[1])
-            ctx.job_queue.task_done()
+        with ctx.job_queue_mutex:
+            while ctx.job_queue[0][0] < now:
+                jobs.append(ctx.job_queue[0][1])
+                del ctx.job_queue[0]
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
             threads = int(ctx.threads)
         if len(jobs):
-            print '== PanDA [%s]: Finishing %s jobs.' % (time.strftime('%H:%M:%S', time.localtime()), len(jobs))
+            print '== PanDA [%s]: Finishing %s jobs.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(jobs))
             return {'jobs': jobs, 'threads': threads}
         else:
+            if not ctx.job_print % 100:
+                print '== PanDA [%s]: Next job finishes in %.1f minutes (%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), ((ctx.job_queue[0][0] - now) / 60), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])))
             return None
 
     @UCEmulator.UseCase
@@ -730,7 +734,7 @@ class UseCaseDefinition(UCEmulator):
             sem = threading.BoundedSemaphore(threads)
         for sub in subs:
             print sub
-            print '== PanDA [%s]: Populating SUB-DS (%s) to target (%s) for job %s' % (time.strftime('%H:%M:%S', time.localtime()), sub['source'], sub['target'], sub['task_type'])
+            print '== PanDA [%s]: Populating SUB-DS (%s) to target (%s) for job %s' % (time.strftime('%D %H:%M:%S', time.localtime()), sub['source'], sub['target'], sub['task_type'])
             if threads:
                 t = threading.Thread(target=self.aggregate_output, kwargs={'client': client, 'source': sub['source'], 'target': sub['target'],
                                                                            'task_type': sub['task_type'], 'ret': ts_res, 'sem': sem})
@@ -748,18 +752,17 @@ class UseCaseDefinition(UCEmulator):
                 raise ret[1][0]
 
     def POPULATE_SUB_input(self, ctx):
+        ctx.sub_print += 1
+        if not len(ctx.sub_queue):
+            if not ctx.sub_print % 100:
+                print '== PanDA [%s]: No subs scheduled so far.' % (time.strftime('%D %H:%M:%S', time.localtime()))
+            return None
         now = time.time()
         subs = []
-        while True:  # Job is finished by now
-            try:
-                sub = ctx.sub_queue.get_nowait()
-            except Empty:
-                break
-            if sub[0] > now:
-                ctx.sub_queue.put(sub)
-                break
-            subs.append(sub[1])
-            ctx.sub_queue.task_done()
+        with ctx.sub_queue_mutex:
+            while len(ctx.sub_queue) and ctx.sub_queue[0][0] < now:
+                subs.append(ctx.sub_queue[0][1])
+                del ctx.sub_queue[0]
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
@@ -767,6 +770,8 @@ class UseCaseDefinition(UCEmulator):
         if len(subs):
             return {'subs': subs, 'threads': threads, 'safety_delay': ctx.safety_delay}
         else:
+            if not ctx.sub_print % 100:
+                print '== PanDA [%s]: Next sub datset is populated in  %.1f minutes (%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), ((ctx.sub_queue[0][0] - now) / 60), time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[0][0])))
             return None
 
     def aggregate_output(self, client, source, target, task_type, ret=None, sem=None):
@@ -785,12 +790,12 @@ class UseCaseDefinition(UCEmulator):
                 if len(fs):
                     monitor.record_timer('panda.list_files.normalized', (time.time() - now) / len(fs))
                     monitor.record_counter('panda.tasks.%s.sub_files' % task_type, len(fs))
-                    print '== PanDA [%s]: Adding %s files from SUB (%s) to TID (%s)' % (time.strftime('%H:%M:%S', time.localtime()), len(fs), source, target)
+                    print '== PanDA [%s]: Adding %s files from SUB (%s) to TID (%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), len(fs), source, target)
                 else:
-                    print '== PanDA Warning [%s]: No data task arrived for %s. Will Retry later.' % (time.strftime('%H:%M:%S', time.localtime()), source)
+                    print '== PanDA Warning [%s]: No data task arrived for %s. Will Retry later.' % (time.strftime('%D %H:%M:%S', time.localtime()), source)
                     retry += 1
                     if retry > 5:
-                        print '== PanDA Warning [%s]: No data task arrived for %s. Gave up' % (time.strftime('%H:%M:%S', time.localtime()), source)
+                        print '== PanDA Warning [%s]: No data task arrived for %s. Gave up' % (time.strftime('%D %H:%M:%S', time.localtime()), source)
                         monitor.record_counter('panda.tasks.%s.EmptySubDataset' % task_type, 1)
                         with monitor.record_timer_block('panda.close'):
                             client.close(**source)
@@ -799,11 +804,11 @@ class UseCaseDefinition(UCEmulator):
             except DatabaseException:
                 exc = sys.exc_info()
                 fs = []
-                print '== PanDA [%s]: Waiting 5 seconds for task data to arrive in %s (retry count: %s / task-type: %s)' % (time.strftime('%H:%M:%S', time.localtime()), source, retry, task_type)
+                print '== PanDA [%s]: Waiting 5 seconds for task data to arrive in %s (retry count: %s / task-type: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), source, retry, task_type)
                 monitor.record_counter('panda.retry.list_files.%s' % (retry), 1)
                 retry += 1
                 if retry > 5:
-                    print '== PanDA [%s]: No data task arrived for %s. Gave up' % (time.strftime('%H:%M:%S', time.localtime()), source)
+                    print '== PanDA [%s]: No data task arrived for %s. Gave up' % (time.strftime('%D %H:%M:%S', time.localtime()), source)
                     monitor.record_counter('panda.tasks.%s.EmptySubDataset' % task_type, 1)
                     with monitor.record_timer_block('panda.close'):
                         client.close(**source)
@@ -840,7 +845,7 @@ class UseCaseDefinition(UCEmulator):
         finally:
             if sem:
                 sem.release()
-        print '== PanDA [%s]: Populated %s files from %s to %s' % (time.strftime('%H:%M:%S', time.localtime()), len(fs), source, target)
+        print '== PanDA [%s]: Populated %s files from %s to %s' % (time.strftime('%D %H:%M:%S', time.localtime()), len(fs), source, target)
 
         # Close SUB dataset
         try:
@@ -864,7 +869,7 @@ class UseCaseDefinition(UCEmulator):
         finally:
             if sem:
                 sem.release()
-        print '== PanDA [%s]: Closed sub dataset: %s' % (time.strftime('%H:%M:%S', time.localtime()), source)
+        print '== PanDA [%s]: Closed sub dataset: %s' % (time.strftime('%D %H:%M:%S', time.localtime()), source)
         if ret:
             ret.put((True, None))
 
@@ -891,7 +896,7 @@ class UseCaseDefinition(UCEmulator):
                         retry += 1
                         if retry > 5:
                             raise
-                        print '== PanDA Warning [%s]: Failed %s times to list files in dataset (%s:%s). Will rertry in 5 seconds.' % (time.strftime('%H:%M:%S', time.localtime()), retry, task['scope'], target)
+                        print '== PanDA Warning [%s]: Failed %s times to list files in dataset (%s:%s). Will rertry in 5 seconds.' % (time.strftime('%D %H:%M:%S', time.localtime()), retry, task['scope'], target)
                         time.sleep(randint(1, 2))
                     except Exception:
                         e = sys.exc_info()
@@ -916,33 +921,35 @@ class UseCaseDefinition(UCEmulator):
                             raise
                         print '== PanDA Warning: Failed %s times to close the dataset (%s:%s). Will rertry in 5 seconds.' % (retry, task['scope'], target)
                         time.sleep(randint(1, 2))
-                print '== PanDA [%s]: Closed output dataset %s:%s from task (%s) including %s files' % (time.strftime('%H:%M:%S', time.localtime()), task['scope'], target, task_type, len(fs))
+                print '== PanDA [%s]: Closed output dataset %s:%s from task (%s) including %s files' % (time.strftime('%D %H:%M:%S', time.localtime()), task['scope'], target, task_type, len(fs))
             monitor.record_counter('panda.tasks.%s.finished' % task_type, 1)
 
     def FINISH_TASK_input(self, ctx):
+        ctx.task_print += 1
+        if not len(ctx.task_queue):
+            if not ctx.task_print % 100:
+                print '== PanDA [%s]: No tasks scheduled so far.' % (time.strftime('%D %H:%M:%S', time.localtime()))
+            return None
         now = time.time()
         tasks = []
-        while True:  # Job is finished by now
-            try:
-                task = ctx.task_queue.get_nowait()
-            except Empty:
-                break
-            if task[0] > now:
-                ctx.task_queue.put(task)
-                break
-            tasks.append(task[1])
-            ctx.task_queue.task_done()
+        with ctx.task_queue_mutex:
+            while len(ctx.task_queue) and ctx.task_queue[0][0] < now:
+                tasks.append(ctx.task_queue[0][1])
+                del ctx.task_queue[0]
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
             threads = int(ctx.threads)
         if len(tasks):
+            print '== PanDA [%s]: Finishing %s tasks.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(tasks))
             return {'tasks': tasks, 'threads': threads, 'safety_delay': ctx.safety_delay}
         else:
+            if not ctx.task_print % 100:
+                print '== PanDA [%s]: Next task is finsihed in  %.1f minutes (%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), ((ctx.task_queue[0][0] - now) / 60), time.strftime('%D %H:%M:%S', time.localtime(ctx.task_queue[0][0])))
             return None
 
     def RESET_input(self, ctx):
-        print '== PanDA [%s]: Reseting input files cache' % time.strftime('%H:%M:%S', time.localtime())
+        print '== PanDA [%s]: Reseting input files cache' % time.strftime('%D %H:%M:%S', time.localtime())
         monitor.record_counter('panda.tasks.reset', 1)
         ctx.input_files = {}
         return None
@@ -954,10 +961,10 @@ class UseCaseDefinition(UCEmulator):
         pass  # Will never be executed, only here for sematic reasons
 
     def QUEUE_OBSERVER_input(self, ctx):
-        monitor.record_gauge('panda.tasks.queue', ctx.task_queue.qsize())
-        monitor.record_gauge('panda.jobs.queue', ctx.job_queue.qsize())
-        monitor.record_gauge('panda.subs.queue', ctx.sub_queue.qsize())
-        print '== PanDA [%s]: Task-Queue: %s / Job-Queue: %s / Sub-Queue: %s' % (time.strftime('%H:%M:%S', time.localtime()), ctx.task_queue.qsize(), ctx.job_queue.qsize(), ctx.sub_queue.qsize())
+        monitor.record_counter('panda.tasks.queue', len(ctx.task_queue))
+        monitor.record_counter('panda.jobs.queue', len(ctx.job_queue))
+        monitor.record_counter('panda.subs.queue', len(ctx.sub_queue))
+        print '== PanDA [%s]: Task-Queue: %s / Job-Queue: %s / Sub-Queue: %s' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue), len(ctx.job_queue), len(ctx.sub_queue))
         return None  # Indicates that no further action is required
 
     def setup(self, ctx):
@@ -968,27 +975,43 @@ class UseCaseDefinition(UCEmulator):
             :param cfg: the context of etc/emulation.cfg
         """
         # As long as there is no database filler, one dataset and n files are created here
-        ctx.job_queue = PriorityQueue()
-        ctx.sub_queue = PriorityQueue()
-        ctx.task_queue = PriorityQueue()
+        ctx.job_queue = []
+        ctx.job_queue_mutex = threading.Lock()
+        ctx.job_print = 0
+        ctx.sub_queue = []
+        ctx.sub_queue_mutex = threading.Lock()
+        ctx.sub_print = 0
+        ctx.task_queue = []
+        ctx.task_queue_mutex = threading.Lock()
+        ctx.task_print = 0
         try:
+            print '== PanDA [%s]: Loading context file' % (time.strftime('%D %H:%M:%S', time.localtime()))
             with open('/data/emulator/panda.ctx', 'r') as f:
-                print '== PanDA [%s]: Loading context file' % (time.strftime('%H:%M:%S', time.localtime()))
                 stuff = pickle.load(f)
-                print '== PanDA [%s]: Start importing previous context (written at: %s)' % (time.strftime('%H:%M:%S', time.localtime()), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stuff[0])))
-                delta = (time.time() - stuff[0]) + ctx.safety_delay  # safety to cover time passing while writing/reading file and such
-                for item in stuff[1]:  # Job Queue
-                    ctx.job_queue.put(((item[0] + delta), item[1]))
-                print '== PanDA [%s]: Re-imported %s jobs to queue (starting at: %s / delta: %s).' % (time.strftime('%H:%M:%S', time.localtime()), ctx.job_queue.qsize(), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stuff[1][0][0] + delta)), int(delta))
-                delta = (time.time() - stuff[0]) + ctx.safety_delay  # safety to cover time passing while writing/reading file and such
-                for item in stuff[2]:  # Sub Queue
-                    ctx.sub_queue.put(((item[0] + delta), item[1]))
-                print '== PanDA [%s]: Re-imported %s subs to queue (starting at: %s / delta: %s).' % (time.strftime('%H:%M:%S', time.localtime()), ctx.sub_queue.qsize(), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stuff[2][0][0] + delta)), int(delta))
-                delta = (time.time() - stuff[0]) + ctx.safety_delay  # safety to cover time passing while writing/reading file and such
-                for item in stuff[3]:  # Task Queue
-                    ctx.task_queue.put(((item[0] + delta), item[1]))
-                print '== PanDA [%s]: Re-imported %s tasks to queue (starting at: %s / delta: %s).' % (time.strftime('%H:%M:%S', time.localtime()), ctx.task_queue.qsize(), time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stuff[3][0][0] + delta)), int(delta))
-                del stuff
+            delta = (time.time() - stuff[0]) + ctx.safety_delay  # safety to cover time passing while writing/reading file and such
+            print '== PanDA [%s]: Start importing previous context (written at: %s / delta: %.2f min)' % (time.strftime('%D %H:%M:%S', time.localtime()), time.strftime('%D %H:%M:%S', time.localtime(stuff[0])), (delta / 60))
+            #for job in stuff[1]:
+            #    ctx.job_queue.append((job[0] + delta, job[1]))
+            ctx.job_queue = stuff[1]
+            for job in ctx.job_queue:
+                job[0] += delta
+            print '== PanDA [%s]: Re-imported %s jobs to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.job_queue),
+                                                                                        time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[-1][0])))
+            #for sub in stuff[2]:
+            #    ctx.sub_queue.append((sub[0] + delta, sub[1]))
+            ctx.sub_queue = stuff[2]
+            for sub in ctx.sub_queue:
+                sub[0] += delta
+            print '== PanDA [%s]: Re-imported %s subs to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.sub_queue),
+                                                                                        time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[0][0])), time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[-1][0])))
+            #for task in stuff[3]:
+            #    ctx.task_queue.append((task[0] + delta, task[1]))
+            ctx.task_queue = stuff[3]
+            for task in ctx.task_queue:
+                task[0] += delta
+            print '== PanDA [%s]: Re-imported %s tasks to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue),
+                                                                                         time.strftime('%D %H:%M:%S', time.localtime(ctx.task_queue[0][0])), time.strftime('%D %H:%M:%S', time.localtime(ctx.task_queue[-1][0])))
+            del stuff
         except IOError:
             print '== PanDA: No information about former execution found'
         except EOFError:
@@ -1075,25 +1098,13 @@ class UseCaseDefinition(UCEmulator):
         return ds
 
     def shutdown(self, ctx):
-        jobs = []
-        try:
-            while True:
-                jobs.append(ctx.job_queue.get_nowait())
-        except Empty:
-            pass
-        subs = []
-        try:
-            while True:
-                subs.append(ctx.sub_queue.get_nowait())
-        except Empty:
-            pass
-        tasks = []
-        try:
-            while True:
-                tasks.append(ctx.task_queue.get_nowait())
-        except Empty:
-            pass
+        print '== PanDA [%s]: Persisting jobs: %s (first: %s, last: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.job_queue), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])),
+                                                                            time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[-1][0])))
+        print '== PanDA [%s]: Persisting subs: %s (first: %s, last: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.sub_queue), time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[0][0])),
+                                                                            time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[-1][0])))
+        print '== PanDA [%s]: Persisting tasks: %s (first: %s, last: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue), time.strftime('%D %H:%M:%S', time.localtime(ctx.task_queue[0][0])),
+                                                                             time.strftime('%D %H:%M:%S', time.localtime(ctx.task_queue[-1][0])))
 
         with open('/data/emulator/panda.ctx', 'w') as f:
-            pickle.dump([time.time(), jobs, subs, tasks], f, pickle.HIGHEST_PROTOCOL)
-        print '== PanDA [%s]: Persisted context: Tasks: %s, Subs: %s, Jobs: %s' % (time.strftime('%H:%M:%S', time.localtime()), len(tasks), len(subs), len(jobs))
+            pickle.dump([time.time(), ctx.job_queue, ctx.sub_queue, ctx.task_queue], f, pickle.HIGHEST_PROTOCOL)
+        print '== PanDA [%s]: Persisted context file.' % (time.strftime('%D %H:%M:%S', time.localtime()))
