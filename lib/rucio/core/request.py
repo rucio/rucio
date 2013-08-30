@@ -162,15 +162,20 @@ def get_next(req_type, state, limit=1, process=None, total_processes=None, threa
                                                       models.Request.scope,
                                                       models.Request.name,
                                                       models.Request.dest_rse_id)\
+                                         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_CRE_IDX)", 'oracle')\
                                          .filter_by(request_type=req_type, state=state)\
                                          .order_by(asc(models.Request.created_at))
 
-    if process and total_processes and thread and total_threads:
+    if process and total_processes and (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
             query = query.filter('ORA_HASH(name, %s) = %s' % (total_processes-1, process-1))
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_threads-1, thread-1))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_processes-1, process-1))
+
+    if thread and total_threads and (total_threads-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_threads-1, thread-1))
+        elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread-1))
 
     tmp = query.limit(limit).all()
@@ -249,6 +254,23 @@ def set_request_state(request_id, new_state, session=None):
 
     try:
         session.query(models.Request).filter_by(id=request_id).update({'state': new_state})
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@transactional_session
+def archive_request(request_id, session=None):
+    """
+    Move a request to the history table.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    """
+
+    record_counter('core.request.archive')
+
+    try:
+        session.execute('INSERT INTO atlas_rucio.requests_history SELECT * FROM atlas_rucio.requests WHERE id = hextoraw(:id)', {'id': request_id})
+        purge_request(request_id=request_id, session=session)
     except IntegrityError, e:
         raise RucioException(e.args)
 
