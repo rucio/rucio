@@ -58,7 +58,11 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                     request.set_request_state(req['request_id'], response['new_state'], session=session)
                     if response['new_state'] == RequestState.DONE:
                         tss = time.time()
-                        lock.successful_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
+                        try:
+                            lock.successful_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
+                        except:
+                            session.rollback()
+                            continue
                         record_timer('daemons.conveyor.poller.002-lock-successful_transfer', (time.time()-tss)*1000)
 
                         tss = time.time()
@@ -79,7 +83,11 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
                     elif response['new_state'] == RequestState.FAILED or response['new_state'] == RequestState.LOST:  # TODO: resubmit does not set failed_transfer
                         tss = time.time()
-                        lock.failed_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
+                        try:
+                            lock.failed_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
+                        except:
+                            session.rollback()
+                            continue
                         record_timer('daemons.conveyor.poller.002-lock-failed_transfer', (time.time()-tss)*1000)
 
                         tss = time.time()
