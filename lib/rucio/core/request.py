@@ -166,17 +166,17 @@ def get_next(req_type, state, limit=1, process=None, total_processes=None, threa
                                          .filter_by(request_type=req_type, state=state)\
                                          .order_by(asc(models.Request.created_at))
 
-    if process and total_processes and (total_processes-1) > 0:
+    if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_processes-1, process-1))
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_processes-1, process))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_processes-1, process-1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_processes-1, process))
 
-    if thread and total_threads and (total_threads-1) > 0:
+    if (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_threads-1, thread-1))
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_threads-1, thread))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread-1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
 
     tmp = query.limit(limit).all()
 
