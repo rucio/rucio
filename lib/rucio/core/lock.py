@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from sqlalchemy.sql.expression import and_, or_
 
@@ -133,12 +134,12 @@ def successful_transfer(scope, name, rse_id, session=None):
     :param rse_id:   RSE id
     """
 
-    locks = session.query(models.ReplicaLock).with_lockmode('update').filter_by(scope=scope, name=name, rse_id=rse_id)
+    locks = session.query(models.ReplicaLock).with_lockmode('update_nowait').filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         lock.state = LockState.OK
 
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=lock.rule_id).one()
+        rule = session.query(models.ReplicationRule).with_lockmode('update_nowait').filter_by(id=lock.rule_id).one()
         rule.locks_replicating_cnt -= 1
         rule.locks_ok_cnt += 1
 
@@ -163,12 +164,12 @@ def failed_transfer(scope, name, rse_id, session=None):
     :param rse_id:   RSE id
     """
 
-    locks = session.query(models.ReplicaLock).with_lockmode('update').filter_by(scope=scope, name=name, rse_id=rse_id)
+    locks = session.query(models.ReplicaLock).with_lockmode('update_nowait').filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         lock.state = LockState.STUCK
 
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_lockmode('update').filter_by(id=lock.rule_id).one()
+        rule = session.query(models.ReplicationRule).with_lockmode('update_nowait').filter_by(id=lock.rule_id).one()
         rule.locks_replicating_cnt -= 1
         rule.locks_stuck_cnt += 1
 
