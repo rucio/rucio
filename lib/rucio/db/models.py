@@ -279,6 +279,7 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
                    CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
                    CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
+                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='DIDS_ACCOUNT_NN'),
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'),
@@ -401,7 +402,8 @@ class RSEAttrAssociation(BASE, ModelBase):
     value = Column(String(255))
     rse = relationship("RSE", backref=backref('rse_attr_map', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'), )
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'),
+                   Index('RSE_ATTR_MAP_KEY_VALUE_IDX', 'key', 'value'))
 
 
 class RSEProtocols(BASE, ModelBase):
@@ -501,9 +503,12 @@ class ReplicationRule(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
                    ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_SUBS_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='RULES_STATE_NN'),
+                   CheckConstraint('"SCOPE" IS NOT NULL', name='RULES_SCOPE_NN'),
+                   CheckConstraint('"NAME" IS NOT NULL', name='RULES_NAME_NN'),
                    CheckConstraint('"GROUPING" IS NOT NULL', name='RULES_GROUPING_NN'),
                    CheckConstraint('"COPIES" IS NOT NULL', name='RULES_COPIES_NN'),
                    CheckConstraint('"LOCKED" IS NOT NULL', name='RULES_LOCKED_NN'),
+                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='RULES_ACCOUNT_NN'),
                    CheckConstraint('"LOCKS_OK_CNT" IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
                    CheckConstraint('"LOCKS_REPLICATING_CNT" IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('"LOCKS_STUCK_CNT" IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
@@ -527,6 +532,7 @@ class ReplicaLock(BASE, ModelBase):
                    ForeignKeyConstraint(['rule_id'], ['rules.id'], name='LOCKS_RULE_ID_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='LOCKS_STATE_NN'),
+                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='LOCKS_ACCOUNT_NN'),
                    Index('LOCKS_RULE_ID_IDX', 'rule_id')
                    )
 
@@ -585,7 +591,9 @@ class Subscription(BASE, ModelBase, Versioned):
     _table_args = (PrimaryKeyConstraint('id', name='SUBSCRIPTIONS_PK'),
                    UniqueConstraint('name', 'account', name='SUBSCRIPTION_NAME_ACCOUNT_UQ'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
-                   CheckConstraint('"RETROACTIVE" IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),)
+                   CheckConstraint('"RETROACTIVE" IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),
+                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN')
+                   )
 
 
 class Token(BASE, ModelBase):
