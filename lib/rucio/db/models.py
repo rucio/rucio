@@ -499,7 +499,7 @@ class ReplicationRule(BASE, ModelBase):
     locks_stuck_cnt = Column(BigInteger, default=0)
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['scope', 'name', 'did_type'], ['dids.scope', 'dids.name', 'dids.did_type'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
                    ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_SUBS_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='RULES_STATE_NN'),
@@ -512,7 +512,6 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('"LOCKS_OK_CNT" IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
                    CheckConstraint('"LOCKS_REPLICATING_CNT" IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('"LOCKS_STUCK_CNT" IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
-                   UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='RULES_UQ'),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'))
 
@@ -528,7 +527,7 @@ class ReplicaLock(BASE, ModelBase):
     bytes = Column(BigInteger)
     state = Column(LockState.db_type(name='LOCKS_STATE_CHK'), default=LockState.REPLICATING)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='LOCKS_PK'),
-                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replicas.rse_id', 'replicas.scope', 'replicas.name'], name='LOCKS_REPLICAS_FK'),
+                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replicas.rse_id', 'replicas.scope', 'replicas.name'], name='LOCKS_REPLICAS_FK'),  # TODO This foreign key is not reflected correctly in the google doc
                    ForeignKeyConstraint(['rule_id'], ['rules.id'], name='LOCKS_RULE_ID_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='LOCKS_STATE_NN'),
