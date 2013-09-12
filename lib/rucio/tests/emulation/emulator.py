@@ -207,6 +207,7 @@ def main_function():
 
     timeout_event = threading.Event()
     t = threading.Thread(target=waiting_to_stop, kwargs={'duration': duration, 'interval': update, 'stop_event': stop_event, 'timeout': timeout_event})
+    t.daemon = True
     t.start()
     while t.is_alive():
         t.join(3)
