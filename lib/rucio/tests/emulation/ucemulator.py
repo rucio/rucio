@@ -176,6 +176,7 @@ class UCEmulator(object):
             # Submitt job in separate thread and wait for response
             id = uuid()
             t = threading.Thread(target=self.await_gearman_results, kwargs={'data': uc_data, 'uuid': id})
+            t.daemon = True
             try:
                 t.start()
                 self.__open_requests[id] = t
@@ -233,6 +234,7 @@ class UCEmulator(object):
         """
         # TODO: Later consider to create a pool of threads for each 'call' and re-use them to potentially save time?
         t = threading.Thread(target=self.time_uc, kwargs={'fn': self.__call_methods[call]})
+        t.daemon = True
         try:
             t.start()
         except Exception, e:
