@@ -13,6 +13,7 @@ import json
 import os
 import resource
 import signal
+import sys
 import threading
 import time
 import traceback
@@ -163,7 +164,7 @@ class UCProcess(object):
             print '= (PID: %s) Stopping module %s' % (self.pid, mod[0])
             mod[1].join()
         print '= (PID: %s) Stopped successfully' % self.pid
-        exit(0)
+        sys.exit(0)
 
     def diff_context(self, current, new, key_chain, uc):
         nk = new.keys()

@@ -473,10 +473,8 @@ class UseCaseDefinition(UCEmulator):
                     else:
                         print e
                         raise
-                print '== PanDA Warning: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (retry, ds['scope'], ds['name'])
+                print '== PanDA Warning [%s]: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (time.strftime('%D %H:%M:%S', time.localtime()), retry, ds['scope'], ds['name'])
                 time.sleep(randint(1, 2))
-                if ret:
-                    ret.put((False, e))
             except:
                 e = sys.exc_info()
                 if ret:
@@ -545,13 +543,16 @@ class UseCaseDefinition(UCEmulator):
                 return
         for job in output['jobs']:
             with ctx.job_queue_mutex:
-                bisect.insort(ctx.job_queue, job)
+                with monitor.record_timer_block('panda.helper.sorting_jobs'):
+                    bisect.insort(ctx.job_queue, job)
         for sub in output['subs']:
             with ctx.sub_queue_mutex:
-                bisect.insort(ctx.sub_queue, sub)
+                with monitor.record_timer_block('panda.helper.sorting_subs'):
+                    bisect.insort(ctx.sub_queue, sub)
         if len(output['task']):
-            with ctx.sub_queue_mutex:
-                bisect.insort(ctx.task_queue, output['task'])
+            with ctx.task_queue_mutex:
+                with monitor.record_timer_block('panda.helper.sorting_tasks'):
+                    bisect.insort(ctx.task_queue, output['task'])
 
     @UCEmulator.UseCase
     def FINISH_JOB(self, jobs, threads):
@@ -710,9 +711,10 @@ class UseCaseDefinition(UCEmulator):
         now = time.time()
         jobs = []
         with ctx.job_queue_mutex:
-            while ctx.job_queue[0][0] < now:
-                jobs.append(ctx.job_queue[0][1])
-                del ctx.job_queue[0]
+            with monitor.record_timer_block('panda.helper.selecting_jobs'):
+                while ctx.job_queue[0][0] < now:
+                    jobs.append(ctx.job_queue[0][1])
+                    del ctx.job_queue[0]
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
@@ -760,9 +762,10 @@ class UseCaseDefinition(UCEmulator):
         now = time.time()
         subs = []
         with ctx.sub_queue_mutex:
-            while len(ctx.sub_queue) and ctx.sub_queue[0][0] < now:
-                subs.append(ctx.sub_queue[0][1])
-                del ctx.sub_queue[0]
+            with monitor.record_timer_block('panda.helper.selecting_subs'):
+                while len(ctx.sub_queue) and ctx.sub_queue[0][0] < now:
+                    subs.append(ctx.sub_queue[0][1])
+                    del ctx.sub_queue[0]
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
@@ -933,9 +936,10 @@ class UseCaseDefinition(UCEmulator):
         now = time.time()
         tasks = []
         with ctx.task_queue_mutex:
-            while len(ctx.task_queue) and ctx.task_queue[0][0] < now:
-                tasks.append(ctx.task_queue[0][1])
-                del ctx.task_queue[0]
+            with monitor.record_timer_block('panda.helper.selecting_subs'):
+                while len(ctx.task_queue) and ctx.task_queue[0][0] < now:
+                    tasks.append(ctx.task_queue[0][1])
+                    del ctx.task_queue[0]
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
