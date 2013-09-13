@@ -209,7 +209,10 @@ def add_dids(dids, account, session=None):
         if e.args[0] == "(IntegrityError) foreign key constraint failed" \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
-
+        raise exception.RucioException(e.args)
+    except DatabaseError, e:
+        if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', e.args[0]):
+            raise exception.ScopeNotFound('Scope not found!')
         raise exception.RucioException(e.args)
 
 
