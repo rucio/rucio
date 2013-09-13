@@ -135,7 +135,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(gsstoken)s-%(appid)s-%(token)s' % locals()
+    token = '%(account)s-%(gsstoken)s-%(appid)s-%(tuid)s' % locals()
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
