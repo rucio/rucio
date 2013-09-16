@@ -266,12 +266,12 @@ class UCEmulator(object):
                 if not t.is_alive():
                     pending.remove(t)
             if len(pending):
-                if retry > 5:
+                if retry > 12:
                     print '!! ERROR !! [%s] Missed %s gearman results due to timeouts during shutdown' % (time.strftime('%H:%M:%S', time.localtime()), len(pending))
                     break
                 print '== [%s] Waiting for %s pending gearman responses (retry: %s)' % (time.strftime('%H:%M:%S', time.localtime()), len(pending), retry)
                 retry += 1
-                time.sleep(30)
+                time.sleep(10)
         if 'shutdown' in dir(self):  # Calls setup-method of child class to support the implementation of correlated use cases
             self.shutdown(self.__ctx)
         print '= [%s] Stopped module: %s' % (time.strftime('%H:%M:%S', time.localtime()), '.'.join([self.__module__, self.__class__.__name__]))
