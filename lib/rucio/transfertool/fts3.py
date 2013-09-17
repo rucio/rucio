@@ -9,7 +9,6 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import json
-import uuid
 
 import requests
 
@@ -44,7 +43,6 @@ def submit_transfers(transfers, job_metadata):
                                   'filesize': int(transfer['filesize']),
                                   'checksum': str(transfer['checksum'])}],
                        'params': {'verify_checksum': 'true',
-                                  'reuse': 'true',
                                   'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'no_spacetoken',
                                   'copy_pin_lifetime': -1,
                                   'job_metadata': job_metadata,
@@ -61,9 +59,6 @@ def submit_transfers(transfers, job_metadata):
             raise Exception('Could not build valid JSON:\n%s' % params_str)
 
         r = None
-
-        transfer_ids[transfer['request_id']] = str(uuid.uuid4())  # mock job id
-        continue
 
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
@@ -125,7 +120,6 @@ def submit(src_urls, dest_urls,
         raise Exception('Could not build valid JSON: %s' % str(e))
 
     r = None
-    return str(uuid.uuid4())  # mock job id
 
     if __HOST.startswith('https://'):
         r = requests.post('%s/jobs' % __HOST,
@@ -154,8 +148,6 @@ def query(transfer_id):
     """
 
     r = None
-
-    return r  # transfer is lost
 
     if __HOST.startswith('https://'):
         r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
