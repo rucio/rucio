@@ -72,11 +72,11 @@ def observe_gearman_queue(cfg, stop_event):
 def main_function():
     update = 500
     num_processes = 4
-    duration = 3600
     stop_event = multiprocessing.Event()
     stop = False
     pid = os.getpid()
     spawned_processes = []
+    duration = None
 
     def signal_handler(signal, frame):
         stop_event.set()
@@ -206,9 +206,13 @@ def main_function():
         spawned_processes.append(p)
 
     timeout_event = threading.Event()
-    t = threading.Thread(target=waiting_to_stop, kwargs={'duration': duration, 'interval': update, 'stop_event': stop_event, 'timeout': timeout_event})
-    t.daemon = True
-    t.start()
+    if duration:
+        print '== Set timeout for emulation: %.1f minutes' % (duration)
+        t = threading.Thread(target=waiting_to_stop, kwargs={'duration': duration, 'interval': update, 'stop_event': stop_event, 'timeout': timeout_event})
+        t.daemon = True
+        t.start()
+    else:
+        print '== Disable timeout for emulation (infinite run)'
     while t.is_alive():
         t.join(3)
         if stop:
