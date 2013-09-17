@@ -92,7 +92,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     destinations = [str(pfn)]
 
                 ts = time.time()
-
                 request.submit_transfers(transfers=[{'request_id': req['request_id'],
                                                      'src_urls': sources,
                                                      'dest_urls': destinations,
