@@ -18,12 +18,13 @@ SQLAlchemy models for rucio data
 import datetime
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, SmallInteger, String as _String, event, UniqueConstraint
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import object_mapper, relationship, backref
 from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint, Table
+from sqlalchemy.sql import Delete
 from sqlalchemy.types import LargeBinary
-
 
 from rucio.common import utils
 from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
@@ -45,6 +46,13 @@ def String(*arg, **kw):
 @compiles(Boolean, "oracle")
 def compile_binary_oracle(type_, compiler, **kw):
     return "NUMBER(1)"
+
+
+@event.listens_for(Engine, "before_execute", retval=True)
+def _add_hint(conn, element, multiparams, params):
+    if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'locks':
+        element = element.prefix_with("/*+ INDEX(LOCKS LOCKS_PK) */")
+    return element, multiparams, params
 
 
 @event.listens_for(PrimaryKeyConstraint, "after_parent_attach")
@@ -499,7 +507,7 @@ class ReplicationRule(BASE, ModelBase):
     locks_stuck_cnt = Column(BigInteger, default=0)
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
-                   ForeignKeyConstraint(['scope', 'name', 'did_type'], ['dids.scope', 'dids.name', 'dids.did_type'], name='RULES_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
                    ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_SUBS_ID_FK'),
                    CheckConstraint('"STATE" IS NOT NULL', name='RULES_STATE_NN'),

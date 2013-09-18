@@ -14,7 +14,7 @@ import time
 
 from datetime import datetime, timedelta
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
@@ -93,10 +93,14 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             new_rule.save(session=session)
         except IntegrityError, e:
             raise InvalidReplicationRule(e.args[0])
+        except OperationalError, e:
+            raise
+
         rule_id = new_rule.id
         rule_ids.append(rule_id)
         record_timer(stat='rule.create_rule', time=(time.time() - start_time)*1000)
         # 4. Resolve the did
+
         datasetfiles = __resolve_dids_to_locks(did, lockmode='update', restrict_rses=rse_ids, session=session)
         # 5. Apply the replication rule to create locks and return a list of transfers
         transfers_to_create, locks_ok_cnt, locks_replicating_cnt = __create_locks_for_rule(datasetfiles=datasetfiles,
