@@ -10,6 +10,7 @@
 
 import datetime
 import re
+import signal
 import time
 
 from copy import copy
@@ -414,6 +415,14 @@ def launch_transmogrifier(once=False):
             worker.run()
         else:
             workers_pid.append(newpid)
+
+    def signal_handler(signal, frame):
+        logger.critical("Process %s says : Arrrgggghhh, I'm dying" % (str(getpid())))
+        logger.critical("Will kill all child process")
+        for pid in workers_pid:
+            kill(pid, 9)
+            logger.critical("Process %s killed" % (str(pid)))
+    signal.signal(signal.SIGTERM, signal_handler)
     s = Supervisor()
     if once:
         s.run_once()
