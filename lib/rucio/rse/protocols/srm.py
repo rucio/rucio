@@ -22,12 +22,13 @@ class Default(protocol.RSEProtocol):
 
             :param props Properties derived from the RSE Repository
         """
+        self.rse = props
         self.scheme = 'srm'
-        self.hostname = props['protocol']['hostname']
-        self.port = props['protocol']['port']
-        self.prefix = props['protocol']['prefix']
-        self.web_service_path = props['protocol']['extended_attributes']['web_service_path']
-        self.space_token = props['protocol']['extended_attributes']['space_token']
+        self.hostname = self.rse['hostname']
+        self.port = self.rse['port']
+        self.prefix = self.rse['prefix']
+        self.web_service_path = self.rse['extended_attributes']['web_service_path']
+        self.space_token = self.rse['extended_attributes']['space_token']
 
     def pfn2uri(self, pfn):
         netloc = '{0}:{1}'.format(self.hostname, self.port)
