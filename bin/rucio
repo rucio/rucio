@@ -556,11 +556,11 @@ def upload(args):
         try:
             size = os.stat(filename).st_size
             checksum = adler32(filename)
-            client.add_replica(scope=args.scope, name=filename, rse=args.rse, adler32=checksum, size=size, dsn=dsn)
+            client.add_replica(scope=args.scope, name=filename, rse=args.rse, adler32=checksum, bytes=size, dsn=dsn)
             rsemgr.upload(args.rse, lfns=[{'filename': filename, 'scope': args.scope}, ])
-            print 'download operation for %s done' % filename
+            print 'Upload operation for %s done' % filename
         except Exception, e:
-            print 'Failed to download %(files)s' % locals()
+            print 'Failed to upload %(files)s' % locals()
             print e
 
 
