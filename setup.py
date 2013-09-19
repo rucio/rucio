@@ -45,8 +45,7 @@ data_files = [('etc/', glob.glob('etc/*.template')),
               ('tools/', glob.glob('tools/*[^patches]'))
               ]
 
-scripts = ['bin/rucio', 'bin/rucio-admin', 'bin/rucio-conveyor', 'bin/rucio-reaper', 'bin/rucio-transmogrifier']
-
+scripts = glob.glob('bin/rucio*')
 
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
