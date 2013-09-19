@@ -9,7 +9,6 @@ include setup.cfg
 include lib/rucio/db/rucio_migrate_repo/README
 include lib/rucio/db/rucio_migrate_repo/migrate.cfg
 include lib/rucio/db/rucio_migrate_repo/versions/*.sql
-graft bin
 graft doc
 prune dist
 prune examples
