@@ -30,6 +30,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
+from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager
@@ -541,23 +542,44 @@ def upload(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
     dsn = None
     if args.did:
         dsn = {'scope': args.did.split(':')[0], 'name': args.did.split(':')[1]}
+        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account, auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+    else:
+        client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account, auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+        ruleclient = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+                                   account=args.account, auth_type=args.auth_strategy, creds=creds,
+                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     rsemgr = rsemanager.RSEMgr()
     files = args.files
+    list_files = []
+    lfns = []
     for filename in files:
+        size = os.stat(filename).st_size
+        checksum = adler32(filename)
+        list_files.append({'scope': args.scope, 'name': filename, 'bytes': size, 'adler32': checksum})
+        lfns.append({'filename': filename, 'scope': args.scope})
+
+    if dsn:
         try:
-            size = os.stat(filename).st_size
-            checksum = adler32(filename)
-            client.add_replica(scope=args.scope, name=filename, rse=args.rse, adler32=checksum, bytes=size, dsn=dsn)
-            rsemgr.upload(args.rse, lfns=[{'filename': filename, 'scope': args.scope}, ])
+            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': args.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}])
+            client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
+            rsemgr.upload(args.rse, lfns=lfns)
+            print 'Upload operation for %s done' % filename
+        except Exception, e:
+            print 'Failed to upload %(files)s' % locals()
+            print e
+    else:
+        try:
+            client.add_replicas(files=list_files, rse=args.rse)
+            ruleclient.add_replication_rule(list_files, copies=1, rse_expression=args.rse)
+            rsemgr.upload(args.rse, lfns=lfns)
             print 'Upload operation for %s done' % filename
         except Exception, e:
             print 'Failed to upload %(files)s' % locals()
