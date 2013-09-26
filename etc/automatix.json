@@ -1,0 +1,42 @@
+{
+"type1": {
+                "probability": 10,
+                "nbfiles": 2,
+                "metadata":
+                {
+                        "project": "mc12_8TeV",
+                        "datatype": "EVNT",
+                        "prod_step": "evgen"
+                }
+        },
+"type2": {
+                "probability": 10,
+                "nbfiles": 10,
+                "metadata":
+                {
+                        "project": "mc12_8TeV",
+                        "datatype": "HITS",
+                        "prod_step": "simul"
+                }
+        },
+"type3": {
+                "probability": 10,
+                "nbfiles": 1,
+                "metadata":
+                {
+                        "project": "mc12_8TeV",
+                        "datatype": "HITS",
+                        "prod_step": "merge"
+                }
+        },
+"type4": {
+                "probability": 10,
+                "nbfiles": 10,
+                "metadata":
+                {
+                        "project": "mc12_8TeV",
+                        "datatype": "AOD",
+                        "prod_step": "recon"
+                }
+        }
+}

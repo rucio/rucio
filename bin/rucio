@@ -566,9 +566,26 @@ def upload(args):
         list_files.append({'scope': args.scope, 'name': filename, 'bytes': size, 'adler32': checksum})
         lfns.append({'filename': filename, 'scope': args.scope})
 
+
+    metadata = {}
+    if args.project:
+        metadata['project'] = args.project
+    if args.datatype:
+        metadata['datatype'] = args.datatype
+    if args.run_number:
+        metadata['run_number'] = args.run_number
+    if args.stream_name:
+        metadata['stream_name'] = args.stream_name
+    if args.prod_step:
+        metadata['prod_step'] = args.prod_step
+    if args.version:
+        metadata['version'] = args.version
+    if args.campaign:
+        metadata['campaign'] = args.campaign
+
     if dsn:
         try:
-            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': args.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}])
+            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': args.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}], meta=metadata)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
             rsemgr.upload(args.rse, lfns=lfns)
             print 'Upload operation for %s done' % filename
@@ -811,6 +828,13 @@ Commands:
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)  # to be optional after
     upload_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add')
+    upload_parser.add_argument('--project', dest='project', action='store', help='Project of the dataset')
+    upload_parser.add_argument('--datatype', dest='datatype', action='store', help='Datatype of the dataset')
+    upload_parser.add_argument('--run_number', dest='run_number', action='store', help='Run number of the dataset')
+    upload_parser.add_argument('--stream_name', dest='stream_name', action='store', help='Stream name of the dataset')
+    upload_parser.add_argument('--prod_step', dest='prod_step', action='store', help='Production step of the dataset')
+    upload_parser.add_argument('--version', dest='version', action='store', help='Version of the dataset')
+    upload_parser.add_argument('--campaign', dest='campaign', action='store', help='Campaign of the dataset')
 
     # The download subparser
     download_parser = subparsers.add_parser('download', help='Download method')
