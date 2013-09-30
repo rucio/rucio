@@ -541,16 +541,22 @@ class UseCaseDefinition(UCEmulator):
         for key in ['jobs', 'subs', 'task']:
             if key not in output.keys():
                 return
-        for job in output['jobs']:
-            with ctx.job_queue_mutex:
+        now = time.time()
+        with ctx.job_queue_mutex:
+            print '== PanDA: (Task Output) Waited for job mutex: %.3f seconds' % (time.time() - now)
+            for job in output['jobs']:
                 with monitor.record_timer_block('panda.helper.sorting_jobs'):
                     bisect.insort(ctx.job_queue, job)
-        for sub in output['subs']:
-            with ctx.sub_queue_mutex:
+        now = time.time()
+        with ctx.sub_queue_mutex:
+            print '== PanDA: (Task Output) Waited for sub mutex: %.3f seconds' % (time.time() - now)
+            for sub in output['subs']:
                 with monitor.record_timer_block('panda.helper.sorting_subs'):
                     bisect.insort(ctx.sub_queue, sub)
         if len(output['task']):
+            now = time.time()
             with ctx.task_queue_mutex:
+                print '== PanDA: (Task Output) Waited for task mutex: %.3f seconds' % (time.time() - now)
                 with monitor.record_timer_block('panda.helper.sorting_tasks'):
                     bisect.insort(ctx.task_queue, output['task'])
 
@@ -711,6 +717,7 @@ class UseCaseDefinition(UCEmulator):
         now = time.time()
         jobs = []
         with ctx.job_queue_mutex:
+            print '== PanDA: (Job Input) Waited for mutex: %.3f seconds' % (time.time() - now)
             with monitor.record_timer_block('panda.helper.selecting_jobs'):
                 while ctx.job_queue[0][0] < now:
                     jobs.append(ctx.job_queue[0][1])
@@ -721,6 +728,7 @@ class UseCaseDefinition(UCEmulator):
             threads = int(ctx.threads)
         if len(jobs):
             print '== PanDA [%s]: Finishing %s jobs.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(jobs))
+            monitor.record_counter('panda.helper.jobs_block', len(jobs))
             return {'jobs': jobs, 'threads': threads}
         else:
             if not ctx.job_print % 100:
@@ -762,6 +770,7 @@ class UseCaseDefinition(UCEmulator):
         now = time.time()
         subs = []
         with ctx.sub_queue_mutex:
+            print '== PanDA: (Sub Input) Waited for mutex: %.3f seconds' % (time.time() - now)
             with monitor.record_timer_block('panda.helper.selecting_subs'):
                 while len(ctx.sub_queue) and ctx.sub_queue[0][0] < now:
                     subs.append(ctx.sub_queue[0][1])
@@ -771,6 +780,7 @@ class UseCaseDefinition(UCEmulator):
         else:
             threads = int(ctx.threads)
         if len(subs):
+            monitor.record_counter('panda.helper.subs_block', len(subs))
             return {'subs': subs, 'threads': threads, 'safety_delay': ctx.safety_delay}
         else:
             if not ctx.sub_print % 100:
@@ -936,6 +946,7 @@ class UseCaseDefinition(UCEmulator):
         now = time.time()
         tasks = []
         with ctx.task_queue_mutex:
+            print '== PanDA: (Task Input) Waited for mutex: %.3f seconds' % (time.time() - now)
             with monitor.record_timer_block('panda.helper.selecting_subs'):
                 while len(ctx.task_queue) and ctx.task_queue[0][0] < now:
                     tasks.append(ctx.task_queue[0][1])
@@ -946,6 +957,7 @@ class UseCaseDefinition(UCEmulator):
             threads = int(ctx.threads)
         if len(tasks):
             print '== PanDA [%s]: Finishing %s tasks.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(tasks))
+            monitor.record_counter('panda.helper.tasks_block', len(tasks))
             return {'tasks': tasks, 'threads': threads, 'safety_delay': ctx.safety_delay}
         else:
             if not ctx.task_print % 100:
@@ -992,24 +1004,18 @@ class UseCaseDefinition(UCEmulator):
             print '== PanDA [%s]: Loading context file' % (time.strftime('%D %H:%M:%S', time.localtime()))
             with open('/data/emulator/panda.ctx', 'r') as f:
                 stuff = pickle.load(f)
-            delta = (time.time() - stuff[0]) + ctx.safety_delay  # safety to cover time passing while writing/reading file and such
+            delta = (time.time() - stuff[0]) + 60  # safety
             print '== PanDA [%s]: Start importing previous context (written at: %s / delta: %.2f min)' % (time.strftime('%D %H:%M:%S', time.localtime()), time.strftime('%D %H:%M:%S', time.localtime(stuff[0])), (delta / 60))
-            #for job in stuff[1]:
-            #    ctx.job_queue.append((job[0] + delta, job[1]))
             ctx.job_queue = stuff[1]
             for job in ctx.job_queue:
                 job[0] += delta
             print '== PanDA [%s]: Re-imported %s jobs to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.job_queue),
                                                                                         time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[-1][0])))
-            #for sub in stuff[2]:
-            #    ctx.sub_queue.append((sub[0] + delta, sub[1]))
             ctx.sub_queue = stuff[2]
             for sub in ctx.sub_queue:
                 sub[0] += delta
             print '== PanDA [%s]: Re-imported %s subs to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.sub_queue),
                                                                                         time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[0][0])), time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[-1][0])))
-            #for task in stuff[3]:
-            #    ctx.task_queue.append((task[0] + delta, task[1]))
             ctx.task_queue = stuff[3]
             for task in ctx.task_queue:
                 task[0] += delta
