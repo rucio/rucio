@@ -36,19 +36,19 @@ def exec_uc(gearman_worker, gearman_job):
             mod = __import__(mod_name, fromlist=[class_name])
             cls = getattr(mod, class_name)
             imported_ucs[uc_data['class_name']] = cls(worker_mode=True, carbon_server=carbon_server)
-        print '== Worker [%s]: %s.%s' % (time.strftime('%H:%M:%S', time.localtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'])
+        print '== Worker [%s]: %s.%s' % (time.strftime('%D %H:%M:%S', time.localtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'])
         start = time.time()
         ret = json.dumps(getattr(imported_ucs[uc_data['class_name']], uc_data['uc_name'])(**uc_data['input_data']))
         fin = time.time()
         carbon_server.timing('%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name']), (fin - start) * 1000)
     except Exception, e:
-        print('== Worker [%s]: exceptions.%s.%s.%s: %s' % (time.strftime('%H:%M:%S', time.localtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'], e.__class__.__name__.split('.')[-1], e))
+        print('== Worker [%s]: exceptions.%s.%s.%s: %s' % (time.strftime('%D %H:%M:%S', time.localtime()), uc_data['class_name'].split('.')[-2], uc_data['uc_name'], e.__class__.__name__.split('.')[-1], e))
         print traceback.format_exc()
         carbon_server.update_stats('exceptions.%s.%s.%s' % (uc_data['class_name'].split('.')[-2], uc_data['uc_name'], (e.__class__.__name__).split('.')[-1]), 1)
     if ret:
         return ret
     else:
-        print('== Worker [%s]: !! Return-value error: %s.%s: Returned "None"' % ((time.strftime('%H:%M:%S', time.localtime())).split('.')[-1], uc_data['class_name'].split('.')[-2], uc_data['uc_name']))
+        print('== Worker [%s]: !! Return-value error: %s.%s: Returned "None"' % ((time.strftime('%D %H:%M:%S', time.localtime())).split('.')[-1], uc_data['class_name'].split('.')[-2], uc_data['uc_name']))
         return "False"
 
 
