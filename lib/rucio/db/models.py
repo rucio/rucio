@@ -244,7 +244,7 @@ class Scope(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
                    CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),
                    CheckConstraint('STATUS IS NOT NULL', name='SCOPES_STATUS_NN'),
-                   CheckConstraint('account IS NOT NULL', name='SCOPES_ACCOUNT_NN')
+                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='SCOPES_ACCOUNT_NN')
                    )
 
 
@@ -575,6 +575,7 @@ class Request(BASE, ModelBase, Versioned):
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'dest_rse_id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
+                   CheckConstraint('dest_rse_id IS NOT NULL', name='REQUESTS_RSE_ID_NN'),
                    Index('REQUESTS_ID_IDX', 'id'),
                    Index('REQUESTS_TYP_STA_CRE_IDX', 'request_type', 'state', 'created_at')
                    )
