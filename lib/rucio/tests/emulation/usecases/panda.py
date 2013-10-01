@@ -543,20 +543,20 @@ class UseCaseDefinition(UCEmulator):
                 return
         now = time.time()
         with ctx.job_queue_mutex:
-            print '== PanDA: (Task Output) Waited for job mutex: %.3f seconds' % (time.time() - now)
+            monitor.record_timer('panda.helper.waiting.job_queue_mutex.sorting', (time.time() - now))
             for job in output['jobs']:
                 with monitor.record_timer_block('panda.helper.sorting_jobs'):
                     bisect.insort(ctx.job_queue, job)
         now = time.time()
         with ctx.sub_queue_mutex:
-            print '== PanDA: (Task Output) Waited for sub mutex: %.3f seconds' % (time.time() - now)
+            monitor.record_timer('panda.helper.waiting.sub_queue_mutex.sorting', (time.time() - now))
             for sub in output['subs']:
                 with monitor.record_timer_block('panda.helper.sorting_subs'):
                     bisect.insort(ctx.sub_queue, sub)
         if len(output['task']):
             now = time.time()
             with ctx.task_queue_mutex:
-                print '== PanDA: (Task Output) Waited for task mutex: %.3f seconds' % (time.time() - now)
+                monitor.record_timer('panda.helper.waiting.task_queue_mutex.sorting', (time.time() - now))
                 with monitor.record_timer_block('panda.helper.sorting_tasks'):
                     bisect.insort(ctx.task_queue, output['task'])
 
@@ -714,14 +714,20 @@ class UseCaseDefinition(UCEmulator):
             if not ctx.job_print % 100:
                 print '== PanDA [%s]: No jobs scheduled so far.' % (time.strftime('%D %H:%M:%S', time.localtime()))
             return None
-        now = time.time()
         jobs = []
-        with ctx.job_queue_mutex:
-            print '== PanDA: (Job Input) Waited for mutex: %.3f seconds' % (time.time() - now)
-            with monitor.record_timer_block('panda.helper.selecting_jobs'):
-                while ctx.job_queue[0][0] < now:
-                    jobs.append(ctx.job_queue[0][1])
-                    del ctx.job_queue[0]
+        if ctx.job_queue_select.acquire(False):  # Check if there is already one thread waiting to select items from queue
+            now = time.time()
+            with ctx.job_queue_mutex:
+                monitor.record_timer('panda.helper.waiting.job_queue_mutex.selecting', (time.time() - now))
+                now = time.time()
+                with monitor.record_timer_block('panda.helper.selecting_jobs'):
+                    for job in ctx.job_queue:
+                        if job[0] < now:
+                            jobs.append(job[1])
+                        else:
+                            break
+                    del ctx.job_queue[0:len(jobs)]
+            ctx.job_queue_select.release()
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
@@ -731,7 +737,7 @@ class UseCaseDefinition(UCEmulator):
             monitor.record_counter('panda.helper.jobs_block', len(jobs))
             return {'jobs': jobs, 'threads': threads}
         else:
-            if not ctx.job_print % 100:
+            if not ctx.job_print % 500:
                 print '== PanDA [%s]: Next job finishes in %.1f minutes (%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), ((ctx.job_queue[0][0] - now) / 60), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])))
             return None
 
@@ -767,14 +773,20 @@ class UseCaseDefinition(UCEmulator):
             if not ctx.sub_print % 100:
                 print '== PanDA [%s]: No subs scheduled so far.' % (time.strftime('%D %H:%M:%S', time.localtime()))
             return None
-        now = time.time()
         subs = []
-        with ctx.sub_queue_mutex:
-            print '== PanDA: (Sub Input) Waited for mutex: %.3f seconds' % (time.time() - now)
-            with monitor.record_timer_block('panda.helper.selecting_subs'):
-                while len(ctx.sub_queue) and ctx.sub_queue[0][0] < now:
-                    subs.append(ctx.sub_queue[0][1])
-                    del ctx.sub_queue[0]
+        if ctx.sub_queue_select.acquire(False):  # Check if there is already one thread waiting to select items from queue
+            now = time.time()
+            with ctx.sub_queue_mutex:
+                monitor.record_timer('panda.helper.waiting.sub_queue_mutex.selecting', (time.time() - now))
+                now = time.time()
+                with monitor.record_timer_block('panda.helper.selecting_subs'):
+                    for sub in ctx.sub_queue:
+                        if sub[0] < now:
+                            subs.append(sub[1])
+                        else:
+                            break
+                    del ctx.sub_queue[0:len(subs)]
+            ctx.sub_queue_select.release()
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
@@ -943,20 +955,26 @@ class UseCaseDefinition(UCEmulator):
             if not ctx.task_print % 100:
                 print '== PanDA [%s]: No tasks scheduled so far.' % (time.strftime('%D %H:%M:%S', time.localtime()))
             return None
-        now = time.time()
         tasks = []
-        with ctx.task_queue_mutex:
-            print '== PanDA: (Task Input) Waited for mutex: %.3f seconds' % (time.time() - now)
-            with monitor.record_timer_block('panda.helper.selecting_subs'):
-                while len(ctx.task_queue) and ctx.task_queue[0][0] < now:
-                    tasks.append(ctx.task_queue[0][1])
-                    del ctx.task_queue[0]
+        if ctx.task_queue_select.acquire(False):  # Check if there is already one thread waiting to select items from queue
+            now = time.time()
+            with ctx.task_queue_mutex:
+                monitor.record_timer('panda.helper.waiting.task_queue_mutex.selecting', (time.time() - now))
+                now = time.time()
+                with monitor.record_timer_block('panda.helper.selecting_tasks'):
+                    for task in ctx.task_queue:
+                        if task[0] < now:
+                            tasks.append(task[1])
+                        else:
+                            break
+                    del ctx.task_queue[0:len(tasks)]
+            ctx.task_queue_select.release()
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
             threads = int(ctx.threads)
         if len(tasks):
-            print '== PanDA [%s]: Finishing %s tasks.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(tasks))
+            #print '== PanDA [%s]: Finishing %s tasks.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(tasks))
             monitor.record_counter('panda.helper.tasks_block', len(tasks))
             return {'tasks': tasks, 'threads': threads, 'safety_delay': ctx.safety_delay}
         else:
@@ -977,9 +995,9 @@ class UseCaseDefinition(UCEmulator):
         pass  # Will never be executed, only here for sematic reasons
 
     def QUEUE_OBSERVER_input(self, ctx):
-        monitor.record_counter('panda.tasks.queue', len(ctx.task_queue))
-        monitor.record_counter('panda.jobs.queue', len(ctx.job_queue))
-        monitor.record_counter('panda.subs.queue', len(ctx.sub_queue))
+        monitor.record_gauge('panda.tasks.queue', len(ctx.task_queue))
+        monitor.record_gauge('panda.jobs.queue', len(ctx.job_queue))
+        monitor.record_gauge('panda.subs.queue', len(ctx.sub_queue))
         print '== PanDA [%s]: Task-Queue: %s / Job-Queue: %s / Sub-Queue: %s' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue), len(ctx.job_queue), len(ctx.sub_queue))
         return None  # Indicates that no further action is required
 
@@ -993,19 +1011,23 @@ class UseCaseDefinition(UCEmulator):
         # As long as there is no database filler, one dataset and n files are created here
         ctx.job_queue = []
         ctx.job_queue_mutex = threading.Lock()
+        ctx.job_queue_select = threading.Lock()
         ctx.job_print = 0
         ctx.sub_queue = []
         ctx.sub_queue_mutex = threading.Lock()
+        ctx.sub_queue_select = threading.Lock()
         ctx.sub_print = 0
         ctx.task_queue = []
         ctx.task_queue_mutex = threading.Lock()
+        ctx.task_queue_select = threading.Lock()
         ctx.task_print = 0
         try:
             print '== PanDA [%s]: Loading context file' % (time.strftime('%D %H:%M:%S', time.localtime()))
             with open('/data/emulator/panda.ctx', 'r') as f:
                 stuff = pickle.load(f)
-            delta = (time.time() - stuff[0]) + 60  # safety
-            print '== PanDA [%s]: Start importing previous context (written at: %s / delta: %.2f min)' % (time.strftime('%D %H:%M:%S', time.localtime()), time.strftime('%D %H:%M:%S', time.localtime(stuff[0])), (delta / 60))
+            delta = (time.time() - stuff[0]) + 125  # safety
+            print '== PanDA [%s]: Start importing previous context (written at: %s / delta: %.2f min)' % (time.strftime('%D %H:%M:%S', time.localtime()),
+                                                                                                          time.strftime('%D %H:%M:%S', time.localtime(stuff[0])), (delta / 60))
             ctx.job_queue = stuff[1]
             for job in ctx.job_queue:
                 job[0] += delta
@@ -1108,6 +1130,9 @@ class UseCaseDefinition(UCEmulator):
         return ds
 
     def shutdown(self, ctx):
+        monitor.record_gauge('panda.tasks.queue', 0)
+        monitor.record_gauge('panda.jobs.queue', 0)
+        monitor.record_gauge('panda.subs.queue', 0)
         print '== PanDA [%s]: Persisting jobs: %s (first: %s, last: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.job_queue), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])),
                                                                             time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[-1][0])))
         print '== PanDA [%s]: Persisting subs: %s (first: %s, last: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.sub_queue), time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[0][0])),
