@@ -42,23 +42,15 @@ def submit_transfers(transfers, job_metadata):
                                   'metadata': {'issuer': 'rucio-transfertool-fts3'},
                                   'filesize': int(transfer['filesize']),
                                   'checksum': str(transfer['checksum'])}],
-                       'params': {'verify_checksum': 'true',
+                       'params': {'verify_checksum': True,
                                   'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'no_spacetoken',
                                   'copy_pin_lifetime': -1,
                                   'job_metadata': job_metadata,
                                   'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'no_spacetoken',
-                                  'overwrite': 'false'}}
-
-        # only " is valid in JSON
-        params_str = str(params_dict).replace("'", '"')
-
-        # are we still legal JSON?
-        try:
-            json.loads(params_str)
-        except:
-            raise Exception('Could not build valid JSON:\n%s' % params_str)
+                                  'overwrite': False}}
 
         r = None
+        params_str = json.dumps(params_dict)
 
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
@@ -104,22 +96,15 @@ def submit(src_urls, dest_urls,
                               'metadata': {'issuer': 'rucio-transfertool-fts3'},
                               'filesize': str(filesize),
                               'checksum': str(checksum)}],
-                   'params': {'verify_checksum': 'true',
-                              'overwrite': 'false',
-                              'job_metadata': job_metadata,
+                   'params': {'verify_checksum': True,
                               'spacetoken': dest_spacetoken if dest_spacetoken is not None else 'no_spacetoken',
-                              'source_spacetoken': src_spacetoken if src_spacetoken is not None else 'no_spacetoken'}}
-
-    # only " is valid in JSON
-    params_str = str(params_dict).replace("'", '"')
-
-    # are we still legal JSON?
-    try:
-        json.loads(params_str)
-    except Exception, e:
-        raise Exception('Could not build valid JSON: %s' % str(e))
+                              'copy_pin_lifetime': -1,
+                              'job_metadata': job_metadata,
+                              'source_spacetoken': src_spacetoken if src_spacetoken is not None else 'no_spacetoken',
+                              'overwrite': False}}
 
     r = None
+    params_str = json.dumps(params_dict)
 
     if __HOST.startswith('https://'):
         r = requests.post('%s/jobs' % __HOST,
@@ -127,14 +112,13 @@ def submit(src_urls, dest_urls,
                           cert=__USERCERT,
                           data=params_str,
                           headers={'Content-Type': 'application/json'})
-        print r
     else:
         r = requests.post('%s/jobs' % __HOST,
                           data=params_str,
                           headers={'Content-Type': 'application/json'})
 
     if r is not None and r.status_code == 200:
-        return r.json['job_id']
+        return str(r.json['job_id'])
     else:
         raise Exception('Could not submit transfer: %s', r.content)
 
