@@ -13,6 +13,8 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
 from hashlib import md5
 from re import match
 
@@ -31,7 +33,20 @@ from rucio.core.rse import add_replicas
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
 from rucio.db.session import read_session, transactional_session, stream_session
-# from rucio.rse import rsemanager
+from rucio.rse import rsemanager
+
+
+def my_key_generator(namespace, fn, **kw):
+    fname = fn.__name__
+
+    def generate_key(*arg, **kw):
+        return namespace + "_" + fname + "_".join(str(s) for s in arg)
+
+    return generate_key
+
+region = make_region(function_key_generator=my_key_generator).configure(
+    'dogpile.cache.memory',
+    expiration_time=3600)
 
 
 @stream_session
@@ -69,7 +84,7 @@ def list_replicas(dids, schemes=None, session=None):
                         child_dids.append((tmp_did.child_scope, tmp_did.child_name))
 
     # Get replicas
-    # rsemgr = rsemanager.RSEMgr(server_mode=True)
+    rsemgr = rsemanager.RSEMgr(server_mode=True)
     is_none = None
     replicas_conditions = grouper(replica_conditions, 10, and_(models.RSEFileAssociation.scope == is_none,
                                                                models.RSEFileAssociation.name == is_none,
@@ -77,30 +92,28 @@ def list_replicas(dids, schemes=None, session=None):
     replica_query = session.query(models.RSEFileAssociation, models.RSE.rse).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).\
         order_by(models.RSEFileAssociation.scope).\
         order_by(models.RSEFileAssociation.name)
-    tmp_file = {}
+    dict_tmp_files = {}
+    replicas = []
     for replica_condition in replicas_conditions:
         for replica, rse in replica_query.filter(or_(*replica_condition)).yield_per(5):
-            if not tmp_file:
-                tmp_file = {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
-                            'md5': replica.md5, 'adler32': replica.adler32,
-                            'rses': {rse: list()}}
-            elif str(tmp_file['scope']) != str(replica.scope) or str(tmp_file['name']) != str(replica.name):
-                yield tmp_file
-                tmp_file = {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
-                            'md5': replica.md5, 'adler32': replica.adler32,
-                            'rses': {rse: list()}}
-            else:
-                tmp_file['rses'][rse] = list()
+            key = '%s:%s' % (replica.scope, replica.name)
+            if not key in dict_tmp_files:
+                dict_tmp_files[key] = {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
+                                       'md5': replica.md5, 'adler32': replica.adler32,
+                                       'rses': {rse: list()}}
+            result = region.get('protocols_%s' % (rse))
+            if type(result) is NoValue:
+                #print 'Value is not cached'
+                proto = rsemgr.list_protocols(rse_id=rse, session=session)
+                region.set('protocols_%s' % (rse), proto)
+                result = region.get('protocols_%s' % (rse))
+            for protocol in result:
+                if not schemes or protocol['scheme'] in schemes:
+                    dict_tmp_files[key]['rses'][rse].append(rsemgr.lfn2pfn(rse_id=rse, lfns={'scope': replica.scope, 'name': replica.name}, properties=protocol, session=session))
 
-    if tmp_file:
-        yield tmp_file
-
-    # ToDo: pfn computations
-    #    protocols[row.rse.rse] = rsemgr.list_protocols(rse_id=row.rse.rse, session=session)
-
-    # for protocol in protocols[row.rse.rse]:
-    #   if not schemes or protocol['scheme'] in schemes:
-    #       pfns.append(rsemgr.lfn2pfn(rse_id=row.rse.rse, lfns={'scope': row.scope, 'filename': row.name}, properties=protocol, session=session))
+    for key in dict_tmp_files:
+        replicas.append(dict_tmp_files[key])
+        yield dict_tmp_files[key]
 
 
 @read_session

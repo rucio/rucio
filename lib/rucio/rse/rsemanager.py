@@ -456,18 +456,18 @@ class RSEProtocolWrapper(object):
             Transforms the logical file name (LFN) into the storage specific URI of the file on the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. {'filename': '1_rse_remote.raw', 'scope': 'user.jdoe'}
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. {'name': '1_rse_remote.raw', 'scope': 'user.jdoe'}
 
-            :returns: PFN for a single file or a dict object with scope:filename as keys and the URI for each file in bulk mode, e.g. sftp://mock.cern.ch:22/some/prefix/user/17/18/some_file.raw
+            :returns: PFN for a single file or a dict object with scope:name as keys and the URI for each file in bulk mode, e.g. sftp://mock.cern.ch:22/some/prefix/user/17/18/some_file.raw
 
         """
         ret = {}
         lfns = [lfns] if not type(lfns) is list else lfns
         for lfn in lfns:
-            path = self.get_path(lfn['filename'], lfn['scope'])
-            ret[lfn['scope'] + ':' + lfn['filename']] = self.__instance.path2pfn(path)
+            path = self.get_path(lfn['name'], lfn['scope'])
+            ret[lfn['scope'] + ':' + lfn['name']] = self.__instance.path2pfn(path)
         if len(ret) == 1:
-            return ret[lfns[0]['scope'] + ':' + lfns[0]['filename']]
+            return ret[lfns[0]['scope'] + ':' + lfns[0]['name']]
         return ret
 
     def get_path(self, lfn, scope):
