@@ -12,14 +12,22 @@
 Conveyor is a daemon to manage file transfers.
 """
 
+import logging
 import threading
 import time
 import traceback
 
+from rucio.common.config import config_get
 from rucio.core import request, rse, lock
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import RequestType, RequestState, ReplicaState
 from rucio.db.session import get_session
+
+logging.getLogger("requests").setLevel(logging.CRITICAL)
+
+logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -29,11 +37,11 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
-    print 'poller: starting'
+    logging.info('poller starting')
 
     session = get_session()
 
-    print 'poller: started'
+    logging.info('poller started')
 
     while not graceful_stop.is_set():
 
@@ -47,7 +55,10 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                     break
                 session.commit()
                 time.sleep(1)  # Only sleep if there is nothing to do
+                logging.info('nothing to do')
                 continue
+
+            logging.debug('working on %s requests' % len(reqs))
 
             for req in reqs:
                 ts = time.time()
@@ -62,6 +73,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                             lock.successful_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
                         except:
                             session.rollback()
+                            logging.warn('Could not update lock for successful transfer %s:%s at %s' % (req['scope'], req['name'], req['dest_rse_id']))
                             continue
                         record_timer('daemons.conveyor.poller.002-lock-successful_transfer', (time.time()-tss)*1000)
 
@@ -87,12 +99,15 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                             lock.failed_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
                         except:
                             session.rollback()
+                            logging.warn('Could not update lock for failed transfer %s:%s at %s' % (req['scope'], req['name'], req['dest_rse_id']))
                             continue
                         record_timer('daemons.conveyor.poller.002-lock-failed_transfer', (time.time()-tss)*1000)
 
                         tss = time.time()
                         request.archive_request(req['request_id'], session=session)
                         record_timer('daemons.conveyor.poller.003-request-archive_failed', (time.time()-tss)*1000)
+
+                    logging.info('UPDATED %s:%s at %s to %s' % (req['scope'], req['name'], rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse'], response['new_state']))
 
                 record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
 
@@ -102,14 +117,14 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
         except:
             session.rollback()
-            print traceback.format_exc()
+            logging.critical(traceback.format_exc())
 
         if once:
             return
 
-    print 'poller: graceful stop requested'
+    logging.info('poller: graceful stop requested')
 
-    print 'poller: graceful stop done'
+    logging.info('poller: graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -126,17 +141,17 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
     """
 
     if once:
-        print 'main: executing one iteration only'
+        logging.info('executing one poller iteration only')
         poller(once)
 
     else:
 
-        print 'main: starting threads'
+        logging.info('starting poller threads')
         threads = [threading.Thread(target=poller, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 
-        print 'main: waiting for interrupts'
+        logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
         while len(threads) > 0:
