@@ -184,7 +184,13 @@ class UCEmulator(object):
                 print '!! ERROR !! run_gearman: %s' % e
         else:
             # Gearman job can just be executed, no waiting necessary
-            self.__gearman_client.submit_job(task='execute_uc', data=json.dumps(uc_data), unique=str(uuid()), background=True)
+            try:
+                self.__gearman_client.submit_job(task='execute_uc', data=json.dumps(uc_data), unique=str(uuid()), background=True, max_retries=10, poll_timeout=300)
+            except Exception, e:
+                print '!! ERROR !! [%s] Unable to submit job to gearman.' % (time.strftime('%H:%M:%S', time.localtime()))
+                print e
+                print traceback.format_exc()
+                self.__event.set()
 
     def await_gearman_results(self, data, uuid):
         """

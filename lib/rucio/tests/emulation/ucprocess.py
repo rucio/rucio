@@ -41,6 +41,7 @@ class UCProcess(object):
         self.stop_event = stop_event
         self.uc_threads = dict()
         self.update = cfg['global']['update_interval']
+        self.received_stop = False
 
         # Instanciating logging
         self.cs = None
@@ -76,6 +77,7 @@ class UCProcess(object):
     def run(self):
         def signal_handler(signal, frame):
             print '= (PID: %s) [%s] received SIGTERM' % (self.pid, time.strftime('%H:%M:%S', time.localtime()))
+            self.received_stop = True
 
         try:
             signal.signal(signal.SIGTERM, signal_handler)
@@ -163,8 +165,12 @@ class UCProcess(object):
         for mod in self.uc_threads.items():
             print '= (PID: %s) Stopping module %s' % (self.pid, mod[0])
             mod[1].join()
-        print '= (PID: %s) Stopped successfully' % self.pid
-        sys.exit(0)
+        if self.received_stop:
+            print '= (PID: %s) Stopped successfully (Return Code: 0)' % self.pid
+            sys.exit(0)
+        else:
+            print '= (PID: %s) Stopped successfully (Return Code: 1)' % self.pid
+            sys.exit(1)
 
     def diff_context(self, current, new, key_chain, uc):
         nk = new.keys()

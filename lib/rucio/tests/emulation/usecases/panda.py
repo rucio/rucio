@@ -720,14 +720,20 @@ class UseCaseDefinition(UCEmulator):
             with ctx.job_queue_mutex:
                 monitor.record_timer('panda.helper.waiting.job_queue_mutex.selecting', (time.time() - now))
                 now = time.time()
+                tmp_cnt = 0
                 with monitor.record_timer_block('panda.helper.selecting_jobs'):
                     for job in ctx.job_queue:
+                        tmp_cnt += 1
                         if job[0] < now:
                             jobs.append(job[1])
                         else:
+                            if not len(jobs):
+                                ctx.job_queue = sorted(ctx.job_queue, key=lambda job: job[0])
                             break
                     del ctx.job_queue[0:len(jobs)]
             ctx.job_queue_select.release()
+        else:
+                print '== PanDA [%s]: Already one thread waiting for pending jobs.' % (time.strftime('%D %H:%M:%S', time.localtime()))
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
@@ -737,7 +743,7 @@ class UseCaseDefinition(UCEmulator):
             monitor.record_counter('panda.helper.jobs_block', len(jobs))
             return {'jobs': jobs, 'threads': threads}
         else:
-            if not ctx.job_print % 500:
+            if not ctx.job_print % 100:
                 print '== PanDA [%s]: Next job finishes in %.1f minutes (%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), ((ctx.job_queue[0][0] - now) / 60), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])))
             return None
 
@@ -784,6 +790,8 @@ class UseCaseDefinition(UCEmulator):
                         if sub[0] < now:
                             subs.append(sub[1])
                         else:
+                            if not len(subs):
+                                ctx.sub_queue = sorted(ctx.sub_queue, key=lambda sub: sub[0])
                             break
                     del ctx.sub_queue[0:len(subs)]
             ctx.sub_queue_select.release()
@@ -966,6 +974,8 @@ class UseCaseDefinition(UCEmulator):
                         if task[0] < now:
                             tasks.append(task[1])
                         else:
+                            if not len(tasks):
+                                ctx.task_queue = sorted(ctx.task_queue, key=lambda task: task[0])
                             break
                     del ctx.task_queue[0:len(tasks)]
             ctx.task_queue_select.release()
@@ -999,6 +1009,13 @@ class UseCaseDefinition(UCEmulator):
         monitor.record_gauge('panda.jobs.queue', len(ctx.job_queue))
         monitor.record_gauge('panda.subs.queue', len(ctx.sub_queue))
         print '== PanDA [%s]: Task-Queue: %s / Job-Queue: %s / Sub-Queue: %s' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue), len(ctx.job_queue), len(ctx.sub_queue))
+        tmp_str = 'Job Queue\n'
+        tmp_str += '---------\n'
+        for i in range(10):
+            tmp_str += '\t%s: %s\n' % (i, time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[i][0])))
+        tmp_str += '---------'
+        print tmp_str
+
         return None  # Indicates that no further action is required
 
     def setup(self, ctx):
@@ -1025,20 +1042,20 @@ class UseCaseDefinition(UCEmulator):
             print '== PanDA [%s]: Loading context file' % (time.strftime('%D %H:%M:%S', time.localtime()))
             with open('/data/emulator/panda.ctx', 'r') as f:
                 stuff = pickle.load(f)
-            delta = (time.time() - stuff[0]) + 125  # safety
+            delta = (time.time() - stuff[0]) + 135  # safety
             print '== PanDA [%s]: Start importing previous context (written at: %s / delta: %.2f min)' % (time.strftime('%D %H:%M:%S', time.localtime()),
                                                                                                           time.strftime('%D %H:%M:%S', time.localtime(stuff[0])), (delta / 60))
-            ctx.job_queue = stuff[1]
+            ctx.job_queue = sorted(stuff[1])
             for job in ctx.job_queue:
                 job[0] += delta
             print '== PanDA [%s]: Re-imported %s jobs to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.job_queue),
                                                                                         time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[0][0])), time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[-1][0])))
-            ctx.sub_queue = stuff[2]
+            ctx.sub_queue = sorted(stuff[2])
             for sub in ctx.sub_queue:
                 sub[0] += delta
             print '== PanDA [%s]: Re-imported %s subs to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.sub_queue),
                                                                                         time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[0][0])), time.strftime('%D %H:%M:%S', time.localtime(ctx.sub_queue[-1][0])))
-            ctx.task_queue = stuff[3]
+            ctx.task_queue = sorted(stuff[3])
             for task in ctx.task_queue:
                 task[0] += delta
             print '== PanDA [%s]: Re-imported %s tasks to queue (min: %s / max: %s).' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue),
@@ -1140,6 +1157,9 @@ class UseCaseDefinition(UCEmulator):
         print '== PanDA [%s]: Persisting tasks: %s (first: %s, last: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue), time.strftime('%D %H:%M:%S', time.localtime(ctx.task_queue[0][0])),
                                                                              time.strftime('%D %H:%M:%S', time.localtime(ctx.task_queue[-1][0])))
 
-        with open('/data/emulator/panda.ctx', 'w') as f:
-            pickle.dump([time.time(), ctx.job_queue, ctx.sub_queue, ctx.task_queue], f, pickle.HIGHEST_PROTOCOL)
+        with ctx.job_queue_mutex:
+            with ctx.sub_queue_mutex:
+                with ctx.task_queue_mutex:
+                    with open('/data/emulator/panda.ctx', 'w') as f:
+                        pickle.dump([time.time(), ctx.job_queue, ctx.sub_queue, ctx.task_queue], f, pickle.HIGHEST_PROTOCOL)
         print '== PanDA [%s]: Persisted context file.' % (time.strftime('%D %H:%M:%S', time.localtime()))
