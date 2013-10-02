@@ -5,11 +5,13 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 [common]
+logdir = /var/log/rucio
+loglevel = DEBUG
 
 [client]
 rucio_host = https://atlas-rucio.cern.ch:443
@@ -56,7 +58,7 @@ transfertool = fts3
 ftshost = https://fts3-pilot.cern.ch:8446
 #ftshost = http://voatlas304.cern.ch/mockfts3
 cacert = /opt/rucio/etc/web/ca.crt
-usercert = /home/mario/.globus/cert_and_key.pem
+usercert = /opt/rucio/etc/rucio01.proxy
 
 [messaging-fts3]
 port = 6162
