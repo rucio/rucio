@@ -49,10 +49,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
     while not graceful_stop.is_set():
 
         try:
-
             ts = time.time()
             reqs = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED, limit=100, process=process, total_processes=total_processes, thread=thread, total_threads=total_threads, session=session)
-
             record_timer('daemons.conveyor.submitter.000-get_next', (time.time()-ts)*1000)
 
             if reqs is None or reqs == []:
@@ -69,9 +67,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 ts = time.time()
                 tmpsrc = []
                 try:
-                    for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], session=session):
-                        for pfn in source['rses'].keys():
-                            tmpsrc.append(str(source['rses'][pfn]))
+                    for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], schemes='srm', session=session):
+                        for endpoint in source['rses']:
+                            for pfn in source['rses'][endpoint]:
+                                tmpsrc.append(str(pfn))
                 except DataIdentifierNotFound:
                     record_counter('daemons.conveyor.submitter.lost_did')
                     logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
@@ -104,7 +103,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 record_timer('daemons.conveyor.submitter.002-get_rse', (time.time()-ts)*1000)
 
                 ts = time.time()
-                pfn = rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'filename': req['name']}], session=session)
+                pfn = rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'name': req['name']}], session=session)
                 record_timer('daemons.conveyor.submitter.003-lfn2pfn', (time.time()-ts)*1000)
 
                 if isinstance(pfn, list):
