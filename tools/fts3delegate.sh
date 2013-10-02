@@ -1,19 +1,26 @@
-#!/bin/bash
+echo 'select the proxy'
+export USERPROXY=/home/mario/dev/rucio/tools/rucio01.proxy
 
-FTSHOST=https://fts3-pilot.cern.ch:8446
-USERCERT=/home/mario/.globus/usercert.pem
-USERKEY=/home/mario/.globus/userkey.pem
-USERCERTKEY=/home/mario/.globus/cert_and_key.pem
-USERPROXY=/opt/rucio/etc/web/x509up
-CURL='curl -s --cacert /opt/rucio/etc/web/ca.crt -E /opt/rucio/etc/web/x509up'
+echo 'retrieving FTS3 user information'
+curl -s --cacert /opt/rucio/etc/web/ca.crt -E $USERPROXY -X GET https://fts3-pilot.cern.ch:8446/whoami
 
-DELEGATION_ID=$($CURL -X GET $FTSHOST/whoami | grep delegation_id | cut -d'"' -f4)
-LIFETIME=$($CURL -X GET $FTSHOST/delegation/$DELEGATION_ID | grep termination_time)
+echo 'checking FTS3 lifetime'
+curl -s --cacert /opt/rucio/etc/web/ca.crt -E $USERPROXY -X GET https://fts3-pilot.cern.ch:8446/delegation/592d0a09295e9451
 
-echo $DELEGATION_ID lifetime: $LIFETIME
+echo 'requesting certificate signing request'
+curl -s --cacert /opt/rucio/etc/web/ca.crt -E $USERPROXY -X GET https://fts3-pilot.cern.ch:8446/delegation/592d0a09295e9451/request >request.pem
 
-$CURL -X GET $FTSHOST/delegation/$DELEGATION_ID/request > request.pem
+echo 'signing the request'
+rm -rf demoCA
+mkdir -p demoCA/newcerts
+touch demoCA/index.txt
+echo "00" >demoCA/serial
+openssl ca -in request.pem -preserveDN -days 365 -cert $USERPROXY -keyfile $USERPROXY -md sha1 -out proxy.pem -subj '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=rucio01/CN=663551/CN=Robot: Rucio Service Account 01/CN=proxy/CN=proxy' -policy policy_anything -batch
 
-openssl x509 -req -sha1 -CAcreateserial -in request.pem -days 1 -CA /opt/rucio/etc/web/x509up -CAkey /opt/rucio/etc/web/x509up -out proxy.pem
+echo 'uploading the signed request'
+curl -vvvvv --cacert /opt/rucio/etc/web/ca.crt -E $USERPROXY -X PUT -T proxy.pem https://fts3-pilot.cern.ch:8446/delegation/592d0a09295e9451/credential
 
-$CURL -X PUT -T proxy.pem $FTSHOST/delegation/$DELEGATION_ID/credential
+echo 'checking FTS3 lifetime'
+curl -s --cacert /opt/rucio/etc/web/ca.crt -E $USERPROXY -X GET https://fts3-pilot.cern.ch:8446/delegation/592d0a09295e9451
+
+echo 'done'
