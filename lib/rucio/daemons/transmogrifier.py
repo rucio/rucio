@@ -9,13 +9,13 @@
 
 
 import datetime
+import logging
 import re
 import signal
 import time
 
 from copy import copy
 from json import loads, dumps
-from logging import getLogger, FileHandler, Formatter, INFO, DEBUG
 from math import exp
 from os import getpid, fork, kill
 from sys import exc_info, exit
@@ -32,13 +32,11 @@ from rucio.common.config import config_get, config_get_int
 from rucio.core import monitor
 
 
-logger = getLogger('rucio.daemons.Transmogrifier')
-hdlr = FileHandler('/tmp/Transmogrifier.log')
-formatter = Formatter('%(asctime)s %(levelname)s %(process)d %(message)s')
-hdlr.setFormatter(formatter)
-logger.addHandler(hdlr)
-logger.setLevel(DEBUG)
-logger.setLevel(INFO)
+logging.getLogger("transmogrifier").setLevel(logging.CRITICAL)
+
+logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def _retrial(func, *args, **kwargs):
@@ -47,20 +45,20 @@ def _retrial(func, *args, **kwargs):
         try:
             return apply(func, args, kwargs)
         except DataIdentifierNotFound, e:
-            logger.warning(e)
+            logging.warning(e)
             return 1
         except DatabaseException, e:
-            logger.error(e)
+            logging.error(e)
             if exp(delay) > 600:
-                logger.error('Cannot execute %s after %i attempt. Failing the job.' % (func.__name__, delay))
+                logging.error('Cannot execute %s after %i attempt. Failing the job.' % (func.__name__, delay))
                 raise
             else:
-                logger.error('Failure to execute %s. Retrial will be done in %d seconds ' % (func.__name__, exp(delay)))
+                logging.error('Failure to execute %s. Retrial will be done in %d seconds ' % (func.__name__, exp(delay)))
             time.sleep(exp(delay))
             delay += 1
         except:
             exc_type, exc_value, exc_traceback = exc_info()
-            logger.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
             raise
 
 
@@ -102,7 +100,7 @@ class Supervisor(object):
         nbdids = 0
         for did in list_new_dids():
             nbdids += 1
-            logger.debug(did)
+            logging.debug(did)
             d = {'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']}
             if len(chunk) < self.__chunksize:
                 chunk.append(d)
@@ -141,7 +139,7 @@ class Supervisor(object):
             submitted_requests = self.__gm_client.submit_multiple_jobs(list_of_jobs, background=False, wait_until_complete=False, max_retries=4)
             return submitted_requests
         else:
-            logger.warning('No new DIDS.')
+            logging.warning('No new DIDS.')
             return submitted_requests
 
     def query_requests_simple(self, requests):
@@ -154,7 +152,7 @@ class Supervisor(object):
         queued = 10
         while(queued != 0):
             status = self.__gm_admin_client.get_status()
-            logger.info('************************', status)
+            logging.info('************************', status)
             time.sleep(self.__sleep_time)
             for task in status:
                 if task['task'] == 'evaluate_subscriptions':
@@ -185,32 +183,32 @@ class Supervisor(object):
                     if item['task'] == 'evaluate_subscriptions':
                         nbQueuedJobs = item['queued']
                         nbRunningJobs = item['running']
-                logger.info('Time elapsed %f : Still %i requests to complete' % (end_time - start_time, nbQueuedJobs))
+                logging.info('Time elapsed %f : Still %i requests to complete' % (end_time - start_time, nbQueuedJobs))
             # If nbQueuedJobs <= nbRunningJobs individually we check individually each job
             else:
                 if deeperCheck:
-                    logger.info('Time elapsed %f : --- Failed requests : %i --- Not completed requests : %i' % (end_time - start_time, failedJobs, len(notCompletedRequests)))
+                    logging.info('Time elapsed %f : --- Failed requests : %i --- Not completed requests : %i' % (end_time - start_time, failedJobs, len(notCompletedRequests)))
                     firstpass = 0
                 else:
-                    logger.info('Checking individually all submited tasks')
+                    logging.info('Checking individually all submited tasks')
                     deeperCheck = 1
                     firstpass = 1
                 if firstpass != 0:
-                    logger.info('Failed requests : %i --- Not completed requests : %i' % (failedJobs, len(notCompletedRequests)))
+                    logging.info('Failed requests : %i --- Not completed requests : %i' % (failedJobs, len(notCompletedRequests)))
                 # If all remaining jobs are failed, resubmitting them
                 if failedJobs == len(notCompletedRequests):
-                    logger.warning('%i tasks failed. They will be resubmited' % (failedJobs))
+                    logging.warning('%i tasks failed. They will be resubmited' % (failedJobs))
                     jobsToResubmit = []
                     for request in notCompletedRequests:
                         jobsToResubmit.append(dict(task=request.job.task, data=str(request.job.data)))
-                    logger.warning('List of jobs to resubmit')
-                    logger.warning(jobsToResubmit)
+                    logging.warning('List of jobs to resubmit')
+                    logging.warning(jobsToResubmit)
                     notCompletedRequests = self.__gm_client.submit_multiple_jobs(jobsToResubmit, background=False, wait_until_complete=False, max_retries=4)
-                    logger.debug(notCompletedRequests)
+                    logging.debug(notCompletedRequests)
                 failedJobs = 0
                 # Else get the status of each job
                 if nb_requests_to_process != len(notCompletedRequests):
-                    logger.info('Time elapsed %f : Still %i requests to complete' % (end_time - start_time, len(notCompletedRequests)))
+                    logging.info('Time elapsed %f : Still %i requests to complete' % (end_time - start_time, len(notCompletedRequests)))
                 nb_requests_to_process = len(notCompletedRequests)
                 notCompletedRequests2 = copy(notCompletedRequests)
                 for request in notCompletedRequests2:
@@ -236,7 +234,7 @@ class Supervisor(object):
             status = self.__gm_client.get_job_status(request)
             status = status.state
         except KeyError, e:
-            logger.debug('Problem getting the job state with get_job_status', e)
+            logging.debug('Problem getting the job state with get_job_status', e)
             status = request.state
         return status
 
@@ -255,12 +253,12 @@ class Supervisor(object):
 
         nbdids, chunks = self.get_new_dids()
         if chunks != []:
-            logger.info('##################### Submitting %i chunks representing %s new DIDs' % (len(chunks), nbdids))
+            logging.info('##################### Submitting %i chunks representing %s new DIDs' % (len(chunks), nbdids))
             submitted_requests = self.submit_tasks(chunks)
-            logger.info(submitted_requests)
+            logging.info(submitted_requests)
             self.query_requests(submitted_requests)
         else:
-            logger.info('##################### No new DIDs to submit in this cycle')
+            logging.info('##################### No new DIDs to submit in this cycle')
             time.sleep(self.__sleep_time)
 
 
@@ -278,7 +276,7 @@ class Worker(GearmanWorker):
         """
         Starts the worker.
         """
-        logger.info('Creating a new GearmanWorker, process %i' % (self.__pid))
+        logging.info('Creating a new GearmanWorker, process %i' % (self.__pid))
         self.register_task('evaluate_subscriptions', self.evaluate_subscriptions)
         self.work()
 
@@ -295,7 +293,7 @@ class Worker(GearmanWorker):
         try:
             filter = loads(subscription['filter'])
         except ValueError, e:
-            logger.error('%s : Subscription will be skipped' % e)
+            logging.error('%s : Subscription will be skipped' % e)
             return False
         # Loop over the keys of filter for subscription
         for key in filter:
@@ -305,7 +303,7 @@ class Worker(GearmanWorker):
                     return False
             elif key == 'scope':
                 if not did['scope'] in values:
-                    logger.debug('Bad scope %s != %s' % (values, did['scope']))
+                    logging.debug('Bad scope %s != %s' % (values, did['scope']))
                     return False
             else:
                 if type(values) is str or type(values) is unicode:
@@ -315,7 +313,7 @@ class Worker(GearmanWorker):
                     if str(meta) == str(key):
                         has_metadata = 1
                         if not metadata[meta] in values:
-                            logger.debug('Metadata not matching %s not in %s' % (metadata[meta], str(values)))
+                            logging.debug('Metadata not matching %s not in %s' % (metadata[meta], str(values)))
                             return False
                 if has_metadata == 0:
                     return False
@@ -330,8 +328,8 @@ class Worker(GearmanWorker):
         try:
             results = {}
             start_time = time.time()
-            logger.debug('Process %s' % (self.__pid))
-            logger.debug('In transmogrifier worker')
+            logging.debug('Process %s' % (self.__pid))
+            logging.debug('In transmogrifier worker')
             data = loads(job.data)
             subscriptions = data[0]
             dids = data[1]
@@ -345,8 +343,8 @@ class Worker(GearmanWorker):
                             if self.is_matching_subscription(subscription, did, metadata) is True:
                                 stime = time.time()
                                 results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
-                                #logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['id']))
-                                logger.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
+                                #logging.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['id']))
+                                logging.info('%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
                                 for rule in loads(subscription['replication_rules']):
                                     try:
                                         grouping = rule['grouping']
@@ -366,11 +364,11 @@ class Worker(GearmanWorker):
                                             monitor.record_counter(counters='transmogrifier.addnewrule.activity.other', delta=1)
 
                                     except InvalidReplicationRule, e:
-                                        logger.error(e)
+                                        logging.error(e)
                                         monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
-                                logger.info('Rule inserted in %f seconds' % (time.time()-stime))
+                                logging.info('Rule inserted in %f seconds' % (time.time()-stime))
                     except DataIdentifierNotFound, e:
-                        logger.warning(e)
+                        logging.warning(e)
                 if did['did_type'] == str(DIDType.FILE):
                     monitor.record_counter(counters='transmogrifier.did.file.processed',  delta=1)
                 elif did['did_type'] == str(DIDType.DATASET):
@@ -381,17 +379,17 @@ class Worker(GearmanWorker):
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
             time1 = time.time()
             _retrial(set_new_dids, identifiers, None)
-            #logger.info(dids)
-            logger.info('Time to set the new flag : %f' % (time.time() - time1))
-            logger.debug('Matching subscriptions '+dumps(results))
+            #logging.info(dids)
+            logging.info('Time to set the new flag : %f' % (time.time() - time1))
+            logging.debug('Matching subscriptions '+dumps(results))
             tottime = time.time() - start_time
-            logger.info('It took %f seconds to process %i DIDs by worker %s' % (tottime, len(dids), self.__pid))
+            logging.info('It took %f seconds to process %i DIDs by worker %s' % (tottime, len(dids), self.__pid))
             monitor.record_counter(counters='transmogrifier.job.done',  delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration',  time=1000*tottime)
             return dumps(results)
         except:
             exc_type, exc_value, exc_traceback = exc_info()
-            logger.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
+            logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
             monitor.record_counter(counters='transmogrifier.job.error',  delta=1)
             monitor.record_counter(counters='transmogrifier.addnewrule.error',  delta=1)
             raise
@@ -417,11 +415,11 @@ def launch_transmogrifier(once=False):
             workers_pid.append(newpid)
 
     def signal_handler(signal, frame):
-        logger.critical("Process %s says : Arrrgggghhh, I'm dying" % (str(getpid())))
-        logger.critical("Will kill all child process")
+        logging.critical("Process %s says : Arrrgggghhh, I'm dying" % (str(getpid())))
+        logging.critical("Will kill all child process")
         for pid in workers_pid:
             kill(pid, 9)
-            logger.critical("Process %s killed" % (str(pid)))
+            logging.critical("Process %s killed" % (str(pid)))
     signal.signal(signal.SIGTERM, signal_handler)
     s = Supervisor()
     if once:
