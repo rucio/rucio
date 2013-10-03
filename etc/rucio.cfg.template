@@ -73,3 +73,6 @@ maxdids = 100000
 [accounts]
 # These are accounts that can write into scopes owned by another account
 special_accounts = panda, tier0
+
+[trace]
+tracedir = /var/log/rucio/trace
