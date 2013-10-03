@@ -566,7 +566,6 @@ def upload(args):
         list_files.append({'scope': args.scope, 'name': filename, 'bytes': size, 'adler32': checksum})
         lfns.append({'filename': filename, 'scope': args.scope})
 
-
     metadata = {}
     if args.project:
         metadata['project'] = args.project
