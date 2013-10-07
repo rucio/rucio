@@ -304,12 +304,12 @@ class UseCaseDefinition(UCEmulator):
                 used_rses[computing_rse].append((id, temp_job_count))
 
                 if bulk:
-                    inserts_dis.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 86400,
+                    inserts_dis.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 172800,
                                         'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}],
                                         'dids': files_in_ds})  # Create DIS-Datasets
                 else:
                     with monitor.record_timer_block('panda.add_dataset'):
-                        client.add_dataset(scope='Manure', name=dis_ds, lifetime=86400,
+                        client.add_dataset(scope='Manure', name=dis_ds, lifetime=172800,
                                            rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}])  # Create DIS-Datasets
                     with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
                         client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)  # Add files to DIS - dataset
@@ -321,7 +321,7 @@ class UseCaseDefinition(UCEmulator):
                 if input_ds_used:  # Create rules to protect replicas from deletion
                     with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(files))]):
                         client.add_replication_rule(files, copies=1, rse_expression=target_rses[0],
-                                                    grouping='NONE', account='panda', lifetime=86400)
+                                                    grouping='NONE', account='panda', lifetime=172800)
                 temp_job_count = int(float(len(files)) / input['number_of_inputfiles_per_job'])
                 temp_job_count = int(temp_job_count) + 1 if (temp_job_count % 1) != 0 else int(temp_job_count)
                 used_rses[target_rses[0]] = [(None, temp_job_count)]
@@ -345,7 +345,7 @@ class UseCaseDefinition(UCEmulator):
                     if input_ds_used:  # Create rules to protect replicas from deletion
                         with monitor.record_timer_block(['panda.add_replication_rule', ('panda.add_replication_rule.normalized', len(files_in_ds))]):
                             client.add_replication_rule(files_in_ds, copies=1, rse_expression=computing_rse,
-                                                        grouping='NONE', account='panda', lifetime=86400)
+                                                        grouping='NONE', account='panda', lifetime=172800)
                     temp_job_count = int(float(len(files_in_ds)) / input['number_of_inputfiles_per_job']) + 1
 
                     if computing_rse not in used_rses.keys():
@@ -361,12 +361,12 @@ class UseCaseDefinition(UCEmulator):
                     jobs.append(('Manure', subs, int(temp[1]), computing_rse))  # temp[1] = number of jobs writing to SUB ds
                     for ds in subs:
                         if bulk:
-                            inserts_sub.append({'scope': 'Manure', 'name': ds, 'lifetime': 86400, 'dids': [],
+                            inserts_sub.append({'scope': 'Manure', 'name': ds, 'lifetime': 172800, 'dids': [],
                                                 'rules': [{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]),
                                                 'grouping': 'DATASET'}]})  # Create SUB-Datasets
                         else:
                             with monitor.record_timer_block('panda.add_dataset'):
-                                client.add_dataset(scope='Manure', name=ds, lifetime=86400,
+                                client.add_dataset(scope='Manure', name=ds, lifetime=172800,
                                                    rules=[{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]), 'grouping': 'DATASET'}])  # Create SUB-Datasets
                         monitor.record_counter('panda.tasks.%s.sub_datasets' % task_type, 1)  # Reports the creation of a sub dataset for the given task type
         else:
@@ -595,8 +595,10 @@ class UseCaseDefinition(UCEmulator):
         if not client:
             client = Client(account='panda')
         count = 0
-
+        # TODO: Instead of this loop the attach_dids_to_dids method should be used
+        attachments = list()
         for tds in job['targets']:
+            # Create output files of the job
             fn = uuid()
             files = list()
             if not job['log_ds']:  # Add log file for each datatype if task doesn't have LOG dataset
@@ -605,108 +607,50 @@ class UseCaseDefinition(UCEmulator):
             else:
                 ext = 'out' if tds.split('.')[-2] != 'log' else 'log'
                 files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-
-            now = time.time()
-            success = False
-            retry = 1
-            e = None
-            while not success and retry < 5:
-                try:
-                    if sem:
-                        sem.acquire()
-                    with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files))]):
-                        client.add_files_to_dataset(scope=job['scope'], name=tds, files=files, rse=job['computing_rse'])
-                    success = True
-                except DatabaseException:
-                    e = sys.exc_info()
-                    monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
-                    retry += 1
-                    print '== PanDA Warning [%s]: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (time.strftime('%D %H:%M:%S', time.localtime()), retry, job['scope'], tds)
-                    time.sleep(randint(1, 2))
-                except:
-                    e = sys.exc_info()
-                    break
-                finally:
-                    if sem:
-                        sem.release()
-
-            if not success:
-                print '-' * 80
-                print '- [%s] Failed after %s seconds (retries: %s)' % (time.strftime('%D %H:%M:%S', time.localtime()), (time.time() - now), retry)
-                print 'Exception: ', e
-                print '- %s:%s' % (job['scope'], tds)
-                print '-', files
-                print '-', job['log_ds']
-                print '-' * 80
-                if ret:
-                    ret.put((False, e))
+            attachments.append({'scope': job['scope'], 'name': tds, 'rse': job['computing_rse'], 'dids': files})
             count += len(files)
+
+        success = False
+        retry = 1
+        e = None
+        now = time.time()
+        while not success:
+            try:
+                if sem:
+                    sem.acquire()
+                with monitor.record_timer_block('panda.attach_dids_to_dids'):
+                    client.attach_dids_to_dids(attachments=attachments)
+                success = True
+            except DatabaseException:
+                e = sys.exc_info()
+                monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
+                retry += 1
+                if retry > 5:
+                    break
+                print '== PanDA Warning: Failed %s times when adding files to datasets: %s' % (retry, attachments)
+                time.sleep(randint(1, 2))
+            except:
+                e = sys.exc_info()
+                break
+            finally:
+                if sem:
+                    sem.release()
+
+        if not success:
+            print '-' * 80
+            print '- Failed after %s seconds (retries: %s)' % ((time.time() - now), retry)
+            print '- %s:%s' % (job['scope'], tds)
+            print '-', files
+            print '-', job['log_ds']
+            print '-', e
+            print '-', count
+            print '-' * 80
+            if ret:
+                ret.put((False, e))
         monitor.record_counter('panda.tasks.%s.replicas' % job['task_type'], count)  # Reports the creation of a new replica (including log files) fof the given task type
-        print '== PanDA [%s]: Job (%s) added %s files to %s datasets (%s:%s)' % (time.strftime('%D %H:%M:%S', time.localtime()), job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
+        print '== PanDA: Job (%s) added %s files to %s datasets (%s:%s)' % (job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
         if ret:
             ret.put((True, count))
-
-    # ----------------------- attach_dids_to_dids ----------------------------------------------------------------
-    #def register_replica(self, client, job, ret=None, sem=None):
-    #    if not client:
-    #        client = Client(account='panda')
-    #    count = 0
-    #    # TODO: Instead of this loop the attach_dids_to_dids method should be used
-    #    attachments = list()
-    #    for tds in job['targets']:
-    #        # Create output files of the job
-    #        fn = uuid()
-    #        files = list()
-    #        if not job['log_ds']:  # Add log file for each datatype if task doesn't have LOG dataset
-    #            for ext in ['log', 'out']:
-    #                files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-    #        else:
-    #            ext = 'out' if tds.split('.')[-2] != 'log' else 'log'
-    #            files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-    #        attachments.append({'scope': job['scope'], 'name': tds, 'rse': job['computing_rse'], 'dids': files})
-    #        count += len(files)
-
-    #    success = False
-    #    retry = 1
-    #    e = None
-    #    now = time.time()
-    #    while not success:
-    #        try:
-    #            if sem:
-    #                sem.acquire()
-    #            with monitor.record_timer_block('panda.attach_dids_to_dids'):
-    #                client.attach_dids_to_dids(attachments=attachments)
-    #            success = True
-    #        except DatabaseException:
-    #            e = sys.exc_info()
-    #            monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
-    #            retry += 1
-    #            if retry > 5:
-    #                break
-    #            print '== PanDA Warning: Failed %s times when adding files to datasets: %s' % (retry, attachments)
-    #            time.sleep(randint(1, 2))
-    #        except:
-    #            e = sys.exc_info()
-    #            break
-    #        finally:
-    #            if sem:
-    #                sem.release()
-
-    #    if not success:
-    #        print '-' * 80
-    #        print '- Failed after %s seconds (retries: %s)' % ((time.time() - now), retry)
-    #        print '- %s:%s' % (job['scope'], tds)
-    #        print '-', files
-    #        print '-', job['log_ds']
-    #        print '-', e
-    #        print '-', count
-    #        print '-' * 80
-    #        if ret:
-    #            ret.put((False, e))
-    #    monitor.record_counter('panda.tasks.%s.replicas' % job['task_type'], count)  # Reports the creation of a new replica (including log files) fof the given task type
-    #    print '== PanDA: Job (%s) added %s files to %s datasets (%s:%s)' % (job['task_type'], count, len(job['targets']), job['scope'], job['targets'])
-    #    if ret:
-    #        ret.put((True, count))
 
     def FINISH_JOB_input(self, ctx):
         ctx.job_print += 1
@@ -1011,10 +955,11 @@ class UseCaseDefinition(UCEmulator):
         print '== PanDA [%s]: Task-Queue: %s / Job-Queue: %s / Sub-Queue: %s' % (time.strftime('%D %H:%M:%S', time.localtime()), len(ctx.task_queue), len(ctx.job_queue), len(ctx.sub_queue))
         tmp_str = 'Job Queue\n'
         tmp_str += '---------\n'
-        for i in range(10):
-            tmp_str += '\t%s: %s\n' % (i, time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[i][0])))
-        tmp_str += '---------'
-        print tmp_str
+        if len(ctx.job_queue) > 11:
+            for i in range(10):
+                tmp_str += '\t%s: %s\n' % (i, time.strftime('%D %H:%M:%S', time.localtime(ctx.job_queue[i][0])))
+            tmp_str += '---------'
+            print tmp_str
 
         return None  # Indicates that no further action is required
 

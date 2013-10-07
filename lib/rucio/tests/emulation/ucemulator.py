@@ -219,7 +219,7 @@ class UCEmulator(object):
                     result = json.loads(request.result)[1]
                 del self.__open_requests[uuid]
             except Exception, e:
-                print e
+                print '!! ERROR !!: %s' % e
                 print traceback.format_exc()
                 del self.__open_requests[uuid]
                 if request:
