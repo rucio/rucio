@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -31,10 +32,11 @@ logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __na
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
+
 graceful_stop = threading.Event()
 
 
-def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=1):
+def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=1, mock=True):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -49,8 +51,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
     while not graceful_stop.is_set():
 
         try:
+
             ts = time.time()
             reqs = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED, limit=100, process=process, total_processes=total_processes, thread=thread, total_threads=total_threads, session=session)
+
             record_timer('daemons.conveyor.submitter.000-get_next', (time.time()-ts)*1000)
 
             if reqs is None or reqs == []:
@@ -66,25 +70,35 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
             for req in reqs:
                 ts = time.time()
                 tmpsrc = []
-                try:
-                    for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], schemes='srm', session=session):
-                        for endpoint in source['rses']:
-                            for pfn in source['rses'][endpoint]:
-                                tmpsrc.append(str(pfn))
-                except DataIdentifierNotFound:
-                    record_counter('daemons.conveyor.submitter.lost_did')
-                    logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
-                                                                                                    req['name'],
-                                                                                                    req['request_id']))
-                    request.set_request_state(req['request_id'], RequestState.LOST, session=session)  # if the DID does not exist anymore
-                    request.archive_request(req['request_id'], session=session)
-                    continue
-                except:
-                    record_counter('daemons.conveyor.submitter.unexpected')
-                    logging.critical('Something unexpected happened: %s' % traceback.format_exc())
-                    continue
-                finally:
-                    session.commit()
+                filesize = 12345L
+                checksum = 'adler32:123456'
+                src_spacetoken = None
+                if mock is False:
+                    try:
+                        for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], schemes='srm', session=session):
+                            for endpoint in source['rses']:
+                                for pfn in source['rses'][endpoint]:
+                                    tmpsrc.append(str(pfn))
+                            filesize = long(source['bytes'])
+                            checksum = 'adler32:%s' % (source['adler32'])
+                            src_spacetoken = source['space_token']
+                    except DataIdentifierNotFound:
+                        record_counter('daemons.conveyor.submitter.lost_did')
+                        logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
+                                                                                                        req['name'],
+                                                                                                        req['request_id']))
+                        request.set_request_state(req['request_id'], RequestState.LOST, session=session)  # if the DID does not exist anymore
+                        request.archive_request(req['request_id'], session=session)
+                        session.commit()
+                        continue
+                    except:
+                        record_counter('daemons.conveyor.submitter.unexpected')
+                        logging.critical('Something unexpected happened: %s' % traceback.format_exc())
+                        continue
+                    finally:
+                        session.commit()
+                else:
+                    tmpsrc.append('[]')
 
                 #if tmpsrc == []:
                 #    logging.warn('DID %s:%s does not have sources - skipping' % (req['scope'],
@@ -93,8 +107,12 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 #    session.commit()
                 #    continue
 
-                #  dummy replacement: list_replicas does not yet set the PFN
-                sources = ['mock://hostname/path/file']
+                sources = []
+                for tmp in tmpsrc:
+                    if tmp == '[]':
+                        sources.append('mock://dummyhost/dummyfile.root')
+                    else:
+                        sources.append(tmp)
 
                 record_timer('daemons.conveyor.submitter.001-list_replicas', (time.time()-ts)*1000)
 
@@ -111,14 +129,21 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 else:
                     destinations = [str(pfn)]
 
+                protocols = rsemgr.list_protocols(rse_id=rse_name, session=session)
+                dest_spacetoken = None
+                try:
+                    dest_spacetoken = protocols[0]['extended_attributes']['space_token']
+                except:
+                    logging.error('Cannot extract space token')
+
                 ts = time.time()
                 request.submit_transfers(transfers=[{'request_id': req['request_id'],
                                                      'src_urls': sources,
                                                      'dest_urls': destinations,
-                                                     'filesize': 12345L,
-                                                     'checksum': 'ad:123456',
-                                                     'src_spacetoken': None,
-                                                     'dest_spacetoken': None}],
+                                                     'filesize': filesize,
+                                                     'checksum': checksum,
+                                                     'src_spacetoken': src_spacetoken,
+                                                     'dest_spacetoken': dest_spacetoken}],
                                          transfertool='fts3',
                                          job_metadata={'issuer': 'rucio-conveyor',
                                                        'scope': req['scope'],
@@ -161,7 +186,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1):
+def run(once=False, process=0, total_processes=1, total_threads=1, mock=True):
     """
     Starts up the conveyer threads.
     """
@@ -173,7 +198,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
     else:
 
         logging.info('starting submitter threads')
-        threads = [threading.Thread(target=submitter, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
+        threads = [threading.Thread(target=submitter, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'mock': mock}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 

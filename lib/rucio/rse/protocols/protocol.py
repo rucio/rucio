@@ -7,9 +7,11 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 import hashlib
 
+from exceptions import NotImplementedError
 from urlparse import urlparse
 
 from rucio.common import exception
@@ -59,7 +61,7 @@ class RSEProtocol(object):
 
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def connect(self, credentials):
         """
@@ -69,11 +71,11 @@ class RSEProtocol(object):
 
             :raises RSEAccessDenied: if no connection could be established.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def close(self):
         """ Closes the connection to RSE."""
-        raise NotImplemented
+        raise NotImplementedError
 
     def get(self, path, dest):
         """
@@ -86,7 +88,7 @@ class RSEProtocol(object):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
-        raise NotImplemented
+        raise NotImplementedError
 
     def put(self, source, target, source_dir):
         """
@@ -100,7 +102,7 @@ class RSEProtocol(object):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def delete(self, path):
         """
@@ -111,7 +113,7 @@ class RSEProtocol(object):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def rename(self, path, new_path):
         """ Allows to rename a file stored inside the connected RSE.
@@ -123,7 +125,7 @@ class RSEProtocol(object):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def split_pfn(self, pfn):
         """

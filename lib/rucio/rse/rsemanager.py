@@ -9,10 +9,27 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 import os
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
+
 from rucio.common import exception, utils, config
+
+
+def my_key_generator(namespace, fn, **kw):
+    fname = fn.__name__
+
+    def generate_key(*arg, **kw):
+        return namespace + "_" + fname + "_".join(str(s) for s in arg)
+
+    return generate_key
+
+region = make_region(function_key_generator=my_key_generator).configure(
+    'dogpile.cache.memory',
+    expiration_time=3600)
 
 
 class RSEMgr(object):
@@ -142,7 +159,7 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
             :param source_dir:  path to the local directory including the source files. Default is the current working directory
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
@@ -150,7 +167,7 @@ class RSEMgr(object):
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
             :raises RSEAccessDenied: storage refuses to establish a connection
@@ -172,9 +189,9 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param files:       a single dict or a list with dicts containing 'scope' and 'filename'
+            :param files:       a single dict or a list with dicts containing 'scope' and 'name'
                                 if LFNs are provided and additional 'pfn' if PFNs are provided.
-                                E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'file:///rucio_file/user/jdoe/5a/98/3_rse_remote_get.raw'}]
+                                E.g.  [{'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'file:///rucio_file/user/jdoe/5a/98/3_rse_remote_get.raw'}]
             :param dest_dir:    path where the downloaded file(s) will be stored. Default is the current working directory
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
@@ -182,7 +199,7 @@ class RSEMgr(object):
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
             :raises RSEAccessDenied: storage refuses to establish a connection
@@ -204,14 +221,14 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
             :param scheme: Indicating the protocol scheme to use
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
             :raises RSEAccessDenied: storage refuses to establish a connection
@@ -232,17 +249,17 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename'
-                          if LFNs are used or only 'filename' and 'new_filename' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used.
-                          E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
-                                {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
+            :param files: a single dict or a list with dicts containing 'scope', 'name', 'new_scope' and 'new_name'
+                          if LFNs are used or only 'name' and 'new_name' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used.
+                          E.g. [{'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
+                                {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
             :param scheme: Indicating the protocol scheme to use
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
             :raises RSEAccessDenied: storage refuses to establish a connection
@@ -264,16 +281,16 @@ class RSEMgr(object):
             Providing a list of indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param files:       a single dict or a list with dicts containing 'scope' and 'filename'
-                                if LFNs are used and only 'filename' if PFNs are used.
-                                E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'file://rucio_files/user/jdoe/5a/98/3_rse_remote_get.raw'}
+            :param files:       a single dict or a list with dicts containing 'scope' and 'name'
+                                if LFNs are used and only 'name' if PFNs are used.
+                                E.g. {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'name': 'file://rucio_files/user/jdoe/5a/98/3_rse_remote_get.raw'}
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
             :param scheme: Indicating the protocol scheme to use
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
                                only operation and protocol domain are considered for validation.
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
             :raises RSEAccessDenied: storage refuses to establish a connection
@@ -291,7 +308,7 @@ class RSEMgr(object):
             Convert the lfn to a pfn
 
             :param rse_id:   identifier of the requested storage
-            :param lfn:      logical file names as a dict containing 'scope' and 'filename' as keys. For bulk a list of dicts can be provided
+            :param lfn:      logical file names as a dict containing 'scope' and 'name' as keys. For bulk a list of dicts can be provided
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
             :param scheme: Indicating the protocol scheme to use
@@ -299,7 +316,7 @@ class RSEMgr(object):
                                only operation and protocol domain are considered for validation.
             :param session: The database session in use.
 
-            :returns: URI/PFN for a single file or a dict object with scope:filename as keys and the URI for each file in bulk mode, e.g. sftp://mock.cern.ch:22/some/prefix/user/17/18/some_file.raw
+            :returns: URI/PFN for a single file or a dict object with scope:name as keys and the URI for each file in bulk mode, e.g. sftp://mock.cern.ch:22/some/prefix/user/17/18/some_file.raw
 
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
             :raises InvalidObject: If the properties parameter doesn't include scheme, hostname, and port as keys
@@ -312,7 +329,7 @@ class RSEMgr(object):
 
             :param rse_id:      identifier of the requested storage
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
-            :param default: Inidcates if the operation must be marked as default for the protocol domain
+            :param default: Indicates if the operation must be marked as default for the protocol domain
             :param operation: For which operation should be checked for support. Values are read, write, delete
             :param scheme: Indicating the protocol scheme to use
             :param properties: Defining the protocol to use. A protocol is identifed by scheme, hostname, and port. If this parameter is provided
@@ -326,9 +343,23 @@ class RSEMgr(object):
             :raises InvalidObject: If the properties parameter doesn't include scheme, hostname, and port as keys
             :raises RSEOperationNotSupported: If no matching protocol was found for the requested operation
         """
-        if self.__server_mode:
-            return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
-        return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
+        if operation is None:
+            soperation = 'None'
+        if scheme is None:
+            sscheme = 'None'
+        result = region.get('protocols_%s_%s_%s_%s_%s' % (rse_id, protocol_domain, default, soperation, sscheme))
+        if type(result) is NoValue:
+                #print 'Value is not cached'
+                if self.__server_mode:
+                    proto = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
+                else:
+                    proto = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
+                region.set('protocols_%s_%s_%s_%s_%s' % (rse_id, protocol_domain, default, soperation, sscheme), proto)
+                result = region.get('protocols_%s_%s_%s_%s_%s' % (rse_id, protocol_domain, default, soperation, sscheme))
+        return result
+        #if self.__server_mode:
+        #    return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
+        #return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
 
     def parse_pfn(self, rse_id, pfn, protocol=None, session=None):
         """
@@ -339,7 +370,7 @@ class RSEMgr(object):
             :param protocol: A protocol descrciption as returned by list_protocols identifying a specific protocol supoorted be the referred RSE
             :param session: The database session in use.
 
-            :returns: A dict with the parts known by the selected protocol e.g. scheme, hostname, prefix, path, filename
+            :returns: A dict with the parts known by the selected protocol e.g. scheme, hostname, prefix, path, name
 
             :raises RSEFileNameNotSupported: if provided PFN is not supported by the RSE/protocol
             :raises RSENotFound: if the referred storage is not found i the repository (rse_id)
@@ -391,12 +422,12 @@ class RSEProtocolWrapper(object):
             As this method is strongly connected to the protocol itself it is very likely that it will be overwritten
             in the specific protocol classes.
 
-            The default implementation parses a PFN for: scheme, hostname, port, prefix, path, filename and checks if the
+            The default implementation parses a PFN for: scheme, hostname, port, prefix, path, name and checks if the
             derived data matches with data provided in the RSE repository for this RSE/protocol.
 
             :param pfn: a fully qualified PFN
 
-            :returns: a dict containing all known parts of the PFN for the protocol e.g. scheme, hostname, port, prefix, path, filename
+            :returns: a dict containing all known parts of the PFN for the protocol e.g. scheme, hostname, port, prefix, path, name
 
             :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
@@ -515,7 +546,7 @@ class RSEProtocolWrapper(object):
         for replica in self.__didclient.list_replicas(scope=scope, name=lfn, schemes=[self.__properties['scheme']]):
             if replica['rse'] == self.__rse_id:
                 tmp = self.split_pfn(replica['pfns'][0])
-                path = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
+                path = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])
                 return path
         raise exception.SourceNotFound('Replica %s:%s not found on RSE %s with scheme %s' % (scope, lfn, self.__rse_id, self.__properties['scheme']))
 
@@ -524,11 +555,11 @@ class RSEProtocolWrapper(object):
             Checks if a file is present at the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param files: a single dict or a list with dicts containing 'scope' and 'filename'
-                          if LFNs are used and only 'filename' if PFNs are used.
-                          E.g. {'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'filename': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+            :param files: a single dict or a list with dicts containing 'scope' and 'name'
+                          if LFNs are used and only 'name' if PFNs are used.
+                          E.g. {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'name': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotConnected: no connection to a specific storage has been established
         """
@@ -542,13 +573,13 @@ class RSEProtocolWrapper(object):
                     exists = self.__instance.exists(f)
                     ret[f] = exists
                 elif 'scope' in f:  # a LFN is provided
-                    exists = self.__instance.exists(self.get_path(f['filename'], f['scope']))
-                    ret[f['scope'] + ':' + f['filename']] = exists
+                    exists = self.__instance.exists(self.get_path(f['name'], f['scope']))
+                    ret[f['scope'] + ':' + f['name']] = exists
                 else:
-                    tmp = self.split_pfn(f['filename'])
-                    pfn = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
+                    tmp = self.split_pfn(f['name'])
+                    pfn = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])
                     exists = self.__instance.exists(pfn)
-                    ret[f['filename']] = exists
+                    ret[f['name']] = exists
                 if not exists:
                     gs = False
         else:
@@ -582,13 +613,13 @@ class RSEProtocolWrapper(object):
             Providing a list indicates the bulk mode.
 
 
-            :param files:       a single dict or a list with dicts containing 'scope' and 'filename'
+            :param files:       a single dict or a list with dicts containing 'scope' and 'name'
                                 if LFNs are provided and additional 'pfn' if PFNs are provided.
-                                E.g.  [{'filename': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
-                                       {'filename':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
+                                E.g.  [{'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
+                                       {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
             :param dest_dir:    path to the directory where the downloaded files will be stored. For each scope a seperate subdirectory is created
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' for LFNs or 'filename' for PFNs as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotConnected: no connection to a specific storage has been established
             :raises SourceNotFound: remote source file can not be found on storage
@@ -603,18 +634,18 @@ class RSEProtocolWrapper(object):
             for f in files:
                 if 'pfn' in f:
                     tmp = self.split_pfn(f['pfn'])
-                    pfn = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
+                    pfn = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])
                 else:
-                    pfn = self.get_path(f['filename'], f['scope'])
+                    pfn = self.get_path(f['name'], f['scope'])
                 try:
                     if not os.path.exists('%s/%s' % (dest_dir, f['scope'])):
                         os.makedirs('%s/%s' % (dest_dir, f['scope']))
                     # Each scope is stored into a separate folder
-                    self.__instance.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['filename']))
-                    ret['%s:%s' % (f['scope'], f['filename'])] = True
+                    self.__instance.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['name']))
+                    ret['%s:%s' % (f['scope'], f['name'])] = True
                 except Exception as e:
                     gs = False
-                    ret['%s:%s' % (f['scope'], f['filename'])] = e
+                    ret['%s:%s' % (f['scope'], f['name'])] = e
         else:
             raise exception.RSENotConnected()
         if len(ret) == 1:
@@ -630,10 +661,10 @@ class RSEProtocolWrapper(object):
             Uploads a file to the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
             :param source_dir:  path to the local directory including the source files
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotConnected: no connection to a specific storage has been established
             :raises SourceNotFound: local source file can not be found
@@ -646,20 +677,20 @@ class RSEProtocolWrapper(object):
             raise exception.RSENotConnected()
         lfns = [lfns] if not type(lfns) is list else lfns
         for lfn in lfns:
-            filename = lfn['filename']
+            name = lfn['name']
             scope = lfn['scope']
-            pfn = self.get_path(filename, scope)
+            pfn = self.get_path(name, scope)
             # Check if file replica is already on the storage system
             if self.exists(lfn):
-                ret['%s:%s' % (scope, filename)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (filename, scope))
+                ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
                 gs = False
             else:
                 try:
-                    self.__instance.put(filename, pfn, source_dir)
-                    ret['%s:%s' % (scope, filename)] = True
+                    self.__instance.put(name, pfn, source_dir)
+                    ret['%s:%s' % (scope, name)] = True
                 except Exception as e:
                     gs = False
-                    ret['%s:%s' % (scope, filename)] = e
+                    ret['%s:%s' % (scope, name)] = e
         if len(ret) == 1:
             for x in ret:
                 if isinstance(ret[x], Exception):
@@ -673,9 +704,9 @@ class RSEProtocolWrapper(object):
             Delete a file from the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'filename'. E.g. [{'filename': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
 
-            :returns: True/False for a single file or a dict object with 'scope:filename' as keys and True or the exception as value for each file in bulk mode
+            :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
             :raises RSENotConnected: no connection to a specific storage has been established
             :raises SourceNotFound: remote source file can not be found on storage
@@ -687,15 +718,15 @@ class RSEProtocolWrapper(object):
         if self.__connected:
             lfns = [lfns] if not type(lfns) is list else lfns
             for lfn in lfns:
-                pfn = self.get_path(lfn['filename'], lfn['scope'])
+                pfn = self.get_path(lfn['name'], lfn['scope'])
                 try:
                     self.__instance.delete(pfn)
-                    ret['%s:%s' % (lfn['scope'], lfn['filename'])] = True
+                    ret['%s:%s' % (lfn['scope'], lfn['name'])] = True
                 except Exception as e:
-                    ret['%s:%s' % (lfn['scope'], lfn['filename'])] = e
+                    ret['%s:%s' % (lfn['scope'], lfn['name'])] = e
                     gs = False
         else:
-            raise exception .RSENotConnected()
+            raise exception.RSENotConnected()
         if len(ret) == 1:
             for x in ret:
                 if isinstance(ret[x], Exception):
@@ -709,11 +740,11 @@ class RSEProtocolWrapper(object):
             Rename files stored on the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param files: a single dict or a list with dicts containing 'scope', 'filename', 'new_scope' and 'new_filename'
-                          if LFNs are used or only 'filename' and 'new_filename' if PFNs are used.
-                          If 'new_scope' or 'new_filename' are not provided, the current one is used.
-                          E.g. [{'filename': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_filename': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
-                                {'filename': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_filename': 'user/jdoe/c6/4a/9_rse_new.raw'}
+            :param files: a single dict or a list with dicts containing 'scope', 'name', 'new_scope' and 'new_name'
+                          if LFNs are used or only 'name' and 'new_name' if PFNs are used.
+                          If 'new_scope' or 'new_name' are not provided, the current one is used.
+                          E.g. [{'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
+                                {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
 
             :returns: True/False for a single file or a dict object with LFN (key) and True/False (value) in bulk mode
 
@@ -731,21 +762,21 @@ class RSEProtocolWrapper(object):
                 new_pfn = None
                 key = None
                 if 'scope' in f:  # LFN is provided
-                    key = '%s:%s' % (f['scope'], f['filename'])
-                    # Check if new filename is provided
-                    if not 'new_filename' in f:
-                        f['new_filename'] = f['filename']
+                    key = '%s:%s' % (f['scope'], f['name'])
+                    # Check if new name is provided
+                    if not 'new_name' in f:
+                        f['new_name'] = f['name']
                     # Check if new scope is provided
                     if not 'new_scope' in f:
                         f['new_scope'] = f['scope']
-                    pfn = self.get_path(f['filename'], f['scope'])
-                    new_pfn = self.get_path(f['new_filename'], f['new_scope'])
+                    pfn = self.get_path(f['name'], f['scope'])
+                    new_pfn = self.get_path(f['new_name'], f['new_scope'])
                 else:
-                    tmp = self.split_pfn(f['filename'])
-                    pfn = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
-                    tmp = self.split_pfn(f['new_filename'])
-                    new_pfn = ''.join([tmp['prefix'], tmp['path'], tmp['filename']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['filename']])
-                    key = f['filename']
+                    tmp = self.split_pfn(f['name'])
+                    pfn = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])
+                    tmp = self.split_pfn(f['new_name'])
+                    new_pfn = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])
+                    key = f['name']
                 # Check if target is not on storage
                 if self.exists(new_pfn):
                     ret[key] = exception.FileReplicaAlreadyExists('File %s already exists on storage' % (new_pfn))

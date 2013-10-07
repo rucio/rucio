@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 from os.path import normpath
 from urlparse import SplitResult, urlunsplit
@@ -28,7 +29,10 @@ class Default(protocol.RSEProtocol):
         self.port = self.rse['port']
         self.prefix = self.rse['prefix']
         self.web_service_path = self.rse['extended_attributes']['web_service_path']
-        self.space_token = self.rse['extended_attributes']['space_token']
+        try:
+            self.space_token = self.rse['extended_attributes']['space_token']
+        except KeyError:
+            self.space_token = None
 
     def pfn2uri(self, pfn):
         netloc = '{0}:{1}'.format(self.hostname, self.port)

@@ -11,7 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 '''
-Automatix is a Data Generatordaemon to generate fake data and upload it on a RSE.
+Automatix is a Data Generator daemon to generate fake data and upload it on a RSE.
 '''
 
 import random
@@ -70,6 +70,7 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
         fullpath = '%s/%s' % (source_dir, filename)
         size = stat(fullpath).st_size
         checksum = adler32(fullpath)
+        logger.info('File %s : Size %s , adler32 %s' % (fullpath, str(size), checksum))
         list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum})  # , 'guid': generate_uuid()})
         lfns.append({'filename': filename, 'scope': scope})
 
@@ -117,8 +118,17 @@ def choose_element(probabilities, data):
     return data[key]
 
 
+def generate_file(fname, size):
+    cmd = '/bin/dd if=/dev/urandom of=%(fname)s bs=1k count=%(size)s' % locals()
+    exitcode, out, err = execute(cmd)
+    logger.debug(out)
+    logger.debug(err)
+    return exitcode
+
+
 def run_once(sites, inputfile):
     nbfiles = 3
+    size = 1000
     logger.info('Getting data distribution')
     probabilities, data = get_data_distribution(inputfile)
     logger.debug(probabilities)
@@ -145,10 +155,7 @@ def run_once(sites, inputfile):
             lfns.append(fname)
             fname = '%s/%s' % (tmpdir, fname)
             logger.info('Generating file %(fname)s in dataset %(dsn)s' % locals())
-            cmd = '/bin/dd if=/dev/zero of=%(fname)s bs=1k count=1000' % locals()
-            exitcode, out, err = execute(cmd)
-            logger.debug(out)
-            logger.debug(err)
+            generate_file(fname, size)
             fnames.append(fname)
         logger.info('Upload %s to %s' % (dsn, site))
         upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, did=dsn)

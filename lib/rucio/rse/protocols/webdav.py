@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2012
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2013
 
 import os
 import requests
@@ -306,21 +306,17 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable, SourceNotFound
         """
         path = self.path2pfn(pfn)
-        listfiles = self.ls(path)
-        if (listfiles == []):
-            try:
-                result = self.session.delete(path, verify=False)
-                if result.status_code in [204, ]:
-                    return
-                elif result.status_code in [404, ]:
-                    raise exception.SourceNotFound()
-                else:
-                    # catchall exception
-                    raise exception.RucioException(result.status_code, result.text)
-            except requests.exceptions.ConnectionError, e:
-                raise exception.ServiceUnavailable(e)
-        #else:
-        #    print listfiles
+        try:
+            result = self.session.delete(path, verify=False)
+            if result.status_code in [204, ]:
+                return
+            elif result.status_code in [404, ]:
+                raise exception.SourceNotFound()
+            else:
+                # catchall exception
+                raise exception.RucioException(result.status_code, result.text)
+        except requests.exceptions.ConnectionError, e:
+            raise exception.ServiceUnavailable(e)
 
     def mkdir(self, directory):
         """ Internal method to create directories
