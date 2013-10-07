@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 from datetime import datetime, timedelta
 from re import match
@@ -28,7 +29,7 @@ from sqlalchemy.sql.expression import case
 from rucio.common import exception, utils
 from rucio.core.rse_counter import decrease, increase, add_counter
 from rucio.db import models
-from rucio.db.constants import ReplicaState, DIDType, OBSOLETE
+from rucio.db.constants import ReplicaState, DIDType
 from rucio.db.session import read_session, transactional_session, stream_session
 # from rucio.rse.rsemanager import RSEMgr
 
@@ -555,8 +556,6 @@ def delete_replicas(rse, files, session=None):
 
     session.flush()
 
-    # while True:
-
     # Delete did from the content for the last did
     query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
                           models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).filter(parent_condition)
@@ -648,7 +647,7 @@ def list_replicas(rse, filters={}, session=None):
 
 
 @read_session
-def list_unlocked_replicas(rse, bytes, limit, rse_id=None, session=None):
+def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=None, total_workers=None, session=None):
     """
     List RSE File replicas with no locks.
 
@@ -663,27 +662,24 @@ def list_unlocked_replicas(rse, bytes, limit, rse_id=None, session=None):
         rse_id = get_rse_id(rse=rse, session=session)
 
     none_value = None  # Hack to get pep8 happy...
-    query = session.query(models.RSEFileAssociation).\
-        filter(models.RSEFileAssociation.tombstone != none_value).filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE).\
+    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes).\
+        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
+        filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         order_by(models.RSEFileAssociation.tombstone).\
-        order_by(models.RSEFileAssociation.created_at).limit(limit)
+        with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
 
-    #  filter(models.RSEFileAssociation.rse_id == rse_id).
+    if worker_number and total_workers:
+        if session.bind.dialect.name == 'oracle':
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
 
-    neededSpace = bytes
+    query = query.limit(limit)
+
     rows = list()
-    for row in query.yield_per(5):
-        d = {}
-        for column in row.__table__.columns:
-            d[column.name] = getattr(row, column.name)
+    #  neededSpace = bytes
+    for (scope, name, bytes) in query.yield_per(5):
+        d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
-
-        if d['tombstone'] != OBSOLETE:
-            neededSpace -= d['bytes']
-
-        if not max(neededSpace, 0):
-            break
 
     return rows
 

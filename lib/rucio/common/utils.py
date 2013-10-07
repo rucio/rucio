@@ -20,8 +20,12 @@ import subprocess
 import zlib
 
 from itertools import izip_longest
+from logging import getLogger, Formatter
+from logging.handlers import RotatingFileHandler
 from urllib import urlencode
 from uuid import uuid4 as uuid
+
+from rucio.common.config import config_get
 
 try:
     # Hack for the client distribution
@@ -240,3 +244,13 @@ def grouper(iterable, n, fillvalue=None):
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     args = [iter(iterable)] * n
     return izip_longest(*args, fillvalue=fillvalue)
+
+
+def get_logger(name):
+    logger = getLogger(name)
+    hdlr = RotatingFileHandler('%s/%s.log' % (config_get('common', 'logdir'), name), maxBytes=1000000000, backupCount=10)
+    formatter = Formatter('%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(config_get('common', 'loglevel').upper())
+    return logger

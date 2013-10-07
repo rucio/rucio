@@ -13,8 +13,6 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
-from dogpile.cache import make_region
-from dogpile.cache.api import NoValue
 from hashlib import md5
 from re import match
 
@@ -34,19 +32,6 @@ from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, ReplicaState
 from rucio.db.session import read_session, transactional_session, stream_session
 from rucio.rse import rsemanager
-
-
-def my_key_generator(namespace, fn, **kw):
-    fname = fn.__name__
-
-    def generate_key(*arg, **kw):
-        return namespace + "_" + fname + "_".join(str(s) for s in arg)
-
-    return generate_key
-
-region = make_region(function_key_generator=my_key_generator).configure(
-    'dogpile.cache.memory',
-    expiration_time=3600)
 
 
 @stream_session
@@ -101,16 +86,17 @@ def list_replicas(dids, schemes=None, session=None):
                 dict_tmp_files[key] = {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
                                        'md5': replica.md5, 'adler32': replica.adler32,
                                        'rses': {rse: list()}}
-            result = region.get('protocols_%s' % (rse))
-            if type(result) is NoValue:
-                #print 'Value is not cached'
-                proto = rsemgr.list_protocols(rse_id=rse, session=session)
-                region.set('protocols_%s' % (rse), proto)
-                result = region.get('protocols_%s' % (rse))
+            else:
+                dict_tmp_files[key]['rses'][rse] = []
+            result = rsemgr.list_protocols(rse_id=rse, session=session)
             for protocol in result:
                 if not schemes or protocol['scheme'] in schemes:
                     dict_tmp_files[key]['rses'][rse].append(rsemgr.lfn2pfn(rse_id=rse, lfns={'scope': replica.scope, 'name': replica.name}, properties=protocol, session=session))
-
+                    if protocol['scheme'] == 'srm':
+                        try:
+                            dict_tmp_files[key]['space_token'] = protocol['extended_attributes']['space_token']
+                        except KeyError:
+                            dict_tmp_files[key]['space_token'] = None
     for key in dict_tmp_files:
         replicas.append(dict_tmp_files[key])
         yield dict_tmp_files[key]

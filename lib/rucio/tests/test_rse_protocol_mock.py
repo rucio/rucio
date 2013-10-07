@@ -30,21 +30,21 @@ class TestRseMOCK():
     def test_get_mgr_SourceNotFound_multi(self):
         """MOCK (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
         for f in MgrTestCases.files_remote:
-            self.mtc.mgr.upload(self.rse_id, [{'filename': f, 'scope': 'user.%s' % self.user}, ])
+            self.mtc.mgr.upload(self.rse_id, [{'name': f, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_get_mgr_SourceNotFound_multi()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_lfn(self):
         """MOCK (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
         for f in MgrTestCases.files_remote:
-            self.mtc.mgr.upload(self.rse_id, [{'filename': f, 'scope': 'user.%s' % self.user}, ])
+            self.mtc.mgr.upload(self.rse_id, [{'name': f, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_get_mgr_SourceNotFound_single_lfn()
 
     @raises(exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_pfn(self):
         """MOCK (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         for f in MgrTestCases.files_remote:
-            self.mtc.mgr.upload(self.rse_id, [{'filename': f, 'scope': 'user.%s' % self.user}, ])
+            self.mtc.mgr.upload(self.rse_id, [{'name': f, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_get_mgr_SourceNotFound_single_pfn()
 
     # Mgr-Tests: PUT
@@ -56,20 +56,20 @@ class TestRseMOCK():
     def test_delete_mgr_ok_multi(self):
         """MOCK (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
         for f in MgrTestCases.files_remote:
-            self.mtc.mgr.upload(self.rse_id, [{'filename': f, 'scope': 'user.%s' % self.user}, ])
+            self.mtc.mgr.upload(self.rse_id, [{'name': f, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_delete_mgr_ok_multi()
 
     def test_delete_mgr_ok_single(self):
         """MOCK (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         for f in MgrTestCases.files_remote:
-            self.mtc.mgr.upload(self.rse_id, [{'filename': f, 'scope': 'user.%s' % self.user}, ])
+            self.mtc.mgr.upload(self.rse_id, [{'name': f, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_delete_mgr_ok_single()
 
     # MGR-Tests: EXISTS
     def test_exists_mgr_ok_multi(self):
         """MOCK (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
         for f in MgrTestCases.files_remote:
-            self.mtc.mgr.upload(self.rse_id, [{'filename': f, 'scope': 'user.%s' % self.user}, ])
+            self.mtc.mgr.upload(self.rse_id, [{'name': f, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_exists_mgr_ok_multi()
 
     def test_exists_mgr_ok_single_lfn(self):
@@ -83,7 +83,7 @@ class TestRseMOCK():
     def test_exists_mgr_false_multi(self):
         """MOCK (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
         for f in MgrTestCases.files_remote:
-            self.mtc.mgr.upload(self.rse_id, [{'filename': f, 'scope': 'user.%s' % self.user}, ])
+            self.mtc.mgr.upload(self.rse_id, [{'name': f, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_exists_mgr_false_multi()
 
     def test_exists_mgr_false_single(self):
