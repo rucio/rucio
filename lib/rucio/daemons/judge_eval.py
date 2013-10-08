@@ -16,6 +16,8 @@ import time
 import traceback
 
 from sqlalchemy.exc import DatabaseError
+from sqlalchemy.sql.expression import bindparam
+from sqlalchemy.sql.expression import text
 
 from rucio.common.exception import DatabaseException
 from rucio.db import session as rucio_session
@@ -46,7 +48,9 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                 order_by(models.DataIdentifier.rule_evaluation_required)
 
             if session.bind.dialect.name == 'oracle':
-                query = query.filter('ORA_HASH(name, %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
+                bindparams = [bindparam('worker_number', process*threads_per_process+thread),
+                              bindparam('total_workers', total_processes*threads_per_process-1)]
+                query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
                 query = query.filter('mod(md5(name), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
             elif session.bind.dialect.name == 'sqlite':
