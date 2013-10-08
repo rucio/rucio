@@ -78,23 +78,23 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                                                                     req['request_id']))
                     request.set_request_state(req['request_id'], RequestState.LOST, session=session)  # if the DID does not exist anymore
                     request.archive_request(req['request_id'], session=session)
-                    session.commit()
                     continue
+                except:
+                    record_counter('daemons.conveyor.submitter.unexpected')
+                    logging.critical('Something unexpected happened: %s' % traceback.format_exc())
+                    continue
+                finally:
+                    session.commit()
 
-                if tmpsrc == []:
-                    logging.warn('DID %s:%s does not have sources - skipping' % (req['scope'],
-                                                                                 req['name']))
-                    record_counter('daemons.conveyor.submitter.no_sources_found')
-                    session.commit()
-                    continue
+                #if tmpsrc == []:
+                #    logging.warn('DID %s:%s does not have sources - skipping' % (req['scope'],
+                #                                                                 req['name']))
+                #    record_counter('daemons.conveyor.submitter.no_sources_found')
+                #    session.commit()
+                #    continue
 
                 #  dummy replacement: list_replicas does not yet set the PFN
-                sources = []
-                for tmp in tmpsrc:
-                    if tmp == '[]':
-                        sources.append('mock://dummyhost/dummyfile.root')
-                    else:
-                        sources.append(tmp)
+                sources = ['mock://hostname/path/file']
 
                 record_timer('daemons.conveyor.submitter.001-list_replicas', (time.time()-ts)*1000)
 
