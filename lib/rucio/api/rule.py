@@ -31,7 +31,11 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param subscription_id:  The subscription_id, if the rule is created by a subscription
     :returns:                List of created replication rules
     """
+    if account is None:
+        account = issuer
+
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime, 'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id}
+
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
     return rule.add_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)

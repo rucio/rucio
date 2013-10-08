@@ -51,6 +51,8 @@ class Rule:
             rule = get_replication_rule(rule_id)
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             raise InternalError(e)
 

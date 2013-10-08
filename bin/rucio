@@ -33,6 +33,7 @@ from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager
 
@@ -696,6 +697,132 @@ def del_metadata(args):
                auth_type=args.auth_strategy, creds=creds,
                ca_cert=args.ca_certificate, timeout=args.timeout)
 
+
+def add_rule(args):
+    """
+    %(prog)s add-rule <did> <copies> <rse-expression> [options]
+
+    Add a rule to a did.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    dids = []
+    for did in args.dids:
+        scope, name = did.split(':')
+        dids.append({'scope': scope, 'name': name})
+
+    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+                        account=args.account, auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        rule_ids = client.add_replication_rule(dids=dids,
+                                               copies=args.copies,
+                                               rse_expression=args.rse_expression,
+                                               weight=args.weight,
+                                               lifetime=args.lifetime,
+                                               grouping=args.grouping,
+                                               account=args.account,
+                                               locked=args.locked)
+        for rule in rule_ids:
+            print rule
+    except Exception, e:
+        print 'Failed to add rule to data identifier'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def del_rule(args):
+    """
+    %(prog)s del-rule [options] <ruleid>
+
+    Delete a rule.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+                        account=args.account, auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.delete_replication_rule(rule_id=args.rule_id)
+        print 'Removed Rule'
+    except Exception, e:
+        print 'Failed to delete replication rule'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def list_rules(args):
+    """
+    %(prog)s list-rules ...
+
+    List rules.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    if args.rule_id:
+        client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+                            account=args.account,
+                            auth_type=args.auth_strategy, creds=creds,
+                            ca_cert=args.ca_certificate, timeout=args.timeout)
+        try:
+            rules = [client.get_replication_rule(args.rule_id)]
+        except Exception, e:
+            print 'Failed to list rules'
+            print e
+            return FAILURE
+    elif args.did:
+        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+        try:
+            scope, name = args.did.split(':')
+            rules = client.list_did_rules(scope=scope, name=name)
+        except Exception, e:
+            print 'Failed to list rules'
+            print e
+            return FAILURE
+    elif args.rule_account:
+        client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                               account=args.account,
+                               auth_type=args.auth_strategy, creds=creds,
+                               ca_cert=args.ca_certificate, timeout=args.timeout)
+        try:
+            rules = client.list_account_rules(account=args.rule_account)
+        except Exception, e:
+            print 'Failed to list rules'
+            print e
+            return FAILURE
+    elif args.subscription:
+        account = args.subscription[0]
+        name = args.subscription[1]
+        client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
+                                    account=args.account,
+                                    auth_type=args.auth_strategy, creds=creds,
+                                    ca_cert=args.ca_certificate, timeout=args.timeout)
+        try:
+            rules = client.list_subscription_rules(account=account, name=name)
+        except Exception, e:
+            print 'Failed to list rules'
+            print e
+            return FAILURE
+    else:
+        print 'At least one option has to be given. Use -h to list the options.'
+        return FAILURE
+
+    for rule in rules:
+        print rule
+
+    return SUCCESS
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -880,6 +1007,30 @@ Commands:
     list_account_limits_parser.set_defaults(which='list_account_limits')
     list_account_limits_parser.add_argument(dest='account', action='store', help='Account name')
 
+    # Add replication rule subparser
+    add_rule_parser = subparsers.add_parser('add-rule', help='Add replication rule')
+    add_rule_parser.set_defaults(which='add_rule')
+    add_rule_parser.add_argument(dest='dids', action='store', nargs='+', help='DID(s) to apply the rule to')
+    add_rule_parser.add_argument(dest='copies', action='store', type=int, help='Number of copies')
+    add_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE Expression')
+    add_rule_parser.add_argument('--weight', dest='weight', action='store', help='RSE Weight')
+    add_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Rule lifetime (in hours)')
+    add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['dataset', 'all', 'none'], help='Rule grouping')
+    add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
+
+    # Del replication rule subparser
+    del_rule_parser = subparsers.add_parser('del-rule', help='Delete replication rule')
+    del_rule_parser.set_defaults(which='del_rule')
+    del_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
+
+    # The list_rules command
+    list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules')
+    list_rules_parser.set_defaults(which='list_rules')
+    list_rules_parser.add_argument('--rule', dest='rule_id', action='store', help='List by rule id')
+    list_rules_parser.add_argument('--did', dest='did', action='store', help='List by did')
+    list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
+    list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
+
     argcomplete.autocomplete(oparser)
 
     if len(sys.argv) == 1:
@@ -909,7 +1060,10 @@ Commands:
                 'upload': upload,
                 'get_metadata': get_metadata,
                 'set_metadata': set_metadata,
-                'del_metadata': del_metadata, }
+                'del_metadata': del_metadata,
+                'add_rule': add_rule,
+                'list_rules': list_rules,
+                'del_rule': del_rule, }
 
     try:
         start_time = time.time()
