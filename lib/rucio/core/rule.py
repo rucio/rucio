@@ -14,7 +14,7 @@ import time
 
 from datetime import datetime, timedelta
 
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
@@ -22,7 +22,7 @@ import rucio.core.did
 
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientQuota,
                                     DataIdentifierNotFound, RuleNotFound, RSENotFound,
-                                    ReplicationRuleCreationFailed, InsufficientTargetRSEs)
+                                    ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException)
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.monitor import record_timer
 from rucio.core.rse_expression_parser import parse_expression
@@ -456,6 +456,7 @@ def list_rules(filters={}, session=None):
 
     :param filters: dictionary of attributes by which the results should be filtered.
     :param session: The database session in use.
+    :raises:        RucioException
     """
 
     query = session.query(models.ReplicationRule)
@@ -463,22 +464,25 @@ def list_rules(filters={}, session=None):
         for (k, v) in filters.items():
             query = query.filter(getattr(models.ReplicationRule, k) == v)
 
-    for rule in query.yield_per(5):
-        d = {'id': rule.id,
-             'subscription_id': rule.subscription_id,
-             'account': rule.account,
-             'scope': rule.scope,
-             'name': rule.name,
-             'state': rule.state,
-             'rse_expression': rule.rse_expression,
-             'copies': rule.copies,
-             'expires_at': rule.expires_at,
-             'weight': rule.weight,
-             'locked': rule.locked,
-             'grouping': rule.grouping,
-             'created_at': rule.created_at,
-             'updated_at': rule.updated_at}
-        yield d
+    try:
+        for rule in query.yield_per(5):
+            d = {'id': rule.id,
+                 'subscription_id': rule.subscription_id,
+                 'account': rule.account,
+                 'scope': rule.scope,
+                 'name': rule.name,
+                 'state': rule.state,
+                 'rse_expression': rule.rse_expression,
+                 'copies': rule.copies,
+                 'expires_at': rule.expires_at,
+                 'weight': rule.weight,
+                 'locked': rule.locked,
+                 'grouping': rule.grouping,
+                 'created_at': rule.created_at,
+                 'updated_at': rule.updated_at}
+            yield d
+    except StatementError:
+        raise RucioException('Badly formatted input (IDs?)')
 
 
 @transactional_session
@@ -545,6 +549,8 @@ def get_rule(rule_id, session=None):
 
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
 
 
 @transactional_session

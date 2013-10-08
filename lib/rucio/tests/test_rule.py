@@ -481,7 +481,6 @@ class TestReplicationRuleClient():
         rule_id_2 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse2, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         ret = self.did_client.list_did_rules(scope=scope, name=dataset)
-
         ids = [rule['id'] for rule in ret]
 
         assert_in(rule_id_1, ids)
