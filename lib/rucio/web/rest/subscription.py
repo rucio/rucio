@@ -25,9 +25,9 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
+    '/(.*)/(.*)/Rules', 'Rules',
     '/(.*)/(.*)', 'Subscription',
     '/(.*)', 'Subscription',
-    '/(.*)/Rules', 'Rules',
 )
 
 
@@ -154,7 +154,7 @@ class Subscription:
 
 class Rules:
 
-    def GET(self, id):
+    def GET(self, account, name):
         """
         Return all rules of a given subscription id.
 
@@ -169,12 +169,16 @@ class Rules:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for rule in list_replication_rules({'subscription_id': id}):
-                yield dumps(rule, cls=APIEncoder) + '\n'
+            subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account)]
+            if len(subscriptions) > 0:
+                for rule in list_replication_rules({'subscription_id': subscriptions[0]}):
+                    yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
         except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except SubscriptionNotFound, e:
+            raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
         except Exception, e:
             raise InternalError(e)
 

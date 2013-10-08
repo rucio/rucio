@@ -124,14 +124,15 @@ class SubscriptionClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list_subscription_rules(self, subscription_id):
+    def list_subscription_rules(self, account, name):
         """
         List the associated rules of a subscription.
 
-        :param subscription_id: The subscription id.
+        :param account: Account of the subscription.
+        :param name:    Name of the subscription.
         """
 
-        path = '/'.join([self.SUB_BASEURL, subscription_id, 'rules'])
+        path = '/'.join([self.SUB_BASEURL, account, name, 'Rules'])
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
