@@ -50,7 +50,7 @@ class TestRsePOSIX():
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = '%s/data.raw' % prefix
         for f in MgrTestCases.files_remote:
-            path = storage.lfn2pfn('MOCK-POSIX', {'filename': f, 'scope': 'user.%s' % cls.user}).partition('://')[2]
+            path = storage.lfn2pfn('MOCK-POSIX', {'name': f, 'scope': 'user.%s' % cls.user}).partition('://')[2]
             dirs = os.path.dirname(path)
             if not os.path.exists(dirs):
                 os.makedirs(dirs)

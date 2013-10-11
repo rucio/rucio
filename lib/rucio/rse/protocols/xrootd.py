@@ -215,6 +215,6 @@ class Default(protocol.RSEProtocol):
         # Spliting parsed.path into prefix, path, filename
         ret['prefix'] = self.rse['prefix']
         ret['path'] = ret['path'].partition(self.rse['prefix'])[2]
-        ret['filename'] = ret['path'].split('/')[-1]
-        ret['path'] = ret['path'].partition(ret['filename'])[0]
+        ret['name'] = ret['path'].split('/')[-1]
+        ret['path'] = ret['path'].partition(ret['name'])[0]
         return ret

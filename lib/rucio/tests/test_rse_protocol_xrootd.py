@@ -58,8 +58,8 @@ class TestRseXROOTD():
         execute(cmd)
 
         for f in MgrTestCases.files_remote:
-            tmp = storage.parse_pfn('WJ-XROOTD', storage.lfn2pfn('WJ-XROOTD', {'filename': f, 'scope': 'user.%s' % cls.user}))
-            path = 'xroot://%s:%d/%s%s%s' % (tmp['hostname'], tmp['port'], tmp['prefix'], tmp['path'], tmp['filename'])
+            tmp = storage.parse_pfn('WJ-XROOTD', storage.lfn2pfn('WJ-XROOTD', {'name': f, 'scope': 'user.%s' % cls.user}))
+            path = 'xroot://%s:%d/%s%s%s' % (tmp['hostname'], tmp['port'], tmp['prefix'], tmp['path'], tmp['name'])
             cmd = 'xrdcp %s/data.raw %s' % (prefix, path)
             execute(cmd)
 
