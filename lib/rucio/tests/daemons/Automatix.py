@@ -72,7 +72,7 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
         checksum = adler32(fullpath)
         logger.info('File %s : Size %s , adler32 %s' % (fullpath, str(size), checksum))
         list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum})  # , 'guid': generate_uuid()})
-        lfns.append({'filename': filename, 'scope': scope})
+        lfns.append({'name': filename, 'scope': scope})
 
     if dsn:
         logger.debug('No dsn is specify')
@@ -104,7 +104,7 @@ def get_data_distribution(inputfile):
         probability += data[key]['probability']
         probabilities[key] = probability
     for key in probabilities:
-        probabilities[key] = float(probabilities[key])/probability
+        probabilities[key] = float(probabilities[key]) / probability
     return probabilities, data
 
 

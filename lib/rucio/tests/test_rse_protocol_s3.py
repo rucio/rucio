@@ -53,7 +53,7 @@ class TestRseS3():
         cls.static_file = 's3://NONDETERMINISTIC/data.raw'
         subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, cls.static_file, "--no-progress"], stdout=fnull, stderr=fnull)
         for f in MgrTestCases.files_remote:
-            subprocess.call(["s3cmd", "cp", cls.static_file, storage.lfn2pfn('SWIFT', {'filename': f, 'scope': 'user.%s' % cls.user})], stdout=fnull, stderr=fnull)
+            subprocess.call(["s3cmd", "cp", cls.static_file, storage.lfn2pfn('SWIFT', {'name': f, 'scope': 'user.%s' % cls.user})], stdout=fnull, stderr=fnull)
         fnull.close()
 
     def setup(self):

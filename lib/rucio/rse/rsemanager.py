@@ -108,10 +108,7 @@ class RSEMgr(object):
                 return self.__rses[rse_id]['protocols'][pid]
 
             else:  # Protocol not instanciated so far, check if it is known by the database
-                if self.__server_mode:
-                    candidates = self.__rse_client.get_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation, session=session)
-                else:
-                    candidates = self.__rse_client.get_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation)
+                candidates = self.list_protocols(rse_id, protocol_domain=protocol_domain, scheme=properties['scheme'], operation=operation, session=session)
 
                 for protocol in candidates:
                     if (protocol['hostname'] == properties['hostname']) and (protocol['port'] == properties['port']):
@@ -138,10 +135,7 @@ class RSEMgr(object):
             return best_choice
 
         # So far, no protocol supported the operation -> check database for more protocols of this RSE
-        if self.__server_mode:
-            candidates = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
-        else:
-            candidates = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
+        candidates = self.list_protocols(rse_id, protocol_domain=protocol_domain, scheme=scheme, operation=operation, session=session)
         for protocol in candidates:
             pid = '_'.join([protocol['scheme'], protocol['hostname'], str(protocol['port'])])
             self.__rses[rse_id]['protocols'][pid] = RSEProtocolWrapper(rse_id, protocol, self.__rses[rse_id])
@@ -159,7 +153,7 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
             :param source_dir:  path to the local directory including the source files. Default is the current working directory
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
@@ -221,7 +215,7 @@ class RSEMgr(object):
             Providing a list indicates the bulk mode.
 
             :param rse_id:      identifier of the requested storage
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
             :param default: Inidcates if the operation must be marked as default for the protocol domain
             :param scheme: Indicating the protocol scheme to use
@@ -250,7 +244,7 @@ class RSEMgr(object):
 
             :param rse_id:      identifier of the requested storage
             :param files: a single dict or a list with dicts containing 'scope', 'name', 'new_scope' and 'new_name'
-                          if LFNs are used or only 'name' and 'new_name' if PFNs are used. If 'new_scope' or 'new_filename' are not provided, the current one is used.
+                          if LFNs are used or only 'name' and 'new_name' if PFNs are used. If 'new_scope' or 'new_name' are not provided, the current one is used.
                           E.g. [{'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
                                 {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
             :param protocol_domain: ID of the requested protocol domain e.g. LAN, WAN, ALL
@@ -343,13 +337,10 @@ class RSEMgr(object):
             :raises InvalidObject: If the properties parameter doesn't include scheme, hostname, and port as keys
             :raises RSEOperationNotSupported: If no matching protocol was found for the requested operation
         """
-        if operation is None:
-            soperation = 'None'
-        if scheme is None:
-            sscheme = 'None'
+        soperation = 'None' if operation is None else operation
+        sscheme = 'None' if scheme is None else scheme
         result = region.get('protocols_%s_%s_%s_%s_%s' % (rse_id, protocol_domain, default, soperation, sscheme))
         if type(result) is NoValue:
-                #print 'Value is not cached'
                 if self.__server_mode:
                     proto = self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
                 else:
@@ -357,9 +348,6 @@ class RSEMgr(object):
                 region.set('protocols_%s_%s_%s_%s_%s' % (rse_id, protocol_domain, default, soperation, sscheme), proto)
                 result = region.get('protocols_%s_%s_%s_%s_%s' % (rse_id, protocol_domain, default, soperation, sscheme))
         return result
-        #if self.__server_mode:
-        #    return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme, session=session)
-        #return self.__rse_client.get_protocols(rse=rse_id, protocol_domain=protocol_domain, default=default, operation=operation, scheme=scheme)
 
     def parse_pfn(self, rse_id, pfn, protocol=None, session=None):
         """
@@ -661,7 +649,7 @@ class RSEProtocolWrapper(object):
             Uploads a file to the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
             :param source_dir:  path to the local directory including the source files
 
             :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
@@ -704,7 +692,7 @@ class RSEProtocolWrapper(object):
             Delete a file from the connected storage.
             Providing a list indicates the bulk mode.
 
-            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'filename': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
+            :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
 
             :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -773,6 +761,7 @@ class RSEProtocolWrapper(object):
                     new_pfn = self.get_path(f['new_name'], f['new_scope'])
                 else:
                     tmp = self.split_pfn(f['name'])
+                    print tmp
                     pfn = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])
                     tmp = self.split_pfn(f['new_name'])
                     new_pfn = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])

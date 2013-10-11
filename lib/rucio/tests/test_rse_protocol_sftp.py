@@ -51,8 +51,8 @@ class TestRseSFTP():
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = 'sftp://lxplus.cern.ch:22%sdata.raw' % prefix
         for f in MgrTestCases.files_remote:
-            tmp = storage.parse_pfn('LXPLUS', storage.lfn2pfn('LXPLUS', {'filename': f, 'scope': 'user.%s' % cls.user}))
-            for cmd in ['mkdir -p %s' % ''.join([tmp['prefix'], tmp['path']]), 'ln -s %sdata.raw %s' % (prefix, ''.join([tmp['prefix'], tmp['path'], tmp['filename']]))]:
+            tmp = storage.parse_pfn('LXPLUS', storage.lfn2pfn('LXPLUS', {'name': f, 'scope': 'user.%s' % cls.user}))
+            for cmd in ['mkdir -p %s' % ''.join([tmp['prefix'], tmp['path']]), 'ln -s %sdata.raw %s' % (prefix, ''.join([tmp['prefix'], tmp['path'], tmp['name']]))]:
                 lxplus.execute(cmd)
         lxplus.close()
 

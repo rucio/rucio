@@ -30,7 +30,7 @@ class TestReplicaCore:
         """ REPLICA (CORE): Add and list file replicas """
         tmp_scope = 'mock'
         nbfiles = 13
-        files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         rses = ['MOCK', 'MOCK3']
         for rse in rses:
             add_replicas(rse=rse, files=files, account='root')
@@ -45,14 +45,14 @@ class TestReplicaCore:
         """ REPLICA (CORE): Delete replicas """
         tmp_scope = 'mock'
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         add_replicas(rse='MOCK', files=files1, account='root')
 
-        files2 = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         add_replicas(rse='MOCK', files=files2, account='root')
         add_replicas(rse='MOCK3', files=files2, account='root')
 
-        delete_replicas(rse='MOCK', files=files1+files2)
+        delete_replicas(rse='MOCK', files=files1 + files2)
 
         for file in files1:
             with assert_raises(DataIdentifierNotFound):
@@ -67,7 +67,7 @@ class TestReplicaCore:
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
 
         add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
         add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account='root')
@@ -100,7 +100,7 @@ class TestReplica:
         """ REPLICA (CLIENT): Bulk add replicas """
         tmp_scope = 'mock'
         nbfiles = 5
-        files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         self.rse_client.add_replicas(rse='MOCK', files=files)
         self.rse_client.add_replicas(rse='MOCK3', files=files)
 
@@ -108,9 +108,9 @@ class TestReplica:
         """ REPLICA (CLIENT): Bulk add replicas with existing dids"""
         tmp_scope = 'mock'
         nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         self.rse_client.add_replicas(rse='MOCK', files=files1)
-        files2 = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         self.rse_client.add_replicas(rse='MOCK3', files=files1 + files2)
 
     def test_add_list_replica(self):
@@ -133,5 +133,5 @@ class TestReplica:
         # replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, schemes=['mock'])]
         # assert_equal(len(replicas), 2)
         # for replica in replicas:
-        #    pfn_gen = RSEMgr().lfn2pfn(replica['rse'], {'scope': tmp_scope, 'filename': tmp_file}, scheme='mock')
+        #    pfn_gen = RSEMgr().lfn2pfn(replica['rse'], {'scope': tmp_scope, 'name': tmp_file}, scheme='mock')
         #    assert(pfn_gen == replica['pfns'][0])
