@@ -192,13 +192,13 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
-        # s3 URI: s3://[Bucket]/[path]/[filename]; Bucket/path = scope/user
+        # s3 URI: s3://[Bucket]/[path]/[name]; Bucket/path = scope/user
         parsed = urlparse(pfn)
         ret = dict()
         ret['scheme'] = parsed.scheme
         ret['hostname'] = None
         ret['port'] = 0
         ret['path'] = ''.join([parsed.netloc, parsed.path])
-        ret['filename'] = ret['path'].split('/')[-1]
-        ret['path'] = ret['path'].partition(ret['filename'])[0]
+        ret['name'] = ret['path'].split('/')[-1]
+        ret['path'] = ret['path'].partition(ret['name'])[0]
         return ret

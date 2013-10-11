@@ -60,7 +60,7 @@ class TestRseWebDAV():
         for f in MgrTestCases.files_remote:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
             try:
-                storage.upload('FZK-LCG2_SCRATCHDISK', {'filename': f, 'scope': 'user.%s' % (cls.user)}, cls.tmpdir)
+                storage.upload('FZK-LCG2_SCRATCHDISK', {'name': f, 'scope': 'user.%s' % (cls.user)}, cls.tmpdir)
             except FileReplicaAlreadyExists, e:
                 print e
         with open('%s/data.raw' % cls.tmpdir, 'rb') as f:

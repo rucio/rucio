@@ -565,7 +565,7 @@ def upload(args):
         size = os.stat(filename).st_size
         checksum = adler32(filename)
         list_files.append({'scope': args.scope, 'name': filename, 'bytes': size, 'adler32': checksum})
-        lfns.append({'filename': filename, 'scope': args.scope})
+        lfns.append({'name': filename, 'scope': args.scope})
 
     metadata = {}
     if args.project:
@@ -624,7 +624,7 @@ def download(args):
             scope, name = did.split(':')
             files = client.list_replicas(scope=scope, name=name)
             for file in files:
-                    rsemgr.download(rse_id=file['rse'], files={'lfns': [{'filename': name, 'scope': scope}, ]}, dest_dir=args.dir)
+                    rsemgr.download(rse_id=file['rse'], files={'lfns': [{'name': name, 'scope': scope}, ]}, dest_dir=args.dir)
                     break
             print 'download operation for %s done' % (name)
         except Exception, e:
