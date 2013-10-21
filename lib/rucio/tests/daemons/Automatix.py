@@ -71,7 +71,7 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
         size = stat(fullpath).st_size
         checksum = adler32(fullpath)
         logger.info('File %s : Size %s , adler32 %s' % (fullpath, str(size), checksum))
-        list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum})  # , 'guid': generate_uuid()})
+        list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum, 'meta': {'guid': generate_uuid()}})
         lfns.append({'name': filename, 'scope': scope})
 
     if dsn:
