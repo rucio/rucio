@@ -825,6 +825,37 @@ def list_rules(args):
 
     return SUCCESS
 
+
+def parse_expression(args):
+    """
+    %(prog)s parse-expression ...
+
+    Parse RSE expression.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    if args.rse_expression:
+        client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+        try:
+            rses = client.parse_rse_expression(args.rse_expression)
+        except Exception, e:
+            print 'Failed to parse RSE Expression'
+            print e
+            return FAILURE
+    else:
+        print 'At least one option has to be given. Use -h to list the options.'
+        return FAILURE
+
+    for rse in rses:
+        print rse['rse']
+
+    return SUCCESS
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -1033,6 +1064,11 @@ Commands:
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
     list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
 
+    # The parse-expression command
+    expression_parser = subparsers.add_parser('parse-expression', help='Parse RSE expression and list RSEs')
+    expression_parser.set_defaults(which='parse-expression')
+    expression_parser.add_argument(dest='rse_expression', action='store', help='RSE Expression')
+
     argcomplete.autocomplete(oparser)
 
     if len(sys.argv) == 1:
@@ -1065,7 +1101,8 @@ Commands:
                 'del_metadata': del_metadata,
                 'add_rule': add_rule,
                 'list_rules': list_rules,
-                'del_rule': del_rule, }
+                'del_rule': del_rule,
+                'parse-expression': parse_expression}
 
     try:
         start_time = time.time()
