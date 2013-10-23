@@ -77,10 +77,10 @@ def parse_expression(expression, session):
         #Check the expression pattern
         match = re.match(PATTERN, expression)
         if match is None:
-            raise InvalidRSEExpression('')
+            raise InvalidRSEExpression('Expression does not comply to RSE Expression syntax')
         else:
             if match.group() != expression:
-                raise InvalidRSEExpression('')
+                raise InvalidRSEExpression('Expression does not comply to RSE Expression syntax')
         result = list(__resolve_term_expression(expression)[0].resolve_elements(session=session))
         random.shuffle(result)
         if not result:
@@ -213,7 +213,7 @@ class RSEAttribute(BaseExpressionElement):
         """
         output = list_rses({self.key: self.value}, session=session)
         if not output:
-            return []
+            return set()
         return set([rse['id'] for rse in output])
 
 

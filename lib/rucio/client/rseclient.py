@@ -9,9 +9,11 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from json import dumps, loads
 from requests.status_codes import codes
+from urllib import quote
 
 from rucio.client.baseclient import BaseClient
 from rucio.common.utils import build_url, render_json_list
@@ -453,6 +455,24 @@ class RSEClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def parse_rse_expression(self, rse_expression):
+        """
+        List the RSEs expressed by an RSE expression
+
+        :param rse_expression:  The RSE expression.
+
+        :returns:  List of RSEs.
+        """
+        path = [self.RSE_BASEURL, "?expression=" + quote(rse_expression)]
+        path = '/'.join(path)
+        url = build_url(self.host, path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)

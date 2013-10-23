@@ -21,8 +21,8 @@ from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
                            add_protocol, get_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
-                           set_rse_limits, get_rse_limits)
-from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError
+                           set_rse_limits, get_rse_limits, parse_rse_expression)
+from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, InvalidRSEExpression
 from rucio.common.utils import generate_http_error, parse_response, render_json
 from rucio.web.rest.common import authenticate
 
@@ -54,14 +54,29 @@ class RSEs:
             200 OK
 
         HTTP Error:
+            400 Bad request
             401 Unauthorized
+            404 Resource not Found
             500 InternalError
 
         :returns: A list containing all RSEs.
         """
         header('Content-Type', 'application/x-json-stream')
-        for rse in list_rses():
-            yield render_json(**rse) + '\n'
+        params = input()
+        if 'expression' in params:
+            try:
+                for rse in parse_rse_expression(params['expression']):
+                    item = {'rse': rse}
+                    yield render_json(**item) + '\n'
+            except InvalidRSEExpression, e:
+                raise generate_http_error(400, 'InvalidRSEExpression', e)
+            except RSENotFound, e:
+                raise generate_http_error(404, 'RSENotFound', e)
+            except RucioException, e:
+                raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        else:
+            for rse in list_rses():
+                yield render_json(**rse) + '\n'
 
     def POST(self, rse):
         raise NotImplemented()

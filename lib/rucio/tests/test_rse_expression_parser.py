@@ -15,6 +15,7 @@ from nose.tools import assert_equal, raises
 
 from rucio.core import rse
 from rucio.core import rse_expression_parser
+from rucio.client.rseclient import RSEClient
 from rucio.common.exception import InvalidRSEExpression
 
 
@@ -118,3 +119,49 @@ class TestRSEExpressionParserCore():
     def test_complicated_expression_2(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 2"""
         assert_equal(sorted(rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))), sorted([self.rse1_id, self.rse2_id, self.rse5_id]))
+
+
+class TestRSEExpressionParserClient():
+
+    def setup(self):
+        self.rse1 = rse_name_generator()
+        self.rse2 = rse_name_generator()
+        self.rse3 = rse_name_generator()
+        self.rse4 = rse_name_generator()
+        self.rse5 = rse_name_generator()
+
+        self.rse1_id = rse.add_rse(self.rse1)
+        self.rse2_id = rse.add_rse(self.rse2)
+        self.rse3_id = rse.add_rse(self.rse3)
+        self.rse4_id = rse.add_rse(self.rse4)
+        self.rse5_id = rse.add_rse(self.rse5)
+
+        #Add Attributes
+        self.attribute = attribute_name_generator()
+
+        rse.add_rse_attribute(self.rse1, self.attribute, "at")
+        rse.add_rse_attribute(self.rse2, self.attribute, "de")
+        rse.add_rse_attribute(self.rse3, self.attribute, "fr")
+        rse.add_rse_attribute(self.rse4, self.attribute, "uk")
+        rse.add_rse_attribute(self.rse5, self.attribute, "us")
+
+        #Add Tags
+        self.tag1 = tag_generator()
+        self.tag2 = tag_generator()
+        rse.add_rse_attribute(self.rse1, self.tag1, True)
+        rse.add_rse_attribute(self.rse2, self.tag1, True)
+        rse.add_rse_attribute(self.rse3, self.tag1, True)
+        rse.add_rse_attribute(self.rse4, self.tag2, True)
+        rse.add_rse_attribute(self.rse5, self.tag2, True)
+
+        self.rse_client = RSEClient()
+
+    def test_complicated_expression(self):
+        """ RSE_EXPRESSION_PARSER (CLIENT) Test some complicated expression"""
+        rses = [item['rse'] for item in self.rse_client.parse_rse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))]
+        assert_equal(sorted(rses), sorted([self.rse1, self.rse2, self.rse5]))
+
+    def test_complicated_expression_1(self):
+        """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
+        rses = [item['rse'] for item in self.rse_client.parse_rse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))]
+        assert_equal(sorted(rses), sorted([self.rse1, self.rse2, self.rse3]))

@@ -9,11 +9,13 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.core import rse as rse_module
+from rucio.core.rse_expression_parser import parse_expression
 
 
 def add_rse(rse, issuer, deterministic=True, volatile=False):
@@ -304,3 +306,19 @@ def get_rse_limits(rse, issuer):
     :returns: True if successful, otherwise false.
     """
     return rse_module.get_rse_limits(rse=rse)
+
+
+def parse_rse_expression(rse_expression):
+    """
+    Parse an RSE expression and return the list of RSEs.
+
+    :param rse_expression:  The RSE expression.
+
+    :returns:  List of RSEs
+    :raises:   InvalidRSEExpression, RSENotFound
+    """
+    rses = []
+    rse_ids = parse_expression(rse_expression)
+    for rse_id in rse_ids:
+        rses.append(rse_module.list_rses(filters={'id': rse_id})[0]['rse'])
+    return rses
