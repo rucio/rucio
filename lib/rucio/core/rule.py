@@ -345,7 +345,6 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         rse_coverage[replica.rse_id] = file['bytes']
                     if replica.state == ReplicaState.BEING_DELETED:
                         blacklist.add(replica.rse_id)
-        #TODO add a threshold here?
         if len(preferred_rse_ids) == 0:
             rse_ids = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)], list(blacklist))
         else:
@@ -403,7 +402,6 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                 rse_ids = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)], list(blacklist))
             else:
                 rse_ids = rseselector.select_rse(bytes, preferred_rse_ids, list(blacklist))
-            #TODO: Add some threshhold
             for rse_id in rse_ids:
                 for file in dataset['files']:
                     if len([lock for lock in file['locks'] if lock['rule_id'] == rule_id]) == copies:

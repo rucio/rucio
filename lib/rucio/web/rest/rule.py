@@ -17,7 +17,8 @@ from web import application, ctx, data, BadRequest, header, Created, InternalErr
 
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
 from rucio.common.exception import (InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression,
-                                    InvalidReplicationRule, RucioException)
+                                    InvalidReplicationRule, RucioException, DataIdentifierNotFound,
+                                    ReplicationRuleCreationFailed)
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import authenticate
 
@@ -99,6 +100,10 @@ class Rule:
             raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
         except InvalidReplicationRule, e:
             raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except ReplicationRuleCreationFailed, e:
+            raise generate_http_error(409, 'ReplicationRuleCreationFailed', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
