@@ -35,12 +35,13 @@ from rucio.rse import rsemanager
 
 
 @stream_session
-def list_replicas(dids, schemes=None, session=None):
+def list_replicas(dids, schemes=None, unavailable=False, session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
     :param dids: The list of data identifiers (DIDs).
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
+    :param unavailable: Also include unavailable replicas in the list.
     :param session: The database session in use.
     """
     replica_conditions = list()
@@ -52,9 +53,16 @@ def list_replicas(dids, schemes=None, session=None):
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % did)
 
         if did_type == DIDType.FILE:
-            replica_conditions.append(and_(models.RSEFileAssociation.scope == did['scope'],
-                                           models.RSEFileAssociation.name == did['name'],
-                                           models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+            if not unavailable:
+                replica_conditions.append(and_(models.RSEFileAssociation.scope == did['scope'],
+                                               models.RSEFileAssociation.name == did['name'],
+                                               models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+            else:
+                replica_conditions.append(and_(models.RSEFileAssociation.scope == did['scope'],
+                                               models.RSEFileAssociation.name == did['name'],
+                                               or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                                   models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE)))
+
         else:
             content_query = session.query(models.DataIdentifierAssociation)
             child_dids = [(did['scope'], did['name'])]
@@ -62,9 +70,15 @@ def list_replicas(dids, schemes=None, session=None):
                 s, n = child_dids.pop()
                 for tmp_did in content_query.filter_by(scope=s, name=n):
                     if tmp_did.child_type == DIDType.FILE:
-                        replica_conditions.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
-                                                       models.RSEFileAssociation.name == tmp_did.child_name,
-                                                       models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+                        if not unavailable:
+                            replica_conditions.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
+                                                           models.RSEFileAssociation.name == tmp_did.child_name,
+                                                           models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+                        else:
+                            replica_conditions.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
+                                                           models.RSEFileAssociation.name == tmp_did.child_name,
+                                                           or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                                               models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE)))
                     else:
                         child_dids.append((tmp_did.child_scope, tmp_did.child_name))
 
