@@ -36,7 +36,7 @@ logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __na
 graceful_stop = threading.Event()
 
 
-def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=1, mock=True):
+def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=1, mock=False):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -73,45 +73,52 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 filesize = 12345L
                 checksum = 'adler32:123456'
                 src_spacetoken = None
-                if mock is False:
-                    try:
-                        for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], schemes='srm', session=session):
-                            for endpoint in source['rses']:
-                                for pfn in source['rses'][endpoint]:
-                                    tmpsrc.append(str(pfn))
-                            filesize = long(source['bytes'])
-                            checksum = 'adler32:%s' % (source['adler32'])
-                            src_spacetoken = source['space_token']
-                    except DataIdentifierNotFound:
-                        record_counter('daemons.conveyor.submitter.lost_did')
-                        logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
-                                                                                                        req['name'],
-                                                                                                        req['request_id']))
-                        request.set_request_state(req['request_id'], RequestState.LOST, session=session)  # if the DID does not exist anymore
-                        request.archive_request(req['request_id'], session=session)
-                        session.commit()
-                        continue
-                    except:
-                        record_counter('daemons.conveyor.submitter.unexpected')
-                        logging.critical('Something unexpected happened: %s' % traceback.format_exc())
-                        continue
-                    finally:
-                        session.commit()
-                else:
-                    tmpsrc.append('[]')
 
-                #if tmpsrc == []:
-                #    logging.warn('DID %s:%s does not have sources - skipping' % (req['scope'],
-                #                                                                 req['name']))
-                #    record_counter('daemons.conveyor.submitter.no_sources_found')
-                #    session.commit()
-                #    continue
+                try:
+                    for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], session=session):
+                        for endpoint in source['rses']:
+                            for pfn in source['rses'][endpoint]:
+                                tmpsrc.append(str(pfn))
+                        filesize = long(source['bytes'])
+                        checksum = 'adler32:%s' % (source['adler32'])
+                        src_spacetoken = source['space_token'] if 'space_token' in source.keys() else None
+                except DataIdentifierNotFound:
+                    record_counter('daemons.conveyor.submitter.lost_did')
+                    logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
+                                                                                                    req['name'],
+                                                                                                    req['request_id']))
+                    request.set_request_state(req['request_id'], RequestState.LOST, session=session)  # if the DID does not exist anymore
+                    request.archive_request(req['request_id'], session=session)
+                    session.commit()
+                    continue
+                except:
+                    record_counter('daemons.conveyor.submitter.unexpected')
+                    logging.critical('Something unexpected happened: %s' % traceback.format_exc())
+                    continue
+                finally:
+                    session.commit()
 
                 sources = []
-                for tmp in tmpsrc:
-                    if tmp == '[]':
-                        sources.append('mock://dummyhost/dummyfile.root')
+
+                if tmpsrc == []:
+                    if mock:
+                        sources.append('mock://dummy/source')
                     else:
+                        record_counter('daemons.conveyor.submitter.nosource')
+                        logging.warn('No source replicas found for DID %s:%s - deep check for unavailable replicas' % (req['scope'], req['name']))
+
+                        i = 0
+                        for tmp in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], unavailable=True, session=session):
+                            i += 1  # sadly, we have to iterate over results
+
+                        if not i:
+                            logging.warn('DID %s:%s lost' % (req['scope'], req['name']))
+                            # TODO: wipe DID
+
+                        session.commit()
+                        continue
+                else:
+                    for tmp in tmpsrc:
                         sources.append(tmp)
 
                 record_timer('daemons.conveyor.submitter.001-list_replicas', (time.time()-ts)*1000)
@@ -134,7 +141,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 try:
                     dest_spacetoken = protocols[0]['extended_attributes']['space_token']
                 except:
-                    logging.error('Cannot extract space token')
+                    logging.warn('No spacetoken defined for %s' % rse_name)
 
                 ts = time.time()
                 request.submit_transfers(transfers=[{'request_id': req['request_id'],
@@ -186,7 +193,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, mock=True):
+def run(once=False, process=0, total_processes=1, total_threads=1, mock=False):
     """
     Starts up the conveyer threads.
     """
