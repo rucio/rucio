@@ -9,10 +9,17 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import json
+import logging
 
 import requests
 
 from rucio.common.config import config_get
+
+logging.getLogger("requests").setLevel(logging.CRITICAL)
+
+logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 __HOST = config_get('conveyor', 'ftshost')  # keep it simple for now
 __CACERT = config_get('conveyor', 'cacert')
@@ -27,6 +34,11 @@ def submit_transfers(transfers, job_metadata):
     :param job_metadata: Dictionary containing key/value pairs, for all transfers.
     :returns: List of FTS transfer identifiers
     """
+
+    # Early sanity check
+    for transfer in transfers:
+        if transfer['src_urls'] is None or transfer['src_urls'] == []:
+            raise Exception('No sources defined')
 
     transfer_ids = {}
 
@@ -51,6 +63,7 @@ def submit_transfers(transfers, job_metadata):
 
         r = None
         params_str = json.dumps(params_dict)
+        logging.debug(params_str)
 
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
@@ -89,6 +102,10 @@ def submit(src_urls, dest_urls,
     :returns: FTS transfer identifier as string.
     """
 
+    # Early sanity check
+    if src_urls is None or src_urls == []:
+        raise Exception('No sources defined')
+
     job_metadata['issuer'] = 'rucio-transfertool-fts3'
 
     params_dict = {'files': [{'sources': src_urls,
@@ -105,6 +122,7 @@ def submit(src_urls, dest_urls,
 
     r = None
     params_str = json.dumps(params_dict)
+    logging.debug(params_str)
 
     if __HOST.startswith('https://'):
         r = requests.post('%s/jobs' % __HOST,
