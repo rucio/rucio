@@ -63,7 +63,6 @@ class DIDAvailability(DeclEnum):
 class DIDReEvaluation(DeclEnum):
     ATTACH = 'A', 'ATTACH'
     DETACH = 'D', 'DETACH'
-    BOTH = 'B', 'BOTH'
 
 
 class KeyType(DeclEnum):

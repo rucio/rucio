@@ -575,33 +575,33 @@ def update_lock_state(rule_id, lock_state, session=None):
         raise RucioException('Badly formatted rule id (%s)' % (rule_id))
 
 
-@transactional_session
-def re_evaluate_did(scope, name, session=None):
+def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     """
     Fetches the next did to re-evaluate and re-evaluates it.
 
-    :param worker_number:     The worker id of the worker executing this method.
-    :param total_workers:     Number of total workers.
-    :param session:           The database session in use.
+    :param scope:                   The scope of the did to be re-evaluated.
+    :param name:                    The name of the did to be re-evaluated.
+    :param rule_evaluation_action:  The Rule evaluation action.
+    :param session:                 The database session in use.
     """
 
     # Get and row-lock the did in re-evaluation itself
-    did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
-                                                      models.DataIdentifier.name == name).with_lockmode('update_nowait').one()
+    try:
+        did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
+                                                          models.DataIdentifier.name == name).with_lockmode('update_nowait').one()
+    except NoResultFound:
+        raise DataIdentifierNotFound()
 
-    if did.rule_evaluation_action == DIDReEvaluation.ATTACH:
+    if rule_evaluation_action == DIDReEvaluation.ATTACH:
         __evaluate_attach(did, session=session)
-    elif did.rule_evaluation_action == DIDReEvaluation.DETACH:
-        __evaluate_detach(did, session=session)
     else:
         __evaluate_detach(did, session=session)
-        __evaluate_attach(did, session=session)
 
 
 @transactional_session
 def __evaluate_detach(eval_did, session=None):
     """
-    Evaluate a parent did which has childs removed
+    Evaluate a parent did which has children removed.
 
     :param eval_did:  The did object in use.
     :param session:   The database session in use.
@@ -637,12 +637,6 @@ def __evaluate_detach(eval_did, session=None):
                 session.delete(lock)
                 if replica.lock_cnt == 0:
                     replica.tombstone = datetime.utcnow()
-
-    if eval_did.rule_evaluation_action == DIDReEvaluation.BOTH:
-        eval_did.rule_evaluation_action = DIDReEvaluation.ATTACH
-    else:
-        eval_did.rule_evaluation_required = None
-        eval_did.rule_evaluation_action = None
 
     session.flush()
 
@@ -838,13 +832,6 @@ def __evaluate_attach(eval_did, session=None):
         for did in new_child_dids:
             did.rule_evaluation = None
         record_timer(stat='rule.opt_evaluate.update_did', time=(time.time() - qtime)*1000)
-
-    # Set the re_evaluation tag to done
-    if eval_did.rule_evaluation_action == DIDReEvaluation.BOTH:
-        eval_did.rule_evaluation_action = DIDReEvaluation.DETACH
-    else:
-        eval_did.rule_evaluation_required = None
-        eval_did.rule_evaluation_action = None
 
     session.flush()
     record_timer(stat='rule.evaluate_did_attach', time=(time.time() - start_time)*1000)

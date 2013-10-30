@@ -19,7 +19,7 @@ from sqlalchemy.exc import DatabaseError
 from sqlalchemy.sql.expression import bindparam
 from sqlalchemy.sql.expression import text
 
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound
 from rucio.db import session as rucio_session
 from rucio.db import models
 from rucio.core.rule import re_evaluate_did
@@ -41,11 +41,9 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
         try:
             # Select a bunch of dids for re evaluation for this worker
             session = rucio_session.get_session()
-            none_value = None
-            query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).\
-                filter(models.DataIdentifier.rule_evaluation_required != none_value).\
-                with_hint(models.DataIdentifier, "index(dids DIDS_RULE_EVALUATION_REQUIRED)", 'oracle').\
-                order_by(models.DataIdentifier.rule_evaluation_required)
+            query = session.query(models.UpdatedDID).\
+                with_hint(models.UpdatedDID, "index(updated_dids UPDATED_DIDS_CREATED_AT_IDX)", 'oracle').\
+                order_by(models.UpdatedDID.created_at)
 
             if session.bind.dialect.name == 'oracle':
                 bindparams = [bindparam('worker_number', process*threads_per_process+thread),
@@ -58,8 +56,6 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
 
             start = time.time()  # NOQA
             dids = query.limit(1000).all()
-            session.commit()
-            session.remove()
             #print 'Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids))
 
             if not dids and not once:
@@ -67,17 +63,33 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                 time.sleep(10)
             else:
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 1)
-                for scope, name in dids:
+                done_dids = {}
+                for did in dids:
                     if graceful_stop.is_set():
                         break
+
+                    if '%s:%s' % (did.scope, did.name) in done_dids:
+                        if did.rule_evaluation_action in done_dids['%s:%s' % (did.scope, did.name)]:
+                            did.delete(flush=False, session=session)
+                            continue
+                    else:
+                        done_dids['%s:%s' % (did.scope, did.name)] = []
+                    done_dids['%s:%s' % (did.scope, did.name)].append(did.rule_evaluation_action)
+
                     try:
                         start_time = time.time()
-                        re_evaluate_did(scope=scope, name=name)
-                        print 're_evaluator[%s/%s]: evaluation of %s:%s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, scope, name, time.time() - start_time)
+                        re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
+                        print 're_evaluator[%s/%s]: evaluation of %s:%s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name, time.time() - start_time)
+                        did.delete(flush=False, session=session)
+                    except DataIdentifierNotFound, e:
+                        did.delete(flush=False, session=session)
                     except (DatabaseException, DatabaseError), e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                        print 're_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, scope, name)
+                        print 're_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name)
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
+            session.flush()
+            session.commit()
+            session.remove()
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)

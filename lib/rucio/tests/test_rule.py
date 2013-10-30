@@ -365,8 +365,7 @@ class TestReplicationRuleCore():
             #TODO Need to check transfer queue here, this is actually not the check of this test case
         assert_raises(RuleNotFound, delete_rule, uuid())
 
-    #TODO Has to be fixed with new way of marking dids for eval
-    def NOtest_judge_add_files_to_dataset(self):
+    def test_judge_add_files_to_dataset(self):
         """ REPLICATION RULE (CORE): Test the judge when adding files to dataset"""
         scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)

@@ -459,11 +459,7 @@ def detach_dids(scope, name, dids, issuer, session=None):
     try:
         did = query.one()
         # Mark for rule re-evaluation
-        if did.rule_evaluation_action is None:
-            did.rule_evaluation_action = DIDReEvaluation.DETACH
-        elif did.rule_evaluation_action == DIDReEvaluation.ATTACH:
-            did.rule_evaluation_action = DIDReEvaluation.BOTH
-        did.rule_evaluation_required = datetime.utcnow()
+        models.UpdatedDID(scope=scope, name=name, rule_evaluation_action=DIDReEvaluation.DETACH).save(session=session, flush=False)
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
