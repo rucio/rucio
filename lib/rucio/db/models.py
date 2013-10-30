@@ -281,6 +281,8 @@ class DataIdentifier(BASE, ModelBase):
     prod_step = Column(String(50))
     version = Column(String(50))
     campaign = Column(String(50))
+    task_id = Column(Integer(11))
+    panda_id = Column(Integer(11))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
