@@ -267,8 +267,6 @@ class DataIdentifier(BASE, ModelBase):
     length = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
-    rule_evaluation_action = Column(DIDReEvaluation.db_type(name='DIDS_RULE_EVAL_ACTION_CHK'))
-    rule_evaluation_required = Column(DateTime)
     expired_at = Column(DateTime)
     deleted_at = Column(DateTime)
     # hardcoded meta-data to populate the db
@@ -293,7 +291,6 @@ class DataIdentifier(BASE, ModelBase):
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'),
-                   Index('DIDS_RULE_EVAL_REQUIRED', 'rule_evaluation_required'),
                    )
 
 

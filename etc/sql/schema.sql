@@ -379,8 +379,6 @@ CREATE TABLE dids (
     length NUMBER(19),
     md5 VARCHAR2(32 CHAR),
     adler32 VARCHAR2(8 CHAR),
-	rule_evaluation_action VARCHAR2(1 CHAR), -- to remove when martin's patch is approved
-	rule_evaluation_required DATE,          -- to remove when martin's patch is approved
     expired_at DATE,
     deleted_at DATE,
     events NUMBER(19),
