@@ -77,6 +77,7 @@ def has_permission(issuer, action, kwargs):
             'del_rse_attr': perm_del_rse_attr,
             'del_rse': perm_del_rse,
             'del_rule': perm_del_rule,
+            'lock_rule': perm_lock_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
@@ -276,6 +277,21 @@ def perm_attach_dids(issuer, kwargs):
 def perm_del_rule(issuer, kwargs):
     """
     Checks if an issuer can delete a replication rule.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    if issuer == 'root':
+        return True
+    if get_rule(kwargs['rule_id'])['account'] != issuer:
+        return False
+    return True
+
+
+def perm_lock_rule(issuer, kwargs):
+    """
+    Checks if an issuer can lock a replication rule.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

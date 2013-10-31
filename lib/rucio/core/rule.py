@@ -22,7 +22,8 @@ import rucio.core.did
 
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientQuota,
                                     DataIdentifierNotFound, RuleNotFound, RSENotFound,
-                                    ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException)
+                                    ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException,
+                                    AccessDenied)
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.monitor import record_timer
 from rucio.core.rse_expression_parser import parse_expression
@@ -492,6 +493,7 @@ def delete_rule(rule_id, lockmode='update', session=None):
     :param lockmode:  The lockmode to be used by the session.
     :param session:   The database session in use.
     :raises:          RuleNotFound if no Rule can be found.
+    :raises:          AccessDenied if the Rule is locked.
     """
 
     start_time = time.time()
@@ -499,6 +501,8 @@ def delete_rule(rule_id, lockmode='update', session=None):
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_lockmode(lockmode).one()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    if rule.locked:
+        raise AccessDenied('The replication rule is locked and has to be unlocked before it can be deleted.')
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == rule_id).with_lockmode(lockmode).all()
 
@@ -533,7 +537,7 @@ def get_rule(rule_id, session=None):
     """
     Get a specific replication rule.
 
-    :param rule_id: The rule_id to select
+    :param rule_id: The rule_id to select.
     :param session: The database session in use.
     :raises:        RuleNotFound if no Rule can be found.
     """
@@ -545,6 +549,26 @@ def get_rule(rule_id, session=None):
             d[column.name] = getattr(rule, column.name)
         return d
 
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def update_lock_state(rule_id, lock_state, session=None):
+    """
+    Update lock state of a replication rule.
+
+    :param rule_id:     The rule_id to lock.
+    :param lock_state:  Boolean lock state.
+    :param session:     The database session in use.
+    :raises:            RuleNotFound if no Rule can be found.
+    """
+
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        rule.locked = lock_state
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
