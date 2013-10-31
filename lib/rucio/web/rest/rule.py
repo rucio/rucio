@@ -13,9 +13,9 @@ from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
 from traceback import format_exc
 
-from web import application, ctx, data, BadRequest, header, Created, InternalError, OK, loadhook
+from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
-from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_lock_state
 from rucio.common.exception import (InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound,
                                     ReplicationRuleCreationFailed)
@@ -28,7 +28,7 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = ('/', 'Rule',
-        '/(.+)', 'Rule')
+        '/(.+)', 'Rule',)
 
 
 class Rule:
@@ -59,8 +59,32 @@ class Rule:
 
         return render_json(**rule)
 
-    def PUT(self):
-        raise BadRequest()
+    def PUT(self, rule_id):
+        """
+        Update the replication rules locked flag .
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 InternalError
+        """
+        json_data = data()
+        try:
+            params = loads(json_data)
+            locked = params['locked']
+            update_lock_state(rule_id=rule_id, lock_state=locked, issuer=ctx.env.get('issuer'))
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        raise OK()
 
     def POST(self):
         """
