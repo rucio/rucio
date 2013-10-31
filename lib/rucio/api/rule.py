@@ -65,7 +65,7 @@ def delete_replication_rule(rule_id, issuer):
 
     :param rule_id:  The id of the rule to be deleted
     :param issuer:   The issuing account of this operation
-    :raises:         RuleNotFound
+    :raises:         RuleNotFound, AccessDenied
     """
     kwargs = {'rule_id': rule_id}
     if not has_permission(issuer=issuer, action='del_rule', kwargs=kwargs):
@@ -73,5 +73,16 @@ def delete_replication_rule(rule_id, issuer):
     rule.delete_rule(rule_id)
 
 
-def set_replication_rule():
-    raise NotImplementedError
+def update_lock_state(rule_id, lock_state, issuer):
+    """
+    Update lock state of a replication rule.
+
+    :param rule_id:     The rule_id to lock.
+    :param lock_state:  Boolean lock state.
+    :param issuer:      The issuing account of this operation
+    :raises:            RuleNotFound if no Rule can be found.
+    """
+    kwargs = {'rule_id': rule_id}
+    if not has_permission(issuer=issuer, action='lock_rule', kwargs=kwargs):
+        raise AccessDenied('Account %s can not lock/unlock this replication rule.' % (issuer))
+    rule.update_lock_state(rule_id=rule_id, lock_state=lock_state)

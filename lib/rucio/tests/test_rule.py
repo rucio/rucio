@@ -20,11 +20,11 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound
+from rucio.common.exception import RuleNotFound, AccessDenied
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, add_replica, get_rse
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules
+from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_lock_state
 from rucio.daemons.judge_eval import re_evaluator
 from rucio.daemons.judge_clean import rule_cleaner
 from rucio.db.constants import DIDType
@@ -403,6 +403,20 @@ class TestReplicationRuleCore():
             rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
             assert(len(rse_locks) == 7)
 
+    def test_locked_rule(self):
+        """ REPLICATION RULE (CORE): Delete a locked replication rule"""
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
+
+        assert_raises(AccessDenied, delete_rule, rule_id_1)
+        update_lock_state(rule_id=rule_id_1, lock_state=False)
+        delete_rule(rule_id=rule_id_1)
+
 
 class TestReplicationRuleClient():
 
@@ -511,3 +525,17 @@ class TestReplicationRuleClient():
         rules = [rule['id'] for rule in get]
 
         assert_in(ret[0], rules)
+
+    def test_locked_rule(self):
+        """ REPLICATION RULE (CLIENT): Delete a locked replication rule"""
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
+
+        assert_raises(AccessDenied, delete_rule, rule_id_1)
+        self.rule_client.update_lock_state(rule_id=rule_id_1, lock_state=False)
+        delete_rule(rule_id=rule_id_1)

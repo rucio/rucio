@@ -56,7 +56,7 @@ class RuleClient(BaseClient):
         Deletes a replication rule and all associated locks.
 
         :param rule_id:  The id of the rule to be deleted
-        :raises:         RuleNotFound
+        :raises:         RuleNotFound, AccessDenied
         """
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(self.host, path=path)
@@ -79,6 +79,22 @@ class RuleClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return r.json
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def update_lock_state(self, rule_id, lock_state):
+        """
+        :param rule_id:  The id of the rule to be retrieved.
+        :param lock_state:   If the rule is locked, it cannot be deleted.
+        :raises:         RuleNotFound
+        """
+        path = self.RULE_BASEURL + '/' + rule_id
+        url = build_url(self.host, path=path)
+        data = dumps({'locked': lock_state})
+        r = self._send_request(url, type='PUT', data=data)
+        if r.status_code == codes.ok:
+            return True
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
