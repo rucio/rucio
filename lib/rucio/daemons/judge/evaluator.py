@@ -8,9 +8,10 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 """
-Judge-Eval is a daemon to re-evaluate and execute replication rules.
+Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
 """
 
+import logging
 import threading
 import time
 import traceback
@@ -19,6 +20,7 @@ from sqlalchemy.exc import DatabaseError
 from sqlalchemy.sql.expression import bindparam
 from sqlalchemy.sql.expression import text
 
+from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound
 from rucio.db import session as rucio_session
 from rucio.db import models
@@ -27,15 +29,19 @@ from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
 
+logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
 
 def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per_process=1):
     """
     Main loop to check the re-evaluation of dids.
     """
 
-    print 're_evaluator: starting'
+    logging.info('re_evaluator: starting')
 
-    print 're_evaluator: started'
+    logging.info('re_evaluator: started')
 
     while not graceful_stop.is_set():
         try:
@@ -56,10 +62,10 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
 
             start = time.time()  # NOQA
             dids = query.limit(1000).all()
-            #print 'Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids))
+            logging.debug('Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids)))
 
             if not dids and not once:
-                print 're_evaluator[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1)
+                logging.info('re_evaluator[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
                 time.sleep(10)
             else:
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 1)
@@ -67,7 +73,6 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                 for did in dids:
                     if graceful_stop.is_set():
                         break
-
                     if '%s:%s' % (did.scope, did.name) in done_dids:
                         if did.rule_evaluation_action in done_dids['%s:%s' % (did.scope, did.name)]:
                             did.delete(flush=False, session=session)
@@ -79,13 +84,13 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                     try:
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
-                        print 're_evaluator[%s/%s]: evaluation of %s:%s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name, time.time() - start_time)
+                        logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name, time.time() - start_time))
                         did.delete(flush=False, session=session)
                     except DataIdentifierNotFound, e:
                         did.delete(flush=False, session=session)
                     except (DatabaseException, DatabaseError), e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                        print 're_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name)
+                        logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
             session.flush()
             session.commit()
@@ -93,14 +98,14 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
-            print traceback.format_exc()
+            logging.error(traceback.format_exc())
         if once:
             break
 
-    print 're_evaluator: graceful stop requested'
+    logging.info('re_evaluator: graceful stop requested')
     record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
 
-    print 're_evaluator: graceful stop done'
+    logging.info('re_evaluator: graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -119,13 +124,13 @@ def run(once=False, process=0, total_processes=1, threads_per_process=11):
         record_gauge('rule.judge.re_evaluate.threads.%d' % i, 0)
 
     if once:
-        print 'main: executing one iteration only'
+        logging.info('main: executing one iteration only')
         re_evaluator(once)
     else:
-        print 'main: starting threads'
+        logging.info('main: starting threads')
         threads = [threading.Thread(target=re_evaluator, kwargs={'process': process, 'total_processes': total_processes, 'once': once, 'thread': i, 'threads_per_process': threads_per_process}) for i in xrange(0, threads_per_process)]
         [t.start() for t in threads]
-        print 'main: waiting for interrupts'
+        logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
         while threads[0].is_alive():
             [t.join(timeout=3.14) for t in threads]

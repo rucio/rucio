@@ -9,13 +9,13 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 """
-Judge-Clean is a daemon to clean expired replication rules.
+Judge-Cleaner is a daemon to clean expired replication rules.
 """
 
 import argparse
 import signal
 
-from rucio.daemons.judge_clean import run, stop
+from rucio.daemons.judge.cleaner import run, stop
 
 if __name__ == "__main__":
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--process", action="store", default=1, type=int, help='Concurrency control: current processes number')
+    parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
     parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
     parser.add_argument("--threads-per-process", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
     args = parser.parse_args()
