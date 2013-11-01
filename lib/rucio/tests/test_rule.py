@@ -25,8 +25,8 @@ from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, add_replica, get_rse
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_lock_state
-from rucio.daemons.judge_eval import re_evaluator
-from rucio.daemons.judge_clean import rule_cleaner
+from rucio.daemons.judge.evaluator import re_evaluator
+from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.db.constants import DIDType
 
 
