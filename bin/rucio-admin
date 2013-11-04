@@ -746,21 +746,21 @@ Commands:
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
 
     # The setattr_rse command
-    setattr_rse_parser = rse_subparser.add_parser('set-attr', help='Add RSE attribute(key-value pair)')
+    setattr_rse_parser = rse_subparser.add_parser('set-attribute', help='Add RSE attribute(key-value pair)')
     setattr_rse_parser.set_defaults(which='setattr_rse')
     setattr_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
     setattr_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     setattr_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
     # The delattr_rse command
-    delattr_rse_parser = rse_subparser.add_parser('del-attr', help='Delete a RSE attribute(key-value pair)')
+    delattr_rse_parser = rse_subparser.add_parser('del-attribute', help='Delete a RSE attribute(key-value pair)')
     delattr_rse_parser.set_defaults(which='delattr_rse')
     delattr_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
     delattr_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     delattr_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
     # The getattr_rse command
-    getattr_rse_parser = rse_subparser.add_parser('get-attr', help='List RSE attributes')
+    getattr_rse_parser = rse_subparser.add_parser('get-attribute', help='List RSE attributes')
     getattr_rse_parser.set_defaults(which='getattr_rse')
     getattr_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
 
@@ -808,13 +808,13 @@ Commands:
     list_meta_parser.set_defaults(which='list_meta_keys')
 
     # The add_meta_value command
-    add_meta_value_parser = meta_subparser.add_parser('add_value', help='Add value for a key')
+    add_meta_value_parser = meta_subparser.add_parser('add-value', help='Add value for a key')
     add_meta_value_parser.set_defaults(which='add_meta_value')
     add_meta_value_parser.add_argument('--key', dest='key', action='store', help='Key', required=True)
     add_meta_value_parser.add_argument('--value', dest='value', action='store', help='Add a default value', required=True)
 
     # The list_meta command
-    list_meta_values_parser = meta_subparser.add_parser('list_values', help='List values for a key')
+    list_meta_values_parser = meta_subparser.add_parser('list-values', help='List values for a key')
     list_meta_values_parser.set_defaults(which='list_meta_values')
     list_meta_values_parser.add_argument('key', action='store', help='Key')
 
