@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 """
 Reaper is a daemon to manage file deletion
@@ -23,9 +23,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    args = parser.parse_args()
+    parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
+    parser.add_argument("--chunk-size", action="store", default=10, type=int, help='Chunk size')
+    parser.add_argument('--greedy', action='store_true', default=True, help='Greedy mode')
+    parser.add_argument('--rses', nargs='+', type=str)
 
+    args = parser.parse_args()
     try:
-        run(once=args.run_once)
+        run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy, once=args.run_once)
     except KeyboardInterrupt:
         stop()
