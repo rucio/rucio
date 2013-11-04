@@ -801,6 +801,28 @@ def delete_rule(args):
     return SUCCESS
 
 
+def info_rule(args):
+    """
+    %(prog)s rule-info [options] <ruleid>
+
+    Retrieve information about a rule.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+                        account=args.account, auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        raise NotImplementedError  # TODO
+    except Exception, e:
+        print 'Failed to delete replication rule'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
 def list_rules(args):
     """
     %(prog)s list-rules ...
@@ -914,9 +936,9 @@ Commands:
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
     oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host")
-    oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host")
+    oparser.add_argument('--auth-host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host")
     oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use")
-    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
     oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
@@ -1097,6 +1119,11 @@ Commands:
     delete_rule_parser.set_defaults(which='delete_rule')
     delete_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
 
+    # Info replication rule subparser
+    info_rule_parser = subparsers.add_parser('rule-info', help='Retrieve information about a rule')
+    info_rule_parser.set_defaults(which='info_rule')
+    info_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
+
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules')
     list_rules_parser.set_defaults(which='list_rules')
@@ -1143,6 +1170,7 @@ Commands:
                 'set_metadata': set_metadata,
                 'delete_metadata': delete_metadata,
                 'add_rule': add_rule,
+                'info_rule': info_rule,
                 'list_rules': list_rules,
                 'delete_rule': delete_rule,
                 'parse-expression': parse_expression}

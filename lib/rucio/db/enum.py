@@ -91,7 +91,7 @@ class DeclEnumType(SchemaType, TypeDecorator):
 
     def __init__(self, enum, name=None, default=None):
         self.enum = enum
-        self.impl = Enum(*enum.values(), name=name)
+        self.impl = Enum(*enum.values(), name='rucio_%s' % enum.__name__)  # automatically name the enum type, necessary for PSQL
 
     def _set_table(self, table, column):
         self.impl._set_table(table, column)
