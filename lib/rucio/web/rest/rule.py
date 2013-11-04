@@ -102,16 +102,22 @@ class Rule:
         """
         json_data = data()
         try:
+            grouping, weight, lifetime, locked, subscription_id = 'DATASET', None, None, False, None
             params = loads(json_data)
             dids = params['dids']
             account = params['account']
             copies = params['copies']
             rse_expression = params['rse_expression']
-            grouping = params['grouping']
-            weight = params['weight']
-            lifetime = params['lifetime']
-            locked = params['locked']
-            subscription_id = params['subscription_id']
+            if 'grouping' in params:
+                grouping = params['grouping']
+            if 'weight' in params:
+                weight = params['weight']
+            if 'lifetime' in params:
+                lifetime = params['lifetime']
+            if 'locked' in params:
+                locked = params['locked']
+            if 'subscription_id' in params:
+                subscription_id = params['subscription_id']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 

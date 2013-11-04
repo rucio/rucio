@@ -24,7 +24,7 @@ class RuleClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False, subscription_id=None):
+    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False):
         """
         :param dids:             The data identifier set.
         :param copies:           The number of replicas.
@@ -36,14 +36,13 @@ class RuleClient(BaseClient):
                                  NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
         :param account:          The account owning the rule.
         :param locked:           If the rule is locked, it cannot be deleted.
-        :param subscription_id:  The subscription_id, if the rule is created by a subscription.
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(self.host, path=path)
         #TODO remove the subscription_id from the client; It will only be used by the core;
         data = dumps({'dids': dids, 'copies': copies, 'rse_expression': rse_expression,
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
-                      'account': account, 'locked': locked, 'subscription_id': subscription_id})
+                      'account': account, 'locked': locked})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
