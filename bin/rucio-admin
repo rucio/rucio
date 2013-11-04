@@ -7,12 +7,12 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 
 """
-    Rucio Administration Utility
+Rucio Administration Utility
 """
 
 import argcomplete
@@ -22,7 +22,7 @@ import sys
 import time
 
 from rucio.client.accountclient import AccountClient
-from rucio.client.metaclient import MetaClient
+from rucio.client.quotaclient import QuotaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 
@@ -91,6 +91,66 @@ def delete_account(args):
         print 'Deleted account: %s' % args.account
     except Exception, e:
             print 'Failed to disable account %s' % args.account
+            print e
+            return FAILURE
+    return SUCCESS
+
+
+def ban_account(args):
+    """
+    %(prog)s ban [options] <field1=value1 field2=value2 ...>
+
+    Ban an account.
+
+    """
+
+    raise NotImplementedError('This method is not implemented yet')
+
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        accountClient.ban_account(args.account)
+        print 'Banned account: %s' % args.account
+    except Exception, e:
+            print 'Failed to ban account %s' % args.acnt
+            print e
+            return FAILURE
+    return SUCCESS
+
+
+def unban_account(args):
+    """
+    %(prog)s unban [options] <field1=value1 field2=value2 ...>
+
+    Unban a banned account.
+
+    """
+
+    raise NotImplementedError('This method is not implemented yet')
+
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.account,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        accountClient.unban_account(args.account)
+        print 'Unbanned account: %s' % args.account
+    except Exception, e:
+            print 'Failed to unban account %s' % args.acnt
             print e
             return FAILURE
     return SUCCESS
@@ -534,108 +594,90 @@ def list_scopes(args):
     return SUCCESS
 
 
-def add_meta_key(args):
+def set_quota(args):
     """
-    %(prog)s add [options] <field1=value1 field2=value2 ...>
+    %(prog)s set [options] <field1=value1 field2=value2 ...>
 
-    Add a key.
+    Set quota for an account.
     """
+
+    raise NotImplementedError('This method is not implemented yet')
+
     # For the moment..
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.issuer,
-                        auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = QuotaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.account,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+
     try:
-        client.add_key(key=args.key, type=args.type, regexp=args.regexp)
-        print 'Added new key: %s' % (args.key)
+        client.set_quota(account=args.account, quota=args.quota)
+        print 'Set new quota for account %s: %s' % (args.account, args.quota)
     except Exception, e:
-            print 'Failed to add key'
+            print 'Failed to set quota'
             print e
             return FAILURE
     return SUCCESS
 
 
-def list_meta_keys(args):
+def get_quota(args):
     """
-    %(prog)s list [options] <field1=value1 field2=value2 ...>
+    %(prog)s get [options] <field1=value1 field2=value2 ...>
 
-    List keys.
-
+    Get quota for an account.
     """
+
+    raise NotImplementedError('This method is not implemented yet')
+
     # For the moment..
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.issuer,
-                        auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = QuotaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.issuer,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+
     try:
-        keys = client.list_keys()
+        client.get_quota(account=args.account)
     except Exception, e:
-            print 'Failed to list keys'
+            print 'Failed to get quota'
             print e
             return FAILURE
-
-    for key in keys:
-        print key
-
     return SUCCESS
 
 
-def list_meta_values(args):
+def delete_quota(args):
     """
-    %(prog)s list [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
-    List all values to a list.
+    Delete quota for an account.
     """
+
+    raise NotImplementedError('This method is not implemented yet')
+
     # For the moment..
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.issuer,
-                        auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = QuotaClient(rucio_host=args.host, auth_host=args.auth_host,
+                         account=args.issuer,
+                         auth_type=args.auth_strategy, creds=creds,
+                         ca_cert=args.ca_certificate, timeout=args.timeout)
+
     try:
-        values = client.list_values(key=args.key)
+        client.delete_quota(account=args.account, quota=args.quota)
+        print 'Deleted quota for account %s: %s' % (args.account, args.quota)
     except Exception, e:
-            print 'Failed to list values for a key'
+            print 'Failed to delete quota'
             print e
             return FAILURE
-    for value in values:
-        print value
-
     return SUCCESS
-
-
-def add_meta_value(args):
-    """
-    %(prog)s add [options] <field1=value1 field2=value2 ...>
-
-    Add a default value to a key.
-    """
-    # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.issuer,
-                        auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.add_value(key=args.key, value=args.value)
-    except Exception, e:
-            print 'Failed to add an default value to a key'
-            print e
-            return FAILURE
 
 
 if __name__ == '__main__':
@@ -658,7 +700,7 @@ Commands:
     oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host")
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host")
     oparser.add_argument('-a', '--account', dest="issuer", metavar="ACCOUNT", help="Rucio account to use")
-    oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
+    oparser.add_argument('-S', '--auth-strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
     oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
     # Options for the userpass auth_strategy
@@ -698,23 +740,19 @@ Commands:
     list_account_identities_parser.set_defaults(which='list_identities')
     list_account_identities_parser.add_argument('account', action='store', help='Account name')
 
-    # The set-account-limits command
-    #set_account_limits_parser = account_subparser.add_parser('set-limits', help='Set the limits for the provided account')
-    #set_account_limits_parser.set_defaults(which='set_limits')
-    #set_account_limits_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
-    #set_account_limits_parser.add_argument('--rse_expr', dest='rse_expre', action='store', help='RSE boolean expression', required=True)
-    #set_account_limits_parser.add_argument('--value', dest='value', action='store', help='The total number of bytes that can be stored', required=True)
+    set_account_limits_parser = account_subparser.add_parser('set-limits', help='Set the limits for the provided account')
+    set_account_limits_parser.set_defaults(which='set_limits')
+    set_account_limits_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    set_account_limits_parser.add_argument('--rse-expr', dest='rse_expre', action='store', help='RSE boolean expression', required=True)
+    set_account_limits_parser.add_argument('--value', dest='value', action='store', help='The total number of bytes that can be stored', required=True)
 
-    # The get-account-limits command
-    #get_account_limits_parser = account_subparser.add_parser('get-limits', help='Get the limits for the provided account')
-    #get_account_limits_parser.set_defaults(which='get_limits')
-    #get_account_limits_parser.add_argument('account', action='store', help='Account name')
+    ban_account_limits_parser = account_subparser.add_parser('ban', help='Ban an account')
+    set_account_limits_parser.set_defaults(which='ban_account')
+    ban_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
 
-    # The del-account-limits command
-    #delete_account_limits_parser = account_subparser.add_parser('del-limits', help='Delete the limits for the provided account')
-    #delete_account_limits_parser.set_defaults(which='del_limits')
-    #delete_account_limits_parser.add_argument('--account', 'acnt', action='store', help='Account name', required=True)
-    #delete_account_limits_parser.add_argument('--rse_expr', 'rse_expre', action='store', help='RSE boolean expression', required=True)
+    unban_account_limits_parser = account_subparser.add_parser('unban', help='Unban a banned account')
+    set_account_limits_parser.set_defaults(which='unban_account')
+    unban_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
 
     # The identity subparser
     identity_parser = subparsers.add_parser('identity', help='Identity methods')
@@ -767,10 +805,6 @@ Commands:
     get_attribute_rse_parser.set_defaults(which='get_attribute_rse')
     get_attribute_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
 
-    # The listattr_rse command
-    #listattr_rse_parser = rse_subparser.add_parser('listattr', help='List RSE attributes')
-    #listattr_rse_parser.set_defaults(which='listattr_rse')
-
     # The disable_location command
     disable_rse_parser = rse_subparser.add_parser('delete', help='Disable RSE')
     disable_rse_parser.set_defaults(which='disable_rse')
@@ -791,40 +825,33 @@ Commands:
     list_scope_parser.set_defaults(which='list_scopes')
     list_scope_parser.add_argument('--account', dest='account', action='store', help='Account name')
 
-    # The metadata subparser
-    meta_parser = subparsers.add_parser('meta', help='Metadata methods')
-    meta_subparser = meta_parser.add_subparsers()
+    # The quota subparser
+    quota_parser = subparsers.add_parser('quota', help='Quota methods')
+    quota_subparser = quota_parser.add_subparsers()
 
-    # The add_meta command
-    add_meta_parser = meta_subparser.add_parser('add', help='Add a new allowed key')
-    add_meta_parser.set_defaults(which='add_meta_key')
-    add_meta_parser.add_argument('key', action='store', help='Key name')
-    add_meta_parser.add_argument('--type', dest='type', action='store', help='Type of the values')
-    add_meta_parser.add_argument('--regexp', dest='regexp', action='store', help='the regular expression that values should match')
+    # The set_quota command
+    set_quota_parser = quota_subparser.add_parser('set', help='Set quota for an account')
+    set_quota_parser.set_defaults(which='set_quota')
+    set_quota_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    set_quota_parser.add_argument('--quota', dest='quota', action='store', help='Quota definition', required=True)
 
-    ## The del_meta command
-    #del_meta_parser = meta_subparser.add_parser('del', help='Del metadata')
-    #del_meta_parser.set_defaults(which='del_meta')
+    # The get_quota command
+    get_quota_parser = quota_subparser.add_parser('get', help='Get quota for an account')
+    get_quota_parser.set_defaults(which='get_quota')
+    get_quota_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
 
-    # The list_meta command
-    list_meta_parser = meta_subparser.add_parser('list', help='List metadata')
-    list_meta_parser.set_defaults(which='list_meta_keys')
-
-    # The add_meta_value command
-    add_meta_value_parser = meta_subparser.add_parser('add-value', help='Add value for a key')
-    add_meta_value_parser.set_defaults(which='add_meta_value')
-    add_meta_value_parser.add_argument('--key', dest='key', action='store', help='Key', required=True)
-    add_meta_value_parser.add_argument('--value', dest='value', action='store', help='Add a default value', required=True)
-
-    # The list_meta command
-    list_meta_values_parser = meta_subparser.add_parser('list-values', help='List values for a key')
-    list_meta_values_parser.set_defaults(which='list_meta_values')
-    list_meta_values_parser.add_argument('key', action='store', help='Key')
+    # The delete_quota command
+    delete_quota_parser = quota_subparser.add_parser('delete', help='Delete quota for an account')
+    delete_quota_parser.set_defaults(which='delete_quota')
+    delete_quota_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    delete_quota_parser.add_argument('--quota', dest='quota', action='store', help='Quota definition', required=True)
 
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
                 'delete_account': delete_account,
                 'info_account': info_account,
+                'ban_account': ban_account,
+                'unban_account': unban_account,
                 'set_limits': set_limits,
                 'get_limits': get_limits,
                 'delete_limits': delete_limits,
@@ -839,10 +866,9 @@ Commands:
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
                 'list_scopes': list_scopes,
-                'add_meta_key': add_meta_key,
-                'list_meta_keys': list_meta_keys,
-                'add_meta_value': add_meta_value,
-                'list_meta_values': list_meta_values,
+                'set_quota': set_quota,
+                'get_quota': get_quota,
+                'delete_quota': delete_quota
                 }
 
     argcomplete.autocomplete(oparser)
