@@ -68,6 +68,15 @@ and afterwards enable it again::
 
 When that is complete, you are ready to play.
 
+Optionally, you can also subscribe to the notes of the code review::
+
+    $ git config --add remote.origin.fetch refs/notes/review:refs/notes/review
+
+You can then add the code review notes to your local git log by adding this parameter::
+
+    $ git log --show-notes=review
+
+
 Installing dependencies
 =======================
 
