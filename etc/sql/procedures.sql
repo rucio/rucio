@@ -15,7 +15,7 @@ AS
 	v_error_message VARCHAR2(1000);
 	full_qualified_name VARCHAR2(60);
 BEGIN
-
+--   LOOP
         BEGIN
                 stmt := 'ALTER TABLE '|| m_tabname ||' ADD PARTITION ' || DBMS_ASSERT.ENQUOTE_NAME(m_partition_name, capitalize=> FALSE) || ' VALUES  ('|| DBMS_ASSERT.ENQUOTE_LITERAL(m_partition_name) ||')';
 
@@ -24,14 +24,18 @@ BEGIN
                 -- a logging record
 		INSERT INTO LOGGING_TABPARTITIONS(table_name, partition_name, action_type, action_date, executed_sql_stmt, message )
 		VALUES (m_tabname, m_partition_name,'CREATE', systimestamp, stmt, 'success');
-                COMMIT;
-
+--                EXIT;
 	EXCEPTION
+--                WHEN resource_busy
+--                        THEN DBMS_LOCK.sleep(1);
+--                        CONTINUE;
 	       WHEN OTHERS
 	               THEN v_error_message := SUBSTR(SQLERRM,1,1000);
 			     INSERT INTO LOGGING_TABPARTITIONS(table_name, partition_name, action_type, action_date, executed_sql_stmt, message )
 			     VALUES (m_tabname, m_partition_name ,'CREATE', systimestamp, stmt, v_error_message );
         END;
 
+--    END LOOP;
+    COMMIT;
 END;
 /
