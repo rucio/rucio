@@ -31,3 +31,4 @@ pystatsd==0.1.10                # Needed to log into graphite with more than 1 H
 pytest==2.3.4                   # Full-featured Python testing tool
 pytest-xdist==1.8               # py.test xdist plugin for distributed testing and loop-on-failing modes
 tabulate                        # Formating table like outputs
+psycopg2                        # PostgreSQL
