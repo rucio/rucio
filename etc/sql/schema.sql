@@ -103,20 +103,20 @@ as total 31 tables (+ one obsolete)
 
 CREATE TABLE accounts (
     account VARCHAR2(25 CHAR),
-    account_type VARCHAR(7 CHAR),
-    status VARCHAR(9 CHAR),
+    account_type VARCHAR2(7 CHAR),
+    status VARCHAR2(9 CHAR),
     suspended_at DATE,
     deleted_at DATE,
     updated_at DATE,
     created_at DATE,
-    CONSTRAINT "ACCOUNTS_PK3" PRIMARY KEY (account),
-    CONSTRAINT "ACCOUNTS_TYPE_NN3" CHECK ("ACCOUNT_TYPE" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_STATUS_NN3" CHECK ("STATUS" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_CREATED_NN3" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_UPDATED_NN3" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNTS_TYPE_CHK3" CHECK (account_type IN ('GROUP', 'USER', 'SERVICE')),
-    CONSTRAINT "ACCOUNTS_STATUS_CHK3" CHECK (status IN ('ACTIVE', 'DELETED', 'SUSPENDED')),
-          CONSTRAINT "ACCOUNTS_NAME_LOWERCASE_CHK3" CHECK (account=LOWER(account))
+    CONSTRAINT "ACCOUNTS_PK" PRIMARY KEY (account),
+    CONSTRAINT "ACCOUNTS_TYPE_NN" CHECK ("ACCOUNT_TYPE" IS NOT NULL),
+    CONSTRAINT "ACCOUNTS_STATUS_NN" CHECK ("STATUS" IS NOT NULL),
+    CONSTRAINT "ACCOUNTS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+    CONSTRAINT "ACCOUNTS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
+    CONSTRAINT "ACCOUNTS_TYPE_CHK" CHECK (account_type IN ('GROUP', 'USER', 'SERVICE')),
+    CONSTRAINT "ACCOUNTS_STATUS_CHK" CHECK (status IN ('ACTIVE', 'DELETED', 'SUSPENDED')),
+          CONSTRAINT "ACCOUNTS_NAME_LOWERCASE_CHK" CHECK (account=LOWER(account))
 ) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
 
@@ -129,7 +129,7 @@ CREATE TABLE accounts (
 
 CREATE TABLE identities (
     identity VARCHAR2(255 CHAR),
-    identity_type VARCHAR(8 CHAR),
+    identity_type VARCHAR2(8 CHAR),
     username VARCHAR2(255 CHAR),
     password VARCHAR2(255 CHAR),
     email VARCHAR2(255 CHAR),
@@ -158,7 +158,7 @@ CREATE TABLE identities (
 
 CREATE TABLE account_map (
     identity VARCHAR2(255 CHAR),
-    identity_type VARCHAR(8 CHAR),
+    identity_type VARCHAR2(8 CHAR),
     account VARCHAR2(25 CHAR),
     is_default NUMBER(1),
     updated_at DATE,
@@ -215,7 +215,7 @@ CREATE TABLE scopes (
 CREATE TABLE rses (
     id RAW(16),
     rse VARCHAR2(255 CHAR),
-    rse_type VARCHAR(4 CHAR),
+    rse_type VARCHAR2(4 CHAR),
     deterministic NUMBER(1),
     volatile NUMBER(1),
     updated_at DATE,
@@ -269,7 +269,7 @@ CREATE INDEX RSE_ATTR_MAP_KEY_VALUE_IDX ON rse_attr_map (key, value) COMPRESS 2 
 
 CREATE TABLE did_keys (
     key VARCHAR2(255 CHAR),
-    key_type VARCHAR(10 CHAR),
+    key_type VARCHAR2(10 CHAR),
     value_type VARCHAR2(255 CHAR),
     value_regexp VARCHAR2(255 CHAR),
     is_enum NUMBER(1),
@@ -379,7 +379,7 @@ CREATE TABLE dids (
     length NUMBER(19),
     md5 VARCHAR2(32 CHAR),
     adler32 VARCHAR2(8 CHAR),
-	rule_evaluation_action VARCHAR(1 CHAR), -- to remove when martin's patch is approved
+	rule_evaluation_action VARCHAR2(1 CHAR), -- to remove when martin's patch is approved
 	rule_evaluation_required DATE,          -- to remove when martin's patch is approved
     expired_at DATE,
     deleted_at DATE,
@@ -405,7 +405,7 @@ CREATE TABLE dids (
     CONSTRAINT "DIDS_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
     CONSTRAINT "DIDS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
     CONSTRAINT "DIDS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "DIDS_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F', 'Y', 'X', 'Z')),
+    CONSTRAINT "DIDS_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
     CONSTRAINT "DIDS_IS_OPEN_CHK" CHECK (is_open IN (0, 1)),
     CONSTRAINT "DIDS_MONOTONIC_CHK" CHECK (monotonic IN (0, 1)),
     CONSTRAINT "DIDS_HIDDEN_CHK" CHECK (hidden IN (0, 1)),
@@ -523,7 +523,7 @@ CREATE TABLE rules (
     CONSTRAINT "RULES_LOCKS_STUCK_CNT_NN" CHECK ("LOCKS_STUCK_CNT" IS NOT NULL),
     CONSTRAINT "RULES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
     CONSTRAINT "RULES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
-    CONSTRAINT "RULES_DID_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F', 'Y', 'X', 'Z')),
+    CONSTRAINT "RULES_DID_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
     CONSTRAINT "RULES_STATE_CHK" CHECK (state IN ('S', 'R', 'U', 'O')),
     CONSTRAINT "RULES_LOCKED_CHK" CHECK (locked IN (0, 1)),
     CONSTRAINT "RULES_GROUPING_CHK" CHECK (grouping IN ('A', 'D', 'N'))
@@ -955,7 +955,7 @@ CREATE TABLE DELETED_DIDS
     "PROD_STEP" VARCHAR2(50 CHAR),
     "VERSION" VARCHAR2(50 CHAR),
     task_id NUMBER(11),
-    panda_id NUMBER(11),    
+    panda_id NUMBER(11),
     "CAMPAIGN" VARCHAR2(50 CHAR),
      CONSTRAINT "DELETED_DIDS_PK" PRIMARY KEY ("SCOPE", "NAME") USING INDEX LOCAL COMPRESS 1
    ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01
