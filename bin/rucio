@@ -107,34 +107,6 @@ def whoami_account(args):
     return SUCCESS
 
 
-def add_replicas(args):
-    """
-    %(prog)s add_replicas [options] <field1=value1 field2=value2 ...>
-
-    Add file replicas.
-    """
-
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    for lfn, rse, checksum, bytes in zip(args.lfns, args.rses, args.checksums, args.bytes):
-        try:
-            scope, name = lfn.split(':')
-            client.add_replica(scope=scope, name=name, rse=rse, adler32=checksum, bytes=long(bytes))
-            print 'Added file replica %(lfn)s at %(rse)s' % locals()
-        except Exception, e:
-            print 'Failed to add file replica %(lfn)s at %(rse)s' % locals()
-            print e
-    return SUCCESS
-
-
 def add_file(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
@@ -199,35 +171,6 @@ def list_replicas(args):
             print e
 
 
-def add(args):
-    """
-    %(prog)s add [options] <did>
-
-    Add a data identifier.
-    """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    scope, name = args.did.split(':')
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        if args.dataset:
-            client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
-        elif args.container:
-            client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
-        print 'Added %s:%s' % (scope, name)
-    except Exception, e:
-        print 'Failed to add data identifier'
-        print e
-        return FAILURE
-    return SUCCESS
-
-
 def add_dataset(args):
     """
     %(prog)s add-dataset [options] <dsn>
@@ -280,9 +223,9 @@ def add_container(args):
 
 def attach(args):
     """
-    %(prog)s detach [options] <field1=value1 field2=value2 ...>
+    %(prog)s attach [options] <field1=value1 field2=value2 ...>
 
-    Attach data identifier.
+    Attach a data identifier.
     """
 
     creds = None
@@ -338,7 +281,97 @@ def detach(args):
     return SUCCESS
 
 
-def list(args):
+def add_files_to_dataset(args):
+    """
+    %(prog)s add-files-to-dataset [options] <field1=value1 field2=value2 ...>
+
+    Attach files to a dataset.
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.files]
+        scope, name = args.todid.split(':')
+    except Exception, e:
+        print e
+
+    try:
+        client.add_files_to_dataset(scope=scope, name=name, files=dids)
+    except Exception, e:
+        print 'Failed to attach files to the dataset'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def add_datasets_to_container(args):
+    """
+    %(prog)s add-datasets-to-container [options] <field1=value1 field2=value2 ...>
+
+    Attach datasets to a container.
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.datasets]
+        scope, name = args.todid.split(':')
+    except Exception, e:
+        print e
+
+    try:
+        client.add_datasets_to_container(scope=scope, name=name, dsns=dids)
+    except Exception, e:
+        print 'Failed to attach datasets to the container'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def add_containers_to_container(args):
+    """
+    %(prog)s add-containers-to-container [options] <field1=value1 field2=value2 ...>
+
+    Attach containers to a container.
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.containers]
+        scope, name = args.todid.split(':')
+    except Exception, e:
+        print e
+
+    try:
+        client.add_containers_to_container(scope=scope, name=name, cnts=dids)
+    except Exception, e:
+        print 'Failed to attach containers to the container'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def list_dids(args):
     """
     %(prog)s list <did_1> ... <did_n>
 
@@ -350,34 +383,43 @@ def list(args):
         creds = {'username': args.username, 'password': args.password}
 
     if not args.dids:
+        scope = args.scope
         if not args.scope:  # list scopes
             client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
                                  account=args.account,
                                  auth_type=args.auth_strategy, creds=creds,
                                  ca_cert=args.ca_certificate, timeout=args.timeout)
             try:
-                scopes = client.list_scopes()
-                for scope in scopes:
-                    print scope
+                account = args.account
+                if not account:
+                    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                                  account=args.account,
+                                                  auth_type=args.auth_strategy, creds=creds,
+                                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+                    info = accountClient.whoami()
+                    account = info['account']
+                scopes = client.list_scopes_for_account(account)
+                if len(scopes) > 1:
+                    print 'Too many scopes to list. Please specify one scope'
+                    return FAILURE
+                scope = scopes[0]
             except Exception, e:
                 print 'Failed to list scopes'
                 print e
                 return FAILURE
-        else:  # list dids in a scope
-            client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                               account=args.account, auth_type=args.auth_strategy, creds=creds,
-                               ca_cert=args.ca_certificate, timeout=args.timeout)
-
-            try:
-                dids = client.scope_list(scope=args.scope, recursive=args.recursive)
-                for d in dids:
-                    if d['level'] == 0:
-                        print '%(scope)s:%(name)s [%(type)s]' % d
-                    else:
-                        print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
-            except Exception, e:
-                print e
-                return FAILURE
+        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account, auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+        try:
+            dids = client.scope_list(scope=scope, recursive=args.recursive)
+            for d in dids:
+                if d['level'] == 0:
+                    print '%(scope)s:%(name)s [%(type)s]' % d
+                else:
+                    print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
+        except Exception, e:
+            print e
+            return FAILURE
     else:
         client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                            account=args.account, auth_type=args.auth_strategy, creds=creds,
@@ -893,28 +935,11 @@ Commands:
     whoami_parser = subparsers.add_parser('whoami', help='Get information about account whose token is used')
     whoami_parser.set_defaults(which='whoami_account')
 
-    # The add_replicas command
-    add_replicas_parser = subparsers.add_parser('add-replicas', help='Add file replicas')
-    add_replicas_parser.set_defaults(which='add_replicas')
-    add_replicas_parser.add_argument('--lfns', dest='lfns', nargs='+', action='store', help='List of space separated LFNs', required=True)
-    add_replicas_parser.add_argument('--rses', dest='rses', nargs='+', action='store', help='List of space separated Rucio Storage Element(RSE)', required=True)
-    add_replicas_parser.add_argument('--bytes', dest='bytes', nargs='+', action='store', help='List of space separated file sizes in bytes', required=True)
-    add_replicas_parser.add_argument('--checksums', dest='checksums', nargs='+', action='store', help='List of space separated file checksums', required=True)
-
     # The list_replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
     list_replicas_parser.set_defaults(which='list_replicas')
     list_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-
-    # The add command
-    add_parser = subparsers.add_parser('add', help='Add data identifier')
-    add_parser.set_defaults(which='add')
-    add_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
-    group = add_parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--dataset', action='store_true', help='Add dataset')
-    group.add_argument('--container', action='store_true', help='Add container')
-    add_parser.add_argument(dest='did', action='store', help='Data identifier to add')
 
     # The add-dataset command
     add_dataset_parser = subparsers.add_parser('add-dataset', help='Add dataset')
@@ -936,20 +961,40 @@ Commands:
     # add meta
 
     # The attach command
-    attach_parser = subparsers.add_parser('attach', help='Attach data identifiers')
+    attach_parser = subparsers.add_parser('attach', help='Attach a list of Data Identifiers (file, dataset or container) to an other Data Identifier (dataset or container)',
+                                          description='Attach a list of Data Identifiers (file, dataset or container) to an other Data Identifier (dataset or container)')
     attach_parser.set_defaults(which='attach')
     attach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     attach_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target data identifier', required=True)
 
     # The detach command
-    detach_parser = subparsers.add_parser('detach', help='Detach data identifiers')
+    detach_parser = subparsers.add_parser('detach', help='Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container)',
+                                          description='Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container)')
     detach_parser.set_defaults(which='detach')
     detach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     detach_parser.add_argument('--from', dest='fromdid', default=None, action='store', help='Target data identifier', required=True)
 
+    # The add_files_to_dataset command
+    add_files_to_dataset_parser = subparsers.add_parser('add-files-to-dataset', help='Attach a list of files to a dataset', description='Attach a list of files to a dataset')
+    add_files_to_dataset_parser.set_defaults(which='add-files-to-dataset')
+    add_files_to_dataset_parser.add_argument(dest='files', nargs='+', action='store', help='List of space separated files')
+    add_files_to_dataset_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target dataset', required=True)
+
+    # The add_datasets_to_container command
+    add_datasets_to_container_parser = subparsers.add_parser('add-datasets-to-container', help='Attach a list of datasets to a container', description='Attach a list of datasets to a container')
+    add_datasets_to_container_parser.set_defaults(which='add-datasets-to-container')
+    add_datasets_to_container_parser.add_argument(dest='datasets', nargs='+', action='store', help='List of space separated datasets')
+    add_datasets_to_container_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target container', required=True)
+
+    # The add_containers_to_container command
+    add_containers_to_container_parser = subparsers.add_parser('add-containers-to-container', help='Attach a list of containers to a container', description='Attach a list of containers to a container')
+    add_containers_to_container_parser.set_defaults(which='add-containers-to-container')
+    add_containers_to_container_parser.add_argument(dest='containers', nargs='+', action='store', help='List of space separated datasets')
+    add_containers_to_container_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target container', required=True)
+
     # The list command
-    list_parser = subparsers.add_parser('list', help='List data identifier contents')
-    list_parser.set_defaults(which='list')
+    list_parser = subparsers.add_parser('list-dids', help='List data identifier contents', description='List data identifier contents')
+    list_parser.set_defaults(which='list-dids')
     list_parser.add_argument('--scope', dest='scope', action='store', default=None, help='Scope name')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively')
     list_parser.add_argument('--flat', dest='flat', action='store_true', default=False, help='Flatl (unique) listing')
@@ -1019,10 +1064,6 @@ Commands:
     delete_metadata_parser = subparsers.add_parser('delete-metadata', help='delete-metadata method')
     delete_metadata_parser.set_defaults(which='delete_metadata')
 
-    # The search subparser
-    search_parser = subparsers.add_parser('search', help='Search method')
-    search_parser.set_defaults(which='search')
-
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='list-rse-usage method')
     list_rse_usage_parser.set_defaults(which='list_rse_usage')
@@ -1078,17 +1119,19 @@ Commands:
     args = oparser.parse_args(sys.argv[1:])
 
     commands = {'ping': ping,
-                'add_replicas': add_replicas,
                 'list_replicas': list_replicas,
                 'attach': attach,
                 'detach': detach,
-                'add': add,
+                'add-files-to-dataset': add_files_to_dataset,
+                'add-datasets-to-container': add_datasets_to_container,
+                'add-containers-to-container': add_containers_to_container,
+                #'add': add,
                 'add_dataset': add_dataset,
                 'add_container': add_container,
                 'delete': delete,
                 # 'delete_dataset': delete_dataset,
                 # 'delete_container': delete_container,
-                'list': list,
+                'list-dids': list_dids,
                 'list_files': list_files,
                 'list_scopes': list_scopes,
                 'close': close,
