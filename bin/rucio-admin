@@ -60,10 +60,10 @@ def add_account(args):
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        accountClient.add_account(account=args.acnt, type=args.acnttype)
-        print 'Added new account: %s' % args.acnt
+        accountClient.add_account(account=args.account, type=args.accounttype)
+        print 'Added new account: %s' % args.account
     except Exception, e:
-            print 'Failed to add account %s' % args.acnt
+            print 'Failed to add account %s' % args.account
             print e
             return FAILURE
     return SUCCESS
@@ -87,10 +87,10 @@ def delete_account(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        accountClient.delete_account(args.acnt)
-        print 'Deleted account: %s' % args.acnt
+        accountClient.delete_account(args.account)
+        print 'Deleted account: %s' % args.account
     except Exception, e:
-            print 'Failed to disable account %s' % args.acnt
+            print 'Failed to disable account %s' % args.account
             print e
             return FAILURE
     return SUCCESS
@@ -120,13 +120,13 @@ def list_accounts(args):
             print e
             return FAILURE
 
-    for acnt in accounts:
-        print acnt['account']
+    for account in accounts:
+        print account['account']
 
     return SUCCESS
 
 
-def show_account(args):
+def info_account(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
@@ -144,9 +144,9 @@ def show_account(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        info = accountClient.get_account(account=args.acnt)
+        info = accountClient.get_account(account=args.account)
     except Exception, e:
-            print 'Failed to show account'
+            print 'Failed to show account information'
             print e
             return FAILURE
 
@@ -173,9 +173,9 @@ def list_identities(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        identities = accountClient.list_identities(account=args.acnt)
+        identities = accountClient.list_identities(account=args.account)
     except Exception, e:
-            print 'Failed to list identities for account %s' % args.acnt
+            print 'Failed to list identities for account %s' % args.account
             print e
             return FAILURE
 
@@ -203,7 +203,7 @@ def set_limits(args):
                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        print 'Added new limits to account: %s' % (args.acnt)
+        print 'Added new limits to account: %s' % (args.account)
     except Exception, e:
             print 'Failed add limits to an account'
             print e
@@ -230,7 +230,7 @@ def get_limits(args):
                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        print 'Added new limits to account: %s' % (args.acnt)
+        print 'Added new limits to account: %s' % (args.account)
     except Exception, e:
             print 'Failed add limits to an account'
             print e
@@ -257,7 +257,7 @@ def del_limits(args):
                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        print 'Added new limits to account: %s' % (args.acnt)
+        print 'Added new limits to account: %s' % (args.account)
     except Exception, e:
             print 'Failed add limits to an account'
             print e
@@ -284,8 +284,8 @@ def identity_add(args):
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        accountClient.add_identity(account=args.acnt, identity=args.identity, authtype=args.authtype, email=args.email)
-        print 'Added new identity to account: %s-%s' % (args.identity, args.acnt)
+        accountClient.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email)
+        print 'Added new identity to account: %s-%s' % (args.identity, args.account)
     except Exception, e:
             print 'Failed to grant an identity access to an account'
             print e
@@ -493,8 +493,8 @@ def add_scope(args):
                          auth_type=args.auth_strategy, creds=creds,
                          ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.add_scope(account=args.acnt, scope=args.scope)
-        print 'Added new scope to account: %s-%s' % (args.scope, args.acnt)
+        client.add_scope(account=args.account, scope=args.scope)
+        print 'Added new scope to account: %s-%s' % (args.scope, args.account)
     except Exception, e:
             print 'Failed to add scope'
             print e
@@ -677,40 +677,40 @@ Commands:
     # The add_account command
     add_account_parser = account_subparser.add_parser('add', help='Add Rucio account')
     add_account_parser.set_defaults(which='add_account')
-    add_account_parser.add_argument('acnt', action='store', help='Account name')
-    add_account_parser.add_argument('--type', dest='acnttype', default='USER', help='Account Type')
+    add_account_parser.add_argument('account', action='store', help='Account name')
+    add_account_parser.add_argument('--type', dest='accounttype', default='USER', help='Account Type')
 
     # The disable_account command
     del_account_parser = account_subparser.add_parser('del', help='Del Rucio account')
     del_account_parser.set_defaults(which='del_account')
-    del_account_parser.add_argument('acnt', action='store', help='Account name')
+    del_account_parser.add_argument('account', action='store', help='Account name')
 
     # The show_account command
-    show_account_parser = account_subparser.add_parser('show', help='Show detailed information about an account')
-    show_account_parser.set_defaults(which='show_account')
-    show_account_parser.add_argument('acnt', action='store', help='Account name')
+    info_account_parser = account_subparser.add_parser('info', help='Show detailed information about an account')
+    info_account_parser.set_defaults(which='info_account')
+    info_account_parser.add_argument('account', action='store', help='Account name')
 
     # The list_account_identities command
     list_account_identities_parser = account_subparser.add_parser('list-identities', help='List all identities on an account')
     list_account_identities_parser.set_defaults(which='list_identities')
-    list_account_identities_parser.add_argument('acnt', action='store', help='Account name')
+    list_account_identities_parser.add_argument('account', action='store', help='Account name')
 
     # The set-account-limits command
     set_account_limits_parser = account_subparser.add_parser('set-limits', help='Set the limits for the provided account')
     set_account_limits_parser.set_defaults(which='set_limits')
-    set_account_limits_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    set_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     set_account_limits_parser.add_argument('--rse_expr', dest='rse_expre', action='store', help='RSE boolean expression', required=True)
     set_account_limits_parser.add_argument('--value', dest='value', action='store', help='The total number of bytes that can be stored', required=True)
 
     # The get-account-limits command
     #get_account_limits_parser = account_subparser.add_parser('get-limits', help='Get the limits for the provided account')
     #get_account_limits_parser.set_defaults(which='get_limits')
-    #get_account_limits_parser.add_argument('acnt', action='store', help='Account name')
+    #get_account_limits_parser.add_argument('account', action='store', help='Account name')
 
     # The del-account-limits command
     #del_account_limits_parser = account_subparser.add_parser('del-limits', help='Delete the limits for the provided account')
     #del_account_limits_parser.set_defaults(which='del_limits')
-    #del_account_limits_parser.add_argument('--account', 'acnt', action='store', help='Account name', required=True)
+    #del_account_limits_parser.add_argument('--account', 'account', action='store', help='Account name', required=True)
     #del_account_limits_parser.add_argument('--rse_expr', 'rse_expre', action='store', help='RSE boolean expression', required=True)
 
     # The identity subparser
@@ -720,7 +720,7 @@ Commands:
     # The identity_add command
     identity_add_parser = identity_subparser.add_parser('add', help='Grant an identity access to an account')
     identity_add_parser.set_defaults(which='identity_add')
-    identity_add_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     identity_add_parser.add_argument('--type', dest='authtype', action='store', help='Authentivation type(e.g. X509, gss)', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', default=None, help='Email address associated with the identity')
@@ -728,7 +728,7 @@ Commands:
     # The identity_delete command
     identity_delete_parser = identity_subparser.add_parser('delete', help="Revoke an identity's access to an account")
     identity_delete_parser.set_defaults(which='identity_delete')
-    identity_delete_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     identity_delete_parser.add_argument('--type', dest='authtype', action='store', help='Authentivation type(e.g. X509, gss)', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
@@ -780,13 +780,13 @@ Commands:
     # The add_scope command
     add_scope_parser = scope_subparser.add_parser('add', help='Add scope')
     add_scope_parser.set_defaults(which='add_scope')
-    add_scope_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    add_scope_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     add_scope_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)
 
     # The list_scope command
     list_scope_parser = scope_subparser.add_parser('list', help='List scopes')
     list_scope_parser.set_defaults(which='list_scopes')
-    list_scope_parser.add_argument('--account', dest='acnt', action='store', help='Account name')
+    list_scope_parser.add_argument('--account', dest='account', action='store', help='Account name')
 
     # The metadata subparser
     meta_parser = subparsers.add_parser('meta', help='Metadata methods')
@@ -821,7 +821,7 @@ Commands:
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
                 'del_account': delete_account,
-                'show_account': show_account,
+                'info_account': info_account,
                 'set_limits': set_limits,
                 'get_limits': get_limits,
                 'del_limits': del_limits,
