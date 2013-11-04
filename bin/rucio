@@ -528,7 +528,7 @@ def stat(args):
 
 def delete(args):
     """
-    %(prog)s del [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
     Delete data identifier.
     """
@@ -683,7 +683,7 @@ def set_metadata(args):
             print e
 
 
-def del_metadata(args):
+def delete_metadata(args):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
 
@@ -736,9 +736,9 @@ def add_rule(args):
     return SUCCESS
 
 
-def del_rule(args):
+def delete_rule(args):
     """
-    %(prog)s del-rule [options] <ruleid>
+    %(prog)s delete-rule [options] <ruleid>
 
     Delete a rule.
     """
@@ -970,11 +970,11 @@ Commands:
     stat_parser.set_defaults(which='stat')
     stat_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
-    # The del command
-    del_parser = subparsers.add_parser('del', help='Delete data identifier')
-    del_parser.set_defaults(which='del')
-    del_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
-    del_parser.add_argument('--from', dest='from', default=None, action='store', help='Target data identifier')
+    # The delete command
+    delete_parser = subparsers.add_parser('delete', help='Delete data identifier')
+    delete_parser.set_defaults(which='delete')
+    delete_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+    delete_parser.add_argument('--from', dest='from', default=None, action='store', help='Target data identifier')
 
     # The list_files command
     list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents')
@@ -1015,9 +1015,9 @@ Commands:
     set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
-    # The del-metadata subparser
-    del_metadata_parser = subparsers.add_parser('del-metadata', help='del-metadata method')
-    del_metadata_parser.set_defaults(which='del_metadata')
+    # The delete-metadata subparser
+    delete_metadata_parser = subparsers.add_parser('delete-metadata', help='delete-metadata method')
+    delete_metadata_parser.set_defaults(which='delete_metadata')
 
     # The search subparser
     search_parser = subparsers.add_parser('search', help='Search method')
@@ -1051,10 +1051,10 @@ Commands:
     add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['dataset', 'all', 'none'], help='Rule grouping')
     add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
 
-    # Del replication rule subparser
-    del_rule_parser = subparsers.add_parser('del-rule', help='Delete replication rule')
-    del_rule_parser.set_defaults(which='del_rule')
-    del_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
+    # Delete replication rule subparser
+    delete_rule_parser = subparsers.add_parser('delete-rule', help='Delete replication rule')
+    delete_rule_parser.set_defaults(which='delete_rule')
+    delete_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
 
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules')
@@ -1098,10 +1098,10 @@ Commands:
                 'upload': upload,
                 'get_metadata': get_metadata,
                 'set_metadata': set_metadata,
-                'del_metadata': del_metadata,
+                'delete_metadata': delete_metadata,
                 'add_rule': add_rule,
                 'list_rules': list_rules,
-                'del_rule': del_rule,
+                'delete_rule': delete_rule,
                 'parse-expression': parse_expression}
 
     try:
