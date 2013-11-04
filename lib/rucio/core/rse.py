@@ -719,8 +719,15 @@ def update_replicas_states(replicas, session=None):
                 rse_ids[replica['rse']] = get_rse(rse=replica['rse'], session=session).id
             replica['rse_id'] = rse_ids[replica['rse']]
 
-        session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], lock_cnt=0).\
-            update({'state': replica['state']})
+        query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
+
+        if replica['state'] == ReplicaState.BEING_DELETED:
+            query = query.filter(lock_cnt=0)
+
+        rowcount = query.update({'state': replica['state']})
+
+        if not rowcount:
+            raise exception.UnsupportedOperation('State for replica %(scope)s:%(name)s cannot be updated')
 
 
 @transactional_session

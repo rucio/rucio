@@ -84,6 +84,7 @@ class ReplicaState(DeclEnum):
     COPYING = 'C', 'COPYING'
     BEING_DELETED = 'B', 'BEING_DELETED'
     BAD = 'D', 'BAD'
+    SOURCE = 'S', 'SOURCE'
 
 
 class RuleState(DeclEnum):
