@@ -192,6 +192,7 @@ def set_limits(args):
     Grant an identity access to an account.
 
     """
+    raise NotImplementedError('This method is not implemented yet')
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
@@ -205,9 +206,9 @@ def set_limits(args):
     try:
         print 'Added new limits to account: %s' % (args.account)
     except Exception, e:
-            print 'Failed add limits to an account'
-            print e
-            return FAILURE
+        print 'Failed add limits to an account'
+        print e
+        return FAILURE
 
     return SUCCESS
 
@@ -219,6 +220,7 @@ def get_limits(args):
     Grant an identity access to an account.
 
     """
+    raise NotImplementedError('This method is not implemented yet')
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
@@ -232,20 +234,21 @@ def get_limits(args):
     try:
         print 'Added new limits to account: %s' % (args.account)
     except Exception, e:
-            print 'Failed add limits to an account'
-            print e
-            return FAILURE
+        print 'Failed add limits to an account'
+        print e
+        return FAILURE
 
     return SUCCESS
 
 
-def del_limits(args):
+def delete_limits(args):
     """
-    %(prog)s del-limits [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete-limits [options] <field1=value1 field2=value2 ...>
 
     Grant an identity access to an account.
 
     """
+    raise NotImplementedError('This method is not implemented yet')
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
@@ -259,9 +262,9 @@ def del_limits(args):
     try:
         print 'Added new limits to account: %s' % (args.account)
     except Exception, e:
-            print 'Failed add limits to an account'
-            print e
-            return FAILURE
+        print 'Failed add limits to an account'
+        print e
+        return FAILURE
 
     return SUCCESS
 
@@ -296,7 +299,7 @@ def identity_add(args):
 
 def identity_delete(args):
     """
-    %(prog)s del [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
     Revoke an identity's access to an account.
 
@@ -387,9 +390,9 @@ def list_rses(args):
     return SUCCESS
 
 
-def setattr_rse(args):
+def set_attribute_rse(args):
     """
-    %(prog)s setattr [options] <field1=value1 field2=value2 ...>
+    %(prog)s set-attribute [options] <field1=value1 field2=value2 ...>
 
     setattr RSE.
 
@@ -416,9 +419,9 @@ def setattr_rse(args):
     return SUCCESS
 
 
-def getattr_rse(args):
+def get_attribute_rse(args):
     """
-    %(prog)s getattr [options] <field1=value1 field2=value2 ...>
+    %(prog)s get-attribute [options] <field1=value1 field2=value2 ...>
 
     getattr RSE.
 
@@ -447,9 +450,9 @@ def getattr_rse(args):
     return SUCCESS
 
 
-def delattr_rse(args):
+def delete_attribute_rse(args):
     """
-    %(prog)s setattr [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete-attribute [options] <field1=value1 field2=value2 ...>
 
     setattr RSE.
 
@@ -681,11 +684,11 @@ Commands:
     add_account_parser.add_argument('--type', dest='accounttype', default='USER', help='Account Type')
 
     # The disable_account command
-    del_account_parser = account_subparser.add_parser('del', help='Del Rucio account')
-    del_account_parser.set_defaults(which='del_account')
-    del_account_parser.add_argument('account', action='store', help='Account name')
+    delete_account_parser = account_subparser.add_parser('delete', help='Delete Rucio account')
+    delete_account_parser.set_defaults(which='delete_account')
+    delete_account_parser.add_argument('acnt', action='store', help='Account name')
 
-    # The show_account command
+    # The info_account command
     info_account_parser = account_subparser.add_parser('info', help='Show detailed information about an account')
     info_account_parser.set_defaults(which='info_account')
     info_account_parser.add_argument('account', action='store', help='Account name')
@@ -696,11 +699,11 @@ Commands:
     list_account_identities_parser.add_argument('account', action='store', help='Account name')
 
     # The set-account-limits command
-    set_account_limits_parser = account_subparser.add_parser('set-limits', help='Set the limits for the provided account')
-    set_account_limits_parser.set_defaults(which='set_limits')
-    set_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    set_account_limits_parser.add_argument('--rse_expr', dest='rse_expre', action='store', help='RSE boolean expression', required=True)
-    set_account_limits_parser.add_argument('--value', dest='value', action='store', help='The total number of bytes that can be stored', required=True)
+    #set_account_limits_parser = account_subparser.add_parser('set-limits', help='Set the limits for the provided account')
+    #set_account_limits_parser.set_defaults(which='set_limits')
+    #set_account_limits_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
+    #set_account_limits_parser.add_argument('--rse_expr', dest='rse_expre', action='store', help='RSE boolean expression', required=True)
+    #set_account_limits_parser.add_argument('--value', dest='value', action='store', help='The total number of bytes that can be stored', required=True)
 
     # The get-account-limits command
     #get_account_limits_parser = account_subparser.add_parser('get-limits', help='Get the limits for the provided account')
@@ -708,10 +711,10 @@ Commands:
     #get_account_limits_parser.add_argument('account', action='store', help='Account name')
 
     # The del-account-limits command
-    #del_account_limits_parser = account_subparser.add_parser('del-limits', help='Delete the limits for the provided account')
-    #del_account_limits_parser.set_defaults(which='del_limits')
-    #del_account_limits_parser.add_argument('--account', 'account', action='store', help='Account name', required=True)
-    #del_account_limits_parser.add_argument('--rse_expr', 'rse_expre', action='store', help='RSE boolean expression', required=True)
+    #delete_account_limits_parser = account_subparser.add_parser('del-limits', help='Delete the limits for the provided account')
+    #delete_account_limits_parser.set_defaults(which='del_limits')
+    #delete_account_limits_parser.add_argument('--account', 'acnt', action='store', help='Account name', required=True)
+    #delete_account_limits_parser.add_argument('--rse_expr', 'rse_expre', action='store', help='RSE boolean expression', required=True)
 
     # The identity subparser
     identity_parser = subparsers.add_parser('identity', help='Identity methods')
@@ -745,31 +748,31 @@ Commands:
     add_rse_parser.set_defaults(which='add_rse')
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
 
-    # The setattr_rse command
-    setattr_rse_parser = rse_subparser.add_parser('set-attribute', help='Add RSE attribute(key-value pair)')
-    setattr_rse_parser.set_defaults(which='setattr_rse')
-    setattr_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
-    setattr_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
-    setattr_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+    # The set_attribute_rse command
+    set_attribute_rse_parser = rse_subparser.add_parser('set-attribute', help='Add RSE attribute(key-value pair)')
+    set_attribute_rse_parser.set_defaults(which='set_attribute_rse')
+    set_attribute_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
+    set_attribute_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    set_attribute_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
-    # The delattr_rse command
-    delattr_rse_parser = rse_subparser.add_parser('del-attribute', help='Delete a RSE attribute(key-value pair)')
-    delattr_rse_parser.set_defaults(which='delattr_rse')
-    delattr_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
-    delattr_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
-    delattr_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+    # The delete_attribute_rse command
+    delete_attribute_rse_parser = rse_subparser.add_parser('delete-attribute', help='Delete a RSE attribute(key-value pair)')
+    delete_attribute_rse_parser.set_defaults(which='delete_attribute_rse')
+    delete_attribute_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
+    delete_attribute_rse_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    delete_attribute_rse_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
-    # The getattr_rse command
-    getattr_rse_parser = rse_subparser.add_parser('get-attribute', help='List RSE attributes')
-    getattr_rse_parser.set_defaults(which='getattr_rse')
-    getattr_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
+    # The get_attribute_rse command
+    get_attribute_rse_parser = rse_subparser.add_parser('get-attribute', help='List RSE attributes')
+    get_attribute_rse_parser.set_defaults(which='get_attribute_rse')
+    get_attribute_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
 
     # The listattr_rse command
     #listattr_rse_parser = rse_subparser.add_parser('listattr', help='List RSE attributes')
     #listattr_rse_parser.set_defaults(which='listattr_rse')
 
     # The disable_location command
-    disable_rse_parser = rse_subparser.add_parser('del', help='Disable RSE')
+    disable_rse_parser = rse_subparser.add_parser('delete', help='Disable RSE')
     disable_rse_parser.set_defaults(which='disable_rse')
     disable_rse_parser.add_argument('rse', action='store', help='RSE name')
 
@@ -799,9 +802,9 @@ Commands:
     add_meta_parser.add_argument('--type', dest='type', action='store', help='Type of the values')
     add_meta_parser.add_argument('--regexp', dest='regexp', action='store', help='the regular expression that values should match')
 
-    # The del_meta command
-    del_meta_parser = meta_subparser.add_parser('del', help='Del metadata')
-    del_meta_parser.set_defaults(which='del_meta')
+    ## The del_meta command
+    #del_meta_parser = meta_subparser.add_parser('del', help='Del metadata')
+    #del_meta_parser.set_defaults(which='del_meta')
 
     # The list_meta command
     list_meta_parser = meta_subparser.add_parser('list', help='List metadata')
@@ -820,18 +823,18 @@ Commands:
 
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
-                'del_account': delete_account,
+                'delete_account': delete_account,
                 'info_account': info_account,
                 'set_limits': set_limits,
                 'get_limits': get_limits,
-                'del_limits': del_limits,
+                'delete_limits': delete_limits,
                 'list_identities': list_identities,
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
                 'add_rse': add_rse,
-                'setattr_rse': setattr_rse,
-                'getattr_rse': getattr_rse,
-                'delattr_rse': delattr_rse,
+                'set_attribute_rse': set_attribute_rse,
+                'get_attribute_rse': get_attribute_rse,
+                'delete_attribute_rse': delete_attribute_rse,
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
