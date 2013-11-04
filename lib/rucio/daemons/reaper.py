@@ -78,7 +78,7 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(once=False, mode='greedy'):
+def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False):
     """
     Main loop to select and delete files.
     """
@@ -93,12 +93,13 @@ def reaper(once=False, mode='greedy'):
         for rse in rse_core.list_rses():
             logging.info('Running on RSE %s' % (rse['rse']))
             try:
-                if mode is not 'greedy':
+                if not greedy:
                     max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                     logging.info('Space usage for RSE %(rse)s: max_being_deleted_files, needed_free_space, used, free' % rse, max_being_deleted_files, needed_free_space, used, free)
                     replicas = rse_core.list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files)
                 else:
                     replicas = rse_core.list_unlocked_replicas(rse=rse['rse'], limit=100)
+
                 freed_space, deleted_files = 0, 0
                 logging.info('Looping over replicas without locks')
                 for replica in replicas:
@@ -143,25 +144,28 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False):
+def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[]):
     """
     Starts up the reaper threads.
     """
+    print 'main: starting processes'
 
-    if once:
-        print 'main: executing one iteration only'
-        reaper(once)
+    if not rses:
+        rses = rse_core.list_rses()
 
-    else:
+    threads = list()
+    nb_rses_per_worker = len(rses)/total_workers
+    r = []
+    for i in xrange(0, len(rses), nb_rses_per_worker):
+        kwargs = {'worker_number': (i*nb_rses_per_worker)+1,
+                  'total_workers': total_workers,
+                  'once': once,
+                  'chunk_size': chunk_size,
+                  'greedy': greedy,
+                  'rses': rses[i:i+nb_rses_per_worker]}
+        r.extend(rses[i:i+nb_rses_per_worker])
+        threads.append(threading.Thread(target=reaper, kwargs=kwargs))
 
-        print 'main: starting threads'
-
-        threads = [threading.Thread(target=reaper), ]
-
-        [t.start() for t in threads]
-
-        print 'main: waiting for interrupts'
-
-        # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+    [t.start() for t in threads]
+    while threads[0].is_alive():
+        [t.join(timeout=3.14) for t in threads]
