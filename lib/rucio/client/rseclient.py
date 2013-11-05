@@ -89,17 +89,18 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list_rses(self, filters=None):
+    def list_rses(self, rse_expression=None):
         """
         Sends the request to list all rucio locations(RSEs).
 
-        :filters: dict of keys & expected values to filter results
-
-        :return: a list containing the names of all rucio locations.
-        :raises AccountNotFound: if account doesn't exist.
+        :rse_expression: RSE Expression to use as filter.
+        :return:         a list containing the names of all rucio locations.
         """
-
-        path = 'rses/'
+        if rse_expression:
+            path = ['rses/', "?expression=" + quote(rse_expression)]
+            path = '/'.join(path)
+        else:
+            path = 'rses/'
         url = build_url(self.host, path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -455,24 +456,6 @@ class RSEClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
-            raise exc_cls(exc_msg)
-
-    def parse_rse_expression(self, rse_expression):
-        """
-        List the RSEs expressed by an RSE expression
-
-        :param rse_expression:  The RSE expression.
-
-        :returns:  List of RSEs.
-        """
-        path = [self.RSE_BASEURL, "?expression=" + quote(rse_expression)]
-        path = '/'.join(path)
-        url = build_url(self.host, path=path)
-        r = self._send_request(url, type='GET')
-        if r.status_code == codes.ok:
-            return self._load_json_data(r)
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
