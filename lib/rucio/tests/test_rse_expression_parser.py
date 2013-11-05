@@ -158,10 +158,10 @@ class TestRSEExpressionParserClient():
 
     def test_complicated_expression(self):
         """ RSE_EXPRESSION_PARSER (CLIENT) Test some complicated expression"""
-        rses = [item['rse'] for item in self.rse_client.parse_rse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))]
+        rses = [item['rse'] for item in self.rse_client.list_rses("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))]
         assert_equal(sorted(rses), sorted([self.rse1, self.rse2, self.rse5]))
 
     def test_complicated_expression_1(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
-        rses = [item['rse'] for item in self.rse_client.parse_rse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))]
+        rses = [item['rse'] for item in self.rse_client.list_rses("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))]
         assert_equal(sorted(rses), sorted([self.rse1, self.rse2, self.rse3]))
