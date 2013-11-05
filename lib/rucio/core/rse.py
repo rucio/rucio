@@ -21,7 +21,7 @@ import sqlalchemy
 import sqlalchemy.orm
 
 from sqlalchemy import func, and_, or_, exists
-from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import case
@@ -443,8 +443,8 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         return nbfiles, bytes
     except IntegrityError, e:
         if match('.*IntegrityError.*ORA-00001: unique constraint .*REPLICAS_PK.*violated.*', e.args[0]) \
-            or match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
-                or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique':
+           or match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
+           or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique':
                 raise exception.Duplicate("File replica already exists!")
         raise exception.RucioException(e.args)
     except DatabaseError, e:
@@ -835,15 +835,14 @@ def add_protocol(rse, parameter, session=None):
         new_protocol = models.RSEProtocols()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
-    except (IntegrityError, FlushError) as e:
-        if ('not unique' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]):
+    except (IntegrityError, FlushError, OperationalError) as e:
+        if ('not unique' in e.args[0]) or ('conflicts with persistent instance' in e.args[0]) \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
-        elif match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', e.args[0]):
-            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
-        elif 'may not be NULL' in e.args[0]:
-            raise exception.InvalidObject('Invalid values: %s' % e.args[0])
-        elif match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]):
-            raise exception.InvalidObject('Invalid values!')
+        elif 'may not be NULL' in e.args[0] \
+             or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', e.args[0]) \
+             or match('.*OperationalError.*cannot be null.*', e.args[0]):
+            raise exception.InvalidObject('Missing values!')
         raise e
     return new_protocol
 
@@ -1044,15 +1043,16 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                         val += 1
 
         up.update(data, flush=True, session=session)
-    except IntegrityError, e:
+    except (IntegrityError, OperationalError) as e:
         if 'unique' in e.args[0] or 'Duplicate' in e.args[0]:  # Covers SQLite, Oracle and MySQL error
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
-        elif 'may not be NULL' in e.args[0]:
-            raise exception.InvalidObject('Invalid values: %s' % e.args[0])
+        elif 'may not be NULL' in e.args[0] or "cannot be null" in e.args[0]:
+            raise exception.InvalidObject('Missing values: %s' % e.args[0])
         raise e
     except DatabaseError, e:
         if match('.*DatabaseError.*ORA-01407: cannot update .*RSE_PROTOCOLS.*IMPL.*to NULL.*', e.args[0]):
             raise exception.InvalidObject('Invalid values !')
+        raise e
 
 
 @transactional_session

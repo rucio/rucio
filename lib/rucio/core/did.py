@@ -220,7 +220,8 @@ def add_dids(dids, account, session=None):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
         if e.args[0] == "(IntegrityError) foreign key constraint failed" \
-                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]):
+                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
+                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
         raise exception.RucioException(e.args)
     except DatabaseError, e:
