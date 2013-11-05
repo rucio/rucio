@@ -56,7 +56,7 @@ def add_account(args):
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
+                                  account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -82,7 +82,7 @@ def delete_account(args):
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
+                                  account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -109,7 +109,7 @@ def list_accounts(args):
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
+                                  account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -139,7 +139,7 @@ def info_account(args):
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
+                                  account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -168,7 +168,7 @@ def list_identities(args):
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
+                                  account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -198,7 +198,7 @@ def set_limits(args):
         creds = None
 
     AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                  account=args.account,
+                  account=args.issuer,
                   auth_type=args.auth_strategy, creds=creds,
                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -252,7 +252,7 @@ def del_limits(args):
         creds = None
 
     AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                  account=args.account,
+                  account=args.issuer,
                   auth_type=args.auth_strategy, creds=creds,
                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -279,7 +279,7 @@ def identity_add(args):
         creds = None
 
     accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
+                                  account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -318,7 +318,7 @@ def add_rse(args):
         creds = None
 
     client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
+                       account=args.issuer,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -345,7 +345,7 @@ def disable_rse(args):
         creds = None
 
     client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
+                       account=args.issuer,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -371,7 +371,7 @@ def list_rses(args):
         creds = None
 
     client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
+                       account=args.issuer,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -401,7 +401,7 @@ def setattr_rse(args):
         creds = None
 
     client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
+                       account=args.issuer,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -430,7 +430,7 @@ def getattr_rse(args):
         creds = None
 
     client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
+                       account=args.issuer,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -461,7 +461,7 @@ def delattr_rse(args):
         creds = None
 
     client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
+                       account=args.issuer,
                        auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -489,7 +489,7 @@ def add_scope(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.account,
+                         account=args.issuer,
                          auth_type=args.auth_strategy, creds=creds,
                          ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -515,7 +515,7 @@ def list_scopes(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.account,
+                         account=args.issuer,
                          auth_type=args.auth_strategy, creds=creds,
                          ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -543,7 +543,7 @@ def add_meta_key(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account,
+                        account=args.issuer,
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -569,7 +569,7 @@ def list_meta_keys(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account,
+                        account=args.issuer,
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -597,7 +597,7 @@ def list_meta_values(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account,
+                        account=args.issuer,
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -624,7 +624,7 @@ def add_meta_value(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account,
+                        account=args.issuer,
                         auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
@@ -654,7 +654,7 @@ Commands:
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output")
     oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The Rucio API host")
     oparser.add_argument('--auth_host', dest="auth_host", metavar="ADDRESS", help="The Rucio Authentication host")
-    oparser.add_argument('-a', '--account', dest="account", metavar="ACCOUNT", help="Rucio account to use")
+    oparser.add_argument('-a', '--account', dest="issuer", metavar="ACCOUNT", help="Rucio account to use")
     oparser.add_argument('-S', '--auth_strategy', dest="auth_strategy", default=None, help="Authentication strategy (userpass or x509 or ...)")
     oparser.add_argument('-T', '--timeout', dest="timeout", type=float, default=None, help="Set all timeout values to SECONDS")
 
