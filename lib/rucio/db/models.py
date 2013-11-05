@@ -111,8 +111,8 @@ class ModelBase(object):
 
     @declared_attr
     def __table_args__(cls):
-        return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
-                                  CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
+        return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
+                                  CheckConstraint('UPDATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   {'mysql_engine': 'InnoDB'})
 
     @declared_attr
@@ -175,8 +175,8 @@ class SoftModelBase(ModelBase):
 
     @declared_attr
     def __table_args__(cls):
-        return cls._table_args + (CheckConstraint('"CREATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
-                                  CheckConstraint('"UPDATED_AT" IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
+        return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
+                                  CheckConstraint('UPDATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
                                   {'mysql_engine': 'InnoDB', 'info': {'soft_delete': True}})
 
@@ -196,8 +196,8 @@ class Account(BASE, ModelBase):
     suspended_at = Column(DateTime)
     deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
-                   CheckConstraint('"ACCOUNT_TYPE" IS NOT NULL', name='ACCOUNTS_TYPE_NN'),
-                   CheckConstraint('"STATUS" IS NOT NULL', name='ACCOUNTS_STATUS_NN')
+                   CheckConstraint('ACCOUNT_TYPE IS NOT NULL', name='ACCOUNTS_TYPE_NN'),
+                   CheckConstraint('STATUS IS NOT NULL', name='ACCOUNTS_STATUS_NN')
                    )
 
 
@@ -211,8 +211,8 @@ class Identity(BASE, SoftModelBase):
     salt = Column(LargeBinary(255))
     email = Column(String(255))
     _table_args = (PrimaryKeyConstraint('identity', 'identity_type', name='IDENTITIES_PK'),
-                   CheckConstraint('"IDENTITY_TYPE" IS NOT NULL', name='IDENTITIES_TYPE_NN'),
-                   #CheckConstraint('"EMAIL" IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
+                   CheckConstraint('IDENTITY_TYPE IS NOT NULL', name='IDENTITIES_TYPE_NN'),
+                   #CheckConstraint('EMAIL IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
                    )
 
 
@@ -227,7 +227,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
                    ForeignKeyConstraint(['identity', 'identity_type'], ['identities.identity', 'identities.identity_type'], name='ACCOUNT_MAP_ID_TYPE_FK'),
                    CheckConstraint('is_default IS NOT NULL', name='ACCOUNT_MAP_IS_DEFAULT_NN'),
-                   CheckConstraint('"IDENTITY_TYPE" IS NOT NULL', name='ACCOUNT_MAP_ID_TYPE_NN'),
+                   CheckConstraint('IDENTITY_TYPE IS NOT NULL', name='ACCOUNT_MAP_ID_TYPE_NN'),
                    )
 
 
@@ -244,7 +244,7 @@ class Scope(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SCOPES_ACCOUNT_FK'),
                    CheckConstraint('is_default IS NOT NULL', name='SCOPES_IS_DEFAULT_NN'),
                    CheckConstraint('STATUS IS NOT NULL', name='SCOPES_STATUS_NN'),
-                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='SCOPES_ACCOUNT_NN')
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='SCOPES_ACCOUNT_NN')
                    )
 
 
@@ -284,10 +284,10 @@ class DataIdentifier(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
-                   CheckConstraint('"MONOTONIC" IS NOT NULL', name='DIDS_MONOTONIC_NN'),
-                   CheckConstraint('"OBSOLETE" IS NOT NULL', name='DIDS_OBSOLETE_NN'),
-                   CheckConstraint('"SUPPRESSED" IS NOT NULL', name='DIDS_SUPP_NN'),
-                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='DIDS_ACCOUNT_NN'),
+                   CheckConstraint('MONOTONIC IS NOT NULL', name='DIDS_MONOTONIC_NN'),
+                   CheckConstraint('OBSOLETE IS NOT NULL', name='DIDS_OBSOLETE_NN'),
+                   CheckConstraint('SUPPRESSED IS NOT NULL', name='DIDS_SUPP_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_ACCOUNT_NN'),
                    #  UniqueConstraint('guid', name='DIDS_GUID_UQ'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'),
@@ -302,8 +302,8 @@ class UpdatedDID(BASE, ModelBase):
     name = Column(String(255))
     rule_evaluation_action = Column(DIDReEvaluation.db_type(name='UPDATED_DIDS_RULE_EVAL_ACT_CHK'))
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_DIDS_PK'),
-                   CheckConstraint('"SCOPE" IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
-                   CheckConstraint('"NAME" IS NOT NULL', name='UPDATED_DIDS_NAME_NN'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='UPDATED_DIDS_NAME_NN'),
                    Index('UPDATED_DIDS_CREATED_AT_IDX', 'created_at'),
                    )
 
@@ -347,8 +347,8 @@ class DataIdentifierAssociation(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
-                   CheckConstraint('"DID_TYPE" IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
-                   CheckConstraint('"CHILD_TYPE" IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
+                   CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
                    Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
 
 
@@ -364,8 +364,8 @@ class RSE(BASE, SoftModelBase):
 #    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', name='RSES_RSE_UQ'),
-                   CheckConstraint('"RSE" IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint('"RSE_TYPE" IS NOT NULL', name='RSES_TYPE_NN'),)
+                   CheckConstraint('RSE IS NOT NULL', name='RSES_RSE__NN'),
+                   CheckConstraint('RSE_TYPE IS NOT NULL', name='RSES_TYPE_NN'),)
 
 
 class RSELimit(BASE, ModelBase):
@@ -432,7 +432,7 @@ class RSEProtocols(BASE, ModelBase):
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
-                   CheckConstraint('"IMPL" IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'),
+                   CheckConstraint('IMPL IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'),
                    )
 
 
@@ -477,7 +477,7 @@ class RSEFileAssociation(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='REPLICAS_STATE_NN'),
+                   CheckConstraint('STATE IS NOT NULL', name='REPLICAS_STATE_NN'),
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
@@ -509,16 +509,16 @@ class ReplicationRule(BASE, ModelBase):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
                    ForeignKeyConstraint(['subscription_id'], ['subscriptions.id'], name='RULES_SUBS_ID_FK'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='RULES_STATE_NN'),
-                   CheckConstraint('"SCOPE" IS NOT NULL', name='RULES_SCOPE_NN'),
-                   CheckConstraint('"NAME" IS NOT NULL', name='RULES_NAME_NN'),
-                   CheckConstraint('"GROUPING" IS NOT NULL', name='RULES_GROUPING_NN'),
-                   CheckConstraint('"COPIES" IS NOT NULL', name='RULES_COPIES_NN'),
-                   CheckConstraint('"LOCKED" IS NOT NULL', name='RULES_LOCKED_NN'),
-                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='RULES_ACCOUNT_NN'),
-                   CheckConstraint('"LOCKS_OK_CNT" IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
-                   CheckConstraint('"LOCKS_REPLICATING_CNT" IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
-                   CheckConstraint('"LOCKS_STUCK_CNT" IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
+                   CheckConstraint('STATE IS NOT NULL', name='RULES_STATE_NN'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='RULES_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='RULES_NAME_NN'),
+                   CheckConstraint('GROUPING IS NOT NULL', name='RULES_GROUPING_NN'),
+                   CheckConstraint('COPIES IS NOT NULL', name='RULES_COPIES_NN'),
+                   CheckConstraint('LOCKED IS NOT NULL', name='RULES_LOCKED_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='RULES_ACCOUNT_NN'),
+                   CheckConstraint('LOCKS_OK_CNT IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
+                   CheckConstraint('LOCKS_REPLICATING_CNT IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
+                   CheckConstraint('LOCKS_STUCK_CNT IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'))
 
@@ -537,8 +537,8 @@ class ReplicaLock(BASE, ModelBase):
                    ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replicas.rse_id', 'replicas.scope', 'replicas.name'], name='LOCKS_REPLICAS_FK'),
                    ForeignKeyConstraint(['rule_id'], ['rules.id'], name='LOCKS_RULE_ID_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
-                   CheckConstraint('"STATE" IS NOT NULL', name='LOCKS_STATE_NN'),
-                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='LOCKS_ACCOUNT_NN'),
+                   CheckConstraint('STATE IS NOT NULL', name='LOCKS_STATE_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='LOCKS_ACCOUNT_NN'),
                    Index('LOCKS_RULE_ID_IDX', 'rule_id')
                    )
 
@@ -598,8 +598,8 @@ class Subscription(BASE, ModelBase, Versioned):
     _table_args = (PrimaryKeyConstraint('id', name='SUBSCRIPTIONS_PK'),
                    UniqueConstraint('name', 'account', name='SUBSCRIPTION_NAME_ACCOUNT_UQ'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
-                   CheckConstraint('"RETROACTIVE" IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),
-                   CheckConstraint('"ACCOUNT" IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN')
+                   CheckConstraint('RETROACTIVE IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN')
                    )
 
 
@@ -612,7 +612,7 @@ class Token(BASE, ModelBase):
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('account', 'token', name='TOKENS_TOKEN_ACCOUNT_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
-                   CheckConstraint('"EXPIRED_AT" IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),)
+                   CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),)
 
 
 class Callback(BASE, ModelBase):
@@ -622,8 +622,8 @@ class Callback(BASE, ModelBase):
     event_type = Column(String(1024))
     payload = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('id', name='CALLBACKS_ID_PK'),
-                   CheckConstraint('"EVENT_TYPE" IS NOT NULL', name='CALLBACKS_EVENT_TYPE_NN'),
-                   CheckConstraint('"PAYLOAD" IS NOT NULL', name='CALLBACKS_PAYLOAD_NN'),)
+                   CheckConstraint('EVENT_TYPE IS NOT NULL', name='CALLBACKS_EVENT_TYPE_NN'),
+                   CheckConstraint('PAYLOAD IS NOT NULL', name='CALLBACKS_PAYLOAD_NN'),)
 
 
 def register_models(engine):
