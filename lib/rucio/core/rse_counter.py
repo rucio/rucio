@@ -27,9 +27,11 @@ def add_counter(rse_id, session=None):
     :param rse_id: The id of the RSE.
     :param session: The database session in use.
     """
-    for num in xrange(MAX_COUNTERS):
-        new_counter = models.RSECounter(rse_id=rse_id, num=num, files=0, bytes=0)
-        session.merge(new_counter)
+
+    # MySQL won't allow 0 in autoincrement primary keys, so we have to offset by 1
+
+    for num in xrange(MAX_COUNTERS + 1):
+        session.merge(models.RSECounter(rse_id=rse_id, num=num, files=0, bytes=0))
 
 
 @transactional_session
@@ -44,7 +46,8 @@ def increase(rse_id, delta, bytes, session=None):
 
     :returns: The numbers of affected rows.
     """
-    num = randint(0, MAX_COUNTERS - 1)  # to avoid row lock contention
+
+    num = randint(1, MAX_COUNTERS)  # to avoid row lock contention
     rowcount = session.query(models.RSECounter).filter_by(rse_id=rse_id, num=num).\
         update({'files': models.RSECounter.files + delta, 'bytes': models.RSECounter.bytes + bytes})
     return rowcount
@@ -59,6 +62,7 @@ def decrease(rse_id, delta, bytes, session=None):
     :param delta: the amount of bytes.
     :param session: The database session in use.
     """
+
     return increase(rse_id=rse_id, delta=-delta, bytes=-bytes, session=session)
 
 
@@ -72,6 +76,7 @@ def del_counter(rse_id, session=None):
     :param bytes: the amount of bytes.
     :param session: The database session in use.
     """
+
     rows = session.query(models.RSECounter).filter_by(rse_id=rse_id).with_lockmode('update').all()
     for row in rows:
         row.delete(flush=False, session=session)
@@ -87,6 +92,7 @@ def get_counter(rse_id, session=None):
 
     :returns: A dictionary with total and bytes.
     """
+
     files, bytes, updated_at = session.query(func.sum(models.RSECounter.files),
                                              func.sum(models.RSECounter.bytes),
                                              func.max(models.RSECounter.updated_at)).filter_by(rse_id=rse_id).one()

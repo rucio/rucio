@@ -16,7 +16,6 @@ from sqlalchemy import func
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 
-
 MAX_COUNTERS = 10
 
 
@@ -27,10 +26,12 @@ def add_counter(rse_id, account, session=None):
 
     :param rse_id: The id of the RSE.
     :param account: The account name.
-
     :param session: The database session in use.models.RSECounter
     """
-    for num in xrange(MAX_COUNTERS):
+
+    # MySQL won't allow 0 in autoincrement primary keys, so we have to offset by 1
+
+    for num in xrange(MAX_COUNTERS + 1):
         new_counter = models.AccountCounter(rse_id=rse_id, num=num, account=account, files=0, bytes=0)
         session.merge(new_counter)
 
@@ -48,10 +49,10 @@ def increase(rse_id, account, delta, bytes, session=None):
 
     :returns: The numbers of affected rows.
     """
-    num = randint(0, MAX_COUNTERS - 1)  # to avoid row lock contention
-    rowcount = session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account, num=num).\
+
+    num = randint(1, MAX_COUNTERS - 1)  # to avoid row lock contention
+    return session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account, num=num).\
         update({'files': models.AccountCounter.files + delta, 'bytes': models.AccountCounter.bytes + bytes})
-    return rowcount
 
 
 @transactional_session
@@ -64,6 +65,7 @@ def decrease(rse_id, account, delta, bytes, session=None):
     :param delta: the amount of bytes.
     :param session: The database session in use.
     """
+
     return increase(rse_id=rse_id, account=account, delta=-delta, bytes=-bytes, session=session)
 
 
@@ -78,6 +80,7 @@ def del_counter(rse_id, account, session=None):
     :param bytes: the amount of bytes.
     :param session: The database session in use.
     """
+
     rows = session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account).with_lockmode('update').all()
     for row in rows:
         row.delete(flush=False, session=session)

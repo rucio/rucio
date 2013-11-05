@@ -37,11 +37,13 @@ class Consumer(object):
         print '[%s %s] ERROR: %s' % (self.__broker, datetime.datetime.now(), message)
 
     def on_message(self, headers, message):
+        print '[%s %s] MESSAGE: %s' % (self.__broker, datetime.datetime.now(), message['file_state'])
         record_counter('daemons.conveyor.consumer.message')
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
 
         if msg['job_metadata'] != '':
             if msg['job_state'] == FTSState.FINISHED:
+                print 'job finished'
                 set_request_state(msg['job_metadata']['request_id'], RequestState.DONE)
 
 
@@ -80,8 +82,8 @@ def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1
                 conn.start()
                 conn.connect(headers={'client-id': 'rucio-messaging-fts3'}, wait=True)
                 conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
-                               ack='auto',
-                               headers={'selector': 'vo = \'atlas\''})
+                               ack='auto',)
+                               #headers={'selector': 'vo = \'atlas\''})
 
         time.sleep(1)
 
