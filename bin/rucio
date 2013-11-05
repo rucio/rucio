@@ -890,35 +890,38 @@ def list_rules(args):
     return SUCCESS
 
 
-def parse_expression(args):
+def list_rses(args):
     """
-    %(prog)s parse-expression ...
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
 
-    Parse RSE expression.
+    List rses.
+
     """
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
+    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account,
+                       auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    rse_expression = None
     if args.rse_expression:
-        client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-        try:
-            rses = client.parse_rse_expression(args.rse_expression)
-        except Exception, e:
-            print 'Failed to parse RSE Expression'
-            print e
-            return FAILURE
-    else:
-        print 'At least one option has to be given. Use -h to list the options.'
+        rse_expression = args.rse_expression
+
+    try:
+        rses = client.list_rses(rse_expression)
+    except Exception, e:
+        print 'Failed to list RSEs'
+        print e
         return FAILURE
 
     for rse in rses:
-        print rse['rse']
+        print '%(rse)s' % rse
 
     return SUCCESS
+
 
 if __name__ == '__main__':
     usage = """
@@ -977,8 +980,6 @@ Commands:
 
     # TODO:
     # delete
-    # The list-rses
-    #   --rse_expression=<RSE_expression>
     # regexp to validate a rse attribute key / value
     # add meta
 
@@ -1132,10 +1133,10 @@ Commands:
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
     list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
 
-    # The parse-expression command
-    expression_parser = subparsers.add_parser('parse-expression', help='Parse RSE expression and list RSEs')
-    expression_parser.set_defaults(which='parse-expression')
-    expression_parser.add_argument(dest='rse_expression', action='store', help='RSE Expression')
+    # The list-rses command
+    list_rses_parser = subparsers.add_parser('list-rses', help='List RSEs')
+    list_rses_parser.set_defaults(which='list_rses')
+    list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='RSE Expression')
 
     argcomplete.autocomplete(oparser)
 
@@ -1173,7 +1174,7 @@ Commands:
                 'info_rule': info_rule,
                 'list_rules': list_rules,
                 'delete_rule': delete_rule,
-                'parse-expression': parse_expression}
+                'list_rses': list_rses}
 
     try:
         start_time = time.time()
