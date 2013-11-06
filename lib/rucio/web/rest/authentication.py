@@ -173,6 +173,9 @@ class x509:
 
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         dn = ctx.env.get('SSL_CLIENT_S_DN')
+        if not dn.startswith('/'):
+            dn = '/%s' % '/'.join(dn.split(',')[::-1])
+
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
             appid = 'unknown'
