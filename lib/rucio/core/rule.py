@@ -575,6 +575,7 @@ def update_lock_state(rule_id, lock_state, session=None):
         raise RucioException('Badly formatted rule id (%s)' % (rule_id))
 
 
+@transactional_session
 def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     """
     Fetches the next did to re-evaluate and re-evaluates it.
