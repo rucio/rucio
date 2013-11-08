@@ -13,7 +13,6 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
-from hashlib import md5
 from re import match
 
 from sqlalchemy import and_, or_, case
@@ -128,21 +127,13 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         filter(models.DataIdentifier.expired_at < datetime.utcnow()).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
-    if worker_number and total_workers:
+    if worker_number and total_workers and total_workers-1 > 0:
         if session.bind.dialect.name == 'oracle':
             query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
-        elif session.bind.dialect.name == 'sqlite':
-            row_count = 0
-            dids = list()
-            for scope, name in query.yield_per(10):
-                if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
-                    dids.append({'scope': scope, 'name': name})
-                    row_count += 1
-                if limit and row_count >= limit:
-                    return dids
-            return dids
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
 
     if limit:
         query = query.limit(limit)
@@ -216,12 +207,14 @@ def add_dids(dids, account, session=None):
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
                 or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
-                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
         if e.args[0] == "(IntegrityError) foreign key constraint failed" \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
-                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]):
+                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
+                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
         raise exception.RucioException(e.args)
     except DatabaseError, e:
@@ -254,7 +247,8 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     except IntegrityError, e:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
-                or e.args[0] == "(IntegrityError) foreign key constraint failed":
+                or e.args[0] == "(IntegrityError) foreign key constraint failed" \
+                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         raise exception.RucioException(e.args)
 
@@ -395,10 +389,20 @@ def delete_dids(dids, account, session=None):
     # s = time()
     with record_timer_block('undertaker.tombstones'):
         for replica_clause in grouper(replica_clauses, 10):
-            rowcount = session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
-                update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
-                        'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
-                       synchronize_session=False)
+
+            # WTF BUG in the mysql-driver: lock_cnt uses the already updated value! ACID? Never heard of it!
+
+            if session.bind.dialect.name == 'mysql':
+                rowcount = session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
+                    update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
+                            'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 < 0, datetime.utcnow()), ], else_=None)},
+                           synchronize_session=False)
+            else:
+                rowcount = session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
+                    update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
+                            'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
+                           synchronize_session=False)
+
     # print "Update replica's tombstones", time() - s
 
     # Remove the locks
@@ -495,7 +499,7 @@ def list_new_dids(type, session=None):
     :param type : The DID type.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier).filter_by(is_new=1).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
+    query = session.query(models.DataIdentifier).filter_by(is_new=False).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
     if type and (isinstance(type, str) or isinstance(type, unicode)):
         query = query.filter(models.DataIdentifier).filter_by(did_type=DIDType.from_sym(type))
     for chunk in query.yield_per(10):
@@ -871,7 +875,10 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
             raise exception.KeyNotFound(k)
 
         if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
-            query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%'), escape='\\'))
+            if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
+                query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%')))
+            else:
+                query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%'), escape='\\'))
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 

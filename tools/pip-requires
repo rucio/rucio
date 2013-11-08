@@ -2,7 +2,7 @@
 
 # cx_Oracle==5.1.1         # Oracle connector
 # MySQL-python==1.2.3      # MySQL connector
-SQLAlchemy==0.8.1          # db backend
+SQLAlchemy==0.8.3          # db backend
 alembic==0.5.0             # Lightweight database migration tool for SQLAlchemy
 #Jinja2>=2.3               # Template engine
 dogpile.cache==0.5         # Caching for RSE Expression and other methods
@@ -34,3 +34,4 @@ s3cmd==1.5.0-alpha3        # Package built from http://s3tools.org/download
 python-magic==0.4.2        # Dependency for S3, but unfortunately not installed by it automatically
 gearman==2.0.2             # Used only gor emulation framework
 stomp.py==3.1.3            # ActiveMQ Messaging Protocol
+dnspython==1.11.1          # To resolve ActiveMQ broker alias

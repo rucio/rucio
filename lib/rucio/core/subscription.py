@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 import datetime
@@ -47,6 +47,9 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :type dry_run:  Boolean
     :param session: The database session in use.
     """
+
+    retroactive = bool(retroactive)  # Force boolean type, necessary for strict SQL
+
     policyid_dict = {'tier0': 0}
     policyid = None
     try:
@@ -62,10 +65,11 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     try:
         new_subscription.save(session=session)
     except IntegrityError, e:
-        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTION_PK.*violated.*', e.args[0])\
+        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', e.args[0])\
            or re.match(".*columns name, account are not unique.*", e.args[0])\
-           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTION_NAME_ACCOUNT_UQ.*violated.*', e.args[0])\
-           or re.match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]):
+           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_NAME_ACCOUNT_UQ.*violated.*', e.args[0])\
+           or re.match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
+           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         raise RucioException(e.args)
 

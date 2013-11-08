@@ -523,6 +523,7 @@ def delete_rule(rule_id, lockmode='update', session=None):
                 models.RSEFileAssociation.scope == lock.scope,
                 models.RSEFileAssociation.name == lock.name,
                 models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode(lockmode).one()
+
             replica.lock_cnt -= 1
             if replica.lock_cnt == 0:
                 replica.tombstone = datetime.utcnow()
@@ -636,13 +637,15 @@ def __evaluate_detach(eval_did, session=None):
     #Iterate rules and delete locks
     transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
     for rule in rules:
-        query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id).with_lockmode("update")
+        query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id).with_lockmode('update')
+
         for lock in query:
             if (lock.scope, lock.name) not in files:
                 replica = session.query(models.RSEFileAssociation).filter(
                     models.RSEFileAssociation.scope == lock.scope,
                     models.RSEFileAssociation.name == lock.name,
                     models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode('update').one()
+
                 replica.lock_cnt -= 1
                 if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
                     transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
@@ -747,8 +750,10 @@ def __evaluate_attach(eval_did, session=None):
                 for rse_id in possible_rses:
                     rse_clause1.append(models.RSEFileAssociation.rse_id == rse_id)
                     rse_clause2.append(models.ReplicaLock.rse_id == rse_id)
-                locks = session.query(models.ReplicaLock).filter(or_(*lock_clause), or_(*rse_clause2)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_lockmode("update_nowait").all()
+                locks = session.query(models.ReplicaLock).filter(or_(*lock_clause), or_(*rse_clause2)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_lockmode('update_nowait').all()
+
                 replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause), or_(*rse_clause1)).with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').with_lockmode('update_nowait').all()
+
                 for did in temp_dids:
                     files.append({'scope': did.child_scope,
                                   'name': did.child_name,
@@ -932,6 +937,7 @@ def __get_and_lock_file_replicas_for_dataset(scope, name, lockmode, restrict_rse
                                           or_(*rse_clause))).filter(
                                               models.DataIdentifierAssociation.scope == scope,
                                               models.DataIdentifierAssociation.name == name)
+
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
 
