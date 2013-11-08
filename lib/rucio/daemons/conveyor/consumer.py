@@ -16,6 +16,7 @@ import logging
 import threading
 import time
 
+import dns.resolver
 import json
 import stomp
 
@@ -25,6 +26,7 @@ from rucio.core.request import set_request_state
 from rucio.db.constants import FTSState, RequestState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
+logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -60,14 +62,24 @@ def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1
 
     logging.info('consumer starting')
 
-    brokers = []
+    brokers_alias = []
+    brokers_resolved = []
     try:
-        brokers = [b.strip() for b in config_get('messaging-fts3', 'brokers').split(',')]
+        brokers_alias = [b.strip() for b in config_get('messaging-fts3', 'brokers').split(',')]
     except:
         raise Exception('Could not load brokers from configuration')
 
+    logging.info('resolving broker dns alias: %s' % brokers_alias)
+
+    brokers_resolved = []
+    for broker in brokers_alias:
+        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
+    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+
+    logging.debug('brokers resolved to %s', brokers_resolved)
+
     conns = []
-    for broker in brokers:
+    for broker in brokers_resolved:
         conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-fts3', 'port'))],
                                       use_ssl=True,
                                       ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
@@ -80,13 +92,12 @@ def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1
         for conn in conns:
 
             if not conn.is_connected():
-
                 logging.info('connecting to %s' % conn._Connection__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn._Connection__host_and_ports[0][0].split('.')[0])
 
                 conn.set_listener('rucio-messaging-fts3', Consumer(broker=conn._Connection__host_and_ports[0]))
                 conn.start()
-                conn.connect(headers={'client-id': 'rucio-messaging-fts3'}, wait=True)
+                conn.connect()
                 conn.subscribe(destination=config_get('messaging-fts3', 'destination'), ack='auto')
 
         time.sleep(1)
@@ -112,7 +123,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, process=0, total_processes=1, total_threads=1):
     """
-    Starts up the messenger threads
+    Starts up the consumer threads
     """
 
     logging.info('starting consumer threads')
@@ -120,7 +131,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
 
     [t.start() for t in threads]
 
-    logging.info('main: waiting for interrupts')
+    logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
     while len(threads) > 0:

@@ -74,9 +74,9 @@ class TestRSECoreApi():
         tmp_file = 'file_%s' % uuid()
         add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe')
 
-        values = (1, -1, 1)
-        tombstones = (True, False, True)
-        lock_counters = (1, 0, 1)
+        values = (1, 1, 1, -1, -1, -1, 1, 1, -1)
+        tombstones = (True, True, True, True, True, False, True, True, True)
+        lock_counters = (1, 2, 3, 2, 1, 0, 1, 2, 1)
         for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
             status = update_replica_lock_counter(rse=rse, scope=tmp_scope, name=tmp_file, value=value)
             assert_equal(status, True)

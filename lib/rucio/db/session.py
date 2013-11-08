@@ -19,9 +19,9 @@ from time import sleep
 from os.path import basename
 
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, DBAPIError, TimeoutError
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
 
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException

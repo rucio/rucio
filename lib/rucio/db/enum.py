@@ -6,13 +6,15 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 '''
 Class to handle enum type with sqlachelmy.
 ref. http://techspot.zzzeek.org/2011/01/14/the-enum-recipe/
 
 '''
+
+import uuid
 
 from sqlalchemy.types import SchemaType, TypeDecorator, Enum
 
@@ -91,7 +93,13 @@ class DeclEnumType(SchemaType, TypeDecorator):
 
     def __init__(self, enum, name=None, default=None):
         self.enum = enum
-        self.impl = Enum(*enum.values(), name='rucio_%s' % enum.__name__)  # automatically name the enum type, necessary for PSQL
+
+        # Workaround SQLAlchemy not propagating Enum names properly
+
+        if name is None:
+            self.impl = Enum(*enum.values(), name='RUCIO_ENUM_' + str(uuid.uuid4())[:6])
+        else:
+            self.impl = Enum(*enum.values(), name=name)
 
     def _set_table(self, table, column):
         self.impl._set_table(table, column)
