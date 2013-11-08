@@ -8,6 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import abc
 import random

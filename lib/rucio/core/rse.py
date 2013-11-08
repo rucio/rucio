@@ -204,6 +204,7 @@ def add_rse_attribute(rse, key, value, session=None):
     """
     # Check location
     l = get_rse(rse=rse, session=session)
+
     try:
         new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value)
         new_rse_attr = session.merge(new_rse_attr)
@@ -444,7 +445,8 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     except IntegrityError, e:
         if match('.*IntegrityError.*ORA-00001: unique constraint .*REPLICAS_PK.*violated.*', e.args[0]) \
            or match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
-           or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique':
+           or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique' \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
                 raise exception.Duplicate("File replica already exists!")
         raise exception.RucioException(e.args)
     except DatabaseError, e:
@@ -668,9 +670,13 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         order_by(models.RSEFileAssociation.tombstone).\
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
 
-    if worker_number and total_workers:
+    if worker_number and total_workers and total_workers-1 > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
 
     query = query.limit(limit)
 
@@ -761,9 +767,24 @@ def update_replica_lock_counter(rse, scope, name, value, rse_id=None, session=No
     if not rse_id:
         rse_id = get_rse_id(rse=rse, session=session)
 
-    rowcount = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).\
-        update({'lock_cnt': models.RSEFileAssociation.lock_cnt + value,
-                'tombstone': case([(models.RSEFileAssociation.lock_cnt + value == 0, datetime.utcnow()), ], else_=None)}, synchronize_session=False)
+    # WTF BUG in the mysql-driver: lock_cnt uses the already updated value! ACID? Never heard of it!
+
+    if session.bind.dialect.name == 'mysql':
+        rowcount = session.query(models.RSEFileAssociation).\
+            filter_by(rse_id=rse_id, scope=scope, name=name).\
+            update({'lock_cnt': models.RSEFileAssociation.lock_cnt + value,
+                    'tombstone': case([(models.RSEFileAssociation.lock_cnt + value < 0,
+                                        datetime.utcnow()), ],
+                                      else_=None)},
+                   synchronize_session=False)
+    else:
+        rowcount = session.query(models.RSEFileAssociation).\
+            filter_by(rse_id=rse_id, scope=scope, name=name).\
+            update({'lock_cnt': models.RSEFileAssociation.lock_cnt + value,
+                    'tombstone': case([(models.RSEFileAssociation.lock_cnt + value == 0,
+                                        datetime.utcnow()), ],
+                                      else_=None)},
+                   synchronize_session=False)
 
     return bool(rowcount)
 

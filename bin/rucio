@@ -811,9 +811,9 @@ def info_rule(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account, auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+               account=args.account, auth_type=args.auth_strategy, creds=creds,
+               ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
         raise NotImplementedError  # TODO
     except Exception, e:

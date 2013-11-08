@@ -8,7 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from re import match
@@ -38,12 +38,12 @@ def add_scope(scope, account, session=None):
     try:
         new_scope.save(session=session)
     except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]):
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]) \
+           or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]) \
+           or e.args[0] == "(IntegrityError) column scope is not unique" \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
-        if match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]):
-            raise Duplicate('Scope \'%s\' already exists!' % scope)
-        if e.args[0] == "(IntegrityError) column scope is not unique":
-            raise Duplicate('Scope \'%s\' already exists!' % scope)
+    except:
         raise RucioException(e.args)
 
 
@@ -74,7 +74,7 @@ def list_scopes(session=None):
     :returns: A list containing all scopes.
     """
     scope_list = []
-    query = session.query(models.Scope).filter("status!='%s'" % ScopeStatus.DELETED)
+    query = session.query(models.Scope).filter(models.Scope.status != ScopeStatus.DELETED)
     for s in query:
         scope_list.append(s.scope)
     return scope_list
@@ -97,7 +97,7 @@ def get_scopes(account, session=None):
 
     scope_list = []
 
-    for s in session.query(models.Scope).filter_by(account=account).filter("status!='%s'" % ScopeStatus.DELETED):
+    for s in session.query(models.Scope).filter_by(account=account).filter(models.Scope.status != ScopeStatus.DELETED):
         scope_list.append(s.scope)
 
     return scope_list

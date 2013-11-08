@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -51,14 +52,15 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                 with_hint(models.UpdatedDID, "index(updated_dids UPDATED_DIDS_CREATED_AT_IDX)", 'oracle').\
                 order_by(models.UpdatedDID.created_at)
 
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('worker_number', process*threads_per_process+thread),
-                              bindparam('total_workers', total_processes*threads_per_process-1)]
-                query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(name), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
-            elif session.bind.dialect.name == 'sqlite':
-                pass
+            if total_processes*threads_per_process-1 > 0:
+                if session.bind.dialect.name == 'oracle':
+                    bindparams = [bindparam('worker_number', process*threads_per_process+thread),
+                                  bindparam('total_workers', total_processes*threads_per_process-1)]
+                    query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+                elif session.bind.dialect.name == 'mysql':
+                    query = query.filter('mod(md5(name), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
+                elif session.bind.dialect.name == 'postgresql':
+                    query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
 
             start = time.time()  # NOQA
             dids = query.limit(1000).all()

@@ -16,6 +16,7 @@
 SQLAlchemy models for rucio data
 """
 import datetime
+import uuid
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, SmallInteger, String as _String, event, UniqueConstraint
 from sqlalchemy.engine import Engine
@@ -33,7 +34,7 @@ from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DID
                                 ScopeStatus, SubscriptionState)
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
-from rucio.db.types import GUID
+from rucio.db.types import GUID, BooleanString
 
 
 # Recipe to for str instead if unicode
@@ -80,6 +81,7 @@ def _unique_constraint_name(const, table):
 
 @event.listens_for(CheckConstraint, "after_parent_attach")
 def _ck_constraint_name(const, table):
+
     if const.name is None:
         if 'DELETED' in str(const.sqltext).upper():
             if len(table.name) > 20:
@@ -91,6 +93,12 @@ def _ck_constraint_name(const, table):
     elif const.name == 'SUBSCRIPTIONS_STATE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
         const.name = "SUBS_HISTORY_STATE_CHK"
 
+    # SQLAlchemy sometimes does not propagate Enum names properly to subclassed objects,
+    # so we have to uniquify them - hopefully fixed in SQLA v9
+
+    if const.name is None:
+        const.name = table.name.upper() + '_' + str(uuid.uuid4())[:6] + '_CHK'
+
 
 @event.listens_for(Table, "after_parent_attach")
 def _add_created_col(table, metadata):
@@ -98,8 +106,6 @@ def _add_created_col(table, metadata):
         pass
 
     if not table.name.upper().endswith('_HISTORY'):
-#        table.append_column(Column("created_at", DateTime, default=datetime.datetime.utcnow))
-#        table.append_column(Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
         if table.info.get('soft_delete', False):
             table.append_column(Column("deleted", Boolean, default=False))
             table.append_column(Column("deleted_at", DateTime))
@@ -236,7 +242,7 @@ class Scope(BASE, ModelBase):
     __tablename__ = 'scopes'
     scope = Column(String(25))
     account = Column(String(25))
-    is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=0)
+    is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=False)
     status = Column(ScopeStatus.db_type(name='SCOPE_STATUS_CHK', default=ScopeStatus.OPEN))
     closed_at = Column(DateTime)
     deleted_at = Column(DateTime)
@@ -406,7 +412,7 @@ class RSEAttrAssociation(BASE, ModelBase):
     __tablename__ = 'rse_attr_map'
     rse_id = Column(GUID())
     key = Column(String(255))
-    value = Column(String(255))
+    value = Column(BooleanString(255))
     rse = relationship("RSE", backref=backref('rse_attr_map', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_ATTR_MAP_RSE_ID_FK'),
@@ -616,7 +622,7 @@ class Subscription(BASE, ModelBase, Versioned):
     retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
     expired_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', name='SUBSCRIPTIONS_PK'),
-                   UniqueConstraint('name', 'account', name='SUBSCRIPTION_NAME_ACCOUNT_UQ'),
+                   UniqueConstraint('name', 'account', name='SUBSCRIPTIONS_NAME_ACCOUNT_UQ'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
                    CheckConstraint('RETROACTIVE IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN')

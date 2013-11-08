@@ -17,6 +17,10 @@ etc/web/lighttpd*.conf
 # ignore test proxies
 *.proxy
 x509up
+demoCA
+full.pem
+proxy.pem
+request.pem
 
 # ignore MANIFEST file
 MANIFEST
