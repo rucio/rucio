@@ -35,6 +35,8 @@ class UseCaseDefinition(UCEmulator):
     @UCEmulator.UseCase
     def CREATE_TASK(self, task_type, rses, input, output, file_transfer_duration, bulk, threads, safety_delay):
         target_rses = list()
+        task_type_id = task_type.split('.')[1].split('-')[0]
+        task_number = '%08d' % randint(0, 100000000)
         if threads:
             sem = threading.BoundedSemaphore(threads)
         if 'output_datasets_per_datatype' in output.keys():
@@ -415,6 +417,7 @@ class UseCaseDefinition(UCEmulator):
         # When jobs are finished for dataset
         sub_finish = dict()
         max_completion = 0
+        job_number = 0
         for job_set in jobs:
             # job_set: (scope, [target datasets], number of jobs, computing_rse, task_type, log_ds)
             dis_completion = time.time()
@@ -429,7 +432,10 @@ class UseCaseDefinition(UCEmulator):
                 job_completion = dis_completion + gauss(**output['duration_job'])
                 if job_completion > max_target_completion:
                     max_target_completion = job_completion
-                job_finish.append((float(job_completion), {'scope': job_set[0], 'targets': job_set[1], 'computing_rse': job_set[3], 'task_type': task_type, 'log_ds': log_ds}))
+                job_number += 1
+                job_finish.append((float(job_completion), {'scope': job_set[0], 'targets': job_set[1], 'computing_rse': job_set[3],
+                                                           'task_type': task_type, 'log_ds': log_ds, 'task_type_id': task_type_id,
+                                                           'task_number': task_number, 'job_number': '%06d' % job_number}))
 
             # Remeber last access to target dataset
             max_target_completion += safety_delay
@@ -606,18 +612,18 @@ class UseCaseDefinition(UCEmulator):
         if not client:
             client = Client(account='panda')
         count = 0
-        # TODO: Instead of this loop the attach_dids_to_dids method should be used
         attachments = list()
         for tds in job['targets']:
             # Create output files of the job
-            fn = uuid()
             files = list()
+            out_name = '%s.%s._%s.pool.root.1' % (job['task_type_id'], job['task_number'], job['job_numner'])
+            log_name = 'log.%s.%s._%s.job.log.tgz.1' % (job['task_number'], job['job_numner'])
             if not job['log_ds']:  # Add log file for each datatype if task doesn't have LOG dataset
-                for ext in ['log', 'out']:
-                    files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+                files.append({'scope': job['scope'], 'name': out_name, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+                files.append({'scope': job['scope'], 'name': log_name, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
             else:
-                ext = 'out' if tds.split('.')[-2] != 'log' else 'log'
-                files.append({'scope': job['scope'], 'name': '%s.%s' % (fn, ext), 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+                fn = out_name if tds.split('.')[-2] != 'log' else log_name
+                files.append({'scope': job['scope'], 'name': fn, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
             attachments.append({'scope': job['scope'], 'name': tds, 'rse': job['computing_rse'], 'dids': files})
             count += len(files)
 
@@ -688,7 +694,7 @@ class UseCaseDefinition(UCEmulator):
                     del ctx.job_queue[0:len(jobs)]
             ctx.job_queue_select.release()
         else:
-                print '== PanDA [%s]: Already one thread waiting for pending jobs.' % (time.strftime('%D %H:%M:%S', time.localtime()))
+            print '== PanDA [%s]: Already one thread waiting for pending jobs.' % (time.strftime('%D %H:%M:%S', time.localtime()))
         if (ctx.threads == 'False') or int(ctx.threads) < 2:
             threads = None
         else:
