@@ -136,6 +136,7 @@ class UseCaseDefinition(UCEmulator):
             meta = dict()
             success = False
             retry = 1
+            print '---- List meta'
             while not success:
                 try:
                     with monitor.record_timer_block('panda.get_metadata'):
@@ -168,6 +169,7 @@ class UseCaseDefinition(UCEmulator):
         meta['run_number'] = int(time.time() / (3600 * 24))
         meta['version'] = uuid()
         # ----------------------------------- Create final output - dataset(s) ---------------------------------------
+        print '-------------- Create output DS'
         final_dss = {}
         for out_ds in output['meta']:  # Create output containers(s)
             meta['prod_step'] = out_ds.split('.')[0]
@@ -184,6 +186,7 @@ class UseCaseDefinition(UCEmulator):
             success = False
             retry = 1
             while not success:
+                print 'Creating container: cnt_%s' % fds
                 try:
                     with monitor.record_timer_block('panda.add_container'):
                         client.add_container(scope=output['scope'], name='cnt_%s' % (fds))
@@ -195,72 +198,47 @@ class UseCaseDefinition(UCEmulator):
                     if retry > 5:
                         raise
                     time.sleep(randint(1, 2))
+
             for i in range(output_datasets_per_datatype):
                 final_dss[fds].update({'guid': str(uuid())})
                 dsn = '%s.%s' % (fds, i)
                 out_ds = {'scope': output['scope'], 'name': dsn, 'dids': [], 'meta': final_dss[fds].copy(),
                           'rules': [{'account': output['account'], 'copies': 1, 'rse_expression': target_rses[i], 'grouping': 'DATASET', 'lifetime': output['lifetime']}]}
                 temp.append(out_ds)
-                if not bulk:
-                    success = False
-                    retry = 1
-                    while not success:
-                        try:
-                            with monitor.record_timer_block('panda.add_dataset'):
-                                client.add_dataset(**out_ds)
-                            success = True
-                        except (DatabaseException, ConnectionError):
-                            monitor.record_counter('panda.retry.add_dataset.%s' % (retry), 1)
-                            retry += 1
-                            if retry > 5:
-                                raise
-                            time.sleep(randint(1, 2))
-                    success = False
-                    retry = 1
-                    while not success:
-                        try:
-                            with monitor.record_timer_block('panda.add_datasets_to_container'):
-                                client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % (fds), dsns=[{'scope': output['scope'], 'name': dsn}])
-                            success = True
-                        except (DatabaseException, ConnectionError):
-                            monitor.record_counter('panda.retry.add_datasets_to_container.%s' % (retry), 1)
-                            retry += 1
-                            if retry > 5:
-                                raise
-                            time.sleep(randint(1, 2))
-                    monitor.record_counter('panda.tasks.%s.output_datasets' % task_type, 1)  # Reports the number of output datasets for the tasktype (including log datasets)
-            if bulk:
-                success = False
-                retry = 1
-                while not success:
-                    try:
-                        with monitor.record_timer_block(['panda.add_datasets', ('panda.add_datasets.normalized', len(temp))]):
-                            client.add_datasets(temp)
-                        monitor.record_counter('panda.tasks.%s.output_datasets' % task_type, len(temp))  # Reports the number of output datasets for the tasktype (including log datasets)
-                        success = True
-                    except (DatabaseException, ConnectionError):
-                        monitor.record_counter('panda.retry.add_datasets.%s' % (retry), 1)
-                        retry += 1
-                        if retry > 5:
-                            raise
-                        time.sleep(randint(1, 2))
-                success = False
-                retry = 1
-                while not success:
-                    try:
-                        with monitor.record_timer_block(['panda.add_datasets_to_container', ('panda.add_datasets_to_container.normailzed', len(temp))]):
-                            client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % (fds), dsns=[{'scope': dsn['scope'], 'name': dsn['name']} for dsn in temp])
-                        success = True
-                    except (DatabaseException, ConnectionError):
-                        monitor.record_counter('panda.retry.add_datasets_to_container.%s' % (retry), 1)
-                        retry += 1
-                        if retry > 5:
-                            raise
-                        time.sleep(randint(1, 2))
+
+            success = False
+            retry = 1
+            while not success:
+                try:
+                    with monitor.record_timer_block(['panda.add_datasets', ('panda.add_datasets.normalized', len(temp))]):
+                        client.add_datasets(temp)
+                    monitor.record_counter('panda.tasks.%s.output_datasets' % task_type, len(temp))  # Reports the number of output datasets for the tasktype (including log datasets)
+                    success = True
+                except (DatabaseException, ConnectionError):
+                    monitor.record_counter('panda.retry.add_datasets.%s' % (retry), 1)
+                    retry += 1
+                    if retry > 5:
+                        raise
+                    time.sleep(randint(1, 2))
+
+            success = False
+            retry = 1
+            while not success:
+                try:
+                    with monitor.record_timer_block(['panda.add_datasets_to_container', ('panda.add_datasets_to_container.normailzed', len(temp))]):
+                        client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % (fds), dsns=[{'scope': dsn['scope'], 'name': dsn['name']} for dsn in temp])
+                    success = True
+                except (DatabaseException, ConnectionError):
+                    monitor.record_counter('panda.retry.add_datasets_to_container.%s' % (retry), 1)
+                    retry += 1
+                    if retry > 5:
+                        raise
+                    time.sleep(randint(1, 2))
             temp_ds += temp
         final_dss = [dsn['name'] for dsn in temp_ds]
 
         # -------------------------------- Derive/Create dis and subdatasets ------------------------------------------
+        print '-------------- Create dis/sub DS'
         jobs = []
         files_in_ds = []
         dis_ds = None
@@ -314,16 +292,9 @@ class UseCaseDefinition(UCEmulator):
                     used_rses[computing_rse] = list()
                 used_rses[computing_rse].append((id, temp_job_count))
 
-                if bulk:
-                    inserts_dis.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 172800,
-                                        'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}],
-                                        'dids': files_in_ds})  # Create DIS-Datasets
-                else:
-                    with monitor.record_timer_block('panda.add_dataset'):
-                        client.add_dataset(scope='Manure', name=dis_ds, lifetime=172800,
-                                           rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}])  # Create DIS-Datasets
-                    with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
-                        client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)  # Add files to DIS - dataset
+                inserts_dis.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 172800,
+                                    'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}],
+                                    'dids': files_in_ds})  # Create DIS-Datasets
                 monitor.record_counter('panda.tasks.%s.dis_datasets' % task_type, 1)  # Reports the creation of a dis dataset for the given task type
                 monitor.record_counter('panda.tasks.%s.dis_files' % task_type, len(files_in_ds))  # Reports the number of files in the dis - dataset
                 computing_rse = None
@@ -364,50 +335,28 @@ class UseCaseDefinition(UCEmulator):
                     used_rses[computing_rse].append((None, temp_job_count))
                     computing_rse = None
 
-        if create_sub_ds:
-            for computing_rse in used_rses:
-                for temp in used_rses[computing_rse]:
-                    id = temp[0] if temp[0] is not None else uuid()
-                    subs = ['%s_SUB_%s_%s' % (input['ds_name'], id, fin_ds) for fin_ds in final_dss]
-                    jobs.append(('Manure', subs, int(temp[1]), computing_rse))  # temp[1] = number of jobs writing to SUB ds
-                    for ds in subs:
-                        if bulk:
-                            inserts_sub.append({'scope': 'Manure', 'name': ds, 'lifetime': 172800, 'dids': [],
-                                                'rules': [{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]),
-                                                'grouping': 'DATASET'}]})  # Create SUB-Datasets
-                        else:
-                            with monitor.record_timer_block('panda.add_dataset'):
-                                client.add_dataset(scope='Manure', name=ds, lifetime=172800,
-                                                   rules=[{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]), 'grouping': 'DATASET'}])  # Create SUB-Datasets
-                        monitor.record_counter('panda.tasks.%s.sub_datasets' % task_type, 1)  # Reports the creation of a sub dataset for the given task type
-        else:
-            for computing_rse in used_rses:
-                for temp in used_rses[computing_rse]:
-                    jobs.append((output['scope'], final_dss, int(temp[1]), computing_rse))
+        for computing_rse in used_rses:
+            for temp in used_rses[computing_rse]:
+                jobs.append((output['scope'], final_dss, int(temp[1]), computing_rse))
 
         # -------------------------------------- Perform bulk inserts ----------------------------------------
-        if bulk:
-            datasets = inserts_dis + inserts_sub
-            if len(datasets):
-                with monitor.record_timer_block(['panda.add_datasets', ('panda.add_datasets.normalized', len(datasets))]):
-                    client.add_datasets(datasets)
-            ts = list()
-            ts_res = Queue()
-            for ds in inserts_dis:
-                if threads:
-                    t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'ret': ts_res, 'sem': sem})
-                    t.start()
-                    ts.append(t)
-                else:
-                    self.add_files_ds(client, ds)
+        ts = list()
+        ts_res = Queue()
+        for ds in inserts_dis:
             if threads:
-                for t in ts:
-                    t.join()
-            while not ts_res.empty():
-                ret = ts_res.get()
-                if not ret[0]:
-                    print ret[1][2]
-                    raise ret[1][0]
+                t = threading.Thread(target=self.add_files_ds, kwargs={'client': client, 'ds': ds, 'ret': ts_res, 'sem': sem})
+                t.start()
+                ts.append(t)
+            else:
+                self.add_files_ds(client, ds)
+        if threads:
+            for t in ts:
+                t.join()
+        while not ts_res.empty():
+            ret = ts_res.get()
+            if not ret[0]:
+                print ret[1][2]
+                raise ret[1][0]
 
         # --------------------------------------- Calculate finishing times ----------------------------------
         job_finish = []         # When each job finishes -> register output files(s)
@@ -462,40 +411,45 @@ class UseCaseDefinition(UCEmulator):
         return {'jobs': job_finish, 'subs': sub_finish.values(), 'task': task_finish}
 
     def add_files_ds(self, client, ds, ret=None, sem=None):
+        print '+' * 100
+        print ds
+        print '+' * 100
         if not client:
             client = Client(account='panda')
         success = False
         retry = 1
-        while not success:
-            try:
-                if sem:
-                    sem.acquire()
-                with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(ds['dids']))]):
-                    client.add_files_to_dataset(scope=ds['scope'], name=ds['name'], files=ds['dids'])
-                success = True
-            except (DatabaseException, ConnectionError):
-                e = sys.exc_info()
-                monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
-                retry += 1
-                if retry > 5:
+        for rule in ds['rules']:
+            while not success:
+                try:
+                    if sem:
+                        sem.acquire()
+                        with monitor.record_timer_block(['panda.client.add_replication_rule', ('panda.client.add_replication_rule.normalized', len(ds['dids']))]):
+                            bla = client.add_replication_rule(dids=ds['dids'], rse_expression=rule['rse_expression'], account=rule['account'], copies=rule['copies'], lifetime=172800)
+                            print bla
+                    success = True
+                except (DatabaseException, ConnectionError):
+                    e = sys.exc_info()
+                    monitor.record_counter('panda.retry.add_files_to_dataset.%s' % (retry), 1)
+                    retry += 1
+                    if retry > 5:
+                        if ret:
+                            ret.put((False, e))
+                            return
+                        else:
+                            print e
+                            raise
+                    print '== PanDA Warning [%s]: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (time.strftime('%D %H:%M:%S', time.localtime()), retry, ds['scope'], ds['name'])
+                    time.sleep(randint(1, 2))
+                except:
+                    e = sys.exc_info()
                     if ret:
                         ret.put((False, e))
-                        return
                     else:
                         print e
                         raise
-                print '== PanDA Warning [%s]: Failed %s times when adding files to dataset (%s:%s). Will retry in 5 seconds.' % (time.strftime('%D %H:%M:%S', time.localtime()), retry, ds['scope'], ds['name'])
-                time.sleep(randint(1, 2))
-            except:
-                e = sys.exc_info()
-                if ret:
-                    ret.put((False, e))
-                else:
-                    print e
-                    raise
-            finally:
-                if sem:
-                    sem.release()
+                finally:
+                    if sem:
+                        sem.release()
         if ret:
             ret.put((True, None))
 
