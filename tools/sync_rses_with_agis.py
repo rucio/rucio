@@ -34,7 +34,7 @@ if __name__ == '__main__':
     for rse in data:
         try:
             print rse['name']
-            deterministic = False
+            deterministic = True
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
         except:
@@ -51,13 +51,13 @@ if __name__ == '__main__':
                   'prefix': prefix,
                   'impl': 'rucio.rse.protocols.mock.Default',
                   'extended_attributes': None,
-                  'domains': {"LAN": {"read": 1,
+                  'domains': {"lan": {"read": 1,
                                       "write": 1,
                                       "delete": 1},
-                              "WAN": {"read": 1,
+                              "wan": {"read": 1,
                                       "write": 1,
                                       "delete": 1}}}
-        c.add_protocol(rse=rse['name'], scheme='mock', params=params)
+        #c.add_protocol(rse=rse['name'], scheme='mock', params=params)
 
 #
 #         for protocol in rse['protocols']:

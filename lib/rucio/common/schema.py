@@ -23,7 +23,7 @@ account_type = {"description": "Account type",
 
 scope = {"description": "Scope name",
          "type": "string",
-         "pattern": "^[a-zA-Z'_'.0-9]{1,30}$"}
+         "pattern": "^[a-zA-Z'_'-.0-9]{1,30}$"}
 
 name = {"description": "Data Identifier name",
         "type": "string",

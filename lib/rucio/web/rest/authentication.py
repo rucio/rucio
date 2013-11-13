@@ -11,11 +11,14 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 
 from re import search
-from web import application, ctx, BadRequest, header
+from traceback import format_exc
+
+from web import application, ctx, BadRequest, header, InternalError
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, validate_auth_token
-from rucio.common.exception import AccessDenied
+from rucio.common.exception import AccessDenied, RucioException
 from rucio.common.utils import generate_http_error
+from rucio.web.rest.common import RucioController
 
 
 urls = (
@@ -27,7 +30,7 @@ urls = (
 )
 
 
-class UserPass:
+class UserPass(RucioController):
     """
     Authenticate a Rucio account temporarily via username and password.
     """
@@ -66,6 +69,11 @@ class UserPass:
             result = get_auth_token_user_pass(account, username, password, appid, ip)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
 
         if result is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
@@ -73,18 +81,6 @@ class UserPass:
             header('X-Rucio-Auth-Token', result)
             return str()
 
-        raise BadRequest()
-
-    def PUT(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def POST(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
         raise BadRequest()
 
 
