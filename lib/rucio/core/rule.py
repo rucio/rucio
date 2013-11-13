@@ -352,6 +352,7 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
             rse_ids = rseselector.select_rse(bytes, preferred_rse_ids, list(blacklist))
         for rse_id in rse_ids:
             for dataset in datasetfiles:
+                dataset_is_replicating = False
                 for file in dataset['files']:
                     if len([lock for lock in file['locks'] if lock['rule_id'] == rule_id]) == copies:
                         continue
@@ -369,6 +370,7 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         else:
                             # Replica is not available at rse yet
                             locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
+                            dataset_is_replicating = True
                             file['locks'].append({'rse_id': rse_id, 'rule_id': rule_id, 'state': LockState.REPLICATING})
                             replica.lock_cnt += 1
                             replica.tombstone = None
@@ -376,18 +378,21 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                     else:
                         # Replica has to be created
                         locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
+                        dataset_is_replicating = True
                         file['locks'].append({'rse_id': rse_id, 'rule_id': rule_id, 'state': LockState.REPLICATING})
                         replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'], lock_cnt=1, state=ReplicaState.UNAVAILABLE)
                         replicas_to_create.append(replica)
                         file['replicas'].append(replica)
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
                         locks_replicating_cnt += 1
-
+                # Add a DatasetLock to the DB
+                locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
     else:
         # ###########
         # # DATASET #
         # ###########
         for dataset in datasetfiles:
+            dataset_is_replicating = False
             bytes = sum([file['bytes'] for file in dataset['files']])
             rse_coverage = {}  # {'rse_id': coverage }
             blacklist = set()
@@ -421,6 +426,7 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         else:
                             # Replica is not available at rse yet
                             locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
+                            dataset_is_replicating = True
                             file['locks'].append({'rse_id': rse_id, 'rule_id': rule_id, 'state': LockState.REPLICATING})
                             replica.lock_cnt += 1
                             replica.tombstone = None
@@ -428,13 +434,15 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                     else:
                         # Replica has to be created
                         locks_to_create.append(models.ReplicaLock(rule_id=rule_id, rse_id=rse_id, scope=file['scope'], name=file['name'], account=account, bytes=file['bytes'], state=LockState.REPLICATING))
+                        dataset_is_replicating = True
                         file['locks'].append({'rse_id': rse_id, 'rule_id': rule_id, 'state': LockState.REPLICATING})
                         replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'], lock_cnt=1, state=ReplicaState.UNAVAILABLE)
                         replicas_to_create.append(replica)
                         file['replicas'].append(replica)
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
                         locks_replicating_cnt += 1
-
+                # Add a DatasetLock to the DB
+                locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
     # d) Put the locks to the DB, Put the Replicas in the DBreturn the transfers
     try:
         session.add_all(replicas_to_create)
@@ -523,6 +531,9 @@ def delete_rule(rule_id, lockmode='update', session=None):
         except NoResultFound:
             pass
         lock.delete(session=session)
+
+    #Delete the DatasetLocks
+    session.query(models.DatasetLock).filter(models.DatasetLock.rule_id == rule_id).delete(synchronize_session=False)
 
     session.flush()
     rule.delete(session=session)
@@ -764,6 +775,9 @@ def __evaluate_attach(eval_did, session=None):
                 rule.state = RuleState.STUCK
                 rule.error = str(e)
                 rule.save(session=session)
+                #Try to update the DatasetLocks
+                if rule.grouping != RuleGrouping.NONE:
+                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 continue
 
             # 2. Create the RSE Selector
@@ -778,6 +792,9 @@ def __evaluate_attach(eval_did, session=None):
                 rule.state = RuleState.STUCK
                 rule.error = str(e)
                 rule.save(session=session)
+                #Try to update the DatasetLocks
+                if rule.grouping != RuleGrouping.NONE:
+                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 continue
 
             # 3. Apply the Replication rule to the Files
@@ -813,18 +830,30 @@ def __evaluate_attach(eval_did, session=None):
                 rule.state = RuleState.STUCK
                 rule.error = str(e)
                 rule.save(session=session)
+                #Try to update the DatasetLocks
+                if rule.grouping != RuleGrouping.NONE:
+                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 continue
 
             # 4. Create Transfers
             if transfers:
                 if rule.locks_stuck_cnt > 0:
                     rule.state = RuleState.STUCK
+                    #Try to update the DatasetLocks
+                    if rule.grouping != RuleGrouping.NONE:
+                        session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 else:
                     rule.state = RuleState.REPLICATING
+                    #Try to update the DatasetLocks
+                    if rule.grouping != RuleGrouping.NONE:
+                        session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
                 for transfer in transfers:
                     queue_request(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], req_type=RequestType.TRANSFER, session=session)
             else:
                 rule.state = RuleState.OK
+                #Try to update the DatasetLocks
+                if rule.grouping != RuleGrouping.NONE:
+                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
             if session.bind.dialect.name != 'sqlite':
                 session.commit()
         record_timer(stat='rule.opt_evaluate.evaluate_rules', time=(time.time() - qtime)*1000)
