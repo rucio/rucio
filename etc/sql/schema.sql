@@ -39,6 +39,7 @@ DIDS
 REPLICAS
 RULES
 LOCKS
+DATASET_LOCKS
 ACCOUNT_COUNTERS
 ACCOUNT_LIMITS
 RSE_COUNTERS
@@ -557,7 +558,6 @@ CREATE INDEX RULES_STUCKSTATE_IDX ON rules (CASE when state='S' THEN state ELSE 
 CREATE TABLE locks (
     scope VARCHAR2(25 CHAR),
     name VARCHAR2(255 CHAR),
-    did_type CHAR(1 CHAR) DEFAULT 'F',
     rule_id RAW(16),
     rse_id RAW(16),
     account VARCHAR2(25 CHAR),
@@ -583,6 +583,39 @@ PARTITION BY LIST (SCOPE)
 CREATE INDEX "LOCKS_RULE_ID_IDX" ON locks(rule_id)  COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
 
 
+
+
+
+-- ========================================= DATASET_LOCKS =========================================
+-- Description: Table to store locks
+-- Estimated volume: 1 million (???)
+-- Access pattern: By scope, name
+--                 By rse_id
+--                 By rule_id
+
+
+CREATE TABLE dataset_locks (
+    scope VARCHAR2(25 CHAR),
+    name VARCHAR2(255 CHAR),
+    rule_id RAW(16),
+    rse_id RAW(16),
+    account VARCHAR2(25 CHAR),
+    state CHAR(1 CHAR),
+    updated_at DATE,
+    created_at DATE,
+    CONSTRAINT "DATASET_LOCKS_PK" PRIMARY KEY (scope, name, rule_id, rse_id) USING INDEX COMPRESS 1,
+    CONSTRAINT "DATASET_LOCKS_DID_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
+    CONSTRAINT "DATASET_LOCKS_RULE_ID_FK" FOREIGN KEY(rule_id) REFERENCES rules (id),
+    CONSTRAINT "DATASET_LOCKS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
+    CONSTRAINT "DATASET_LOCKS_STATE_NN" CHECK ("STATE" IS NOT NULL),
+    CONSTRAINT "DATASET_LOCKS_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
+    CONSTRAINT "DATASET_LOCKS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+    CONSTRAINT "DATASET_LOCKS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
+    CONSTRAINT "DATASET_LOCKS_STATE_CHK" CHECK (state IN ('S', 'R', 'O'))
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+
+CREATE INDEX "DATASET_LOCKS_RULE_ID_IDX" ON dataset_locks(rule_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ;
+CREATE INDEX "DATASET_LOCKS_RSE_ID_IDX" ON dataset_locks(rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01 ; 
 
 
 

@@ -543,6 +543,26 @@ class ReplicaLock(BASE, ModelBase):
                    )
 
 
+class DatasetLock(BASE, ModelBase):
+    """Represents dataset locks"""
+    __tablename__ = 'dataset_locks'
+    scope = Column(String(25))
+    name = Column(String(255))
+    rule_id = Column(GUID())
+    rse_id = Column(GUID())
+    account = Column(String(25))
+    state = Column(LockState.db_type(name='DATASET_LOCKS_STATE_CHK'), default=LockState.REPLICATING)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='DATASET_LOCKS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DATASET_LOCKS_DID_FK'),
+                   ForeignKeyConstraint(['rule_id'], ['rules.id'], name='DATASET_LOCKS_RULE_ID_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DATASET_LOCKS_ACCOUNT_FK'),
+                   CheckConstraint('STATE IS NOT NULL', name='DATASET_LOCKS_STATE_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='DATASET_LOCKS_ACCOUNT_NN'),
+                   Index('DATASET_LOCKS_RULE_ID_IDX', 'rule_id'),
+                   Index('DATASET_LOCKS_RSE_ID_IDX', 'rse_id')
+                   )
+
+
 class AccountCounter(BASE, ModelBase):
     """Represents counters for locks and accounts"""
     __tablename__ = 'account_counters'
