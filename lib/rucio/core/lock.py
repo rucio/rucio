@@ -12,8 +12,33 @@
 from sqlalchemy.sql.expression import and_, or_
 
 from rucio.db import models
-from rucio.db.constants import LockState, RuleState
+from rucio.db.constants import LockState, RuleState, RuleGrouping
 from rucio.db.session import read_session, transactional_session
+
+
+@read_session
+def get_dataset_locks(scope, name, session=None):
+    """
+    Get the dataset locks of a dataset
+
+    :param scope:          Scope of the dataset.
+    :param name:           Name of the dataset.
+    :param session:        The db session.
+    :return:               List of dicts {'rse_id': ..., 'state': ...}
+    :raises:               NoResultFound
+    """
+
+    query = session.query(models.DatasetLock).filter_by(scope=scope, name=name)
+
+    locks = []
+    for row in query:
+        locks.append({'rse_id': row.rse_id,
+                     'scope': row.scope,
+                     'name': row.name,
+                     'rule_id': row.rule_id,
+                     'account': row.account,
+                     'state': row.state})
+    return locks
 
 
 @read_session
@@ -147,11 +172,14 @@ def successful_transfer(scope, name, rse_id, session=None):
         if (rule.state == RuleState.SUSPENDED):
             continue
         elif (rule.error is not None):
-            rule.state = RuleState.STUCK
+            continue
         elif (rule.locks_stuck_cnt > 0):
-            rule.state = RuleState.STUCK
+            continue
         elif (rule.locks_replicating_cnt == 0):
             rule.state = RuleState.OK
+            #Try to update the DatasetLocks
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
 
 
 @transactional_session
@@ -174,9 +202,13 @@ def failed_transfer(scope, name, rse_id, session=None):
         rule.locks_stuck_cnt += 1
 
         # Update the rule state
-        if (rule.state == RuleState.SUSPENDED):
+        if rule.state == RuleState.SUSPENDED:
             continue
-        elif (rule.error is not None):
-            rule.state = RuleState.STUCK
-        elif (rule.locks_stuck_cnt > 0):
-            rule.state = RuleState.STUCK
+        elif rule.error is not None:
+            continue
+        elif rule.locks_stuck_cnt > 0:
+            if rule.state != RuleState.STUCK:
+                rule.state = RuleState.STUCK
+                #Try to update the DatasetLocks
+                if rule.grouping != RuleGrouping.NONE:
+                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})

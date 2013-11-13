@@ -22,7 +22,7 @@ from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound, AccessDenied
 from rucio.core.did import add_did, attach_dids
-from rucio.core.lock import get_replica_locks
+from rucio.core.lock import get_replica_locks, get_dataset_locks
 from rucio.core.rse import add_rse_attribute, add_replica, get_rse
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_lock_state
 from rucio.daemons.judge.evaluator import re_evaluator
@@ -199,6 +199,11 @@ class TestReplicationRuleCore():
             assert(len(t1.intersection(rse_locks)) == 2)
             assert(len(first_locks.intersection(rse_locks)) == 2)
 
+        #Check if the DatasetLocks are created properly
+        dataset_locks = get_dataset_locks(scope=scope, name=dataset)
+        assert(len(t1.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
+        assert(len(first_locks.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
+
     def test_add_rule_container_all(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, ALL Grouping"""
         scope = 'mock'
@@ -243,6 +248,11 @@ class TestReplicationRuleCore():
             rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
             assert(len(t1.intersection(rse_locks)) == 2)
             assert(len(first_locks.intersection(rse_locks)) == 2)
+
+        #Check if the DatasetLocks are created properly
+        dataset_locks = get_dataset_locks(scope=scope, name=dataset)
+        assert(len(t1.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
+        assert(len(first_locks.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
 
     def test_add_rule_container_dataset(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, DATASET Grouping"""
@@ -338,7 +348,7 @@ class TestReplicationRuleCore():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         delete_rule(rule_id)
         for file in files:
             rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
@@ -383,6 +393,33 @@ class TestReplicationRuleCore():
         #Check if the Locks are created properly
         for file in files:
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)) == 2)
+
+    def test_judge_add_dataset_to_container(self):
+        """ REPLICATION RULE (CORE): Test the judge when adding files to dataset"""
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        parent_container = 'dataset_' + str(uuid())
+        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
+
+        #Add a first rule to the DS
+        add_rule(dids=[{'scope': scope, 'name': parent_container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], 'jdoe')
+
+        #Fake judge
+        re_evaluator(once=True)
+
+        #Check if the Locks are created properly
+        for file in files:
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)) == 2)
+
+        #Check if the DatasetLocks are created properly
+        dataset_locks = get_dataset_locks(scope=scope, name=dataset)
+        assert(len(dataset_locks) == 2)
 
     def test_judge_expire_rule(self):
         """ REPLICATION RULE (CORE): Test the judge when deleting expired rules"""

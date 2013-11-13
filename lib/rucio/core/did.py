@@ -380,10 +380,11 @@ def delete_dids(dids, account, session=None):
         content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
-    rule_clause, lock_clause = list(), list()
+    rule_clause, lock_clause, dataset_lock_clause = list(), list(), list()
     for (rule_id, ) in session.query(models.ReplicationRule.id).filter(or_(*rule_id_clause)).yield_per(10):
         rule_clause.append(models.ReplicationRule.id == rule_id)
         lock_clause.append(models.ReplicaLock.rule_id == rule_id)
+        dataset_lock_clause.append(models.DatasetLock.rule_id == rule_id)
 
     replica_clauses, lock_clauses = list(), list()
     for (rse_id, scope, name, rule_id) in session.query(models.ReplicaLock.rse_id, models.ReplicaLock.scope, models.ReplicaLock.name, models.ReplicaLock.rule_id).filter(or_(*lock_clause)).yield_per(10):
@@ -406,6 +407,13 @@ def delete_dids(dids, account, session=None):
         for lock_clause in grouper(lock_clauses, 10):
             rowcount = session.query(models.ReplicaLock).filter(or_(*lock_clause)).delete(synchronize_session=False)
     # print 'delete locks', time() - s
+
+    # Remove the dataset locks
+    # s = time()
+    if dataset_lock_clause:
+        with record_timer_block('undertaker.datasetlocks'):
+            rowcount = session.query(models.DatasetLock).filter(or_(*dataset_lock_clause)).delete(synchronize_session=False)
+    # print 'delete rules', time() - s
 
     # Remove the rules
     # s = time()
