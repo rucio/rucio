@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 import os
 import requests
@@ -144,12 +145,11 @@ class Default(protocol.RSEProtocol):
             self.timeout = credentials['timeout']
         except KeyError:
             self.timeout = 300
-        #self.session=requests.session(auth_type=self.auth_type, timeout=self.timeout, cert=self.cert)
-        self.session = requests.session(timeout=self.timeout, cert=self.cert)
+        self.session = requests.session()
 
         # "ping" to see if the server is available
         try:
-            res = self.session.request('HEAD', self.server+self.rse['prefix'], verify=False)
+            res = self.session.request('HEAD', self.server+self.rse['prefix'], verify=False, timeout=self.timeout, cert=self.cert)
             if res.status_code != 200:
                 raise exception.ServiceUnavailable(res.text)
         except requests.exceptions.ConnectionError, e:
@@ -183,7 +183,7 @@ class Default(protocol.RSEProtocol):
         """
         path = self.path2pfn(pfn)
         try:
-            result = self.session.request('HEAD', path, verify=False)
+            result = self.session.request('HEAD', path, verify=False, timeout=self.timeout, cert=self.cert)
             if (result.status_code == 200):
                 return True
             elif result.status_code in [404, ]:
@@ -205,7 +205,7 @@ class Default(protocol.RSEProtocol):
         path = self.path2pfn(pfn)
         chunksize = 1024
         try:
-            result = self.session.get(path, verify=False, prefetch=False)
+            result = self.session.get(path, verify=False, stream=True, timeout=self.timeout, cert=self.cert)
             if result and result.status_code in [200, ]:
                 length = int(result.headers['content-length'])
                 totnchunk = int(length / chunksize) + 1
@@ -249,7 +249,7 @@ class Default(protocol.RSEProtocol):
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
             it = uploadInChunks(full_name, 10000000)
-            result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True)
+            result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
             if result.status_code in [201, ]:
                 return
             if result.status_code in [409, ]:
@@ -287,7 +287,7 @@ class Default(protocol.RSEProtocol):
 
         headers = {'Destination': new_path}
         try:
-            result = self.session.request('MOVE', path, verify=False, headers=headers)
+            result = self.session.request('MOVE', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
             if result.status_code == 201:
                 return
             elif result.status_code in [404, ]:
@@ -307,7 +307,7 @@ class Default(protocol.RSEProtocol):
         """
         path = self.path2pfn(pfn)
         try:
-            result = self.session.delete(path, verify=False)
+            result = self.session.delete(path, verify=False, timeout=self.timeout, cert=self.cert)
             if result.status_code in [204, ]:
                 return
             elif result.status_code in [404, ]:
@@ -327,7 +327,7 @@ class Default(protocol.RSEProtocol):
         """
         path = self.path2pfn(directory)
         try:
-            result = self.session.request('MKCOL', path, verify=False)
+            result = self.session.request('MKCOL', path, verify=False, timeout=self.timeout, cert=self.cert)
             if result.status_code in [201, ]:
                 return
             elif result.status_code in [404, ]:
@@ -349,7 +349,7 @@ class Default(protocol.RSEProtocol):
         headers = {'Depth': '1'}
         self.exists(filename)
         try:
-            result = self.session.request('PROPFIND', path, verify=False, headers=headers)
+            result = self.session.request('PROPFIND', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
             if result.status_code in [404, ]:
                 raise exception.SourceNotFound()
             p = Parser()

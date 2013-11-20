@@ -22,9 +22,9 @@ from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
 from requests import get, post, put, delete
-from requests.auth import HTTPKerberosAuth
 from requests.status_codes import codes, _codes
 from requests.exceptions import SSLError
+from requests_kerberos import HTTPKerberosAuth
 
 from rucio.common import exception
 from rucio.common.config import config_get
@@ -195,7 +195,7 @@ class BaseClient(object):
         while retry < self.request_retries:
             try:
                 if type == 'GET':
-                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, prefetch=False)  # `stream=True` for newer versions of requests
+                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
                 elif type == 'PUT':
                     r = put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
