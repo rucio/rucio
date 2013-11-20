@@ -4,9 +4,8 @@ argparse==1.2.1          # Command-line parsing library
 distribute==0.6.48       # Easily download, build, install, upgrade, and uninstall Python packages
 argcomplete==0.6.3       # Bash tab completion for argparse
 kerberos==1.1.1          # Kerberos high-level interface
-requests==0.14.2         # Python HTTP for Humans
-#  TODO: requests==1.2.3
-#  TODO: requests-kerberos==0.3
+requests==2.0.1          # Python HTTP for Humans
+requests-kerberos==0.4
 #  TODO: requests-cache
 urllib3==1.6             # HTTP library with thread-safe connection pooling and file post support
 wsgiref==0.1.2           # WSGI (PEP 333) Reference Library
