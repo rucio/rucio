@@ -272,7 +272,7 @@ def parse_rse_expression(rse_expression):
     :param rse_expression:  The RSE expression.
 
     :returns:  List of RSEs
-    :raises:   InvalidRSEExpression, RSENotFound
+    :raises:   InvalidRSEExpression
     """
     rses = []
     rse_ids = parse_expression(rse_expression)
