@@ -526,7 +526,8 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('LOCKS_REPLICATING_CNT IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('LOCKS_STUCK_CNT IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
-                   Index('RULES_EXPIRES_AT_IDX', 'expires_at'))
+                   Index('RULES_EXPIRES_AT_IDX', 'expires_at'),
+                   Index('RULES_STUCKSTATE_IDX', 'state'))  # This Index is only needed for the STUCK state
 
 
 class ReplicaLock(BASE, ModelBase):
