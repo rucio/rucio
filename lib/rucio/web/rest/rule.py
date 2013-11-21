@@ -18,7 +18,7 @@ from web import application, ctx, data, header, Created, InternalError, OK, load
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_lock_state
 from rucio.common.exception import (InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound,
-                                    ReplicationRuleCreationFailed)
+                                    ReplicationRuleCreationFailed, InvalidRuleWeight)
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import authenticate
 
@@ -124,16 +124,18 @@ class Rule:
         try:
             rule_ids = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, weight=weight, lifetime=lifetime, grouping=grouping, account=account, locked=locked, subscription_id=subscription_id, issuer=ctx.env.get('issuer'))
         #TODO: Add all other error cases here
+        except InvalidReplicationRule, e:
+            raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
         except InsufficientQuota, e:
             raise generate_http_error(409, 'InsufficientQuota', e.args[0][0])
         except InvalidRSEExpression, e:
             raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
-        except InvalidReplicationRule, e:
-            raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except ReplicationRuleCreationFailed, e:
             raise generate_http_error(409, 'ReplicationRuleCreationFailed', e.args[0][0])
+        except InvalidRuleWeight, e:
+            raise generate_http_error(409, 'InvalidRuleWeight', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:

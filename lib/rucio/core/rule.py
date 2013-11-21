@@ -21,9 +21,9 @@ from sqlalchemy.sql.expression import and_, or_
 import rucio.core.did
 
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientQuota,
-                                    DataIdentifierNotFound, RuleNotFound, RSENotFound,
+                                    DataIdentifierNotFound, RuleNotFound,
                                     ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException,
-                                    AccessDenied)
+                                    AccessDenied, InvalidRuleWeight)
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.monitor import record_timer
 from rucio.core.rse_expression_parser import parse_expression
@@ -52,7 +52,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param subscription_id:  The subscription_id, if the rule is created by a subscription.
     :param session:          The database session in use.
     :returns:                A list of created replication rule ids.
-    :raises:                 InvalidReplicationRule, InsufficientQuota, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed
+    :raises:                 InvalidReplicationRule, InsufficientQuota, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
     """
 
     rule_start_time = time.time()
@@ -137,7 +137,7 @@ def add_rules(dids, rules, session=None):
                      {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
-    :raises:         InvalidReplicationRule, InsufficientQuota, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed
+    :raises:         InvalidReplicationRule, InsufficientQuota, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
     """
 
     rule_ids = {}
@@ -276,7 +276,7 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
     :param preferred_rse_ids:  Preferred RSE's to select.
     :param session:            Session of the db.
     :returns:                  (List of transfers to create, #locks_ok_cnt, #locks_replicating_cnt)
-    :raises:                   InsufficientQuota, ReplicationRuleCreationFailed
+    :raises:                   InsufficientQuota, ReplicationRuleCreationFailed, InsufficientTargetRSEs
     """
 
     start_time = time.time()
@@ -592,7 +592,7 @@ def update_lock_state(rule_id, lock_state, session=None):
 @transactional_session
 def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     """
-    Fetches the next did to re-evaluate and re-evaluates it.
+    Re-Evaluates a did.
 
     :param scope:                   The scope of the did to be re-evaluated.
     :param name:                    The name of the did to be re-evaluated.
@@ -611,6 +611,18 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
         __evaluate_attach(did, session=session)
     else:
         __evaluate_detach(did, session=session)
+
+
+@transactional_session
+def repair_rule(rule_id, session=None):
+    """
+    Trys to repair a stuck replication rule.
+
+    :param rule_id:  The id of the stuck rule.
+    :param session:  The database session in use.
+    """
+
+    raise NotImplemented()
 
 
 @transactional_session
@@ -777,7 +789,7 @@ def __evaluate_attach(eval_did, session=None):
             # 1. Resolve the rse_expression into a list of RSE-ids
             try:
                 rse_ids = parse_expression(rule.rse_expression, session=session)
-            except (InvalidRSEExpression, RSENotFound) as e:
+            except (InvalidRSEExpression) as e:
                 session.rollback()
                 rule.state = RuleState.STUCK
                 rule.error = str(e)
@@ -794,7 +806,7 @@ def __evaluate_attach(eval_did, session=None):
                                        weight=rule.weight,
                                        copies=rule.copies,
                                        session=session)
-            except (InvalidRSEExpression, InsufficientTargetRSEs) as e:
+            except (InvalidRuleWeight, InsufficientQuota) as e:
                 session.rollback()
                 rule.state = RuleState.STUCK
                 rule.error = str(e)

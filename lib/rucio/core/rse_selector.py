@@ -12,7 +12,7 @@ import time
 
 from random import uniform, shuffle
 
-from rucio.common.exception import InsufficientQuota, InsufficientTargetRSEs, InvalidRSEExpression
+from rucio.common.exception import InsufficientQuota, InsufficientTargetRSEs, InvalidRuleWeight
 from rucio.core.monitor import record_timer
 from rucio.core.quota import list_account_limits, list_account_usage
 from rucio.core.rse import list_rse_attributes
@@ -34,7 +34,7 @@ class RSESelector():
         :param weight:   Weighting to use.
         :param copies:   Number of copies to create.
         :param session:  DB Session in use.
-        :raises:         InvalidRSEExpression, InsufficientTargetRSEs
+        :raises:         InvalidRuleWeight, InsufficientQuota
         """
 
         start_time = time.time()
@@ -49,17 +49,21 @@ class RSESelector():
                 try:
                     self.rses.append({'rse_id': rse_id, 'weight': float(attributes[weight])})
                 except ValueError:
-                    raise InvalidRSEExpression('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse_id, weight))
+                    raise InvalidRuleWeight('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse_id, weight))
         else:
             self.rses = [{'rse_id': rse_id, 'weight': 1} for rse_id in rse_ids]
-        if not self.rses:
-            raise InsufficientTargetRSEs('Target RSE set empty (Check if weight attribute is set for the specified RSEs)')
+        if len(self.rses) < self.copies:
+            raise InvalidRuleWeight('Target RSE set not sufficient due to unset weight attributes.')
 
         for rse in self.rses:
             #TODO: Add RSE-space-left here!
             rse['quota_left'] = list_account_limits(account=account, rse_id=rse['rse_id'], session=session) - list_account_usage(account=account, rse_id=rse['rse_id'], session=session)
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
+
+        if len(self.rses) < self.copies:
+            raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+
         record_timer(stat='rule.rse_selector_create', time=(time.time() - start_time)*1000)
 
     def select_rse(self, size, preferred_rse_ids, blacklist=[]):
@@ -74,24 +78,22 @@ class RSESelector():
         """
 
         result = []
+        rses = self.rses
+
+        #Remove blacklisted rses
+        if blacklist:
+            rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
+        if len(rses) < self.copies:
+            raise InsufficientTargetRSEs('There are not enough target RSEs (due to blacklisting) to fulfil the request at this time.')
+        #Remove rses which do not have enough quota
+        rses = [rse for rse in rses if rse['quota_left'] > size]
+        if len(rses) < self.copies:
+            raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+
         for copy in range(self.copies):
-            rses = self.rses
-            #Remove files already in the result set
+            #Remove rses already in the result set
             rses = [rse for rse in rses if rse['rse_id'] not in result]
-            if not rses:
-                raise InsufficientTargetRSEs('There are not enough target RSEs to fulfil the request at this time.')
-            #Remove blacklisted sites
-            if len(blacklist) > 0:
-                rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
-            if not rses:
-                raise InsufficientTargetRSEs('There are not enough target RSEs (due to blacklisting) to fulfil the request at this time.')
-            #Only use RSEs which have enough quota
-            rses = [rse for rse in rses if rse['quota_left'] > size]
-            if not rses:
-                #No site has enough quota
-                raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
-            #Filter the preferred RSEs to those with enough quota
-            #preferred_rses = [x for x in preferred_rse_ids if x in [rse['rse_id'] for rse in rses]]
+            #Prioritize the preffered rses
             preferred_rses = [rse for rse in rses if rse['rse_id'] in preferred_rse_ids]
             if preferred_rses:
                 rse_id = self.__choose_rse(preferred_rses)
