@@ -128,6 +128,11 @@ You can also use ``tools\with_venv.sh`` to prefix commands so that they run
 within the virtual environment. For more information on virtual environments,
 see virtualenv_.
 
+Lastly you have to create a symbolic link from the virtual environments python directory to the rucio source directory::
+
+    $ cd .venv/lib/python2.7/site-packages/
+    $ ln PATH_TO_INSTALL_DIRECTORY/lib/rucio/ rucio -s
+
 .. _virtualenv: http://www.virtualenv.org/
 
 
