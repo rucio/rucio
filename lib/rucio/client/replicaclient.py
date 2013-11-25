@@ -22,13 +22,16 @@ class ReplicaClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def list_replicas(self, dids, schemes=None, unavailable=False):
+    def list_replicas(self, dids, schemes=None, unavailable=False, metalink=None):
         """
         List file replicas for a list of data identifiers (DIDs).
 
         :param dids: The list of data identifiers (DIDs).
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
         :param unavailable: Also include unavailable replicas in the list.
+        :param metalink: ``None`` (default) retrieves as JSON,
+                         ``3`` retrieves as metalink+xml,
+                         ``4`` retrieves as metalink4+xml
         """
         data = {'dids': dids}
         if schemes:
@@ -36,11 +39,21 @@ class ReplicaClient(BaseClient):
         if unavailable:
             data['unavailable'] = True
         url = build_url(self.host, path=self.REPLICAS_BASEURL, params=dumps(data))
+
+        headers = {}
+        if metalink is not None:
+            if metalink == 3:
+                headers['Accept'] = 'application/metalink+xml'
+            elif metalink == 4:
+                headers['Accept'] = 'application/metalink4+xml'
+
         # pass json dict in querystring
-        r = self._send_request(url, type='GET')
+        r = self._send_request(url, headers=headers, type='GET')
         if r.status_code == codes.ok:
-            replicas = self._load_json_data(r)
-            return replicas
+            if metalink is None:
+                return self._load_json_data(r)
+            else:
+                return r.text
         exc_cls, exc_msg = self._get_exception(r.headers)
         raise exc_cls(exc_msg)
 
