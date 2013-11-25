@@ -18,7 +18,7 @@ from S3.Exceptions import S3Error
 from uuid import uuid4 as uuid
 
 from rucio.common import exception
-from rucio.rse import rsemanager
+from rucio.rse import rsemanager as mgr
 from rsemgr_api_test import MgrTestCases
 
 
@@ -40,7 +40,6 @@ class TestRseS3():
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSEMgr()
         fnull = open(os.devnull, 'w')
 
         # Create test files on storage
@@ -53,7 +52,7 @@ class TestRseS3():
         cls.static_file = 's3://NONDETERMINISTIC/data.raw'
         subprocess.call(["s3cmd", "put", "%s/data.raw" % cls.tmpdir, cls.static_file, "--no-progress"], stdout=fnull, stderr=fnull)
         for f in MgrTestCases.files_remote:
-            subprocess.call(["s3cmd", "cp", cls.static_file, storage.lfn2pfn('SWIFT', {'name': f, 'scope': 'user.%s' % cls.user})], stdout=fnull, stderr=fnull)
+            subprocess.call(["s3cmd", "cp", cls.static_file, mgr.lfns2pfns(mgr.get_rse_info('SWIFT'), {'name': f, 'scope': 'user.%s' % cls.user}).values()[0]], stdout=fnull, stderr=fnull)
         fnull.close()
 
     def setup(self):

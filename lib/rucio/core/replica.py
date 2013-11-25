@@ -23,8 +23,7 @@ from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
 from rucio.db.constants import DIDType, ReplicaState
 from rucio.db.session import read_session, stream_session, transactional_session
-from rucio.rse import rsemanager
-from rucio.rse.rsemanager import RSEMgr
+from rucio.rse import rsemanager as rsemgr
 
 
 @stream_session
@@ -76,7 +75,6 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                         child_dids.append((tmp_did.child_scope, tmp_did.child_name))
 
     # Get replicas
-    rsemgr = rsemanager.RSEMgr(server_mode=True)
     is_none = None
     replicas_conditions = grouper(replica_conditions, 10, and_(models.RSEFileAssociation.scope == is_none,
                                                                models.RSEFileAssociation.name == is_none,
@@ -95,13 +93,19 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                                        'rses': {rse: list()}}
             else:
                 dict_tmp_files[key]['rses'][rse] = []
-            result = rsemgr.list_protocols(rse_id=rse, session=session)
-            for protocol in result:
-                if not schemes or protocol['scheme'] in schemes:
-                    dict_tmp_files[key]['rses'][rse].append(rsemgr.lfn2pfn(rse_id=rse, lfns={'scope': replica.scope, 'name': replica.name}, properties=protocol, session=session))
-                    if protocol['scheme'] == 'srm':
+            protocols = list()
+            if schemes is None:
+                protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse), 'read'))
+            else:
+                for s in schemes:
+                    protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse), 'read', s))
+            for protocol in protocols:
+                print protocol
+                if not schemes or protocol.attributes['scheme'] in schemes:
+                    dict_tmp_files[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}))
+                    if protocol.attributes['scheme'] == 'srm':
                         try:
-                            dict_tmp_files[key]['space_token'] = protocol['extended_attributes']['space_token']
+                            dict_tmp_files[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
                         except KeyError:
                             dict_tmp_files[key]['space_token'] = None
     for key in dict_tmp_files:
@@ -215,12 +219,17 @@ def add_replicas(rse, files, account, session=None):
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
     if not replica_rse.deterministic:
-        rse_manager = RSEMgr(server_mode=True)
+        p = rsemgr.create_protocol(rsemgr.get_rse_info(rse), 'write')
+        pfns = list()
         for file in files:
             if 'pfn' not in file:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-            tmp = rse_manager.parse_pfn(rse_id=rse, pfn=file['pfn'], session=session)
-            file['path'] = ''.join([tmp['prefix'], tmp['path'], tmp['name']]) if ('prefix' in tmp.keys()) and (tmp['prefix'] is not None) else ''.join([tmp['path'], tmp['name']])
+            pfns.append(file['pfn'])
+
+        pfns = p.parse_pfns(pfns=pfns)
+        for file in files:
+            tmp = pfns[file['pfn']]
+            file['path'] = ''.join([tmp['path'], tmp['name']])
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)
     increase(rse_id=replica_rse.id, delta=nbfiles, bytes=bytes, session=session)
@@ -358,13 +367,13 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         order_by(models.RSEFileAssociation.tombstone).\
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
 
-    if worker_number and total_workers and total_workers-1 > 0:
+    if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
 
     query = query.limit(limit)
 

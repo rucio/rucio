@@ -20,7 +20,7 @@ from rucio.rse.protocols import protocol
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the SFTP protocol."""
 
-    def exists(self, path):
+    def exists(self, pfn):
         """
             Checks if the requested file is known by the referred RSE.
 
@@ -32,8 +32,8 @@ class Default(protocol.RSEProtocol):
         """
         status = ''
         try:
-            print 'path: %s ' % path
-            cmd = 'stat ' + path
+            print 'path: %s ' % pfn
+            cmd = 'stat ' + self.pfn2path(pfn)
             print cmd
             status = self.__connection.execute(cmd)
         except Exception as e:
@@ -42,7 +42,7 @@ class Default(protocol.RSEProtocol):
             return False
         return True
 
-    def connect(self, credentials):
+    def connect(self):
         """
             Establishes the actual connection to the referred RSE.
 
@@ -51,8 +51,8 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied: if no connection could be established.
         """
         try:
-            credentials['host'] = self.rse['hostname']
-            self.__connection = pysftp.Connection(**credentials)
+            self.rse['credentials']['host'] = self.attributes['hostname']
+            self.__connection = pysftp.Connection(**self.rse['credentials'])
         except Exception as e:
             raise exception.RSEAccessDenied(e)
 
@@ -60,7 +60,7 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         self.__connection.close()
 
-    def get(self, path, dest):
+    def get(self, pfn, dest):
         """
             Provides access to files stored inside connected the RSE.
 
@@ -72,7 +72,7 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
         try:
-            self.__connection.get(path, dest)
+            self.__connection.get(self.pfn2path(pfn), dest)
         except IOError as e:
             try:  # To check if the error happend local or remote
                 with open(dest, 'wb'):
@@ -105,7 +105,7 @@ class Default(protocol.RSEProtocol):
         else:
             sf = source
         try:
-            self.__connection.put(sf, target)
+            self.__connection.put(sf, self.pfn2path(target))
         except IOError as e:
                 try:
                     self.__connection.execute('mkdir -p %s' % '/'.join(target.split('/')[0:-1]))
@@ -118,7 +118,7 @@ class Default(protocol.RSEProtocol):
             else:
                 raise exception.ServiceUnavailable(e)
 
-    def delete(self, path):
+    def delete(self, pfn):
         """
             Deletes a file from the connected RSE.
 
@@ -128,16 +128,16 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         status = ''
-        cmd = 'rm ' + path
+        cmd = 'rm ' + self.pfn2path(pfn)
         try:
             status = self.__connection.execute(cmd)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
         if len(status):
             if status[0].endswith('No such file or directory\n'):
-                raise exception.SourceNotFound(IOError({'errno': 2, 'file': path}))
+                raise exception.SourceNotFound(IOError({'errno': 2, 'file': pfn}))
 
-    def rename(self, path, new_path):
+    def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
 
             :param path: path to the current file on the storage
@@ -148,6 +148,8 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
+            path = self.pfn2path(pfn)
+            new_path = self.pfn2path(pfn)
             print 'sftp rename'
             print('mkdir -p %s' % '/'.join(new_path.split('/')[0:-1]))
             print('mv %s %s' % (path, new_path))
@@ -161,3 +163,9 @@ class Default(protocol.RSEProtocol):
                     raise exception.DestinationNotAccessible(e)
             else:
                 raise exception.ServiceUnavailable(e)
+
+    def pfn2path(self, pfn):
+        print 'pfn2path', pfn
+        tmp = self.parse_pfns(pfn).values()[0]
+        print 'path', '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
+        return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])

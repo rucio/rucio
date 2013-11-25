@@ -121,12 +121,12 @@ class TestReplicaClients:
             self.replica_client.add_replicas(rse='MOCK', files=files1)
 
         files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
-        self.replica_client.add_replicas(rse='MOCK3', files=files1 + files2)
+        self.replica_client.add_replicas(rse='MOCK3', files=files2)
 
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1])]
         assert_equal(len(replicas), 5)
 
-        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1],  schemes=['mock'])]
+        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['file'])]
         assert_equal(len(replicas), 5)
 
     def test_delete_replicas(self):

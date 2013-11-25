@@ -24,11 +24,11 @@ from rucio.rse.protocols import protocol
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the S3 protocol."""
 
-    def get_path(self, lfn, scope):
+    def __get_path(self, scope, name):
         """ Transforms the physical file name into the local URI in the referred RSE.
             Suitable for sites implementoing the RUCIO naming convention.
 
-            :param lfn: filename
+            :param name: filename
             :param scope: scope
 
             :returns: RSE specific URI of the physical file
@@ -39,20 +39,23 @@ class Default(protocol.RSEProtocol):
         # IMPORTANT: The prefix defined in the RSE properties are ignored due to system constraints
         bucket = scope.split('.')[0].upper()
         scope = scope.split('.')[1]
-        return '%s/%s/%s' % (bucket, scope, lfn)
+        return '%s/%s/%s' % (bucket, scope, name)
 
-    def path2pfn(self, path):
-        """
-            Retruns a fully qualified PFN for the file referred by path.
+    def lfns2pfns(self, lfns):
+        """ Retruns a fully qualified PFN for the file referred by path.
 
             :param path: The path to the file.
 
             :returns: Fully qualified PFN.
-
         """
-        return ''.join([self.rse['scheme'], '://', path])
+        pfns = {}
+        lfns = [lfns] if type(lfns) == dict else lfns
+        for lfn in lfns:
+            scope, name = lfn['scope'], lfn['name']
+            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.__get_path(scope=scope, name=name)])
+        return pfns
 
-    def exists(self, path):
+    def exists(self, pfn):
         """
             Checks if the requested file is known by the referred RSE.
 
@@ -63,7 +66,8 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
-            self.__s3.object_info(S3Uri('://'.join(['s3', path])))
+            print '===================== PFN ========', pfn
+            self.__s3.object_info(S3Uri(pfn))
             return True
         except S3Error as e:
             if e.status == 404:
@@ -71,7 +75,7 @@ class Default(protocol.RSEProtocol):
             else:
                 raise exception.ServiceUnavailable(e)
 
-    def connect(self, credentials):
+    def connect(self):
         """
             Establishes the actual connection to the referred RSE.
 
@@ -81,8 +85,8 @@ class Default(protocol.RSEProtocol):
         """
         try:
             cfg = Config()
-            for k in credentials:
-                cfg.update_option(k.encode('utf-8'), credentials[k].encode('utf-8'))
+            for k in self.rse['credentials']:
+                cfg.update_option(k.encode('utf-8'), self.rse['credentials'][k].encode('utf-8'))
             self.__s3 = S3(cfg)
         except Exception as e:
             raise exception.RSEAccessDenied(e)
@@ -91,7 +95,7 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         pass
 
-    def get(self, path, dest):
+    def get(self, pfn, dest):
         """
             Provides access to files stored inside connected the RSE.
 
@@ -105,7 +109,7 @@ class Default(protocol.RSEProtocol):
         tf = None
         try:
             tf = open(dest, 'wb')
-            self.__s3.object_get(S3Uri('://'.join(['s3', path])), tf)
+            self.__s3.object_get(S3Uri(pfn), tf)
             tf.close()
         except S3Error as e:
             tf.close()
@@ -134,7 +138,7 @@ class Default(protocol.RSEProtocol):
         """
         full_name = source_dir + '/' + source if source_dir else source
         try:
-            self.__s3.object_put(full_name, S3Uri('://'.join(['s3', target])))
+            self.__s3.object_put(full_name, S3Uri(target))
         except S3Error as e:
             if e.info['Code'] in ['NoSuchBucket', "AccessDenied"]:
                 raise exception.DestinationNotAccessible(e)
@@ -143,7 +147,7 @@ class Default(protocol.RSEProtocol):
         except InvalidFileError as e:
                 raise exception.SourceNotFound(e)
 
-    def delete(self, path):
+    def delete(self, pfn):
         """
             Deletes a file from the connected RSE.
 
@@ -153,14 +157,14 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
-            self.__s3.object_delete(S3Uri('://'.join(['s3', path])))
+            self.__s3.object_delete(S3Uri(pfn))
         except S3Error as e:
             if e.status in [404, 403]:
                 raise exception.SourceNotFound(e)
             else:
                 raise exception.ServiceUnavailable(e)
 
-    def rename(self, path, new_path):
+    def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
 
             :param path: path to the current file on the storage
@@ -171,17 +175,17 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
-            self.__s3.object_move(S3Uri('://'.join(['s3', path])), S3Uri('://'.join(['s3', new_path])))
+            self.__s3.object_move(S3Uri(pfn), S3Uri(new_pfn))
         except S3Error as e:
             if e.status in [404, 403]:
-                if self.exists(path):
+                if self.exists(pfn):
                     raise exception.SourceNotFound(e)
                 else:
                     raise exception.DestinationNotAccessible(e)
             else:
                 raise exception.ServiceUnavailable(e)
 
-    def split_pfn(self, pfn):
+    def parse_pfns(self, pfns):
         """
             Splits the given PFN into the parts known by the protocol. During parsing the PFN is also checked for
             validity on the given RSE with the given protocol.
@@ -193,12 +197,25 @@ class Default(protocol.RSEProtocol):
             :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
         # s3 URI: s3://[Bucket]/[path]/[name]; Bucket/path = scope/user
-        parsed = urlparse(pfn)
         ret = dict()
-        ret['scheme'] = parsed.scheme
-        ret['hostname'] = None
-        ret['port'] = 0
-        ret['path'] = ''.join([parsed.netloc, parsed.path])
-        ret['name'] = ret['path'].split('/')[-1]
-        ret['path'] = ret['path'].partition(ret['name'])[0]
+        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+
+        for pfn in pfns:
+            parsed = urlparse(pfn)
+            scheme = parsed.scheme
+            hostname = None
+            port = 0
+            path = ''.join([parsed.netloc, parsed.path])
+
+            # Spliting parsed.path into prefix, path, filename
+            prefix = self.attributes['prefix']
+            path = path.partition(self.attributes['prefix'])[2]
+            name = path.split('/')[-1]
+            path = path.partition(name)[0]
+            ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
+
         return ret
+
+    def pfn2path(self, pfn):
+        tmp = self.parse_pfn(pfn)
+        return '/'.join([tmp['path'], tmp['name']])

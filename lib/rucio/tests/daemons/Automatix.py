@@ -29,7 +29,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get, config_get_int
 from rucio.common.utils import adler32
-from rucio.rse import rsemanager
+from rucio.rse import rsemanager as rsemgr
 
 from rucio.common.utils import execute, generate_uuid
 
@@ -62,7 +62,6 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
         client = RSEClient()
         ruleclient = RuleClient()
 
-    rsemgr = rsemanager.RSEMgr()
     list_files = []
     lfns = []
     logger.debug('Looping over the files')
@@ -74,12 +73,13 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
         list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum, 'meta': {'guid': generate_uuid()}})
         lfns.append({'name': filename, 'scope': scope})
 
+    rse_info = rsemgr.get_rse_info(rse)
     if dsn:
         logger.debug('No dsn is specify')
         try:
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
-            rsemgr.upload(rse, lfns=lfns, source_dir=source_dir)
+            rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
             logger.info('Upload operation for %s done' % filename)
         except Exception, e:
             logger.error('Failed to upload %(files)s' % locals())
@@ -88,7 +88,7 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
         try:
             client.add_replicas(files=list_files, rse=rse)
             ruleclient.add_replication_rule(list_files, copies=1, rse_expression=rse)
-            rsemgr.upload(rse, lfns=lfns)
+            rsemgr.upload(rse_info, lfns=lfns)
             logger.info('Upload operation for %s done' % filename)
         except Exception, e:
             logger.error('Failed to upload %(files)s' % locals())

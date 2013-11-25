@@ -16,12 +16,12 @@ from rucio.rse.protocols import protocol
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the local filesystem."""
 
-    def __init__(self, props):
+    def __init__(self, protocol_attr, rse_settings):
         """ Initializes the object with information about the referred RSE.
 
             :param props Properties derived from the RSE Repository
         """
-        self.rse = props
+        super(Default, self).__init__(protocol_attr, rse_settings)
         self.files = []
 
     def path2pfn(self, path):
@@ -46,7 +46,7 @@ class Default(protocol.RSEProtocol):
         """
         return pfn in self.files
 
-    def connect(self, credentials):
+    def connect(self):
         """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provide all necessary information to establish a connection
@@ -63,7 +63,7 @@ class Default(protocol.RSEProtocol):
 
     def close(self):
         """ Closes the connection to RSE."""
-        raise NotImplemented
+        pass
 
     def get(self, pfn, dest):
         """ Provides access to files stored inside connected the RSE.
