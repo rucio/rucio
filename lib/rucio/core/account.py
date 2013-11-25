@@ -120,7 +120,6 @@ def list_accounts(session=None):
 
     returns: a list of all account names.
     """
-
     query = session.query(models.Account).filter_by(status=AccountStatus.ACTIVE)
     for row in query.order_by(models.Account.account).yield_per(25):
         yield {'account': row.account, 'type': row.account_type}
@@ -137,7 +136,6 @@ def list_identities(account, session=None):
     identity_list = list()
 
     query = session.query(models.Account).filter_by(account=account).filter_by(deleted=False)
-
     try:
         query.one()
     except exc.NoResultFound:
