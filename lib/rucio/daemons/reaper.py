@@ -18,11 +18,13 @@ import threading
 import time
 import traceback
 
-from rucio.core import monitor, rse as rse_core
-from rucio.core.monitor import record_timer_block
+
+from rucio.core import monitor
+from rucio.core import rse as rse_core
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse_counter import get_counter
 from rucio.db.constants import ReplicaState
+from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
 
 
@@ -94,14 +96,10 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
     logging.info('Starting reaper')
 
-    # in waiting...
-    # rsemgr = RSEMgr(server_mode=True, server_mode_with_credentials=True)
-
-    logging.info('Reaper started')
-
     while not graceful_stop.is_set():
         for rse in rses:
-            logging.info('Running on RSE %s' % (rse['rse']))
+            rse_info = rsemgr.get_rse_info(rse.rse)
+            logging.info('Running on RSE %s' % (rse_info['rse']))
             try:
                 s = time.time()
                 if not greedy:
@@ -109,7 +107,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                     logging.info('Space usage for RSE %(rse)s: max_being_deleted_files, needed_free_space, used, free' % rse, max_being_deleted_files, needed_free_space, used, free)
                     replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files)
                 else:
-                    with record_timer_block('reaper.list_unlocked_replicas'):
+                    with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                         replicas = list_unlocked_replicas(rse=rse['rse'], limit=10000)
                 logging.debug('list_unlocked_replicas %s %s %s' % (rse['rse'], time.time() - s, len(replicas)))
 
@@ -128,7 +126,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         # rsemgr.delete(rse_id=rse['rse'], lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
 
                         s = time.time()
-                        with record_timer_block('reaper.delete_replicas'):
+                        with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse=rse['rse'], files=files)
                         logging.debug('delete_replicas %s %s' % (len(files), time.time() - s))
                         monitor.record_counter(counters='reaper.deletion.done',  delta=len(files))
@@ -162,16 +160,16 @@ def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[]):
         rses = rse_core.list_rses()
 
     threads = list()
-    nb_rses_per_worker = len(rses)/total_workers
+    nb_rses_per_worker = len(rses) / total_workers
     r = []
     for i in xrange(0, len(rses), nb_rses_per_worker):
-        kwargs = {'worker_number': (i*nb_rses_per_worker)+1,
+        kwargs = {'worker_number': (i * nb_rses_per_worker) + 1,
                   'total_workers': total_workers,
                   'once': once,
                   'chunk_size': chunk_size,
                   'greedy': greedy,
-                  'rses': rses[i:i+nb_rses_per_worker]}
-        r.extend(rses[i:i+nb_rses_per_worker])
+                  'rses': rses[i:i + nb_rses_per_worker]}
+        r.extend(rses[i:i + nb_rses_per_worker])
         threads.append(threading.Thread(target=reaper, kwargs=kwargs))
 
     [t.start() for t in threads]

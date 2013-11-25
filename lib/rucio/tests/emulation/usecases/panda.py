@@ -15,6 +15,7 @@ import pickle
 import sys
 import threading
 import time
+import traceback
 
 from Queue import Queue
 from random import choice, gauss, sample, random, randint
@@ -92,7 +93,7 @@ class UseCaseDefinition(UCEmulator):
                 print '== PanDA: Checking %s as input' % temp
                 try:
                     with monitor.record_timer_block('panda.list_replicas'):
-                        replicas = [f for f in client.list_replicas(scope=temp[0], name=temp[1])]
+                        replicas = [f for f in client.list_replicas([{'scope': temp[0], 'name': temp[1]}])]
                 except (DatabaseException, DataIdentifierNotFound, ConnectionError):
                     replicas = list()
                     pass
@@ -124,9 +125,9 @@ class UseCaseDefinition(UCEmulator):
                         cnt_rses[tmp_rse] = 0
                     cnt_rses[tmp_rse] += 1
             print '== PanDA: Replica distribution over RSEs: %s files -> %s' % (len(files), cnt_rses)
-            if not (task_type.startswith('user') or task_type.startswith('group')):  # User task is created
+            if not (task_type.startswith('user') or task_type.startswith('group')):
                 rse = sorted(cnt_rses, key=cnt_rses.get, reverse=True)[0]
-                for i in range(target_rses):
+                for i in range(len(target_rses)):
                     target_rses[i] = rse
 
             monitor.record_counter('panda.tasks.%s.input_files' % task_type, len(files))  # Reports the number of files in the intput dataset of the task type
@@ -169,6 +170,7 @@ class UseCaseDefinition(UCEmulator):
 
         meta['run_number'] = int(time.time() / (3600 * 24))
         meta['version'] = uuid()
+        meta['task_id'] = task_number
         # ----------------------------------- Create final output - dataset(s) ---------------------------------------
         final_dss = {}
         for out_ds in output['meta']:  # Create output containers(s)
@@ -317,15 +319,15 @@ class UseCaseDefinition(UCEmulator):
                 used_rses[computing_rse].append((id, temp_job_count))
 
                 if bulk:
-                    inserts_dis.append({'scope': 'Manure', 'name': dis_ds, 'lifetime': 172800,
+                    inserts_dis.append({'scope': 'panda', 'name': dis_ds, 'lifetime': 172800,
                                         'rules': [{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}],
                                         'dids': files_in_ds})  # Create DIS-Datasets
                 else:
                     with monitor.record_timer_block('panda.add_dataset'):
-                        client.add_dataset(scope='Manure', name=dis_ds, lifetime=172800,
+                        client.add_dataset(scope='panda', name=dis_ds, lifetime=172800,
                                            rules=[{'account': 'panda', 'copies': 1, 'rse_expression': computing_rse, 'grouping': 'DATASET'}])  # Create DIS-Datasets
                     with monitor.record_timer_block(['panda.add_files_to_dataset', ('panda.add_files_to_dataset.normalized', len(files_in_ds))]):
-                        client.add_files_to_dataset(scope='Manure', name=dis_ds, files=files_in_ds)  # Add files to DIS - dataset
+                        client.add_files_to_dataset(scope='panda', name=dis_ds, files=files_in_ds)  # Add files to DIS - dataset
                 monitor.record_counter('panda.tasks.%s.dis_datasets' % task_type, 1)  # Reports the creation of a dis dataset for the given task type
                 monitor.record_counter('panda.tasks.%s.dis_files' % task_type, len(files_in_ds))  # Reports the number of files in the dis - dataset
                 computing_rse = None
@@ -369,17 +371,20 @@ class UseCaseDefinition(UCEmulator):
         if create_sub_ds:
             for computing_rse in used_rses:
                 for temp in used_rses[computing_rse]:
-                    id = temp[0] if temp[0] is not None else uuid()
-                    subs = ['%s_SUB_%s_%s' % (input['ds_name'], id, fin_ds) for fin_ds in final_dss]
-                    jobs.append(('Manure', subs, int(temp[1]), computing_rse))  # temp[1] = number of jobs writing to SUB ds
+                    id = uuid()
+                    subs = ['SUB_%s_%s' % (id, fin_ds) for fin_ds in final_dss]
+                    jobs.append(('panda', subs, int(temp[1]), computing_rse))  # temp[1] = number of jobs writing to SUB ds
                     for ds in subs:
+                        if len(ds) > 255:
+                            print '!!WARNING!! SUB %s shortened to %s' % (ds, ds[:254])
+                            ds = ds[:254]
                         if bulk:
-                            inserts_sub.append({'scope': 'Manure', 'name': ds, 'lifetime': 172800, 'dids': [],
+                            inserts_sub.append({'scope': 'panda', 'name': ds, 'lifetime': 172800, 'dids': [],
                                                 'rules': [{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]),
                                                 'grouping': 'DATASET'}]})  # Create SUB-Datasets
                         else:
                             with monitor.record_timer_block('panda.add_dataset'):
-                                client.add_dataset(scope='Manure', name=ds, lifetime=172800,
+                                client.add_dataset(scope='panda', name=ds, lifetime=172800,
                                                    rules=[{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]), 'grouping': 'DATASET'}])  # Create SUB-Datasets
                         monitor.record_counter('panda.tasks.%s.sub_datasets' % task_type, 1)  # Reports the creation of a sub dataset for the given task type
         else:
@@ -550,6 +555,7 @@ class UseCaseDefinition(UCEmulator):
                 ret['threads'] = None
             else:
                 ret['threads'] = int(ctx.threads)
+
             return ret
         except Exception, e:
             print e
@@ -599,7 +605,9 @@ class UseCaseDefinition(UCEmulator):
         while not ts_res.empty():
             ret = ts_res.get()
             if ret[0] is False:
-                print ret[1][2]
+                print '!! ERROR !! --' * 5
+                print traceback.format_exc(ret[1][2])
+                print '!! ERROR !! --' * 5
                 raise ret[1][0]
         targets = []
         replicas = 0
@@ -613,19 +621,21 @@ class UseCaseDefinition(UCEmulator):
             client = Client(account='panda')
         count = 0
         attachments = list()
+        i = 0
         for tds in job['targets']:
             # Create output files of the job
             files = list()
-            out_name = '%s.%s._%s.pool.root.1' % (job['task_type_id'], job['task_number'], job['job_numner'])
-            log_name = 'log.%s.%s._%s.job.log.tgz.1' % (job['task_number'], job['job_numner'])
+            out_name = '%s.%s._%s.pool.root.%s' % (job['task_type_id'], job['task_number'], job['job_number'], i)
+            log_name = 'log.%s.%s._%s.job.log.tgz.%s' % (job['task_type_id'], job['task_number'], job['job_number'], i)
             if not job['log_ds']:  # Add log file for each datatype if task doesn't have LOG dataset
-                files.append({'scope': job['scope'], 'name': out_name, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
-                files.append({'scope': job['scope'], 'name': log_name, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+                files.append({'scope': job['scope'], 'name': out_name, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid()), 'task_id': int(job['task_number']), 'panda_id': int(job['job_number'])}})
+                files.append({'scope': job['scope'], 'name': log_name, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid()), 'task_id': int(job['task_number']), 'panda_id': int(job['job_number'])}})
             else:
-                fn = out_name if tds.split('.')[-2] != 'log' else log_name
-                files.append({'scope': job['scope'], 'name': fn, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid())}})
+                fn = out_name if tds.split('.')[-1] != 'log' else log_name
+                files.append({'scope': job['scope'], 'name': fn, 'bytes': 12345L, 'adler32': '0cc737eb', 'meta': {'guid': str(uuid()), 'task_id': int(job['task_number']), 'panda_id': int(job['job_number'])}})
             attachments.append({'scope': job['scope'], 'name': tds, 'rse': job['computing_rse'], 'dids': files})
             count += len(files)
+            i += 1
 
         success = False
         retry = 1
@@ -647,6 +657,9 @@ class UseCaseDefinition(UCEmulator):
                 print '== PanDA Warning: Failed %s times when adding files to datasets: %s' % (retry, attachments)
                 time.sleep(randint(1, 2))
             except:
+                print '=+=+=' * 10
+                print attachments
+                print '=+=+=' * 10
                 e = sys.exc_info()
                 break
             finally:
@@ -659,7 +672,7 @@ class UseCaseDefinition(UCEmulator):
             print '- %s:%s' % (job['scope'], tds)
             print '-', files
             print '-', job['log_ds']
-            print '-', e
+            print '-', traceback.format_exc(e)
             print '-', count
             print '-' * 80
             if ret:
@@ -896,7 +909,7 @@ class UseCaseDefinition(UCEmulator):
                         e = sys.exc_info()
                         print '-' * 80
                         print '- Failed listing files in TID: %s:%s' % (task['scope'], target)
-                        print '-', e
+                        print '-', traceback.format_exc(e)
                         print '-' * 80
                         raise
                 retry = 1
@@ -1033,7 +1046,9 @@ class UseCaseDefinition(UCEmulator):
         ctx.users = list()
         ctx.groups = list()
         for a in client.list_accounts():
-            if a['type'] == 'USER' and a['account'].startswith('user'):
+            if a['type'] == 'USER' and not a['account'].startswith('user'):
+                if a['account'].startswith('jdoe') or a['account'] in ['tier0', 'tzero', 'panda', 'root']:
+                    continue  # Prevents 'value too large' error for scope names
                 ctx.users.append(a['account'])
             if a['type'] == 'GROUP':
                 ctx.groups.append(a['account'])
@@ -1101,9 +1116,9 @@ class UseCaseDefinition(UCEmulator):
                         f.seek(randint(0, ctx.input_files[dist_file] - 1) * 287)
                         ds = f.readline().split()
                 success = True
-            except Exception, e:
+            except Exception:  # , e:
                 ctx.input_files[dist_file] = False  # Remeber that this file doen't exist
-                print '!! ERROR !! Can read dataset name from distribution file: %s' % e
+                # print '!! ERROR !! Can read dataset name from distribution file: %s' % e
                 if retry > 5:
                     return 0
         return ds

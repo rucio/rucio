@@ -20,35 +20,25 @@ from rucio.rse.protocols import protocol
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the local filesystem."""
 
-    def path2pfn(self, path):
-        """
-            Retruns a fully qualified PFN for the file referred by path.
-
-            :param path: The path to the file.
-
-            :returns: Fully qualified PFN.
-
-        """
-        return ''.join([self.rse['scheme'], '://', path])
-
-    def exists(self, path):
+    def exists(self, pfn):
         """
             Checks if the requested file is known by the referred RSE.
 
-            :param path: Physical file name
+            :param pfn: Physical file name
 
             :returns: True if the file exists, False if it doesn't
 
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         status = ''
+        print 'posix: pfn', pfn
         try:
-            status = os.path.exists(path)
+            status = os.path.exists(self.pfn2path(pfn))
         except Exception as e:
             raise exception.ServiceUnavailable(e)
         return status
 
-    def connect(self, credentials):
+    def connect(self):
         """
             Establishes the actual connection to the referred RSE.
 
@@ -62,10 +52,10 @@ class Default(protocol.RSEProtocol):
         """ Closes the connection to RSE."""
         pass
 
-    def get(self, path, dest):
+    def get(self, pfn, dest):
         """ Provides access to files stored inside connected the RSE.
 
-            :param path: Physical file name of requested file
+            :param pfn: Physical file name of requested file
             :param dest: Name and path of the files when stored at the client
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
@@ -73,7 +63,7 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
         try:
-            shutil.copy(path, dest)
+            shutil.copy(self.pfn2path(pfn), dest)
         except IOError as e:
             try:  # To check if the error happend local or remote
                 with open(dest, 'wb'):
@@ -101,6 +91,8 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+        target = self.pfn2path(target)
+
         if source_dir:
             sf = source_dir + '/' + source
         else:
@@ -118,25 +110,25 @@ class Default(protocol.RSEProtocol):
                 for p in self.rse['prefix'].split('/'):
                     path += p + '/'
                     os.mkdir(path)
-                shutil.copy(sf, self.get_path(target))
+                shutil.copy(sf, self.pfn2path(target))
             else:
                 raise exception.DestinationNotAccessible(e)
 
-    def delete(self, path):
+    def delete(self, pfn):
         """ Deletes a file from the connected RSE.
 
-            :param path: path to the to be deleted file
+            :param pfn: pfn to the to be deleted file
 
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
-            os.remove(path)
+            os.remove(self.pfn2path(pfn))
         except OSError as e:
             if e.errno == 2:
                 raise exception.SourceNotFound(e)
 
-    def rename(self, path, new_path):
+    def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
 
             :param path: path to the current file on the storage
@@ -146,15 +138,21 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+        path = self.pfn2path(pfn)
+        new_path = self.pfn2path(new_pfn)
         try:
             if not os.path.exists(os.path.dirname(new_path)):
                 os.makedirs(os.path.dirname(new_path))
             os.rename(path, new_path)
         except IOError as e:
             if e.errno == 2:
-                if self.exists(self.get_path(path)):
+                if self.exists(self.pfn2path(path)):
                     raise exception.SourceNotFound(e)
                 else:
                     raise exception.DestinationNotAccessible(e)
             else:
                 raise exception.ServiceUnavailable(e)
+
+    def pfn2path(self, pfn):
+        tmp = self.parse_pfns(pfn).values()[0]
+        return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])

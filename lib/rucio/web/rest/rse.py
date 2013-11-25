@@ -133,10 +133,7 @@ class RSE(RucioController):
         header('Content-Type', 'application/json')
         try:
             rse_prop = get_rse(rse=rse)
-            ret = dict()
-            for attr in ['id', 'rse', 'type', 'deterministic', 'volatile']:
-                ret[attr] = getattr(rse_prop, attr)
-            return render_json(**ret)
+            return render_json(**rse_prop)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:

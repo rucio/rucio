@@ -18,7 +18,7 @@ from uuid import uuid4 as uuid
 from nose.tools import raises
 
 from rucio.common import exception
-from rucio.rse import rsemanager
+from rucio.rse import rsemanager as mgr
 from rsemgr_api_test import MgrTestCases
 
 
@@ -39,7 +39,6 @@ class TestRsePOSIX():
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSEMgr()
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
         prefix = data['MOCK-POSIX']['protocols']['supported']['file']['prefix']
@@ -50,7 +49,9 @@ class TestRsePOSIX():
         os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = '%s/data.raw' % prefix
         for f in MgrTestCases.files_remote:
-            path = storage.lfn2pfn('MOCK-POSIX', {'name': f, 'scope': 'user.%s' % cls.user}).partition('://')[2]
+            protocol = mgr.create_protocol(mgr.get_rse_info('MOCK-POSIX'), 'write')
+            pfn = mgr.lfns2pfns(mgr.get_rse_info('MOCK-POSIX'), {'name': f, 'scope': 'user.%s' % cls.user}).values()[0]
+            path = protocol.pfn2path(pfn)
             dirs = os.path.dirname(path)
             if not os.path.exists(dirs):
                 os.makedirs(dirs)
