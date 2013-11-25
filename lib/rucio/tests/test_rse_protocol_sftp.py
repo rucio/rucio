@@ -18,7 +18,7 @@ from nose.tools import raises
 from uuid import uuid4 as uuid
 
 from rucio.common import exception
-from rucio.rse import rsemanager
+from rucio.rse import rsemanager as mgr
 from rsemgr_api_test import MgrTestCases
 
 
@@ -32,7 +32,6 @@ class TestRseSFTP():
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
         cls.user = uuid()
-        storage = rsemanager.RSEMgr()
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
@@ -50,8 +49,9 @@ class TestRseSFTP():
         lxplus.execute('mkdir %s' % prefix)
         lxplus.execute('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
         cls.static_file = 'sftp://lxplus.cern.ch:22%sdata.raw' % prefix
+        protocol = mgr.create_protocol(mgr.get_rse_info('LXPLUS'), 'write')
         for f in MgrTestCases.files_remote:
-            tmp = storage.parse_pfn('LXPLUS', storage.lfn2pfn('LXPLUS', {'name': f, 'scope': 'user.%s' % cls.user}))
+            tmp = protocol.parse_pfns(protocol.lfns2pfns({'name': f, 'scope': 'user.%s' % cls.user}).values()[0]).values()[0]
             for cmd in ['mkdir -p %s' % ''.join([tmp['prefix'], tmp['path']]), 'ln -s %sdata.raw %s' % (prefix, ''.join([tmp['prefix'], tmp['path'], tmp['name']]))]:
                 lxplus.execute(cmd)
         lxplus.close()

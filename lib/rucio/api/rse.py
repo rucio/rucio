@@ -46,7 +46,7 @@ def get_rse(rse):
 
     :raises RSENotFound: if the referred RSE was ot found in the database
     """
-    return rse_module.get_rse(rse)
+    return rse_module.get_rse_protocols(rse)
 
 
 def del_rse(rse, issuer):

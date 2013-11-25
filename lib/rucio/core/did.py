@@ -11,6 +11,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 from datetime import datetime, timedelta
 from hashlib import md5
@@ -48,12 +49,12 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
-    if worker_number and total_workers and total_workers-1 > 0:
+    if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
             bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
         elif session.bind.dialect.name == 'sqlite':

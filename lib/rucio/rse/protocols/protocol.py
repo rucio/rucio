@@ -15,41 +15,142 @@ from exceptions import NotImplementedError
 from urlparse import urlparse
 
 from rucio.common import exception
+from rucio.rse import rsemanager
+
+if rsemanager.CLIENT_MODE:
+    from rucio.client.didclient import DIDClient
+
+if rsemanager.SERVER_MODE:
+    from rucio.core import rse
 
 
 class RSEProtocol(object):
     """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the amjority of the protocols."""
 
-    def __init__(self, props):
+    def __init__(self, protocol_attr, rse_settings):
         """ Initializes the object with information about the referred RSE.
 
-            :param props: Properties derived from the RSE Repository
+            :param props: Properties of the reuested protocol
         """
-        self.rse = props
+        self.attributes = protocol_attr
+        self.rse = rse_settings
+        if not self.rse['deterministic']:
+            if rsemanager.CLIENT_MODE:
+                setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
+            if rsemanager.SERVER_MODE:
+                setattr(self, '__get_path', self.__get_path_nondeterministic_server)
 
-    def get_path(self, lfn, scope):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-            Suitable for sites implementoing the RUCIO naming convention.
-
-            :param lfn: filename
-            :param scope: scope
-
-            :returns: RSE specific URI of the physical file
-        """
-        hstr = hashlib.md5('%s:%s' % (scope, lfn)).hexdigest()
-        correctedscope = "/".join(scope.split('.'))
-        return '%s%s/%s/%s/%s' % (self.rse['prefix'], correctedscope, hstr[0:2], hstr[2:4], lfn)
-
-    def path2pfn(self, path):
+    def lfns2pfns(self, lfns):
         """
             Retruns a fully qualified PFN for the file referred by path.
 
             :param path: The path to the file.
 
             :returns: Fully qualified PFN.
-
         """
-        return ''.join([self.rse['scheme'], '://', self.rse['hostname'], ':', str(self.rse['port']), path])
+        pfns = {}
+        prefix = self.attributes['prefix']
+
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        lfns = [lfns] if type(lfns) == dict else lfns
+        for lfn in lfns:
+            scope, name = lfn['scope'], lfn['name']
+            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self.__get_path(scope=scope, name=name)])
+        return pfns
+
+    def __lfns2pfns_client(self, lfns):
+        """ Provides the path of a replica for non-detemernisic sites. Will be assigned to get path by the __init__ method if neccessary.
+
+            :param scope: list of DIDs
+
+            :returns: dict with scope:name as keys and PFN as value (in case of errors the Rucio exception si assigned to the key)
+        """
+        client = DIDClient()
+        pfns = {}
+
+        lfns = [lfns] if type(lfns) == dict else lfns
+        for lfn in lfns:
+            scope = lfn['scope']
+            name = lfn['name']
+            replicas = [r for r in client.list_replicas(scope=scope, name=name, scheme=self.attributes['scheme'])]  # scheme is used to narrow down the response message.
+            if len(replicas) > 1:
+                pfns['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('This operation can only be performed for files.')
+            if not len(replicas):
+                pfns['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('File not found.')
+            pfns['%s:%s' % (scope, name)] = replicas[0]['rses'][self.rse['rse']][0] if (self.rse['rse'] in replicas[0]['rses'].keys()) else exception.RSEOperationNotSupported('Replica not found on given RSE.')
+        return pfns
+
+    def __get_path(self, scope, name):
+        """ Transforms the logical file name into a PFN.
+            Suitable for sites implementing the RUCIO naming convention.
+
+            :param lfn: filename
+            :param scope: scope
+
+            :returns: RSE specific URI of the physical file
+        """
+        hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
+        correctedscope = "/".join(scope.split('.'))
+        return '%s/%s/%s/%s' % (correctedscope, hstr[0:2], hstr[2:4], name)
+
+    def __get_path_nondeterministic_server(self, scope, name):
+        """ Provides the path of a replica for non-detemernisic sites. Will be assigned to get path by the __init__ method if neccessary. """
+        path = getattr(rse.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id']), 'path')
+        if path.startswith('/'):
+            path = path[1:]
+        if path.endswith('/'):
+            path = path[:-1]
+        return path
+
+    def parse_pfns(self, pfns):
+        """
+            Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supportes the given PFNs.
+
+            :param pfns: a list of a fully qualified PFNs
+
+            :returns: dic with PFN as key and a dict with path and name as value
+
+            :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
+        """
+        ret = dict()
+        pfns = [pfns] if ((type(pfns) == str) or (type(pfns) == unicode)) else pfns
+
+        for pfn in pfns:
+            parsed = urlparse(pfn)
+            scheme = parsed.scheme
+            hostname = parsed.netloc.partition(':')[0]
+            port = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
+            path = parsed.path
+
+            # Protect against 'lazy' defined prefixes for RSEs in the repository
+            if not self.attributes['prefix'].startswith('/'):
+                self.attributes['prefix'] = '/' + self.attributes['prefix']
+            if not self.attributes['prefix'].endswith('/'):
+                self.attributes['prefix'] += '/'
+
+            if self.attributes['hostname'] != hostname:
+                if self.attributes['hostname'] != 'localhost':  # In the database empty hostnames are replaced with localhost but for some URIs (e.g. file) a hostname is not included
+                    raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (hostname, self.attributes['hostname']))
+
+            if self.attributes['port'] != port:
+                raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (port, self.attributes['port']))
+
+            if not path.startswith(self.attributes['prefix']):
+                raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
+                                                                                                              self.attributes['prefix']))  # len(...)-1 due to the leading '/
+
+            # Spliting parsed.path into prefix, path, filename
+            prefix = self.attributes['prefix']
+            path = path.partition(self.attributes['prefix'])[2]
+            name = path.split('/')[-1]
+            path = path.partition(name)[0]
+            ret[pfn] = {'path': path, 'name': name, 'scheme': scheme, 'prefix': prefix, 'port': port, 'hostname': hostname, }
+
+        return ret
 
     def exists(self, path):
         """
@@ -126,53 +227,3 @@ class RSEProtocol(object):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplementedError
-
-    def split_pfn(self, pfn):
-        """
-            Splits the given PFN into the parts known by the protocol. During parsing the PFN is also checked for
-            validity on the given RSE with the given protocol.
-
-            As this method is strongly connected to the protocol itself it is very likely that it will be overwritten
-            in the specific protocol classes.
-
-            The default implementation parses a PFN for: scheme, hostname, port, prefix, path, filename and checks if the
-            derived data matches with data provided in the RSE repository for this RSE/protocol.
-
-            :param pfn: a fully qualified PFN
-
-            :returns: a dict containing all known parts of the PFN for the protocol e.g. scheme, hostname, port, prefix, path, filename
-
-            :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
-        """
-        parsed = urlparse(pfn)
-        ret = dict()
-        ret['scheme'] = parsed.scheme
-        ret['hostname'] = parsed.netloc.partition(':')[0]
-        ret['port'] = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
-        ret['path'] = parsed.path
-
-        # Protect against 'lazy' defined prefixes for RSEs in the repository
-        self.rse['prefix'] = '' if self.rse['prefix'] is None else self.rse['prefix']
-        if not self.rse['prefix'].startswith('/'):
-            self.rse['prefix'] = '/' + self.rse['prefix']
-        if not self.rse['prefix'].endswith('/'):
-            self.rse['prefix'] += '/'
-
-        if self.rse['hostname'] != ret['hostname']:
-            if self.rse['hostname'] != 'localhost':  # In the database empty hostnames are replaced with localhost but for some URIs (e.g. file) a hostname is not included
-                raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (ret['hostname'], self.rse['hostname']))
-
-        if self.rse['port'] != ret['port']:
-            raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (ret['port'], self.rse['port']))
-
-        if not ret['path'].startswith(self.rse['prefix']):
-            raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(ret['path'].split('/')[0:len(self.rse['prefix'].split('/')) - 1]),
-                                                                                                          self.rse['prefix']))  # len(...)-1 due to the leading '/
-
-        # Spliting parsed.path into prefix, path, filename
-        ret['prefix'] = self.rse['prefix']
-        ret['path'] = ret['path'].partition(self.rse['prefix'])[2]
-        ret['name'] = ret['path'].split('/')[-1]
-        ret['path'] = ret['path'].partition(ret['name'])[0]
-
-        return ret

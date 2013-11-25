@@ -25,7 +25,7 @@ from rucio.core import replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import RequestType, RequestState, ReplicaState
 from rucio.db.session import get_session
-from rucio.rse import rsemanager
+from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -44,7 +44,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
     logging.info('submitter starting')
 
-    rsemgr = rsemanager.RSEMgr(server_mode=True)
     session = get_session()
 
     logging.info('submitter started')
@@ -56,7 +55,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
             ts = time.time()
             reqs = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.QUEUED, limit=100, process=process, total_processes=total_processes, thread=thread, total_threads=total_threads, session=session)
 
-            record_timer('daemons.conveyor.submitter.000-get_next', (time.time()-ts)*1000)
+            record_timer('daemons.conveyor.submitter.000-get_next', (time.time() - ts) * 1000)
 
             if reqs is None or reqs == []:
                 if once:
@@ -122,27 +121,27 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     for tmp in tmpsrc:
                         sources.append(tmp)
 
-                record_timer('daemons.conveyor.submitter.001-list_replicas', (time.time()-ts)*1000)
+                record_timer('daemons.conveyor.submitter.001-list_replicas', (time.time() - ts) * 1000)
 
                 ts = time.time()
-                rse_name = rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse']
-                record_timer('daemons.conveyor.submitter.002-get_rse', (time.time()-ts)*1000)
+                rse_info = rsemgr.get_rse_info(rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse'])
+                record_timer('daemons.conveyor.submitter.002-get_rse', (time.time() - ts) * 1000)
 
                 ts = time.time()
-                pfn = rsemgr.lfn2pfn(rse_id=rse_name, lfns=[{'scope': req['scope'], 'name': req['name']}], session=session)
-                record_timer('daemons.conveyor.submitter.003-lfn2pfn', (time.time()-ts)*1000)
+                pfn = rsemgr.lfn2pfn(rse_info, lfns=[{'scope': req['scope'], 'name': req['name']}])
+                record_timer('daemons.conveyor.submitter.003-lfn2pfn', (time.time() - ts) * 1000)
 
                 if isinstance(pfn, list):
                     destinations = [str(d) for d in pfn]
                 else:
                     destinations = [str(pfn)]
 
-                protocols = rsemgr.list_protocols(rse_id=rse_name, session=session)
+                protocols = rsemgr.select_protocol(rse_info, 'write', scheme='srm')  # QUESTION: I guess you use only srm here, as AFAIK it is the only one with an attribute named spacetoken, right?
                 dest_spacetoken = None
                 try:
                     dest_spacetoken = protocols[0]['extended_attributes']['space_token']
                 except:
-                    logging.warn('No spacetoken defined for %s' % rse_name)
+                    logging.warn('No spacetoken defined for %s' % rse_info['rse'])
 
                 ts = time.time()
                 request.submit_transfers(transfers=[{'request_id': req['request_id'],
@@ -159,15 +158,15 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                        'sources': sources,
                                                        'destinations': destinations},
                                          session=session)
-                record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time()-ts)*1000)
+                record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time() - ts) * 1000)
 
                 ts = time.time()
-                replica.update_replicas_states([{'rse': rse_name,
-                                               'scope': req['scope'],
-                                               'name': req['name'],
-                                               'state': ReplicaState.COPYING}],
-                                               session=session)
-                record_timer('daemons.conveyor.submitter.005-replica-set_copying', (time.time()-ts)*1000)
+                rse.update_replicas_states([{'rse': rse_info['rse'],
+                                             'scope': req['scope'],
+                                             'name': req['name'],
+                                             'state': ReplicaState.COPYING}],
+                                           session=session)
+                record_timer('daemons.conveyor.submitter.005-replica-set_copying', (time.time() - ts) * 1000)
 
                 logging.info('COPYING %s:%s from %s to %s' % (req['scope'], req['name'], sources, destinations))
                 record_counter('daemons.conveyor.submitter.submit_request')

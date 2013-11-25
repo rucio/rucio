@@ -439,76 +439,44 @@ def add_protocol(rse, parameter, session=None):
 
 
 @read_session
-def get_protocols(rse, protocol_domain='ALL', operation=None, default=False, scheme=None, session=None):
+def get_rse_protocols(rse, session=None):
     """
     Returns protocol information. Parameter comibantions are: (operation OR default) XOR scheme.
 
     :param rse: The name of the rse.
-    :param protocol_domain: The domain of the requested protocol. Supported are either 'lan', 'wan' or, 'ALL' (as default).
-    :param operation: The name of the requested operation (read, write, or delete).
-                      If None, all operations are queried.
-    :param default: Indicates if only the default operations should be returned.
-    :param scheme: The name of the requested scheme.
     :param session: The database session.
 
-    :returns: A list with details about each matching protocol.
+    :returns: A dict with RSE information and supported protocols
 
     :raises RSENotFound: If RSE is not found.
-    :raises RSEProtocolNotSupported: If no macthing scheme was found for the given RSE.
-    :raises RSEOperationNotSupported: If no scheme supported the requested operation for the given RSE.
-    :raises RSEProtocolDomainNotSupported: If an undefined domain was provided.
     """
 
-    if (operation is not None) and (operation not in utils.rse_supported_protocol_operations()):
-        raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (operation))
-    if (protocol_domain != 'ALL') and (protocol_domain not in utils.rse_supported_protocol_domains()):
-        raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % protocol_domain)
-
-    rid = get_rse(rse=rse, session=session).id
-    if not rid:
+    _rse = get_rse(rse=rse, session=session)
+    if not _rse:
         raise exception.RSENotFound('RSE \'%s\' not found')
-    query = None
-    terms = [models.RSEProtocols.rse_id == rid]
-    order_by = None
-    if scheme:
-        terms.append(models.RSEProtocols.scheme == scheme)
-    else:
-        if operation:
-            if default:
-                subterms = list()
-                if protocol_domain != 'ALL':
-                    subterms.append(getattr(models.RSEProtocols, ''.join([operation, '_', protocol_domain])) == 1)
-                else:  # If protocol domain = ALL the operation must be supported by each domain
-                    for domain in utils.rse_supported_protocol_domains():
-                        subterms.append(getattr(models.RSEProtocols, ''.join([operation, '_', domain])) == 1)
-                terms.append(sqlalchemy.and_(*subterms))
-            else:
-                subterms = list()
-                if protocol_domain != 'ALL':
-                    subterms.append(getattr(models.RSEProtocols, ''.join([operation, '_', protocol_domain])) > 0)
-                    order_by = getattr(models.RSEProtocols, ''.join([operation, '_', protocol_domain]))
-                else:  # If protocol domain = ALL the operation must be supported by each domain
-                    for domain in utils.rse_supported_protocol_domains():
-                        subterms.append(getattr(models.RSEProtocols, ''.join([operation, '_', domain])) > 0)
-                terms.append(sqlalchemy.and_(*subterms))
-        else:
-            if default:
-                subterms = list()
-                for op in utils.rse_supported_protocol_operations():
-                    if protocol_domain == 'ALL':
-                        for d in utils.rse_supported_protocol_domains():
-                            subterms.append(getattr(models.RSEProtocols, ''.join([op, '_', d])) == 1)
-                    else:
-                        subterms.append(getattr(models.RSEProtocols, ''.join([op, '_', protocol_domain])) == 1)
-                terms.append(sqlalchemy.and_(*subterms))
 
-    query = session.query(models.RSEProtocols).filter(*terms).order_by(order_by)
-    protocols = list()
+    info = {'id': _rse.id,
+            'rse': _rse.rse,
+            'domain': utils.rse_supported_protocol_domains(),
+            'protocols': list(),
+            'deterministic': _rse.deterministic,
+            'rse_type': _rse.rse_type,
+            'credentials': None,
+            'volatile': _rse.volatile
+            }
+
+    for op in utils.rse_supported_protocol_operations():
+        info['%s_protocol' % op] = 1  # 1 indicates the default protocol
+
+    query = None
+    terms = [models.RSEProtocols.rse_id == _rse.id]
+
+    query = session.query(models.RSEProtocols).filter(*terms)
     for row in query:
         p = {'hostname': row.hostname,
              'scheme': row.scheme,
              'port': row.port,
-             'prefix': row.prefix,
+             'prefix': row.prefix if row.prefix is not None else '',
              'impl': row.impl,
              'domains': {
                  'lan': {'read': row.read_lan,
@@ -528,13 +496,8 @@ def get_protocols(rse, protocol_domain='ALL', operation=None, default=False, sch
         except ValueError:
             pass  # If value is not a JSON string
 
-        protocols.append(p)
-    if not protocols:
-        if operation:
-            raise exception.RSEOperationNotSupported('RSE \'%s\' has no protocol defined for operation \'%s\'' % (rse, operation))
-        else:
-            raise exception.RSEProtocolNotSupported('RSE \'%s\' does not support protocol \'%s\'' % (rse, scheme))
-    return protocols
+        info['protocols'].append(p)
+    return info
 
 
 @transactional_session
