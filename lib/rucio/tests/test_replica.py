@@ -7,17 +7,21 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+
+import xmltodict
 
 from nose.tools import assert_equal, assert_raises
 
-
+from rucio.client.baseclient import BaseClient
+from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
+from rucio.common.config import config_get
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
-from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter, get_replica, list_replicas
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
+from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter, get_replica, list_replicas
 from rucio.db.constants import DIDType
-# from rucio.rse.rsemanager import RSEMgr
 
 
 class TestReplicaCore:
@@ -134,3 +138,39 @@ class TestReplicaClients:
 
         with assert_raises(DataIdentifierNotFound):
             self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])
+
+
+class TestReplicaMetalink:
+
+    def setup(self):
+        self.did_client = DIDClient()
+        self.replica_client = ReplicaClient()
+        self.base_client = BaseClient(account='root',
+                                      ca_cert=config_get('client', 'ca_cert'),
+                                      auth_type='x509')
+        self.token = self.base_client.headers['X-Rucio-Auth-Token']
+
+        self.fname = generate_uuid()
+
+        rses = ['LXPLUS', 'MOCK4']
+        dsn = generate_uuid()
+        self.files = [{'scope': 'mock', 'name': self.fname, 'bytes': 1L, 'adler32': '0cc737eb'}]
+
+        self.did_client.add_dataset(scope='mock', name=dsn)
+        self.did_client.add_files_to_dataset('mock', name=dsn, files=self.files, rse='MOCK')
+        for r in rses:
+            self.replica_client.add_replicas(r, self.files)
+
+    def test_list_replicas_metalink_3(self):
+        """ REPLICA (METALINK): List replicas as metalink version 3 """
+        ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
+                                                               metalink=3),
+                             xml_attribs=False)
+        assert_equal(3, len(ml['metalink']['files']['file']['resources']['url']))
+
+    def test_list_replicas_metalink_4(self):
+        """ REPLICA (METALINK): List replicas as metalink version 4 """
+        ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
+                                                               metalink=4),
+                             xml_attribs=False)
+        assert_equal(3, len(ml['metalink']['files']['file']['url']))

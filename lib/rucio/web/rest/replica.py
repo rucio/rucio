@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from json import dumps, loads
 from traceback import format_exc
@@ -26,7 +27,8 @@ urls = ('/?$', 'Replicas')
 class Replicas(RucioController):
 
     def GET(self):
-        """ list replicas.
+        """
+        List all replicas for data identifiers.
 
         HTTP Success:
             200 OK
@@ -35,9 +37,21 @@ class Replicas(RucioController):
             401 Unauthorized
             500 InternalError
 
-        :returns: A list containing all replicas.
+        :returns: A dictionary containing all replicas information.
+        :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
-        header('Content-Type', 'application/x-json-stream')
+
+        metalink = None
+        if ctx.env.get('HTTP_ACCEPT') is not None:
+            tmp = ctx.env.get('HTTP_ACCEPT').split(',')
+            # first check if client accepts metalink
+            if 'application/metalink+xml' in tmp:
+                metalink = 3
+            # but prefer metalink4 if the client has support for it
+            # (clients can put both in their ACCEPT header!)
+            if 'application/metalink4+xml' in tmp:
+                metalink = 4
+
         dids, schemes = [], None
         if ctx.query:
             params = loads(unquote(ctx.query[1:]))
@@ -45,9 +59,49 @@ class Replicas(RucioController):
                 dids = params['dids']
             if 'schemes' in params:
                 schemes = params['schemes']
+
         try:
-            for replica in list_replicas(dids=dids, schemes=schemes):
-                yield dumps(replica) + '\n'
+            # first, set the appropriate content type, and stream the header
+            if metalink is None:
+                header('Content-Type', 'application/x-json-stream')
+            elif metalink == 3:
+                header('Content-Type', 'application/metalink+xml')
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink version="3.0" xmlns="http://www.metalinker.org/">\n<files>\n'
+            elif metalink == 4:
+                header('Content-Type', 'application/metalink4+xml')
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n<files>\n'
+
+            # then, stream the replica information
+            for rfile in list_replicas(dids=dids, schemes=schemes):
+                if metalink is None:
+                    yield dumps(rfile) + '\n'
+                elif metalink == 3:
+                    idx = 0
+                    yield ' <file name="' + rfile['name'] + '">\n  <resources>\n'
+                    for rse in rfile['rses']:
+                        for replica in rfile['rses'][rse]:
+                            yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
+                            idx += 1
+                    yield '  </resources>\n </file>\n'
+                elif metalink == 4:
+                    yield ' <file name="' + rfile['name'] + '">\n'
+                    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                    if rfile['adler32'] is not None:
+                        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                    if rfile['md5'] is not None:
+                        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+                    idx = 0
+                    for rse in rfile['rses']:
+                        for replica in rfile['rses'][rse]:
+                            yield '   <url location="' + rse + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                            idx += 1
+                    yield ' </file>\n'
+
+            # don't forget to send the metalink footer
+            if metalink is not None:
+                yield '</files>\n</metalink>\n'
+
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except RucioException, e:
@@ -71,7 +125,6 @@ class Replicas(RucioController):
         json_data = data()
         try:
             parameters = parse_response(json_data)
-            print parameters
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -105,7 +158,6 @@ class Replicas(RucioController):
         json_data = data()
         try:
             parameters = parse_response(json_data)
-            print parameters
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 

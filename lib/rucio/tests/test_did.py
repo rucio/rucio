@@ -14,21 +14,22 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 from datetime import datetime, timedelta
+
 from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_true, assert_in, assert_not_in, raises
 
 from rucio.api import did
 from rucio.api import scope
-from rucio.db.constants import DIDType
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.core.did import list_dids, add_did, delete_dids
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     KeyNotFound, UnsupportedOperation, UnsupportedStatus, ScopeNotFound)
 from rucio.common.utils import generate_uuid
+from rucio.core.did import list_dids, add_did, delete_dids
+from rucio.db.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
 

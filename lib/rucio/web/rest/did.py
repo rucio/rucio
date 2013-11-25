@@ -408,6 +408,12 @@ class Attachment(RucioController):
         raise OK()
 
 
+class Replicas(RucioController):
+
+    def GET(self, scope, name):
+        raise DeprecationWarning('Use endpoint /replicas instead')
+
+
 class Files(RucioController):
 
     def GET(self, scope, name):
