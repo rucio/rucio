@@ -123,49 +123,6 @@ def list_rse_attributes(rse):
     return rse_module.list_rse_attributes(rse=rse)
 
 
-def add_replica(rse, scope, name, bytes, issuer, account=None, adler32=None, md5=None, pfn=None, dsn=None):
-    """
-    Add file replica.
-
-    :param rse: The RSE name.
-    :param scope: The scope name.
-    :param name: The data identifier name.
-    :param bytes: The size of the file.
-    :param issuer: The issuer account.
-    :param account: The account owner. If None, then issuer is selected.
-    :param md5: The md5 checksum.
-    :param adler32: The adler32 checksum.
-    :param pfn: the physical file name for non deterministic rse.
-    :param dsn: The dataset name.
-
-    :returns: True is successful, False otherwise
-    """
-
-    kwargs = {'rse': rse, 'scope': scope, 'name': name, 'bytes': bytes, 'md5': md5, 'adler32': adler32, 'dsn': dsn, 'account': account}
-    if not permission.has_permission(issuer=issuer, action='add_replica', kwargs=kwargs):
-        raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
-
-    rse_module.add_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, account=account or issuer, pfn=pfn, dsn=dsn)
-
-
-def add_replicas(rse, files, issuer):
-    """
-    Bulk Add file replicas.
-
-    :param rse: The RSE name.
-    :param files: The list of files.
-    :param issuer: The issuer account.
-    :param account: The account owner. If None, then issuer is selected.
-
-    :returns: True is successful, False otherwise
-    """
-
-    kwargs = {'rse': rse}
-    if not permission.has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs):
-        raise exception.AccessDenied('Account %s can not add file replica on %s' % (issuer, rse))
-    rse_module.add_replicas(rse=rse, files=files, account=issuer)
-
-
 def add_protocol(rse, issuer, **data):
     """
     Creates a new protocol entry for an existing RSE.

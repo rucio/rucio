@@ -17,20 +17,17 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
                            list_rse_attributes, del_rse_attribute,
-                           add_replica, add_replicas,
                            add_protocol, get_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
                            set_rse_limits, get_rse_limits, parse_rse_expression)
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, InvalidRSEExpression
-from rucio.common.utils import generate_http_error, parse_response, render_json
-from rucio.web.rest.common import authenticate
+from rucio.common.utils import generate_http_error, render_json
+from rucio.web.rest.common import authenticate, RucioController
 
 urls = (
     '/(.+)/attr/(.+)', 'Attributes',
     '/(.+)/attr/', 'Attributes',
-    '/(.+)/files', 'BulkFiles',
-    '/(.+)/files/(.+)/(.+)', 'Files',
     '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # Updates (PUT) protocol attributes
     '/(.+)/protocols/(.+)/(.+)/(.+)', 'Protocol',  # delete (DELETE) a specific protocol
     '/(.+)/protocols/(.+)/(.+)', 'Protocol',  # delete (DELETE) all protocols with the same identifier and the same hostname
@@ -44,7 +41,7 @@ urls = (
 )
 
 
-class RSEs:
+class RSEs(RucioController):
     """ List all RSEs in the database. """
 
     def GET(self):
@@ -78,17 +75,8 @@ class RSEs:
             for rse in list_rses():
                 yield render_json(**rse) + '\n'
 
-    def POST(self, rse):
-        raise NotImplemented()
 
-    def PUT(self, rse):
-        raise NotImplemented()
-
-    def DELETE(self, rse):
-        raise NotImplemented()
-
-
-class RSE:
+class RSE(RucioController):
     """ Create, update, get and disable RSE. """
 
     def POST(self, rse):
@@ -155,9 +143,6 @@ class RSE:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-
-    def PUT(self):
-        raise BadRequest()
 
     def DELETE(self, rse):
         """ Disable RSE with given account name.
@@ -251,122 +236,6 @@ class Attributes:
             raise InternalError(e)
 
         raise OK()
-
-
-class Files:
-
-    def POST(self, rse, scope, name):
-        """
-        Create a file replica at a given RSE.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
-
-        :param rse: The RSE name.
-        :param scope: the name of the scope.
-        :param name: the data identifier name.
-
-        """
-        json_data = data()
-        try:
-            parameter = loads(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
-
-        try:
-            bytes = parameter['bytes']
-            if 'md5' in parameter:
-                md5 = parameter['md5']
-            if 'adler32' in parameter:
-                adler32 = parameter['adler32']
-            dsn = parameter['dsn']
-            pfn = parameter['pfn']
-        except KeyError, e:
-            if e.args[0] == 'bytes' or e.args[0] == 'dsn':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
-        except TypeError:
-            raise generate_http_error(400, 'TypeError', 'Body must be a json dictionary')
-
-        try:
-            add_replica(rse=rse, scope=scope, name=name, bytes=bytes, md5=md5, adler32=adler32, pfn=pfn, dsn=dsn, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
-            print format_exc()
-            raise InternalError(e)
-
-        raise Created()
-
-    def GET(self):
-        raise BadRequest()
-
-    def PUT(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
-
-
-class BulkFiles:
-
-    def POST(self, rse):
-        """
-        Create file replicas at a given RSE.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
-
-        :param rse: The RSE name.
-        :param scope: the name of the scope.
-        :param name: the data identifier name.
-
-        """
-        json_data = data()
-        try:
-            parameters = parse_response(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            add_replicas(rse=rse, files=parameters, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate, e:
-            raise generate_http_error(409, 'Duplicate', e[0][0])
-        except RSENotFound, e:
-            raise generate_http_error(404, 'RSENotFound', e[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
-            print format_exc()
-            raise InternalError(e)
-
-        raise Created()
-
-    def GET(self):
-        raise BadRequest()
-
-    def PUT(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
 
 
 class Protocols:

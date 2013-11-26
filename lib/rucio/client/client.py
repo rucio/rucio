@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011
+# - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
 
 """
 Client class for callers of the Rucio system
@@ -16,12 +16,13 @@ from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
+from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 
 
-class Client(AccountClient, MetaClient, PingClient, RSEClient, ScopeClient, DIDClient, RuleClient):
+class Client(AccountClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 

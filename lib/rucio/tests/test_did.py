@@ -22,6 +22,7 @@ from rucio.db.constants import DIDType
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
+from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.core.did import list_dids, add_did, delete_dids
@@ -87,6 +88,7 @@ class TestDIDClients:
         self.scope_client = ScopeClient()
         self.meta_client = MetaClient()
         self.did_client = DIDClient()
+        self.replica_client = ReplicaClient()
         self.rse_client = RSEClient()
 
     def test_list_dids(self):
@@ -100,7 +102,7 @@ class TestDIDClients:
 
         self.scope_client.add_scope('jdoe', tmp_scope)
         for tmp_file in tmp_files:
-            self.rse_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+            self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 
         results = []
         for result in self.did_client.list_dids(tmp_scope, {'name': 'file\_a\_*'}, type='file'):
@@ -283,7 +285,7 @@ class TestDIDClients:
         tmp_file = 'file_%s' % generate_uuid()
         tmp_rse = 'MOCK'
 
-        self.rse_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+        self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
 
         did = self.did_client.get_did(tmp_scope, tmp_file)
 
@@ -306,7 +308,7 @@ class TestDIDClients:
         self.scope_client.add_scope(account, scope)
 
         for i in range(10):
-            self.rse_client.add_replica(rse, scope, file[i], 1, '0cc737eb')
+            self.replica_client.add_replica(rse, scope, file[i], 1, '0cc737eb')
         for i in range(4):
             self.did_client.add_did(scope, dst[i], 'DATASET', statuses=None, meta=None, rules=None)
         for i in range(4):
@@ -344,7 +346,7 @@ class TestDIDClients:
         self.scope_client.add_scope(account, scope)
 
         for i in range(10):
-            self.rse_client.add_replica(rse, scope, file[i], 1L, '0cc737eb')
+            self.replica_client.add_replica(rse, scope, file[i], 1L, '0cc737eb')
         for i in range(4):
             self.did_client.add_dataset(scope, dst[i], statuses=None, meta=None, rules=None)
         for i in range(2):
@@ -391,7 +393,7 @@ class TestDIDClients:
         for i in xrange(3):
             self.scope_client.add_scope(self.tmp_accounts[i], self.tmp_scopes[i])
             self.rse_client.add_rse(self.tmp_rses[i])
-            self.rse_client.add_replica(self.tmp_rses[i], self.tmp_scopes[i], self.tmp_files[i], 1L, '0cc737eb')
+            self.replica_client.add_replica(self.tmp_rses[i], self.tmp_scopes[i], self.tmp_files[i], 1L, '0cc737eb')
 
         # put files in datasets
         for i in xrange(3):
@@ -435,7 +437,7 @@ class TestDIDClients:
         file = generate_uuid()
         dsn = generate_uuid()
 
-        self.rse_client.add_replica(rse, scope, file, 1L, 1L)
+        self.replica_client.add_replica(rse, scope, file, 1L, 1L)
 
         did = self.did_client.get_did(scope, file)
 
@@ -454,7 +456,7 @@ class TestDIDClients:
         keys = ['project', 'run_number']
         values = ['data13_hip', 12345678]
 
-        self.rse_client.add_replica(rse, scope, file, 1L, 1L)
+        self.replica_client.add_replica(rse, scope, file, 1L, 1L)
         for i in xrange(2):
             self.did_client.set_metadata(scope, file, keys[i], values[i])
 
@@ -508,8 +510,8 @@ class TestDIDClients:
             files2.append({'scope': scope, 'name': generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb'})
 
         for i in xrange(10):
-            self.rse_client.add_replica(rse, scope, files1[i]['name'], 1L, '0cc737eb')
-            self.rse_client.add_replica(rse, scope, files2[i]['name'], 1L, '0cc737eb')
+            self.replica_client.add_replica(rse, scope, files1[i]['name'], 1L, '0cc737eb')
+            self.replica_client.add_replica(rse, scope, files2[i]['name'], 1L, '0cc737eb')
 
         self.did_client.add_dataset(scope, dataset1)
         self.did_client.add_files_to_dataset(scope, dataset1, files1)
@@ -556,10 +558,10 @@ class TestDIDClients:
         self.did_client.add_container(scope, cnt)
         self.did_client.add_datasets_to_container(scope, cnt, [{'scope': scope, 'name': dsn1}, {'scope': scope, 'name': dsn2}])
 
-        replicas = self.did_client.list_replicas(scope=scope, name=dsn1)
+        replicas = self.replica_client.list_replicas(dids=[{'scope': scope, 'name': dsn1}])
         assert_true(replicas is not None)
 
-        replicas = self.did_client.list_replicas(scope=scope, name=cnt)
+        replicas = self.replica_client.list_replicas(dids=[{'scope': scope, 'name': cnt}])
         assert_true(replicas is not None)
 
     @raises(UnsupportedOperation)
@@ -574,7 +576,7 @@ class TestDIDClients:
 
         # Add file replica
         tmp_file = 'file_%s' % generate_uuid()
-        self.rse_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
+        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
 
         # Add dataset
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
@@ -585,7 +587,7 @@ class TestDIDClients:
 
         # Add a second file replica
         tmp_file = 'file_%s' % generate_uuid()
-        self.rse_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
+        self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1L, 'adler32': '0cc737eb'}, ]
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
@@ -597,7 +599,7 @@ class TestDIDClients:
 
         # Add a third file replica
         tmp_file = 'file_%s' % generate_uuid()
-        self.rse_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
+        self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1L, 'adler32': '0cc737eb'}, ]
         self.did_client.attach_dids(scope=tmp_scope, name=tmp_dataset, dids=files)
