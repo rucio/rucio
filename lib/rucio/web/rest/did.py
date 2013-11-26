@@ -17,7 +17,7 @@ from traceback import format_exc
 from urlparse import parse_qs
 from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
-from rucio.api.did import (list_replicas, add_did, add_dids, list_content, list_dids,
+from rucio.api.did import (add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids)
@@ -34,7 +34,6 @@ from rucio.web.rest.common import authenticate, RucioController
 urls = (
     '/(.*)/', 'Scope',
     '/(.*)/dids/search', 'Search',
-    '/(.*)/(.*)/rses', 'Replicas',
     '/(.*)/(.*)/files', 'Files',
     '/(.*)/(.*)/dids', 'Attachment',
     '/(.*)/(.*)/meta/(.*)', 'Meta',
@@ -407,39 +406,6 @@ class Attachment(RucioController):
             raise InternalError(e)
 
         raise OK()
-
-
-class Replicas(RucioController):
-
-    def GET(self, scope, name):
-        """
-        List all replicas for a data identifier.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            500 InternalError
-
-        :returns: A dictionary containing all replicas information.
-        """
-        header('Content-Type', 'application/x-json-stream')
-        schemes = list()
-        if ctx.query:
-            filters = parse_qs(ctx.query[1:])
-            if 'schemes' in filters:
-                schemes = [item for sublist in filters['schemes'] for item in sublist.split(',')]
-        try:
-            for replica in list_replicas(dids=[{'scope': scope, 'name': name}], schemes=schemes):
-                yield dumps(replica) + '\n'
-        except DataIdentifierNotFound, e:
-            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
-            print format_exc()
-            raise InternalError(e)
 
 
 class Files(RucioController):

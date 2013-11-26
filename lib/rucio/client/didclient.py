@@ -26,30 +26,6 @@ class DIDClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def list_replicas(self, scope, name, schemes=None):
-        """
-        List file replicas for a data identifier.
-
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param schemes: A list of schemes to filter the replicas.
-
-        """
-
-        payload = None
-        path = '/'.join([self.DIDS_BASEURL, scope, name, 'rses'])
-        if schemes:
-            payload = {'schemes': ','.join(schemes)}
-        url = build_url(self.host, path=path, params=payload)
-
-        r = self._send_request(url, type='GET')
-        if r.status_code == codes.ok:
-            replicas = self._load_json_data(r)
-            return replicas
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
-            raise exc_cls(exc_msg)
-
     def list_dids(self, scope, filters, type='collection'):
         """
         List all data identifiers in a scope which match a given pattern.
