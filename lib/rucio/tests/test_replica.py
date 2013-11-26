@@ -11,15 +11,11 @@
 from nose.tools import assert_equal, assert_raises
 
 
-from rucio.client.accountclient import AccountClient
-from rucio.client.didclient import DIDClient
-from rucio.client.metaclient import MetaClient
-from rucio.client.rseclient import RSEClient
-from rucio.client.scopeclient import ScopeClient
+from rucio.client.replicaclient import ReplicaClient
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
-from rucio.core.rse import add_replicas, delete_replicas
-from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, list_replicas
+from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter, get_replica, list_replicas
+from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.db.constants import DIDType
 # from rucio.rse.rsemanager import RSEMgr
 
@@ -86,52 +82,55 @@ class TestReplicaCore:
 
         assert_equal([f for f in list_files(scope=tmp_scope, name=tmp_dsn2)], [])
 
+    def test_update_lock_counter(self):
+        """ RSE (CORE): Test the update of a replica lock counter """
+        rse = 'MOCK'
+        tmp_scope = 'mock'
+        tmp_file = 'file_%s' % generate_uuid()
+        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe')
 
-class TestReplica:
+        values = (1, 1, 1, -1, -1, -1, 1, 1, -1)
+        tombstones = (True, True, True, True, True, False, True, True, True)
+        lock_counters = (1, 2, 3, 2, 1, 0, 1, 2, 1)
+        for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
+            status = update_replica_lock_counter(rse=rse, scope=tmp_scope, name=tmp_file, value=value)
+            assert_equal(status, True)
+            replica = get_replica(rse=rse, scope=tmp_scope, name=tmp_file)
+            assert_equal(replica['tombstone'] is None, tombstone)
+            assert_equal(lock_counter, replica['lock_cnt'])
+
+
+class TestReplicaClients:
 
     def setup(self):
-        self.account_client = AccountClient()
-        self.scope_client = ScopeClient()
-        self.meta_client = MetaClient()
-        self.did_client = DIDClient()
-        self.rse_client = RSEClient()
+        self.replica_client = ReplicaClient()
 
-    def test_bulk_add_replicas(self):
-        """ REPLICA (CLIENT): Bulk add replicas """
+    def test_add_list_replicas(self):
+        """ REPLICA (CLIENT): Add and list file replicas """
+        tmp_scope = 'mock'
+        nbfiles = 5
+
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        self.replica_client.add_replicas(rse='MOCK', files=files1)
+
+        with assert_raises(Duplicate):
+            self.replica_client.add_replicas(rse='MOCK', files=files1)
+
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        self.replica_client.add_replicas(rse='MOCK3', files=files1 + files2)
+
+        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1])]
+        assert_equal(len(replicas), 5)
+
+        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1],  schemes=['mock'])]
+        assert_equal(len(replicas), 5)
+
+    def test_delete_replicas(self):
         tmp_scope = 'mock'
         nbfiles = 5
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
-        self.rse_client.add_replicas(rse='MOCK', files=files)
-        self.rse_client.add_replicas(rse='MOCK3', files=files)
+        self.replica_client.add_replicas(rse='MOCK', files=files)
+        self.replica_client.delete_replicas(rse='MOCK', files=files)
 
-    def test_bulk_add_existing_replicas(self):
-        """ REPLICA (CLIENT): Bulk add replicas with existing dids"""
-        tmp_scope = 'mock'
-        nbfiles = 5
-        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
-        self.rse_client.add_replicas(rse='MOCK', files=files1)
-        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
-        self.rse_client.add_replicas(rse='MOCK3', files=files1 + files2)
-
-    def test_add_list_replica(self):
-        """ REPLICA (CLIENT): Add and list file replica """
-        tmp_scope = 'mock'
-        tmp_file = 'file_%s' % generate_uuid()
-        tmp_pfn = 'mock://localhost/tmp/rucio_rse/non-determinsistc/path/%s' % tmp_file
-
-        self.rse_client.add_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
-
-        with assert_raises(Duplicate):
-            self.rse_client.add_replica(rse='MOCK', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
-
-        self.rse_client.add_replica(rse='MOCK2', scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', pfn=tmp_pfn)
-
-        replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file)]
-
-        assert_equal(len(replicas), 1)
-
-        # replicas = [r for r in self.did_client.list_replicas(scope=tmp_scope, name=tmp_file, schemes=['mock'])]
-        # assert_equal(len(replicas), 2)
-        # for replica in replicas:
-        #    pfn_gen = RSEMgr().lfn2pfn(replica['rse'], {'scope': tmp_scope, 'name': tmp_file}, scheme='mock')
-        #    assert(pfn_gen == replica['pfns'][0])
+        with assert_raises(DataIdentifierNotFound):
+            self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])

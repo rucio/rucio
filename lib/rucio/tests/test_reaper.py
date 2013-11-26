@@ -11,6 +11,7 @@
 from rucio.common.utils import generate_uuid
 
 from rucio.core import rse as rse_core
+from rucio.core import replica as replica_core
 from rucio.daemons.reaper import reaper
 
 
@@ -22,7 +23,7 @@ class TestReaper():
         nb_files = 30
         file_size = 2147483648L  # 2G
         for file in xrange(nb_files):
-            rse_core.add_replica(rse='MOCK', scope='data13_hip', name='lfn' + generate_uuid(), bytes=file_size, account='root', adler32=None, md5=None)
+            replica_core.add_replica(rse='MOCK', scope='data13_hip', name='lfn' + generate_uuid(), bytes=file_size, account='root', adler32=None, md5=None)
 
         rse_core.set_rse_usage(rse='MOCK', source='srm', used=nb_files*file_size, free=800L)
         rse_core.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=10737418240L)

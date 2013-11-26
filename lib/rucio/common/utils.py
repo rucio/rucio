@@ -22,7 +22,7 @@ import zlib
 from itertools import izip_longest
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
-from urllib import urlencode
+from urllib import urlencode, quote
 from uuid import uuid4 as uuid
 
 from rucio.common.config import config_get
@@ -64,18 +64,23 @@ codes = {
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
-def build_url(url, path=None, params=None):
+def build_url(url, path=None, params=None, doseq=False):
     """
     utitily function to build an url for requests to the rucio system.
+
+    If the optional parameter doseq is evaluates to True, individual key=value pairs
+    separated by '&' are generated for each element of the value sequence for the key.
     """
     complete_url = url
-
     complete_url += "/"
     if path is not None:
         complete_url += path
     if params is not None:
         complete_url += "?"
-        complete_url += urlencode(params)
+        if isinstance(params, str):
+            complete_url += quote(params)
+        else:
+            complete_url += urlencode(params, doseq=doseq)
     return complete_url
 
 

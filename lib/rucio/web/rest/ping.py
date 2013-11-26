@@ -11,22 +11,20 @@
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, header, BadRequest
+from web import application, header
 
 from rucio import version
+from rucio.web.rest.common import RucioController
 
 logger = getLogger("rucio.rucio")
 sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = (
-    '/', 'Ping',
-    '', 'Ping'
-)
+urls = ('/?$', 'Ping')
 
 
-class Ping:
+class Ping(RucioController):
     def GET(self):
         """ List server version information.
 
@@ -46,17 +44,6 @@ class Ping:
 
         return dumps({"version": version.version_string()})
 
-    def PUT(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def POST(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
 
 """----------------------
    Web service startup

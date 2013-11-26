@@ -20,10 +20,7 @@ from paste.fixture import TestApp
 from rucio.client.rseclient import RSEClient
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported, RSEOperationNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError)
-from rucio.common.utils import generate_uuid as uuid
-from rucio.core.rse import (add_rse, add_replica, del_rse, list_rses,
-                            rse_exists, add_rse_attribute, list_rse_attributes,
-                            update_replica_lock_counter, get_replica)
+from rucio.core.rse import add_rse, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.rse import app as rse_app
 from rucio.web.rest.authentication import app as auth_app
@@ -66,23 +63,6 @@ class TestRSECoreApi():
         attr = list_rse_attributes(rse=None, rse_id=rse_id)
         assert_in('tier', attr.keys())
         assert_in(rse, attr.keys())
-
-    def test_update_lock_counter(self):
-        """ RSE (CORE): Test the update of a replica lock counter """
-        rse = 'MOCK'
-        tmp_scope = 'mock'
-        tmp_file = 'file_%s' % uuid()
-        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb', account='jdoe')
-
-        values = (1, 1, 1, -1, -1, -1, 1, 1, -1)
-        tombstones = (True, True, True, True, True, False, True, True, True)
-        lock_counters = (1, 2, 3, 2, 1, 0, 1, 2, 1)
-        for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
-            status = update_replica_lock_counter(rse=rse, scope=tmp_scope, name=tmp_file, value=value)
-            assert_equal(status, True)
-            replica = get_replica(rse=rse, scope=tmp_scope, name=tmp_file)
-            assert_equal(replica['tombstone'] is None, tombstone)
-            assert_equal(lock_counter, replica['lock_cnt'])
 
 
 class TestRSE():
