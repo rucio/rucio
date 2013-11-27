@@ -32,13 +32,13 @@ class DQ2Client:
 
     def bulkDeleteDatasetReplicas(self):
         """
-        ToDo
+        ToDo MARTIN
         """
         raise NotImplementedError
 
     def cancelReplicaDeletions(self):
         """
-        ToDo
+        ToDo MARTIN ???
         """
         raise NotImplementedError
 
@@ -68,19 +68,19 @@ class DQ2Client:
 
     def deleteDatasetReplicas(self):
         """
-        ToDo
+        ToDo MARTIN
         """
         raise NotImplementedError
 
     def deleteDatasetSubscription(self):
         """
-        ToDo
+        ToDo MARTIN
         """
         raise NotImplementedError
 
     def deleteDatasetSubscriptions(self):
         """
-        ToDo
+        ToDo MARTIN
         """
         raise NotImplementedError
 
@@ -302,7 +302,7 @@ class DQ2Client:
 
     def registerDatasetSubscription(self):
         """
-        ToDo
+        ToDo MARTIN
         """
         raise NotImplementedError
 
