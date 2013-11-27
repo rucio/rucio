@@ -12,7 +12,7 @@ from nose.tools import assert_not_equal
 
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_dids, attach_dids
-from rucio.core.rse import get_replica
+from rucio.core.replica import get_replica
 from rucio.core.rule import add_rules
 from rucio.daemons.undertaker import undertaker
 
