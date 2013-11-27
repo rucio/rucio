@@ -44,25 +44,25 @@ class DQ2Client:
 
     def checkDatasetConsistency(self):
         """
-        ToDo
+        ToDo --> N/A
         """
         raise NotImplementedError
 
     def closeDataset(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def declareBadFiles(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def declareSuspiciousFiles(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
@@ -86,61 +86,61 @@ class DQ2Client:
 
     def deleteDatasetVersionSubscriptions(self):
         """
-        ToDo
+        ToDo --> N/A
         """
         raise NotImplementedError
 
     def deleteDatasetsFromContainer(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def deleteFilesFromDataset(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def eraseDataset(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def freezeDataset(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def getDatasetSize(self):
         """
-        ToDo
+        Todo Cedric
         """
         raise NotImplementedError
 
     def getMasterReplicaLocation(self):
         """
-        ToDo
+        ToDo --> N/A ?
         """
         raise NotImplementedError
 
     def getMetaDataAttribute(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def getNumberOfFiles(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
     def getState(self):
         """
-        ToDo
+        ToDo Cedric
         """
         raise NotImplementedError
 
