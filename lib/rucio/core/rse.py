@@ -360,29 +360,6 @@ def list_rse_usage_history(rse, source=None, session=None):
 
 
 @transactional_session
-def get_replica(rse, scope, name, rse_id=None, session=None):
-    """
-    Get File replica.
-
-    :param rse: the rse name.
-    :param scope: the scope name.
-    :param name: The data identifier name.
-    :param rse_id: The RSE Id.
-    :param session: The database session in use.
-
-    :returns: A dictionary with the list of replica attributes.
-    """
-    if not rse_id:
-        rse_id = get_rse_id(rse=rse, session=session)
-
-    row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
-    d = {}
-    for column in row.__table__.columns:
-        d[column.name] = getattr(row, column.name)
-    return d
-
-
-@transactional_session
 def add_protocol(rse, parameter, session=None):
     """
     Add a protocol to an existing RSE. If entries with equal or less priority for
