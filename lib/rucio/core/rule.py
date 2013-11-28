@@ -386,7 +386,8 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
                         locks_replicating_cnt += 1
                 # Add a DatasetLock to the DB
-                locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
+                if dataset['scope'] is not None:
+                    locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
     else:
         # ###########
         # # DATASET #
@@ -442,7 +443,8 @@ def __create_locks_for_rule(datasetfiles, rseselector, account, rule_id, copies,
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
                         locks_replicating_cnt += 1
                 # Add a DatasetLock to the DB
-                locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
+                if dataset['scope'] is not None:
+                    locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
     # d) Put the locks to the DB, Put the Replicas in the DBreturn the transfers
     try:
         session.add_all(replicas_to_create)
