@@ -432,7 +432,7 @@ def update_replicas_states(replicas, session=None):
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
 
         if replica['state'] == ReplicaState.BEING_DELETED:
-            query = query.filter(lock_cnt=0)
+            query = query.filter_by(lock_cnt=0)
 
         rowcount = query.update({'state': replica['state']})
 
