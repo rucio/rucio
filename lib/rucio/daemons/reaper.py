@@ -91,7 +91,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
     logging.info('Reaper started')
 
     while not graceful_stop.is_set():
-        for rse in rse_core.list_rses():
+        for rse in rses:
             logging.info('Running on RSE %s' % (rse['rse']))
             try:
                 if not greedy:
