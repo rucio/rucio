@@ -9,9 +9,11 @@
 
 '''
 Compatibility Wrapper for DQ2 and Rucio.
+     http://svnweb.cern.ch/world/wsvn/dq2/trunk/dq2.clients/lib/dq2/clientapi/DQ2.py
 '''
 
 from rucio.client.client import Client
+from rucio.common.utils import generate_uuid
 
 
 class DQ2Client:
@@ -108,9 +110,27 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def freezeDataset(self):
+    def freezeDataset(self, dsn, scope=None):
         """
+        Freezes a dataset.
         ToDo Cedric
+
+        @since: 0.2.0
+
+        @param dsn: is the dataset name.
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+           - DQDaoException is raised,
+               in case there is a python or database error in the central catalogs.
+           - DQFrozenDatasetException is raised,
+               in case the user is trying to freeze an already frozen dataset.
+           - DQInvalidRequestException is raised,
+               in case the given lfns and guids are not the same length.
+           - DQSecurityException is raised,
+               in case the given user cannot change the dataset version state.
+           - DQUnknownDatasetException is raised,
+               in case there is no dataset with the given name.
         """
         raise NotImplementedError
 
@@ -288,11 +308,29 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def registerContainer(self):
+    def registerContainer(self, name, datasets=[], scope=None):
         """
-        ToDo
+        Creates a container.
+
+        @since: 1.0
+
+        @param name: name of the container.
+        @type name: str
+        @param datasets: list of datasets to be registered.
+            [dataset_name1, ..., dataset_nameN]
+        @type datasets: list
+
+        @see: https://twiki.cern.ch/twiki/bin/view/Atlas/DonQuijote2ContainerCatalogUC0001
+
+        @raise DQContainerExistsException:
+            in case a container with the same name already exists.
+
+        @return: None
+        @rtype: NoneType
         """
-        raise NotImplementedError
+        self.client.add_container(scope=scope, name=name)
+        if datasets:
+            self.client.add_datasets_to_container(scope=scope, name=name, datasets=datasets)
 
     def registerDatasetLocation(self):
         """
@@ -324,11 +362,49 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def registerNewDataset(self):
+    def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], scopes=[], cooldown=None,  provenance=None, group=None, hidden=False, scope=None):
         """
-        ToDo
+        Register a brand new dataset and associated files (lists of lfns and guids).
+        @since: 0.2.0
+
+        @param dsn: is the dataset name.
+        @param lfns: is a list of logical filenames (LFN).
+        @param guids: is a list of file unique identifiers (GUID).
+               Note: the GUID is typically assigned by external tools
+            (e.g. POOL) and must be passed along as is.
+        @param sizes: is a list of the file sizes.
+        @param checksums: is a list of the file checksums.
+           [md5:<md5_32_character_string>, ...]
+        @param cooldown: is a time delta after which the dataset will be automaticaly frozen.
+                        Acceptable formats are: "X days" or "X days, HH:MM:SS" or "HH:MM:SS".
+        @param provenance: is the dataset provenance, e.g. TO.
+        @param group: is the delegated owning group.
+        @param hidden: hidden dataset.
+        @param scope: is the dataset scope.
+
+
+        B{Exceptions:}
+           - DQDaoException is raised,
+               in case there is a python or database error in the central catalogs.
+           - DQDatasetExistsException is raised,
+               in case there is a dataset with the given name.
+
+        @return: Dictionary containing the dataset duid, vuid and version information.::
+           {'duid': '...', 'vuid': '...', 'version': ...}
         """
-        raise NotImplementedError
+        self.client.add_dataset(scope=scope, name=dsn)
+        if lfns:
+            files = []
+            for lfn, s, guid, size, checksum in zip(lfns, scopes, guids, sizes, checksums):
+                file = {'scope': s, 'name': lfn, 'bytes': size, 'meta': {'guid': guid}}
+                if checksum.startswith('md5:'):
+                    file['md5'] = checksum[4:]
+                elif checksum.startswith('ad:'):
+                    file['adler32'] = checksum[3:]
+                files.append(file)
+            self.client.add_files_to_dataset(scope=scope, name=dsn, files=files)
+
+        return {'duid': generate_uuid(), 'version': 1, 'vuid': generate_uuid()}
 
     def registerNewDataset2(self):
         """
@@ -336,9 +412,39 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def registerNewVersion(self):
+    def registerNewVersion(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None):
         """
-        ToDo
+        Register a new version of the dataset with the
+        given additional files (lists of lfns and guids).
+        Plus, it notifies the subscription catalog for changes
+        on the dataset and on dataset previous version.
+
+        @since: 0.2.0
+
+        @param dsn: is the dataset name.
+        @param lfns: is a list of logical filenames (LFN).
+        @param guids: is a list of file unique identifiers (GUID).
+            Note: the GUID is typically assigned by external tools
+            (e.g. POOL) and must be passed along as is.
+        @param sizes: is a list of the file sizes.
+        @param checksums: is a list of the file checksums.
+            [md5:<md5_32_character_string>, ...]
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+           - DQDaoException is raised,
+               in case there is a python or database error in the central catalogs.
+           - DQFileExistsInDatasetException is raised,
+               in case the given guid is already registered for the given dataset.
+           - DQInvalidRequestException is raised,
+               in case no files have been added to the content catalog.
+           - DQSecurityException is raised,
+               in case the user has no permissions to update the dataset.
+           - DQUnknownDatasetException is raised,
+               in case there is no dataset with the given name.
+
+        @return: Dictionary containing the dataset version information.::
+           {'vuid': vuid_1, 'version': 1, 'duid': duid}
         """
         raise NotImplementedError
 
@@ -348,7 +454,7 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def resetSubscription(self):
+    def resetSubscription(self, dsn, location, version=0, scope=None):
         """
         ToDo
         """
@@ -379,12 +485,6 @@ class DQ2Client:
         raise NotImplementedError
 
     def setReplicaMetaDataAttribute(self):
-        """
-        ToDo
-        """
-        raise NotImplementedError
-
-    def updateCompleteness(self):
         """
         ToDo
         """
