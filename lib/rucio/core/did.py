@@ -416,7 +416,7 @@ def list_new_dids(type, session=None):
     :param type : The DID type.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier).filter_by(is_new=False).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
+    query = session.query(models.DataIdentifier).filter_by(is_new=True).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
     if type and (isinstance(type, str) or isinstance(type, unicode)):
         query = query.filter(models.DataIdentifier).filter_by(did_type=DIDType.from_sym(type))
     for chunk in query.yield_per(10):
