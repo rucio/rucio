@@ -13,6 +13,7 @@ Reaper is a daemon to manage file deletion.
 '''
 
 import logging
+import sys
 import threading
 import time
 import traceback
@@ -28,7 +29,7 @@ from rucio.common.config import config_get
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
-logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 

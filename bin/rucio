@@ -29,6 +29,7 @@ from rucio import client
 from rucio import version
 from rucio.client.accountclient import AccountClient
 from rucio.client.didclient import DIDClient
+from rucio.client.replicaclient import ReplicaClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
 from rucio.client.rseclient import RSEClient
@@ -151,24 +152,26 @@ def list_replicas(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
                        account=args.account, auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
     protocols = None
     if args.protocols:
         protocols = args.protocols.split(',')
-
-    for did in args.dids:
-        try:
+    
+    dids = []
+    try:
+        for did in args.dids:
             scope, name = did.split(':')
-            replicas = client.list_replicas(scope=scope, name=name, schemes=protocols)
-            print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
-            for replica in replicas:
-                print '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'], replica['rses'])
-        except Exception, e:
-            print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
-            print e
+            dids.append({'scope': scope, 'name': name})
+        replicas = client.list_replicas(dids, schemes=protocols)
+        print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
+        for replica in replicas:
+           print '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'], replica['rses'])
+    except Exception, e:
+        print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
+        print e
 
 
 def add_dataset(args):
@@ -659,7 +662,7 @@ def download(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+    client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
                        account=args.account, auth_type=args.auth_strategy, creds=creds,
                        ca_cert=args.ca_certificate, timeout=args.timeout)
 
@@ -667,9 +670,8 @@ def download(args):
     for did in args.dids:
         try:
             scope, name = did.split(':')
-            files = client.list_replicas(scope=scope, name=name)
+            files = client.list_replicas([{'scope': scope, 'name': name}])
             for file in files:
-                #rsemgr.download(rse_id=file['rse'], files={'lfns': [{'filename': name, 'scope': scope}, ]}, dest_dir=args.dir)
                 rsemgr.download(rse_id=random.choice(file['rses'].keys()), files=[{'name': file['name'], 'scope': file['scope']}, ], dest_dir=args.dir)
             print 'download operation for %s:%s done' % (scope, name)
         except Exception, e:

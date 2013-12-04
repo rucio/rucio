@@ -13,19 +13,20 @@ Conveyor is a daemon to manage file transfers.
 """
 
 import logging
+import sys
 import threading
 import time
 import traceback
 
 from rucio.common.config import config_get
-from rucio.core import request, rse, lock
+from rucio.core import request, rse, lock, replica
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import RequestType, RequestState, ReplicaState
 from rucio.db.session import get_session
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
-logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
@@ -82,11 +83,11 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                         record_timer('daemons.conveyor.poller.003-replica-get_rse', (time.time()-ts)*1000)
 
                         tss = time.time()
-                        rse.update_replicas_states([{'rse': rse_name,
-                                                     'scope': req['scope'],
-                                                     'name': req['name'],
-                                                     'state': ReplicaState.AVAILABLE}],
-                                                   session=session)
+                        replica.update_replicas_states([{'rse': rse_name,
+                                                       'scope': req['scope'],
+                                                       'name': req['name'],
+                                                       'state': ReplicaState.AVAILABLE}],
+                                                       session=session)
                         record_timer('daemons.conveyor.poller.004-replica-set_available', (time.time()-tss)*1000)
 
                         tss = time.time()
