@@ -11,21 +11,22 @@
 Undertaker is a daemon to manage expired did.
 '''
 
+import logging
+import sys
 import threading
 import time
 import traceback
 
-from logging import getLogger, StreamHandler, DEBUG
 
+from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.core import monitor
 from rucio.core.did import list_expired_dids, delete_dids
 
 
-logger = getLogger("rucio.daemons.undertaker")
-sh = StreamHandler()
-sh.setLevel(DEBUG)
-logger.addHandler(sh)
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -35,24 +36,24 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
     Main loop to select and delete dids.
     """
 
-    print 'Undertaker(%s): starting' % worker_number
-    print 'Undertaker(%s): started' % worker_number
+    logging.info('Undertaker(%s): starting' % worker_number)
+    logging.info('Undertaker(%s): started' % worker_number)
 
     while not graceful_stop.is_set():
         try:
             dids = list_expired_dids(worker_number=worker_number, total_workers=total_workers, limit=chunk_size)
             if not dids:
-                print 'Undertaker(%s): Nothing to do. sleep 1.' % worker_number
+                logging.info('Undertaker(%s): Nothing to do. sleep 1.' % worker_number)
                 time.sleep(1)
             else:
-                print 'Undertaker(%s): Receive %s dids to delete' % (worker_number, len(dids))
+                logging.info('Undertaker(%s): Receive %s dids to delete' % (worker_number, len(dids)))
                 delete_dids(dids=dids, account='root')
-                print 'Undertaker(%s): Delete %s dids' % (worker_number, len(dids))
+                logging.info('Undertaker(%s): Delete %s dids' % (worker_number, len(dids)))
                 monitor.record_counter(counters='undertaker.delete_dids',  delta=len(dids))
         except DatabaseException, e:
-            print 'Undertaker(%s): Got database error %s.' % (worker_number, str(e))
+            logging.error('Undertaker(%s): Got database error %s.' % (worker_number, str(e)))
         except:
-            print traceback.format_exc()
+            logging.error(traceback.format_exc())
             time.sleep(1)
 
         if once:
@@ -60,8 +61,8 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
 
         time.sleep(0.01)
 
-    print 'Undertaker(%s): graceful stop requested' % worker_number
-    print 'Undertaker(%s): graceful stop done' % worker_number
+    logging.info('Undertaker(%s): graceful stop requested' % worker_number)
+    logging.info('Undertaker(%s): graceful stop done' % worker_number)
 
 
 def stop(signum=None, frame=None):
@@ -76,12 +77,12 @@ def run(once=False, total_workers=1, chunk_size=10):
     Starts up the undertaker threads.
     """
 
-    print 'main: starting threads'
+    logging.info('main: starting threads')
     threads = [threading.Thread(target=undertaker,  kwargs={'worker_number': i, 'total_workers': total_workers, 'once': once, 'chunk_size': chunk_size}) for i in xrange(1, total_workers+1)]
 
     [t.start() for t in threads]
 
-    print 'main: waiting for interrupts'
+    logging.info('main: waiting for interrupts')
 
     # Interruptible joins require a timeout.
     while threads[0].is_alive():

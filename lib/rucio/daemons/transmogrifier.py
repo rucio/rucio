@@ -18,7 +18,7 @@ from copy import copy
 from json import loads, dumps
 from math import exp
 from os import getpid, fork, kill
-from sys import exc_info, exit
+from sys import exc_info, exit, stdout
 from traceback import format_exception
 
 from gearman import GearmanWorker, GearmanClient, GearmanAdminClient
@@ -34,8 +34,7 @@ from rucio.core import monitor
 
 logging.getLogger("transmogrifier").setLevel(logging.CRITICAL)
 
-logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
-                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+logging.basicConfig(stream=stdout, level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 

@@ -13,6 +13,7 @@ Judge-Cleaner is a daemon to clean expired replication rules.
 """
 
 import logging
+import sys
 import threading
 import time
 import traceback
@@ -32,7 +33,7 @@ from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
 
-logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
