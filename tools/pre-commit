@@ -26,6 +26,10 @@ def system(*args, **kwargs):
 
 
 def main():
+    currentbranch = system('git', 'rev-parse', '--abbrev-ref=strict', 'HEAD').rstrip('\n')
+    if currentbranch=='master':
+        print "You are trying to commit on your master, that's probably a mistake. Exiting..."
+        sys.exit(1)
     modified = re.compile('^[AM]+\s+(?P<name>.*\.py)', re.MULTILINE)
     files = system('git', 'status', '--porcelain')
     files = modified.findall(files)

@@ -12,6 +12,7 @@ ConveyorInjector is a daemon to queue file transfers for testing purposes.
 """
 
 import logging
+import sys
 import threading
 import time
 import traceback
@@ -25,7 +26,7 @@ from rucio.db.session import get_session
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
-logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 

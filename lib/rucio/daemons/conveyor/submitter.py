@@ -14,13 +14,14 @@ Conveyor is a daemon to manage file transfers.
 """
 
 import logging
+import sys
 import threading
 import time
 import traceback
 
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound
-from rucio.core import did, request, rse
+from rucio.core import replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import RequestType, RequestState, ReplicaState
 from rucio.db.session import get_session
@@ -28,7 +29,7 @@ from rucio.rse import rsemanager
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
-logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
@@ -75,7 +76,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 src_spacetoken = None
 
                 try:
-                    for source in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], session=session):
+                    for source in replica.list_replicas([{'scope': req['scope'], 'name': req['name']}], session=session):
                         for endpoint in source['rses']:
                             for pfn in source['rses'][endpoint]:
                                 tmpsrc.append(str(pfn))
@@ -108,7 +109,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                         logging.warn('No source replicas found for DID %s:%s - deep check for unavailable replicas' % (req['scope'], req['name']))
 
                         i = 0
-                        for tmp in did.list_replicas([{'scope': req['scope'], 'name': req['name']}], unavailable=True, session=session):
+                        for tmp in replica.list_replicas([{'scope': req['scope'], 'name': req['name']}], unavailable=True, session=session):
                             i += 1  # sadly, we have to iterate over results
 
                         if not i:
@@ -161,11 +162,11 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time()-ts)*1000)
 
                 ts = time.time()
-                rse.update_replicas_states([{'rse': rse_name,
-                                             'scope': req['scope'],
-                                             'name': req['name'],
-                                             'state': ReplicaState.COPYING}],
-                                           session=session)
+                replica.update_replicas_states([{'rse': rse_name,
+                                               'scope': req['scope'],
+                                               'name': req['name'],
+                                               'state': ReplicaState.COPYING}],
+                                               session=session)
                 record_timer('daemons.conveyor.submitter.005-replica-set_copying', (time.time()-ts)*1000)
 
                 logging.info('COPYING %s:%s from %s to %s' % (req['scope'], req['name'], sources, destinations))
