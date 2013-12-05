@@ -19,11 +19,10 @@ import time
 import traceback
 
 from rucio.core import monitor, rse as rse_core
-from rucio.core.replica import list_unlocked_replicas, update_replica_state, delete_replicas
+from rucio.core.monitor import record_timer_block
+from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse_counter import get_counter
 from rucio.db.constants import ReplicaState
-from rucio.rse.rsemanager import RSEMgr
-from rucio.common.exception import SourceNotFound
 from rucio.common.config import config_get
 
 
@@ -80,6 +79,14 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
+def __chunks(l, n):
+    """
+    Yield successive n-sized chunks from l.
+    """
+    for i in xrange(0, len(l), n):
+        yield l[i:i+n]
+
+
 def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False):
     """
     Main loop to select and delete files.
@@ -87,7 +94,8 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
     logging.info('Starting reaper')
 
-    rsemgr = RSEMgr(server_mode=True, server_mode_with_credentials=True)
+    # in waiting...
+    # rsemgr = RSEMgr(server_mode=True, server_mode_with_credentials=True)
 
     logging.info('Reaper started')
 
@@ -95,39 +103,37 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
         for rse in rses:
             logging.info('Running on RSE %s' % (rse['rse']))
             try:
+                s = time.time()
                 if not greedy:
                     max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                     logging.info('Space usage for RSE %(rse)s: max_being_deleted_files, needed_free_space, used, free' % rse, max_being_deleted_files, needed_free_space, used, free)
                     replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files)
                 else:
-                    replicas = list_unlocked_replicas(rse=rse['rse'], limit=100)
+                    with record_timer_block('reaper.list_unlocked_replicas'):
+                        replicas = list_unlocked_replicas(rse=rse['rse'], limit=10000)
+                logging.debug('list_unlocked_replicas %s %s %s' % (rse['rse'], time.time() - s, len(replicas)))
 
-                freed_space, deleted_files = 0, 0
-                logging.info('Looping over replicas without locks')
-                for replica in replicas:
-                    logging.debug('Mark the file replica %(scope)s:%(name)s as being deleted' % replica)
-                    update_replica_state(rse=rse['rse'], scope=replica['scope'], name=replica['name'], state=ReplicaState.BEING_DELETED)
-                    monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=1)
-                    logging.debug('Delete the file %(scope)s:%(name)s' % replica)
-                    # Should delegate the deletion to a backend
+                if not replicas:
+                    logging.info('Reaper %s: nothing to do for %s' % (worker_number, rse['rse']))
+                    continue
+
+                for files in __chunks(replicas, chunk_size):
                     try:
-                        rsemgr.delete(rse_id=rse['rse'], lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
-                        logging.debug('Remove file replica information with size %(bytes)s for file %(scope)s:%(name)s' % replica)
-                        deleted_files += 1
-                        delete_replicas(rse=rse['rse'], files=[replica, ])
-                        logging.debug('Delete file replica from the DB')
-                        monitor.record_counter(counters='reaper.deletion.done',  delta=1)
-                        freed_space += replica['bytes']
-                    except SourceNotFound:
-                        logging.debug('Source not found for', rse['rse'], replica['scope'], replica['name'])
-                        delete_replicas(rse=rse['rse'], files=[replica, ])
-                        logging.debug('Delete file replica from the DB')
-                    except NotImplementedError:
-                        logging.error('Cannot delete on %s : No protocol available' % (rse['rse']))
+                        s = time.time()
+                        update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
+                        # logging.debug('update_replicas_states %s' % (time.time() - s))
+                        monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
+
+                        # comment for the moment
+                        # rsemgr.delete(rse_id=rse['rse'], lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
+
+                        s = time.time()
+                        with record_timer_block('reaper.delete_replicas'):
+                            delete_replicas(rse=rse['rse'], files=files)
+                        logging.debug('delete_replicas %s %s' % (len(files), time.time() - s))
+                        monitor.record_counter(counters='reaper.deletion.done',  delta=len(files))
                     except:
                         logging.critical(traceback.format_exc())
-                #logging.info('RSE: %(rse)s' % rse + '#deleted files: %(deleted_files)s, Freed space: %(freed_space)s' % locals())
-                logging.info('On RSE: %s : #deleted files: %i, Freed space: %i' % (rse['rse'], deleted_files, freed_space))
             except:
                 logging.critical(traceback.format_exc())
 
