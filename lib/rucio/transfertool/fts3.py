@@ -7,9 +7,11 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 import json
 import logging
+import sys
 
 import requests
 
@@ -17,7 +19,7 @@ from rucio.common.config import config_get
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
-logging.basicConfig(filename='%s/%s.log' % (config_get('common', 'logdir'), __name__),
+logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 

@@ -13,19 +13,22 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from datetime import datetime, timedelta
+from hashlib import md5
 from re import match
+# from time import time
 
 from sqlalchemy import and_, or_, case
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
+from sqlalchemy.sql.expression import bindparam, text
 
 import rucio.core.rule
 
 from rucio.common import exception
 from rucio.common.utils import grouper
 from rucio.core.callback import add_callback
-from rucio.core.monitor import record_timer_block
+from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.replica import add_replicas
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation
@@ -42,15 +45,27 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     """
     query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).\
         filter(models.DataIdentifier.expired_at < datetime.utcnow()).\
+        order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
     if worker_number and total_workers and total_workers-1 > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers-1, worker_number-1))
+            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_workers-1, worker_number-1))
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
+        elif session.bind.dialect.name == 'sqlite':
+            row_count = 0
+            dids = list()
+            for scope, name in query.yield_per(10):
+                if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
+                    dids.append({'scope': scope, 'name': name})
+                    row_count += 1
+                if limit and row_count >= limit:
+                    return dids
+            return dids
 
     if limit:
         query = query.limit(limit)
@@ -283,64 +298,45 @@ def delete_dids(dids, account, session=None):
     :param account: The account.
     :param session: The database session in use.
     """
-    content_clause, parent_content_clause = list(), list()
-    did_clause, rule_id_clause = list(), list()
+    content_clause, parent_content_clause = [], []
+    did_clause, rule_id_clause = [], []
     for did in dids:
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
         content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
-    rule_clause, lock_clause, dataset_lock_clause = list(), list(), list()
-    for (rule_id, ) in session.query(models.ReplicationRule.id).filter(or_(*rule_id_clause)).yield_per(10):
+    rule_clause, lock_clause, dataset_lock_clause = [], [], []
+    for (rule_id, ) in session.query(models.ReplicationRule.id).filter(or_(*rule_id_clause)):
         rule_clause.append(models.ReplicationRule.id == rule_id)
         lock_clause.append(models.ReplicaLock.rule_id == rule_id)
         dataset_lock_clause.append(models.DatasetLock.rule_id == rule_id)
 
-    replica_clauses, lock_clauses = list(), list()
-    for (rse_id, scope, name, rule_id) in session.query(models.ReplicaLock.rse_id, models.ReplicaLock.scope, models.ReplicaLock.name, models.ReplicaLock.rule_id).filter(or_(*lock_clause)).yield_per(10):
-        replica_clauses.append(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id))
-        lock_clauses.append(and_(models.ReplicaLock.rse_id == rse_id, models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rule_id == rule_id))
-
-    # Update the replica's tombstones
-    # s = time()
-    with record_timer_block('undertaker.tombstones'):
-        for replica_clause in grouper(replica_clauses, 10):
-
-            # WTF BUG in the mysql-driver: lock_cnt uses the already updated value! ACID? Never heard of it!
-
-            if session.bind.dialect.name == 'mysql':
-                rowcount = session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
-                    update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
-                            'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 < 0, datetime.utcnow()), ], else_=None)},
-                           synchronize_session=False)
-            else:
-                rowcount = session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
-                    update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
-                            'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
-                           synchronize_session=False)
-
-    # print "Update replica's tombstones", time() - s
+    replica_clauses, lock_clauses = [], []
+    if lock_clause:
+        for (rse_id, scope, name, rule_id) in session.query(models.ReplicaLock.rse_id, models.ReplicaLock.scope, models.ReplicaLock.name, models.ReplicaLock.rule_id).filter(or_(*lock_clause)):
+            replica_clauses.append(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id))
+            lock_clauses.append(and_(models.ReplicaLock.rse_id == rse_id, models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rule_id == rule_id))
 
     # Remove the locks
     # s = time()
     with record_timer_block('undertaker.locks'):
-        for lock_clause in grouper(lock_clauses, 10):
-            rowcount = session.query(models.ReplicaLock).filter(or_(*lock_clause)).delete(synchronize_session=False)
+        for lock_clause in grouper(lock_clauses, 50):
+            rowcount = session.query(models.ReplicaLock).with_hint(models.ReplicaLock, "+ INDEX(LOCKS LOCKS_PK)", 'oracle').filter(or_(*lock_clause)).delete(synchronize_session=False)
+            record_counter(counters='undertaker.locks.rowcount',  delta=rowcount)
     # print 'delete locks', time() - s
 
     # Remove the dataset locks
-    # s = time()
     if dataset_lock_clause:
-        with record_timer_block('undertaker.datasetlocks'):
-            rowcount = session.query(models.DatasetLock).filter(or_(*dataset_lock_clause)).delete(synchronize_session=False)
-    # print 'delete rules', time() - s
+        rowcount = session.query(models.DatasetLock).filter(or_(*dataset_lock_clause)).delete(synchronize_session=False)
 
     # Remove the rules
     # s = time()
     if rule_clause:
         with record_timer_block('undertaker.rules'):
             rowcount = session.query(models.ReplicationRule).filter(or_(*rule_clause)).delete(synchronize_session=False)
+            record_counter(counters='undertaker.rules.rowcount',  delta=rowcount)
+
     # print 'delete rules', time() - s
     # filter(exists([1]).where(or_(*lock_clause))).delete(synchronize_session=False)
 
@@ -358,7 +354,8 @@ def delete_dids(dids, account, session=None):
         with record_timer_block('undertaker.content'):
             rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*content_clause)).\
                 delete(synchronize_session=False)
-    # print 'delete content', time() - s
+        record_counter(counters='undertaker.content.rowcount',  delta=rowcount)
+    # print 'delete content', rowcount, time() - s
 
     # s = time()
     # remove data identifier
@@ -367,6 +364,18 @@ def delete_dids(dids, account, session=None):
             filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
             delete(synchronize_session=False)
     # print 'delete dids', time() - s
+
+    # Update the replica's tombstones
+    # s = time()
+    # .with_lockmode('update_nowait')
+    replicas_count = 0
+    with record_timer_block('undertaker.tombstones'):
+        for replica_clause in grouper(replica_clauses, 50):
+            replicas_count += session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
+                update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
+                        'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
+                       synchronize_session=False)
+    record_counter(counters='undertaker.tombstones.rowcount',  delta=replicas_count)
 
     if not rowcount and len(dids) != rowcount:
         raise exception.DataIdentifierNotFound("Datasets or containers not found")
