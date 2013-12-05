@@ -261,71 +261,55 @@ def delete_replicas(rse, files, session=None):
     """
     replica_rse = get_rse(rse=rse, session=session)
 
-    condition = or_()
+    replica_condition, parent_condition, did_condition = list(), list(), list()
     for file in files:
-        condition.append(and_(models.RSEFileAssociation.scope == file['scope'],
-                              models.RSEFileAssociation.name == file['name'],
-                              models.RSEFileAssociation.rse_id == replica_rse.id))
+        replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))
+        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'], models.DataIdentifierAssociation.child_name == file['name'],
+                                     ~exists([1]).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
+        did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'],
+                                  ~exists([1]).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
-    delta, bytes = 0, 0
-    parent_condition = or_()
-    replicas = list()
-    for replica in session.query(models.RSEFileAssociation).filter(condition):
+    delta, bytes, rowcount = 0, 0, 0
+    for c in grouper(replica_condition, 10):
+        for (replica_bytes, ) in session.query(models.RSEFileAssociation.bytes).filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
+            bytes += replica_bytes
+            delta += 1
 
-        replica.delete(session=session)
+        rowcount += session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)).delete(synchronize_session=False)
 
-        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == replica.scope,
-                                     models.DataIdentifierAssociation.child_name == replica.name,
-                                     ~exists([1]).where(and_(models.RSEFileAssociation.scope == replica.scope, models.RSEFileAssociation.name == replica.name))))
-
-        replicas.append((replica.scope, replica.name))
-        bytes += replica['bytes']
-        delta += 1
-
-    if len(replicas) != len(files):
-        raise exception.ReplicaNotFound(str(replicas))
-
-    session.flush()
+    if rowcount != len(files):
+        raise exception.ReplicaNotFound(str(files))
 
     # Delete did from the content for the last did
-    query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
-                          models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).filter(parent_condition)
+    is_false = False
+    while parent_condition:
+        child_did_condition = list()
+        tmp_parent_condition = list()
+        for c in grouper(parent_condition, 10):
 
-    parent_datasets = list()
-    for parent_scope, parent_name, child_scope, child_name in query:
-        rowcount = session.query(models.DataIdentifierAssociation).filter_by(scope=parent_scope, name=parent_name, child_scope=child_scope, child_name=child_name).\
-            delete(synchronize_session=False)
+            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
+                                  models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
+                filter(or_(*c))
+            for parent_scope, parent_name, child_scope, child_name in query:
+                child_did_condition.append(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name,
+                                                models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
+                tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
+                                                 ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))
+                did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == is_false,
+                                          ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))
 
-        (parent_scope, parent_name) not in parent_datasets and parent_datasets.append((parent_scope, parent_name))
+        if child_did_condition:
+            for c in grouper(child_did_condition, 10):
+                rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*c)).delete(synchronize_session=False)
+            # update parent counters
 
-    # Delete empty closed collections
-    # parent_condition = or_()
-    deleted_parents = list()
-    for parent_scope, parent_name in parent_datasets:
-        rowcount = session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name, is_open=False).\
-            filter(~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))).\
-            delete(synchronize_session=False)
+        parent_condition = tmp_parent_condition
 
-        if rowcount:
-            deleted_parents.append((parent_scope, parent_name))
-    #        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-    #                                     models.DataIdentifierAssociation.child_name == parent_name,
-    #                                     ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
-    #                                                             models.DataIdentifierAssociation.name == parent_name))))
-    #   if not deleted_parents:
-    #        break
-
-    # ToDo: delete empty datasets from container and delete empty close containers
-
-    # Delete file with no replicas
-    for replica_scope, replica_name in replicas:
-        session.query(models.DataIdentifier).filter_by(scope=replica_scope, name=replica_name).\
-            filter(~exists([1]).where(and_(models.RSEFileAssociation.scope == replica_scope, models.RSEFileAssociation.name == replica_name))).\
-            delete(synchronize_session=False)
+    for c in grouper(did_condition, 10):
+        rowcount = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*c)).delete(synchronize_session=False)
 
     # Decrease RSE counter
     decrease(rse_id=replica_rse.id, delta=delta, bytes=bytes, session=session)
-    # Error handling foreign key constraint violation on commit
 
 
 @transactional_session
@@ -386,7 +370,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
     rows = list()
     #  neededSpace = bytes
-    for (scope, name, bytes) in query.yield_per(5):
+    for (scope, name, bytes) in query.yield_per(1000):
         d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
 
@@ -421,7 +405,6 @@ def update_replicas_states(replicas, session=None):
     :param state: The state.
     :param session: The database session in use.
     """
-
     rse_ids = {}
     for replica in replicas:
         if 'rse_id' not in replica:
@@ -438,6 +421,7 @@ def update_replicas_states(replicas, session=None):
 
         if not rowcount:
             raise exception.UnsupportedOperation('State for replica %(scope)s:%(name)s cannot be updated')
+    return True
 
 
 @transactional_session
