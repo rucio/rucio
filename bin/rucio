@@ -159,7 +159,7 @@ def list_replicas(args):
     protocols = None
     if args.protocols:
         protocols = args.protocols.split(',')
-    
+
     dids = []
     try:
         for did in args.dids:
