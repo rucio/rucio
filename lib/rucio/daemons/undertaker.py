@@ -20,6 +20,7 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
+from rucio.common.utils import chunks
 from rucio.core.monitor import record_counter
 from rucio.core.did import list_expired_dids, delete_dids
 
@@ -40,28 +41,26 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
     logging.info('Undertaker(%s): started' % worker_number)
     while not graceful_stop.is_set():
         try:
-            dids = list_expired_dids(worker_number=worker_number, total_workers=total_workers, limit=chunk_size)
-            if not dids:
-                logging.info('Undertaker(%s): Nothing to do. sleep 1.' % worker_number)
-                time.sleep(1)
+            dids = list_expired_dids(worker_number=worker_number, total_workers=total_workers, limit=10000)
+            if not dids and not once:
+                logging.info('Undertaker(%s): Nothing to do. sleep 60.' % worker_number)
+                time.sleep(60)
                 continue
 
-            logging.info('Undertaker(%s): Receive %s dids to delete' % (worker_number, len(dids)))
-            delete_dids(dids=dids, account='root')
-            logging.info('Undertaker(%s): Delete %s dids' % (worker_number, len(dids)))
-            record_counter(counters='undertaker.delete_dids',  delta=len(dids))
-
-        except DatabaseException, e:
-            logging.error('Undertaker(%s): Got database error %s.' % (worker_number, str(e)))
+            for chunk in chunks(dids, chunk_size):
+                try:
+                    logging.info('Undertaker(%s): Receive %s dids to delete' % (worker_number, len(chunk)))
+                    delete_dids(dids=chunk, account='root')
+                    logging.info('Undertaker(%s): Delete %s dids' % (worker_number, len(chunk)))
+                    record_counter(counters='undertaker.delete_dids',  delta=len(chunk))
+                except DatabaseException, e:
+                    logging.error('Undertaker(%s): Got database error %s.' % (worker_number, str(e)))
         except:
-            print traceback.format_exc()
             logging.error(traceback.format_exc())
             time.sleep(1)
 
         if once:
             break
-
-        time.sleep(0.01)
 
     logging.info('Undertaker(%s): graceful stop requested' % worker_number)
     logging.info('Undertaker(%s): graceful stop done' % worker_number)
