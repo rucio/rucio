@@ -26,7 +26,7 @@ from rucio.core.rse_counter import get_counter
 from rucio.db.constants import ReplicaState
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
-
+from rucio.common.utils import chunks
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -81,14 +81,6 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def __chunks(l, n):
-    """
-    Yield successive n-sized chunks from l.
-    """
-    for i in xrange(0, len(l), n):
-        yield l[i:i+n]
-
-
 def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False):
     """
     Main loop to select and delete files.
@@ -115,7 +107,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                     logging.info('Reaper %s: nothing to do for %s' % (worker_number, rse['rse']))
                     continue
 
-                for files in __chunks(replicas, chunk_size):
+                for files in chunks(replicas, chunk_size):
                     try:
                         s = time.time()
                         update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
@@ -128,7 +120,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse=rse['rse'], files=files)
-                        logging.debug('delete_replicas %s %s' % (len(files), time.time() - s))
+                        logging.debug('delete_replicas %s %s %s' % (rse['rse'], len(files), time.time() - s))
                         monitor.record_counter(counters='reaper.deletion.done',  delta=len(files))
                     except:
                         logging.critical(traceback.format_exc())
@@ -137,7 +129,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
         if once:
             break
-        time.sleep(0.01)
+        time.sleep(60)
 
     logging.info('Graceful stop requested')
     logging.info('Graceful stop done')
@@ -171,7 +163,6 @@ def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[]):
                   'rses': rses[i:i + nb_rses_per_worker]}
         r.extend(rses[i:i + nb_rses_per_worker])
         threads.append(threading.Thread(target=reaper, kwargs=kwargs))
-
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]
