@@ -72,8 +72,7 @@ def __check_rse_usage(rse, rse_id):
     used = cnt['bytes']
 
     # Get current amount of bytes and files waiting for deletion
-    being_deleted = rse_core.get_sum_count_being_deleted(rse_id=rse_id)
-    print being_deleted
+    # being_deleted = rse_core.get_sum_count_being_deleted(rse_id=rse_id)
 
     free = total - used
     needed_free_space = min_free_space - free
