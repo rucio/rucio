@@ -17,7 +17,7 @@ AS
 BEGIN
    LOOP
         BEGIN
-                stmt := 'ALTER TABLE '|| m_tabname ||' ADD PARTITION ' || DBMS_ASSERT.ENQUOTE_NAME(m_partition_name, capitalize=> FALSE) || ' VALUES  ('|| DBMS_ASSERT.ENQUOTE_LITERAL(m_partition_name) ||')';
+                stmt := 'ALTER TABLE '|| m_tabname ||' ADD PARTITION ' || DBMS_ASSERT.ENQUOTE_NAME(m_partition_name, capitalize=> TRUE) || ' VALUES  ('|| DBMS_ASSERT.ENQUOTE_LITERAL(m_partition_name) ||')';
 
                 DBMS_UTILITY.exec_ddl_statement(stmt);
 
