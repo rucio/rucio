@@ -77,7 +77,7 @@ CREATE OR REPLACE TRIGGER check_did_uniqueness
 AFTER INSERT on DIDS
   FOR EACH ROW
 DECLARE
-    PRAGMA AUTONOMOUS_TRANSACTION;
+    -- PRAGMA AUTONOMOUS_TRANSACTION;
     n number        := 0;
 BEGIN
     -- ver 1.1, The "AND did_type != :NEW.did_type" is removed so that Oracle does NOT visit the table, but resolves the query from the index only
@@ -108,6 +108,8 @@ AFTER DELETE on DIDS
 BEGIN
 
 	-- ver 1.0
+
+     IF :OLD.DID_TYPE !=  'F' THEN	 -- IF CLAUSE for the DQ2-RUCIO migration
         INSERT INTO DELETED_DIDS (SCOPE, NAME, ACCOUNT, DID_TYPE,
                                   IS_OPEN, MONOTONIC, HIDDEN, OBSOLETE, COMPLETE, IS_NEW,
                                   AVAILABILITY, SUPPRESSED, BYTES, LENGTH, MD5, ADLER32,
@@ -121,7 +123,7 @@ BEGIN
                                   :OLD.EXPIRED_AT, sys_extract_utc(systimestamp), :OLD.UPDATED_AT, :OLD.CREATED_AT, :OLD.EVENTS, :OLD.GUID, :OLD.PROJECT,
                                   :OLD.DATATYPE, :OLD.RUN_NUMBER, :OLD.STREAM_NAME, :OLD.PROD_STEP, :OLD.VERSION, :OLD.CAMPAIGN,
                                   :OLD.task_id, :OLD.panda_id);
-
+        END IF;
 END;
 /
 
