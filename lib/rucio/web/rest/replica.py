@@ -80,7 +80,7 @@ class Replicas(RucioController):
                     yield ' <file name="' + rfile['name'] + '">\n  <resources>\n'
                     for rse in rfile['rses']:
                         for replica in rfile['rses'][rse]:
-                            yield '   <url type="http" preference="' + str(idx) + '">' + replica.values()[0] + '</url>\n'
+                            yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
                             idx += 1
                     yield '  </resources>\n </file>\n'
                 elif metalink == 4:
@@ -94,7 +94,7 @@ class Replicas(RucioController):
                     idx = 0
                     for rse in rfile['rses']:
                         for replica in rfile['rses'][rse]:
-                            yield '   <url location="' + str(rse) + '" priority="' + str(idx) + '">' + replica.values()[0] + '</url>\n'
+                            yield '   <url location="' + str(rse) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
                             idx += 1
                     yield ' </file>\n'
 

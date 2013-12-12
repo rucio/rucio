@@ -102,7 +102,7 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
             for protocol in protocols:
                 print protocol
                 if not schemes or protocol.attributes['scheme'] in schemes:
-                    dict_tmp_files[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}))
+                    dict_tmp_files[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
                     if protocol.attributes['scheme'] == 'srm':
                         try:
                             dict_tmp_files[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
