@@ -20,6 +20,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from rucio.common.exception import InvalidRSEExpression
+from rucio.common.utils import my_key_generator
 from rucio.core.monitor import record_timer
 from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
@@ -35,14 +36,6 @@ COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
 
 PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
-
-def my_key_generator(namespace, fn, **kw):
-    fname = fn.__name__
-
-    def generate_key(*arg, **kw):
-        return namespace + "_" + fname + "_".join(str(s) for s in arg)
-
-    return generate_key
 
 region = make_region(function_key_generator=my_key_generator).configure(
     'dogpile.cache.memory',

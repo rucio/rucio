@@ -13,6 +13,7 @@
 
 from re import match
 from sqlalchemy.exc import IntegrityError
+from traceback import format_exc
 
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.db import models
@@ -44,7 +45,7 @@ def add_scope(scope, account, session=None):
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
     except:
-        raise RucioException(e.args)
+        raise RucioException(str(format_exc()))
 
 
 @read_session
