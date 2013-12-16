@@ -8,6 +8,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
+from datetime import datetime, timedelta
+
 from nose.tools import assert_not_equal
 
 from rucio.common.utils import generate_uuid
@@ -42,7 +44,7 @@ class TestUndertaker:
 
         replicas = list()
         for dsn in dsns1 + dsns2:
-            files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+            files = [{'scope': tmp_scope, 'name':  'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'tombstone': datetime.utcnow() + timedelta(weeks=2), 'meta': {'events': 10}} for i in xrange(nbfiles)]
             attach_dids(scope=tmp_scope, name=dsn['name'], rse='MOCK', dids=files, account='root')
             replicas += files
 

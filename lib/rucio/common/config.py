@@ -30,6 +30,11 @@ def config_get(section, option):
     return __config.get(section, option)
 
 
+def config_has_section(section):
+    """Indicates whether the named section is present in the configuration. The DEFAULT section is not acknowledged.)"""
+    return __config.has_section(section)
+
+
 def config_get_int(section, option):
     """Return the integer value for a given option in a section"""
     return __config.getint(section, option)
