@@ -12,7 +12,7 @@
 import json
 import sys
 import traceback
-# import urlparse
+import urlparse
 
 import requests
 
@@ -32,8 +32,14 @@ if __name__ == '__main__':
     c = Client()
 
     for rse in data:
+
+        if not rse['is_rucio']:
+            continue
+
+        # if rse['name'] != 'BNL-OSG2_DDMTEST':
+        #    continue
+
         try:
-            print rse['name']
             deterministic = True
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
@@ -57,40 +63,36 @@ if __name__ == '__main__':
                               "wan": {"read": 1,
                                       "write": 1,
                                       "delete": 1}}}
-        #c.add_protocol(rse=rse['name'], scheme='mock', params=params)
 
-#
-#         for protocol in rse['protocols']:
-#             try:
-#
-#                 o = urlparse.urlparse(protocol)
-#
-#                 extended_attributes = None
-#                 if o.scheme == 'srm':
-#                     extended_attributes =  {"web_service_path": o.path, "space_token": space_token}
-#
-#                 params = {'hostname': o.netloc,
-#                           'port': o.port,
-#                           'prefix': prefix,
-#                           'impl': 'rucio.rse.protocols.srm.Default',
-#                           'extended_attributes': extended_attributes,
-#                           'domains': {
-#                                      "LAN": {
-#                                               "read": 1,
-#                                               "write": 1,
-#                                               "delete": 1
-#                                             },
-#                                     "WAN": {
-#                                               "read": 1,
-#                                               "write": 1,
-#                                               "delete": 1
-#                                             }
-#                                     }
-#                          }
-#                 c.add_protocol(rse=rse['name'], scheme=o.scheme, params=params)
-#             except:
-#                 errno, errstr = sys.exc_info()[:2]
-#                 trcbck = traceback.format_exc()
-#                 print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+        #c.add_protocol(rse=rse['name'], scheme='mock', params=params)
+        for protocol in rse['protocols']:
+            try:
+
+                o = urlparse.urlparse(protocol)
+
+                if o.scheme != 'srm':
+                    continue
+
+                extended_attributes = None
+                if o.scheme == 'srm':
+                    extended_attributes = {"web_service_path": o.path, "space_token": space_token}
+
+                params = {'hostname': o.netloc,
+                          'port': o.port,
+                          'prefix': prefix,
+                          'impl': 'rucio.rse.protocols.srm.Default',
+                          'extended_attributes': extended_attributes,
+                          'domains': {"lan": {"read": 1,
+                                              "write": 1,
+                                              "delete": 1},
+                                      "wan": {"read": 1,
+                                              "write": 1,
+                                              "delete": 1}}}
+                print 'Add protocol', rse['name'], o.scheme, params
+                c.add_protocol(rse=rse['name'], scheme=o.scheme, params=params)
+            except:
+                errno, errstr = sys.exc_info()[:2]
+                trcbck = traceback.format_exc()
+                print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
 
     sys.exit(OK)

@@ -259,6 +259,18 @@ def chunks(l, n):
         yield l[i:i+n]
 
 
+def my_key_generator(namespace, fn, **kw):
+    """
+    Customyzed key generator for dogpile
+    """
+    fname = fn.__name__
+
+    def generate_key(*arg, **kw):
+        return namespace + "_" + fname + "_".join(str(s) for s in filter(None, arg))
+
+    return generate_key
+
+
 def get_logger(name):
     logger = getLogger(name)
     hdlr = RotatingFileHandler('%s/%s.log' % (config_get('common', 'logdir'), name), maxBytes=1000000000, backupCount=10)

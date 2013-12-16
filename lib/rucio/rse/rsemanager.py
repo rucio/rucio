@@ -23,17 +23,19 @@ DEFAULT_PROTOCOL = 1
 
 
 # Preparing region for dogpile.cache
-region = make_region().configure(
+region = make_region(function_key_generator=utils.my_key_generator).configure(
     'dogpile.cache.memory',
     expiration_time=3600,
 )
 
 
-@region.cache_on_arguments()  # Sets the dogpile.cache for this method based on the provided RSE name
-def get_rse_info(rse):
+@region.cache_on_arguments(namespace='rse_info')  # Sets the dogpile.cache for this method based on the provided RSE name
+def get_rse_info(rse, session=None):
     """ Returns all protocol related RSE attributes.
 
         :param rse: Name of the reqeusted RSE
+        :param session: The eventual database session.
+
 
         :returns: a dict object with the following attributes:
                     id              ...     an internal identifier
@@ -57,7 +59,7 @@ def get_rse_info(rse):
         :raises RSENotFound: if the provided RSE coud not be found in the database.
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
-    return __request_rse_info(rse)
+    return __request_rse_info(rse, session=session)  # NOQA
 
 
 def select_protocol(rse_settings, operation, scheme=None):

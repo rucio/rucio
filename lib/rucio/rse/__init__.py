@@ -7,16 +7,19 @@
 from rucio.rse import rsemanager
 from rucio.common import config
 
-try:
-    config.config_get_items('client')
+
+if config.config_has_section('database'):
+    setattr(rsemanager, 'CLIENT_MODE', False)
+    setattr(rsemanager, 'SERVER_MODE', True)
+elif config.config_has_section('client'):
     setattr(rsemanager, 'CLIENT_MODE', True)
     setattr(rsemanager, 'SERVER_MODE', False)
-except:
+else:
     setattr(rsemanager, 'CLIENT_MODE', False)
     setattr(rsemanager, 'SERVER_MODE', True)
 
 
-def get_rse_client(rse):
+def get_rse_client(rse, **kwarg):
     from rucio.client.rseclient import RSEClient
     return RSEClient().get_rse(rse)
 
