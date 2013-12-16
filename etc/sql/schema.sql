@@ -200,12 +200,10 @@ CREATE TABLE scopes (
     CONSTRAINT "SCOPES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
     CONSTRAINT "SCOPES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
     CONSTRAINT "SCOPES_DEFAULT_CHK" CHECK (is_default IN (0, 1)),
-    CONSTRAINT "SCOPE_STATUS_CHK" CHECK (status IN ('C', 'D', 'O'))
+    CONSTRAINT "SCOPES_STATUS_CHK" CHECK (status IN ('C', 'D', 'O'))
 ) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
-
-
-
+CREATE UNIQUE INDEX SCOPES_SCOPE_UQ ON SCOPES(UPPER(scope)) tablespace ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
 -- ========================================= RSES (IOT structure) =========================================
 -- Description: Table to store the list of RSEs
