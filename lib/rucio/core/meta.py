@@ -94,7 +94,6 @@ def add_value(key, value, session=None):
     try:
         new_value.save(session=session)
     except IntegrityError, e:
-        print e.args[0]
         if e.args[0] == "(IntegrityError) columns key, value are not unique":
             raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
 
