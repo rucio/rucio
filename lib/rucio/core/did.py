@@ -478,7 +478,7 @@ def list_content(scope, name, session=None):
 
 
 @stream_session
-def list_parent_dids(scope, name, lockmode, session=None):
+def list_parent_dids(scope, name, lockmode=None, session=None):
     """
     List all parent datasets and containers of a did.
 
@@ -501,7 +501,7 @@ def list_parent_dids(scope, name, lockmode, session=None):
 
 
 @stream_session
-def list_child_dids(scope, name, lockmode, session=None):
+def list_child_dids(scope, name, lockmode=None, session=None):
     """
     List all child datasets and containers of a did.
 
@@ -515,10 +515,9 @@ def list_child_dids(scope, name, lockmode, session=None):
 
     query = session.query(models.DataIdentifierAssociation.child_scope,
                           models.DataIdentifierAssociation.child_name,
-                          models.DataIdentifierAssociation.child_type).filter(
-                              models.DataIdentifierAssociation.scope == scope,
-                              models.DataIdentifierAssociation.name == name,
-                              models.DataIdentifierAssociation.child_type != DIDType.FILE)
+                          models.DataIdentifierAssociation.child_type).filter(models.DataIdentifierAssociation.scope == scope,
+                                                                              models.DataIdentifierAssociation.name == name,
+                                                                              models.DataIdentifierAssociation.child_type != DIDType.FILE)
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
     for child_scope, child_name, child_type in query.yield_per(5):
