@@ -64,7 +64,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                     query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
 
             start = time.time()  # NOQA
-            dids = query.limit(1000).all()
+            dids = query.limit(50).all()
             logging.debug('Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids)))
 
             if not dids and not once:
@@ -74,11 +74,16 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 1)
                 done_dids = {}
                 for did in dids:
+                    # Delete duplicate dids
+                    session.query(models.UpdatedDID).filter(models.UpdatedDID.scope == did.scope,
+                                                            models.UpdatedDID.name == did.name,
+                                                            models.UpdatedDID.rule_evaluation_action == did.rule_evaluation_action,
+                                                            models.UpdatedDID.id != did.id).delete(synchronize_session=False)
                     if graceful_stop.is_set():
                         break
                     if '%s:%s' % (did.scope, did.name) in done_dids:
                         if did.rule_evaluation_action in done_dids['%s:%s' % (did.scope, did.name)]:
-                            did.delete(flush=False, session=session)
+                            #did.delete(flush=False, session=session)
                             continue
                     else:
                         done_dids['%s:%s' % (did.scope, did.name)] = []
