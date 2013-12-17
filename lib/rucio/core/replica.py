@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from re import match
 
 from sqlalchemy import func, and_, or_, exists
@@ -186,7 +186,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         nbfiles += 1
         bytes += file['bytes']
         new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'], path=file.get('path'), state=ReplicaState.AVAILABLE,
-                                                md5=file.get('md5'), adler32=file.get('adler32'), tombstone=file.get('tombstone') or datetime.utcnow() + timedelta(weeks=2))
+                                                md5=file.get('md5'), adler32=file.get('adler32'), tombstone=file.get('tombstone'))
         new_replica.save(session=session, flush=False)
     try:
         session.flush()
