@@ -258,7 +258,7 @@ class UseCaseDefinition(UCEmulator):
                     open_ds.append({'scope': scope, 'name': datasetname,
                                     'statuses': {'monotonic': True}, 'meta': meta,
                                     'rules': [{'account': tz_account, 'copies': 1,
-                                    'rse_expression': tz_rse, 'grouping': 'DATASET'}]})  # The missing lifetime attribute indicated an infinite lifetime
+                                               'rse_expression': tz_rse, 'grouping': 'DATASET'}]})  # The missing lifetime attribute indicated an infinite lifetime
                 with monitor.record_timer_block(['tzero.add_datasets', ('tzero.add_datasets.normalized', len(open_ds))]):
                     client.add_datasets(open_ds)
                 monitor.record_counter('tzero.datasets', len(open_ds))

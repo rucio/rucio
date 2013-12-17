@@ -381,7 +381,7 @@ class UseCaseDefinition(UCEmulator):
                         if bulk:
                             inserts_sub.append({'scope': 'panda', 'name': ds, 'lifetime': 172800, 'dids': [],
                                                 'rules': [{'account': 'panda', 'copies': 2, 'rse_expression': '%s|%s' % (computing_rse, target_rses[0]),
-                                                'grouping': 'DATASET'}]})  # Create SUB-Datasets
+                                                           'grouping': 'DATASET'}]})  # Create SUB-Datasets
                         else:
                             with monitor.record_timer_block('panda.add_dataset'):
                                 client.add_dataset(scope='panda', name=ds, lifetime=172800,

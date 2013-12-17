@@ -21,9 +21,9 @@ sphinxcontrib-sdedit==0.3       #
 PIL==1.1.7                      #
 Pygments>=1.2                   # Python Syntax highlighter
 docutils>=0.9                   # Needed for sphinx
-pep8==1.4.5                     # checks for PEP8 code style compliance
-pyflakes==0.7.2                 # Passive checker of Python programs
-flake8==2.0                     # Wrapper around PyFlakes&pep8
+pep8==1.4.6                     # checks for PEP8 code style compliance
+pyflakes==0.7.3                 # Passive checker of Python programs
+flake8==2.1                     # Wrapper around PyFlakes&pep8
 pylint==0.25.2                  # static code analysis
 virtualenv==1.9.1               # Virtual Python Environment builder
 tox==1.4.3                      # Automate and standardize testing in Python

@@ -18,15 +18,9 @@ import threading
 import time
 import traceback
 
-from sqlalchemy.exc import DatabaseError
-from sqlalchemy.sql.expression import bindparam
-from sqlalchemy.sql.expression import text
-
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound
-from rucio.db import session as rucio_session
-from rucio.db import models
-from rucio.core.rule import re_evaluate_did
+from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_duplicate_updated_dids, delete_updated_did
 from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
@@ -48,42 +42,29 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
     while not graceful_stop.is_set():
         try:
             # Select a bunch of dids for re evaluation for this worker
-            session = rucio_session.get_session()
-            query = session.query(models.UpdatedDID).\
-                with_hint(models.UpdatedDID, "index(updated_dids UPDATED_DIDS_CREATED_AT_IDX)", 'oracle').\
-                order_by(models.UpdatedDID.created_at)
-
-            if total_processes*threads_per_process-1 > 0:
-                if session.bind.dialect.name == 'oracle':
-                    bindparams = [bindparam('worker_number', process*threads_per_process+thread),
-                                  bindparam('total_workers', total_processes*threads_per_process-1)]
-                    query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-                elif session.bind.dialect.name == 'mysql':
-                    query = query.filter('mod(md5(name), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
-                elif session.bind.dialect.name == 'postgresql':
-                    query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
-
             start = time.time()  # NOQA
-            dids = query.limit(50).all()
+            dids = get_updated_dids(total_workers=total_processes*threads_per_process-1,
+                                    worker_number=process*threads_per_process+thread,
+                                    limit=1000)
             logging.debug('Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids)))
 
+            # If the list is empty, sent the worker to sleep
             if not dids and not once:
                 logging.info('re_evaluator[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
                 time.sleep(10)
             else:
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 1)
+
                 done_dids = {}
                 for did in dids:
-                    # Delete duplicate dids
-                    session.query(models.UpdatedDID).filter(models.UpdatedDID.scope == did.scope,
-                                                            models.UpdatedDID.name == did.name,
-                                                            models.UpdatedDID.rule_evaluation_action == did.rule_evaluation_action,
-                                                            models.UpdatedDID.id != did.id).delete(synchronize_session=False)
                     if graceful_stop.is_set():
                         break
+                    # Try to delete all duplicate dids
+                    delete_duplicate_updated_dids(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, id=did.id)
+
+                    # Check if this did has already been operated on
                     if '%s:%s' % (did.scope, did.name) in done_dids:
                         if did.rule_evaluation_action in done_dids['%s:%s' % (did.scope, did.name)]:
-                            #did.delete(flush=False, session=session)
                             continue
                     else:
                         done_dids['%s:%s' % (did.scope, did.name)] = []
@@ -93,16 +74,13 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name, time.time() - start_time))
-                        did.delete(flush=False, session=session)
+                        delete_updated_did(id=did.id)
                     except DataIdentifierNotFound, e:
-                        did.delete(flush=False, session=session)
-                    except (DatabaseException, DatabaseError), e:
+                        delete_updated_did(id=did.id)
+                    except DatabaseException, e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
-            session.flush()
-            session.commit()
-            session.remove()
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
