@@ -115,11 +115,11 @@ def get_files_and_replica_locks_of_dataset(scope, name, lockmode, restrict_rses=
                           models.DataIdentifierAssociation.bytes,
                           models.ReplicaLock.rse_id,
                           models.ReplicaLock.state,
-                          models.ReplicaLock.rule_id).outerjoin(models.ReplicaLock, and_(
-                              models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                              models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
-                                  models.DataIdentifierAssociation.scope == scope,
-                                  models.DataIdentifierAssociation.name == name)
+                          models.ReplicaLock.rule_id)\
+        .outerjoin(models.ReplicaLock,
+                   and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                        models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
+        .filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
     if restrict_rses is not None:
         rse_clause = []
         for rse_id in restrict_rses:
@@ -130,12 +130,13 @@ def get_files_and_replica_locks_of_dataset(scope, name, lockmode, restrict_rses=
                           models.DataIdentifierAssociation.bytes,
                           models.ReplicaLock.rse_id,
                           models.ReplicaLock.state,
-                          models.ReplicaLock.rule_id).outerjoin(models.ReplicaLock, and_(
-                              models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                              models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
-                              or_(*rse_clause))).filter(
-                                  models.DataIdentifierAssociation.scope == scope,
-                                  models.DataIdentifierAssociation.name == name)
+                          models.ReplicaLock.rule_id)\
+                .outerjoin(models.ReplicaLock,
+                           and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                                models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                                or_(*rse_clause)))\
+                .filter(models.DataIdentifierAssociation.scope == scope,
+                        models.DataIdentifierAssociation.name == name)
     if lockmode is not None:
         query = query.with_lockmode(lockmode)
     for child_scope, child_name, bytes, rse_id, state, rule_id in query:

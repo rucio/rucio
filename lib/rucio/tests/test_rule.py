@@ -28,7 +28,10 @@ from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_lock_state
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.cleaner import rule_cleaner
-from rucio.db.constants import DIDType
+#from rucio.daemons.judge.repairer import rule_repairer
+#from rucio.db import models
+from rucio.db.constants import DIDType  # , RuleState, RuleGrouping
+#from rucio.db.session import get_session
 
 
 def _create_test_files(nrfiles, scope, rse, bytes=1):
@@ -450,6 +453,27 @@ class TestReplicationRuleCore():
         assert_raises(AccessDenied, delete_rule, rule_id_1)
         update_lock_state(rule_id=rule_id_1, lock_state=False)
         delete_rule(rule_id=rule_id_1)
+
+    # def test_stuck_rule(self):
+    #     """ REPLICATION RULE (CORE): Test to repair a STUCK replication rule"""
+    #     scope = 'mock'
+    #     files = _create_test_files(3, scope, self.rse1)
+    #     dataset = 'dataset_' + str(uuid())
+    #     add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+    #     attach_dids(scope, dataset, files, 'jdoe')
+
+    #     session = get_session()
+    #     new_rule = models.ReplicationRule(account='jdoe', name=dataset, scope=scope, copies=1, rse_expression=self.rse1, locked=False, grouping=RuleGrouping.DATASET, expires_at=None, weight=None, subscription_id=None, state=RuleState.STUCK)
+    #     new_rule.save(session=session)
+    #     session.commit()
+
+    #     rule_repairer(once=True)
+
+    #     assert(get_rule(rule_id=new_rule.id)['state'] == 'OK')
+
+    #     for file in files:
+    #         rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
+    #         assert(len(rse_locks) == 1)
 
 
 class TestReplicationRuleClient():
