@@ -95,10 +95,10 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                 dict_tmp_files[key]['rses'][rse] = []
             protocols = list()
             if schemes is None:
-                protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse), 'read'))
+                protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
             else:
                 for s in schemes:
-                    protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse), 'read', s))
+                    protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read', s))
             for protocol in protocols:
                 print protocol
                 if not schemes or protocol.attributes['scheme'] in schemes:
@@ -219,7 +219,7 @@ def add_replicas(rse, files, account, session=None):
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
     if not replica_rse.deterministic:
-        p = rsemgr.create_protocol(rsemgr.get_rse_info(rse), 'write')
+        p = rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'write')
         pfns = list()
         for file in files:
             if 'pfn' not in file:
