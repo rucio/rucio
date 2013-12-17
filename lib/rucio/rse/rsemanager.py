@@ -65,9 +65,6 @@ def get_rse_info(rse, session=None):
 def select_protocol(rse_settings, operation, scheme=None):
     operation = operation.lower()
     candidates = copy.copy(rse_settings['protocols'])
-    print '==' * 60
-    print rse_settings
-    print candidates
     if type(rse_settings['domain']) is not list:
         raise exception.RSEProtocolDomainNotSupported('Domain setting must be list.')
 
@@ -91,8 +88,6 @@ def select_protocol(rse_settings, operation, scheme=None):
         candidates.remove(r)
 
     if not len(candidates):
-        print '=ERROR=' * 60
-        print rse_settings
         raise exception.RSEProtocolNotSupported('No protocol for provided settings found.' % rse_settings['domain'])
 
     # Select the one with the highest priority
@@ -102,7 +97,6 @@ def select_protocol(rse_settings, operation, scheme=None):
     for p in candidates:
         if p['domains'][domain][operation] < best_choice['domains'][domain][operation]:
             best_choice = p
-    print '==' * 60
     return best_choice
 
 

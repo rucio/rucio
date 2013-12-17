@@ -100,7 +100,6 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                 for s in schemes:
                     protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read', s))
             for protocol in protocols:
-                print protocol
                 if not schemes or protocol.attributes['scheme'] in schemes:
                     dict_tmp_files[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
                     if protocol.attributes['scheme'] == 'srm':

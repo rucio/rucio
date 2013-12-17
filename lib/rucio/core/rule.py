@@ -635,7 +635,7 @@ def __evaluate_did_attach(eval_did, session=None):
                 brother_did = session.query(models.DataIdentifierAssociation).filter(
                     models.DataIdentifierAssociation.scope == eval_did.scope,
                     models.DataIdentifierAssociation.name == eval_did.name,
-                    models.DataIdentifierAssociation.rule_evaluation == True).first()  # noqa
+                    models.DataIdentifierAssociation.rule_evaluation == True).first()   # noqa
                 if brother_did is not None:
                     # There are other files in the dataset
                     locks = get_replica_locks(scope=brother_did.child_scope,
