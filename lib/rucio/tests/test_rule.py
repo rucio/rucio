@@ -405,12 +405,9 @@ class TestReplicationRuleCore():
 
         parent_container = 'dataset_' + str(uuid())
         add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
-
         #Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': parent_container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
-
         attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], 'jdoe')
-
         #Fake judge
         re_evaluator(once=True)
 

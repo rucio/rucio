@@ -89,7 +89,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
     while not graceful_stop.is_set():
         for rse in rses:
-            rse_info = rsemgr.get_rse_info(rse.rse)
+            rse_info = rsemgr.get_rse_info(rse['rse'])
             logging.info('Running on RSE %s' % (rse_info['rse']))
             try:
                 s = time.time()
