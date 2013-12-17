@@ -396,7 +396,7 @@ class TestReplicationRuleCore():
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)) == 2)
 
     def test_judge_add_dataset_to_container(self):
-        """ REPLICATION RULE (CORE): Test the judge when adding files to dataset"""
+        """ REPLICATION RULE (CORE): Test the judge when adding dataset to container"""
         scope = 'mock'
         files = _create_test_files(3, scope, self.rse1)
         dataset = 'dataset_' + str(uuid())
