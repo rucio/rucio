@@ -38,7 +38,7 @@ class ReplicaClient(BaseClient):
             data['schemes'] = schemes
         if unavailable:
             data['unavailable'] = True
-        url = build_url(self.host, path=self.REPLICAS_BASEURL, params=dumps(data))
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'list']))
 
         headers = {}
         if metalink is not None:
@@ -48,7 +48,7 @@ class ReplicaClient(BaseClient):
                 headers['Accept'] = 'application/metalink4+xml'
 
         # pass json dict in querystring
-        r = self._send_request(url, headers=headers, type='GET')
+        r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.ok:
             if metalink is None:
                 return self._load_json_data(r)
