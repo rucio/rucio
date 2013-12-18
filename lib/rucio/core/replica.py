@@ -290,7 +290,6 @@ def delete_replicas(rse, files, session=None):
         raise exception.ReplicaNotFound(str(files))
 
     # Delete did from the content for the last did
-    is_false = False
     while parent_condition:
         child_did_condition = list()
         tmp_parent_condition = list()
@@ -304,8 +303,8 @@ def delete_replicas(rse, files, session=None):
                                                 models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
                 tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
                                                  ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))
-                did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == is_false,
-                                          ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))
+                did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False,
+                                          ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
         if child_did_condition:
             for c in grouper(child_did_condition, 10):
