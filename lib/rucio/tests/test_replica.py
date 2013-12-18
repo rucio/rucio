@@ -36,7 +36,7 @@ class TestReplicaCore:
             add_replicas(rse=rse, files=files, account='root')
 
         replica_cpt = 0
-        for replica in list_replicas(dids=files):
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files]):
             replica_cpt += 1
 
         assert_equal(nbfiles, replica_cpt)
@@ -124,7 +124,7 @@ class TestReplicaClients:
         self.replica_client.add_replicas(rse='MOCK3', files=files2)
 
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files1])]
-        assert_equal(len(replicas), 5)
+        assert_equal(len(replicas), len(files1))
 
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['file'])]
         assert_equal(len(replicas), 5)
@@ -136,8 +136,8 @@ class TestReplicaClients:
         self.replica_client.add_replicas(rse='MOCK', files=files)
         self.replica_client.delete_replicas(rse='MOCK', files=files)
 
-        with assert_raises(DataIdentifierNotFound):
-            self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])
+        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
+        assert_equal(len(replicas), 0)
 
 
 class TestReplicaMetalink:
