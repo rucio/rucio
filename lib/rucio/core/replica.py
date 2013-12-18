@@ -13,11 +13,10 @@ from re import match
 
 from sqlalchemy import func, and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import case
 
 from rucio.common import exception
-from rucio.common.utils import grouper
+from rucio.common.utils import grouper, chunks
 from rucio.core.rse import get_rse, get_rse_id
 from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
@@ -36,80 +35,86 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
     :param unavailable: Also include unavailable replicas in the list.
     :param session: The database session in use.
     """
-    replica_conditions = list()
-    # Get files
-    for did in dids:
-        try:
-            (did_type, ) = session.query(models.DataIdentifier.did_type).filter_by(scope=did['scope'], name=did['name']).one()
-        except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % did)
-
-        if did_type == DIDType.FILE:
+    # Get the list of files
+    replica_conditions, did_conditions = [], []
+    # remove duplicate did from the list
+    for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
+        if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):
             if not unavailable:
-                replica_conditions.append(and_(models.RSEFileAssociation.scope == did['scope'],
-                                               models.RSEFileAssociation.name == did['name'],
-                                               models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
+                condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
             else:
-                replica_conditions.append(and_(models.RSEFileAssociation.scope == did['scope'],
-                                               models.RSEFileAssociation.name == did['name'],
-                                               or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE)))
-
+                condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+            replica_conditions.append(condition)
         else:
-            content_query = session.query(models.DataIdentifierAssociation)
-            child_dids = [(did['scope'], did['name'])]
-            while child_dids:
-                s, n = child_dids.pop()
-                for tmp_did in content_query.filter_by(scope=s, name=n):
-                    if tmp_did.child_type == DIDType.FILE:
-                        if not unavailable:
-                            replica_conditions.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
-                                                           models.RSEFileAssociation.name == tmp_did.child_name,
-                                                           models.RSEFileAssociation.state == ReplicaState.AVAILABLE))
-                        else:
-                            replica_conditions.append(and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
-                                                           models.RSEFileAssociation.name == tmp_did.child_name,
-                                                           or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                               models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE)))
-                    else:
-                        child_dids.append((tmp_did.child_scope, tmp_did.child_name))
+            did_conditions.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
 
-    # Get replicas
-    is_none = None
-    replicas_conditions = grouper(replica_conditions, 10, and_(models.RSEFileAssociation.scope == is_none,
-                                                               models.RSEFileAssociation.name == is_none,
-                                                               models.RSEFileAssociation.state == is_none))
+    if did_conditions:
+        # Get files
+        for scope, name, did_type in session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter(or_(*did_conditions)):
+            if did_type == DIDType.FILE:
+                if not unavailable:
+                    condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                     models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                else:
+                    condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+                replica_conditions.append(condition)
+            else:
+                # for dataset/container
+                content_query = session.query(models.DataIdentifierAssociation)
+                child_dids = [(scope, name)]
+                while child_dids:
+                    s, n = child_dids.pop()
+                    for tmp_did in content_query.filter_by(scope=s, name=n):
+                        if tmp_did.child_type == DIDType.FILE:
+                            if not unavailable:
+                                condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                                 models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                            else:
+                                condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                                 or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                                     models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+                            replica_conditions.append(condition)
+                        else:
+                            child_dids.append((tmp_did.child_scope, tmp_did.child_name))
+
+    # Get the list of replicas
     replica_query = session.query(models.RSEFileAssociation, models.RSE.rse).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).\
         order_by(models.RSEFileAssociation.scope).\
         order_by(models.RSEFileAssociation.name)
-    dict_tmp_files = {}
-    replicas = []
-    for replica_condition in replicas_conditions:
-        for replica, rse in replica_query.filter(or_(*replica_condition)).yield_per(5):
+    tmp_files, tmp_protocols = {}, {}
+    for replica_condition in chunks(replica_conditions, 20):
+        for replica, rse in replica_query.filter(or_(*replica_condition)):
             key = '%s:%s' % (replica.scope, replica.name)
-            if not key in dict_tmp_files:
-                dict_tmp_files[key] = {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
-                                       'md5': replica.md5, 'adler32': replica.adler32,
-                                       'rses': {rse: list()}}
+            if not key in tmp_files:
+                tmp_files[key] = {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
+                                  'md5': replica.md5, 'adler32': replica.adler32,
+                                  'rses': {rse: []}, 'replicas': []}
             else:
-                dict_tmp_files[key]['rses'][rse] = []
-            protocols = list()
-            if schemes is None:
-                protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
-            else:
-                for s in schemes:
-                    protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read', s))
-            for protocol in protocols:
+                tmp_files[key]['rses'][rse] = []
+
+            # get protocols
+            if rse not in tmp_protocols:
+                protocols = list()
+                if schemes is None:
+                    protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
+                else:
+                    for s in schemes:
+                        protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read', s))
+                tmp_protocols[rse] = protocols
+
+            # get pfns
+            for protocol in tmp_protocols[rse]:
                 if not schemes or protocol.attributes['scheme'] in schemes:
-                    dict_tmp_files[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
+                    tmp_files[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
                     if protocol.attributes['scheme'] == 'srm':
                         try:
-                            dict_tmp_files[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
+                            tmp_files[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
                         except KeyError:
-                            dict_tmp_files[key]['space_token'] = None
-    for key in dict_tmp_files:
-        replicas.append(dict_tmp_files[key])
-        yield dict_tmp_files[key]
+                            tmp_files[key]['space_token'] = None
+
+    for key in tmp_files:
+        yield tmp_files[key]
 
 
 @transactional_session
