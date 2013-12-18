@@ -82,11 +82,16 @@ class BaseClient(object):
         self.request_retries = self.REQUEST_RETRIES
 
         if auth_type is None:
-            LOG.debug('no auth_type passed. Trying to get it from the config file.')
-            try:
-                self.auth_type = config_get('client', 'auth_type')
-            except (NoOptionError, NoSectionError), e:
-                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+            LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
+            if 'RUCIO_AUTH_TYPE' in environ:
+                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss'):
+                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss vs. ' + environ['RUCIO_AUTH_TYPE'])
+                self.auth_type = environ['RUCIO_AUTH_TYPE']
+            else:
+                try:
+                    self.auth_type = config_get('client', 'auth_type')
+                except (NoOptionError, NoSectionError), e:
+                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
         if creds is None:
             LOG.debug('no creds passed. Trying to get it from the config file.')
