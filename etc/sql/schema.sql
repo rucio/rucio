@@ -307,6 +307,7 @@ CREATE TABLE did_key_map (
 -- Estimated volume: ~1000
 -- Access pattern: by state. by name
 
+
 CREATE TABLE subscriptions (
     id RAW(16),
     name VARCHAR2(64 CHAR),
@@ -322,7 +323,7 @@ CREATE TABLE subscriptions (
     updated_at DATE,
     created_at DATE,
     CONSTRAINT "SUBSCRIPTIONS_PK" PRIMARY KEY (id),
-    CONSTRAINT "SUBSCRIPTION_NAME_ACCOUNT_UQ" UNIQUE (name, account),
+    CONSTRAINT "SUBSCRIPTIONS_NAME_ACCOUNT_UQ" UNIQUE (name, account),
     CONSTRAINT "SUBSCRIPTIONS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT "SUBSCRIPTIONS_ACCOUNT_NN" CHECK ("ACCOUNT" IS NOT NULL),
     CONSTRAINT "SUBSCRIPTIONS_RETROACTIVE_NN" CHECK ("RETROACTIVE" IS NOT NULL),
