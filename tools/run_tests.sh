@@ -24,6 +24,7 @@ function usage {
   echo '  -i    Do only the initialization.'
   echo '  -d    Delete the sqlite db file.'
   echo '  -u    Update pip dependencies.'
+  echo '  -k    Keep database.'
   echo '  -1    Only run once.'
   exit
 }
@@ -35,7 +36,7 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrctid1u opt
+while getopts hrctid1uk opt
 do
   case "$opt" in
     h) usage;;
@@ -45,6 +46,7 @@ do
     i) init_only="true";;
     d) delete_sqlite="true";;
     u) update_deps="true";;
+    k) keep_db="true";;
     1) range=1;;
   esac
 done
@@ -67,12 +69,17 @@ if test ${delete_sqlite+defined}; then
     rm -f /tmp/rucio.db /tmp/mock-fts.db
 fi
 
-echo 'Resetting database tables'
-tools/reset_database.py $testopts
+if test ${keep_db}; then
+    echo 'Keep database tables'
+else
+    echo 'Resetting database tables'
 
-if [ $? != 0 ]; then
-    echo 'Failed to reset the database!'
-    exit
+    tools/reset_database.py $testopts
+
+    if [ $? != 0 ]; then
+        echo 'Failed to reset the database!'
+        exit
+    fi
 fi
 
 if [ -f /tmp/rucio.db ]; then
