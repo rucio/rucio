@@ -372,7 +372,7 @@ def delete_dids(dids, account, session=None):
     replicas_count = 0
     with record_timer_block('undertaker.tombstones'):
         for replica_clause in grouper(replica_clauses, 50):
-            replicas_count += session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).\
+            replicas_count += session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).with_lockmode('update_nowait').\
                 update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
                         'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
                        synchronize_session=False)

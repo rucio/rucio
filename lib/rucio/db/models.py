@@ -53,6 +53,8 @@ def compile_binary_oracle(type_, compiler, **kw):
 def _add_hint(conn, element, multiparams, params):
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'locks':
         element = element.prefix_with("/*+ INDEX(LOCKS LOCKS_PK) */")
+    if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'updated_dids':
+        element = element.prefix_with("/*+ INDEX(updated_dids UPDATED_DIDS_SCOPERULENAME_IDX) */")
     return element, multiparams, params
 
 
@@ -391,6 +393,7 @@ class RSEUsage(BASE, ModelBase, Versioned):
     source = Column(String(255))
     used = Column(BigInteger)
     free = Column(BigInteger)
+    files = Column(BigInteger)
     rse = relationship("RSE", backref=backref('rse_usage', order_by=rse_id))
     _table_args = (PrimaryKeyConstraint('rse_id', 'source', name='RSE_USAGE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_USAGE_RSE_ID_FK'), )
