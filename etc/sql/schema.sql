@@ -909,6 +909,7 @@ CREATE TABLE rse_usage (
     source VARCHAR2(255 CHAR),
     used NUMBER(19),
     free NUMBER(19),
+    files NUMBER(19),
     updated_at DATE,
     created_at DATE,
     CONSTRAINT "RSE_USAGE_PK" PRIMARY KEY (rse_id, source),
@@ -1080,6 +1081,7 @@ CREATE TABLE rse_usage_history (
     source VARCHAR2(255 CHAR),
     used NUMBER(19),
     free NUMBER(19),
+    files NUMBER(19),
     updated_at DATE,
     created_at DATE,
     CONSTRAINT "RSE_USAGE_HISTORY_PK" PRIMARY KEY (rse_id, source, updated_at)
