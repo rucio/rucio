@@ -100,7 +100,7 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                     protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
                 else:
                     for s in schemes:
-                        protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read', s))
+                        protocols.append(rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse, session=session), operation='read', scheme=s))
                 tmp_protocols[rse] = protocols
 
             # get pfns

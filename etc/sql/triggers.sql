@@ -62,11 +62,6 @@ BEGIN
 END;
 /
 
-
-
-
-
-
 -- 4) =================================================================================================================
 -- trigger for verification that the new values for "SCOPE and NAME" have not been used in the past ( the DELETED_DIDS table )
 
@@ -126,6 +121,3 @@ BEGIN
         END IF;
 END;
 /
-
-
-
