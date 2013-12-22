@@ -12,6 +12,8 @@
 import hashlib
 import os
 
+from re import match
+
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
@@ -22,12 +24,13 @@ from rucio.db.session import read_session, transactional_session
 
 
 @transactional_session
-def add_identity(identity, type, password=None, session=None):
+def add_identity(identity, type, email, password=None, session=None):
     """
     Creates a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
     :param type: The type of the authentication (x509, gss, userpass)
+    :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     :param session: The database session in use.
     """
@@ -36,17 +39,18 @@ def add_identity(identity, type, password=None, session=None):
         raise exception.IdentityError('You must provide a password!')
 
     new_id = models.Identity()
-    new_id.update({'identity': identity, 'identity_type': type})
+    new_id.update({'identity': identity, 'identity_type': type, 'email': email})
 
     if type == IdentityType.USERPASS and password is not None:
         salt = os.urandom(256)  # make sure the salt has the length of the hash
         password = hashlib.sha256('%s%s' % (salt, password)).hexdigest()  # hash it
-        new_id.update({'salt': salt, 'password': password})
-
+        new_id.update({'salt': salt, 'password': password, 'email': email})
     try:
         new_id.save(session=session)
-    except IntegrityError:
-        raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
+    except IntegrityError, e:
+        if match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+            raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
+        raise exception.DatabaseException(str(e))
 
 
 @transactional_session
@@ -66,13 +70,14 @@ def del_identity(identity, type, session=None):
 
 
 @transactional_session
-def add_account_identity(identity, type, account, default=False, session=None):
+def add_account_identity(identity, type, account, email, default=False, session=None):
     """
     Adds a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
     :param type: The type of the authentication (x509, gss, userpass).
     :param account: The account name.
+    :param email: The Email address associated with the identity.
     :param default: If True, the account should be used by default with the provided identity.
     :param session: The database session in use.
     """
@@ -81,7 +86,7 @@ def add_account_identity(identity, type, account, default=False, session=None):
 
     id = session.query(models.Identity).filter_by(identity=identity, identity_type=type).first()
     if id is None:
-        id = models.Identity(identity=identity, identity_type=type)
+        id = models.Identity(identity=identity, identity_type=type, email=email)
         id.save(session=session)
 
     iaa = models.IdentityAccountAssociation(identity=id.identity, identity_type=id.identity_type, account=account)

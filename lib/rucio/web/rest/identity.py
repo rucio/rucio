@@ -9,10 +9,12 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
+
 from web import application, ctx, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.identity import add_identity, add_account_identity
-from rucio.rest.common import authenticate
+from rucio.rest.common import authenticate, RucioController
+
 
 urls = (
     '/(.+)/userpass', 'UserPass',
@@ -21,11 +23,8 @@ urls = (
 )
 
 
-class UserPass:
+class UserPass(RucioController):
     """ Manage a username/password identity for an account. """
-
-    def GET(self):
-        raise BadRequest()
 
     def PUT(self, account):
         """
@@ -64,18 +63,9 @@ class UserPass:
 
         raise Created()
 
-    def POST(self):
-        raise BadRequest()
 
-    def DELETE(self):
-        raise BadRequest()
-
-
-class x509:
+class x509(RucioController):
     """ Manage an x509 identity for an account. """
-
-    def GET(self):
-        raise BadRequest()
 
     def PUT(self, account):
         """
@@ -108,18 +98,9 @@ class x509:
 
         raise Created()
 
-    def POST(self):
-        raise BadRequest()
 
-    def DELETE(self):
-        raise BadRequest()
-
-
-class GSS:
+class GSS(RucioController):
     """ Manage a GSS identity for an account. """
-
-    def GET(self):
-        raise BadRequest()
 
     def PUT(self, account):
         """
@@ -151,12 +132,6 @@ class GSS:
             raise InternalError(e)
 
         raise Created()
-
-    def POST(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
 
 """----------------------
    Web service startup

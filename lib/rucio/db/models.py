@@ -201,6 +201,7 @@ class Account(BASE, ModelBase):
     account = Column(String(25))
     account_type = Column(AccountType.db_type(name='ACCOUNTS_TYPE_CHK'))
     status = Column(AccountStatus.db_type(default=AccountStatus.ACTIVE, name='ACCOUNTS_STATUS_CHK'))
+    email = Column(String(255))
     suspended_at = Column(DateTime)
     deleted_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('account', name='ACCOUNTS_PK'),
@@ -220,7 +221,7 @@ class Identity(BASE, SoftModelBase):
     email = Column(String(255))
     _table_args = (PrimaryKeyConstraint('identity', 'identity_type', name='IDENTITIES_PK'),
                    CheckConstraint('IDENTITY_TYPE IS NOT NULL', name='IDENTITIES_TYPE_NN'),
-                   #CheckConstraint('EMAIL IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
+                   CheckConstraint('EMAIL IS NOT NULL', name='IDENTITIES_EMAIL_NN'),
                    )
 
 
