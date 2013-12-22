@@ -36,7 +36,7 @@ class TestReplicaCore:
             add_replicas(rse=rse, files=files, account='root')
 
         replica_cpt = 0
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files]):
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
             replica_cpt += 1
 
         assert_equal(nbfiles, replica_cpt)
@@ -127,6 +127,9 @@ class TestReplicaClients:
         assert_equal(len(replicas), len(files1))
 
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['file'])]
+        assert_equal(len(replicas), 5)
+
+        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['srm'])]
         assert_equal(len(replicas), 5)
 
     def test_delete_replicas(self):

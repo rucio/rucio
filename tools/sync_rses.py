@@ -34,10 +34,16 @@ if __name__ == '__main__':
     c = Client()
     for rse in repo_data:
         try:
-            prefix = repo_data[rse].get('prefix', None)
             deterministic = repo_data[rse].get('deterministic', True)
             volatile = repo_data[rse].get('volatile', False)
-            c.add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
+            region_code = repo_data[rse].get('region_code')
+            country_name = repo_data[rse].get('country_name')
+            continent = repo_data[rse].get('continent')
+            time_zone = repo_data[rse].get('time_zone')
+            ISP = repo_data[rse].get('ISP')
+            c.add_rse(rse, deterministic=deterministic, volatile=volatile,
+                      region_code=region_code, country_name=country_name,
+                      continent=continent, time_zone=time_zone, ISP=ISP)
         except Duplicate:
             print '%(rse)s already added' % locals()
         except:

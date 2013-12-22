@@ -89,19 +89,22 @@ class RSE(RucioController):
             500 Internal Error
 
         """
-        prefix, deterministic, volatile = None, True, False
         json_data = data()
+        kwargs = {'deterministic': True,
+                  'volatile': False, 'city': None,
+                  'region_code': None, 'country_name': None,
+                  'continent': None, 'time_zone': None, 'ISP': None}
         try:
-            parameter = json_data and loads(json_data)
-            if parameter and 'deterministic' in parameter:
-                deterministic = parameter['deterministic']
-            if parameter and 'volatile' in parameter:
-                volatile = parameter['volatile']
+            parameters = json_data and loads(json_data)
+            if parameters:
+                for param in kwargs:
+                    if param in parameters:
+                        kwargs[param] = parameters[param]
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
-
+        kwargs['issuer'] = ctx.env.get('issuer')
         try:
-            add_rse(rse, deterministic=deterministic, volatile=volatile, issuer=ctx.env.get('issuer'))
+            add_rse(rse, **kwargs)
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:

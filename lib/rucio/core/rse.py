@@ -30,17 +30,24 @@ from rucio.db.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
-def add_rse(rse, deterministic=True, volatile=False, session=None):
+def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, session=None):
     """
     Add a rse with the given location name.
 
     :param rse: the name of the new rse.
     :param deterministic: Boolean to know if the pfn is generated deterministically.
     :param volatile: Boolean for RSE cache.
+    :param city: City for the RSE.
+    :param region_code: The region code for the RSE.
+    :param country_name: The country.
+    :param continent: The continent.
+    :param time_zone: Timezone.
+    :param ISP: Internet service provider.
     :param session: The database session in use.
     """
-
-    new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile)
+    new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,
+                         region_code=region_code, country_name=country_name,
+                         continent=continent, time_zone=time_zone, ISP=ISP)
     try:
         new_rse.save(session=session)
     except IntegrityError:
@@ -53,6 +60,8 @@ def add_rse(rse, deterministic=True, volatile=False, session=None):
 
     # Add counter to monitor the space usage
     add_counter(rse_id=new_rse.id, session=session)
+
+    # ToDo: Add account counter
 
     return new_rse.id
 
