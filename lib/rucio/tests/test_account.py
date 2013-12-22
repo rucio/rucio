@@ -29,14 +29,6 @@ from rucio.web.rest.authentication import app as auth_app
 
 class TestAccountCoreApi():
 
-    @classmethod
-    def setupClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
     def test_create_and_check_for_user(self):
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """
         usr = account_name_generator()

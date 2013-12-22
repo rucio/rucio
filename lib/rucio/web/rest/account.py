@@ -21,7 +21,8 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
-from rucio.web.rest.common import authenticate
+from rucio.web.rest.common import authenticate, RucioController
+
 
 logger = getLogger("rucio.account")
 sh = StreamHandler()
@@ -39,7 +40,7 @@ urls = (
 )
 
 
-class Scopes:
+class Scopes(RucioController):
     def GET(self, account):
         """ list all scopes for an account.
 
@@ -105,7 +106,7 @@ class Scopes:
         raise Created()
 
 
-class AccountParameter:
+class AccountParameter(RucioController):
     """ create, update, get and disable rucio accounts. """
 
     def GET(self, account):
@@ -172,7 +173,6 @@ class AccountParameter:
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
 
         type = None
-
         try:
             type = parameter['type']
         except KeyError, e:
@@ -222,7 +222,7 @@ class AccountParameter:
         raise OK()
 
 
-class Account:
+class Account(RucioController):
     def GET(self):
         """ list all rucio accounts.
 
@@ -241,17 +241,8 @@ class Account:
         for account in list_accounts():
             yield render_json(**account) + "\n"
 
-    def PUT(self):
-        raise BadRequest()
 
-    def POST(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
-
-
-class AccountLimits:
+class AccountLimits(RucioController):
     def GET(self, account):
         """ get the current limits for an account """
         raise BadRequest()
@@ -268,7 +259,7 @@ class AccountLimits:
         raise BadRequest()
 
 
-class Identities:
+class Identities(RucioController):
     def POST(self, account):
         """ Grant an identity access to an account.
 
@@ -292,14 +283,15 @@ class Identities:
         try:
             identity = parameter['identity']
             authtype = parameter['authtype']
+            email = parameter['email']
         except KeyError, e:
-            if e.args[0] == 'authtype' or e.args[0] == 'identity':
+            if e.args[0] == 'authtype' or e.args[0] == 'identity' or e.args[0] == 'email':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
                 raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, type=authtype, account=account, issuer=ctx.env.get('issuer'))
+            add_account_identity(identity_key=identity, type=authtype, account=account, email=email, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate as e:
@@ -307,6 +299,7 @@ class Identities:
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
+            print str(format_exc())
             raise InternalError(e)
 
         raise Created()
@@ -330,7 +323,7 @@ class Identities:
         raise BadRequest()
 
 
-class Rules:
+class Rules(RucioController):
 
     def GET(self, account):
         """
@@ -355,14 +348,6 @@ class Rules:
             print format_exc()
             raise InternalError(e)
 
-    def PUT(self):
-        raise BadRequest()
-
-    def DELETE(self):
-        raise BadRequest()
-
-    def POST(self):
-        raise BadRequest()
 
 """----------------------
    Web service startup

@@ -113,7 +113,7 @@ class AccountClient(BaseClient):
         """
         return self.get_account('whoami')
 
-    def add_identity(self, account, identity, authtype, default=False, email=None):
+    def add_identity(self, account, identity, authtype, email, default=False):
         """
         Adds a membership association between identity and account.
 
