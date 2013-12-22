@@ -27,14 +27,14 @@ class TestIdentity():
     def test_userpass(self):
         """ IDENTITY (CORE): Test adding and removing username/password authentication """
 
-        add_identity(self.account, IdentityType.USERPASS, password='secret')
-        add_account_identity('ddmlab_%s' % self.account, IdentityType.USERPASS, self.account)
+        add_identity(self.account, IdentityType.USERPASS, email='ph-adp-ddm-lab@cern.ch', password='secret')
+        add_account_identity('ddmlab_%s' % self.account, IdentityType.USERPASS, self.account, email='ph-adp-ddm-lab@cern.ch')
 
-        add_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509)
-        add_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, self.account)
+        add_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, self.account, email='ph-adp-ddm-lab@cern.ch')
 
-        add_identity('ddmlab_%s' % self.account, IdentityType.GSS)
-        add_account_identity('ddmlab_%s' % self.account, IdentityType.GSS, self.account)
+        add_identity('ddmlab_%s' % self.account, IdentityType.GSS, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity('ddmlab_%s' % self.account, IdentityType.GSS, self.account, email='ph-adp-ddm-lab@cern.ch')
 
         list_identities()
 

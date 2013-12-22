@@ -67,7 +67,7 @@ class TestBinRucio():
         cmd = 'rucio-admin account add %s' % tmp_val
         exitcode, out, err = execute(cmd)
         nose.tools.assert_equal('Added new account: %s\n' % tmp_val, out)
-        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH' % tmp_val
+        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
@@ -78,7 +78,7 @@ class TestBinRucio():
         tmp_val = account_name_generator()
         cmd = 'rucio-admin account add %s' % tmp_val
         exitcode, out, err = execute(cmd)
-        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH' % tmp_val
+        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_val
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,

@@ -14,15 +14,16 @@ from rucio.core import identity
 from rucio.db.constants import IdentityType
 
 
-def add_identity(identity_key, type, password=None):
+def add_identity(identity_key, type, email, password=None):
     """
     Creates a user identity.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
     :param type: The type of the authentication (x509, gss, userpass)
+    :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     """
-    return identity.add_identity(identity_key, IdentityType.from_sym(type), password)
+    return identity.add_identity(identity_key, IdentityType.from_sym(type), password, email=email)
 
 
 def del_identity(identity_key, type):
@@ -35,13 +36,14 @@ def del_identity(identity_key, type):
     return identity.del_identity(identity_key, IdentityType.from_sym(type))
 
 
-def add_account_identity(identity_key, type, account, issuer, default=False):
+def add_account_identity(identity_key, type, account, email, issuer, default=False):
     """
     Adds a membership association between identity and account.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
     :param type: The type of the authentication (x509, gss, userpass).
     :param account: The account name.
+    :param email: The Email address associated with the identity.
     :param issuer: The issuer account.
     :param default: If True, the account should be used by default with the provided identity.
     """
@@ -49,7 +51,7 @@ def add_account_identity(identity_key, type, account, issuer, default=False):
     if not permission.has_permission(issuer=issuer, action='add_account_identity', kwargs=kwargs):
             raise exception.AccessDenied('Account %s can not identity' % (issuer))
 
-    return identity.add_account_identity(identity_key, IdentityType.from_sym(type), account, default)
+    return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(type), default=default, email=email, account=account)
 
 
 def del_account_identity(identity_key, type, account):
