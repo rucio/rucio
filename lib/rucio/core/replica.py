@@ -223,13 +223,13 @@ def add_replicas(rse, files, account, session=None):
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
     if not replica_rse.deterministic:
-        p = rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'write')
-        pfns = list()
+        pfns, scheme = list(), None
         for file in files:
             if 'pfn' not in file:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
             pfns.append(file['pfn'])
 
+        p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse, session=session), operation='write', scheme=scheme)
         pfns = p.parse_pfns(pfns=pfns)
         for file in files:
             tmp = pfns[file['pfn']]

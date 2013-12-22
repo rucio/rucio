@@ -369,6 +369,12 @@ class RSE(BASE, SoftModelBase):
     rse_type = Column(RSEType.db_type(name='RSES_TYPE_CHK'), default=RSEType.DISK)
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
+    city = Column(String(255))
+    region_code = Column(String(10))
+    country_name = Column(String(255))
+    continent = Column(String(2))
+    time_zone = Column(String(255))
+    ISP = Column(String(255))
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),

@@ -82,9 +82,33 @@
   },
   "MOCK":{
     "backend_type": "MOCK",
+    "city": "Upton",
+    "country_name": "United States",
+    "continent": "NA",
+    "ISP": "Brookhaven National Laboratory",
     "protocols": {
       "default": "mock",
       "supported": {
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "hostname": "mock.com",
+          "scheme": "srm",
+          "port": 8443,
+          "prefix": "/rucio/tmpdisk/rucio_tests/",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        },
         "mock": {
           "impl": "rucio.rse.protocols.mock.Default",
           "domains": {
@@ -108,13 +132,19 @@
   "MOCK2":{
     "backend_type": "POSIX",
     "deterministic": false,
+    "city": "Geneva",
+    "region_code": "07",
+    "country_name": "Switzerland",
+    "continent": "EU",
+    "time_zone": "Europe/Zurich",
+    "ISP": "CERN- LHC",
     "protocols": {
       "default": "mock",
       "supported": {
         "mock": {
           "prefix": "/tmp/rucio_rse/",
           "impl": "rucio.rse.protocols.mock.Default",
-          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATATAPE"},
+          "scheme": "mock",
           "domains": {
             "lan": {
               "read": 1,
@@ -125,6 +155,26 @@
               "read": 1,
               "write": 1,
               "delete": 1
+            }
+          }
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "hostname": "mock2.com",
+          "scheme": "srm",
+          "port": 8443,
+          "prefix": "/rucio/tmpdisk/rucio_tests/",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
+          "domains": {
+            "lan": {
+              "read": 2,
+              "write": 2,
+              "delete": 2
+            },
+            "wan": {
+              "read": 2,
+              "write": 2,
+              "delete": 2
             }
           }
         }
@@ -138,6 +188,26 @@
     "protocols": {
       "default": "file",
       "supported": {
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "hostname": "mock3.com",
+          "scheme": "srm",
+          "port": 8443,
+          "prefix": "/rucio/tmpdisk/rucio_tests/",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        },
         "file": {
           "prefix": "/tmp/rucio_rse/",
           "impl": "rucio.rse.protocols.posix.Default",
