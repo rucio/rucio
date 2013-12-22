@@ -38,7 +38,7 @@ class RSEProtocol(object):
             if rsemanager.CLIENT_MODE:
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
             if rsemanager.SERVER_MODE:
-                setattr(self, '__get_path', self.__get_path_nondeterministic_server)
+                setattr(self, '_get_path', self._get_path_nondeterministic_server)
 
     def lfns2pfns(self, lfns):
         """
@@ -59,7 +59,7 @@ class RSEProtocol(object):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self.__get_path(scope=scope, name=name)])
+            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self._get_path(scope=scope, name=name)])
         return pfns
 
     def __lfns2pfns_client(self, lfns):
@@ -84,7 +84,7 @@ class RSEProtocol(object):
             pfns['%s:%s' % (scope, name)] = replicas[0]['rses'][self.rse['rse']][0] if (self.rse['rse'] in replicas[0]['rses'].keys()) else exception.RSEOperationNotSupported('Replica not found on given RSE.')
         return pfns
 
-    def __get_path(self, scope, name):
+    def _get_path(self, scope, name):
         """ Transforms the logical file name into a PFN.
             Suitable for sites implementing the RUCIO naming convention.
 
@@ -97,7 +97,7 @@ class RSEProtocol(object):
         correctedscope = "/".join(scope.split('.'))
         return '%s/%s/%s/%s' % (correctedscope, hstr[0:2], hstr[2:4], name)
 
-    def __get_path_nondeterministic_server(self, scope, name):
+    def _get_path_nondeterministic_server(self, scope, name):
         """ Provides the path of a replica for non-detemernisic sites. Will be assigned to get path by the __init__ method if neccessary. """
         path = getattr(rse.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id']), 'path')
         if path.startswith('/'):

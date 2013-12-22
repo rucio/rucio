@@ -9,32 +9,69 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
-from os.path import normpath
-from urlparse import SplitResult, urlunsplit
-
 from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the srm protocol."""
 
-    def __init__(self, props):
-        """ Initializes the object with information about the referred RSE.
-
-            :param props Properties derived from the RSE Repository
+    def lfns2pfns(self, lfns):
         """
-        self.rse = props
-        self.scheme = 'srm'
-        self.hostname = self.rse['hostname']
-        self.port = self.rse['port']
-        self.prefix = self.rse['prefix']
-        self.web_service_path = self.rse['extended_attributes']['web_service_path']
-        try:
-            self.space_token = self.rse['extended_attributes']['space_token']
-        except KeyError:
-            self.space_token = None
+            Retruns a fully qualified PFN for the file referred by path.
 
-    def pfn2uri(self, pfn):
-        netloc = '{0}:{1}'.format(self.hostname, self.port)
-        path = self.web_service_path + normpath(self.prefix + '/' + pfn)
-        return urlunsplit(SplitResult(scheme='srm', netloc=netloc, path=path, query='', fragment=''))
+            :param path: The path to the file.
+
+            :returns: Fully qualified PFN.
+        """
+        pfns = {}
+        prefix = self.attributes['prefix']
+        web_service_path = self.attributes['extended_attributes']['web_service_path']
+
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        lfns = [lfns] if type(lfns) == dict else lfns
+        for lfn in lfns:
+            scope, name = lfn['scope'], lfn['name']
+            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), web_service_path, prefix, self._get_path(scope=scope, name=name)])
+        return pfns
+
+    def get(self, path, dest):
+        """
+            Provides access to files stored inside connected the RSE.
+
+            :param path: Physical file name of requested file
+            :param dest: Name and path of the files when stored at the client
+
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+         """
+        raise NotImplementedError
+
+    def put(self, source, target, source_dir):
+        """
+            Allows to store files inside the referred RSE.
+
+            :param source: path to the source file on the client file system
+            :param target: path to the destination file on the storage
+            :param source_dir: Path where the to be transferred files are stored in the local file system
+
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+        raise NotImplementedError
+
+    def delete(self, path):
+        """
+            Deletes a file from the connected RSE.
+
+            :param path: path to the to be deleted file
+
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+        raise NotImplementedError

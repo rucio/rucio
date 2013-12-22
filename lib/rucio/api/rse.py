@@ -18,7 +18,7 @@ from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
 
 
-def add_rse(rse, issuer, deterministic=True, volatile=False):
+def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None):
     """
     Creates a new Rucio Storage Element(RSE).
 
@@ -26,13 +26,21 @@ def add_rse(rse, issuer, deterministic=True, volatile=False):
     :param issuer: The issuer account.
     :param deterministic: Boolean to know if the pfn is generated deterministically.
     :param volatile: Boolean for RSE cache.
+    :param city: City for the RSE.
+    :param region_code: The region code for the RSE.
+    :param country_name: The country.
+    :param continent: The continent.
+    :param time_zone: Timezone.
+    :param ISP: Internet service provider.
     """
     validate_schema(name='rse', obj=rse)
 
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
-    return rse_module.add_rse(rse, deterministic=deterministic, volatile=volatile)
+    return rse_module.add_rse(rse, deterministic=deterministic, volatile=volatile, city=city,
+                              region_code=region_code, country_name=country_name,
+                              continent=continent, time_zone=time_zone, ISP=ISP)
 
 
 def get_rse(rse):

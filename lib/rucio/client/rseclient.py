@@ -48,30 +48,35 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_rse(self, rse, prefix=None, deterministic=True, volatile=False):
+    def add_rse(self, rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None):
         """
         Sends the request to create a new RSE.
 
         :param rse: the name of the rse.
-        :param prefix: the base path of the rse.
         :param deterministic: Boolean to know if the pfn is generated deterministically.
         :param volatile: Boolean for RSE cache.
+        :param city: City for the RSE.
+        :param region_code: The region code for the RSE.
+        :param country_name: The country.
+        :param continent: The continent.
+        :param time_zone: Timezone.
+        :param ISP: Internet service provider.
 
         :return: True if location was created successfully else False.
         :raises Duplicate: if rse already exists.
         """
-
         path = 'rses/' + rse
         url = build_url(self.host, path=path)
 
-        data = dumps({'prefix': prefix, 'volatile': volatile, 'deterministic': deterministic})
+        data = dumps({'volatile': volatile, 'deterministic': deterministic, 'city': city,
+                      'region_code': region_code, 'country_name': country_name,
+                      'continent': continent, 'time_zone': time_zone, 'ISP': ISP})
 
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
-            raise exc_cls(exc_msg)
+        exc_cls, exc_msg = self._get_exception(r.headers)
+        raise exc_cls(exc_msg)
 
     def delete_rse(self, rse):
         """

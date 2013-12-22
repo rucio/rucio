@@ -75,7 +75,7 @@ def select_protocol(rse_settings, operation, scheme=None):
     tbr = list()
     for protocol in candidates:
         # Check if scheme given and filter if so
-        if (scheme) and (protocol['scheme'] != scheme):
+        if scheme and protocol['scheme'] != scheme:
             tbr.append(protocol)
             continue
         # Check if operation in domain is supported
@@ -83,7 +83,6 @@ def select_protocol(rse_settings, operation, scheme=None):
             if protocol['domains'][d][operation] == 0:
                 tbr.append(protocol)
                 break
-
     for r in tbr:
         candidates.remove(r)
 

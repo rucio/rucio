@@ -49,8 +49,8 @@ class TestRSECoreApi():
         add_rse_attribute(rse=rse, key='tier', value='1')
         rses = list_rses(filters={'tier': '1'})
         assert_in(rse, [r['rse'] for r in rses])
-
         add_rse_attribute(rse=rse, key='country', value='us')
+
         rses = list_rses(filters={'tier': '1', 'country': 'us'})
         assert_in(rse, [r['rse'] for r in rses])
 
