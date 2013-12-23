@@ -219,7 +219,7 @@ CREATE TABLE rses (
     deterministic NUMBER(1),
     volatile NUMBER(1),
     city VARCHAR2(255 CHAR),
-    region_code VARCHAR2(10 CHAR),
+    region_code VARCHAR2(2 CHAR),
     country_name VARCHAR2(255 CHAR),
     continent VARCHAR2(2 CHAR),
     time_zone VARCHAR2(255 CHAR),

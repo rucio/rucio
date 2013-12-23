@@ -23,13 +23,14 @@ from rucio.common.utils import generate_http_error, parse_response
 from rucio.web.rest.common import authenticate, RucioController
 
 urls = ('/(.*)/(.*)/redirect', 'Redirector',
+        '/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
-        '/list/?$', 'ListReplicas')
+        '/(.*)/(.*)/?$', 'Replicas')
 
 
 class Replicas(RucioController):
 
-    def GET(self):
+    def GET(self, scope, name):
         """
         List all replicas for data identifiers.
 
@@ -55,11 +56,9 @@ class Replicas(RucioController):
             if 'application/metalink4+xml' in tmp:
                 metalink = 4
 
-        dids, schemes = [], None
+        dids, schemes = [{'scope': scope, 'name': name}], None
         if ctx.query:
             params = loads(unquote(ctx.query[1:]))
-            if 'dids' in params:
-                dids = params['dids']
             if 'schemes' in params:
                 schemes = params['schemes']
 
@@ -291,7 +290,7 @@ class Redirector(RucioController):
                 return notfound("Sorry, the replica you were looking for was not found.")
 
             # Select randomly a replica
-            # Todo: geoip
+            # Todo: geoip on client ip ctx.ip
             for r in replicas:
                 rse = choice(r['rses'].keys())
                 raise seeother(r['rses'][rse][0])

@@ -370,7 +370,7 @@ class RSE(BASE, SoftModelBase):
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
     city = Column(String(255))
-    region_code = Column(String(10))
+    region_code = Column(String(2))
     country_name = Column(String(255))
     continent = Column(String(2))
     time_zone = Column(String(255))
