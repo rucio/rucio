@@ -11,7 +11,7 @@
 
 import xmltodict
 
-from nose.tools import assert_equal, assert_raises
+from nose.tools import assert_equal, assert_raises, assert_in
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
@@ -22,6 +22,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter, get_replica, list_replicas
 from rucio.db.constants import DIDType
+from rucio.tests.common import execute
 
 
 class TestReplicaCore:
@@ -141,6 +142,37 @@ class TestReplicaClients:
 
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
         assert_equal(len(replicas), 0)
+
+
+class TestReplicaHttpRedirection:
+
+    def setup(self):
+        self.host = config_get('client', 'rucio_host')
+        self.auth_host = config_get('client', 'auth_host')
+        self.marker = '$> '
+        # get auth token
+        self.base_client = BaseClient()
+        self.token = self.base_client.headers['X-Rucio-Auth-Token']
+        self.replica_client = ReplicaClient()
+
+    def test_replica_http_redirection(self):
+        """ REPLICA (redirection): http redirection to replica"""
+        print self.token
+        tmp_scope = 'mock'
+        tmp_name = 'file_%s' % generate_uuid()
+        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: %s" -X GET %s/replicas/%s/%s/redirect''' % (self.token, self.host, tmp_scope, tmp_name)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        assert_in('404 Not Found', out)
+        # add replicas
+        self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope, 'name': tmp_name, 'bytes': 1L, 'adler32': '0cc737eb'}])
+        self.replica_client.add_replicas(rse='MOCK3', files=[{'scope': tmp_scope, 'name': tmp_name, 'bytes': 1L, 'adler32': '0cc737eb'}])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        assert_in('303 See Other', out)
+        assert_in('Location: https://mock', out)
 
 
 class TestReplicaMetalink:

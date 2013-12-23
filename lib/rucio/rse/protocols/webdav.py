@@ -104,13 +104,6 @@ class Default(protocol.RSEProtocol):
 
     """ Implementing access to RSEs using the webDAV protocol."""
 
-    def __init__(self, props):
-        """ Initializes the object with information about the referred RSE.
-
-            :param props Properties derived from the RSE Repository
-        """
-        self.rse = props
-
     def connect(self, credentials):
         """ Establishes the actual connection to the referred RSE.
 

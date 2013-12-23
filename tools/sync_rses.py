@@ -54,10 +54,10 @@ if __name__ == '__main__':
             try:
                 c.add_protocol(rse, p_id, repo_data[rse]['protocols']['supported'][p_id])
             except ValueError, e:
-                print e
+                print rse, e
             except Duplicate, e:
-                print e
+                print rse, e
             except Exception, e:
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
-                print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+                print 'Interrupted processing for %s with %s %s %s.' % (rse, errno, errstr, trcbck)
