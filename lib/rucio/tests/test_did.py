@@ -208,6 +208,8 @@ class TestDIDClients:
         for i in xrange(5):
             lfn = 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid())
             pfn = 'mock://localhost/tmp/rucio_rse/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            # it doesn't work with mock: TBF
+            #pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 10}
             files.append({'scope': tmp_scope, 'name': lfn,
@@ -222,6 +224,8 @@ class TestDIDClients:
         for i in xrange(5):
             lfn = '%(tmp_dsn)s.' % locals() + str(generate_uuid())
             pfn = 'mock://localhost/tmp/rucio_rse/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            # it doesn't work with mock: TBF
+            # pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 100}
             files.append({'scope': tmp_scope, 'name': lfn,

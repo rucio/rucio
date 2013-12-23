@@ -14,7 +14,7 @@ REST utilities
 from json import loads
 from traceback import format_exc
 from web import BadRequest, ctx, data, header, InternalError
-from web.webapi import Created, HTTPError, OK
+from web.webapi import Created, HTTPError, OK, seeother
 
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException
@@ -61,7 +61,7 @@ def exception_wrapper(f):
     def decorated(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except (Created, HTTPError, OK):
+        except (Created, HTTPError, OK, seeother):
             raise
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
