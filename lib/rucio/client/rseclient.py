@@ -48,7 +48,7 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_rse(self, rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None):
+    def add_rse(self, rse, **kwargs):
         """
         Sends the request to create a new RSE.
 
@@ -67,12 +67,7 @@ class RSEClient(BaseClient):
         """
         path = 'rses/' + rse
         url = build_url(self.host, path=path)
-
-        data = dumps({'volatile': volatile, 'deterministic': deterministic, 'city': city,
-                      'region_code': region_code, 'country_name': country_name,
-                      'continent': continent, 'time_zone': time_zone, 'ISP': ISP})
-
-        r = self._send_request(url, type='POST', data=data)
+        r = self._send_request(url, type='POST', data=dumps(kwargs))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(r.headers)
