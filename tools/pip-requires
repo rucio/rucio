@@ -36,3 +36,4 @@ gearman==2.0.2             # Used only gor emulation framework
 stomp.py==3.1.3            # ActiveMQ Messaging Protocol
 dnspython==1.11.1          # To resolve ActiveMQ broker alias
 pystatsd==0.1.10           # Needed to log into graphite with more than 1 Hz
+pygeoip==0.3.0             # GeoIP API
