@@ -34,10 +34,10 @@ def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_c
     :param ISP: Internet service provider.
     """
     validate_schema(name='rse', obj=rse)
-
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='add_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
+
     return rse_module.add_rse(rse, deterministic=deterministic, volatile=volatile, city=city,
                               region_code=region_code, country_name=country_name,
                               continent=continent, time_zone=time_zone, ISP=ISP)

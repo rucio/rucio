@@ -106,7 +106,7 @@ def perm_default(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return True
+    return issuer == 'root'
 
 
 def perm_add_rse(issuer, kwargs):
