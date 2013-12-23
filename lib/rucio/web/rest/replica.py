@@ -10,9 +10,10 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 from json import dumps, loads
+from random import choice
 from traceback import format_exc
 from urllib import unquote
-from web import application, ctx, Created, data, header, InternalError, loadhook, OK
+from web import application, ctx, Created, data, header, InternalError, loadhook, OK, notfound, seeother
 
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas
 from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RucioException, RSENotFound
@@ -21,7 +22,9 @@ from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplica
 from rucio.common.utils import generate_http_error, parse_response
 from rucio.web.rest.common import authenticate, RucioController
 
-urls = ('/?$', 'Replicas', '/list/?$', 'ListReplicas')
+urls = ('/(.*)/(.*)/redirect', 'Redirector',
+        '/?$', 'Replicas',
+        '/list/?$', 'ListReplicas')
 
 
 class Replicas(RucioController):
@@ -263,6 +266,44 @@ class ListReplicas(RucioController):
         except Exception, e:
             print format_exc()
             raise InternalError(e)
+
+
+class Redirector(RucioController):
+
+    def GET(self, scope, name):
+        """
+        Redirect donwload
+
+        HTTP Success:
+            303 See Other
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+            404 Notfound
+
+        :param scope: The scope name of the file.
+        :param name: The name of the file.
+        """
+        try:
+            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'F'}], schemes=['http', 'https'])]
+            if not replicas:
+                return notfound("Sorry, the replica you were looking for was not found.")
+
+            # Select randomly a replica
+            # Todo: geoip
+            for r in replicas:
+                rse = choice(r['rses'].keys())
+                raise seeother(r['rses'][rse][0])
+
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except seeother:
+            raise
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
 
 """----------------------
    Web service startup

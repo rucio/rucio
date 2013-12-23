@@ -89,13 +89,12 @@
     "protocols": {
       "default": "mock",
       "supported": {
-        "srm": {
-          "impl": "rucio.rse.protocols.srm.Default",
+        "https": {
+          "impl": "rucio.rse.protocols.webdav.Default",
           "hostname": "mock.com",
-          "scheme": "srm",
-          "port": 8443,
-          "prefix": "/rucio/tmpdisk/rucio_tests/",
-          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
+          "port": 2880,
+          "scheme": "https",
+          "prefix": "/pnfs/rucio/disk-only/scratchdisk/",
           "domains": {
             "lan": {
               "read": 1,
@@ -106,6 +105,26 @@
               "read": 1,
               "write": 1,
               "delete": 1
+            }
+          }
+        },
+        "srm": {
+          "impl": "rucio.rse.protocols.srm.Default",
+          "hostname": "mock.com",
+          "scheme": "srm",
+          "port": 8443,
+          "prefix": "/rucio/tmpdisk/rucio_tests/",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
+          "domains": {
+            "lan": {
+              "read": 2,
+              "write": 2,
+              "delete": 2
+            },
+            "wan": {
+              "read": 2,
+              "write": 2,
+              "delete": 2
             }
           }
         },
@@ -185,9 +204,34 @@
   "MOCK3":{
     "backend_type": "POSIX",
     "deterministic": true,
+    "city": "Geneva",
+    "region_code": "07",
+    "country_name": "Switzerland",
+    "continent": "EU",
+    "time_zone": "Europe/Zurich",
+    "ISP": "CERN- LHC",
     "protocols": {
       "default": "file",
       "supported": {
+        "https": {
+          "impl": "rucio.rse.protocols.webdav.Default",
+          "hostname": "mock3.com",
+          "port": 2880,
+          "scheme": "https",
+          "prefix": "/pnfs/rucio/disk-only/scratchdisk/",
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
           "hostname": "mock3.com",
