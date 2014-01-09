@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
@@ -15,6 +15,7 @@ import copy
 import os
 
 from dogpile.cache import make_region
+from urlparse import urlparse
 
 from rucio.common import exception, utils
 
@@ -124,7 +125,7 @@ def create_protocol(rse_settings, operation, scheme=None):
         protocol_attr = rse_settings['%s_protocol' % operation]
         for d in rse_settings['domain']:
             if protocol_attr['domains'][d][operation] == 0:
-                raise exception.RSEOperationNotSupported('Operation %s for domain %s not supported' % (operation, rse_settings['domain']))
+                raise exception.RSEOperationNotSupported('Operation %s for domain %s not supported by %s' % (operation, rse_settings['domain'], protocol_attr['scheme']))
 
     # Instanciate protocol
     comp = protocol_attr['impl'].split('.')
@@ -152,7 +153,7 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None):
     return create_protocol(rse_settings, operation, scheme).lfns2pfns(lfns)
 
 
-def parse_pfns(rse_settings, pfns, operation='read', scheme=None):
+def parse_pfns(rse_settings, pfns, operation='read'):
     """
         Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
@@ -166,7 +167,9 @@ def parse_pfns(rse_settings, pfns, operation='read', scheme=None):
         :raises InvalidObject: If the properties parameter doesn't include scheme, hostname, and port as keys
         :raises RSEOperationNotSupported: If no matching protocol was found for the requested operation
     """
-    return create_protocol(rse_settings, operation, scheme).parse_pfns(pfns)
+    if len(set([urlparse(pfn).scheme for pfn in pfns])) != 1:
+        raise ValueError('All PFNs must provide the same protocol scheme')
+    return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme).parse_pfns(pfns)
 
 
 def download(rse_settings, files, dest_dir='.'):
