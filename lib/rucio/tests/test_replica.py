@@ -134,6 +134,7 @@ class TestReplicaClients:
         assert_equal(len(replicas), 5)
 
     def test_delete_replicas(self):
+        """ REPLICA (CLIENT): Add and delete file replicas """
         tmp_scope = 'mock'
         nbfiles = 5
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
