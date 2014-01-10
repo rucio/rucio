@@ -79,7 +79,9 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                             child_dids.append((tmp_did.child_scope, tmp_did.child_name))
 
     # Get the list of replicas
+    is_false = False
     replica_query = session.query(models.RSEFileAssociation, models.RSE.rse).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).\
+        filter(models.RSE.deleted == is_false).\
         order_by(models.RSEFileAssociation.scope).\
         order_by(models.RSEFileAssociation.name)
     tmp_files, tmp_protocols = {}, {}
