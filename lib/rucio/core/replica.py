@@ -36,6 +36,7 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
     :param session: The database session in use.
     """
     # Get the list of files
+    replicas = {}
     replica_conditions, did_conditions = [], []
     # remove duplicate did from the list
     for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
@@ -44,6 +45,7 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                 condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
             else:
                 condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+            replicas['%s:%s' % (did['scope'], did['name'])] = {'scope': did['scope'], 'name': did['name'], 'rses': {}, 'replicas': []}
             replica_conditions.append(condition)
         else:
             did_conditions.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
@@ -52,6 +54,7 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
         # Get files
         for scope, name, did_type in session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter(or_(*did_conditions)):
             if did_type == DIDType.FILE:
+                replicas['%s:%s' % (scope, name)] = {'scope': scope, 'name': name, 'rses': {}, 'replicas': []}
                 if not unavailable:
                     condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
                                      models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
@@ -61,17 +64,18 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                 replica_conditions.append(condition)
             else:
                 # for dataset/container
-                content_query = session.query(models.DataIdentifierAssociation)
+                content_query = session.query(models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type)
                 child_dids = [(scope, name)]
                 while child_dids:
                     s, n = child_dids.pop()
                     for tmp_did in content_query.filter_by(scope=s, name=n):
                         if tmp_did.child_type == DIDType.FILE:
+                            replicas['%s:%s' % (tmp_did.child_scope, tmp_did.child_name)] = {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'rses': {}, 'replicas': []}
                             if not unavailable:
-                                condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
                                                  models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
                             else:
-                                condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
                                                  or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
                                                      models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
                             replica_conditions.append(condition)
@@ -84,16 +88,17 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
         filter(models.RSE.deleted == is_false).\
         order_by(models.RSEFileAssociation.scope).\
         order_by(models.RSEFileAssociation.name)
-    tmp_files, tmp_protocols = {}, {}
+    tmp_protocols = {}
     for replica_condition in chunks(replica_conditions, 20):
         for replica, rse in replica_query.filter(or_(*replica_condition)):
             key = '%s:%s' % (replica.scope, replica.name)
-            if not key in tmp_files:
-                tmp_files[key] = {'scope': replica.scope, 'name': replica.name, 'bytes': replica.bytes,
-                                  'md5': replica.md5, 'adler32': replica.adler32,
-                                  'rses': {rse: []}, 'replicas': []}
-            else:
-                tmp_files[key]['rses'][rse] = []
+            if 'bytes' not in replicas[key]:
+                replicas[key]['bytes'] = replica.bytes
+                replicas[key]['md5'] = replica.md5
+                replicas[key]['adler32'] = replica.adler32
+
+            if rse not in replicas[key]['rses']:
+                replicas[key]['rses'][rse] = []
 
             # get protocols
             if rse not in tmp_protocols:
@@ -111,15 +116,15 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
             # get pfns
             for protocol in tmp_protocols[rse]:
                 if not schemes or protocol.attributes['scheme'] in schemes:
-                    tmp_files[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
+                    replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
                     if protocol.attributes['scheme'] == 'srm':
                         try:
-                            tmp_files[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
+                            replicas[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
                         except KeyError:
-                            tmp_files[key]['space_token'] = None
+                            replicas[key]['space_token'] = None
 
-    for key in tmp_files:
-        yield tmp_files[key]
+    for key in replicas:
+        yield replicas[key]
 
 
 @transactional_session
