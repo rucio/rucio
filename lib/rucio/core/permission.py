@@ -7,14 +7,14 @@
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
-import time
+from dogpile.cache import make_region
 
 import rucio.core.authentication
 import rucio.core.scope
@@ -22,29 +22,11 @@ from rucio.common.config import config_get
 from rucio.core.rule import get_rule
 from rucio.db.constants import IdentityType
 
-
-class Memoize(object):
-
-    def __init__(self, timeout):
-        self.__cache = {}
-        self.__timeout = timeout
-
-    def __call__(self, func):
-        #print 'In Memoize'
-        def f():
-            if not func.func_name in self.__cache:
-                #print 'Not in cache'
-                self.__cache[func.func_name] = (func(), time.time())
-            else:
-                if time.time()-self.__cache[func.func_name][1] > self.__timeout:
-                    #print 'Cache too old, refreshing'
-                    self.__cache[func.func_name] = (func(), time.time())
-            #print self.__cache
-            return self.__cache[func.func_name][0]
-        return f
+# Preparing region for dogpile.cache
+region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
 
 
-@Memoize(300)
+@region.cache_on_arguments(namespace='get_special_accounts')
 def get_special_accounts():
     accounts = []
     try:
@@ -85,6 +67,7 @@ def has_permission(issuer, action, kwargs):
             'add_did': perm_add_did,
             'attach_dids': perm_attach_dids,
             'detach_dids': perm_detach_dids,
+            'attach_dids_to_dids': perm_attach_dids_to_dids,
             'set_status': perm_set_status,
             'queue_request': perm_queue_request,
             'submit_deletion': perm_submit_transfer,
@@ -272,6 +255,17 @@ def perm_attach_dids(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+
+
+def perm_attach_dids_to_dids(issuer, kwargs):
+    """
+    Checks if an account can append an data identifier to the other data identifier.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_del_rule(issuer, kwargs):

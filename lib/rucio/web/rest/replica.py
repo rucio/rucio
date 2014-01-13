@@ -286,14 +286,15 @@ class Redirector(RucioController):
         """
         try:
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'F'}], schemes=['http', 'https'])]
-            if not replicas:
-                return notfound("Sorry, the replica you were looking for was not found.")
 
             # Select randomly a replica
             # Todo: geoip on client ip ctx.ip
             for r in replicas:
-                rse = choice(r['rses'].keys())
-                raise seeother(r['rses'][rse][0])
+                if r['rses']:
+                    rse = choice(r['rses'].keys())
+                    raise seeother(r['rses'][rse][0])
+
+            return notfound("Sorry, the replica you were looking for was not found.")
 
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
