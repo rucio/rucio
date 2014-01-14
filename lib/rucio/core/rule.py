@@ -395,7 +395,6 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
                           models.UpdatedDID.scope,
                           models.UpdatedDID.name,
                           models.UpdatedDID.rule_evaluation_action).\
-        with_hint(models.UpdatedDID, "index(updated_dids UPDATED_DIDS_CREATED_AT_IDX)", 'oracle').\
         order_by(models.UpdatedDID.created_at)
 
     if total_workers > 0:
