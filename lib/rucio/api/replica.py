@@ -13,14 +13,15 @@ from rucio.core import replica
 from rucio.common import exception
 
 
-def list_replicas(dids, schemes=None):
+def list_replicas(dids, schemes=None, unavailable=False):
     """
     List file replicas for a list of data identifiers.
 
-    :param filters: dictionary of attributes by which the resulting
-                    collection of replicas should be filtered
+    :param dids: The list of data identifiers (DIDs).
+    :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
+    :param unavailable: Also include unavailable replicas in the list.
     """
-    return replica.list_replicas(dids=dids, schemes=schemes)
+    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable)
 
 
 def add_replicas(rse, files, issuer):
