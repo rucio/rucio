@@ -55,6 +55,8 @@ def has_permission(issuer, action, kwargs):
             'add_protocol': perm_add_protocol,
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
+            'add_replicas': perm_add_replicas,
+            'delete_replicas': perm_delete_replicas,
             'add_rse_attr': perm_add_rse_attr,
             'del_rse_attr': perm_del_rse_attr,
             'del_rse': perm_del_rse,
@@ -351,6 +353,28 @@ def perm_update_protocol(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
+
+
+def perm_add_replicas(issuer, kwargs):
+    """
+    Checks if an account can add replicas.
+
+    :param account: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
+
+
+def perm_delete_replicas(issuer, kwargs):
+    """
+    Checks if an account can delete replicas.
+
+    :param account: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_queue_request(issuer, kwargs):
