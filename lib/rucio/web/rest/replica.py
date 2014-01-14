@@ -205,7 +205,7 @@ class ListReplicas(RucioController):
             if 'application/metalink4+xml' in tmp:
                 metalink = 4
 
-        dids, schemes = [], None
+        dids, schemes, unavailable = [], None, False
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -213,6 +213,8 @@ class ListReplicas(RucioController):
                 dids = params['dids']
             if 'schemes' in params:
                 schemes = params['schemes']
+            if 'unavailable' in params:
+                unavailable = params['unavailable']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -228,7 +230,7 @@ class ListReplicas(RucioController):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n<files>\n'
 
             # then, stream the replica information
-            for rfile in list_replicas(dids=dids, schemes=schemes):
+            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable):
                 if metalink is None:
                     yield dumps(rfile) + '\n'
                 elif metalink == 3:
