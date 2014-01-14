@@ -31,7 +31,7 @@ def get_special_accounts():
     accounts = []
     try:
         accounts = config_get('accounts', 'special_accounts')
-        accounts = accounts.split(',')
+        accounts = [a.strip() for a in accounts.split(',')]
     except:
         pass
     return accounts
@@ -67,6 +67,7 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_x509': perm_get_auth_token_x509,
             'add_account_identity': perm_add_account_identity,
             'add_did': perm_add_did,
+            'add_dids': perm_add_dids,
             'attach_dids': perm_attach_dids,
             'detach_dids': perm_detach_dids,
             'attach_dids_to_dids': perm_attach_dids_to_dids,
@@ -246,6 +247,17 @@ def perm_add_did(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+
+
+def perm_add_dids(issuer, kwargs):
+    """
+    Checks if an account can bulk add data identifiers.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_attach_dids(issuer, kwargs):
