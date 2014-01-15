@@ -15,7 +15,7 @@ from rucio.common.exception import InvalidObject
 
 account = {"description": "Account name",
            "type": "string",
-           "pattern": "^[a-z0-9-]{1,30}$"}
+           "pattern": "^[a-z0-9-_]{1,30}$"}
 
 account_type = {"description": "Account type",
                 "type": "string",
