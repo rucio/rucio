@@ -118,7 +118,7 @@ def list_new_dids(type=None):
 
     :param type : The DID type.
     """
-    return did.list_new_dids(type=type and DIDType.from_sym(type))
+    return did.list_new_dids(did_type=type and DIDType.from_sym(type))
 
 
 def set_new_dids(dids, new_flag=True):
