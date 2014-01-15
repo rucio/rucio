@@ -36,8 +36,8 @@ if __name__ == '__main__':
         if not rse['is_rucio']:
             continue
 
-        # if rse['name'] != 'BNL-OSG2_DDMTEST':
-        #    continue
+        if rse['name'] != 'BNL-OSG2_DDMTEST':
+            continue
 
         try:
             deterministic = True
