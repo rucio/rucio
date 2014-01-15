@@ -27,12 +27,13 @@ from sqlalchemy.sql.expression import bindparam, text
 import rucio.core.rule
 
 from rucio.common import exception
-from rucio.common.utils import grouper
+from rucio.common.utils import chunks
 from rucio.core.callback import add_callback
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.replica import add_replicas
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation
+from rucio.db.enum import EnumSymbol
 from rucio.db.session import read_session, transactional_session, stream_session
 
 
@@ -322,7 +323,7 @@ def delete_dids(dids, account, session=None):
     # Remove the locks
     # s = time()
     with record_timer_block('undertaker.locks'):
-        for lock_clause in grouper(lock_clauses, 50):
+        for lock_clause in chunks(lock_clauses, 50):
             rowcount = session.query(models.ReplicaLock).with_hint(models.ReplicaLock, "+ INDEX(LOCKS LOCKS_PK)", 'oracle').filter(or_(*lock_clause)).delete(synchronize_session=False)
             record_counter(counters='undertaker.locks.rowcount',  delta=rowcount)
     # print 'delete locks', time() - s
@@ -371,7 +372,7 @@ def delete_dids(dids, account, session=None):
     # .with_lockmode('update_nowait')
     replicas_count = 0
     with record_timer_block('undertaker.tombstones'):
-        for replica_clause in grouper(replica_clauses, 50):
+        for replica_clause in chunks(replica_clauses, 50):
             replicas_count += session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).with_lockmode('update_nowait').\
                 update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
                         'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
@@ -419,16 +420,19 @@ def detach_dids(scope, name, dids, issuer, session=None):
 
 
 @stream_session
-def list_new_dids(type, session=None):
+def list_new_dids(did_type, session=None):
     """
     List recent identifiers.
 
-    :param type : The DID type.
+    :param did_type : The DID type.
     :param session: The database session in use.
     """
     query = session.query(models.DataIdentifier).filter_by(is_new=True).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
-    if type and (isinstance(type, str) or isinstance(type, unicode)):
-        query = query.filter(models.DataIdentifier).filter_by(did_type=DIDType.from_sym(type))
+    if did_type:
+        if (isinstance(did_type, str) or isinstance(did_type, unicode)):
+            query = query.filter_by(did_type=DIDType.from_sym(did_type))
+        elif isinstance(did_type, EnumSymbol):
+            query = query.filter_by(did_type=did_type)
     for chunk in query.yield_per(10):
         yield {'scope': chunk.scope, 'name': chunk.name, 'did_type': chunk.did_type}  # TODO Change this to the proper filebytes [RUCIO-199]
 

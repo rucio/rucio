@@ -16,7 +16,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import case
 
 from rucio.common import exception
-from rucio.common.utils import grouper, chunks
+from rucio.common.utils import chunks
 from rucio.core.rse import get_rse, get_rse_id
 from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
@@ -293,7 +293,7 @@ def delete_replicas(rse, files, session=None):
                                   ~exists([1]).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
     delta, bytes, rowcount = 0, 0, 0
-    for c in grouper(replica_condition, 10):
+    for c in chunks(replica_condition, 10):
         for (replica_bytes, ) in session.query(models.RSEFileAssociation.bytes).filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
             bytes += replica_bytes
             delta += 1
@@ -307,7 +307,7 @@ def delete_replicas(rse, files, session=None):
     while parent_condition:
         child_did_condition = list()
         tmp_parent_condition = list()
-        for c in grouper(parent_condition, 10):
+        for c in chunks(parent_condition, 10):
 
             query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
                                   models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
@@ -321,13 +321,13 @@ def delete_replicas(rse, files, session=None):
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
         if child_did_condition:
-            for c in grouper(child_did_condition, 10):
+            for c in chunks(child_did_condition, 10):
                 rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*c)).delete(synchronize_session=False)
             # update parent counters
 
         parent_condition = tmp_parent_condition
 
-    for c in grouper(did_condition, 10):
+    for c in chunks(did_condition, 10):
         rowcount = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*c)).delete(synchronize_session=False)
 
     # Decrease RSE counter
