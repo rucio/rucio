@@ -10,6 +10,7 @@
 
 from datetime import datetime
 from re import match
+from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
@@ -103,20 +104,29 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
             # get protocols
             if rse not in tmp_protocols:
                 protocols = list()
-                if schemes is None:
-                    protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
+                if not schemes:
+                    try:
+                        protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
+                    except:
+                        # temporary protection
+                        print format_exc()
                 else:
                     for s in schemes:
                         try:
                             protocols.append(rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse, session=session), operation='read', scheme=s))
-                        except exception.RSEProtocolNotSupported:
-                            pass
+                        except:
+                            # temporary protection
+                            print format_exc()
                 tmp_protocols[rse] = protocols
 
             # get pfns
             for protocol in tmp_protocols[rse]:
                 if not schemes or protocol.attributes['scheme'] in schemes:
-                    replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
+                    try:
+                        replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
+                    except:
+                        # temporary protection
+                        print format_exc()
                     if protocol.attributes['scheme'] == 'srm':
                         try:
                             replicas[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
