@@ -1,27 +1,26 @@
 # All dependencies needed to run rucio should be defined here
 
-# cx_Oracle==5.1.1         # Oracle connector
-# MySQL-python==1.2.3      # MySQL connector
+cx_Oracle==5.1.2         # Oracle connector
+# MySQL-python==1.2.5      # MySQL connector
+# psycopg2==2.5.2          # PostgreSQL
 SQLAlchemy==0.9.1          # db backend
-alembic==0.5.0             # Lightweight database migration tool for SQLAlchemy
-#Jinja2>=2.3               # Template engine
-dogpile.cache==0.5         # Caching for RSE Expression and other methods
+alembic==0.6.2             # Lightweight database migration tool for SQLAlchemy
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
 web.py==0.37               # Python web framework
 #python-memcached          # Cache
 
 # Celery==2.5.1            # Distributed Task Queue
 # importlib==1.0.2         # An implementation of import
-anyjson==0.3.1             # Wraps the best available JSON implementation available in a common interface
-jsonschema==2.0.0          # JSON Schema
+anyjson==0.3.3             # Wraps the best available JSON implementation available in a common interface
+jsonschema==2.3.0          # JSON Schema
 
 # kombu==2.1.2             # AMQP Messaging Framework
-python-dateutil==1.5       # Extensions to the standard datetime module
+python-dateutil==2.2       # Extensions to the standard datetime module
 ordereddict==1.1           # Ordered Dictionary
 # amqplib==1.0.2           # AMQP Client Library
 
 # For the rucio daemons
-supervisor==3.0b1          # Supervisor is a client/server system that allows its users to monitor and control a number of processes on UNIX-like operating systems.
+supervisor==3.0            # Supervisor is a client/server system that allows its users to monitor and control a number of processes on UNIX-like operating systems.
 meld3==0.6.10              # an HTML/XML templating system for Python 2.3+
 
 # This must be installed before matplotlib !!!

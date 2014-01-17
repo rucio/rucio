@@ -29,14 +29,19 @@ if __name__ == '__main__':
     resp = requests.get(url=url)
     data = json.loads(resp.content)
 
+    rses = ['PRAGUELCG2_DATADISK_RUCIOTEST', 'LRZ-LMU_DATADISK_RUCIOTEST', 'IN2P3-CPPM_DATADISK_RUCIOTEST',
+            'NIKHEF-ELPROD_DATADISK_RUCIOTEST', 'PSNC_DATADISK_DATADISK_RUCIOTEST', 'UNI-FREIBURG_DATADISK_RUCIOTEST',
+            'NDGF-T1_DATADISK_RUCIOTEST']
+
+#    rses = ['BNL-OSG2_DDMTEST',]
     c = Client()
 
     for rse in data:
 
-        if not rse['is_rucio']:
-            continue
+        #if not rse['is_rucio']:
+        #    continue
 
-        if rse['name'] != 'BNL-OSG2_DDMTEST':
+        if rse['name'] not in rses:
             continue
 
         try:
@@ -67,27 +72,32 @@ if __name__ == '__main__':
         #c.add_protocol(rse=rse['name'], scheme='mock', params=params)
         for protocol in rse['protocols']:
             try:
-
                 o = urlparse.urlparse(protocol)
 
-                if o.scheme != 'srm':
+                if o.scheme != 'https':  # 'srm':
                     continue
 
                 extended_attributes = None
                 if o.scheme == 'srm':
                     extended_attributes = {"web_service_path": o.path, "space_token": space_token}
+                    impl = 'rucio.rse.protocols.srm.Default'
+                    priority = 1
+                elif o.scheme == 'https':
+                    extended_attributes = None
+                    impl = 'rucio.rse.protocols.webdav.Default'
+                    priority = 2
 
                 params = {'hostname': o.netloc,
                           'port': o.port,
                           'prefix': prefix,
-                          'impl': 'rucio.rse.protocols.srm.Default',
+                          'impl': impl,
                           'extended_attributes': extended_attributes,
-                          'domains': {"lan": {"read": 1,
-                                              "write": 1,
-                                              "delete": 1},
-                                      "wan": {"read": 1,
-                                              "write": 1,
-                                              "delete": 1}}}
+                          'domains': {"lan": {"read": priority,
+                                              "write": priority,
+                                              "delete": priority},
+                                      "wan": {"read": priority,
+                                              "write": priority,
+                                              "delete": priority}}}
                 print 'Add protocol', rse['name'], o.scheme, params
                 c.add_protocol(rse=rse['name'], scheme=o.scheme, params=params)
             except:

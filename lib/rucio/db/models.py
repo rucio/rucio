@@ -18,7 +18,7 @@ SQLAlchemy models for rucio data
 import datetime
 import uuid
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, SmallInteger, String as _String, event, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, SmallInteger, String as _String, event, UniqueConstraint
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
@@ -375,6 +375,9 @@ class RSE(BASE, SoftModelBase):
     continent = Column(String(2))
     time_zone = Column(String(255))
     ISP = Column(String(255))
+    ASN = Column(String(255))
+    longitude = Column(Float(Precision=64))
+    latitude = Column(Float(Precision=64))
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
