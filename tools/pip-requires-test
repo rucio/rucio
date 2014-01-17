@@ -2,7 +2,7 @@
 
 # multi-mechanize==1.2.0    # Performance Test Framework
 # Matplotlib==1.2.1         # Python plotting libs
-nose==1.1.2               # for test discovery and console feedback
+nose==1.3.0               # for test discovery and console feedback
 pinocchio==0.3.1          # Extensions for the 'nose' unit testing framework
 #unittest2                # backport of unittest lib in python 2.7
 #webtest                  # test wsgi apps without starting an http server
@@ -14,9 +14,10 @@ paste                     # Utilities for web development in pyton
 unittest2==0.5.1          # backport of unittest lib in python 2.7
 #webtest                  # test wsgi apps without starting an http server
 #mox                      # mock object framework
-coverage==3.5.2           # Nose module for test coverage
-sphinx==1.1.3             # required to build documentation
-sphinxcontrib-httpdomain==1.1.8 # Provides a Sphinx domain for describing RESTful HTTP APIs
+coverage==3.7.1           # Nose module for test coverage
+sphinx==1.2               # required to build documentation
+Jinja2==2.7.2             # template engine
+sphinxcontrib-httpdomain==1.2.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
 sphinxcontrib-sdedit==0.3       #
 PIL==1.1.7                      #
 Pygments>=1.2                   # Python Syntax highlighter
@@ -29,6 +30,5 @@ virtualenv==1.9.1               # Virtual Python Environment builder
 tox==1.4.3                      # Automate and standardize testing in Python
 pytest==2.3.4                   # Full-featured Python testing tool
 pytest-xdist==1.8               # py.test xdist plugin for distributed testing and loop-on-failing modes
-tabulate                        # Formating table like outputs
-psycopg2                        # PostgreSQL
-xmltodict                       # Makes working with XML feel like you are working with JSON
+tabulate==0.7.1                 # Formating table like outputs
+xmltodict==0.8.3                # Makes working with XML feel like you are working with JSON
