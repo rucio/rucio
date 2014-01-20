@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 from re import match
@@ -23,8 +23,10 @@ from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
 
-from rucio.common import exception, utils
+import rucio.core.account_counter
+
 from rucio.core.rse_counter import add_counter
+from rucio.common import exception, utils
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session, stream_session
 
@@ -61,7 +63,8 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     # Add counter to monitor the space usage
     add_counter(rse_id=new_rse.id, session=session)
 
-    # ToDo: Add account counter
+    # Add account counter
+    rucio.core.account_counter.create_counters_for_new_rse(rse_id=new_rse.id, session=session)
 
     return new_rse.id
 

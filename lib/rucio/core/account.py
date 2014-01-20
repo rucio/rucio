@@ -10,11 +10,14 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
+
+import rucio.core.account_counter
 
 from rucio.common import exception
 from rucio.db import models
@@ -35,6 +38,8 @@ def add_account(account, type, session=None):
         new_account.save(session=session)
     except IntegrityError:
         raise exception.Duplicate('Account ID \'%s\' already exists!' % account)
+    # Create the account counters for this account
+    rucio.core.account_counter.create_counters_for_new_account(account=account, session=session)
 
 
 @read_session

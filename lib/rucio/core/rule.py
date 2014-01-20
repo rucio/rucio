@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 import time
@@ -24,6 +24,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound,
                                     ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight)
+from rucio.core.account_counter import increase, decrease
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.monitor import record_timer
 from rucio.core.rse_expression_parser import parse_expression
@@ -267,6 +268,7 @@ def delete_rule(rule_id, lockmode='update', session=None):
 
     # Remove locks, set tombstone if applicable
     transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
+    account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
 
     for lock in locks:
         try:
@@ -283,9 +285,16 @@ def delete_rule(rule_id, lockmode='update', session=None):
         except NoResultFound:
             pass
         lock.delete(session=session)
+        if lock.rse_id not in account_counter_decreases:
+            account_counter_decreases[lock.rse_id] = []
+        account_counter_decreases[lock.rse_id].append(lock.bytes)
 
     #Delete the DatasetLocks
     session.query(models.DatasetLock).filter(models.DatasetLock.rule_id == rule_id).delete(synchronize_session=False)
+
+    # Decrease account_counters
+    for rse_id in account_counter_decreases.keys():
+        decrease(rse_id=rse_id, account=rule.account, delta=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
     session.flush()
     rule.delete(session=session)
@@ -464,6 +473,7 @@ def __evaluate_did_detach(eval_did, session=None):
     #Iterate rules and delete locks
     transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
     for rule in rules:
+        account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
         query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id)
         for lock in query:
             if (lock.scope, lock.name) not in files:
@@ -477,6 +487,12 @@ def __evaluate_did_detach(eval_did, session=None):
                 session.delete(lock)
                 if replica.lock_cnt == 0:
                     replica.tombstone = datetime.utcnow()
+                if lock.rse_id not in account_counter_decreases:
+                    account_counter_decreases[lock.rse_id] = []
+                account_counter_decreases[lock.rse_id].append(lock.bytes)
+        # Decrease account_counters
+        for rse_id in account_counter_decreases.keys():
+            decrease(rse_id=rse_id, account=rule.account, delta=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
     session.flush()
 
@@ -760,6 +776,8 @@ def __apply_rule_to_files(datasetfiles, rseselector, account, rule_id, copies, g
     transfers_to_create = []  # [{'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']}]
     replicas_to_create = []   # DB Objects
 
+    account_counter_increases = {}  # {'rse_id': [file_size, file_size, file_size]}
+
     locks_ok_cnt = 0
     locks_replicating_cnt = 0
 
@@ -804,6 +822,10 @@ def __apply_rule_to_files(datasetfiles, rseselector, account, rule_id, copies, g
                         file['replicas'].append(replica)
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
                         locks_replicating_cnt += 1
+                    # Update the account_counter icreases dict for later counter update
+                    if rse_id not in account_counter_increases:
+                        account_counter_increases[rse_id] = []
+                    account_counter_increases[rse_id].append(file['bytes'])
 
     elif grouping == RuleGrouping.ALL:
         # #######
@@ -861,6 +883,10 @@ def __apply_rule_to_files(datasetfiles, rseselector, account, rule_id, copies, g
                         file['replicas'].append(replica)
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
                         locks_replicating_cnt += 1
+                    # Update the account_counter icreases dict for later counter update
+                    if rse_id not in account_counter_increases:
+                        account_counter_increases[rse_id] = []
+                    account_counter_increases[rse_id].append(file['bytes'])
                 # Add a DatasetLock to the DB
                 if dataset['scope'] is not None:
                     locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
@@ -918,6 +944,10 @@ def __apply_rule_to_files(datasetfiles, rseselector, account, rule_id, copies, g
                         file['replicas'].append(replica)
                         transfers_to_create.append({'rse_id': rse_id, 'scope': file['scope'], 'name': file['name']})
                         locks_replicating_cnt += 1
+                    # Update the account_counter icreases dict for later counter update
+                    if rse_id not in account_counter_increases:
+                        account_counter_increases[rse_id] = []
+                    account_counter_increases[rse_id].append(file['bytes'])
                 # Add a DatasetLock to the DB
                 if dataset['scope'] is not None:
                     locks_to_create.append(models.DatasetLock(scope=dataset['scope'], name=dataset['name'], rule_id=rule_id, rse_id=rse_id, state=LockState.REPLICATING if dataset_is_replicating else LockState.OK, account=account))
@@ -927,6 +957,9 @@ def __apply_rule_to_files(datasetfiles, rseselector, account, rule_id, copies, g
         session.flush()
         session.add_all(locks_to_create)
         session.flush()
+        # Increase account_counters
+        for rse_id in account_counter_increases.keys():
+            increase(rse_id=rse_id, account=account, delta=len(account_counter_increases[rse_id]), bytes=sum(account_counter_increases[rse_id]), session=session)
     except IntegrityError, e:
         raise ReplicationRuleCreationFailed(e.args[0])
 
