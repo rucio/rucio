@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 import string
 import random
@@ -21,7 +21,8 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound, AccessDenied
-from rucio.core.did import add_did, attach_dids
+from rucio.core.account_counter import get_counter
+from rucio.core.did import add_did, attach_dids, detach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute, get_rse
@@ -474,6 +475,88 @@ class TestReplicationRuleCore():
     #     for file in files:
     #         rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
     #         assert(len(rse_locks) == 1)
+
+    def test_account_counter_rule_create(self):
+        """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when new rule is created"""
+
+        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        #Check if the counter has been updated correctly
+        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        assert(account_counter_before['bytes'] + 3*100 == account_counter_after['bytes'])
+        assert(account_counter_before['files'] + 3 == account_counter_after['files'])
+
+    def test_account_counter_rule_delete(self):
+        """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is removed"""
+
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+
+        delete_rule(rule_id)
+
+        #Check if the counter has been updated correctly
+        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        assert(account_counter_before['bytes'] - 3*100 == account_counter_after['bytes'])
+        assert(account_counter_before['files'] - 3 == account_counter_after['files'])
+
+    def test_account_counter_judge_evaluate_attach(self):
+        """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a file is added to a DS"""
+        re_evaluator(once=True)
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+
+        #Add a first rule to the DS
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        #Fake judge
+        re_evaluator(once=True)
+
+        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        assert(account_counter_before['bytes'] + 3*100 == account_counter_after['bytes'])
+        assert(account_counter_before['files'] + 3 == account_counter_after['files'])
+
+    def test_account_counter_judge_evaluate_detach(self):
+        """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a file is removed from a DS"""
+        re_evaluator(once=True)
+        scope = 'mock'
+        files = _create_test_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        #Add a first rule to the DS
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+
+        detach_dids(scope, dataset, [files[0]], 'jdoe')
+
+        #Fake judge
+        re_evaluator(once=True)
+
+        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        assert(account_counter_before['bytes'] - 100 == account_counter_after['bytes'])
+        assert(account_counter_before['files'] - 1 == account_counter_after['files'])
 
 
 class TestReplicationRuleClient():

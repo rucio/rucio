@@ -8,10 +8,14 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from random import randint
 
 from sqlalchemy import func
+
+import rucio.core.account
+import rucio.core.rse
 
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
@@ -34,6 +38,32 @@ def add_counter(rse_id, account, session=None):
     for num in xrange(MAX_COUNTERS + 1):
         new_counter = models.AccountCounter(rse_id=rse_id, num=num, account=account, files=0, bytes=0)
         session.merge(new_counter)
+
+
+@transactional_session
+def create_counters_for_new_account(account, session=None):
+    """
+    Creates all the Account counters when creating a account.
+
+    :param account: The account.
+    :param session: The database session in use.models.RSECounter
+    """
+
+    for rse_id in [rse['id'] for rse in rucio.core.rse.list_rses(session=session)]:
+        add_counter(rse_id=rse_id, account=account, session=session)
+
+
+@transactional_session
+def create_counters_for_new_rse(rse_id, session=None):
+    """
+    Creates all the Account counters when creating a new rse.
+
+    :param rse_id:  The rse_id.
+    :param session: The database session in use.models.RSECounter
+    """
+
+    for account in [account['account'] for account in rucio.core.account.list_accounts(session=session)]:
+        add_counter(rse_id=rse_id, account=account, session=session)
 
 
 @transactional_session
