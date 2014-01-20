@@ -38,10 +38,8 @@ class TestRseWebDAV():
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
         cls.user = 'jdoe'
-        storage = rsemanager.RSEMgr()
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
-
         scheme = data[cls.site]['protocols']['supported']['https']['scheme']
         prefix = data[cls.site]['protocols']['supported']['https']['prefix']
         hostname = data[cls.site]['protocols']['supported']['https']['hostname']
@@ -53,14 +51,16 @@ class TestRseWebDAV():
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        credentials = {"auth_type": "cert", "timeout": 300}
         cls.static_file = '%s://%s:%s%sdata.raw' % (scheme, hostname, port, prefix)
 
-        storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.connect(credentials)
+        rse_settings = rsemanager.get_rse_info(cls.site)
+        storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='https')
+        storage.connect()
         for f in MgrTestCases.files_remote:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
+            destfile = rsemanager.lfns2pfns(rse_settings, [{'name': f, 'scope': 'user.%s' % (cls.user)}, ], operation='write', scheme='https').values()[0]
             try:
-                storage.upload('FZK-LCG2_SCRATCHDISK', {'name': f, 'scope': 'user.%s' % (cls.user)}, cls.tmpdir)
+                storage.put('%s/%s' % (cls.tmpdir, f), destfile)
             except FileReplicaAlreadyExists, e:
                 print e
         with open('%s/data.raw' % cls.tmpdir, 'rb') as f:
@@ -69,35 +69,20 @@ class TestRseWebDAV():
     @classmethod
     def tearDownClass(cls):
         """WebDAV (RSE/PROTOCOLS): Removing created directories and files """
-        storage = rsemanager.RSEMgr()
-        credentials = {}
+        rse_settings = rsemanager.get_rse_info(cls.site)
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
         scheme = data[cls.site]['protocols']['supported']['https']['scheme']
         prefix = data[cls.site]['protocols']['supported']['https']['prefix']
         hostname = data[cls.site]['protocols']['supported']['https']['hostname']
         port = data[cls.site]['protocols']['supported']['https']['port']
-
-        storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.connect(credentials)
-        list1 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls('%s://%s:%s%suser/%s' % (scheme, hostname, port, prefix, cls.user))
-        for uri1 in list1:
-            list2 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri1)
-            for uri2 in list2:
-                list3 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri2)
-                for remotefile in list3:
-                    storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(remotefile)
-                storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri2)
-            storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri1)
-
-        list1 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls('%s://%s:%s%sgroup/%s' % (scheme, hostname, port, prefix, cls.user))
-        for uri1 in list1:
-            list2 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri1)
-            for uri2 in list2:
-                list3 = storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.ls(uri2)
-                for remotefile in list3:
-                    storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(remotefile)
-                storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri2)
-            storage._RSEMgr__select_protocol(cls.site)._RSEProtocolWrapper__instance.delete(uri1)
+        storage = rsemanager.create_protocol(rse_settings, operation='write', scheme='https')
+        print rse_settings
+        storage.connect()
+        status1 = storage.delete('%s://%s:%s%suser/%s' % (scheme, hostname, port, prefix, cls.user))
+        print status1
+        status2 = storage.delete('%s://%s:%s%sgroup/%s' % (scheme, hostname, port, prefix, cls.user))
+        print status2
 
     def setup(self):
         """WebDAV (RSE/PROTOCOLS): Creating Mgr-instance """

@@ -16,6 +16,9 @@ import ssl
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
 from sys import stdout
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.poolmanager import PoolManager
+import ssl
 from xml.parsers import expat
 
 from rucio.common import exception
@@ -30,12 +33,21 @@ class TLSv1HttpAdapter(HTTPAdapter):
                                        ssl_version=ssl.PROTOCOL_TLSv1)
 
 
+class TLSv1HttpAdapter(HTTPAdapter):
+    def init_poolmanager(self, connections, maxsize, block=False):
+        self.poolmanager = PoolManager(num_pools=connections,
+                                       maxsize=maxsize,
+                                       block=block,
+                                       ssl_version=ssl.PROTOCOL_TLSv1)
+
+
 class uploadInChunks(object):
-    def __init__(self, filename, chunksize):
+    def __init__(self, filename, chunksize, progressbar=False):
         self.__totalsize = os.path.getsize(filename)
         self.__readsofar = 0
         self.__filename = filename
         self.__chunksize = chunksize
+        self.__progressbar = progressbar
 
     def __iter__(self):
         try:
@@ -43,11 +55,13 @@ class uploadInChunks(object):
                 while True:
                     data = file.read(self.__chunksize)
                     if not data:
-                        stdout.write("\n")
+                        if self.__progressbar:
+                            stdout.write("\n")
                         break
                     self.__readsofar += len(data)
-                    percent = self.__readsofar * 100 / self.__totalsize
-                    stdout.write("\r{percent:3.0f}%".format(percent=percent))
+                    if self.__progressbar:
+                        percent = self.__readsofar * 100 / self.__totalsize
+                        stdout.write("\r{percent:3.0f}%".format(percent=percent))
                     yield data
         except OSError, e:
             raise exception.SourceNotFound(e)
@@ -116,7 +130,7 @@ class Default(protocol.RSEProtocol):
 
     """ Implementing access to RSEs using the webDAV protocol."""
 
-    def connect(self, credentials):
+    def connect(self, credentials={}):
         """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provides information to establish a connection
@@ -155,7 +169,8 @@ class Default(protocol.RSEProtocol):
 
         # "ping" to see if the server is available
         try:
-            res = self.session.request('HEAD', self.server+self.rse['prefix'], verify=False, timeout=self.timeout, cert=self.cert)
+            self.session.mount('https://', TLSv1HttpAdapter())
+            res = self.session.request('HEAD', self.path2pfn(''), verify=False, timeout=self.timeout, cert=self.cert)
             if res.status_code != 200:
                 raise exception.ServiceUnavailable(res.text)
         except requests.exceptions.ConnectionError, e:
@@ -174,7 +189,7 @@ class Default(protocol.RSEProtocol):
 
         """
         if not path.startswith('https'):
-            return '%s://%s:%s%s' % (self.rse['scheme'], self.rse['hostname'], str(self.rse['port']), path)
+            return '%s://%s:%s%s%s' % (self.attributes['scheme'], self.attributes['hostname'], str(self.attributes['port']), self.attributes['prefix'], path)
         else:
             return path
 
@@ -235,7 +250,7 @@ class Default(protocol.RSEProtocol):
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
-    def put(self, source, target, source_dir=None):
+    def put(self, source, target, source_dir=None, progressbar=False):
         """ Allows to store files inside the referred RSE.
 
             :param source Physical file name
@@ -254,7 +269,7 @@ class Default(protocol.RSEProtocol):
         try:
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
-            it = uploadInChunks(full_name, 10000000)
+            it = uploadInChunks(full_name, 10000000, progressbar)
             result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
             if result.status_code in [201, ]:
                 return
