@@ -41,7 +41,10 @@ if __name__ == '__main__':
         #if not rse['is_rucio']:
         #    continue
 
-        if rse['name'] not in rses:
+#        if rse['name'] not in rses:
+#            continue
+
+        if not rse['name'].startswith('IN2P3-LAPP'):
             continue
 
         try:
@@ -74,7 +77,7 @@ if __name__ == '__main__':
             try:
                 o = urlparse.urlparse(protocol)
 
-                if o.scheme != 'https':  # 'srm':
+                if o.scheme not in ('https', 'http', 'srm'):
                     continue
 
                 extended_attributes = None
@@ -82,12 +85,16 @@ if __name__ == '__main__':
                     extended_attributes = {"web_service_path": o.path, "space_token": space_token}
                     impl = 'rucio.rse.protocols.srm.Default'
                     priority = 1
-                elif o.scheme == 'https':
+                elif o.scheme == 'https' or o.scheme == 'http':
                     extended_attributes = None
                     impl = 'rucio.rse.protocols.webdav.Default'
                     priority = 2
 
-                params = {'hostname': o.netloc,
+                netloc = o.netloc
+                if o.port and str(o.port) in o.netloc:
+                    netloc = o.netloc[:-len(':' + str(o.port))]
+
+                params = {'hostname': netloc,
                           'port': o.port,
                           'prefix': prefix,
                           'impl': impl,
