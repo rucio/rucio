@@ -85,17 +85,25 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def list_accounts(self):
+    def list_accounts(self, account_type=None, identity=None):
         """
         Sends the request to list all rucio accounts.
+
+        :param type: The account type
+        :param identity: The identity key name. For example x509 DN, or a username.
 
         :return: a list containing account info dictionary for all rucio accounts.
         :raises AccountNotFound: if account doesn't exist.
         """
-        path = '/'.join([self.ACCOUNTS_BASEURL, ''])
+        path = '/'.join([self.ACCOUNTS_BASEURL])
         url = build_url(self.host, path=path)
+        params = {}
+        if account_type:
+            params['account_type'] = account_type
+        if identity:
+            params['identity'] = identity
 
-        r = self._send_request(url)
+        r = self._send_request(url, params=params)
 
         if r.status_code == codes.ok:
             accounts = self._load_json_data(r)

@@ -13,6 +13,7 @@ from datetime import datetime
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
+from urlparse import parse_qsl
 from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK, loadhook
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
@@ -36,7 +37,7 @@ urls = (
     '/(.+)/limits', 'AccountLimits',
     '/(.+)/rules', 'Rules',
     '/(.+)', 'AccountParameter',
-    '/', 'Account',
+    '/?$', 'Account',
 )
 
 
@@ -238,7 +239,11 @@ class Account(RucioController):
         :returns: A list containing all account names as dict.
         """
         header('Content-Type', 'application/x-json-stream')
-        for account in list_accounts():
+        filter = {}
+        if ctx.query:
+            filter = dict(parse_qsl(ctx.query[1:]))
+
+        for account in list_accounts(filter=filter):
             yield render_json(**account) + "\n"
 
 

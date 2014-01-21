@@ -167,14 +167,13 @@ def list_accounts(args):
         creds = {'username': args.username, 'password': args.password}
     else:
         creds = None
-
     accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
                                   account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        accounts = accountClient.list_accounts()
+        accounts = accountClient.list_accounts(identity=args.identity, account_type=args.account_type)
     except Exception, e:
             print 'Failed to list accounts'
             print e
@@ -766,6 +765,9 @@ Commands:
 
     # The list_accounts command
     list_account_parser = account_subparser.add_parser('list', help='List Rucio accounts')
+    list_account_parser.add_argument('--type', dest='account_type', action='store', help='Account Type (USER, GROUP, SERVICE)')
+    list_account_parser.add_argument('--id', dest='identity', action='store', help='Identity (e.g. DN)')
+
     list_account_parser.set_defaults(which='list_accounts')
 
     # The add_account command

@@ -21,8 +21,9 @@ import rucio.core.account_counter
 
 from rucio.common import exception
 from rucio.db import models
+from rucio.db.constants import AccountStatus, AccountType
+from rucio.db.enum import EnumSymbol
 from rucio.db.session import read_session, transactional_session, stream_session
-from rucio.db.constants import AccountStatus
 
 
 @transactional_session
@@ -118,16 +119,30 @@ def set_account_status(account, status, session=None):
 
 
 @stream_session
-def list_accounts(session=None):
+def list_accounts(filter={}, session=None):
     """ Returns a list of all account names.
 
+    :param filter: Dictionary of attributes by which the input data should be filtered
     :param session: the database session in use.
 
     returns: a list of all account names.
     """
-    query = session.query(models.Account).filter_by(status=AccountStatus.ACTIVE)
-    for row in query.order_by(models.Account.account).yield_per(25):
-        yield {'account': row.account, 'type': row.account_type}
+    query = session.query(models.Account.account, models.Account.account_type,
+                          models.Account.email).filter_by(status=AccountStatus.ACTIVE)
+    if filter:
+
+        if 'account_type' in filter:
+            if (isinstance(filter['account_type'], str) or isinstance(filter['account_type'], unicode)):
+                query = query.filter_by(account_type=AccountType.from_sym(filter['account_type']))
+            elif isinstance(filter['account_type'], EnumSymbol):
+                query = query.filter_by(account_type=filter['account_type'])
+
+        if 'identity' in filter:
+            query = query.join(models.IdentityAccountAssociation, models.Account.account == models.IdentityAccountAssociation.account).\
+                filter(models.IdentityAccountAssociation.identity == filter['identity'])
+
+    for account, account_type, email in query.order_by(models.Account.account).yield_per(25):
+        yield {'account': account, 'type': account_type, 'email': email}
 
 
 @read_session
