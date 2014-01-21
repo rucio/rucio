@@ -112,13 +112,13 @@ def detach_dids(scope, name, dids, issuer):
     return did.detach_dids(scope=scope, name=name, dids=dids, issuer=issuer)
 
 
-def list_new_dids(type=None):
+def list_new_dids(type=None, worker_number=None, total_workers=None, chunk_size=1000):
     """
     List recent identifiers.
 
     :param type : The DID type.
     """
-    return did.list_new_dids(did_type=type and DIDType.from_sym(type))
+    return did.list_new_dids(did_type=type and DIDType.from_sym(type), worker_number=worker_number, total_workers=total_workers, chunk_size=chunk_size)
 
 
 def set_new_dids(dids, new_flag=True):

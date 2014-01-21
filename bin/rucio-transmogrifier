@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 '''
 Transmogrifier (Replication Rule Resolver) Daemon
@@ -15,10 +15,8 @@ Transmogrifier (Replication Rule Resolver) Daemon
 
 import argparse
 import signal
-import sys
-import traceback
 
-from rucio.daemons.transmogrifier import launch_transmogrifier, stop
+from rucio.daemons.transmogrifier import run, stop
 
 
 if __name__ == "__main__":
@@ -28,18 +26,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
+    parser.add_argument("--total-workers", action="store", default=10, type=int, help='Total number of workers per process')
+    parser.add_argument("--chunk-size", action="store", default=1000, type=int, help='Chunk size')
+
     args = parser.parse_args()
 
     print 'Start transmogrifier'
-    if args.run_once:
-        launch_transmogrifier(once=True)
-        sys.exit()
-    else:
-        try:
-            launch_transmogrifier(once=False)
-        except KeyboardInterrupt:
-            raise
-        except:
-            errno, errstr = sys.exc_info()[:2]
-            trcbck = traceback.format_exc()
-            print 'transmogrifier interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+    try:
+        run(total_workers=args.total_workers, chunk_size=args.chunk_size, once=args.run_once)
+    except KeyboardInterrupt:
+        stop()
