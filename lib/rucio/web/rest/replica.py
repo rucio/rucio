@@ -68,9 +68,11 @@ class Replicas(RucioController):
                 header('Content-Type', 'application/x-json-stream')
             elif metalink == 3:
                 header('Content-Type', 'application/metalink+xml')
+                schemes = ['http', 'https']
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink version="3.0" xmlns="http://www.metalinker.org/">\n<files>\n'
             elif metalink == 4:
                 header('Content-Type', 'application/metalink4+xml')
+                schemes = ['http', 'https']
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n<files>\n'
 
             # then, stream the replica information
