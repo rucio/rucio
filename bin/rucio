@@ -153,8 +153,8 @@ def list_replicas(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
+                           account=args.account, auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
 
     protocols = None
     if args.protocols:
@@ -168,7 +168,7 @@ def list_replicas(args):
         replicas = client.list_replicas(dids, schemes=protocols)
         print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
         for replica in replicas:
-           print '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'], replica['rses'])
+            print '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'], replica['rses'])
     except Exception, e:
         print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
         print e
@@ -663,8 +663,8 @@ def download(args):
         creds = {'username': args.username, 'password': args.password}
 
     client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
+                           account=args.account, auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
 
     rsemgr = rsemanager.RSEMgr()
     for did in args.dids:
