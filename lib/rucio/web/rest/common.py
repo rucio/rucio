@@ -75,18 +75,18 @@ def exception_wrapper(f):
 class RucioController:
     """ Default Rucio Controller class. """
 
-    def POST(self, rse):
+    def POST(self):
         """ Not supported. """
         raise BadRequest()
 
-    def GET(self, rse):
+    def GET(self):
         """ Not supported. """
         raise BadRequest()
 
-    def PUT(self, rse):
+    def PUT(self):
         """ Not supported. """
         raise BadRequest()
 
-    def DELETE(self, rse):
+    def DELETE(self):
         """ Not supported. """
         raise BadRequest()

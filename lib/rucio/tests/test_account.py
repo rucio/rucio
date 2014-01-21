@@ -252,13 +252,14 @@ class TestAccountClient():
 
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
+        dn = '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'
         acc_list = [account_name_generator() for i in xrange(5)]
-
         for account in acc_list:
             self.client.add_account(account, 'USER')
 
-        svr_list = [a['account'] for a in self.client.list_accounts()]
+        svr_list = [a['account'] for a in self.client.list_accounts(account_type='SERVICE', identity=dn)]
+        assert_true('root' in svr_list)
 
+        svr_list = [a['account'] for a in self.client.list_accounts(account_type='USER')]
         for account in acc_list:
-            if account not in svr_list:
-                assert_true(False)
+            assert_true(account in svr_list)

@@ -107,15 +107,17 @@ def set_account_status(account, status):
     account_core.set_account_status(account, status)
 
 
-def list_accounts():
+def list_accounts(filter={}):
     """
     Lists all the Rucio account names.
 
     REST API: http://<host>:<port>/rucio/accounts
 
+    :param filter: Dictionary of attributes by which the input data should be filtered
+
     :returns: List of all accounts.
     """
-    return account_core.list_accounts()
+    return account_core.list_accounts(filter=filter)
 
 
 def account_exists(account):
