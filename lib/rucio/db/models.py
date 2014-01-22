@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
@@ -376,8 +376,8 @@ class RSE(BASE, SoftModelBase):
     time_zone = Column(String(255))
     ISP = Column(String(255))
     ASN = Column(String(255))
-    longitude = Column(Float(Precision=64))
-    latitude = Column(Float(Precision=64))
+    longitude = Column(Float())
+    latitude = Column(Float())
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),

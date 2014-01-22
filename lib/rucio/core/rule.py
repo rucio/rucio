@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
@@ -76,7 +76,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
         try:
             did = session.query(models.DataIdentifier).filter(
                 models.DataIdentifier.scope == elem['scope'],
-                models.DataIdentifier.name == elem['name']).with_lockmode('update').one()
+                models.DataIdentifier.name == elem['name']).one()
         except NoResultFound:
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
         record_timer(stat='rule.lock_did', time=(time.time() - start_time)*1000)
