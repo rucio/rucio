@@ -25,6 +25,7 @@ from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, InvalidReplicationRule
 from rucio.common.config import config_get
+from rucio.common.utils import chunks
 from rucio.core import monitor
 
 
@@ -83,7 +84,7 @@ def is_matching_subscription(subscription, did, metadata):
                 return False
         elif key == 'scope':
             if not did['scope'] in values:
-                logging.debug('Bad scope %s != %s' % (values, did['scope']))
+                #logging.debug('Bad scope %s != %s' % (values, did['scope']))
                 return False
         else:
             if type(values) is str or type(values) is unicode:
@@ -93,7 +94,7 @@ def is_matching_subscription(subscription, did, metadata):
                 if str(meta) == str(key):
                     has_metadata = 1
                     if not metadata[meta] in values:
-                        logging.debug('Metadata not matching %s not in %s' % (metadata[meta], str(values)))
+                        #logging.debug('Metadata not matching %s not in %s' % (metadata[meta], str(values)))
                         return False
             if has_metadata == 0:
                 return False
@@ -130,7 +131,6 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                     try:
                         metadata = get_metadata(did['scope'], did['name'])
                         for subscription in subscriptions:
-                            #logging.debug(subscription)
                             if is_matching_subscription(subscription, did, metadata) is True:
                                 stime = time.time()
                                 results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
@@ -157,7 +157,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                         monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
                                 logging.info('Thread %i :Rule inserted in %f seconds' % (worker_number, time.time()-stime))
                     except DataIdentifierNotFound, e:
-                        logging.warning(e)
+                        logging.warning('Thread %i : %s' % (worker_number, str(e)))
                 if did['did_type'] == str(DIDType.FILE):
                     monitor.record_counter(counters='transmogrifier.did.file.processed',  delta=1)
                 elif did['did_type'] == str(DIDType.DATASET):
@@ -167,10 +167,9 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                 monitor.record_counter(counters='transmogrifier.did.processed',  delta=1)
                 identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
             time1 = time.time()
-            _retrial(set_new_dids, identifiers, None)
-            #logging.info(dids)
+            for id in chunks(identifiers, 100):
+                _retrial(set_new_dids, id, None)
             logging.info('Thread %i : Time to set the new flag : %f' % (worker_number, time.time() - time1))
-            #logging.debug('Thread %i : Matching subscriptions %s '+dumps(results))
             tottime = time.time() - start_time
             logging.info('Thread %i : It took %f seconds to process %i DIDs' % (worker_number, tottime, len(dids)))
             monitor.record_counter(counters='transmogrifier.job.done',  delta=1)
