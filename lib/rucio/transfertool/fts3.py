@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 import json
@@ -32,7 +32,7 @@ def submit_transfers(transfers, job_metadata):
     """
     Submit a transfer to FTS3 via JSON.
 
-    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'checksum', 'overwrite', 'job_metadata', 'src_spacetoken, 'dest_spacetoken'
+    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'checksum', 'overwrite', 'job_metadata', 'src_spacetoken', 'dest_spacetoken'
     :param job_metadata: Dictionary containing key/value pairs, for all transfers.
     :returns: List of FTS transfer identifiers
     """
@@ -49,7 +49,7 @@ def submit_transfers(transfers, job_metadata):
     # we have to loop until we get proper fts3 bulk submission
     for transfer in transfers:
 
-        transfer_ids[transfer['request_id']] = None
+        job_metadata['request_id'] = transfer['request_id']
 
         params_dict = {'files': [{'sources': transfer['src_urls'],
                                   'destinations': transfer['dest_urls'],
@@ -65,7 +65,6 @@ def submit_transfers(transfers, job_metadata):
 
         r = None
         params_str = json.dumps(params_dict)
-        logging.debug(params_str)
 
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
@@ -79,20 +78,21 @@ def submit_transfers(transfers, job_metadata):
                               headers={'Content-Type': 'application/json'})
 
         if r is not None and r.status_code == 200:
-            transfer_ids[transfer['request_id']] = str(r.json['job_id'])
+            transfer_ids[transfer['request_id']] = str(r.json()['job_id'])
         else:
             raise Exception('Could not submit transfer: %s', r.content)
 
     return transfer_ids
 
 
-def submit(src_urls, dest_urls,
+def submit(request_id, src_urls, dest_urls,
            src_spacetoken=None, dest_spacetoken=None,
            filesize=None, checksum=None,
            overwrite=False, job_metadata={}):
     """
     Submit a transfer to FTS3 via JSON.
 
+    :param request_id: Request ID of the request as a string.
     :param src_urls: Source URL acceptable to transfertool as a list of strings.
     :param dest_urls: Destination URL acceptable to transfertool as a list of strings.
     :param src_spacetoken: Source spacetoken as a string - ignored for non-spacetoken-aware protocols.
@@ -104,43 +104,15 @@ def submit(src_urls, dest_urls,
     :returns: FTS transfer identifier as string.
     """
 
-    # Early sanity check
-    if src_urls is None or src_urls == []:
-        raise Exception('No sources defined')
-
-    job_metadata['issuer'] = 'rucio-transfertool-fts3'
-
-    params_dict = {'files': [{'sources': src_urls,
-                              'destinations': dest_urls,
-                              'metadata': {'issuer': 'rucio-transfertool-fts3'},
-                              'filesize': str(filesize),
-                              'checksum': str(checksum)}],
-                   'params': {'verify_checksum': True,
-                              'spacetoken': dest_spacetoken if dest_spacetoken is not None else 'no_spacetoken',
-                              'copy_pin_lifetime': -1,
-                              'job_metadata': job_metadata,
-                              'source_spacetoken': src_spacetoken if src_spacetoken is not None else 'no_spacetoken',
-                              'overwrite': False}}
-
-    r = None
-    params_str = json.dumps(params_dict)
-    logging.debug(params_str)
-
-    if __HOST.startswith('https://'):
-        r = requests.post('%s/jobs' % __HOST,
-                          verify=__CACERT,
-                          cert=__USERCERT,
-                          data=params_str,
-                          headers={'Content-Type': 'application/json'})
-    else:
-        r = requests.post('%s/jobs' % __HOST,
-                          data=params_str,
-                          headers={'Content-Type': 'application/json'})
-
-    if r is not None and r.status_code == 200:
-        return str(r.json['job_id'])
-    else:
-        raise Exception('Could not submit transfer: %s', r.content)
+    return submit_transfers(transfers={'request_id': request_id,
+                                       'src_urls': src_urls,
+                                       'dest_urls': dest_urls,
+                                       'filesize': filesize,
+                                       'checksum': checksum,
+                                       'overwrite': overwrite,
+                                       'src_spacetoken': src_spacetoken,
+                                       'dest_spacetoken': dest_spacetoken},
+                            job_metadata=job_metadata)[0]
 
 
 def query(transfer_id):
@@ -163,11 +135,11 @@ def query(transfer_id):
                          headers={'Content-Type': 'application/json'})
 
     if r is not None and r.status_code == 200:
-        return r.json
+        return r.json()
     elif r.status_code == 404:
         return None
-    else:
-        raise Exception('Could not retrieve transfer information: %s', r.content)
+
+    raise Exception('Could not retrieve transfer information: %s', r.content)
 
 
 def cancel(transfer_id):
@@ -199,9 +171,9 @@ def whoami():
                          headers={'Content-Type': 'application/json'})
 
     if r is not None and r.status_code == 200:
-        return r.json
-    else:
-        raise Exception('Could not retrieve credentials: %s', r.content)
+        return r.json()
+
+    raise Exception('Could not retrieve credentials: %s', r.content)
 
 
 def version():
@@ -223,6 +195,6 @@ def version():
                          headers={'Content-Type': 'application/json'})
 
     if r is not None and r.status_code == 200:
-        return r.json
-    else:
-        raise Exception('Could not retrieve version: %s', r.content)
+        return r.json()
+
+    raise Exception('Could not retrieve version: %s', r.content)

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -47,13 +47,19 @@ class Consumer(object):
 
     def on_message(self, headers, message):
         record_counter('daemons.conveyor.consumer.message')
-        logging.debug('[%s] %s' % (self.__broker, message))
 
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
 
-        if msg['job_metadata'] != '':
-            if msg['job_state'] == FTSState.FINISHED:
+        if isinstance(msg['job_metadata'], dict) \
+           and 'issuer' in msg['job_metadata'].keys() \
+           and msg['job_metadata']['issuer'].startswith('rucio-transfertool') \
+           and 'request_id' in msg['job_metadata'].keys():
+            if str(msg['job_state']) == str(FTSState.FINISHED):
+                logging.info('%s: DONE', msg['job_metadata']['request_id'])
                 set_request_state(msg['job_metadata']['request_id'], RequestState.DONE)
+            elif str(msg['job_state']) == str(FTSState.FAILED):
+                logging.info('%s: FAILED', msg['job_metadata']['request_id'])
+                set_request_state(msg['job_metadata']['request_id'], RequestState.FAILED)
 
 
 def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1):
@@ -93,13 +99,16 @@ def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1
         for conn in conns:
 
             if not conn.is_connected():
-                logging.info('connecting to %s' % conn._Connection__host_and_ports[0][0])
-                record_counter('daemons.messaging.fts3.reconnect.%s' % conn._Connection__host_and_ports[0][0].split('.')[0])
+                logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
+                record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Consumer(broker=conn._Connection__host_and_ports[0]))
+                conn.set_listener('rucio-messaging-fts3', Consumer(broker=conn.transport._Transport__host_and_ports[0]))
                 conn.start()
                 conn.connect()
-                conn.subscribe(destination=config_get('messaging-fts3', 'destination'), ack='auto')
+                conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
+                               id='rucio-messaging-fts3',
+                               ack='auto',
+                               headers={'selector': 'vo = \'%s\'' % config_get('messaging-fts3', 'voname')})
 
         time.sleep(1)
 

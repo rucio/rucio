@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 """
 ConveyorInjector is a daemon to queue file transfers for testing purposes.
@@ -19,7 +19,7 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.common.utils import generate_uuid
-from rucio.core import did, rse, request
+from rucio.core import did, rse, replica, request
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import DIDType, RequestType
 from rucio.db.session import get_session
@@ -55,8 +55,8 @@ def request_transfer(once=False, process=0, total_processes=1, thread=0, total_t
             did.add_did(scope='mock', name='dataset-%s' % tmp_name,
                         type=DIDType.DATASET, account='root', session=session)
 
-            rse.add_replica(rse='MOCK', scope='mock', name='file-%s' % tmp_name,
-                            bytes=1, account='root', session=session)
+            replica.add_replica(rse='MOCK', scope='mock', name='file-%s' % tmp_name,
+                                bytes=1, account='root', session=session)
 
             did.attach_dids(scope='mock', name='dataset-%s' % tmp_name, dids=[{'scope': 'mock',
                                                                                'name': 'file-%s' % tmp_name,
