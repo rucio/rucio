@@ -304,23 +304,25 @@ def delete_rule(rule_id, lockmode='update', session=None):
     record_timer(stat='rule.delete_rule', time=(time.time() - start_time)*1000)
 
 
-# @transactional_session
-# def repair_rule(rule_id, session=None):
-#     """
-#     Repair a STUCK replication rule.
+@transactional_session
+def repair_rule(rule_id, session=None):
+    """
+    Repair a STUCK replication rule.
 
-#     :param rule_id:   The rule to repair.
-#     :param session:   The database session in use.
-#     """
+    :param rule_id:   The rule to repair.
+    :param session:   The database session in use.
+    """
 
-#     start_time = time.time()
-#     try:
-#         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_lockmode('update_nowait').one()
-#     except NoResultFound:
-#         # The rule has been deleted in the meanwhile
-#         return
-#     #Decide what has to be done with the Rule:
-#     #Case A) re_evaluation of the rule failed once:
+    #start_time = time.time()
+    try:
+        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_lockmode('update_nowait').one()
+        # Identify what's wrong with the rule
+        # (B) Rule is STUCK due to repeatedly failed transfers
+        if rule.locks_stuck_cnt > 0:
+            __repair_rule_with_stuck_locks(rule_obj=rule, session=session)
+    except NoResultFound:
+        # The rule has been deleted in the meanwhile
+        return
 
 
 @read_session
@@ -445,6 +447,27 @@ def delete_updated_did(id, session=None):
     :param session:                 The database session in use.
     """
     session.query(models.UpdatedDID).filter(models.UpdatedDID.id == id).delete(synchronize_session=False)
+
+
+@transactional_session
+def __repair_rule_with_stuck_locks(rule_obj, session=None):
+    """
+    Repair a rule which has stuck replication locks.
+
+    :param rule_obj:  The SQL Alchemy rule object.
+    :param session:   The database session in use.
+    """
+
+    # Evaluate the RSE expression to see if there is an alternative RSE anyway
+    # If not, the whole process can be stopped right now.
+
+    # Get all STUCK locks
+    stuck_locks = session.query(models.ReplicaLock).query(models.ReplicaLock.rule_id == rule_obj.id,
+                                                          models.ReplicaLock.state == LockState.STUCK).\
+        with_lockmode('update_nowait').all()
+
+    for stuck_lock in stuck_locks:
+        print stuck_lock
 
 
 @transactional_session
