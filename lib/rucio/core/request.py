@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 from re import match
 
@@ -140,7 +140,7 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
 
 
 @transactional_session
-def get_next(req_type, state, limit=1, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+def get_next(req_type, state, limit=100, process=None, total_processes=None, thread=None, total_threads=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -184,7 +184,7 @@ def get_next(req_type, state, limit=1, process=None, total_processes=None, threa
 
     tmp = query.limit(limit).all()
 
-    if tmp == [] or tmp is None:
+    if not tmp:
         return
     else:
         result = []
@@ -206,11 +206,7 @@ def __get_external_id(request_id, session=None):
     """
 
     try:
-        res = session.query(models.Request).add_columns(models.Request.external_id).filter_by(id=request_id).all()
-        if res is None or res == []:
-            return None
-        else:
-            return res[0][1]
+        return session.query(models.Request.external_id).filter_by(id=request_id).first()
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -221,6 +217,7 @@ def query_request(request_id, transfertool, session=None):
     Query the status of a request.
 
     :param request_id: Request-ID as a 32 character hex string.
+    :param transfertool: Transfertool name as a string.
     :returns: Request status information as a dictionary.
     """
 
@@ -270,6 +267,21 @@ def set_request_state(request_id, new_state, session=None):
         raise RucioException(e.args)
 
 
+@read_session
+def get_request(request_id, session=None):
+    """
+    Retrieve a request by its ID.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    :returns: Request as a dictionary.
+    """
+
+    try:
+        return session.query(models.Request).filter_by(id=request_id).first()
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
 @transactional_session
 def archive_request(request_id, session=None):
     """
@@ -280,11 +292,21 @@ def archive_request(request_id, session=None):
 
     record_counter('core.request.archive')
 
-    try:
-        session.execute('INSERT INTO atlas_rucio.requests_history SELECT * FROM atlas_rucio.requests WHERE id = hextoraw(:id)', {'id': request_id})
-        purge_request(request_id=request_id, session=session)
-    except IntegrityError, e:
-        raise RucioException(e.args)
+    req = get_request(request_id=request_id, session=session)
+    hist_request = models.Request.__history_mapper__.class_(id=req['id'],
+                                                            request_type=req['request_type'],
+                                                            scope=req['scope'],
+                                                            name=req['name'],
+                                                            dest_rse_id=req['dest_rse_id'],
+                                                            attributes=req['attributes'],
+                                                            state=req['state'],
+                                                            external_id=req['external_id'],
+                                                            retry_count=req['retry_count'],
+                                                            err_msg=req['err_msg'],
+                                                            previous_attempt_id=req['previous_attempt_id']
+                                                            )
+    hist_request.save(session=session)
+    purge_request(request_id=request_id, session=session)
 
 
 @transactional_session
