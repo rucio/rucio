@@ -46,20 +46,29 @@ def get_open_fds():
 
 
 def observe_gearman_queue(cfg, stop_event):
-    ac = GearmanAdminClient(cfg['gearman'])
+    acs = {}
+    for s in cfg['gearman']:
+        acs[s.split(':')[0]] = GearmanAdminClient([s])
     cs = Client(host=cfg['carbon']['CARBON_SERVER'], port=cfg['carbon']['CARBON_PORT'], prefix=cfg['carbon']['USER_SCOPE'])
     count = 0
     pid = os.getpid()
     while stop_event.is_set() is False:
+        queue = 0
         try:
-            stat = ac.get_status()
-            for task in stat:
-                if task['task'] == 'execute_uc':
-                    cs.gauge('emulator.counts.gearman', task['queued'])
-                    cs.gauge('emulator.counts.files.emulator', get_open_fds())
-                    if not count % 10:
-                        print '= (PID: %s [%s]) Gearman-Queue size: %s' % (pid, time.strftime('%H:%M:%S', time.localtime()), task['queued'])
-                    count += 1
+            for s in acs:
+                try:
+                    stat = acs[s].get_status()
+                    for task in stat:
+                        if task['task'] == 'execute_uc':
+                            queue += task['queued']
+                            cs.gauge('emulator.counts.gearman.%s' % s, task['queued'])
+                except Exception:
+                    print '= ERROR: Failed to get stats from %s' % s
+                    cs.gauge('emulator.counts.gearman.%s' % s, 0)
+            cs.gauge('emulator.counts.files.emulator', get_open_fds())
+            if not count % 10:
+                print '= (PID: %s [%s]) Gearman-Queue size: %s' % (pid, time.strftime('%H:%M:%S', time.localtime()), queue)
+            count += 1
         except Exception:
             print traceback.format_exc()
         try:
