@@ -7,17 +7,18 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
-from random import choice
 from traceback import format_exc
-
-from web import application, notfound, seeother, InternalError
+from urlparse import parse_qs
+from web import application, ctx, notfound, seeother, InternalError
 
 
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException
+from rucio.common.replicas_selector import random_order, geoIP_order
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
 
@@ -34,7 +35,7 @@ class Redirector(RucioController):
 
     def GET(self, scope, name):
         """
-        Redirect donwload
+        Redirect download
 
         HTTP Success:
             303 See Other
@@ -50,12 +51,35 @@ class Redirector(RucioController):
         try:
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'F'}], schemes=['http', 'https'])]
 
-            # Select randomly a replica
-            # Todo: geoip on client ip ctx.ip
+            select = 'random'
+            rse = None
+            if ctx.query:
+                params = parse_qs(ctx.query[1:])
+                if 'select' in params:
+                    select = params['select'][0]
+                if 'rse' in params:
+                    rse = params['rse'][0]
+
             for r in replicas:
                 if r['rses']:
-                    rse = choice(r['rses'].keys())
-                    raise seeother(r['rses'][rse][0])
+                    replicalist = []
+                    if rse:
+                        if rse in r['rses']:
+                            raise seeother(r['rses'][rse][0])
+                        else:
+                            return notfound("Sorry, the replica you were looking for was not found.")
+                    else:
+                        for rep in r['rses'].values():
+                            replicalist.extend(rep)
+                        if replicalist == []:
+                            return notfound("Sorry, the replica you were looking for was not found.")
+                        else:
+                            client_ip = ctx.get('ip')
+                            if select == 'geoip':
+                                rep = geoIP_order(replicalist, client_ip)
+                            else:
+                                rep = random_order(replicalist, client_ip)
+                            raise seeother(rep[0])
 
             return notfound("Sorry, the replica you were looking for was not found.")
 

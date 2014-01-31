@@ -8,14 +8,17 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps, loads
 from traceback import format_exc
 from urllib import unquote
+from urlparse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK
 
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas
 from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RucioException, RSENotFound
+from rucio.common.replicas_selector import random_order, geoIP_order
 
 
 from rucio.common.utils import generate_http_error, parse_response
@@ -54,12 +57,16 @@ class Replicas(RucioController):
             if 'application/metalink4+xml' in tmp:
                 metalink = 4
 
-        dids, schemes = [{'scope': scope, 'name': name}], None
+        dids, schemes, select = [{'scope': scope, 'name': name}], None, None
         if ctx.query:
-            params = loads(unquote(ctx.query[1:]))
-            if 'schemes' in params:
-                schemes = params['schemes']
-
+            try:
+                params = loads(unquote(ctx.query[1:]))
+                if 'schemes' in params:
+                    schemes = params['schemes']
+            except ValueError:
+                params = parse_qs(ctx.query[1:])
+                if 'select' in params:
+                    select = params['select'][0]
         try:
             # first, set the appropriate content type, and stream the header
             if metalink is None:
@@ -75,15 +82,25 @@ class Replicas(RucioController):
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes):
+                client_ip = ctx.get('ip')
+                replicas = []
+                dictreplica = {}
+                for rse in rfile['rses']:
+                    for replica in rfile['rses'][rse]:
+                        replicas.append(replica)
+                        dictreplica[replica] = rse
+                if select == 'geoip':
+                    replicas = geoIP_order(replicas, client_ip)
+                else:
+                    replicas = random_order(replicas, client_ip)
                 if metalink is None:
                     yield dumps(rfile) + '\n'
                 elif metalink == 3:
                     idx = 0
                     yield ' <file name="' + rfile['name'] + '">\n  <resources>\n'
-                    for rse in rfile['rses']:
-                        for replica in rfile['rses'][rse]:
-                            yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
-                            idx += 1
+                    for replica in replicas:
+                        yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
+                        idx += 1
                     yield '  </resources>\n </file>\n'
                 elif metalink == 4:
                     yield ' <file name="' + rfile['name'] + '">\n'
@@ -94,10 +111,9 @@ class Replicas(RucioController):
                         yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
                     idx = 0
-                    for rse in rfile['rses']:
-                        for replica in rfile['rses'][rse]:
-                            yield '   <url location="' + str(rse) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
-                            idx += 1
+                    for replica in replicas:
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                        idx += 1
                     yield ' </file>\n'
 
             # don't forget to send the metalink footer
@@ -205,7 +221,7 @@ class ListReplicas(RucioController):
             if 'application/metalink4+xml' in tmp:
                 metalink = 4
 
-        dids, schemes, unavailable = [], None, False
+        dids, schemes, select, unavailable = [], None, None, False
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -217,6 +233,11 @@ class ListReplicas(RucioController):
                 unavailable = params['unavailable']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'select' in params:
+                select = params['select'][0]
 
         try:
             # first, set the appropriate content type, and stream the header
@@ -231,15 +252,25 @@ class ListReplicas(RucioController):
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable):
+                client_ip = ctx.get('ip')
+                replicas = []
+                dictreplica = {}
+                for rse in rfile['rses']:
+                    for replica in rfile['rses'][rse]:
+                        replicas.append(replica)
+                        dictreplica[replica] = rse
+                if select == 'geoip':
+                    replicas = geoIP_order(replicas, client_ip)
+                else:
+                    replicas = random_order(replicas, client_ip)
                 if metalink is None:
                     yield dumps(rfile) + '\n'
                 elif metalink == 3:
                     idx = 0
                     yield ' <file name="' + rfile['name'] + '">\n  <resources>\n'
-                    for rse in rfile['rses']:
-                        for replica in rfile['rses'][rse]:
-                            yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
-                            idx += 1
+                    for replica in replicas:
+                        yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
+                        idx += 1
                     yield '  </resources>\n </file>\n'
                 elif metalink == 4:
                     yield ' <file name="' + rfile['name'] + '">\n'
@@ -250,10 +281,9 @@ class ListReplicas(RucioController):
                         yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
                     idx = 0
-                    for rse in rfile['rses']:
-                        for replica in rfile['rses'][rse]:
-                            yield '   <url location="' + str(rse) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
-                            idx += 1
+                    for replica in replicas:
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                        idx += 1
                     yield ' </file>\n'
 
             # don't forget to send the metalink footer
