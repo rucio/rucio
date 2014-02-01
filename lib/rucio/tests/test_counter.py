@@ -12,6 +12,8 @@ from nose.tools import assert_equal
 
 from rucio.core import account_counter, rse_counter
 from rucio.core.rse import get_rse
+from rucio.daemons.abacus.rse import rse_update
+from rucio.daemons.abacus.account import account_update
 
 
 class TestCoreRSECounter():
@@ -27,7 +29,8 @@ class TestCoreRSECounter():
 
         count, sum = 0, 0
         for i in xrange(10):
-            rse_counter.increase(rse_id=rse_id, delta=1, bytes=2.147e+9)
+            rse_counter.increase(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_update(once=True)
             count += 1
             sum += 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -35,7 +38,8 @@ class TestCoreRSECounter():
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
         for i in xrange(4):
-            rse_counter.decrease(rse_id=rse_id, delta=1, bytes=2.147e+9)
+            rse_counter.decrease(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_update(once=True)
             count -= 1
             sum -= 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -43,7 +47,8 @@ class TestCoreRSECounter():
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
         for i in xrange(5):
-            rse_counter.increase(rse_id=rse_id, delta=1, bytes=2.147e+9)
+            rse_counter.increase(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_update(once=True)
             count += 1
             sum += 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -51,7 +56,8 @@ class TestCoreRSECounter():
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
         for i in xrange(8):
-            rse_counter.decrease(rse_id=rse_id, delta=1, bytes=2.147e+9)
+            rse_counter.decrease(rse_id=rse_id, files=1, bytes=2.147e+9)
+            rse_update(once=True)
             count -= 1
             sum -= 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -73,7 +79,8 @@ class TestCoreAccountCounter():
 
         count, sum = 0, 0
         for i in xrange(10):
-            account_counter.increase(rse_id=rse_id, account=account, delta=1, bytes=2.147e+9)
+            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_update(once=True)
             count += 1
             sum += 2.147e+9
             cnt = account_counter.get_counter(rse_id=rse_id, account=account)
@@ -81,7 +88,8 @@ class TestCoreAccountCounter():
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
         for i in xrange(4):
-            account_counter.decrease(rse_id=rse_id, account=account, delta=1, bytes=2.147e+9)
+            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_update(once=True)
             count -= 1
             sum -= 2.147e+9
             cnt = account_counter.get_counter(rse_id=rse_id, account=account)
@@ -89,7 +97,8 @@ class TestCoreAccountCounter():
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
         for i in xrange(5):
-            account_counter.increase(rse_id=rse_id, account=account, delta=1, bytes=2.147e+9)
+            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_update(once=True)
             count += 1
             sum += 2.147e+9
             cnt = account_counter.get_counter(rse_id=rse_id, account=account)
@@ -97,7 +106,8 @@ class TestCoreAccountCounter():
             assert_equal(cnt, {'files': count, 'bytes': sum})
 
         for i in xrange(8):
-            account_counter.decrease(rse_id=rse_id, account=account, delta=1, bytes=2.147e+9)
+            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=2.147e+9)
+            account_update(once=True)
             count -= 1
             sum -= 2.147e+9
             cnt = account_counter.get_counter(rse_id=rse_id, account=account)

@@ -294,7 +294,7 @@ def delete_rule(rule_id, lockmode='update', session=None):
 
     # Decrease account_counters
     for rse_id in account_counter_decreases.keys():
-        decrease(rse_id=rse_id, account=rule.account, delta=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
+        decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
     session.flush()
     rule.delete(session=session)
@@ -418,7 +418,7 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers, worker_number))
 
-    return query.limit(limit).all()
+    return query.order_by(models.UpdatedDID.created_at).limit(limit).all()
 
 
 @transactional_session
@@ -515,7 +515,7 @@ def __evaluate_did_detach(eval_did, session=None):
                 account_counter_decreases[lock.rse_id].append(lock.bytes)
         # Decrease account_counters
         for rse_id in account_counter_decreases.keys():
-            decrease(rse_id=rse_id, account=rule.account, delta=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
+            decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
     session.flush()
 
@@ -982,7 +982,7 @@ def __apply_rule_to_files(datasetfiles, rseselector, account, rule_id, copies, g
         session.flush()
         # Increase account_counters
         for rse_id in account_counter_increases.keys():
-            increase(rse_id=rse_id, account=account, delta=len(account_counter_increases[rse_id]), bytes=sum(account_counter_increases[rse_id]), session=session)
+            increase(rse_id=rse_id, account=account, files=len(account_counter_increases[rse_id]), bytes=sum(account_counter_increases[rse_id]), session=session)
     except IntegrityError, e:
         raise ReplicationRuleCreationFailed(e.args[0])
 

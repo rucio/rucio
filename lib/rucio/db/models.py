@@ -10,7 +10,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 """
 SQLAlchemy models for rucio data
@@ -410,14 +410,26 @@ class RSEUsage(BASE, ModelBase, Versioned):
 
 
 class RSECounter(BASE, ModelBase):
-    """Represents general-purpose counters"""
+    """Represents RSE counters"""
     __tablename__ = 'rse_counters'
     rse_id = Column(GUID())
-    num = Column(Integer)  # to avoid concurrency
     files = Column(BigInteger)
     bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('rse_id', 'num', name='RSE_COUNTERS_PK'),
+    _table_args = (PrimaryKeyConstraint('rse_id', name='RSE_COUNTERS_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_COUNTERS_RSE_ID_FK'))
+
+
+class UpdatedRSECounter(BASE, ModelBase):
+    """Represents the recently updated RSE counters"""
+    __tablename__ = 'updated_rse_counters'
+    id = Column(GUID(), default=utils.generate_uuid)
+    rse_id = Column(GUID())
+    files = Column(BigInteger)
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_RSE_COUNTERS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_RSE_COUNTERS_RSE_ID_FK'),
+                   Index('UPDATED_RSE_COUNTERS_RSE_ID_IDX', 'rse_id'),
+                   )
 
 
 class RSEAttrAssociation(BASE, ModelBase):
@@ -588,12 +600,26 @@ class AccountCounter(BASE, ModelBase):
     __tablename__ = 'account_counters'
     account = Column(String(25))
     rse_id = Column(GUID())
-    num = Column(Integer)
     files = Column(BigInteger)
     bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'num', name='ACCOUNT_COUNTERS_PK'),
+    _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_COUNTERS_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_COUNTERS_ID_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_COUNTERS_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_COUNTERS_ACCOUNT_FK')
+                   )
+
+
+class UpdatedAccountCounter(BASE, ModelBase):
+    """Represents the recently updated Account counters"""
+    __tablename__ = 'updated_account_counters'
+    id = Column(GUID(), default=utils.generate_uuid)
+    account = Column(String(25))
+    rse_id = Column(GUID())
+    files = Column(BigInteger)
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_ACCOUNT_COUNTERS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_ACCOUNT_COUNTERS_RSE_ID_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='UPDATED_ACCOUNT_COUNTERS_ACCOUNT_FK'),
+                   Index('UPDATED_ACCOUNT_COUNTERS_ACCOUNT_RSE_ID_IDX', 'account', 'rse_id'),
                    )
 
 
@@ -672,6 +698,7 @@ def register_models(engine):
     """
     models = (Account,
               AccountCounter,
+              UpdatedAccountCounter,
               AccountLimit,
               AccountUsage,
               Callback,
@@ -683,6 +710,7 @@ def register_models(engine):
               RSE,
               RSEAttrAssociation,
               RSECounter,
+              UpdatedRSECounter,
               RSEFileAssociation,
               RSELimit,
               RSEProtocols,
@@ -706,6 +734,7 @@ def unregister_models(engine):
     """
     models = (Account,
               AccountCounter,
+              UpdatedAccountCounter,
               AccountLimit,
               AccountUsage,
               Callback,
@@ -717,6 +746,7 @@ def unregister_models(engine):
               RSE,
               RSEAttrAssociation,
               RSECounter,
+              UpdatedRSECounter,
               RSEFileAssociation,
               RSELimit,
               RSEProtocols,

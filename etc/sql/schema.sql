@@ -59,6 +59,8 @@ ACCOUNT_USAGE
 RSE_USAGE
 -- MOCK_FTS_TRANSFERS (obsolete)
 UPDATED_DIDS
+UPDATED_RSE_COUNTERS
+UPDATED_ACCOUNT_COUNTERS
 
 
 -- ============================================== section HISTORICAL data =========================================================================
@@ -634,23 +636,46 @@ CREATE INDEX "DATASET_LOCKS_RSE_ID_IDX" ON dataset_locks(rse_id) COMPRESS 1 TABL
 
 -- ========================================= ACCOUNT_COUNTERS (IOT structure) =========================================
 -- Description: Table to store the disk usage per account and rse_id
--- Estimated volume: ~700 RSEs * 2000 accounts * 50 counters
+-- Estimated volume: ~700 RSEs * 2000 accounts
 -- Access pattern: by account, rse_id
 
 CREATE TABLE account_counters(
         account VARCHAR2(25 CHAR),
         rse_id RAW(16),
-        num NUMBER(6),
         files NUMBER(19),
         bytes NUMBER(19),
         updated_at DATE,
         created_at DATE,
-        CONSTRAINT "ACCOUNT_COUNTERS_PK" PRIMARY KEY (account, rse_id, num),
+        CONSTRAINT "ACCOUNT_COUNTERS_PK" PRIMARY KEY (account, rse_id),
         CONSTRAINT "ACCOUNT_COUNTERS_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
         CONSTRAINT "ACCOUNT_COUNTERS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
         CONSTRAINT "ACCOUNT_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
         CONSTRAINT "ACCOUNT_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+
+
+
+-- ========================================= UPDATED_ACCOUNT_COUNTERS =========================================
+
+CREATE TABLE UPDATED_ACCOUNT_COUNTERS
+(
+	ID RAW(16) NOT NULL,
+        account VARCHAR2(25 CHAR),
+        rse_id RAW(16),
+        files NUMBER(19),
+        bytes NUMBER(19),
+	UPDATED_AT DATE,
+	CREATED_AT DATE,
+	CONSTRAINT "UPDATED_ACCOUNT_COUNTERS_PK" PRIMARY KEY (ID),
+        CONSTRAINT "UPDATED_ACCOUNT_COUNTERS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
+        CONSTRAINT "UPDATED_ACCOUNT_COUNTERS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
+	CONSTRAINT "UPDATED_ACCOUNT_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+	CONSTRAINT "UPDATED_ACCOUNT_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
+
+) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+CREATE INDEX "UPDATED_ACCOUNT_COUNTERS_ACCOUNT_ACCOUNT_RSE_ID_IDX" ON updated_account_counters (account, rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
 
 
 
@@ -677,21 +702,43 @@ CREATE TABLE account_limits (
 
 -- ========================================= RSE_COUNTERS (physical structure IOT) =========================================
 -- Description: Table to store incrementally the disk usage of a RSE
--- Estimated volume: ~700 RSEs *  1000 counters: ~ 700,000
+-- Estimated volume: ~700 RSEs: ~ 700
 -- Access pattern: by rse_id
 
 CREATE TABLE rse_counters(
         rse_id RAW(16),
-        num NUMBER(6),
         files NUMBER(19),
         bytes NUMBER(19),
         updated_at DATE,
         created_at DATE,
-        CONSTRAINT "RSE_COUNTERS_PK" PRIMARY KEY (rse_id, num),
+        CONSTRAINT "RSE_COUNTERS_PK" PRIMARY KEY (rse_id),
         CONSTRAINT "RSE_COUNTERS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
         CONSTRAINT "RSE_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
         CONSTRAINT "RSE_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+
+
+
+
+
+-- ========================================= UPDATED_RSE_COUNTERS =========================================
+
+CREATE TABLE UPDATED_RSE_COUNTERS
+(
+	ID RAW(16) NOT NULL,
+        rse_id RAW(16),
+        files NUMBER(19),
+        bytes NUMBER(19),
+	UPDATED_AT DATE,
+	CREATED_AT DATE,
+	CONSTRAINT "UPDATED_RSE_COUNTERS_PK" PRIMARY KEY (ID),
+        CONSTRAINT "UPDATED_RSE_COUNTERS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
+	CONSTRAINT "UPDATED_RSE_COUNTERS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+	CONSTRAINT "UPDATED_RSE_COUNTERS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
+
+) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+CREATE INDEX "UPDATED_RSE_COUNTERS_RSE_ID_IDX" ON updated_rse_counters (rse_id) TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
 
 
 
