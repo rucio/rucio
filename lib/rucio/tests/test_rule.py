@@ -27,6 +27,7 @@ from rucio.core.lock import get_replica_locks, get_dataset_locks
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_lock_state
+from rucio.daemons.abacus.account import account_update
 from rucio.db.constants import DIDType
 
 
@@ -392,6 +393,7 @@ class TestReplicationRuleCore():
     def test_account_counter_rule_create(self):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when new rule is created"""
 
+        account_update(once=True)
         account_counter_before = get_counter(self.rse1_id, 'jdoe')
 
         scope = 'mock'
@@ -403,6 +405,7 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         #Check if the counter has been updated correctly
+        account_update(once=True)
         account_counter_after = get_counter(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] + 3*100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
@@ -418,9 +421,11 @@ class TestReplicationRuleCore():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
+        account_update(once=True)
         account_counter_before = get_counter(self.rse1_id, 'jdoe')
 
         delete_rule(rule_id)
+        account_update(once=True)
 
         #Check if the counter has been updated correctly
         account_counter_after = get_counter(self.rse1_id, 'jdoe')

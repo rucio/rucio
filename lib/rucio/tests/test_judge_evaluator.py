@@ -15,6 +15,7 @@ from rucio.core.lock import get_replica_locks, get_dataset_locks
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import add_rule
 from rucio.daemons.judge.evaluator import re_evaluator
+from rucio.daemons.abacus.account import account_update
 from rucio.db.constants import DIDType
 from rucio.tests.test_rule import create_files, tag_generator
 
@@ -98,6 +99,8 @@ class TestJudgeEvaluator():
     def test_account_counter_judge_evaluate_attach(self):
         """ JUDGE EVALUATOR: Test if the account counter is updated correctly when a file is added to a DS"""
         re_evaluator(once=True)
+        account_update(once=True)
+
         scope = 'mock'
         files = create_files(3, scope, self.rse1, bytes=100)
         dataset = 'dataset_' + str(uuid())
@@ -111,6 +114,7 @@ class TestJudgeEvaluator():
 
         #Fake judge
         re_evaluator(once=True)
+        account_update(once=True)
 
         account_counter_after = get_counter(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] + 3*100 == account_counter_after['bytes'])
@@ -119,6 +123,8 @@ class TestJudgeEvaluator():
     def test_account_counter_judge_evaluate_detach(self):
         """ JUDGE EVALUATOR: Test if the account counter is updated correctly when a file is removed from a DS"""
         re_evaluator(once=True)
+        account_update(once=True)
+
         scope = 'mock'
         files = create_files(3, scope, self.rse1, bytes=100)
         dataset = 'dataset_' + str(uuid())
@@ -128,12 +134,15 @@ class TestJudgeEvaluator():
         #Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
+        account_update(once=True)
+
         account_counter_before = get_counter(self.rse1_id, 'jdoe')
 
         detach_dids(scope, dataset, [files[0]], 'jdoe')
 
         #Fake judge
         re_evaluator(once=True)
+        account_update(once=True)
 
         account_counter_after = get_counter(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] - 100 == account_counter_after['bytes'])
