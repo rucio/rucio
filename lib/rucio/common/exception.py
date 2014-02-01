@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
-# - Martin Baristis, <martin.barisits@cern.ch>, 2012-2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
 
@@ -88,6 +88,12 @@ class ConfigurationError(RucioException):
     def __init__(self, *args, **kwargs):
         super(ConfigurationError, self).__init__(args, kwargs)
         self._message = "Error during configuration."
+
+
+class CounterNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(CounterNotFound, self).__init__(args, kwargs)
+        self._message = "The requested counter does not exist."
 
 
 class DatabaseException(RucioException):

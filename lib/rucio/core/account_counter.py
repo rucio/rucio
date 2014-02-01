@@ -10,9 +10,10 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
-from random import randint
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import bindparam, text
 
-from sqlalchemy import func
+from rucio.common.exception import CounterNotFound
 
 import rucio.core.account
 import rucio.core.rse
@@ -26,18 +27,14 @@ MAX_COUNTERS = 10
 @transactional_session
 def add_counter(rse_id, account, session=None):
     """
-    Creates the specified counter for a rse_id.
+    Creates the specified counter for a rse_id and account.
 
-    :param rse_id: The id of the RSE.
+    :param rse_id:  The id of the RSE.
     :param account: The account name.
-    :param session: The database session in use.models.RSECounter
+    :param session: The database session in use
     """
 
-    # MySQL won't allow 0 in autoincrement primary keys, so we have to offset by 1
-
-    for num in xrange(MAX_COUNTERS + 1):
-        new_counter = models.AccountCounter(rse_id=rse_id, num=num, account=account, files=0, bytes=0)
-        session.merge(new_counter)
+    models.AccountCounter(rse_id=rse_id, account=account, files=0, bytes=0).save(session=session)
 
 
 @transactional_session
@@ -67,36 +64,33 @@ def create_counters_for_new_rse(rse_id, session=None):
 
 
 @transactional_session
-def increase(rse_id, account, delta, bytes, session=None):
+def increase(rse_id, account, files, bytes, session=None):
     """
     Increments the specified counter by the specified amount.
 
-    :param rse_id: The id of the RSE.
+    :param rse_id:  The id of the RSE.
     :param account: The account name.
-    :param delta: The number of added/removed files.
-    :param bytes: The corresponding amount in bytes.
+    :param files:   The number of added/removed files.
+    :param bytes:   The corresponding amount in bytes.
     :param session: The database session in use.
-
-    :returns: The numbers of affected rows.
     """
 
-    num = randint(1, MAX_COUNTERS - 1)  # to avoid row lock contention
-    return session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account, num=num).\
-        update({'files': models.AccountCounter.files + delta, 'bytes': models.AccountCounter.bytes + bytes})
+    models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes).save(session=session)
 
 
 @transactional_session
-def decrease(rse_id, account, delta, bytes, session=None):
+def decrease(rse_id, account, files, bytes, session=None):
     """
     Decreases the specified counter by the specified amount.
 
-    :param rse_id: The id of the RSE.
+    :param rse_id:  The id of the RSE.
     :param account: The account name.
-    :param delta: the amount of bytes.
+    :param files:   The amount of files.
+    :param bytes:   The amount of bytes.
     :param session: The database session in use.
     """
 
-    return increase(rse_id=rse_id, account=account, delta=-delta, bytes=-bytes, session=session)
+    return increase(rse_id=rse_id, account=account, files=-files, bytes=-bytes, session=session)
 
 
 @transactional_session
@@ -104,30 +98,77 @@ def del_counter(rse_id, account, session=None):
     """
     Resets the specified counter and initializes it by the specified amounts.
 
-    :param rse_id: The id of the RSE.
+    :param rse_id:  The id of the RSE.
     :param account: The account name.
-    :param total: the total number of files.
-    :param bytes: the amount of bytes.
     :param session: The database session in use.
     """
 
-    rows = session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account).with_lockmode('update').all()
-    for row in rows:
-        row.delete(flush=False, session=session)
+    session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account).delete(synchronize_session=False)
 
 
 @read_session
 def get_counter(rse_id, account, session=None):
     """
-    Returns current values of the specified counter, or 0,0 if the counter does not exist.
+    Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
 
-    :param rse_id: The id of the RSE.
-    :param account: The account name.
-    :param session: The database session in use.
-
-    :returns: A dictionary with total and bytes.
+    :param rse_id:           The id of the RSE.
+    :param account:          The account name.
+    :param session:          The database session in use.
+    :raises CounterNotFound: If the counter does not exist.
+    :returns:                A dictionary with total and bytes.
     """
-    files, bytes, updated_at = session.query(func.sum(models.AccountCounter.files),
-                                             func.sum(models.AccountCounter.bytes),
-                                             func.max(models.AccountCounter.updated_at)).filter_by(rse_id=rse_id, account=account).one()
-    return {'bytes': bytes or 0, 'files': files or 0, 'updated_at':  updated_at}
+
+    try:
+        counter = session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account).one()
+        return {'bytes': counter.bytes, 'files': counter.files, 'updated_at':  counter.updated_at}
+    except NoResultFound:
+        raise CounterNotFound()
+
+
+@read_session
+def get_updated_account_counters(total_workers, worker_number, session=None):
+    """
+    Get updated rse_counters.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param session:            Database session in use.
+    :returns:                  List of rse_ids whose rse_counters need to be updated.
+    """
+    query = session.query(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id).\
+        distinct(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id)
+
+    if total_workers > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(CONCAT(account, rse_id), :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(concat(account, rse_id)), %s) = %s' % (total_workers, worker_number))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(concat(account, rse_id)))::bit(32)::int), %s) = %s' % (total_workers, worker_number))
+
+    return query.all()
+
+
+@transactional_session
+def update_account_counter(account, rse_id, session=None):
+    """
+    Read the updated_account_counters and update the account_counter.
+
+    :param account:  The account to update.
+    :param rse_id:   The rse_id to update.
+    :param session:  Database session in use.
+    """
+
+    updated_account_counters = session.query(models.UpdatedAccountCounter).filter_by(account=account, rse_id=rse_id).all()
+
+    try:
+        account_counter = session.query(models.AccountCounter).filter_by(account=account, rse_id=rse_id).one()
+        account_counter.bytes += sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])
+        account_counter.files += sum([updated_account_counter.files for updated_account_counter in updated_account_counters])
+    except NoResultFound:
+        pass
+
+    for update in updated_account_counters:
+        update.delete(flush=False, session=session)

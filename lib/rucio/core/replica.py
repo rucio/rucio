@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from datetime import datetime
 from re import match
@@ -256,7 +257,7 @@ def add_replicas(rse, files, account, session=None):
             file['path'] = ''.join([tmp['path'], tmp['name']])
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)
-    increase(rse_id=replica_rse.id, delta=nbfiles, bytes=bytes, session=session)
+    increase(rse_id=replica_rse.id, files=nbfiles, bytes=bytes, session=session)
     return replicas
 
 
@@ -341,7 +342,7 @@ def delete_replicas(rse, files, session=None):
         rowcount = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*c)).delete(synchronize_session=False)
 
     # Decrease RSE counter
-    decrease(rse_id=replica_rse.id, delta=delta, bytes=bytes, session=session)
+    decrease(rse_id=replica_rse.id, files=delta, bytes=bytes, session=session)
 
 
 @transactional_session
