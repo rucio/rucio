@@ -21,7 +21,7 @@ if rsemanager.CLIENT_MODE:
     from rucio.client.didclient import DIDClient
 
 if rsemanager.SERVER_MODE:
-    from rucio.core import rse
+    from rucio.core import replica
 
 
 class RSEProtocol(object):
@@ -99,7 +99,11 @@ class RSEProtocol(object):
 
     def _get_path_nondeterministic_server(self, scope, name):
         """ Provides the path of a replica for non-detemernisic sites. Will be assigned to get path by the __init__ method if neccessary. """
-        path = getattr(rse.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id']), 'path')
+        r = replica.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id'])
+        if 'path' in r:
+            path = r['path']
+        else:
+            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on none-determinstic storage named %s' % (scope, name, self.rse['rse']))
         if path.startswith('/'):
             path = path[1:]
         if path.endswith('/'):
