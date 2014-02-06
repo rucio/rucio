@@ -77,14 +77,12 @@ def is_matching_subscription(subscription, did, metadata):
         return False
     # Loop over the keys of filter for subscription
     for key in filter:
-        logging.debug(type(filter))
         values = filter[key]
         if key == 'pattern':
             if not re.match(values, did['name']):
                 return False
         elif key == 'scope':
             if not did['scope'] in values:
-                #logging.debug('Bad scope %s != %s' % (values, did['scope']))
                 return False
         else:
             if type(values) is str or type(values) is unicode:
@@ -94,7 +92,6 @@ def is_matching_subscription(subscription, did, metadata):
                 if str(meta) == str(key):
                     has_metadata = 1
                     if not metadata[meta] in values:
-                        #logging.debug('Metadata not matching %s not in %s' % (metadata[meta], str(values)))
                         return False
             if has_metadata == 0:
                 return False
@@ -111,14 +108,20 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
     once: To run only once
     """
     while not graceful_stop.is_set():
-        dids = []
-        for did in list_new_dids(worker_number=worker_number, total_workers=total_workers, chunk_size=chunk_size):
-            d = {'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']}
-            dids.append(d)
-
-        subscriptions = []
-        for sub in list_subscriptions(None, None, SubscriptionState.ACTIVE):
-            subscriptions.append(sub)
+        dids, subscriptions = [], []
+        tottime = 0
+        try:
+            for did in list_new_dids(worker_number=worker_number, total_workers=total_workers, chunk_size=chunk_size):
+                d = {'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']}
+                dids.append(d)
+            for sub in list_subscriptions(None, None, SubscriptionState.ACTIVE):
+                subscriptions.append(sub)
+        except:
+            logging.error('Thread %i : Failed to get list of new DIDs or subsscriptions' % (worker_number))
+            if once:
+                break
+            else:
+                continue
 
         try:
             results = {}
@@ -157,7 +160,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                         monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
                                 logging.info('Thread %i :Rule inserted in %f seconds' % (worker_number, time.time()-stime))
                     except DataIdentifierNotFound, e:
-                        logging.warning('Thread %i : %s' % (worker_number, str(e)))
+                        logging.warning(e)
                 if did['did_type'] == str(DIDType.FILE):
                     monitor.record_counter(counters='transmogrifier.did.file.processed',  delta=1)
                 elif did['did_type'] == str(DIDType.DATASET):
@@ -182,6 +185,8 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
         logging.info(once)
         if once is True:
             break
+        if tottime < 10:
+            time.sleep(10-tottime)
     logging.info('Thread %i : Graceful stop requested' % (worker_number))
     logging.info('Thread %i : Graceful stop done' % (worker_number))
 
