@@ -35,20 +35,26 @@ if __name__ == '__main__':
 
 #    rses = ['BNL-OSG2_DDMTEST',]
     c = Client()
-
     for rse in data:
 
         #if not rse['is_rucio']:
         #    continue
 
+#        if rse['name'] != 'NDGF-T1-RUCIOTEST_DATATAPE':
+#            continue
+#        print rse['name']
+
 #        if rse['name'] not in rses:
 #            continue
 
-        if not rse['name'].startswith('IN2P3-LAPP'):
-            continue
+#        if not rse['name'].startswith('IN2P3-LAPP'):
+#            continue
+
+#        if not rse['name'].startswith('IN2P3-LAPP'):
+#            continue
 
         try:
-            deterministic = True
+            deterministic = False
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
         except:
