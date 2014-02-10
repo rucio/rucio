@@ -57,6 +57,7 @@ def account_update(once=False, process=0, total_processes=1, thread=0, threads_p
                     logging.debug('account_update[%s/%s]: update of account-rse counter "%s-%s" took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, account_rse_id[0], account_rse_id[1], time.time() - start_time))
         except Exception:
             logging.error(traceback.format_exc())
+
         if once:
             break
 

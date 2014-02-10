@@ -5,24 +5,17 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
-import shutil
+import glob
 import os
 import re
+import shutil
 import subprocess
 import sys
 
-#from distutils.core import Command
 from distutils.command.sdist import sdist as _sdist
-#from distutils.command.build import build as _build
-
-try:
-    from setuptools import setup
-except ImportError:
-    from ez_setup import use_setuptools
-    use_setuptools()
 
 if sys.version_info < (2, 4):
     print('ERROR: Rucio requires at least Python 2.5 to run.')
@@ -32,26 +25,45 @@ sys.path.insert(0, os.path.abspath('lib/'))
 
 from rucio import version
 
+try:
+    from setuptools import setup, find_packages
+except ImportError:
+    from ez_setup import use_setuptools
+    use_setuptools()
+
+name = 'rucio'
+packages = find_packages('lib/')
+description = "Rucio Package"
+IsRelease = False
+requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
+data_files = [('etc/', glob.glob('etc/*.template')),
+              ('etc/web', glob.glob('etc/web/*.template')),
+              ('etc/schemas', glob.glob('etc/schemas/*.json')),
+              ('tools/', glob.glob('tools/*[^patches]'))
+              ]
+
+scripts = glob.glob('bin/rucio*')
 
 # Arguments to the setup script to build Basic/Lite distributions
 copy_args = sys.argv[1:]
-name = 'rucio-clients'
-IsRelease = False
-packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common',
-            'rucio.rse.protocols', 'rucio.rse', 'rucio.tests',
-            'rucio.tests.emulation', 'rucio.tests.emulation.usecases']
-requirements_files = ['tools/pip-requires-client']
-description = "Rucio Client Lite Package"
-data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
-              ('tools/', ['tools/pip-requires-client', ]), ]
+if '--client' in copy_args:
+    name = 'rucio-clients'
+    packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common',
+                'rucio.rse.protocols', 'rucio.rse', 'rucio.tests',
+                'rucio.tests.emulation', 'rucio.tests.emulation.usecases']
+    requirements_files = ['tools/pip-requires-client']
+    description = "Rucio Client Lite Package"
+    data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
+                  ('tools/', ['tools/pip-requires-client', ]), ]
 
-scripts = ['bin/rucio', 'bin/rucio-admin']
-if os.path.exists('build/'):
-    shutil.rmtree('build/')
-if os.path.exists('lib/rucio_clients.egg-info/'):
-    shutil.rmtree('lib/rucio_clients.egg-info/')
-if os.path.exists('lib/rucio.egg-info/'):
-    shutil.rmtree('lib/rucio.egg-info/')
+    scripts = ['bin/rucio', 'bin/rucio-admin']
+    if os.path.exists('build/'):
+        shutil.rmtree('build/')
+    if os.path.exists('lib/rucio_clients.egg-info/'):
+        shutil.rmtree('lib/rucio_clients.egg-info/')
+    if os.path.exists('lib/rucio.egg-info/'):
+        shutil.rmtree('lib/rucio.egg-info/')
+    copy_args.remove('--client')
 
 if '--release' in copy_args:
     IsRelease = True
@@ -167,15 +179,6 @@ class CustomSdist(_sdist):
         print "Chosen packaging option: " + name
         self.distribution.data_files = data_files
         _sdist.get_file_list(self)
-
-    #def make_release_tree(self, base_dir, files):
-    #    _sdist.make_release_tree(self, base_dir, files)
-    #    print 'make_release_tree', base_dir, files
-
-
-    #def make_distribution(self):
-    #    _sdist.make_distribution(self)
-    #    print '_sdist.make_distribution'
 
 
 cmdclass['sdist'] = CustomSdist
