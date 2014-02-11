@@ -37,7 +37,7 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import adler32
-from rucio.rse import rsemanager
+from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
 FAILURE = 1
@@ -605,7 +605,6 @@ def upload(args):
                                 account=args.account, auth_type=args.auth_strategy, creds=creds,
                                 ca_cert=args.ca_certificate, timeout=args.timeout)
 
-    rsemgr = rsemanager.RSEMgr()
     files = args.files
     list_files = []
     lfns = []
@@ -665,14 +664,16 @@ def download(args):
     client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
                            account=args.account, auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    rsemgr = rsemanager.RSEMgr()
+    rse_dict = {}
     for did in args.dids:
         try:
             scope, name = did.split(':')
             files = client.list_replicas([{'scope': scope, 'name': name}])
             for file in files:
-                rsemgr.download(rse_id=random.choice(file['rses'].keys()), files=[{'name': file['name'], 'scope': file['scope']}, ], dest_dir=args.dir)
+                rse = random.choice(file['rses'].keys())
+                if not rse in rse_dict:
+                    rse_dict[rse] = rsemgr.get_rse_info(rse)
+                rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope']}, ], dest_dir=args.dir)
             print 'download operation for %s:%s done' % (scope, name)
         except Exception, e:
             print 'Failed to download %(scope)s:%(name)s' % locals()
