@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps
 from requests.status_codes import codes
@@ -21,6 +22,25 @@ class ReplicaClient(BaseClient):
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
+
+    def get_did_from_pfns(self, pfns, rse):
+        """
+        Get the DIDs associated to a PFN on one given RSE
+
+        :param pfns: The list of PFNs.
+        :param rse: The RSE name.
+        :returns: A list of dictionaries {pfn: {'scope': scope, 'name': name}}
+        """
+        data = {'rse': rse, 'pfns': pfns}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'getdidsfromreplicas']))
+        headers = {}
+        r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+            #return r.text
+            #yield self._load_json_data(r)
+        exc_cls, exc_msg = self._get_exception(r.headers)
+        raise exc_cls(exc_msg)
 
     def list_replicas(self, dids, schemes=None, unavailable=False, metalink=None):
         """
