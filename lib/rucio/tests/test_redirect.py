@@ -44,5 +44,5 @@ class TestReplicaHttpRedirection:
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
-        assert_in('303 See Other', out)
+        assert_in('302 Found', out)
         assert_in('Location: https://mock', out)
