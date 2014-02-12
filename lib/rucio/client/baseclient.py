@@ -7,16 +7,20 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 
 """
 Client class for callers of the Rucio system
 """
 
+import re
+
 from getpass import getuser
 from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs
 from shutil import move
+from socket import gethostbyaddr, gethostbyname_ex
 from tempfile import mkstemp
 from urlparse import urlparse
 
@@ -61,6 +65,7 @@ class BaseClient(object):
         """
 
         self.host = rucio_host
+        self.list_hosts = []
         self.auth_host = auth_host
         # self.session = session(config={'Keep-Alive': True})
 
@@ -124,6 +129,8 @@ class BaseClient(object):
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
             except (NoOptionError, NoSectionError), e:
                 raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+
+        self.list_hosts = map(lambda x: re.sub(urlparse(self.host).hostname, gethostbyaddr(x)[0], self.host), gethostbyname_ex(urlparse(self.host).hostname)[2])
 
         if account is None:
             LOG.debug('no account passed. Trying to get it from the config file.')

@@ -6,8 +6,10 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps, loads
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -37,7 +39,7 @@ class MetaClient(BaseClient):
         """
 
         path = '/'.join([self.META_BASEURL, key])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value_type': value_type and str(value_type),
                       'value_regexp': value_regexp,
                       'key_type': key_type})
@@ -57,7 +59,7 @@ class MetaClient(BaseClient):
         :return: a list containing the names of all keys.
         """
         path = self.META_BASEURL + '/'
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
             keys = loads(r.text)
@@ -73,7 +75,7 @@ class MetaClient(BaseClient):
         :return: a list containing the names of all values for a key.
         """
         path = self.META_BASEURL + '/' + key + '/'
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
             values = loads(r.text)
@@ -95,7 +97,7 @@ class MetaClient(BaseClient):
 
         path = self.META_BASEURL + '/' + key + '/'
         data = dumps({'value': value})
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True

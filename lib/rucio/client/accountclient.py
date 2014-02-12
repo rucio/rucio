@@ -7,8 +7,10 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -35,7 +37,7 @@ class AccountClient(BaseClient):
 
         data = dumps({'type': type})
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='POST', data=data)
 
@@ -55,7 +57,7 @@ class AccountClient(BaseClient):
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='DEL')
 
@@ -75,7 +77,7 @@ class AccountClient(BaseClient):
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url)
         if r.status_code == codes.ok:
@@ -96,7 +98,7 @@ class AccountClient(BaseClient):
         :raises AccountNotFound: if account doesn't exist.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         params = {}
         if account_type:
             params['account_type'] = account_type
@@ -135,7 +137,7 @@ class AccountClient(BaseClient):
         data = dumps({'identity': identity, 'authtype': authtype, 'default': default, 'email': email})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
 
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='POST', data=data)
 
@@ -152,7 +154,7 @@ class AccountClient(BaseClient):
         :param account: The account name.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
             identities = self._load_json_data(r)
@@ -169,7 +171,7 @@ class AccountClient(BaseClient):
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'rules'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)

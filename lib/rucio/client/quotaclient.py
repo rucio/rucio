@@ -6,8 +6,10 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -34,7 +36,7 @@ class QuotaClient(BaseClient):
 
         data = dumps({'quota': quota})
         path = '/'.join([self.QUOTAS_BASEURL, account])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='POST', data=data)
 
@@ -54,7 +56,7 @@ class QuotaClient(BaseClient):
         """
 
         path = '/'.join([self.QUOTAS_BASEURL, account])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url)
         if r.status_code == codes.ok:
@@ -75,7 +77,7 @@ class QuotaClient(BaseClient):
         """
 
         path = '/'.join([self.QUOTAS_BASEURL, account])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='DEL')
 

@@ -7,8 +7,10 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps, loads
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -38,7 +40,7 @@ class RuleClient(BaseClient):
         :param locked:           If the rule is locked, it cannot be deleted.
         """
         path = self.RULE_BASEURL + '/'
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         #TODO remove the subscription_id from the client; It will only be used by the core;
         data = dumps({'dids': dids, 'copies': copies, 'rse_expression': rse_expression,
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
@@ -58,7 +60,7 @@ class RuleClient(BaseClient):
         :raises:         RuleNotFound, AccessDenied
         """
         path = self.RULE_BASEURL + '/' + rule_id
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='DEL')
         if r.status_code == codes.ok:
             return True
@@ -74,7 +76,7 @@ class RuleClient(BaseClient):
         :raises:         RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
@@ -89,7 +91,7 @@ class RuleClient(BaseClient):
         :raises:         RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'locked': lock_state})
         r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.ok:
