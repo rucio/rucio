@@ -512,7 +512,6 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
-                   Index('REPLICAS_PATH_IDX', 'rse_id', 'path'),
                    )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
 
