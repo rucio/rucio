@@ -11,7 +11,7 @@
 
 from traceback import format_exc
 from urlparse import parse_qs
-from web import application, ctx, notfound, seeother, InternalError
+from web import application, ctx, notfound, found, InternalError
 
 
 from logging import getLogger, StreamHandler, DEBUG
@@ -65,9 +65,8 @@ class Redirector(RucioController):
                     replicalist = []
                     if rse:
                         if rse in r['rses']:
-                            raise seeother(r['rses'][rse][0])
-                        else:
-                            return notfound("Sorry, the replica you were looking for was not found.")
+                            return found(r['rses'][rse][0])
+                        return notfound("Sorry, the replica you were looking for was not found.")
                     else:
                         for rep in r['rses'].values():
                             replicalist.extend(rep)
@@ -79,14 +78,12 @@ class Redirector(RucioController):
                                 rep = geoIP_order(replicalist, client_ip)
                             else:
                                 rep = random_order(replicalist, client_ip)
-                            raise seeother(rep[0])
+                            return found(rep[0])
 
             return notfound("Sorry, the replica you were looking for was not found.")
 
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except seeother:
-            raise
         except Exception, e:
             print format_exc()
             raise InternalError(e)
