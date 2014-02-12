@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from re import search
 from traceback import format_exc
@@ -169,6 +170,8 @@ class x509:
 
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         dn = ctx.env.get('SSL_CLIENT_S_DN')
+        if not dn:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get DN')
         if not dn.startswith('/'):
             dn = '/%s' % '/'.join(dn.split(',')[::-1])
 
