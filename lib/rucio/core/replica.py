@@ -8,7 +8,6 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from datetime import datetime
 from re import match
@@ -26,42 +25,6 @@ from rucio.db import models
 from rucio.db.constants import DIDType, ReplicaState
 from rucio.db.session import read_session, stream_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
-
-
-@stream_session
-def get_did_from_pfns(pfns, rse, session=None):
-    """
-    Get the DIDs associated to a PFN on one given RSE
-
-    :param pfns: The list of PFNs.
-    :param rse: The RSE name.
-    :param session: The database session in use.
-    :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
-    """
-    rse_info = rsemgr.get_rse_info(rse)
-    rse_id = rse_info['id']
-    pfndict = {}
-    p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
-    if rse_info['deterministic']:
-        parsed_pfn = p.parse_pfns(pfns=pfns)
-        for pfn in parsed_pfn:
-            path = parsed_pfn[pfn]['path']
-            if path.startswith('user') or path.startswith('group'):
-                scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
-                name = parsed_pfn[pfn]['name']
-            else:
-                scope = path.split('/')[0]
-                name = parsed_pfn[pfn]['name']
-            yield {pfn: {'scope': scope, 'name': name}}
-    else:
-        condition = []
-        parsed_pfn = p.parse_pfns(pfns=pfns)
-        for pfn in parsed_pfn:
-            path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            pfndict[path] = pfn
-            condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
-        for scope, name, pfn in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
-            yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
 @stream_session
@@ -285,8 +248,6 @@ def add_replicas(rse, files, account, session=None):
         for file in files:
             if 'pfn' not in file:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-            else:
-                scheme = file['pfn'].split(':')[0]
             pfns.append(file['pfn'])
 
         p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse, session=session), operation='write', scheme=scheme)
