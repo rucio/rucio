@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from nose.tools import assert_equal
 
@@ -21,6 +22,7 @@ class TestCoreRSECounter():
     def test_inc_dec_get_counter(self):
         """ RSE COUNTER (CORE): Increase, decrease and get counter """
         rse_id = get_rse('MOCK').id
+        rse_update(once=True)
         rse_counter.del_counter(rse_id=rse_id)
         rse_counter.add_counter(rse_id=rse_id)
         cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -69,6 +71,7 @@ class TestCoreAccountCounter():
 
     def test_inc_dec_get_counter(self):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
+        account_update(once=True)
         rse_id = get_rse('MOCK').id
         account = 'jdoe'
         account_counter.del_counter(rse_id=rse_id, account=account)
