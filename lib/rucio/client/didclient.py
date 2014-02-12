@@ -9,8 +9,10 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -43,7 +45,7 @@ class DIDClient(BaseClient):
             payload[k] = v
         payload['type'] = type
 
-        url = build_url(self.host, path=path, params=payload)
+        url = build_url(choice(self.list_hosts), path=path, params=payload)
 
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -66,7 +68,7 @@ class DIDClient(BaseClient):
         :param lifetime: DID's lifetime (in seconds).
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         # Build json
         data = {'type': type}
         if statuses:
@@ -89,7 +91,7 @@ class DIDClient(BaseClient):
         Buld add datasets/containers.
         """
         path = '/'.join([self.DIDS_BASEURL])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=render_json_list(dids))
         if r.status_code == codes.created:
             return True
@@ -149,7 +151,7 @@ class DIDClient(BaseClient):
         :param rse: The RSE name when registering replicas.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids}
         if rse:
             data['rse'] = rse
@@ -170,7 +172,7 @@ class DIDClient(BaseClient):
         """
 
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids}
         r = self._send_request(url, type='DEL', data=render_json(**data))
         if r.status_code == codes.ok:
@@ -185,7 +187,7 @@ class DIDClient(BaseClient):
         :param attachments: The attachments.
         """
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=render_json_list(attachments))
         if r.status_code == codes.created:
             return True
@@ -256,7 +258,7 @@ class DIDClient(BaseClient):
         """
 
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'dids'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -273,7 +275,7 @@ class DIDClient(BaseClient):
         """
 
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'files'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -296,7 +298,7 @@ class DIDClient(BaseClient):
             payload['name'] = name
         if recursive:
             payload['recursive'] = True
-        url = build_url(self.host, path=path, params=payload)
+        url = build_url(choice(self.list_hosts), path=path, params=payload)
 
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -314,7 +316,7 @@ class DIDClient(BaseClient):
         """
 
         path = '/'.join([self.DIDS_BASEURL, scope, name])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
@@ -330,7 +332,7 @@ class DIDClient(BaseClient):
         :param name: The data identifier name.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             meta = self._load_json_data(r)
@@ -349,7 +351,7 @@ class DIDClient(BaseClient):
         :param value: the value.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta', key])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value': value})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
@@ -367,7 +369,7 @@ class DIDClient(BaseClient):
         :param kwargs:  Keyword arguments of the form status_name=value.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'status'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = dumps(kwargs)
         r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.ok or r.status_code == codes.no_content:
@@ -394,7 +396,7 @@ class DIDClient(BaseClient):
         :param key: the key.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'meta', key])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='DEL')
 
         if r.status_code == codes.ok:
@@ -412,7 +414,7 @@ class DIDClient(BaseClient):
         """
 
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'rules'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)

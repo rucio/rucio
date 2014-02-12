@@ -9,6 +9,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -58,7 +59,7 @@ class ReplicaClient(BaseClient):
             data['schemes'] = schemes
         if unavailable:
             data['unavailable'] = True
-        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'list']))
+        url = build_url(choice(self.list_hosts), path='/'.join([self.REPLICAS_BASEURL, 'list']))
 
         headers = {}
         if metalink is not None:
@@ -97,7 +98,7 @@ class ReplicaClient(BaseClient):
 
         :return: True if files were created successfully.
         """
-        url = build_url(self.host, path=self.REPLICAS_BASEURL)
+        url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files}
         r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
@@ -114,7 +115,7 @@ class ReplicaClient(BaseClient):
 
         :return: True if files have been deleted successfully.
         """
-        url = build_url(self.host, path=self.REPLICAS_BASEURL)
+        url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files}
         r = self._send_request(url, type='DEL', data=render_json(**data))
         if r.status_code == codes.ok:
