@@ -8,11 +8,13 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import xmltodict
 
 from nose.tools import assert_equal, assert_raises
 
+from rucio.db.constants import DIDType
 from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
@@ -21,7 +23,7 @@ from rucio.common.exception import Duplicate, DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter, get_replica, list_replicas
-from rucio.db.constants import DIDType
+from rucio.rse import rsemanager as rsemgr
 
 
 class TestReplicaCore:
@@ -178,3 +180,44 @@ class TestReplicaMetalink:
                                                                metalink=4),
                              xml_attribs=False)
         assert_equal(3, len(ml['metalink']['files']['file']['url']))
+
+    def test_get_did_from_pfns_nondeterministic(self):
+        """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for non-deterministic sites"""
+        rse = 'MOCK2'
+        tmp_scope = 'mock'
+        nbfiles = 3
+        pfns = []
+        input = {}
+        rse_info = rsemgr.get_rse_info(rse)
+        assert_equal(rse_info['deterministic'], False)
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb',
+                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        for f in files:
+            input[f['pfn']] = {'scope': f['scope'], 'name': f['name']}
+        add_replicas(rse=rse, files=files, account='root')
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+            for rse in replica['rses']:
+                pfns.extend(replica['rses'][rse])
+        for result in self.replica_client.get_did_from_pfns(pfns, rse):
+            pfn = result.keys()[0]
+            assert_equal(input[pfn], result.values()[0])
+
+    def test_get_did_from_pfns_deterministic(self):
+        """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for deterministic sites"""
+        tmp_scope = 'mock'
+        rse = 'MOCK3'
+        nbfiles = 3
+        pfns = []
+        input = {}
+        rse_info = rsemgr.get_rse_info(rse)
+        assert_equal(rse_info['deterministic'], True)
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
+        for f in files:
+            pfn = p.lfns2pfns(lfns={'scope': f['scope'], 'name': f['name']}).values()[0]
+            pfns.append(pfn)
+            input[pfn] = {'scope': f['scope'], 'name': f['name']}
+        add_replicas(rse=rse, files=files, account='root')
+        for result in self.replica_client.get_did_from_pfns(pfns, rse):
+            pfn = result.keys()[0]
+            assert_equal(input[pfn], result.values()[0])
