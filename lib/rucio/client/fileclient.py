@@ -6,8 +6,10 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import loads
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -33,7 +35,7 @@ class FileClient(BaseClient):
         :return: List of replicas.
         """
         path = '/'.join([self.BASEURL, scope, lfn, 'rses'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='GET')
 

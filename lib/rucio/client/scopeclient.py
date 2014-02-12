@@ -7,8 +7,10 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import loads
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -36,7 +38,7 @@ class ScopeClient(BaseClient):
         """
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes', scope])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST')
         if r.status_code == codes.created:
             return True
@@ -52,7 +54,7 @@ class ScopeClient(BaseClient):
         """
 
         path = '/'.join(['scopes/'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url)
         if r.status_code == codes.ok:
             scopes = loads(r.text)
@@ -72,7 +74,7 @@ class ScopeClient(BaseClient):
         """
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes/'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url)
         if r.status_code == codes.ok:

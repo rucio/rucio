@@ -10,8 +10,10 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps, loads
+from random import choice
 from requests.status_codes import codes
 from urllib import quote
 
@@ -38,7 +40,7 @@ class RSEClient(BaseClient):
         :raises RSENotFound: if the referred RSE was not found in the database
         """
         path = '/'.join([self.RSE_BASEURL, rse])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -66,7 +68,7 @@ class RSEClient(BaseClient):
         :raises Duplicate: if rse already exists.
         """
         path = 'rses/' + rse
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=dumps(kwargs))
         if r.status_code == codes.created:
             return True
@@ -81,7 +83,7 @@ class RSEClient(BaseClient):
         :return: True if location was created successfully else False.
         """
         path = 'rses/' + rse
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='DEL')
         if r.status_code == codes.ok:
             return True
@@ -101,7 +103,7 @@ class RSEClient(BaseClient):
             path = '/'.join(path)
         else:
             path = 'rses/'
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -121,7 +123,7 @@ class RSEClient(BaseClient):
         :raises Duplicate: if RSE attribute already exists.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr', key])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value': value})
 
         r = self._send_request(url, type='POST', data=data)
@@ -141,7 +143,7 @@ class RSEClient(BaseClient):
         :return: True if RSE attribute was deleted successfully else False.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr', key])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='DEL')
         if r.status_code == codes.ok:
@@ -159,7 +161,7 @@ class RSEClient(BaseClient):
         :return: True if RSE attribute was created successfully else False.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr/'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             attributes = loads(r.text)
@@ -201,7 +203,7 @@ class RSEClient(BaseClient):
         :raises AccessDenied: if not authorized.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=dumps(params))
         if r.status_code == codes.created:
             return True
@@ -240,7 +242,7 @@ class RSEClient(BaseClient):
             if default:
                 params['default'] = default
         params['protocol_domain'] = protocol_domain
-        url = build_url(self.host, path=path, params=params)
+        url = build_url(choice(self.list_hosts), path=path, params=params)
 
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
@@ -273,7 +275,7 @@ class RSEClient(BaseClient):
                 path.append(str(port))
 
         path = '/'.join(path)
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='DEL')
         if r.status_code == codes.ok:
             return True
@@ -307,7 +309,7 @@ class RSEClient(BaseClient):
                 path.append(str(port))
 
         path = '/'.join(path)
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='PUT', data=dumps(data))
         if r.status_code == codes.ok:
             return True
@@ -328,7 +330,7 @@ class RSEClient(BaseClient):
         """
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         data = {'source': source, 'used': used, 'free': free}
         r = self._send_request(url, type='PUT', data=dumps(data))
         if r.status_code == codes.ok:
@@ -348,7 +350,7 @@ class RSEClient(BaseClient):
         """
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET', data=filters and dumps(filters))
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()
@@ -367,7 +369,7 @@ class RSEClient(BaseClient):
         """
         path = [self.RSE_BASEURL, rse, 'usage', 'history']
         path = '/'.join(path)
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET', data=filters and dumps(filters))
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -387,7 +389,7 @@ class RSEClient(BaseClient):
         """
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='PUT', data=dumps({'name': name, 'value': value}))
 
         if r.status_code == codes.ok:
@@ -407,7 +409,7 @@ class RSEClient(BaseClient):
 
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r).next()

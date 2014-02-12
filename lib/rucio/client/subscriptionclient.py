@@ -5,9 +5,10 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 from json import dumps
+from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -47,7 +48,7 @@ class SubscriptionClient(BaseClient):
         :type dry_run:  Boolean
         """
         path = self.SUB_BASEURL + '/' + name
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         if filter and type(filter) != dict:
             raise TypeError('filter should be a dict')
         if replication_rules and type(replication_rules) != list:
@@ -79,7 +80,7 @@ class SubscriptionClient(BaseClient):
         if not name:
             name = '*'
         path = self.SUB_BASEURL + '/' + account + '/' + name
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -110,7 +111,7 @@ class SubscriptionClient(BaseClient):
         :raises: exception.NotFound if subscription is not found
         """
         path = self.SUB_BASEURL + '/' + name
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         if filter and type(filter) != dict:
             raise TypeError('filter should be a dict')
         if replication_rules and type(replication_rules) != list:
@@ -133,7 +134,7 @@ class SubscriptionClient(BaseClient):
         """
 
         path = '/'.join([self.SUB_BASEURL, account, name, 'Rules'])
-        url = build_url(self.host, path=path)
+        url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
