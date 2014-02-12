@@ -294,9 +294,7 @@ class BaseClient(object):
         while retry < self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, cert=cert, verify=self.ca_cert)
-            except SSLError, e:
-                if 'error:14090086' not in e.args[0][0]:
-                    return False
+            except SSLError:
                 LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
                 self.ca_cert = False
                 retry += 1
