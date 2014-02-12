@@ -7,22 +7,10 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from rucio.api import permission
 from rucio.core import replica
 from rucio.common import exception
-
-
-def get_did_from_pfns(pfns, rse):
-    """
-    Get the DIDs associated to a PFN on one given RSE
-
-    :param pfns: The list of PFNs.
-    :param rse: The RSE name.
-    :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
-    """
-    return replica.get_did_from_pfns(pfns=pfns, rse=rse)
 
 
 def list_replicas(dids, schemes=None, unavailable=False):
