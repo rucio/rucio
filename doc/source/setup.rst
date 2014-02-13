@@ -27,7 +27,7 @@ Getting the latest code
 
 Make a clone of the code from our git repository::
 
-    $ git clone ssh://<gerrit_username>@atlas-gerrit.cern.ch:29418/rucio
+    $ git clone https://<gerrit_username>@voatlasrucio-gerrit.cern.ch/rucio
 
 
 
@@ -154,18 +154,17 @@ without issue::
 Registering and using the Package Index
 =======================================
 
-The pip server is running on http://atlas-pip.cern.ch/.
+The pip server is running on http://voatlasrucio-pip.cern.ch/.
 
-To upload files you need  to create a :file:`~/.pypirc` with::
+To upload files you need to create a :file:`~/.pypirc` with::
 
     [distutils]
-    index-servers =
-        atlas-pip
+    index-servers = voatlasrucio-pip
 
     [atlas-pip]
     username: <username>
     password: <password>
-    repository:http://atlas-pip.cern.ch/
+    repository: https://voatlasrucio-pip.cern.ch/
 
 - *username*, which is the registered username on the PyPI server.
 - *password*, that will be used to authenticate. If omitted the user
@@ -173,27 +172,24 @@ To upload files you need  to create a :file:`~/.pypirc` with::
 
 Upload a package with::
 
-	$ python setup.py register -r atlas-pip sdist upload -r atlas-pip
+	$ python setup.py register -r voatlasrucio-pip sdist upload -r voatlasrucio-pip
 
 or::
 
-	$ python  setup.py register -r http://atlas-pip.cern.ch/  sdist upload -r  http://atlas-pip.cern.ch/
+	$ python setup.py register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
 
 
 To install packages::
 
-	$ pip install rucio -i http://atlas-pip.cern.ch/simple
+	$ pip install rucio -i https://voatlasrucio-pip.cern.ch/simple
 
 it will ask for the password and login.
 
 To avoid this, you need to create a :file:`~/.pip/pip.conf` with::
 
     [install]
-    index-url =
-        http://pypi.python.org/simple
-
-    extra-index-url=
-        http://<username>:<password>@atlas-pip.cern.ch/simple
+    index-url = https://<username>:<password>@voatlasrucio-pip.cern.ch/simple
+    extra-index-url = http://pypi.python.org/simple
 
 - *username*, which is the registered username on the PyPI server.
 - *password*, that will be used to authenticate. If omitted the user
