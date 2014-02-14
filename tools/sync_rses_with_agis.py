@@ -7,14 +7,15 @@
 #                       http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 
 import json
+import os.path
+import requests
 import sys
 import traceback
 import urlparse
 
-import requests
 
 from rucio.client import Client
 
@@ -29,9 +30,7 @@ if __name__ == '__main__':
     resp = requests.get(url=url)
     data = json.loads(resp.content)
 
-    rses = ['PRAGUELCG2_DATADISK_RUCIOTEST', 'LRZ-LMU_DATADISK_RUCIOTEST', 'IN2P3-CPPM_DATADISK_RUCIOTEST',
-            'NIKHEF-ELPROD_DATADISK_RUCIOTEST', 'PSNC_DATADISK_DATADISK_RUCIOTEST', 'UNI-FREIBURG_DATADISK_RUCIOTEST',
-            'NDGF-T1_DATADISK_RUCIOTEST']
+    rses = ['PRAGUELCG2-RUCIOTEST_SCRATCHDISK', ]
 
 #    rses = ['BNL-OSG2_DDMTEST',]
     c = Client()
@@ -40,21 +39,11 @@ if __name__ == '__main__':
         #if not rse['is_rucio']:
         #    continue
 
-#        if rse['name'] != 'NDGF-T1-RUCIOTEST_DATATAPE':
-#            continue
-#        print rse['name']
-
-#        if rse['name'] not in rses:
-#            continue
-
-#        if not rse['name'].startswith('IN2P3-LAPP'):
-#            continue
-
-#        if not rse['name'].startswith('IN2P3-LAPP'):
-#            continue
+        if rse['name'] not in rses:
+            continue
 
         try:
-            deterministic = False
+            deterministic = True
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
         except:
@@ -88,7 +77,7 @@ if __name__ == '__main__':
 
                 extended_attributes = None
                 if o.scheme == 'srm':
-                    extended_attributes = {"web_service_path": o.path, "space_token": space_token}
+                    extended_attributes = {"web_service_path": o.path + '?SFN=', "space_token": space_token}
                     impl = 'rucio.rse.protocols.srm.Default'
                     priority = 1
                 elif o.scheme == 'https' or o.scheme == 'http':
@@ -100,8 +89,11 @@ if __name__ == '__main__':
                 if o.port and str(o.port) in o.netloc:
                     netloc = o.netloc[:-len(':' + str(o.port))]
 
+                # For disk end-points nto for tape
+                prefix = os.path.join(prefix, 'rucio/')
+
                 params = {'hostname': netloc,
-                          'port': o.port,
+                          'port': o.port or 443,
                           'prefix': prefix,
                           'impl': impl,
                           'extended_attributes': extended_attributes,
