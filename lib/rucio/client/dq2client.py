@@ -6,14 +6,19 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 '''
 Compatibility Wrapper for DQ2 and Rucio.
      http://svnweb.cern.ch/world/wsvn/dq2/trunk/dq2.clients/lib/dq2/clientapi/DQ2.py
 '''
 
+from datetime import datetime
+
+from rucio.db.constants import RuleState
 from rucio.client.client import Client
 from rucio.common.utils import generate_uuid
+from rucio.common.exception import InvalidMetadata
 
 
 class DQ2Client:
@@ -44,17 +49,28 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def checkDatasetConsistency(self):
+    def checkDatasetConsistency(self, location, dsn, version=0, threshold=None, scope=None):
         """
-        ToDo --> N/A
+        This method does nothing in Rucio since there is no tracker. Always returns True.
         """
-        raise NotImplementedError
+        return True
 
-    def closeDataset(self):
+    def closeDataset(self, scope, dsn):
         """
-        ToDo Cedric
+        Closes the latest dataset version.
+
+        @since: 0.2.0
+
+        @param dsn: is the dataset name.
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+            - UnsupportedOperation is raised in case the dataset is already closed.
+
+        @return True
         """
-        raise NotImplementedError
+        return self.client.close(scope=scope, name=dsn)
 
     def declareBadFiles(self):
         """
@@ -92,8 +108,20 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def deleteDatasetsFromContainer(self):
+    def deleteDatasetsFromContainer(self, name, datasets, scope):
         """
+        Remove datasets from a container.
+
+        @param name: name of the container.
+        @type name: str
+        @param datasets: list of datasets to be registered.
+            [dataset_name1, ..., dataset_nameN]
+        @type datasets: list
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the container or dataset name doesn't exist.
+
+        @see: https://twiki.cern.ch/twiki/bin/view/Atlas/DonQuijote2ContainerCatalogUC0004
         ToDo Cedric
         """
         raise NotImplementedError
@@ -104,16 +132,39 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def eraseDataset(self):
+    def eraseDataset(self, dsn, scope):
         """
-        ToDo Cedric
-        """
-        raise NotImplementedError
+        Deletes the subscriptions and the locations
 
-    def freezeDataset(self, dsn, scope=None):
+        @param dsn: is the dataset name
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+
+        @return: List of statuses for subscription and deletion deletions
+        """
+        result = {'location': {}, 'subscription': {}}
+        will_erase = True
+        for rep in self.client.list_replicas([{'scope': scope, 'name': dsn}]):
+            for rse in rep['rses']:
+                result[rse] = {'status': True}
+
+        for rule in self.client.list_did_rules(scope=scope, name=dsn):
+            state, location, locked = rule['state'], rule['rse_expression'], rule['locked']
+            if not location in result['location']:
+                result[location] = {'status': True}
+            if state == RuleState.REPLICATING:
+                result[location]['status'] = False
+                result[location]['error'] = 'Cannot delete replicating datasets'
+                will_erase = False
+        if will_erase:
+            self.client.set_metadata(scope=scope, name=dsn, key='expired_at', value=datetime.now())
+        return result
+
+    def freezeDataset(self, dsn, scope):
         """
         Freezes a dataset.
-        ToDo Cedric
 
         @since: 0.2.0
 
@@ -121,24 +172,29 @@ class DQ2Client:
         @param scope: is the dataset scope.
 
         B{Exceptions:}
-           - DQDaoException is raised,
-               in case there is a python or database error in the central catalogs.
-           - DQFrozenDatasetException is raised,
-               in case the user is trying to freeze an already frozen dataset.
-           - DQInvalidRequestException is raised,
-               in case the given lfns and guids are not the same length.
-           - DQSecurityException is raised,
-               in case the given user cannot change the dataset version state.
-           - DQUnknownDatasetException is raised,
-               in case there is no dataset with the given name.
-        """
-        raise NotImplementedError
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+            - UnsupportedOperation is raised in case the dataset is already closed.
 
-    def getDatasetSize(self):
+        @return True
         """
-        Todo Cedric
+        return self.client.close(scope=scope, name=dsn)
+
+    def getDatasetSize(self, dsn, scope):
         """
-        raise NotImplementedError
+        Used to get the dataset size
+
+        @param dsn: is the dataset name.
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+
+       @return: Size as integer
+        """
+        size = 0
+        for f in self.client.list_files(scope=scope, name=dsn):
+            size += f['bytes']
+        return size
 
     def getMasterReplicaLocation(self):
         """
@@ -146,23 +202,63 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def getMetaDataAttribute(self):
+    def getMetaDataAttribute(self, dsn, attributes, version=0, scope=None):
         """
-        ToDo Cedric
-        """
-        raise NotImplementedError
+        Get the metadata information for the given dataset/dataset version. In Rucio the version is ignored.
 
-    def getNumberOfFiles(self):
-        """
-        ToDo Cedric
-        """
-        raise NotImplementedError
+        @param dsn: is the dataset name.
+        @param attributes: is a list of dataset metadata attributes.
+        @param version: is the dataset version (0 is the latest).
+        @param scope: is the dataset scope.
 
-    def getState(self):
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+            - InvalidMetadata is raised in case the metadata doesn't exist.
+
+        @return Dictionary in the following format:
+            {'attribute_1': value_1, ..., 'attribute_N': value_N}
         """
-        ToDo Cedric
+        result = {}
+        metadata = self.client.get_metadata(scope=scope, name=dsn)
+        for key in attributes:
+            if key in metadata:
+                result[key] = metadata[key]
+            else:
+                raise InvalidMetadata
+        return result
+
+    def getNumberOfFiles(self, dsn, version, scope):
         """
-        raise NotImplementedError
+        Returns the number of files in the given dataset (or dataversion). In Rucio the version is ignored.
+
+        @param dsn: is the dataset name.
+        @param version: is the dataset version number. Ignored in Rucio.
+        @param scope: is the dataset scope.
+
+        """
+        nbfiles = 0
+        for f in self.client.list_files(scope=scope, name=dsn):
+            nbfiles += 1
+        return nbfiles
+
+    def getState(self, dsn, scope):
+        """
+        Returns the dataset state.
+
+        @param dsn: is the dataset name.
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+
+        @return: The dataset state (check L{dq2.common.DQConstants.DatasetState<common.DQConstants.DatasetState>}).
+
+        """
+        metadata = self.client.get_metadata(scope=scope, name=dsn)
+        if metadata['is_open']:
+            return 0
+        else:
+            return 2
 
     def getVersionMetadata(self):
         """
