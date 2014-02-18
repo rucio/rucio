@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 from sqlalchemy.sql.expression import and_, or_
 
@@ -125,20 +125,22 @@ def get_files_and_replica_locks_of_dataset(scope, name, lockmode, restrict_rses=
         for rse_id in restrict_rses:
             rse_clause.append(models.ReplicaLock.rse_id == rse_id)
         if rse_clause:
-            session.query(models.DataIdentifierAssociation.child_scope,
-                          models.DataIdentifierAssociation.child_name,
-                          models.DataIdentifierAssociation.bytes,
-                          models.ReplicaLock.rse_id,
-                          models.ReplicaLock.state,
-                          models.ReplicaLock.rule_id)\
-                .outerjoin(models.ReplicaLock,
-                           and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                                models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
-                                or_(*rse_clause)))\
-                .filter(models.DataIdentifierAssociation.scope == scope,
-                        models.DataIdentifierAssociation.name == name)
+            query = session.query(models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.bytes,
+                                  models.ReplicaLock.rse_id,
+                                  models.ReplicaLock.state,
+                                  models.ReplicaLock.rule_id)\
+                           .outerjoin(models.ReplicaLock,
+                                      and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                                           models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                                           or_(*rse_clause)))\
+                           .filter(models.DataIdentifierAssociation.scope == scope,
+                                   models.DataIdentifierAssociation.name == name)
+
     if lockmode is not None:
-        query = query.with_lockmode(lockmode)
+        query = query.with_for_update(nowait=True if lockmode == 'update_nowait' else False)
+
     for child_scope, child_name, bytes, rse_id, state, rule_id in query:
         if rse_id is None:
             files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': []}
@@ -160,12 +162,12 @@ def successful_transfer(scope, name, rse_id, session=None):
     :param rse_id:   RSE id
     """
 
-    locks = session.query(models.ReplicaLock).with_lockmode('update_nowait').filter_by(scope=scope, name=name, rse_id=rse_id)
+    locks = session.query(models.ReplicaLock).with_for_update(nowait=True).filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         lock.state = LockState.OK
 
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_lockmode('update_nowait').filter_by(id=lock.rule_id).one()
+        rule = session.query(models.ReplicationRule).with_for_update(nowait=True).filter_by(id=lock.rule_id).one()
         rule.locks_replicating_cnt -= 1
         rule.locks_ok_cnt += 1
 
@@ -193,12 +195,12 @@ def failed_transfer(scope, name, rse_id, session=None):
     :param rse_id:   RSE id
     """
 
-    locks = session.query(models.ReplicaLock).with_lockmode('update_nowait').filter_by(scope=scope, name=name, rse_id=rse_id)
+    locks = session.query(models.ReplicaLock).with_for_update(nowait=True).filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         lock.state = LockState.STUCK
 
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_lockmode('update_nowait').filter_by(id=lock.rule_id).one()
+        rule = session.query(models.ReplicationRule).with_for_update(nowait=True).filter_by(id=lock.rule_id).one()
         rule.locks_replicating_cnt -= 1
         rule.locks_stuck_cnt += 1
 

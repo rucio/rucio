@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
@@ -47,6 +47,15 @@ def String(*arg, **kw):
 @compiles(Boolean, "oracle")
 def compile_binary_oracle(type_, compiler, **kw):
     return "NUMBER(1)"
+
+
+# PostgreSQL expects foreign keys to have the same type.
+# Unfortunately, SQLAlchemy propagates the name into the type for the PostgreSQL driver,
+# For now, we need to force rename that one case where this happens.
+@event.listens_for(Table, "before_create")
+def _psql_rename_type(target, connection, **kw):
+    if connection.dialect.name == 'postgresql' and target.name == 'account_map':
+        target.columns.identity_type.type.impl.name = 'IDENTITIES_TYPE_CHK'
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
@@ -119,6 +128,17 @@ class ModelBase(object):
 
     @declared_attr
     def __table_args__(cls):
+        # exception for CERN Oracle identifier length limitations
+        if cls.__tablename__.upper() == 'UPDATED_ACCOUNT_COUNTERS':
+            return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'UPDATED_ACCNT_CNTRS_CREATED_NN'),
+                                      CheckConstraint('UPDATED_AT IS NOT NULL', 'UPDATED_ACCNT_CNTRS_UPDATED_NN'),
+                                      {'mysql_engine': 'InnoDB'})
+        elif cls.__tablename__.upper() == 'UPDATED_RSE_COUNTERS':
+            return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_CREATED_NN'),
+                                      CheckConstraint('UPDATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_UPDATED_NN'),
+                                      {'mysql_engine': 'InnoDB'})
+
+        # otherwise, proceed normally
         return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('UPDATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   {'mysql_engine': 'InnoDB'})
@@ -426,9 +446,9 @@ class UpdatedRSECounter(BASE, ModelBase):
     rse_id = Column(GUID())
     files = Column(BigInteger)
     bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_RSE_COUNTERS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_RSE_COUNTERS_RSE_ID_FK'),
-                   Index('UPDATED_RSE_COUNTERS_RSE_ID_IDX', 'rse_id'),
+    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_RSE_CNTRS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_RSE_CNTRS_RSE_ID_FK'),
+                   Index('UPDATED_RSE_CNTRS_RSE_ID_IDX', 'rse_id'),
                    )
 
 
@@ -617,10 +637,10 @@ class UpdatedAccountCounter(BASE, ModelBase):
     rse_id = Column(GUID())
     files = Column(BigInteger)
     bytes = Column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_ACCOUNT_COUNTERS_PK'),
-                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_ACCOUNT_COUNTERS_RSE_ID_FK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='UPDATED_ACCOUNT_COUNTERS_ACCOUNT_FK'),
-                   Index('UPDATED_ACCOUNT_COUNTERS_ACCOUNT_RSE_ID_IDX', 'account', 'rse_id'),
+    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_ACCNT_CNTRS_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='UPDATED_ACCNT_CNTRS_RSE_ID_FK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='UPDATED_ACCNT_CNTRS_ACCOUNT_FK'),
+                   Index('UPDATED_ACCNT_CNTRS_RSE_ID_IDX', 'account', 'rse_id'),
                    )
 
 
