@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 import time
 
@@ -153,7 +153,7 @@ def add_rules(dids, rules, session=None):
         try:
             did = session.query(models.DataIdentifier).filter(
                 models.DataIdentifier.scope == elem['scope'],
-                models.DataIdentifier.name == elem['name']).with_lockmode('update').one()
+                models.DataIdentifier.name == elem['name']).with_for_update().one()
         except NoResultFound:
             raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
 
@@ -315,7 +315,7 @@ def repair_rule(rule_id, session=None):
 
     #start_time = time.time()
     try:
-        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_lockmode('update_nowait').one()
+        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
         # Identify what's wrong with the rule
         # (B) Rule is STUCK due to repeatedly failed transfers
         if rule.locks_stuck_cnt > 0:
@@ -464,7 +464,7 @@ def __repair_rule_with_stuck_locks(rule_obj, session=None):
     # Get all STUCK locks
     stuck_locks = session.query(models.ReplicaLock).query(models.ReplicaLock.rule_id == rule_obj.id,
                                                           models.ReplicaLock.state == LockState.STUCK).\
-        with_lockmode('update_nowait').all()
+        with_for_update(nowait=True).all()
 
     for stuck_lock in stuck_locks:
         print stuck_lock
@@ -503,7 +503,7 @@ def __evaluate_did_detach(eval_did, session=None):
                 replica = session.query(models.RSEFileAssociation).filter(
                     models.RSEFileAssociation.scope == lock.scope,
                     models.RSEFileAssociation.name == lock.name,
-                    models.RSEFileAssociation.rse_id == lock.rse_id).with_lockmode('update_nowait').one()
+                    models.RSEFileAssociation.rse_id == lock.rse_id).with_for_update(nowait=True).one()
                 replica.lock_cnt -= 1
                 if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
                     transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
@@ -613,9 +613,9 @@ def __evaluate_did_attach(eval_did, session=None):
                 for rse_id in possible_rses:
                     rse_clause1.append(models.RSEFileAssociation.rse_id == rse_id)
                     rse_clause2.append(models.ReplicaLock.rse_id == rse_id)
-                locks = session.query(models.ReplicaLock).filter(or_(*lock_clause), or_(*rse_clause2)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_lockmode('update_nowait').all()
+                locks = session.query(models.ReplicaLock).filter(or_(*lock_clause), or_(*rse_clause2)).with_hint(models.ReplicaLock, "index(LOCKS LOCKS_PK)", 'oracle').with_for_update(nowait=True).all()
 
-                replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause), or_(*rse_clause1)).with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').with_lockmode('update_nowait').all()
+                replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause), or_(*rse_clause1)).with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').with_for_update(nowait=True).all()
 
                 for did in temp_dids:
                     files.append({'scope': did.child_scope,
@@ -1051,15 +1051,15 @@ def __get_and_lock_file_replicas_for_dataset(scope, name, lockmode, restrict_rse
                                       models.DataIdentifierAssociation.child_name,
                                       models.DataIdentifierAssociation.bytes,
                                       models.RSEFileAssociation)\
-                    .outerjoin(models.RSEFileAssociation,
-                               and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                    models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                    or_(*rse_clause)))\
-                    .filter(models.DataIdentifierAssociation.scope == scope,
-                            models.DataIdentifierAssociation.name == name)
+                               .outerjoin(models.RSEFileAssociation,
+                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                               or_(*rse_clause)))\
+                               .filter(models.DataIdentifierAssociation.scope == scope,
+                                       models.DataIdentifierAssociation.name == name)
 
     if lockmode is not None:
-        query = query.with_lockmode(lockmode)
+        query = query.with_for_update(nowait=True if lockmode == 'update_nowait' else False)
 
     for child_scope, child_name, bytes, replica in query:
         if replica is None:

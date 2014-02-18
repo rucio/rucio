@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
@@ -138,6 +138,7 @@ def add_dids(dids, account, session=None):
                 raise
 
         session.flush()
+
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
                 or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
@@ -369,13 +370,18 @@ def delete_dids(dids, account, session=None):
 
     # Update the replica's tombstones
     # s = time()
-    # .with_lockmode('update_nowait')
     replicas_count = 0
     with record_timer_block('undertaker.tombstones'):
         for replica_clause in chunks(replica_clauses, 50):
-            replicas_count += session.query(models.RSEFileAssociation).filter(or_(*replica_clause)).with_lockmode('update_nowait').\
+            replicas_count += session.\
+                query(models.RSEFileAssociation).\
+                filter(or_(*replica_clause)).\
+                with_for_update(nowait=True, of=[models.RSEFileAssociation.lock_cnt,
+                                                 models.RSEFileAssociation.tombstone]).\
                 update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
-                        'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0, datetime.utcnow()), ], else_=None)},
+                        'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0,
+                                            datetime.utcnow()), ],
+                                          else_=None)},
                        synchronize_session=False)
     record_counter(counters='undertaker.tombstones.rowcount',  delta=replicas_count)
 
@@ -395,7 +401,7 @@ def detach_dids(scope, name, dids, issuer, session=None):
     :param session: The database session in use.
     """
     #Row Lock the parent did
-    query = session.query(models.DataIdentifier).with_lockmode('update').filter_by(scope=scope, name=name).\
+    query = session.query(models.DataIdentifier).with_for_update().filter_by(scope=scope, name=name).\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     try:
         did = query.one()
@@ -471,7 +477,7 @@ def set_new_dids(dids, new_flag, session=None):
     """
     for did in dids:
         try:
-            #session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).with_lockmode('update_nowait').first()
+            #session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).with_for_update(nowait=True).first()
             #session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).first()
             rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).update({'is_new': new_flag}, synchronize_session=False)
             if not rowcount:
