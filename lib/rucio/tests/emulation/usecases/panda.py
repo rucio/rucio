@@ -119,10 +119,10 @@ class UseCaseDefinition(UCEmulator):
                     try:
                         files.append({'scope': r['scope'], 'name': r['name'], 'bytes': r['bytes']})
                     except KeyError as ke:
-                        print '-------------------- KeyError ----------------'
+                        print '-------------------- KeyError in return of list_replicas ----------------'
                         print r
                         print ke
-                        print '-------------------- KeyError ----------------'
+                        print '-------------------- KeyError in return of list_replicas ----------------'
                     if ('max_jobs' in input.keys()) and (len(files) > (input['max_jobs'] * input['number_of_inputfiles_per_job'])):
                         monitor.record_counter('panda.tasks.%s.limited_input' % task_type, 1)
                         break
@@ -137,6 +137,7 @@ class UseCaseDefinition(UCEmulator):
                     target_rses[i] = rse
 
             monitor.record_counter('panda.tasks.%s.input_files' % task_type, len(files))  # Reports the number of files in the intput dataset of the task type
+            file_ids = files
 
             # Release memory by cleaning the two objects
             file_keys = None
@@ -173,6 +174,7 @@ class UseCaseDefinition(UCEmulator):
             meta = {'stream_name': 'dummy', 'project': output['scope']}
             input['number_of_inputfiles_per_job'] = 1
             files = ['file_%s' % f for f in xrange(input['max_jobs'])]
+            file_ids = list()
 
         meta['run_number'] = int(time.time() / (3600 * 24))
         meta['version'] = uuid()
@@ -467,9 +469,11 @@ class UseCaseDefinition(UCEmulator):
                 if job_completion > max_target_completion:
                     max_target_completion = job_completion
                 job_number += 1
+                input_file = choice(file_ids) if len(file_ids) else {'scope': None, 'name': None}
                 job_finish.append((float(job_completion), {'scope': job_set[0], 'targets': job_set[1], 'computing_rse': job_set[3],
                                                            'task_type': task_type, 'log_ds': log_ds, 'task_type_id': task_type_id,
-                                                           'task_number': task_number, 'job_number': '%06d' % job_number}))
+                                                           'task_number': task_number, 'job_number': '%06d' % job_number,
+                                                           'input': {'scope': input_file['scope'], 'name': input_file['name']}}))
 
             # Remeber last access to target dataset
             max_target_completion += safety_delay
@@ -622,6 +626,19 @@ class UseCaseDefinition(UCEmulator):
         ts = list()
         ts_res = Queue()
         for job in jobs:
+            try:
+                if job['input']['scope'] and job['input']['name']:
+                    with monitor.record_timer_block('panda.list_replicas'):
+                        replicas = [f for f in client.list_replicas([job['input']], schemes=None, unavailable=True)]
+                    if job['computing_rse'] in replicas[0]['rses'].keys():
+                        monitor.record_counter('panda.helper.replicas.found', 1)
+                    else:
+                        monitor.record_counter('panda.helper.replicas.not_found', 1)
+            except Exception, e:
+                print '------------ ERROR when listing replicas of certain file ------------------------'
+                print e
+                print traceback.format_exc(e)
+                print '------------ ERROR when listing replicas of certain file ------------------------'
             if threads:
                 t = threading.Thread(target=self.register_replica, kwargs={'client': client, 'job': job, 'ret': ts_res, 'sem': sem})
                 t.start()
