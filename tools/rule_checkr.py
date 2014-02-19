@@ -7,7 +7,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 """
 Rule checker which checks the validity of rules
@@ -124,11 +124,11 @@ def check_locks(report, rule_id, copies, rse_set, grouping, did, did_type, files
                               models.DataIdentifierAssociation.child_name,
                               models.ReplicaLock.rse_id,
                               models.ReplicaLock.state).join(models.ReplicaLock, and_(
-                                  models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                                  models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
-                                      models.DataIdentifierAssociation.scope == did[0],
-                                      models.DataIdentifierAssociation.name == did[1],
-                                      models.ReplicaLock.rule_id == rule_id).all()
+            models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+            models.DataIdentifierAssociation.child_name == models.ReplicaLock.name)).filter(
+            models.DataIdentifierAssociation.scope == did[0],
+            models.DataIdentifierAssociation.name == did[1],
+            models.ReplicaLock.rule_id == rule_id).all()
     else:
         locks = session.query(models.ReplicaLock.scope,
                               models.ReplicaLock.name,
@@ -156,10 +156,10 @@ def check_replicas(report, copies, rse_set, did, did_type, files, session):
         replicas = session.query(models.DataIdentifierAssociation.child_scope,
                                  models.DataIdentifierAssociation.child_name,
                                  models.RSEFileAssociation.rse_id).join(models.RSEFileAssociation, and_(
-                                     models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                     models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).filter(
-                                         models.DataIdentifierAssociation.scope == did[0],
-                                         models.DataIdentifierAssociation.name == did[1]).all()
+            models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+            models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).filter(
+            models.DataIdentifierAssociation.scope == did[0],
+            models.DataIdentifierAssociation.name == did[1]).all()
     else:
         replicas = session.query(models.RSEFileAssociation.scope,
                                  models.RSEFileAssociation.name,
