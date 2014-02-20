@@ -491,7 +491,7 @@ CREATE INDEX REPLICAS_LOCK_CNT_IDX ON replicas (case when TOMBSTONE is NULL and 
 
 CREATE INDEX REPLICAS_STATE_IDX ON replicas (case when STATE != 'A' then RSE_ID END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
-CREATE INDEX REPLICAS_PATH_IDX ON replicas (rse_id, path) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+CREATE INDEX REPLICAS_PATH_IDX ON replicas (path) TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
 
 -- ========================================= RULES ==============================================
