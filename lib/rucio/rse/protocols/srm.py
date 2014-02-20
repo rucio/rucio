@@ -9,7 +9,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
+import commands
+import os
 import re
+import subprocess
+import signal
+import sys
+import time
 import urlparse
 
 from rucio.common import exception
@@ -85,6 +91,23 @@ class Default(protocol.RSEProtocol):
 
         return ret
 
+    def connect(self):
+        """
+            Establishes the actual connection to the referred RSE.
+            As a quick and dirty impelementation we just use this method to check if the lcg tools are available.
+            If we decide to use gfal, init should be done here.
+
+            :raises RSEAccessDenied
+        """
+        status, lcglscommand = commands.getstatusoutput('which lcg-ls')
+        if status != 0:
+            raise exception.RSEAccessDenied('Cannot find lcg tools')
+        endpoint_basepath = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), self.attributes['extended_attributes']['web_service_path'], self.attributes['prefix']])
+        status, result = commands.getstatusoutput('%s -l -b --setype srmv2 %s' % (lcglscommand, endpoint_basepath))
+        if status != 0:
+            print result
+            raise exception.RSEAccessDenied('Endpoint not reachable')
+
     def get(self, path, dest):
         """
             Provides access to files stored inside connected the RSE.
@@ -96,7 +119,25 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
-        raise NotImplementedError
+        alive = True
+        timeout = 3600
+        timeoutCounter = 0
+        proc = subprocess.Popen('lcg-cp -v -b --srcsetype srmv2 %s file:%s' % (path, dest), shell=True)
+        # This part is stolen from dq2-get
+        try:
+            while(alive):
+                if timeoutCounter > timeout:
+                    os.kill(proc.pid, signal.SIGKILL)
+                    break
+                else:
+                    #None means still running
+                    if proc.poll() is None:
+                        time.sleep(1)
+                    else:
+                        alive = False
+        except:
+            excType, excValue, excStack = sys.exc_info()
+            print excValue
 
     def put(self, source, target, source_dir):
         """
@@ -122,3 +163,7 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplementedError
+
+    def close(self):
+        """ Closes the connection to RSE."""
+        pass
