@@ -172,7 +172,7 @@ def parse_pfns(rse_settings, pfns, operation='read'):
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme).parse_pfns(pfns)
 
 
-def download(rse_settings, files, dest_dir='.'):
+def download(rse_settings, files, dest_dir='.', printstatements=False):
     """
         Copy a file from the connected storage to the local file system.
         Providing a list indicates the bulk mode.
@@ -189,6 +189,7 @@ def download(rse_settings, files, dest_dir='.'):
 
         :raises SourceNotFound: remote source file can not be found on storage
         :raises DestinationNotAccessible: local destination directory is not accessible
+        :raises FileConsistencyMismatch: the checksum of the downloaded file does not match the provided one
         :raises ServiceUnavailable: for any other reason
 
     """
@@ -204,8 +205,29 @@ def download(rse_settings, files, dest_dir='.'):
             if not os.path.exists('%s/%s' % (dest_dir, f['scope'])):
                 os.makedirs('%s/%s' % (dest_dir, f['scope']))
             # Each scope is stored into a separate folder
-            protocol.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['name']))
-            ret['%s:%s' % (f['scope'], f['name'])] = True
+            finalfile = '%s/%s/%s' % (dest_dir, f['scope'], f['name'])
+            # Check if the file already exists, if not download and validate it
+            if not os.path.isfile(finalfile):
+                if 'adler32' in f:
+                    tempfile = '%s/%s/%s.part' % (dest_dir, f['scope'], f['name'])
+                    if os.path.isfile(tempfile):
+                        if printstatements:
+                            print '%s already exists, probably from a failed attempt. Will remove it' % (tempfile)
+                        os.unlink(tempfile)
+                    protocol.get(pfn, tempfile)
+                    if printstatements:
+                        print 'File downloaded. Will be validated'
+                    if utils.adler32(tempfile) == f['adler32']:
+                        if printstatements:
+                            print 'File validated'
+                        os.rename(tempfile, finalfile)
+                    else:
+                        raise exception.FileConsistencyMismatch('Bad checksum')
+                else:
+                    protocol.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['name']))
+                ret['%s:%s' % (f['scope'], f['name'])] = True
+            else:
+                ret['%s:%s' % (f['scope'], f['name'])] = True
         except Exception as e:
             gs = False
             ret['%s:%s' % (f['scope'], f['name'])] = e
