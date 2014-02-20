@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 import hashlib
 
@@ -18,7 +18,7 @@ from rucio.common import exception
 from rucio.rse import rsemanager
 
 if rsemanager.CLIENT_MODE:
-    from rucio.client.didclient import DIDClient
+    from rucio.client.replicaclient import ReplicaClient
 
 if rsemanager.SERVER_MODE:
     from rucio.core import replica
@@ -69,14 +69,14 @@ class RSEProtocol(object):
 
             :returns: dict with scope:name as keys and PFN as value (in case of errors the Rucio exception si assigned to the key)
         """
-        client = DIDClient()
+        client = ReplicaClient()
         pfns = {}
 
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope = lfn['scope']
             name = lfn['name']
-            replicas = [r for r in client.list_replicas(scope=scope, name=name, scheme=self.attributes['scheme'])]  # scheme is used to narrow down the response message.
+            replicas = [r for r in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[self.attributes['scheme'], ])]  # schemes is used to narrow down the response message.
             if len(replicas) > 1:
                 pfns['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('This operation can only be performed for files.')
             if not len(replicas):
@@ -168,11 +168,9 @@ class RSEProtocol(object):
         """
         raise NotImplementedError
 
-    def connect(self, credentials):
+    def connect(self):
         """
             Establishes the actual connection to the referred RSE.
-
-            :param: credentials needed to establish a connection with the stroage.
 
             :raises RSEAccessDenied: if no connection could be established.
         """
