@@ -13,6 +13,8 @@ etc/rse-accounts.cfg
 etc/rucio.cfg
 etc/web/httpd*.conf
 etc/web/lighttpd*.conf
+etc/alembic.ini
+alembic.ini
 
 # ignore test proxies
 *.proxy
