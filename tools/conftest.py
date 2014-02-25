@@ -61,7 +61,7 @@ def bootstrap_tests(request):
 #         c.add_rse(rse, prefix=prefix, deterministic=deterministic, volatile=volatile)
 #
 #         for p_id in repo_data[rse]['protocols']['supported']:
-#             c.add_protocol(rse, p_id, repo_data[rse]['protocols']['supported'][p_id])
+#             c.add_protocol(rse, repo_data[rse]['protocols']['supported'][p_id].update({'scheme': p_id}))
 #
 # Add meta-data
 #     print 'add meta-data'
