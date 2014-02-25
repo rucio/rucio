@@ -598,7 +598,7 @@ def upload(args):
                            account=args.account, auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
     else:
-        client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+        client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
                            account=args.account, auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
         ruleclient = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
