@@ -39,8 +39,17 @@ if __name__ == '__main__':
         #if not rse['is_rucio']:
         #    continue
 
-        if rse['name'] not in rses:
+        if rse['state'] != 'ACTIVE' or rse['is_tape']:
             continue
+
+#        if not rse['name'].startswith('IN2P3-LAPP_'):
+#            continue
+
+        if not rse['name'].startswith('FZK-LCG2_'):
+            continue
+
+        #if rse['name'] not in rses:
+        #    continue
 
         try:
             deterministic = True
@@ -90,7 +99,8 @@ if __name__ == '__main__':
                     netloc = o.netloc[:-len(':' + str(o.port))]
 
                 # For disk end-points nto for tape
-                prefix = os.path.join(prefix, 'rucio/')
+                if not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
+                    prefix = os.path.join(prefix, 'rucio/')
 
                 params = {'hostname': netloc,
                           'port': o.port or 443,
