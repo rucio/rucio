@@ -5,8 +5,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 
 import glob
 import shutil
