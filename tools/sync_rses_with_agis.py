@@ -65,6 +65,7 @@ if __name__ == '__main__':
 
         # Add mock protocol for testing
         params = {'hostname': None,
+                  'scheme': 'mock',
                   'port': None,
                   'prefix': prefix,
                   'impl': 'rucio.rse.protocols.mock.Default',
@@ -76,7 +77,7 @@ if __name__ == '__main__':
                                       "write": 1,
                                       "delete": 1}}}
 
-        #c.add_protocol(rse=rse['name'], scheme='mock', params=params)
+        #c.add_protocol(rse=rse['name'], params=params)
         for protocol in rse['protocols']:
             try:
                 o = urlparse.urlparse(protocol)
@@ -103,6 +104,7 @@ if __name__ == '__main__':
                     prefix = os.path.join(prefix, 'rucio/')
 
                 params = {'hostname': netloc,
+                          'scheme': o.scheme,
                           'port': o.port or 443,
                           'prefix': prefix,
                           'impl': impl,
@@ -113,8 +115,8 @@ if __name__ == '__main__':
                                       "wan": {"read": priority,
                                               "write": priority,
                                               "delete": priority}}}
-                print 'Add protocol', rse['name'], o.scheme, params
-                c.add_protocol(rse=rse['name'], scheme=o.scheme, params=params)
+                print 'Add protocol', rse['name'], params
+                c.add_protocol(rse=rse['name'], params=params)
             except:
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()

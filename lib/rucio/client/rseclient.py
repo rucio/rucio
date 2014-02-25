@@ -170,7 +170,7 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers)
             raise exc_cls(exc_msg)
 
-    def add_protocol(self, rse, scheme, params):
+    def add_protocol(self, rse, params):
         """
         Sends the request to create a new protocol for the given RSE.
 
@@ -202,6 +202,7 @@ class RSEClient(BaseClient):
                              protocol.
         :raises AccessDenied: if not authorized.
         """
+        scheme = params['scheme']
         path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=dumps(params))

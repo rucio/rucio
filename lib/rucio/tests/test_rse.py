@@ -226,7 +226,7 @@ class TestRSEClient():
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
         resp = mgr.get_rse_info(protocol_rse)
         print resp
         for p in resp['protocols']:
@@ -244,8 +244,8 @@ class TestRSEClient():
     def test_add_protocol_rse_not_found(self):
         """ RSE (CLIENTS): add a protocol to an rse that does not exist (RSENotFound)."""
         self.client.add_protocol('The One that shouldn\'t be here',
-                                 'MOCK_Fail',
                                  {'hostname': 'localhost',
+                                  'scheme': 'MOCK_Fail',
                                   'port': 17,
                                   'prefix': '/the/one/with/all/the/files',
                                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -265,8 +265,8 @@ class TestRSEClient():
         self.client.add_rse(protocol_rse)
         try:
             self.client.add_protocol(protocol_rse,
-                                     'Mock_Insuff_Params',
                                      {'hostname': 'localhost',
+                                      'scheme': 'MOCK_Fail',
                                       'port': 17,
                                       'prefix': '/the/one/with/all/the/files',
                                       #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -289,8 +289,8 @@ class TestRSEClient():
         for i in range(2):
             try:
                 self.client.add_protocol(protocol_rse,
-                                         'MOCK_Duplicate',
                                          {'hostname': 'localhost',
+                                          'scheme': 'MOCK_Duplicate',
                                           'port': 17,
                                           'prefix': '/the/one/with/all/the/files',
                                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -315,8 +315,8 @@ class TestRSEClient():
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
         self.client.add_protocol(protocol_rse,
-                                 'Mock_Insuff_Params',
                                  {'hostname': 'localhost',
+                                  'scheme': 'Mock_Insuff_Params',
                                   'port': 17,
                                   'prefix': '/the/one/with/all/the/files',
                                   #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -339,8 +339,8 @@ class TestRSEClient():
         protocol_ports = [17, 29, 42]
         for i in range(3):
             self.client.add_protocol(protocol_rse,
-                                     'MOCK',
                                      {'hostname': 'localhost',
+                                      'scheme': 'MOCK',
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -354,8 +354,8 @@ class TestRSEClient():
                                       })
         try:
             self.client.add_protocol(protocol_rse,
-                                     'MOCK',
                                      {'hostname': 'localhost',
+                                      'scheme': 'MOCK',
                                       'port': 815,
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -389,8 +389,8 @@ class TestRSEClient():
         protocol_ports = [17, 29, 42]
         for i in range(3):
             self.client.add_protocol(protocol_rse,
-                                     protocol_id,
                                      {'hostname': 'localhost',
+                                      'scheme': protocol_id,
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -437,8 +437,8 @@ class TestRSEClient():
         protocol_ports = [17, 29, 42]
         for i in range(3):
             self.client.add_protocol(protocol_rse,
-                                     protocol_id,
                                      {'hostname': protocol_hostname[i],
+                                      'scheme': protocol_id,
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -469,8 +469,8 @@ class TestRSEClient():
         protocol_id = 'MOCK_PROTOCOL_DEL_HOST_FAIL'
         self.client.add_rse(protocol_rse)
         self.client.add_protocol(protocol_rse,
-                                 protocol_id,
                                  {'hostname': 'localhost',
+                                  'scheme': protocol_id,
                                   'port': 42,
                                   'prefix': '/the/one/with/all/the/files',
                                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -499,8 +499,8 @@ class TestRSEClient():
         protocol_ports = [17, 29, 42]
         for i in range(3):
             self.client.add_protocol(protocol_rse,
-                                     protocol_id,
                                      {'hostname': protocol_hostname[i],
+                                      'scheme': protocol_id,
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -531,8 +531,8 @@ class TestRSEClient():
         protocol_id = 'MOCK_PROTOCOL_DEL_PORT_FAIL'
         self.client.add_rse(protocol_rse)
         self.client.add_protocol(protocol_rse,
-                                 protocol_id,
                                  {'hostname': 'localhost',
+                                  'scheme': protocol_id,
                                   'port': 42,
                                   'prefix': '/the/one/with/all/the/files',
                                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -612,7 +612,7 @@ class TestRSEClient():
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
         # GET all = 3
         resp = mgr.get_rse_info(protocol_rse)
         if len(resp['protocols']) != 3:
@@ -675,7 +675,7 @@ class TestRSEClient():
                      ]
         # Protocol identifier include supported operations
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         ops = {'read': 1, 'write': 2, 'delete': 3}
         rse_attr = mgr.get_rse_info(protocol_rse)
@@ -731,7 +731,7 @@ class TestRSEClient():
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         rse_attr = mgr.get_rse_info(protocol_rse)
         rse_attr['domain'] = ['lan']
@@ -775,7 +775,7 @@ class TestRSEClient():
                       }
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         resp = mgr.get_rse_info(protocol_rse)['protocols']
         assert((not resp[0]['extended_attributes']['more']['value2']) and resp[0]['extended_attributes']['more']['value1'])
@@ -827,7 +827,7 @@ class TestRSEClient():
                      ]
         # Protocol for read is undefined
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         try:
             rse_attr = mgr.get_rse_info(protocol_rse)
@@ -863,7 +863,7 @@ class TestRSEClient():
                      ]
         # Protocol for read is undefined
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         try:
             rse_attr = mgr.get_rse_info(protocol_rse)
@@ -897,7 +897,7 @@ class TestRSEClient():
                      ]
         # Protocol for read is undefined
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         try:
             rse_attr = mgr.get_rse_info(protocol_rse)
@@ -957,7 +957,7 @@ class TestRSEClient():
                      ]
         # Protocol for read is undefined
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         try:
             rse_attr = mgr.get_rse_info(protocol_rse)
@@ -1007,7 +1007,7 @@ class TestRSEClient():
                       }
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         try:
             self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '11'})
@@ -1037,7 +1037,7 @@ class TestRSEClient():
                       }
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '12'})
         rse_attr = mgr.get_rse_info(protocol_rse)
@@ -1094,7 +1094,7 @@ class TestRSEClient():
     #                  },
     #                 ]
     #    for p in protocols:
-    #        self.client.add_protocol(protocol_rse, p['scheme'], p)
+    #        self.client.add_protocol(protocol_rse, p)
 
     #    rse_attr = mgr.get_rse_info(protocol_rse)
     #    rse_attr['domain'] = ['lan']
@@ -1396,7 +1396,7 @@ class TestRSEClient():
                       },
                      ]
         for p in protocols:
-            self.client.add_protocol(protocol_rse, p['scheme'], p)
+            self.client.add_protocol(protocol_rse, p)
 
         try:
             self.client.update_protocols(protocol_rse, scheme='MOCK_UNDEFINED', hostname='localhost', port=17, data={'delete_lan': 1})
@@ -1426,7 +1426,7 @@ class TestRSEClient():
 
         try:
             for p in protocols:
-                self.client.add_protocol(protocol_rse, p['scheme'], p)
+                self.client.add_protocol(protocol_rse, p)
                 self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'impl': None})
         except:
             raise InvalidObject  # explicity raise the correct Exception for MySQL
@@ -1446,8 +1446,8 @@ class TestRSEClient():
         protocol_ports = [17, 29, 42]
         for i in range(3):
             self.client.add_protocol(protocol_rse,
-                                     'MOCK',
                                      {'hostname': 'localhost',
+                                      'scheme': 'MOCK',
                                       'port': protocol_ports[i],
                                       'prefix': '/the/one/with/all/the/files',
                                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',

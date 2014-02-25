@@ -62,7 +62,7 @@ if __name__ == '__main__':
         rses_total -= 1
         for p_id in repo_data[rse]['protocols']['supported']:
             try:
-                c.add_protocol(rse, p_id, repo_data[rse]['protocols']['supported'][p_id])
+                c.add_protocol(rse, repo_data[rse]['protocols']['supported'][p_id].update({'scheme': p_id}))
             except Duplicate:
                 pass
             except Exception:
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     while rses_total:
         try:
             c.add_rse('MOCK_%s' % rses_total, deterministic=True, volatile=False)
-            c.add_protocol('MOCK_%s' % rses_total, 'MOCK', protocol)
+            c.add_protocol('MOCK_%s' % rses_total, protocol.update({'scheme': 'MOCK'}))
         except Duplicate:
             pass
         except Exception:

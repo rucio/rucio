@@ -52,7 +52,9 @@ if __name__ == '__main__':
             print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
         for p_id in repo_data[rse]['protocols']['supported']:
             try:
-                c.add_protocol(rse, p_id, repo_data[rse]['protocols']['supported'][p_id])
+                p = repo_data[rse]['protocols']['supported'][p_id]
+                p['scheme'] = p_id
+                c.add_protocol(rse, p)
             except ValueError, e:
                 print rse, e
             except Duplicate, e:
