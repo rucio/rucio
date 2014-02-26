@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 
@@ -58,8 +58,7 @@ user_scope = rucio
 
 [conveyor]
 transfertool = fts3
-#ftshost = https://fts3.cern.ch:8446
-ftshost = https://fts3-pilot.cern.ch:8446
+ftshosts = https://fts3-pilot.cern.ch:8446, https://fts3-pilot.cern.ch:8446
 cacert = /opt/rucio/etc/web/ca.crt
 usercert = /opt/rucio/etc/rucio01.proxy
 
@@ -80,3 +79,22 @@ special_accounts = panda, tier0
 
 [trace]
 tracedir = /var/log/rucio/trace
+
+[injector]
+src_host = dav.ndgf.org
+src_port = 443
+src_path = /atlas/disk/atlasscratchdisk/rucio01/site_a
+dst_host = f01-060-114-e.gridka.de
+dst_port = 2880
+dst_path = /pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/rucio01/
+impl = rucio.rse.protocols.webdav.Default
+scheme = davs
+file = /opt/rucio/tools/test.file.1000
+bytes = 1000
+md5sum = fd21ce524a9e45060fd3f62c4ef6a386
+adler32 =
+#file = /opt/rucio/tools/test.file.1G
+#bytes = 1000000000
+#md5sum = 1a3031f43cc0c0cf4f8341920a9faf52
+#adler32 = 5ff2d417
+proxy = /opt/rucio/tools/rucio01.rfc.long.proxy

@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 """
 ConveyorInjector is a daemon to queue file transfers for testing purposes.
@@ -22,6 +22,8 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop)
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--davs-src", action="store", default=None, help='In format https://host:port/path')
+    parser.add_argument("--davs-dst", action="store", default=None, help='In format https://host:port/path')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
     parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')

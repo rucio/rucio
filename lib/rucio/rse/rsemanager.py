@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
@@ -18,7 +18,7 @@ from dogpile.cache import make_region
 from urlparse import urlparse
 
 from rucio.common import exception, utils
-
+from rucio.db.session import read_session
 
 DEFAULT_PROTOCOL = 1
 
@@ -31,6 +31,7 @@ region = make_region(function_key_generator=utils.my_key_generator).configure(
 
 
 @region.cache_on_arguments(namespace='rse_info')  # Sets the dogpile.cache for this method based on the provided RSE name
+@read_session
 def get_rse_info(rse, session=None):
     """ Returns all protocol related RSE attributes.
 
