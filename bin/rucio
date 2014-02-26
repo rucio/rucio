@@ -36,6 +36,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
+from rucio.common.exception import FileReplicaAlreadyExists
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager as rsemgr
 
@@ -630,12 +631,15 @@ def upload(args):
     if args.campaign:
         metadata['campaign'] = args.campaign
 
+    rse_settings = rsemgr.get_rse_info(args.rse)
     if dsn:
         try:
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': args.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}], meta=metadata)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
-            rsemgr.upload(args.rse, lfns=lfns)
+            rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
             print 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name'])
+        except FileReplicaAlreadyExists, e:
+            print e
         except Exception, e:
             print 'Failed to upload %(files)s' % locals()
             print e
@@ -643,8 +647,10 @@ def upload(args):
         try:
             client.add_replicas(files=list_files, rse=args.rse)
             ruleclient.add_replication_rule(list_files, copies=1, rse_expression=args.rse)
-            rsemgr.upload(args.rse, lfns=lfns)
+            rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
             print 'Upload operation for %(files)s done' % locals()
+        except FileReplicaAlreadyExists, e:
+            print e
         except Exception, e:
             print 'Failed to upload %(files)s' % locals()
             print e
