@@ -11,6 +11,7 @@
 
 import json
 import logging
+import random
 import sys
 
 import requests
@@ -23,9 +24,25 @@ logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-__HOST = config_get('conveyor', 'ftshost')  # keep it simple for now
+__HOSTS = [b.strip() for b in config_get('conveyor', 'ftshosts').split(',')]
 __CACERT = config_get('conveyor', 'cacert')
 __USERCERT = config_get('conveyor', 'usercert')
+
+
+def __fts_host(source=None, destination=None, method='uniform'):
+    """
+    Select an FTS3 submission host, optionally based on source and destination URLs.
+
+    :param source: URL of an example source file as a string.
+    :param destination: URL of an example destination file as a string.
+    :param method: Selection algorithm, one of ['uniform'], as a string.
+    :returns: FTS Submission Host as a string.
+    """
+
+    if method == 'uniform':
+        return random.sample(__HOSTS, 1)[0]
+    else:
+        return __HOSTS[0]
 
 
 def submit_transfers(transfers, job_metadata):
@@ -66,6 +83,7 @@ def submit_transfers(transfers, job_metadata):
         r = None
         params_str = json.dumps(params_dict)
 
+        __HOST = __fts_host()
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
                               verify=__CACERT,
@@ -125,6 +143,7 @@ def query(transfer_id):
 
     r = None
 
+    __HOST = __fts_host()
     if __HOST.startswith('https://'):
         r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
                          verify=__CACERT,
@@ -161,6 +180,7 @@ def whoami():
 
     r = None
 
+    __HOST = __fts_host()
     if __HOST.startswith('https://'):
         r = requests.get('%s/whoami' % __HOST,
                          verify=__CACERT,
@@ -185,6 +205,7 @@ def version():
 
     r = None
 
+    __HOST = __fts_host()
     if __HOST.startswith('https://'):
         r = requests.get('%s/' % __HOST,
                          verify=__CACERT,
