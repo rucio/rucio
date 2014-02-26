@@ -206,7 +206,7 @@ def __get_external_id(request_id, session=None):
     """
 
     try:
-        return session.query(models.Request.external_id).filter_by(id=request_id).first()
+        return session.query(models.Request.external_id).filter_by(id=request_id).first()[0]
     except IntegrityError, e:
         raise RucioException(e.args)
 

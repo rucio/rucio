@@ -78,7 +78,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 ts = time.time()
                 tmpsrc = []
                 filesize = 12345L
-                checksum = 'adler32:123456'
+                checksum = 'ADLER32:123456'
                 src_spacetoken = None
 
                 try:
@@ -91,7 +91,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                             for pfn in source['rses'][endpoint]:
                                 tmpsrc.append(str(pfn))
                         filesize = long(source['bytes'])
-                        checksum = 'adler32:%s' % (source['adler32'])
+                        checksum = source['adler32']
                         src_spacetoken = source['space_token'] if 'space_token' in source.keys() else None
                 except DataIdentifierNotFound:
                     record_counter('daemons.conveyor.submitter.lost_did')
@@ -115,26 +115,18 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 sources = []
 
                 if tmpsrc == []:
-                    if mock:
-                        sources.append('mock://dummy/source')
-                    else:
-                        record_counter('daemons.conveyor.submitter.nosource')
-                        logging.warn('No source replicas found for DID %s:%s - deep check for unavailable replicas' % (req['scope'], req['name']))
+                    record_counter('daemons.conveyor.submitter.nosource')
+                    logging.warn('No source replicas found for DID %s:%s - deep check for unavailable replicas' % (req['scope'], req['name']))
 
-                        i = 0
-                        for tmp in replica.list_replicas([{'scope': req['scope'],
-                                                           'name': req['name'],
-                                                           'type': DIDType.FILE}],
-                                                         unavailable=True,
-                                                         session=session):
-                            i += 1  # sadly, we have to iterate over results
+                    if sum(1 for tmp in replica.list_replicas([{'scope': req['scope'],
+                                                                'name': req['name'],
+                                                                'type': DIDType.FILE}],
+                                                              unavailable=True,
+                                                              session=session)):
+                        logging.critical('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
 
-                        if not i:
-                            logging.warn('DID %s:%s lost' % (req['scope'], req['name']))
-                            # TODO: wipe DID
-
-                        session.commit()
-                        continue
+                    session.commit()
+                    continue
                 else:
                     for tmp in tmpsrc:
                         sources.append(tmp)
@@ -158,16 +150,23 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                             destinations.append(pfn[k][url])
 
                 protocols = None
+                scheme = 'davs'  # try webdav first, fallback automatically if not available
                 try:
-                    protocols = rsemgr.select_protocol(rse_info, 'write', scheme='mock')
+                    protocols = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
                 except RSEProtocolNotSupported:
-                    protocols = 'mock'
+                    logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
 
+                # we need to set the spacetoken if we use SRM
                 dest_spacetoken = None
-                try:
+                if scheme == 'srm':
                     dest_spacetoken = protocols[0]['extended_attributes']['space_token']
-                except:
-                    logging.warn('No spacetoken defined for %s' % rse_info['rse'])
+
+                # Come up with mock sources if necessary
+                if mock:
+                    tmp_sources = []
+                    for s in sources:
+                        tmp_sources.append(':'.join(['mock']+s.split(':')[1:]))
+                    sources = tmp_sources
 
                 ts = time.time()
                 request.submit_transfers(transfers=[{'request_id': req['request_id'],
@@ -232,10 +231,9 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False):
 
     if once:
         logging.info('executing one submitter iteration only')
-        submitter(once)
+        submitter(once, mock=mock)
 
     else:
-
         logging.info('starting submitter threads')
         threads = [threading.Thread(target=submitter, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'mock': mock}) for i in xrange(0, total_threads)]
 
