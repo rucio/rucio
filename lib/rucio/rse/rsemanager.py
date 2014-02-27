@@ -217,12 +217,13 @@ def download(rse_settings, files, dest_dir='.', printstatements=False):
                     protocol.get(pfn, tempfile)
                     if printstatements:
                         print 'File downloaded. Will be validated'
-                    if utils.adler32(tempfile) == f['adler32']:
+                    localchecksum = utils.adler32(tempfile)
+                    if localchecksum == f['adler32']:
                         if printstatements:
                             print 'File validated'
                         os.rename(tempfile, finalfile)
                     else:
-                        raise exception.FileConsistencyMismatch('Bad checksum')
+                        raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(f['adler32'])))
                 else:
                     protocol.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['name']))
                 ret['%s:%s' % (f['scope'], f['name'])] = True
