@@ -123,7 +123,7 @@ class Default(protocol.RSEProtocol):
         timeout = 3600
         timeoutCounter = 0
         proc = subprocess.Popen('lcg-cp -v -b --srcsetype srmv2 %s file:%s' % (path, dest), shell=True)
-        # This part is stolen from dq2-get
+        # This part is taken from dq2-get
         try:
             while(alive):
                 if timeoutCounter > timeout:
