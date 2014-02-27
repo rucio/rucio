@@ -28,6 +28,42 @@ from rucio.db.session import read_session, stream_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 
+@transactional_session
+def declare_bad_file_replicas(pfns, rse, session=None):
+    """
+    Get a list of replicas and declare them bad
+
+    :param pfns: The list of PFNs.
+    :param rse: The RSE name.
+    :param session: The database session in use.
+    """
+    rse_info = rsemgr.get_rse_info(rse, session)
+    rse_id = rse_info['id']
+    pfndict = {}
+    p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
+    if rse_info['deterministic']:
+        parsed_pfn = p.parse_pfns(pfns=pfns)
+        for pfn in parsed_pfn:
+            path = parsed_pfn[pfn]['path']
+            if path.startswith('user') or path.startswith('group'):
+                scope = '%s.%s' % (path.split('/')[0], path.split('/')[1])
+                name = parsed_pfn[pfn]['name']
+            else:
+                scope = path.split('/')[0]
+                name = parsed_pfn[pfn]['name']
+            pfndict[pfn] = {'scope': scope, 'name': name, 'rse_id': rse_id}
+        # TODO set scope, name, rse_id as BAD in the replica table + locks...
+    else:
+        condition = []
+        parsed_pfn = p.parse_pfns(pfns=pfns)
+        for pfn in parsed_pfn:
+            path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
+            pfndict[path] = pfn
+            condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
+            #session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
+            # TODO set scope, name, rse as BAD in the replica table + locks...
+
+
 @stream_session
 def get_did_from_pfns(pfns, rse, session=None):
     """

@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 """
 Rucio utilities.
@@ -279,3 +279,76 @@ def get_logger(name):
     logger.addHandler(hdlr)
     logger.setLevel(config_get('common', 'loglevel').upper())
     return logger
+
+
+def construct_surl_DQ2(dsn, filename):
+    """
+    Defines relative SURL for new replicas. This method
+    contains DQ2 convention. To be used for non-deterministic sites.
+    Method imported from DQ2.
+
+    @return: relative SURL for new replica.
+    @rtype: str
+    """
+    # check how many dots in dsn
+    fields = dsn.split('.')
+    nfields = len(fields)
+
+    if nfields == 1:
+        stripped_dsn = __strip_dsn(dsn)
+        return '/other/%s/%s' % (stripped_dsn, filename)
+    elif nfields == 2:
+        project = fields[0]
+        stripped_dsn = __strip_dsn(dsn)
+        return '/%s/%s/%s' % (project, stripped_dsn, filename)
+    elif nfields < 5 or re.match('user*|group*', fields[0]):
+        project = fields[0]
+        f2 = fields[1]
+        f3 = fields[2]
+        stripped_dsn = __strip_dsn(dsn)
+        return '/%s/%s/%s/%s/%s' % (project, f2, f3, stripped_dsn, filename)
+    else:
+        project = fields[0]
+        dataset_type = fields[4]
+        if nfields == 5:
+            tag = 'other'
+        else:
+            tag = __strip_tag(fields[-1])
+        stripped_dsn = __strip_dsn(dsn)
+        return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
+
+
+def __strip_dsn(dsn):
+    """
+    Drop the _sub and _dis suffixes for panda datasets from the lfc path
+    they will be registered in.
+    Method imported from DQ2.
+    """
+
+    suffixes_to_drop = ['_dis', '_sub', '_frag']
+    fields = dsn.split('.')
+    last_field = fields[-1]
+    try:
+        for suffix in suffixes_to_drop:
+            last_field = re.sub('%s.*$' % suffix, '', last_field)
+    except IndexError:
+        return dsn
+    fields[-1] = last_field
+    stripped_dsn = '.'.join(fields)
+    return stripped_dsn
+
+
+def __strip_tag(tag):
+    """
+    Drop the _sub and _dis suffixes for panda datasets from the lfc path
+    they will be registered in
+    Method imported from DQ2.
+    """
+    suffixes_to_drop = ['_dis', '_sub', '_tid']
+    stripped_tag = tag
+    try:
+        for suffix in suffixes_to_drop:
+            stripped_tag = re.sub('%s.*$' % suffix, '', stripped_tag)
+    except IndexError:
+        return stripped_tag
+    return stripped_tag

@@ -14,6 +14,16 @@ from rucio.core import replica
 from rucio.common import exception
 
 
+def declare_bad_file_replicas(pfns, rse):
+    """
+    Get a list of replicas and declare them bad
+
+    :param pfns: The list of PFNs.
+    :param rse: The RSE name.
+    """
+    return replica.declare_bad_file_replicas(pfns=pfns, rse=rse)
+
+
 def get_did_from_pfns(pfns, rse):
     """
     Get the DIDs associated to a PFN on one given RSE
