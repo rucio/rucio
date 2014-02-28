@@ -11,6 +11,7 @@
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
 
+import geoip2.database
 import gzip
 import os
 import pygeoip
@@ -65,6 +66,30 @@ def getGeoIPDB(directory, filename):
     return
 
 
+def get_lat_long(se, gi, gi2):
+    """
+    Get the latitude and longitude on one host using the GeoLite DB
+    :param se  : A hostname or IP.
+    :param gi  : A GeoIP object (pygeoip API for IPv4).
+    :param gi2 : A Reader object (geoip2 API for IPv6).
+    """
+    try:
+        ip = socket.gethostbyname(se)
+        d = gi.record_by_addr(ip)
+        return d['latitude'], d['longitude']
+    except socket.gaierror, e:
+        try:
+            # Host unknown. It might be IPv6. Trying with geoip2
+            print e
+            ip = socket.getaddrinfo(se, None)[0][4][0]
+            response = gi2.city(ip)
+            return response.location.latitude, response.location.longitude
+        except socket.gaierror, e:
+            # Host definitively unknown
+            print e
+            return None, None
+
+
 @region.cache_on_arguments(namespace='site_distance')
 def getDistance(se1, se2):
     """
@@ -75,23 +100,27 @@ def getDistance(se1, se2):
     directory = '/tmp'
     filename = 'GeoLiteCity.dat'
     getGeoIPDB(directory, filename)
+
+    directory = '/tmp'
+    ipv6_filename = 'GeoLite2-City.mmdb'
+    getGeoIPDB(directory, ipv6_filename)
+
     gi = pygeoip.GeoIP('%s/%s' % (directory, filename))
-    try:
-        ip = socket.gethostbyname(se1)
-        d = gi.record_by_addr(ip)
-        lat1, lon1 = d['latitude'], d['longitude']
-        ip = socket.gethostbyname(se2)
-        d = gi.record_by_addr(ip)
-        lat2, lon2 = d['latitude'], d['longitude']
-        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-        dlon = lon2 - lon1
+    gi2 = geoip2.database.Reader('%s/%s' % (directory, ipv6_filename))
+
+    lat1, long1 = get_lat_long(se1, gi, gi2)
+    lat2, long2 = get_lat_long(se2, gi, gi2)
+
+    if lat1 and lat2:
+        long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
+        dlon = long2 - long1
         dlat = lat2 - lat1
         a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
         c = 2 * asin(sqrt(a))
         return 6378 * c
-    except socket.gaierror, e:
-        print e
-        return 300000
+    else:
+        # One host is on the Moon
+        return 360000
 
 
 def random_order(replicas, IPclient):
