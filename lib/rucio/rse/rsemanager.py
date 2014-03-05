@@ -9,7 +9,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 import copy
 import os
@@ -88,7 +88,7 @@ def select_protocol(rse_settings, operation, scheme=None):
         candidates.remove(r)
 
     if not len(candidates):
-        raise exception.RSEProtocolNotSupported('No protocol for provided settings found.' % rse_settings['domain'])
+        raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings))
 
     # Select the one with the highest priority
     best_choice = candidates[0]
