@@ -146,21 +146,16 @@ def add_protocol(rse, issuer, **data):
     rse_module.add_protocol(rse, data['data'])
 
 
-def get_protocols(rse, issuer, protocol_domain='ALL', operation=None, default=False, scheme=None):
+def get_rse_protocols(rse, issuer):
     """
     Returns all matching protocols (including detailed information) for the given RSE.
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
-    :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL" (as default).
-    :param operation: The name of the requested operation (read, write, or delete).
-                      If None, all operations are queried.
-    :param default: Indicates if all or only the default protocols should be returned.
-    :param scheme: The protocol identifier.
 
     :returns: A dict with all supported protocols and their attibutes.
     """
-    return rse_module.get_protocols(rse, protocol_domain=protocol_domain, operation=operation, scheme=scheme, default=default)
+    return rse_module.get_rse_protocols(rse)
 
 
 def del_protocols(rse, scheme, issuer, hostname=None, port=None):

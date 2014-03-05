@@ -470,7 +470,6 @@ def info_rse(args):
     try:
         rseinfo = rseclient.get_rse(rse=args.rse)
         attributes = rseclient.list_rse_attributes(rse=args.rse)
-        protocols = rseclient.get_protocols(rse=args.rse)
         usage = rseclient.get_rse_usage(rse=args.rse)
     except Exception, e:
             print 'Failed to get RSE info'
@@ -480,14 +479,15 @@ def info_rse(args):
     print 'Settings:'
     print '========='
     for key in rseinfo:
-        print '  ' + key + ': ' + str(rseinfo[key])
+        if key != 'protocols':
+            print '  ' + key + ': ' + str(rseinfo[key])
     print 'Attributes:'
     print '==========='
     for k in attributes:
         print '  ' + k + ': ' + str(attributes[k])
     print 'Protocols:'
     print '=========='
-    for protocol in protocols:
+    for protocol in rseinfo['protocols']:
         print '  ' + protocol['scheme']
         for item in protocol:
             print '    ' + item + ': ' + str(protocol[item])

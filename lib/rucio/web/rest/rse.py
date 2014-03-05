@@ -17,7 +17,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
                            list_rse_attributes, del_rse_attribute,
-                           add_protocol, get_protocols, del_protocols,
+                           add_protocol, get_rse_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
                            set_rse_limits, get_rse_limits, parse_rse_expression)
@@ -257,12 +257,8 @@ class Protocols:
         """
         header('Content-Type', 'application/json')
         p_list = None
-        params = input()
-        operation = params.operation if 'operation' in params.keys() else None
-        default = params.default if 'default' in params.keys() else False
-        protocol_domain = params.protocol_domain if 'protocol_domain' in params.keys() else 'ALL'
         try:
-            p_list = get_protocols(rse, issuer=ctx.env.get('issuer'), protocol_domain=protocol_domain, operation=operation, default=default)
+            p_list = get_rse_protocols(rse, issuer=ctx.env.get('issuer'))
         except RSEOperationNotSupported, e:
             raise generate_http_error(404, 'RSEOperationNotSupported', e[0][0])
         except RSENotFound, e:
@@ -275,7 +271,10 @@ class Protocols:
             print e
             print format_exc()
             raise InternalError(e)
-        return dumps(p_list)
+        if len(p_list['protocols']):
+            return dumps(p_list['protocols'])
+        else:
+            raise generate_http_error(404, 'RSEProtocolNotSupported', 'No prptocols found for this RSE')
 
     def PUT(self, rse):
         """ Not supported. """
@@ -350,7 +349,7 @@ class Protocol:
         header('Content-Type', 'application/json')
         p_list = None
         try:
-            p_list = get_protocols(rse, issuer=ctx.env.get('issuer'), scheme=scheme)
+            p_list = get_rse_protocols(rse, issuer=ctx.env.get('issuer'))
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RSEProtocolNotSupported, e:
