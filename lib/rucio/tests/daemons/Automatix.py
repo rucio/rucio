@@ -1,4 +1,4 @@
-#!/opt/rucio/bin/python2.6
+#!/usr/bin/env python
 # Copyright European Organization for Nuclear Research (CERN)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 '''
 Automatix is a Data Generator daemon to generate fake data and upload it on a RSE.
