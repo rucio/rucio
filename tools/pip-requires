@@ -1,6 +1,6 @@
 # All dependencies needed to run rucio should be defined here
 
-cx_Oracle==5.1.2           # Oracle connector
+#cx_Oracle==5.1.2           # Oracle connector
 # MySQL-python==1.2.5      # MySQL connector
 # psycopg2==2.5.2          # PostgreSQL
 SQLAlchemy==0.9.2          # db backend
