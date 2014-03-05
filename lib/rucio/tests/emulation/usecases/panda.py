@@ -96,8 +96,12 @@ class UseCaseDefinition(UCEmulator):
                         replicas = [f for f in client.list_replicas([{'scope': temp[0], 'name': temp[1]}], schemes=None, unavailable=True)]
                 except (DatabaseException, DataIdentifierNotFound, ConnectionError):
                     replicas = list()
+                    delta = time.time() - now
+                    print '== PanDA-TIMER_1: Listing replicas in %s:%s took %s seconds and timed out in the end' % (temp[0], temp[1], delta)
                     pass
                 delta = time.time() - now
+                if delta > 600:
+                    print '== PanDA-TIMER_2: Listing replicas in %s:%s took %s seconds' % (temp[0], temp[1], delta)
                 if len(replicas):
                     monitor.record_timer('panda.list_replicas.normalized', delta / len(replicas))
             if len(replicas) == 0:
@@ -628,8 +632,12 @@ class UseCaseDefinition(UCEmulator):
         for job in jobs:
             try:
                 if job['input']['scope'] and job['input']['name']:
+                    now = time.time()
                     with monitor.record_timer_block('panda.list_replicas'):
                         replicas = [f for f in client.list_replicas([job['input']], schemes=None, unavailable=True)]
+                    delta = time.time() - now
+                    if delta > 600:
+                        print '== PanDA-TIMER_3: Listing replicas in %s:%s took %s seconds' % (job['input']['scope'], job['input']['name'], delta)
                     if job['computing_rse'] in replicas[0]['rses'].keys():
                         monitor.record_counter('panda.helper.replicas.found', 1)
                     else:
