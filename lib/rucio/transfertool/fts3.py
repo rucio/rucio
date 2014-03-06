@@ -59,6 +59,23 @@ def submit_transfers(transfers, job_metadata):
         if transfer['src_urls'] is None or transfer['src_urls'] == []:
             raise Exception('No sources defined')
 
+    # FTS3 expects 'davs' as the scheme identifier instead of https
+    new_src_urls = []
+    new_dst_urls = []
+    for transfer in transfers:
+        for url in transfer['src_urls']:
+            if url.startswith('https'):
+                new_src_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+            else:
+                new_src_urls.append(url)
+        for url in transfer['dest_urls']:
+            if url.startswith('https'):
+                new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+            else:
+                new_dst_urls.append(url)
+    transfer['src_urls'] = new_src_urls
+    transfer['dest_urls'] = new_dst_urls
+
     transfer_ids = {}
 
     job_metadata['issuer'] = 'rucio-transfertool-fts3'

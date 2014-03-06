@@ -90,19 +90,25 @@ def request_transfer(once=False, process=0, total_processes=1, thread=0, total_t
             did.add_did(scope='mock', name='dataset-%s' % tmp_name,
                         type=DIDType.DATASET, account='root', session=session)
 
-            # create PFN
-            pfn = rsemanager.lfns2pfns(rsemanager.get_rse_info(site_a, session=session),
-                                       lfns=[{'scope': 'mock', 'name': 'file-%s' % tmp_name}])['mock:file-%s' % tmp_name]
+            si = rsemanager.get_rse_info(site_a, session=session)
 
-            httpspfn = ':'.join(['https'] + pfn.split(':')[1:])
+            # construct PFN
+            pfn = rsemanager.lfns2pfns(si, lfns=[{'scope': 'mock', 'name': 'file-%s' % tmp_name}])['mock:file-%s' % tmp_name]
 
-            # explicitly create directory hierarchy one-by-one
-            commands.getstatusoutput('curl -s -i --capath /etc/grid-security/certificates/ -E %s -X MKCOL %s' % (config_get('injector', 'proxy'), '/'.join(httpspfn.split('/')[:-3])))
-            commands.getstatusoutput('curl -s -i --capath /etc/grid-security/certificates/ -E %s -X MKCOL %s' % (config_get('injector', 'proxy'), '/'.join(httpspfn.split('/')[:-2])))
-            commands.getstatusoutput('curl -s -i --capath /etc/grid-security/certificates/ -E %s -X MKCOL %s' % (config_get('injector', 'proxy'), '/'.join(httpspfn.split('/')[:-1])))
+            # create the directories if needed
+            p = rsemanager.create_protocol(si, operation='write', scheme='https')
+            p.connect()
+            try:
+                p.mkdir(pfn)
+            except:
+                pass
 
             # upload the test file
-            commands.getstatusoutput('curl -s -i --capath /etc/grid-security/certificates/ -E %s -L -T %s %s' % (config_get('injector', 'proxy'), config_get('injector', 'file'), httpspfn))
+            s, o = commands.getstatusoutput('curl -s -i --capath /etc/grid-security/certificates/ -E %s -L -T %s %s' % (config_get('injector', 'proxy'), config_get('injector', 'file'), pfn))
+            if s != 0:
+                print 'Could not upload, removing temporary DID'
+                did.delete_dids([{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}], account='root', session=session)
+                continue
 
             # add the replica
             replica.add_replica(rse=site_a, scope='mock', name='file-%s' % tmp_name,
@@ -152,7 +158,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1, davs_src=None
 
     if once:
         logging.info('executing one conveyorinjector iteration only')
-        request_transfer(once, davs_src, davs_dst)
+        request_transfer(once=True, davs_src=davs_src, davs_dst=davs_dst)
 
     else:
 
