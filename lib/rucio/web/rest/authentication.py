@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -187,13 +187,15 @@ class x509:
         # Alternative: use the SSL_CLIENT_I_DN, but that would require a separate
         # endpoint as you cannot programmatically decide, by examining the SSL variables,
         # if you got a proxy or regular certificate
-        if dn.endswith('/CN=limited proxy'):
-            dn = dn[:-17]
-        if dn.endswith('/CN=proxy'):
-            while dn.endswith('/CN=proxy'):
+        while True:
+            if dn.endswith('/CN=limited proxy'):
+                dn = dn[:-17]
+            elif dn.endswith('/CN=proxy'):
                 dn = dn[:-9]
-        elif search('/CN=[0-9]*$', dn):
-            dn = dn.rpartition('/')[0]
+            elif search('/CN=[0-9]*$', dn):
+                dn = dn.rpartition('/')[0]
+            else:
+                break
 
         try:
             result = get_auth_token_x509(account, dn, appid, ip)
