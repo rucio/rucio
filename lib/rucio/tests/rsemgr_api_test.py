@@ -36,6 +36,12 @@ class MgrTestCases():
         self.user = user
         self.static_file = static_file
 
+    def setup_scheme(self, scheme):
+        """(RSE/PROTOCOLS):  Make mgr to select this scheme first."""
+        for protocol in self.rse_settings['protocols']:
+            if scheme and protocol['scheme'] != scheme:
+                self.rse_settings['protocols'].remove(protocol)
+
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
         """(RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
