@@ -8,18 +8,16 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Wen Guan, <wguan@cern.ch>, 2014
 
 import commands
 import os
 import re
-import subprocess
-import signal
-import sys
-import time
 import urlparse
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
+from rucio.common.utils import execute
 
 
 class Default(protocol.RSEProtocol):
@@ -35,17 +33,30 @@ class Default(protocol.RSEProtocol):
         """
         pfns = {}
         prefix = self.attributes['prefix']
-        web_service_path = self.attributes['extended_attributes']['web_service_path']
+        if self.attributes['extended_attributes'] is not None and 'web_service_path' in self.attributes['extended_attributes'].keys():
+            web_service_path = self.attributes['extended_attributes']['web_service_path']
+        else:
+            web_service_path = ''
 
         if not prefix.startswith('/'):
             prefix = ''.join(['/', prefix])
         if not prefix.endswith('/'):
             prefix = ''.join([prefix, '/'])
 
+        hostname = self.attributes['hostname']
+        if hostname.count("://"):
+            hostname = hostname.split("://")[1]
+
         lfns = [lfns] if type(lfns) == dict else lfns
-        for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
-            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), web_service_path, prefix, self._get_path(scope=scope, name=name)])
+        if self.attributes['port'] == 0:
+            for lfn in lfns:
+                scope, name = lfn['scope'], lfn['name']
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, self._get_path(scope=scope, name=name)])
+        else:
+            for lfn in lfns:
+                scope, name = lfn['scope'], lfn['name']
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, self._get_path(scope=scope, name=name)])
+
         return pfns
 
     def parse_pfns(self, pfns):
@@ -70,8 +81,9 @@ class Default(protocol.RSEProtocol):
                 hostname = parsed.netloc.partition(':')[0]
                 port = parsed.netloc.partition(':')[2]
                 path = parsed.path
+                service_path = ''
 
-            if self.attributes['hostname'] != hostname:
+            if self.attributes['hostname'] != hostname and self.attributes['hostname'] != scheme + "://" + hostname:
                 raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (hostname, self.attributes['hostname']))
 
             if port != '' and str(self.attributes['port']) != str(port):
@@ -87,9 +99,37 @@ class Default(protocol.RSEProtocol):
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
             path = path.partition(name)[0]
-            ret[pfn] = {'scheme': scheme, 'port': port, 'hostname': hostname, 'path': path, 'name': name, 'prefix': prefix}
+            ret[pfn] = {'scheme': scheme, 'port': port, 'hostname': hostname, 'path': path, 'name': name, 'prefix': prefix, 'web_service_path': service_path}
 
         return ret
+
+    def path2pfn(self, path):
+        """
+            Returns a fully qualified PFN for the file referred by path.
+
+            :param path: The path to the file.
+
+            :returns: Fully qualified PFN.
+        """
+        if path.startswith("srm://"):
+            return path
+
+        hostname = self.attributes['hostname']
+        if hostname.count("://"):
+            hostname = hostname.split("://")[1]
+
+        if 'extended_attributes' in self.attributes.keys() and self.attributes['extended_attributes'] is not None and 'web_service_path' in self.attributes['extended_attributes'].keys():
+            web_service_path = self.attributes['extended_attributes']['web_service_path']
+        else:
+            web_service_path = ''
+
+        if not path.startswith('srm'):
+            if self.attributes['port'] > 0:
+                return ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, path])
+            else:
+                return ''.join([self.attributes['scheme'], '://', hostname, web_service_path, path])
+        else:
+            return path
 
     def connect(self):
         """
@@ -102,8 +142,8 @@ class Default(protocol.RSEProtocol):
         status, lcglscommand = commands.getstatusoutput('which lcg-ls')
         if status != 0:
             raise exception.RSEAccessDenied('Cannot find lcg tools')
-        endpoint_basepath = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), self.attributes['extended_attributes']['web_service_path'], self.attributes['prefix']])
-        status, result = commands.getstatusoutput('%s -l -b --setype srmv2 %s' % (lcglscommand, endpoint_basepath))
+        endpoint_basepath = self.path2pfn(self.attributes['prefix'])
+        status, result = commands.getstatusoutput('%s -l  --srm-timeout 60 --defaultsetype srmv2 %s' % (lcglscommand, endpoint_basepath))
         if status != 0:
             print result
             raise exception.RSEAccessDenied('Endpoint not reachable')
@@ -118,26 +158,22 @@ class Default(protocol.RSEProtocol):
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
-         """
-        alive = True
-        timeout = 3600
-        timeoutCounter = 0
-        proc = subprocess.Popen('lcg-cp -v -b --srcsetype srmv2 %s file:%s' % (path, dest), shell=True)
-        # This part is taken from dq2-get
+        """
+        space_token = ''
+        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+            space_token = '--sst ' + self.attributes['extended_attributes']['space_token']
+
         try:
-            while(alive):
-                if timeoutCounter > timeout:
-                    os.kill(proc.pid, signal.SIGKILL)
-                    break
-                else:
-                    #None means still running
-                    if proc.poll() is None:
-                        time.sleep(1)
-                    else:
-                        alive = False
-        except:
-            excType, excValue, excStack = sys.exc_info()
-            print excValue
+            cmd = 'lcg-cp -v  --srm-timeout 3600  --defaultsetype srmv2 %s  %s file:%s' % (space_token, path, dest)
+            status, out, err = execute(cmd)
+            if not status == 0:
+                if self.__parse_srm_error__("SRM_INVALID_PATH", out, err):
+                    raise exception.SourceNotFound(err)
+                raise exception.RucioException(err)
+        except exception.SourceNotFound as e:
+            raise exception.SourceNotFound(str(e))
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
 
     def put(self, source, target, source_dir):
         """
@@ -151,7 +187,22 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        raise NotImplementedError
+        source_url = '%s/%s' % (source_dir, source) if source_dir else source
+
+        if not os.path.exists(source_url):
+            raise exception.SourceNotFound()
+
+        space_token = ''
+        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+            space_token = '--dst ' + self.attributes['extended_attributes']['space_token']
+
+        try:
+            cmd = 'lcg-cp -v  --srm-timeout 3600 --defaultsetype srmv2 %s file:%s %s' % (space_token, source_url, target)
+            status, out, err = execute(cmd)
+            if not status == 0:
+                raise exception.RucioException(err)
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
 
     def delete(self, path):
         """
@@ -162,8 +213,85 @@ class Default(protocol.RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        raise NotImplementedError
+        pfns = [path] if ((type(path) == str) or (type(path) == unicode)) else path
+
+        #if not self.exists(path):
+        #    raise exception.SourceNotFound()
+
+        try:
+            pfn_chunks = [pfns[i:i + 20] for i in range(0, len(pfns), 20)]
+            for pfn_chunk in pfn_chunks:
+                cmd = 'lcg-del -v --nolfc --srm-timeout 600 --defaultsetype srmv2'
+                for pfn in pfn_chunk:
+                    cmd += ' ' + pfn
+                status, out, err = execute(cmd)
+                if not status == 0:
+                    if self.__parse_srm_error__("SRM_INVALID_PATH", out, err):
+                        raise exception.SourceNotFound(err)
+                    raise exception.RucioException(err)
+        except exception.SourceNotFound as e:
+            raise exception.SourceNotFound(str(e))
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+    def rename(self, path, new_path):
+        """
+            Allows to rename a file stored inside the connected RSE.
+
+            :param path: path to the current file on the storage
+            :param new_path: path to the new file on the storage
+
+            :raises DestinationNotAccessible: if the destination storage was not accessible.
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+
+        try:
+            #self.create_dest_dir(os.path.dirname(new_path))
+            cmd = 'lcg-cp -v  --srm-timeout 3600 --defaultsetype srmv2 %s %s' % (path, new_path)
+            status, out, err = execute(cmd)
+            if not status == 0:
+                raise exception.RucioException(err)
+
+            cmd = 'lcg-del -v --nolfc --srm-timeout 600 --defaultsetype srmv2 %s' % (path)
+            status, out, err = execute(cmd)
+            if not status == 0:
+                raise exception.RucioException(err)
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+    def exists(self, path):
+        """
+            Checks if the requested file is known by the referred RSE.
+
+            :param path: Physical file name
+
+            :returns: True if the file exists, False if it doesn't
+
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+
+        try:
+            cmd = 'lcg-ls -v  --srm-timeout 60 --defaultsetype srmv2  %s' % (path)
+            status, out, err = execute(cmd)
+            if not status == 0:
+                return False
+            return True
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+    def __parse_srm_error__(self, err_code, out, err):
+        """Parse the error message to return error code."""
+        if out is not None and len(out) > 0:
+            if out.count(err_code) > 0:
+                return True
+        if err is not None and len(err) > 0:
+            if err.count(err_code) > 0:
+                return True
+        return False
 
     def close(self):
-        """ Closes the connection to RSE."""
+        """
+            Closes the connection to RSE.
+        """
         pass
