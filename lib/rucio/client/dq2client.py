@@ -18,7 +18,7 @@ from datetime import datetime
 from rucio.db.constants import RuleState
 from rucio.client.client import Client
 from rucio.common.utils import generate_uuid
-from rucio.common.exception import InvalidMetadata
+from rucio.common.exception import InvalidMetadata, RSENotFound
 
 
 class DQ2Client:
@@ -31,11 +31,22 @@ class DQ2Client:
         User information lookup program.
         :param userId: The userId (Distinguished Name or account/nickname).
         :return: A dictionary with the name nickname, email, dn.
+
+        B{Exceptions:}
+            - AccountNotFound is raised in case the dataset name doesn't exist.
         """
+        result = {}
+        account = userId
         if not userId:
             ret = self.client.whoami()
-            # ret['email']
-            return {'email': 'ph-adp-ddm-lab@cern.ch', 'nickname': ret['account'], 'dn': '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'}
+            account = ret['account']
+        result['nickname'] = account
+        for id in self.client.list_identities(account):
+            if id['type'] == 'GSS':
+                result['email'] = id['identity']
+            elif id['type'] == 'X509':
+                result['dn'] = id['identity']
+        return result
 
     def bulkDeleteDatasetReplicas(self):
         """
@@ -51,8 +62,12 @@ class DQ2Client:
 
     def checkDatasetConsistency(self, location, dsn, version=0, threshold=None, scope=None):
         """
-        This method does nothing in Rucio since there is no tracker. Always returns True.
+        This method does nothing in Rucio since there is no tracker. We just check if the dataset exist (by running a get metadata).
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
+        self.client.get_metadata(scope=scope, name=dsn)
         return True
 
     def closeDataset(self, scope, dsn):
@@ -392,15 +407,48 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def queryStorageUsage(self):
+    def queryStorageUsage(self, key=None, value=None, site=None, metaDataAttributes={}, locations=[]):
         """
-        ToDo
-        """
-        raise NotImplementedError
+        Returns a tuple containing storage usage infos .
 
-    def queryStorageUsageHistory(self):
+        @since: 0.4.6
         """
-        ToDo
+        result = []
+        if site is None and locations == []:
+            #Loop over all locations
+            rses = [rse['rse'] for rse in self.client.list_rses()]
+        elif site:
+            rses = [site, ]
+            try:
+                d = self.client.get_rse_usage(site)
+            except RSENotFound:
+                pass
+        else:
+            rses = locations
+
+        if key == 'srm' or 'srm' in metaDataAttributes:
+            for rse in rses:
+                try:
+                    d = self.client.get_rse_usage(rse)
+                    result.append({'files': None, 'key': 'srm', 'datasets': None, 'tera': d['total']/1024./1024./1024./1024, 'giga': d['total']/1024./1024./1024,
+                                   'mega': d['total']/1024./1024., 'bytes': d['total'], 'timestamp': str(d['updated_at']), 'value': 'total', 'location': rse})
+                except StopIteration:
+                    print 'Error'
+                except RSENotFound:
+                    #In DQ2 it does not fail if the site does not exist
+                    pass
+        elif key == 'owner':
+            # Need mapping DN to account
+            # Right now, only work with account.
+            raise NotImplementedError
+        elif key == 'group':
+            raise NotImplementedError
+        return result
+
+    def queryStorageUsageHistory(self, site, key='GRID', value='total'):
+        """
+        Returns a tuple containing storage usage evolution.
+        @since: 0.4.*
         """
         raise NotImplementedError
 

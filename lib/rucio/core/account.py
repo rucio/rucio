@@ -11,6 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from datetime import datetime
 
@@ -155,7 +156,7 @@ def list_identities(account, session=None):
     """
     identity_list = list()
 
-    query = session.query(models.Account).filter_by(account=account).filter_by(deleted=False)
+    query = session.query(models.Account).filter_by(account=account).filter_by(status=AccountStatus.ACTIVE)
     try:
         query.one()
     except exc.NoResultFound:
