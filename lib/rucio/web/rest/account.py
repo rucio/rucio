@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from datetime import datetime
 from json import dumps, loads
@@ -313,11 +314,12 @@ class Identities(RucioController):
         header('Content-Type', 'application/x-json-stream')
         try:
             for identity in list_identities(account):
-                yield dumps(identity) + "\n"
+                yield render_json(**identity) + "\n"
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except Exception, e:
             print e
+            print str(format_exc())
             raise InternalError(e)
 
     def PUT(self):
