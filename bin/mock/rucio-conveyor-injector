@@ -29,8 +29,12 @@ if __name__ == "__main__":
     parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
     parser.add_argument("--total-threads", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
     args = parser.parse_args()
-
     try:
-        run(once=args.run_once, process=args.process, total_processes=args.total_processes, total_threads=args.total_threads)
+        run(once=args.run_once,
+            process=args.process,
+            total_processes=args.total_processes,
+            total_threads=args.total_threads,
+            davs_src=args.davs_src,
+            davs_dst=args.davs_dst)
     except KeyboardInterrupt:
         stop()

@@ -150,7 +150,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                             destinations.append(pfn[k][url])
 
                 protocols = None
-                scheme = 'davs'  # try webdav first, fallback automatically if not available
+                scheme = 'https'  # try webdav first, fallback automatically if not available
                 try:
                     protocols = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
                 except RSEProtocolNotSupported:
