@@ -32,7 +32,7 @@ from requests_kerberos import HTTPKerberosAuth
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter, RucioException
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
 from rucio.common.utils import build_url, parse_response
 
 LOG = getLogger(__name__)
@@ -256,10 +256,9 @@ class BaseClient(object):
             LOG.error('cannot get auth_token')
             return False
 
-        if r.status_code == codes.unauthorized:
-            raise CannotAuthenticate('wrong credentials')
         if r.status_code != codes.ok:
-            raise RucioException('unknown error')
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
 
         self.auth_token = r.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
@@ -312,10 +311,9 @@ class BaseClient(object):
             LOG.error('cannot get auth_token')
             return False
 
-        if r.status_code == codes.unauthorized:
-            raise CannotAuthenticate('wrong credentials')
         if r.status_code != codes.ok:
-            raise RucioException('unknown error')
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
 
         self.auth_token = r.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
@@ -346,10 +344,9 @@ class BaseClient(object):
             LOG.error('cannot get auth_token')
             return False
 
-        if r.status_code == codes.unauthorized:
-            raise CannotAuthenticate('wrong credentials')
         if r.status_code != codes.ok:
-            raise RucioException('unknown error')
+            exc_cls, exc_msg = self._get_exception(r.headers)
+            raise exc_cls(exc_msg)
 
         self.auth_token = r.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
