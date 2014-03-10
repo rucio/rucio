@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -37,7 +37,7 @@ def declare_bad_file_replicas(pfns, rse, session=None):
     :param rse: The RSE name.
     :param session: The database session in use.
     """
-    rse_info = rsemgr.get_rse_info(rse, session)
+    rse_info = rsemgr.get_rse_info(rse, session=session)
     rse_id = rse_info['id']
     pfndict = {}
     p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
@@ -74,7 +74,7 @@ def get_did_from_pfns(pfns, rse, session=None):
     :param session: The database session in use.
     :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
     """
-    rse_info = rsemgr.get_rse_info(rse)
+    rse_info = rsemgr.get_rse_info(rse, session=session)
     rse_id = rse_info['id']
     pfndict = {}
     p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')

@@ -69,23 +69,21 @@ class UserPass(RucioController):
         try:
             result = get_auth_token_user_pass(account, username, password, appid, ip)
         except AccessDenied:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             print format_exc()
             raise InternalError(e)
 
-        if result is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-        else:
-            header('X-Rucio-Auth-Token', result)
-            return str()
+        if not result:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        raise BadRequest()
+        header('X-Rucio-Auth-Token', result)
+        return str()
 
 
-class GSS:
+class GSS(RucioController):
     """
     Authenticate a Rucio account temporarily via a GSS token.
     """
@@ -121,30 +119,18 @@ class GSS:
         try:
             result = get_auth_token_gss(account, gsscred, appid, ip)
         except AccessDenied:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         if result is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         else:
             header('X-Rucio-Auth-Token', result)
             return str()
 
         raise BadRequest()
 
-    def PUT(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
 
-    def POST(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-
-class x509:
+class x509(RucioController):
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
     """
@@ -200,30 +186,18 @@ class x509:
         try:
             result = get_auth_token_x509(account, dn, appid, ip)
         except AccessDenied:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
+            print 'CannotAuthenticate', account, dn, appid, ip
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        if result is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-        else:
-            header('X-Rucio-Auth-Token', result)
-            return str()
+        if not result:
+            print 'CannotAuthenticate', account, dn, appid, ip
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        raise BadRequest()
-
-    def PUT(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def POST(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+        header('X-Rucio-Auth-Token', result)
+        return str()
 
 
-class Validate:
+class Validate(RucioController):
     """
     Validate a Rucio Auth Token.
     """
@@ -248,25 +222,10 @@ class Validate:
         token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         result = validate_auth_token(token)
+        if not result:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        if result is None:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
-        else:
-            return result
-
-        raise BadRequest()
-
-    def PUT(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def POST(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
-
-    def DELETE(self):
-        header('Content-Type', 'application/octet-stream')
-        raise BadRequest()
+        return result
 
 
 """----------------------
