@@ -8,10 +8,11 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 testopts="-t"
 noseopts="--exclude=.*test_rse_protocol_.* "
+dq2opts=""
 
 function usage {
   echo 'Usage: $0 [OPTION]...'
@@ -26,6 +27,7 @@ function usage {
   echo '  -u    Update pip dependencies.'
   echo '  -k    Keep database.'
   echo '  -1    Only run once.'
+  echo '  -q    Exclude DQ2 tests.'
   exit
 }
 
@@ -36,7 +38,7 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrctid1uk opt
+while getopts hrctid1ukq opt
 do
   case "$opt" in
     h) usage;;
@@ -48,6 +50,7 @@ do
     u) update_deps="true";;
     k) keep_db="true";;
     1) range=1;;
+    q) dq2opts="--exclude=test_dq2*";;
   esac
 done
 
@@ -108,6 +111,6 @@ fi
 for i in $range
 do
     echo 'Running tests with nose - Iteration' $i
-    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
-    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts
+    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts
 done
