@@ -56,10 +56,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                     break
                 session.commit()
                 time.sleep(1)  # Only sleep if there is nothing to do
-                logging.info('nothing to do')
                 continue
-
-            logging.debug('working on %s requests' % len(reqs))
 
             for req in reqs:
                 ts = time.time()

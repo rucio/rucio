@@ -95,7 +95,7 @@ def submit_transfers(transfers, transfertool, job_metadata={}, session=None):
     """
     Submit transfer request to a transfertool.
 
-    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'checksum'
+    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'bytes', 'md5', 'adler32'
     :param transfertool: Transfertool as a string.
     :param job_metadata: Metadata key/value pairs for all files as a dictionary.
     :returns: Transfertool external ID.
@@ -113,9 +113,11 @@ def submit_transfers(transfers, transfertool, job_metadata={}, session=None):
                .filter_by(id=transfer_id)\
                .update({'state': RequestState.SUBMITTED, 'external_id': transfer_ids[transfer_id]}, synchronize_session=False)
 
+    return transfer_ids
+
 
 @transactional_session
-def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, session=None):
+def submit_transfer(request_id, src_urls, dest_urls, transfertool, filesize, md5=None, adler32=None, metadata={}, session=None):
     """
     Submit a transfer request to a transfertool.
 
@@ -129,14 +131,15 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, metadata={}, 
 
     record_counter('core.request.submit_transfer')
 
-    submit_transfers(transfers=[{'request_id': request_id,
-                                 'src_urls': src_urls,
-                                 'dest_urls': dest_urls,
-                                 'filesize': 12345L,
-                                 'checksum': 'ad:12345',
-                                 'metadata': metadata}],
-                     transfertool=transfertool,
-                     session=session)
+    return submit_transfers(transfers=[{'request_id': request_id,
+                                        'src_urls': src_urls,
+                                        'dest_urls': dest_urls,
+                                        'filesize': filesize,
+                                        'md5': md5,
+                                        'adler32': adler32,
+                                        'metadata': metadata}],
+                            transfertool=transfertool,
+                            session=session)
 
 
 @transactional_session
