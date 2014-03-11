@@ -9,6 +9,6 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
-scp root@voatlasrucio-daemon-dev-01:/opt/rucio/etc/rucio01.proxy /opt/rucio/etc/rucio01.proxy
-chmod 600 /opt/rucio/etc/rucio01.proxy
-export X509_USER_PROXY=/opt/rucio/etc/rucio01.proxy
+scp root@voatlasrucio-daemon-prod-01:/opt/rucio/etc/rucio01.proxy /opt/rucio/tools/rucio01.proxy
+chmod 600 /opt/rucio/tools/rucio01.proxy
+export X509_USER_PROXY=/opt/rucio/tools/rucio01.proxy

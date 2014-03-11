@@ -49,7 +49,7 @@ def submit_transfers(transfers, job_metadata):
     """
     Submit a transfer to FTS3 via JSON.
 
-    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'checksum', 'overwrite', 'job_metadata', 'src_spacetoken', 'dest_spacetoken'
+    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'md5', 'adler32', 'overwrite', 'job_metadata', 'src_spacetoken', 'dest_spacetoken'
     :param job_metadata: Dictionary containing key/value pairs, for all transfers.
     :returns: List of FTS transfer identifiers
     """
@@ -76,6 +76,13 @@ def submit_transfers(transfers, job_metadata):
     transfer['src_urls'] = new_src_urls
     transfer['dest_urls'] = new_dst_urls
 
+    # Rewrite the checksums into FTS3 format, prefer adler32 if available
+    for transfer in transfers:
+        if 'md5' in transfer.keys() and transfer['md5'] is not None:
+            transfer['checksum'] = 'MD5:%s' % str(transfer['md5'])
+        if 'adler32' in transfer.keys() and transfer['adler32'] is not None:
+            transfer['checksum'] = 'ADLER32:%s' % str(transfer['adler32'])
+
     transfer_ids = {}
 
     job_metadata['issuer'] = 'rucio-transfertool-fts3'
@@ -90,11 +97,11 @@ def submit_transfers(transfers, job_metadata):
                                   'metadata': {'issuer': 'rucio-transfertool-fts3'},
                                   'filesize': int(transfer['filesize']),
                                   'checksum': str(transfer['checksum'])}],
-                       'params': {'verify_checksum': True,
-                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'no_spacetoken',
+                       'params': {'verify_checksum': True if transfer['checksum'] is not None else False,
+                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'null',
                                   'copy_pin_lifetime': -1,
                                   'job_metadata': job_metadata,
-                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'no_spacetoken',
+                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'null',
                                   'overwrite': False}}
 
         r = None
@@ -104,7 +111,7 @@ def submit_transfers(transfers, job_metadata):
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
                               verify=__CACERT,
-                              cert=__USERCERT,
+                              cert=(__USERCERT, __USERCERT),
                               data=params_str,
                               headers={'Content-Type': 'application/json'})
         else:
@@ -122,7 +129,7 @@ def submit_transfers(transfers, job_metadata):
 
 def submit(request_id, src_urls, dest_urls,
            src_spacetoken=None, dest_spacetoken=None,
-           filesize=None, checksum=None,
+           filesize=None, md5=None, adler32=None,
            overwrite=False, job_metadata={}):
     """
     Submit a transfer to FTS3 via JSON.
@@ -133,7 +140,8 @@ def submit(request_id, src_urls, dest_urls,
     :param src_spacetoken: Source spacetoken as a string - ignored for non-spacetoken-aware protocols.
     :param dest_spacetoken: Destination spacetoken as a string - ignored for non-spacetoken-aware protocols.
     :param filesize: Filesize in bytes.
-    :param checksum: Checksum as a string.
+    :param md5: MD5 checksum as a string.
+    :param adler32: ADLER32 checksum as a string.
     :param overwrite: Overwrite potentially existing destination, True or False.
     :param job_metadata: Optional job metadata as a dictionary.
     :returns: FTS transfer identifier as string.
@@ -143,7 +151,8 @@ def submit(request_id, src_urls, dest_urls,
                                        'src_urls': src_urls,
                                        'dest_urls': dest_urls,
                                        'filesize': filesize,
-                                       'checksum': checksum,
+                                       'md5': md5,
+                                       'adler32': adler32,
                                        'overwrite': overwrite,
                                        'src_spacetoken': src_spacetoken,
                                        'dest_spacetoken': dest_spacetoken},
@@ -164,7 +173,7 @@ def query(transfer_id):
     if __HOST.startswith('https://'):
         r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
                          verify=__CACERT,
-                         cert=__USERCERT,
+                         cert=(__USERCERT, __USERCERT),
                          headers={'Content-Type': 'application/json'})
     else:
         r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
@@ -201,7 +210,7 @@ def whoami():
     if __HOST.startswith('https://'):
         r = requests.get('%s/whoami' % __HOST,
                          verify=__CACERT,
-                         cert=__USERCERT,
+                         cert=(__USERCERT, __USERCERT),
                          headers={'Content-Type': 'application/json'})
     else:
         r = requests.get('%s/whoami' % __HOST,
@@ -226,7 +235,7 @@ def version():
     if __HOST.startswith('https://'):
         r = requests.get('%s/' % __HOST,
                          verify=__CACERT,
-                         cert=__USERCERT,
+                         cert=(__USERCERT, __USERCERT),
                          headers={'Content-Type': 'application/json'})
     else:
         r = requests.get('%s/' % __HOST,
