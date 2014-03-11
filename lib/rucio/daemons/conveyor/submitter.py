@@ -28,6 +28,7 @@ from rucio.db.session import get_session
 from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
+logging.getLogger("dogpile").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -69,16 +70,14 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     break
                 session.commit()
                 time.sleep(1)  # Only sleep if there is nothing to do
-                logging.info('nothing to do')
                 continue
-
-            logging.debug('working on %s requests' % len(reqs))
 
             for req in reqs:
                 ts = time.time()
                 tmpsrc = []
-                filesize = 12345L
-                checksum = 'ADLER32:123456'
+                filesize = None
+                md5 = None
+                adler32 = None
                 src_spacetoken = None
 
                 try:
@@ -91,7 +90,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                             for pfn in source['rses'][endpoint]:
                                 tmpsrc.append(str(pfn))
                         filesize = long(source['bytes'])
-                        checksum = source['adler32']
+                        md5 = source['md5']
+                        adler32 = source['adler32']
                         src_spacetoken = source['space_token'] if 'space_token' in source.keys() else None
                 except DataIdentifierNotFound:
                     record_counter('daemons.conveyor.submitter.lost_did')
@@ -150,7 +150,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                             destinations.append(pfn[k][url])
 
                 protocols = None
-                scheme = 'https'  # try webdav first, fallback automatically if not available
+                scheme = 'https'
+                if pfn.values()[0].startswith('srm'):
+                    scheme = 'srm'
+
                 try:
                     protocols = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
                 except RSEProtocolNotSupported:
@@ -159,7 +162,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 # we need to set the spacetoken if we use SRM
                 dest_spacetoken = None
                 if scheme == 'srm':
-                    dest_spacetoken = protocols[0]['extended_attributes']['space_token']
+                    dest_spacetoken = protocols['extended_attributes']['space_token']
 
                 # Come up with mock sources if necessary
                 if mock:
@@ -169,16 +172,17 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     sources = tmp_sources
 
                 ts = time.time()
-                request.submit_transfers(transfers=[{'request_id': req['request_id'],
-                                                     'src_urls': sources,
-                                                     'dest_urls': destinations,
-                                                     'filesize': filesize,
-                                                     'checksum': checksum,
-                                                     'src_spacetoken': src_spacetoken,
-                                                     'dest_spacetoken': dest_spacetoken}],
-                                         transfertool='fts3',
-                                         job_metadata={'request_id': req['request_id']},
-                                         session=session)
+                eid = request.submit_transfers(transfers=[{'request_id': req['request_id'],
+                                                           'src_urls': sources,
+                                                           'dest_urls': destinations,
+                                                           'filesize': filesize,
+                                                           'md5': md5,
+                                                           'adler32': adler32,
+                                                           'src_spacetoken': src_spacetoken,
+                                                           'dest_spacetoken': dest_spacetoken}],
+                                               transfertool='fts3',
+                                               job_metadata={'request_id': req['request_id']},
+                                               session=session)
                 record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time() - ts) * 1000)
 
                 ts = time.time()
@@ -186,7 +190,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                     scope=req['scope'],
                                     name=req['name'],
                                     bytes=filesize,
-                                    adler32=checksum,
+                                    md5=md5,
+                                    adler32=adler32,
                                     account='root',
                                     session=session)
                 record_timer('daemons.conveyor.submitter.005-add_replica', (time.time() - ts) * 1000)
@@ -199,7 +204,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                session=session)
                 record_timer('daemons.conveyor.submitter.006-replica-set_copying', (time.time() - ts) * 1000)
 
-                logging.info('COPYING %s:%s from %s to %s' % (req['scope'], req['name'], sources, destinations))
+                logging.info('COPYING EID %s DID %s:%s FROM %s TO %s ' % (eid, req['scope'], req['name'], sources, destinations))
                 record_counter('daemons.conveyor.submitter.submit_request')
 
                 session.commit()

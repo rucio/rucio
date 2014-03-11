@@ -22,19 +22,11 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--davs-src", action="store", default=None, help='In format https://host:port/path')
-    parser.add_argument("--davs-dst", action="store", default=None, help='In format https://host:port/path')
+    parser.add_argument("--src", action="store", default=None, help='(scheme or token)://host:port/path')
+    parser.add_argument("--dst", action="store", default=None, help='(scheme or token)://host:port/path')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
-    parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
-    parser.add_argument("--total-threads", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
     args = parser.parse_args()
     try:
-        run(once=args.run_once,
-            process=args.process,
-            total_processes=args.total_processes,
-            total_threads=args.total_threads,
-            davs_src=args.davs_src,
-            davs_dst=args.davs_dst)
+        run(once=args.run_once, src=args.src, dst=args.dst)
     except KeyboardInterrupt:
         stop()
