@@ -21,7 +21,7 @@ from dateutil import parser
 v = '/etc/pki/tls/certs/CERN-bundle.pem'
 
 c = '/opt/rucio/tools/rucio01.proxy'
-s = 'DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=rucio01/CN=663551/CN=Robot: Rucio Service Account 01/CN=proxy/CN=proxy/CN=proxy'
+s = '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=rucio01/CN=663551/CN=Robot: Rucio Service Account 01/CN=proxy/CN=proxy/CN=proxy'
 if '--ddmadmin' in sys.argv:
     c = '/opt/rucio/tools/x509up'
     s = '/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ddmadmin/CN=531497/CN=Robot: ATLAS Data Management/CN=proxy/CN=proxy/CN=proxy'
