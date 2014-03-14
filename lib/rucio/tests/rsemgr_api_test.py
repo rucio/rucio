@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Wen Guan, <wguan@cern.ch>, 2014
 
 import json
 
@@ -36,11 +37,13 @@ class MgrTestCases():
         self.user = user
         self.static_file = static_file
 
-    def setup_scheme(self, scheme):
+    def setup_scheme(self, scheme, protocol_impl=None):
         """(RSE/PROTOCOLS):  Make mgr to select this scheme first."""
         for protocol in self.rse_settings['protocols']:
             if scheme and protocol['scheme'] != scheme:
                 self.rse_settings['protocols'].remove(protocol)
+        if (protocol_impl is not None) and len(self.rse_settings['protocols']) > 0:
+            self.rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.' + protocol_impl + '.Default'
 
     # Mgr-Tests: GET
     def test_multi_get_mgr_ok(self):
