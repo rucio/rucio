@@ -381,7 +381,7 @@ def delete_replicas(rse, files, session=None):
 
     delta, bytes, rowcount = 0, 0, 0
     for c in chunks(replica_condition, 10):
-        for (replica_bytes, ) in session.query(models.RSEFileAssociation.bytes).filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
+        for (replica_bytes, ) in session.query(models.RSEFileAssociation.bytes).with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
             bytes += replica_bytes
             delta += 1
 

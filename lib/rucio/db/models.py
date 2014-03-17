@@ -62,6 +62,10 @@ def _psql_rename_type(target, connection, **kw):
 def _add_hint(conn, element, multiparams, params):
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'locks':
         element = element.prefix_with("/*+ INDEX(LOCKS LOCKS_PK) */")
+    if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'replicas':
+        element = element.prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */")
+    if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'dids':
+        element = element.prefix_with("/*+ INDEX(DIDS DIDS_PK) */")
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'updated_dids':
         element = element.prefix_with("/*+ INDEX(updated_dids UPDATED_DIDS_SCOPERULENAME_IDX) */")
     return element, multiparams, params
