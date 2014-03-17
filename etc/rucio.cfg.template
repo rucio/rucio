@@ -57,6 +57,8 @@ carbon_port = 8125
 user_scope = rucio
 
 [conveyor]
+scheme = srm
+#scheme = https
 transfertool = fts3
 ftshosts = https://fts3-pilot.cern.ch:8446, https://fts3-pilot.cern.ch:8446
 cacert = /opt/rucio/etc/web/ca.crt
