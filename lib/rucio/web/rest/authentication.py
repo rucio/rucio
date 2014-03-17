@@ -186,11 +186,11 @@ class x509(RucioController):
         try:
             result = get_auth_token_x509(account, dn, appid, ip)
         except AccessDenied:
-            print 'CannotAuthenticate', account, dn, appid, ip
+            print 'Cannot Authenticate', account, dn, appid, ip
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         if not result:
-            print 'CannotAuthenticate', account, dn, appid, ip
+            print 'Cannot Authenticate', account, dn, appid, ip
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         header('X-Rucio-Auth-Token', result)
