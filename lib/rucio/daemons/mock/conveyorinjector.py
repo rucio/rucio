@@ -20,9 +20,9 @@ import traceback
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.utils import generate_uuid
-from rucio.core import did, rse, replica, request
+from rucio.core import did, rse, replica, rule
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.constants import DIDType, RequestType
+from rucio.db.constants import DIDType
 from rucio.db.session import get_session
 from rucio.rse import rsemanager
 
@@ -43,10 +43,8 @@ def request_transfer(once=False, src=None, dst=None):
 
     logging.info('request: starting')
 
-    session = get_session()
-
-    site_a = 'rse-%s' % generate_uuid()
-    site_b = 'rse-%s' % generate_uuid()
+    site_a = 'RSE%s' % generate_uuid().upper()
+    site_b = 'RSE%s' % generate_uuid().upper()
 
     scheme = 'https'
     impl = 'rucio.rse.protocols.webdav.Default'
@@ -88,6 +86,8 @@ def request_transfer(once=False, src=None, dst=None):
 
     si = rsemanager.get_rse_info(site_a)
 
+    session = get_session()
+
     logging.info('request: started')
 
     while not graceful_stop.is_set():
@@ -119,8 +119,7 @@ def request_transfer(once=False, src=None, dst=None):
                 fn = os.path.basename(config_get('injector', 'file'))
                 p.put(fn, pfn, source_dir=fp)
             except:
-                print sys.exc_info()
-                print 'Could not upload, removing temporary DID'
+                logging.critical('Could not upload, removing temporary DID: %s' % str(sys.exc_info()))
                 did.delete_dids([{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}], account='root', session=session)
                 break
 
@@ -137,13 +136,22 @@ def request_transfer(once=False, src=None, dst=None):
                                                                                'bytes': config_get('injector', 'bytes')}],
                             account='root', session=session)
 
-            # request transfer
-            request.queue_request('mock', 'file-%s' % tmp_name, rse.get_rse(site_b)['id'],
-                                  RequestType.TRANSFER, {'random': 'metadata'}, session=session)
+            # add rule for the dataset
+            ts = time.time()
 
-            logging.info('inserted transfer request for DID mock:%s' % tmp_name)
+            rule.add_rule(dids=[{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}],
+                          account='root',
+                          copies=1,
+                          rse_expression=site_b,
+                          grouping='ALL',
+                          weight=None,
+                          lifetime=None,
+                          locked=False,
+                          subscription_id=None,
+                          session=session)
 
-            record_timer('daemons.mock.conveyorinjector.request_transfer', (time.time()-ts)*1000)
+            logging.info('added rule for %s for DID mock:%s' % (site_b, tmp_name))
+            record_timer('daemons.mock.conveyorinjector.add_rule', (time.time()-ts)*1000)
 
             record_counter('daemons.mock.conveyorinjector.request_transfer')
 
