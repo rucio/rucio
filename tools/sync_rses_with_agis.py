@@ -30,8 +30,6 @@ if __name__ == '__main__':
     resp = requests.get(url=url)
     data = json.loads(resp.content)
 
-    rses = ['PRAGUELCG2-RUCIOTEST_SCRATCHDISK', ]
-
 #    rses = ['BNL-OSG2_DDMTEST',]
     c = Client()
     for rse in data:
@@ -39,20 +37,25 @@ if __name__ == '__main__':
         #if not rse['is_rucio']:
         #    continue
 
-        if rse['state'] != 'ACTIVE' or rse['is_tape']:
+        if rse['state'] != 'ACTIVE':
             continue
 
 #        if not rse['name'].startswith('IN2P3-LAPP_'):
-#            continue
+#        if not rse['name'].startswith('FZK-LCG2_'):
+#        if not rse['name'].startswith('LRZ-LMU'):
+#        if not rse['name'].startswith('INFN-FRASCATI'):
+#        if not rse['name'].startswith('IN2P3-LAPP_'):
+#        if not rse['name'].startswith('TAIWAN-LCG2'):
 
-        if not rse['name'].startswith('FZK-LCG2_'):
+        if not rse['name'].startswith('IN2P3-CC_'):
             continue
 
+        print rse['name']
         #if rse['name'] not in rses:
         #    continue
 
         try:
-            deterministic = True
+            deterministic = not rse['is_tape']
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
         except:
@@ -99,8 +102,7 @@ if __name__ == '__main__':
                 if o.port and str(o.port) in o.netloc:
                     netloc = o.netloc[:-len(':' + str(o.port))]
 
-                # For disk end-points nto for tape
-                if not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
+                if not rse['is_tape'] and not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
                     prefix = os.path.join(prefix, 'rucio/')
 
                 params = {'hostname': netloc,
