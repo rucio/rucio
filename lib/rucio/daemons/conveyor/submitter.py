@@ -34,7 +34,6 @@ logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-
 graceful_stop = threading.Event()
 
 
@@ -46,6 +45,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
     logging.info('submitter starting')
 
     session = get_session()
+    scheme = config_get('conveyor', 'scheme')
 
     logging.info('submitter started')
 
@@ -81,11 +81,11 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 src_spacetoken = None
 
                 try:
-                    for source in replica.list_replicas([{'scope': req['scope'],
-                                                          'name': req['name'],
-                                                          'type': DIDType.FILE}],
+                    for source in replica.list_replicas(dids=[{'scope': req['scope'],
+                                                               'name': req['name'],
+                                                               'type': DIDType.FILE}],
+                                                        schemes=[scheme],
                                                         session=session):
-
                         for endpoint in source['rses']:
                             for pfn in source['rses'][endpoint]:
                                 tmpsrc.append(str(pfn))
@@ -121,6 +121,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     if sum(1 for tmp in replica.list_replicas([{'scope': req['scope'],
                                                                 'name': req['name'],
                                                                 'type': DIDType.FILE}],
+                                                              schemes=[scheme],
                                                               unavailable=True,
                                                               session=session)):
                         logging.critical('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
@@ -138,7 +139,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 record_timer('daemons.conveyor.submitter.002-get_rse', (time.time() - ts) * 1000)
 
                 ts = time.time()
-                pfn = rsemgr.lfns2pfns(rse_info, lfns=[{'scope': req['scope'], 'name': req['name']}])
+                pfn = rsemgr.lfns2pfns(rse_info, lfns=[{'scope': req['scope'], 'name': req['name']}], scheme=scheme)
                 record_timer('daemons.conveyor.submitter.003-lfns2pfns', (time.time() - ts) * 1000)
 
                 destinations = []
@@ -150,10 +151,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                             destinations.append(pfn[k][url])
 
                 protocols = None
-                scheme = 'https'
-                if pfn.values()[0].startswith('srm'):
-                    scheme = 'srm'
-
                 try:
                     protocols = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
                 except RSEProtocolNotSupported:
@@ -184,17 +181,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                job_metadata={'request_id': req['request_id']},
                                                session=session)
                 record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time() - ts) * 1000)
-
-                ts = time.time()
-                replica.add_replica(rse=rse_info['rse'],
-                                    scope=req['scope'],
-                                    name=req['name'],
-                                    bytes=filesize,
-                                    md5=md5,
-                                    adler32=adler32,
-                                    account='root',
-                                    session=session)
-                record_timer('daemons.conveyor.submitter.005-add_replica', (time.time() - ts) * 1000)
 
                 ts = time.time()
                 replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
