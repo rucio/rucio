@@ -159,7 +159,8 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
 
     # Get the list of replicas
     is_false = False
-    replica_query = session.query(models.RSEFileAssociation, models.RSE.rse).join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).\
+    replica_query = session.query(models.RSEFileAssociation, models.RSE.rse).with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').\
+        join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).\
         filter(models.RSE.deleted == is_false).\
         order_by(models.RSEFileAssociation.scope).\
         order_by(models.RSEFileAssociation.name)
