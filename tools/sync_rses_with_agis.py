@@ -102,6 +102,8 @@ if __name__ == '__main__':
                 if o.port and str(o.port) in o.netloc:
                     netloc = o.netloc[:-len(':' + str(o.port))]
 
+                # For disk end-points nto for tape
+                prefix = rse['protocols'][protocol][0][2]
                 if not rse['is_tape'] and not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
                     prefix = os.path.join(prefix, 'rucio/')
 
