@@ -165,7 +165,11 @@ def list_replicas(args):
     dids = []
     try:
         for did in args.dids:
-            scope, name = did.split(':')
+            try:
+                scope, name = did.split(':')
+            except ValueError, e:
+                print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+                return FAILURE
             dids.append({'scope': scope, 'name': name})
         replicas = client.list_replicas(dids, schemes=protocols)
         print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
@@ -186,7 +190,11 @@ def add_dataset(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    scope, name = args.did.split(':')
+    try:
+        scope, name = args.did.split(':')
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+        return FAILURE
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                        account=args.account, auth_type=args.auth_strategy, creds=creds,
@@ -211,7 +219,11 @@ def add_container(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    scope, name = args.did.split(':')
+    try:
+        scope, name = args.did.split(':')
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+        return FAILURE
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                        account=args.account, auth_type=args.auth_strategy, creds=creds,
@@ -244,6 +256,9 @@ def attach(args):
     try:
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
         scope, name = args.todid.split(':')
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        return FAILURE
     except Exception, e:
         print e
 
@@ -274,6 +289,9 @@ def detach(args):
     try:
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
         scope, name = args.fromdid.split(':')
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.fromdid, e)
+        return FAILURE
     except Exception, e:
         print e
 
@@ -304,6 +322,9 @@ def add_files_to_dataset(args):
     try:
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.files]
         scope, name = args.todid.split(':')
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        return FAILURE
     except Exception, e:
         print e
 
@@ -334,6 +355,9 @@ def add_datasets_to_container(args):
     try:
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.datasets]
         scope, name = args.todid.split(':')
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        return FAILURE
     except Exception, e:
         print e
 
@@ -364,6 +388,9 @@ def add_containers_to_container(args):
     try:
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.containers]
         scope, name = args.todid.split(':')
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        return FAILURE
     except Exception, e:
         print e
 
@@ -438,6 +465,9 @@ def list_dids(args):
                         print '%(scope)s:%(name)s [%(type)s]' % d
                     else:
                         print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
+            except ValueError, e:
+                print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+                return FAILURE
             except Exception, e:
                 print e
 
@@ -518,6 +548,9 @@ def list_files(args):
             scope, name = did.split(':')
             for file in client.list_files(scope=scope, name=name):
                 print '%(scope)s:%(name)s' % file  # %(size)s\t%(checksum)s
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            return FAILURE
         except Exception, e:
             print e
 
@@ -542,6 +575,9 @@ def close(args):
             scope, name = did.split(':')
             client.set_status(scope=scope, name=name, open=False)
             print '%(scope)s:%(name)s has been closed.' % locals()
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            return FAILURE
         except Exception, e:
             print e
 
@@ -567,6 +603,9 @@ def stat(args):
             info = client.get_did(scope=scope, name=name)
             for k, v in info.iteritems():
                 print '%(k)s: %(v)s' % locals()
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            return FAILURE
         except Exception, e:
             print e
 
@@ -598,7 +637,11 @@ def upload(args):
                     account=args.account, auth_type=args.auth_strategy, creds=creds,
                     ca_cert=args.ca_certificate, timeout=args.timeout)
     if args.did:
-        dsn = {'scope': args.did.split(':')[0], 'name': args.did.split(':')[1]}
+        try:
+            dsn = {'scope': args.did.split(':')[0], 'name': args.did.split(':')[1]}
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+            return FAILURE
 
     files = args.files
     list_files = []
@@ -713,6 +756,9 @@ def download(args):
                     rse_dict[rse] = rsemgr.get_rse_info(rse)
                 rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
             print 'download operation for %s:%s done' % (scope, name)
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            return FAILURE
         except Exception, e:
             print 'Failed to download %(scope)s:%(name)s' % locals()
             print e
@@ -739,6 +785,9 @@ def get_metadata(args):
             meta = client.get_metadata(scope=scope, name=name)
             for k in meta:
                 print '%s: %s' % (k, meta[k])
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            return FAILURE
         except Exception, e:
             print 'Failed to get metadata for %(scope)s:%(name)s' % locals()
             print e
@@ -761,9 +810,13 @@ def set_metadata(args):
 
     try:
         client.set_metadata(scope=args.did.split(':')[0], name=args.did.split(':')[1], key=args.key, value=args.value)
+    except ValueError, e:
+        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+        return FAILURE
     except Exception, e:
-            print 'Failed to set metadata'
-            print e
+        print 'Failed to set metadata'
+        print e
+        return FAILURE
 
 
 def delete_metadata(args):
@@ -795,7 +848,11 @@ def add_rule(args):
 
     dids = []
     for did in args.dids:
-        scope, name = did.split(':')
+        try:
+            scope, name = did.split(':')
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            return FAILURE
         dids.append({'scope': scope, 'name': name})
 
     client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
@@ -893,6 +950,9 @@ def list_rules(args):
         try:
             scope, name = args.did.split(':')
             rules = client.list_did_rules(scope=scope, name=name)
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+            return FAILURE
         except Exception, e:
             print 'Failed to list rules'
             print e
