@@ -254,7 +254,7 @@ def __bulk_add_file_dids(files, account, session=None):
                       models.DataIdentifier.name,
                       models.DataIdentifier.bytes,
                       models.DataIdentifier.adler32,
-                      models.DataIdentifier.md5).filter(condition)
+                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(condition)
     available_files = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
     new_files = list()
     for file in files:
