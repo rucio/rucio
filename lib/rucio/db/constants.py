@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 """
 Constants.
@@ -118,6 +119,8 @@ class RequestType(DeclEnum):
     DELETE = 'D', 'DELETE'
     UPLOAD = 'U', 'UPLOAD'
     DOWNLOAD = 'D', 'DOWNLOAD'
+    STAGEIN = 'I', 'STAGEIN'
+    STAGEOUT = 'O', 'STAGEOUT'
 
 
 class RequestState(DeclEnum):

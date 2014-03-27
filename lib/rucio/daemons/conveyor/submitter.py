@@ -59,7 +59,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
         try:
 
             ts = time.time()
-            reqs = request.get_next(req_type=RequestType.TRANSFER,
+
+            reqs = request.get_next(req_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.QUEUED,
                                     limit=100,
                                     process=process,
