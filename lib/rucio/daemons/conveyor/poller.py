@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -48,7 +48,12 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
         try:
             ts = time.time()
-            reqs = request.get_next(req_type=RequestType.TRANSFER, state=RequestState.SUBMITTED, limit=100, process=process, total_processes=total_processes, thread=thread, total_threads=total_threads, session=session)
+            reqs = request.get_next(req_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                    state=RequestState.SUBMITTED,
+                                    limit=100,
+                                    process=process, total_processes=total_processes,
+                                    thread=thread, total_threads=total_threads,
+                                    session=session)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
 
             if reqs is None or reqs == []:

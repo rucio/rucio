@@ -149,7 +149,7 @@ def get_next(req_type, state, limit=100, process=None, total_processes=None, thr
     Workers are balanced via hashing to reduce concurrency on database.
 
     :param account: Account identifier as a string.
-    :param req_type: Type of the request as a string.
+    :param req_type: Type of the request as a string or list of strings.
     :param state: State of the request as a string.
     :param n: Integer of requests to retrieve.
     :param process: Identifier of the caller process as an integer.
@@ -161,12 +161,20 @@ def get_next(req_type, state, limit=100, process=None, total_processes=None, thr
 
     record_counter('core.request.get_next.%s-%s' % (req_type, state))
 
+    # lists of one element are not allowed by SQLA, so just duplicate the item
+    if type(req_type) == str:
+        req_type = [req_type, req_type]
+    elif len(req_type) == 1:
+        req_type = [req_type[0], req_type[0]]
+
     query = session.query(models.Request).add_columns(models.Request.id,
+                                                      models.Request.request_type,
                                                       models.Request.scope,
                                                       models.Request.name,
                                                       models.Request.dest_rse_id)\
                                          .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_CRE_IDX)", 'oracle')\
-                                         .filter_by(request_type=req_type, state=state)\
+                                         .filter_by(state=state)\
+                                         .filter(models.Request.request_type.in_(req_type))\
                                          .order_by(asc(models.Request.created_at))
 
     if (total_processes-1) > 0:
@@ -193,9 +201,10 @@ def get_next(req_type, state, limit=100, process=None, total_processes=None, thr
         result = []
         for t in tmp:
             result.append({'request_id': t[1],
-                           'scope': t[2],
-                           'name': t[3],
-                           'dest_rse_id': t[4]})
+                           'request_type': t[2],
+                           'scope': t[3],
+                           'name': t[4],
+                           'dest_rse_id': t[5]})
         return result
 
 
