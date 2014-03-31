@@ -23,11 +23,12 @@ from datetime import datetime
 from json import load
 from os import remove, rmdir, stat
 from sys import stdout
-from time import sleep
+from time import sleep, time
 
 from rucio.client import Client
 from rucio.common.config import config_get, config_get_int
 from rucio.common.utils import adler32
+from rucio.core import monitor
 from rucio.rse import rsemanager as rsemgr
 
 from rucio.common.utils import execute, generate_uuid
@@ -45,7 +46,7 @@ FAILURE = 1
 graceful_stop = threading.Event()
 
 
-def upload(files, scope, metadata, rse, account, source_dir, did=None):
+def upload(files, scope, metadata, rse, account, source_dir, worker_number, total_workers, did=None):
     logging.debug('In upload')
     dsn = None
     if did:
@@ -54,12 +55,12 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
 
     list_files = []
     lfns = []
-    logging.debug('Looping over the files')
+    logging.debug('Thread [%i/%i] : Looping over the files' % (worker_number, total_workers))
     for filename in files:
         fullpath = '%s/%s' % (source_dir, filename)
         size = stat(fullpath).st_size
         checksum = adler32(fullpath)
-        logging.info('File %s : Size %s , adler32 %s' % (fullpath, str(size), checksum))
+        logging.info('Thread [%i/%i] : File %s : Size %s , adler32 %s' % (worker_number, total_workers, fullpath, str(size), checksum))
         list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum, 'meta': {'guid': generate_uuid()}})
         lfns.append({'name': filename, 'scope': scope})
 
@@ -69,19 +70,19 @@ def upload(files, scope, metadata, rse, account, source_dir, did=None):
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
             rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
-            logging.info('Upload operation for %s done' % filename)
+            logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, filename))
         except Exception, e:
-            logging.error('Failed to upload %(files)s' % locals())
-            logging.error(e)
+            logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload (files)s' % locals())
+            logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, e))
     else:
-        logging.debug('No dsn is specified')
+        logging.warning('Thread [%i/%i] : No dsn is specified' % (worker_number, total_workers))
         try:
             client.add_replicas(files=list_files, rse=rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=rse)
             rsemgr.upload(rse_info, lfns=lfns)
-            logging.info('Upload operation for %s done' % filename)
+            logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, filename))
         except Exception, e:
-            logging.error('Failed to upload %(files)s' % locals())
+            logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
             logging(e)
 
 
@@ -109,27 +110,27 @@ def choose_element(probabilities, data):
 
 
 def generate_file(fname, size):
-    cmd = '/bin/dd if=/dev/urandom of=%(fname)s bs=1k count=%(size)s' % locals()
+    cmd = '/bin/dd if=/dev/urandom of=%(fname)s bs=%(size)s count=1' % locals()
     exitcode, out, err = execute(cmd)
     logging.debug(out)
     logging.debug(err)
     return exitcode
 
 
-def automatix(sites, inputfile, sleep_time, worker_number=1, total_workers=1, once=False):
+def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, once=False):
     while not graceful_stop.is_set():
-        nbfiles = 3
-        size = 1000
-        logging.info('Getting data distribution')
+        starttime = time()
+        logging.info('Thread [%i/%i] : Getting data distribution' % (worker_number, total_workers))
         probabilities, data = get_data_distribution(inputfile)
-        logging.debug(probabilities)
+        logging.debug('Thread [%i/%i] : Probabilities %s' % (worker_number, total_workers, probabilities))
         account = 'root'
         scope = 'tests'
         now = datetime.now()
         dsn_extension = '%s.%s.%s.%s' % (now.year, now.month, now.day, generate_uuid())
         for site in sites:
+            ts = time()
             tmpdir = tempfile.mkdtemp()
-            logging.info('Running on site %s' % (site))
+            logging.info('Thread [%i/%i] : Running on site %s' % (worker_number, total_workers, site))
             d = choose_element(probabilities, data)
             metadata = d['metadata']
             metadata['version'] = str(random.randint(0, 1000))
@@ -137,27 +138,42 @@ def automatix(sites, inputfile, sleep_time, worker_number=1, total_workers=1, on
             uuid = generate_uuid()
             metadata['stream_name'] = uuid[:8]
             metadata['campaign'] = uuid[8:12]
-            nbfiles = d['nbfiles']
+            try:
+                nbfiles = d['nbfiles']
+            except KeyError:
+                nbfiles = 2
+                logging.warning('Thread [%i/%i] : No nbfiles defined in the configuration, will use 2' % (worker_number, total_workers))
+            try:
+                filesize = d['filesize']
+            except KeyError:
+                filesize = 1000000
+                logging.warning('Thread [%i/%i] : No filesize defined in the configuration, will use 1M files' % (worker_number, total_workers))
             dsn = 'tests:%s.%s.%s.%s.%s.%s' % (metadata['project'], metadata['run_number'], metadata['stream_name'], metadata['prod_step'], metadata['datatype'], metadata['version'])
             fnames = []
             lfns = []
             for nb in xrange(nbfiles):
-                fname = '1k-file-' + generate_uuid()
+                fname = '%s.%s' % (metadata['datatype'], generate_uuid())
                 lfns.append(fname)
                 fname = '%s/%s' % (tmpdir, fname)
-                logging.info('Generating file %(fname)s in dataset %(dsn)s' % locals())
-                generate_file(fname, size)
+                logging.info('Thread [%(worker_number)s/%(total_workers)s] : Generating file %(fname)s in dataset %(dsn)s' % locals())
+                generate_file(fname, filesize)
                 fnames.append(fname)
-            logging.info('Upload %s to %s' % (dsn, site))
-            upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, did=dsn)
+            logging.info('Thread [%i/%i] : Upload %s to %s' % (worker_number, total_workers, dsn, site))
+            upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, worker_number=worker_number, total_workers=total_workers, did=dsn)
             for fname in fnames:
                 remove(fname)
             rmdir(tmpdir)
+            monitor.record_counter(counters='automatix.addnewdataset.done',  delta=1)
+            monitor.record_counter(counters='automatix.addnewfile.done',  delta=nbfiles)
+            monitor.record_timer('automatix.datasetinjection', (time() - ts) * 1000)
         if once is True:
-            logging.info('Run with once mode. Exiting')
+            logging.info('Thread [%i/%i] : Run with once mode. Exiting' % (worker_number, total_workers))
             break
-        logging.info('Will sleep for %s seconds' % str(sleep_time))
-        sleep(sleep_time)
+        tottime = time() - starttime
+        logging.info('Thread [%i/%i] : It took %s seconds to upload one dataset on %s' % (worker_number, total_workers, str(tottime), str(sites)))
+        if sleep_time > tottime:
+            logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (worker_number, total_workers, str(sleep_time - tottime)))
+            sleep(sleep_time - tottime)
 
 
 def run(total_workers=1, once=False):
@@ -176,6 +192,10 @@ def run(total_workers=1, once=False):
         sleep_time = config_get_int('automatix', 'sleep_time')
     except:
         sleep_time = 3600
+    try:
+        account = config_get_int('automatix', 'account')
+    except:
+        account = 'root'
     threads = list()
     for worker_number in xrange(0, total_workers):
         kwargs = {'worker_number': worker_number + 1,
@@ -183,11 +203,12 @@ def run(total_workers=1, once=False):
                   'once': once,
                   'sites': sites,
                   'sleep_time': sleep_time,
+                  'account': account,
                   'inputfile': inputfile}
         threads.append(threading.Thread(target=automatix, kwargs=kwargs))
     [t.start() for t in threads]
     while threads[0].is_alive():
-        logging.info('Still %i active threads' % len(threads))
+        logging.debug('Still %i active threads' % len(threads))
         [t.join(timeout=3.14) for t in threads]
 
 
