@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -18,6 +18,8 @@ import sys
 import threading
 import time
 import traceback
+
+from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported
@@ -45,7 +47,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
     logging.info('submitter starting')
 
     session = get_session()
-    scheme = config_get('conveyor', 'scheme')
+    try:
+        scheme = config_get('conveyor', 'scheme')
+    except NoOptionError:
+        scheme = 'srm'
 
     logging.info('submitter started')
 
