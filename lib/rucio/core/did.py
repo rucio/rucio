@@ -185,7 +185,28 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
                 or e.args[0] == "(IntegrityError) foreign key constraint failed" \
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
-        raise exception.RucioException(e.args)
+        elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
+                or match('.*columns scope, name, child_scope, child_name are not unique.*', e.args[0]):
+            # The file is already attached to the dataset. Just silently ignore the error
+            session.rollback()
+            replicas = rse and add_replicas(rse=rse, files=files, account=account, session=session)
+            session.flush()
+            for file in replicas or files:
+                did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
+                                                            bytes=file['bytes'], adler32=file.get('adler32'),
+                                                            md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE, rule_evaluation=True)
+                did_asso.save(session=session, flush=False)
+                try:
+                    session.flush()
+                    session.commit()
+                except IntegrityError, e:
+                    if match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
+                            or match('.*columns scope, name, child_scope, child_name are not unique.*', e.args[0]):
+                        session.rollback()
+                    else:
+                        raise exception.RucioException(e.args)
+        else:
+            raise exception.RucioException(e.args)
 
 
 @transactional_session

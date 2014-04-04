@@ -37,7 +37,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate
+from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileReplicaAlreadyExists
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager as rsemgr
 
@@ -669,6 +669,7 @@ def upload(args):
         metadata['campaign'] = args.campaign
 
     rse_settings = rsemgr.get_rse_info(args.rse)
+    add_files_individually = False
     if dsn:
         try:
             if args.account is None:
@@ -680,16 +681,20 @@ def upload(args):
             except DataIdentifierAlreadyExists, e:
                 print e
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
-            rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
-            print 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name'])
+            try:
+                rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
+                print 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name'])
+            except FileReplicaAlreadyExists, e:
+                add_files_individually = True
         except Duplicate, e:
-            #print e
+            add_files_individually = True
+
+        if add_files_individually:
             print 'Will check all individual files'
             for did in list_files:
                 try:
                     client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=[did], rse=args.rse)
                 except Duplicate, e:
-                    #print e
                     meta = client.get_metadata(did['scope'], did['name'])
                     if rsemgr.exists(rse_settings=rse_settings, files={'name': did['name'], 'scope': did['scope']}):
                         print 'File %s:%s already exists on RSE. Will not try to reupload' % (did['scope'], did['name'])
@@ -700,16 +705,19 @@ def upload(args):
                             rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}])
                         else:
                             print 'Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32'])
-        #except Exception, e:
-        #    print 'Failed to upload %(files)s' % locals()
-        #    print e
     else:
         try:
             client.add_replicas(files=list_files, rse=args.rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=args.rse)
-            rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
-            print 'Upload operation for %(files)s done' % locals()
+            try:
+                rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
+                print 'Upload operation for %(files)s done' % locals()
+            except FileReplicaAlreadyExists, e:
+                add_files_individually = True
         except Duplicate, e:
+            add_files_individually = True
+
+        if add_files_individually:
             print 'Will check all individual files'
             for did in list_files:
                 try:
