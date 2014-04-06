@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
@@ -14,14 +14,12 @@ import abc
 import random
 import re
 import string
-import time
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.utils import my_key_generator
-from rucio.core.monitor import record_timer
 from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
 
@@ -52,10 +50,9 @@ def parse_expression(expression, session):
     :return:            A list of rse_ids
     :raises:            InvalidRSEExpression, RSENotFound
     """
-    #Evaluate the correctness of the parantheses
-    start_time = time.time()
     result = region.get(expression)
     if type(result) is NoValue:
+        #Evaluate the correctness of the parentheses
         parantheses_open_count = 0
         parantheses_close_count = 0
         for char in expression:
@@ -80,7 +77,6 @@ def parse_expression(expression, session):
         if not result:
             raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
         region.set(expression, result)
-    record_timer(stat='rule.rse_expression_parse', time=(time.time() - start_time)*1000)
     return result
 
 

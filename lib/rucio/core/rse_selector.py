@@ -6,14 +6,11 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
-
-import time
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 from random import uniform, shuffle
 
 from rucio.common.exception import InsufficientQuota, InsufficientTargetRSEs, InvalidRuleWeight
-from rucio.core.monitor import record_timer
 from rucio.core.quota import list_account_limits, list_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.db.session import read_session
@@ -34,10 +31,8 @@ class RSESelector():
         :param weight:   Weighting to use.
         :param copies:   Number of copies to create.
         :param session:  DB Session in use.
-        :raises:         InvalidRuleWeight, InsufficientQuota
+        :raises:         InvalidRuleWeight, InsufficientQuota, InsufficientTargetRSEs
         """
-
-        start_time = time.time()
         self.account = account
         self.rses = []
         self.copies = copies
@@ -53,7 +48,7 @@ class RSESelector():
         else:
             self.rses = [{'rse_id': rse_id, 'weight': 1} for rse_id in rse_ids]
         if len(self.rses) < self.copies:
-            raise InvalidRuleWeight('Target RSE set not sufficient due to unset weight attributes.')
+            raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
         for rse in self.rses:
             #TODO: Add RSE-space-left here!
@@ -63,8 +58,6 @@ class RSESelector():
 
         if len(self.rses) < self.copies:
             raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
-
-        record_timer(stat='rule.rse_selector_create', time=(time.time() - start_time)*1000)
 
     def select_rse(self, size, preferred_rse_ids, blacklist=[]):
         """
