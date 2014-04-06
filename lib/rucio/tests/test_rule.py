@@ -21,13 +21,15 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound, AccessDenied
-from rucio.core.account_counter import get_counter
+from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute, get_rse
+from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_lock_state
 from rucio.daemons.abacus.account import account_update
+from rucio.daemons.abacus.rse import rse_update
 from rucio.db.constants import DIDType
 
 
@@ -59,13 +61,11 @@ class TestReplicationRuleCore():
     def setUpClass(cls):
         #Add test RSE
         cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK2'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
         cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse2_id = get_rse(cls.rse2).id
         cls.rse3_id = get_rse(cls.rse3).id
         cls.rse4_id = get_rse(cls.rse4).id
         cls.rse5_id = get_rse(cls.rse5).id
@@ -74,14 +74,12 @@ class TestReplicationRuleCore():
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
         add_rse_attribute(cls.rse1, cls.T1, True)
-        add_rse_attribute(cls.rse2, cls.T1, True)
         add_rse_attribute(cls.rse3, cls.T1, True)
         add_rse_attribute(cls.rse4, cls.T2, True)
         add_rse_attribute(cls.rse5, cls.T1, True)
 
         #Add fake weights
         add_rse_attribute(cls.rse1, "fakeweight", 10)
-        add_rse_attribute(cls.rse2, "fakeweight", 20)
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
@@ -93,9 +91,9 @@ class TestReplicationRuleCore():
         add_rule(dids=files, account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         #Check if the Locks are created properly
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse1_id, self.rse3_id, self.rse5_id])
         for file in files:
-            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) > 0)
             assert_not_in(self.rse4_id, rse_locks)
 
@@ -114,9 +112,9 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression='%s|%s' % (self.T1, self.T2), grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         #Check if the Locks are created properly
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse3_id, self.rse5_id])
         for file in files:
-            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
             assert_not_in(self.rse4_id, rse_locks)
 
@@ -151,13 +149,14 @@ class TestReplicationRuleCore():
                           'lifetime': None,
                           'locked': False,
                           'subscription_id': None}])
+
         #Check if the Locks are created properly
         for file in files1:
-            rse_locks = [lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)]
+            rse_locks = [lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])]
             assert(rse_locks[0] == rse_locks[1])
 
         for file in files2:
-            rse_locks = [lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)]
+            rse_locks = [lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])]
             assert(rse_locks[0] == rse_locks[1])
 
     def test_add_rule_container_none(self):
@@ -176,7 +175,7 @@ class TestReplicationRuleCore():
 
         add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.T2, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
         for file in all_files:
-            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert_in(self.rse4_id, rse_locks)
             assert_not_in(self.rse5_id, rse_locks)
 
@@ -191,12 +190,12 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         #Check if the Locks are created properly
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse3_id, self.rse5_id])
         first_locks = None
         for file in files:
             if first_locks is None:
-                first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
-            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+                first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
+            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
             assert(len(first_locks.intersection(rse_locks)) == 2)
 
@@ -221,12 +220,12 @@ class TestReplicationRuleCore():
 
         add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse3_id, self.rse5_id])
         first_locks = None
         for file in all_files:
             if first_locks is None:
-                first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
-            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+                first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
+            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
             assert(len(first_locks.intersection(rse_locks)) == 2)
 
@@ -241,12 +240,12 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         #Check if the Locks are created properly
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse3_id, self.rse5_id])
         first_locks = None
         for file in files:
             if first_locks is None:
-                first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
-            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+                first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
+            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
             assert(len(first_locks.intersection(rse_locks)) == 2)
 
@@ -273,13 +272,13 @@ class TestReplicationRuleCore():
 
         add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse3_id, self.rse5_id])
         for dataset in dataset_files:
             first_locks = None
             for file in dataset['files']:
                 if first_locks is None:
-                    first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
-                rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+                    first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
+                rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
                 assert(len(t1.intersection(rse_locks)) == 2)
                 assert(len(first_locks.intersection(rse_locks)) == 2)
 
@@ -294,9 +293,9 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight="fakeweight", lifetime=None, locked=False, subscription_id=None)
 
         #Check if the Locks are created properly
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse3_id, self.rse5_id])
         for file in files:
-            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+            rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
             assert_in(self.rse1_id, rse_locks)
 
@@ -318,13 +317,13 @@ class TestReplicationRuleCore():
 
         add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)
 
-        t1 = set([self.rse1_id, self.rse2_id, self.rse3_id, self.rse5_id])
+        t1 = set([self.rse1_id, self.rse3_id, self.rse5_id])
         for dataset in dataset_files:
             first_locks = None
             for file in dataset['files']:
                 if first_locks is None:
-                    first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
-                rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)])
+                    first_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
+                rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
                 assert(len(t1.intersection(rse_locks)) == 2)
                 assert(len(first_locks.intersection(rse_locks)) == 2)
                 assert_in(self.rse1_id, rse_locks)
@@ -352,7 +351,7 @@ class TestReplicationRuleCore():
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         delete_rule(rule_id)
         for file in files:
-            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
+            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
             assert(len(rse_locks) == 0)
         assert_raises(RuleNotFound, delete_rule, uuid())
 
@@ -365,14 +364,14 @@ class TestReplicationRuleCore():
         attach_dids(scope, dataset, files, 'jdoe')
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=3, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=4, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         delete_rule(rule_id_1)
 
         for file in files:
-            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
-            assert(len(rse_locks) == 7)
+            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
+            assert(len(rse_locks) == 5)
             #TODO Need to check transfer queue here, this is actually not the check of this test case
         assert_raises(RuleNotFound, delete_rule, uuid())
 
@@ -394,7 +393,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when new rule is created"""
 
         account_update(once=True)
-        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+        account_counter_before = get_account_counter(self.rse1_id, 'jdoe')
 
         scope = 'mock'
         files = create_files(3, scope, self.rse1, bytes=100)
@@ -406,7 +405,7 @@ class TestReplicationRuleCore():
 
         #Check if the counter has been updated correctly
         account_update(once=True)
-        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        account_counter_after = get_account_counter(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] + 3*100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
 
@@ -422,15 +421,35 @@ class TestReplicationRuleCore():
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         account_update(once=True)
-        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+        account_counter_before = get_account_counter(self.rse1_id, 'jdoe')
 
         delete_rule(rule_id)
         account_update(once=True)
 
         #Check if the counter has been updated correctly
-        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        account_counter_after = get_account_counter(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] - 3*100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 3 == account_counter_after['files'])
+
+    def test_rse_counter_unavailable_replicas(self):
+        """ REPLICATION RULE (CORE): Test if creating UNAVAILABLE replicas updates the RSE Counter correctly"""
+
+        rse_update(once=True)
+        rse_counter_before = get_rse_counter(self.rse3_id)
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        #Check if the rse has been updated correctly
+        rse_update(once=True)
+        rse_counter_after = get_rse_counter(self.rse3_id)
+        assert(rse_counter_before['bytes'] + 3*100 == rse_counter_after['bytes'])
+        assert(rse_counter_before['files'] + 3 == rse_counter_after['files'])
 
 
 class TestReplicationRuleClient():
@@ -439,13 +458,11 @@ class TestReplicationRuleClient():
     def setUpClass(cls):
         #Add test RSE
         cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK2'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
         cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse2_id = get_rse(cls.rse2).id
         cls.rse3_id = get_rse(cls.rse3).id
         cls.rse4_id = get_rse(cls.rse4).id
         cls.rse5_id = get_rse(cls.rse5).id
@@ -454,14 +471,12 @@ class TestReplicationRuleClient():
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
         add_rse_attribute(cls.rse1, cls.T1, True)
-        add_rse_attribute(cls.rse2, cls.T1, True)
         add_rse_attribute(cls.rse3, cls.T1, True)
         add_rse_attribute(cls.rse4, cls.T2, True)
         add_rse_attribute(cls.rse5, cls.T1, True)
 
         #Add fake weights
         add_rse_attribute(cls.rse1, "fakeweight", 10)
-        add_rse_attribute(cls.rse2, "fakeweight", 0)
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
@@ -507,7 +522,7 @@ class TestReplicationRuleClient():
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
-        rule_id_2 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse2, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id_2 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         ret = self.did_client.list_did_rules(scope=scope, name=dataset)
         ids = [rule['id'] for rule in ret]

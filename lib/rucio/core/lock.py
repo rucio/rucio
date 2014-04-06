@@ -42,20 +42,18 @@ def get_dataset_locks(scope, name, session=None):
 
 
 @read_session
-def get_replica_locks(scope, name, lockmode, restrict_rses=None, session=None):
+def get_replica_locks(scope, name, nowait=False, restrict_rses=None, session=None):
     """
     Get the active replica locks for a file
 
     :param scope:          Scope of the did.
     :param name:           Name of the did.
-    :param lockmode:       The lockmode to be used by the session.
+    :param nowait:         Nowait parameter for the FOR UPDATE statement.
     :param restrict_rses:  Possible RSE_ids to filter on.
     :param session:        The db session.
     :return:               List of dicts {'rse': ..., 'state': ...}
     :raises:               NoResultFound
     """
-
-    rses = []
 
     query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
     if restrict_rses is not None:
@@ -64,12 +62,8 @@ def get_replica_locks(scope, name, lockmode, restrict_rses=None, session=None):
             rse_clause.append(models.ReplicaLock.rse_id == rse_id)
         if rse_clause:
             query = query.filter(or_(*rse_clause))
-    if lockmode is not None:
-        query = query.with_lockmode(lockmode)
-    for row in query:
-        rses.append({'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
 
-    return rses
+    return query.with_for_update(nowait=nowait).all()
 
 
 @read_session
@@ -96,26 +90,22 @@ def get_replica_locks_for_rule(rule_id, lockmode, session=None):
 
 
 @read_session
-def get_files_and_replica_locks_of_dataset(scope, name, lockmode, restrict_rses=None, session=None):
+def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_rses=None, session=None):
     """
     Get all the files of a dataset and, if existing, all locks of the file.
 
     :param scope:          Scope of the dataset
     :param name:           Name of the datset
-    :param lockmode:       The lockmode to be used by the session.
+    :param nowait:         Nowait parameter for the FOR UPDATE statement
     :param restrict_rses:  Possible RSE_ids to filter on.
     :param session:        The db session.
     :return:               Dictionary with keys: (scope, name)
                            and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
     :raises:               NoResultFound
     """
-    files = {}
     query = session.query(models.DataIdentifierAssociation.child_scope,
                           models.DataIdentifierAssociation.child_name,
-                          models.DataIdentifierAssociation.bytes,
-                          models.ReplicaLock.rse_id,
-                          models.ReplicaLock.state,
-                          models.ReplicaLock.rule_id)\
+                          models.ReplicaLock)\
         .outerjoin(models.ReplicaLock,
                    and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
                         models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
@@ -127,10 +117,7 @@ def get_files_and_replica_locks_of_dataset(scope, name, lockmode, restrict_rses=
         if rse_clause:
             query = session.query(models.DataIdentifierAssociation.child_scope,
                                   models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifierAssociation.bytes,
-                                  models.ReplicaLock.rse_id,
-                                  models.ReplicaLock.state,
-                                  models.ReplicaLock.rule_id)\
+                                  models.ReplicaLock)\
                            .outerjoin(models.ReplicaLock,
                                       and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
                                            models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
@@ -138,18 +125,20 @@ def get_files_and_replica_locks_of_dataset(scope, name, lockmode, restrict_rses=
                            .filter(models.DataIdentifierAssociation.scope == scope,
                                    models.DataIdentifierAssociation.name == name)
 
-    if lockmode is not None:
-        query = query.with_for_update(nowait=True if lockmode == 'update_nowait' else False)
+    query = query.with_for_update(nowait=nowait)
 
-    for child_scope, child_name, bytes, rse_id, state, rule_id in query:
-        if rse_id is None:
-            files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': []}
-        else:
-            if (child_scope, child_name) in files:
-                files[(child_scope, child_name)]['locks'].append({'rse_id': rse_id, 'state': state, 'rule_id': rule_id})
+    locks = {}
+
+    for child_scope, child_name, lock in query:
+        if (child_scope, child_name) not in locks:
+            if lock is None:
+                locks[(child_scope, child_name)] = []
             else:
-                files[(child_scope, child_name)] = {'scope': child_scope, 'name': child_name, 'bytes': bytes, 'locks': [{'rse_id': rse_id, 'state': state, 'rule_id': rule_id}]}
-    return files
+                locks[(child_scope, child_name)] = [lock]
+        else:
+            locks[(child_scope, child_name)].append(lock)
+
+    return locks
 
 
 @transactional_session
@@ -190,9 +179,10 @@ def failed_transfer(scope, name, rse_id, session=None):
     """
     Update the state of all replica locks because of a failed transfer
 
-    :param scope:    Scope of the did
-    :param name:     Name of the did
-    :param rse_id:   RSE id
+    :param scope:    Scope of the did.
+    :param name:     Name of the did.
+    :param rse_id:   RSE id.
+    :param session:  The database session in use.
     """
 
     locks = session.query(models.ReplicaLock).with_for_update(nowait=True).filter_by(scope=scope, name=name, rse_id=rse_id)

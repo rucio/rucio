@@ -26,13 +26,11 @@ class TestJudgeRepairer():
     def setUpClass(cls):
         #Add test RSE
         cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK2'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
         cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse2_id = get_rse(cls.rse2).id
         cls.rse3_id = get_rse(cls.rse3).id
         cls.rse4_id = get_rse(cls.rse4).id
         cls.rse5_id = get_rse(cls.rse5).id
@@ -41,14 +39,12 @@ class TestJudgeRepairer():
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
         add_rse_attribute(cls.rse1, cls.T1, True)
-        add_rse_attribute(cls.rse2, cls.T1, True)
         add_rse_attribute(cls.rse3, cls.T1, True)
         add_rse_attribute(cls.rse4, cls.T2, True)
         add_rse_attribute(cls.rse5, cls.T1, True)
 
         #Add fake weights
         add_rse_attribute(cls.rse1, "fakeweight", 10)
-        add_rse_attribute(cls.rse2, "fakeweight", 20)
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)

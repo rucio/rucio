@@ -99,18 +99,22 @@ def del_rse(rse, session=None):
 
 
 @read_session
-def get_rse(rse, session=None):
+def get_rse(rse, rse_id=None, session=None):
     """
     Get a RSE or raise if it does not exist.
 
-    :param rse: the rse name.
+    :param rse:     The rse name.
+    :param rse_id:  The rse id. To be used if the rse parameter is none.
     :param session: The database session in use.
 
     :raises RSENotFound: If referred RSE was not found in the database.
     """
 
     try:
-        tmp = session.query(models.RSE).filter_by(rse=rse).one()
+        if rse:
+            tmp = session.query(models.RSE).filter_by(rse=rse).one()
+        else:
+            tmp = session.query(models.RSE).filter_by(id=rse_id).one()
         tmp['type'] = tmp.rse_type
         return tmp
     except sqlalchemy.orm.exc.NoResultFound:

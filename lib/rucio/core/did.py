@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 from datetime import datetime, timedelta
@@ -130,7 +130,7 @@ def add_dids(dids, account, session=None):
 
                 new_did.save(session=session, flush=False)
 
-                if 'rules' in did:
+                if did.get('rules', None):
                     rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
 
             except KeyError, e:
@@ -516,13 +516,12 @@ def list_content(scope, name, session=None):
 
 
 @stream_session
-def list_parent_dids(scope, name, lockmode=None, session=None):
+def list_parent_dids(scope, name, session=None):
     """
     List all parent datasets and containers of a did.
 
     :param scope:     The scope.
     :param name:      The name.
-    :param lockmode:  The lockmode the session should use.
     :param session:   The database session.
     :returns:         List of dids.
     :rtype:           Generator.
@@ -531,21 +530,18 @@ def list_parent_dids(scope, name, lockmode=None, session=None):
     query = session.query(models.DataIdentifierAssociation.scope,
                           models.DataIdentifierAssociation.name,
                           models.DataIdentifierAssociation.did_type).filter_by(child_scope=scope, child_name=name)
-    if lockmode is not None:
-        query = query.with_lockmode(lockmode)
     for did in query.yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
-        list_parent_dids(scope=did.scope, name=did.name, lockmode=lockmode, session=session)
+        list_parent_dids(scope=did.scope, name=did.name, session=session)
 
 
 @stream_session
-def list_child_dids(scope, name, lockmode=None, session=None):
+def list_child_datasets(scope, name, session=None):
     """
-    List all child datasets and containers of a did.
+    List all child datasets of a container.
 
     :param scope:     The scope.
     :param name:      The name.
-    :param lockmode:  Lockmode the session should use.
     :param session:   The database session
     :returns:         List of dids
     :rtype:           Generator
@@ -556,12 +552,11 @@ def list_child_dids(scope, name, lockmode=None, session=None):
                           models.DataIdentifierAssociation.child_type).filter(models.DataIdentifierAssociation.scope == scope,
                                                                               models.DataIdentifierAssociation.name == name,
                                                                               models.DataIdentifierAssociation.child_type != DIDType.FILE)
-    if lockmode is not None:
-        query = query.with_lockmode(lockmode)
     for child_scope, child_name, child_type in query.yield_per(5):
-        yield {'scope': child_scope, 'name': child_name, 'type': child_type}
         if child_type == DIDType.CONTAINER:
-            list_child_dids(scope=child_scope, name=child_name, lockmode=lockmode, session=session)
+            list_child_datasets(scope=child_scope, name=child_name, session=session)
+        else:
+            yield {'scope': child_scope, 'name': child_name, 'type': child_type}
 
 
 @stream_session
