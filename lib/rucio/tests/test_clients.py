@@ -50,7 +50,7 @@ class TestBaseClient():
 
     def testx509(self):
         """ CLIENTS (BASECLIENT): authenticate with x509."""
-        creds = {'client_cert': '/opt/rucio/etc/web/client.crt'}
+        creds = {'client_cert': '/opt/rucio/etc/web/usercert.pem'}
         BaseClient(account='root', ca_cert='/opt/rucio/etc/web/ca.crt', auth_type='x509', creds=creds)
 
     @raises(CannotAuthenticate)

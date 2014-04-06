@@ -288,8 +288,10 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     for file in files:
         nbfiles += 1
         bytes += file['bytes']
-        new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'], path=file.get('path'), state=ReplicaState.AVAILABLE,
-                                                md5=file.get('md5'), adler32=file.get('adler32'), tombstone=file.get('tombstone'))
+        new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'],
+                                                path=file.get('path'), state=file.get('state', ReplicaState.AVAILABLE),
+                                                md5=file.get('md5'), adler32=file.get('adler32'), lock_cnt=file.get('lock_cnt', 0),
+                                                tombstone=file.get('tombstone'))
         new_replica.save(session=session, flush=False)
     try:
         session.flush()
@@ -306,18 +308,22 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
 
 
 @transactional_session
-def add_replicas(rse, files, account, session=None):
+def add_replicas(rse, files, account, rse_id=None, session=None):
     """
     Bulk add file replicas.
 
-    :param rse: the rse name.
-    :param files: the list of files.
+    :param rse:     The rse name.
+    :param files:   The list of files.
     :param account: The account owner.
+    :param rse_id:  The RSE id. To be used if rse parameter is None.
     :param session: The database session in use.
 
     :returns: True is successful.
     """
-    replica_rse = get_rse(rse=rse, session=session)
+    if rse:
+        replica_rse = get_rse(rse=rse, session=session)
+    else:
+        replica_rse = get_rse(rse=None, rse_id=rse_id, session=session)
 
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
@@ -590,3 +596,95 @@ def update_replica_lock_counter(rse, scope, name, value, rse_id=None, session=No
                    synchronize_session=False)
 
     return bool(rowcount)
+
+
+@transactional_session
+def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, session=None):
+    """
+    Get file replicas for a specific scope:name.
+
+    :param scope:          The scope of the did.
+    :param name:           The name of the did.
+    :param nowait:         Nowait parameter for the FOR UPDATE statement
+    :param restrict_rses:  Possible RSE_ids to filter on.
+    :param session:        The db session in use.
+    :returns:              List of SQLAlchemy Replica Objects
+    """
+
+    query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name)
+    if restrict_rses is not None:
+        if len(restrict_rses) < 10:
+            rse_clause = []
+            for rse_id in restrict_rses:
+                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+            if rse_clause:
+                query = query.filter(or_(*rse_clause))
+    return query.with_for_update(nowait=nowait).all()
+
+
+@transactional_session
+def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None, session=None):
+    """
+    Get file replicas for all files of a dataset.
+
+    :param scope:          The scope of the dataset.
+    :param name:           The name of the dataset.
+    :param nowait:         Nowait parameter for the FOR UPDATE statement
+    :param restrict_rses:  Possible RSE_ids to filter on.
+    :param session:        The db session in use.
+    :returns:              (files in dataset, replicas in dataset)
+    """
+
+    query = session.query(models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.bytes,
+                          models.DataIdentifierAssociation.md5,
+                          models.DataIdentifierAssociation.adler32,
+                          models.RSEFileAssociation)\
+        .outerjoin(models.RSEFileAssociation,
+                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name))\
+        .filter(models.DataIdentifierAssociation.scope == scope,
+                models.DataIdentifierAssociation.name == name)
+
+    if restrict_rses is not None:
+        if len(restrict_rses) < 10:
+            rse_clause = []
+            for rse_id in restrict_rses:
+                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
+            if rse_clause:
+                query = session.query(models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name,
+                                      models.DataIdentifierAssociation.bytes,
+                                      models.DataIdentifierAssociation.md5,
+                                      models.DataIdentifierAssociation.adler32,
+                                      models.RSEFileAssociation)\
+                               .outerjoin(models.RSEFileAssociation,
+                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                               or_(*rse_clause)))\
+                               .filter(models.DataIdentifierAssociation.scope == scope,
+                                       models.DataIdentifierAssociation.name == name)
+
+        query = query.with_for_update(nowait=nowait)
+
+    files = {}
+    replicas = {}
+
+    for child_scope, child_name, bytes, md5, adler32, replica in query:
+        if (child_scope, child_name) not in files:
+            files[(child_scope, child_name)] = {'scope': child_scope,
+                                                'name': child_name,
+                                                'bytes': bytes,
+                                                'md5': md5,
+                                                'adler32': adler32}
+
+        if (child_scope, child_name) in replicas:
+            if replica is not None:
+                replicas[(child_scope, child_name)].append(replica)
+        else:
+            replicas[(child_scope, child_name)] = []
+            if replica is not None:
+                replicas[(child_scope, child_name)].append(replica)
+
+    return (files.values(), replicas)

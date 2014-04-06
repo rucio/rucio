@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 """
@@ -83,7 +83,7 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                         break
                     try:
                         start = time.time()
-                        delete_rule(rule_id=rule_id, lockmode='update_nowait')
+                        delete_rule(rule_id=rule_id, nowait=True)
                         logging.debug('rule_cleaner[%s/%s]: deletion of %s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError), e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)

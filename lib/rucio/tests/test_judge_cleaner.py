@@ -24,13 +24,11 @@ class TestJudgeCleaner():
     def setUpClass(cls):
         #Add test RSE
         cls.rse1 = 'MOCK'
-        cls.rse2 = 'MOCK2'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
         cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse2_id = get_rse(cls.rse2).id
         cls.rse3_id = get_rse(cls.rse3).id
         cls.rse4_id = get_rse(cls.rse4).id
         cls.rse5_id = get_rse(cls.rse5).id
@@ -39,14 +37,12 @@ class TestJudgeCleaner():
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
         add_rse_attribute(cls.rse1, cls.T1, True)
-        add_rse_attribute(cls.rse2, cls.T1, True)
         add_rse_attribute(cls.rse3, cls.T1, True)
         add_rse_attribute(cls.rse4, cls.T2, True)
         add_rse_attribute(cls.rse5, cls.T1, True)
 
         #Add fake weights
         add_rse_attribute(cls.rse1, "fakeweight", 10)
-        add_rse_attribute(cls.rse2, "fakeweight", 20)
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
@@ -60,11 +56,11 @@ class TestJudgeCleaner():
         attach_dids(scope, dataset, files, 'jdoe')
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=-3, locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=3, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=4, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         rule_cleaner(once=True)
 
         for file in files:
-            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
-            assert(len(rse_locks) == 7)
+            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
+            assert(len(rse_locks) == 5)
