@@ -23,6 +23,8 @@ demoCA
 full.pem
 proxy.pem
 request.pem
+usercert.pem
+userkey.pem
 
 # ignore MANIFEST file
 MANIFEST
