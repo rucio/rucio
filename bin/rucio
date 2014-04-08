@@ -645,12 +645,16 @@ def upload(args):
 
     files = args.files
     list_files = []
-    lfns = []
+    lfns = {}
+    revert_dict = {}
     for name in files:
         size = os.stat(name).st_size
         checksum = adler32(name)
-        list_files.append({'scope': args.scope, 'name': name, 'bytes': size, 'adler32': checksum})
-        lfns.append({'name': name, 'scope': args.scope})
+        list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum})
+        if not os.path.dirname(name) in lfns:
+            lfns[os.path.dirname(name)] = []
+        lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope})
+        revert_dict[args.scope, os.path.basename(name)] = os.path.dirname(name)
 
     metadata = {}
     if args.project:
@@ -681,20 +685,30 @@ def upload(args):
             except DataIdentifierAlreadyExists, e:
                 print e
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
-            try:
-                rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
-                print 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name'])
-            except FileReplicaAlreadyExists, e:
-                add_files_individually = True
+            for dir in lfns:
+                try:
+                    rsemgr.upload(rse_settings=rse_settings, lfns=lfns[dir], source_dir=dir)
+                    print 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name'])
+                except FileReplicaAlreadyExists, e:
+                    add_files_individually = True
         except Duplicate, e:
+            add_files_individually = True
+        except FileAlreadyExists, e:
             add_files_individually = True
 
         if add_files_individually:
             print 'Will check all individual files'
             for did in list_files:
+                add_files_individually = False
                 try:
                     client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=[did], rse=args.rse)
                 except Duplicate, e:
+                    print e
+                    add_files_individually = True
+                except FileAlreadyExists, e:
+                    print e
+                    add_files_individually = True
+                if add_files_individually:
                     meta = client.get_metadata(did['scope'], did['name'])
                     if rsemgr.exists(rse_settings=rse_settings, files={'name': did['name'], 'scope': did['scope']}):
                         print 'File %s:%s already exists on RSE. Will not try to reupload' % (did['scope'], did['name'])
@@ -702,28 +716,36 @@ def upload(args):
                     else:
                         if meta['adler32'] == did['adler32']:
                             print 'Local files and file recorded in Rucio have the same checksum. Will try the upload'
-                            rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}])
+                            directory = revert_dict[did['scope'], did['name']]
+                            rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
                         else:
                             print 'Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32'])
     else:
         try:
             client.add_replicas(files=list_files, rse=args.rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=args.rse)
-            try:
-                rsemgr.upload(rse_settings=rse_settings, lfns=lfns)
-                print 'Upload operation for %(files)s done' % locals()
-            except FileReplicaAlreadyExists, e:
-                add_files_individually = True
+            for dir in lfns:
+                try:
+                    rsemgr.upload(rse_settings=rse_settings, lfns=lfns[dir], source_dir=dir)
+                    print 'Upload operation for %(files)s done' % locals()
+                except FileReplicaAlreadyExists, e:
+                    add_files_individually = True
         except Duplicate, e:
             add_files_individually = True
 
         if add_files_individually:
             print 'Will check all individual files'
             for did in list_files:
+                add_files_individually = False
                 try:
                     client.add_replicas(files=[did], rse=args.rse)
                 except Duplicate, e:
                     print e
+                    add_files_individually = True
+                except FileAlreadyExists, e:
+                    print e
+                    add_files_individually = True
+                if add_files_individually:
                     meta = client.get_metadata(did['scope'], did['name'])
                     if rsemgr.exists(rse_settings=rse_settings, files={'name': did['name'], 'scope': did['scope']}):
                         print 'File %s:%s already exists on RSE. Will not try to reupload' % (did['scope'], did['name'])
@@ -731,7 +753,8 @@ def upload(args):
                     else:
                         if meta['adler32'] == did['adler32']:
                             print 'Local files and file recorded in Rucio have the same checksum. Will try the upload'
-                            rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}])
+                            directory = revert_dict[did['scope'], did['name']]
+                            rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
                         else:
                             print 'Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32'])
         #except Exception, e:
