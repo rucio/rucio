@@ -175,6 +175,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
             logging.info('Thread %i : Time to set the new flag : %f' % (worker_number, time.time() - time1))
             tottime = time.time() - start_time
             logging.info('Thread %i : It took %f seconds to process %i DIDs' % (worker_number, tottime, len(dids)))
+            logging.debug('Thread %i : DIDs processed : %s' % (worker_number, str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done',  delta=1)
             monitor.record_timer(stat='transmogrifier.job.duration',  time=1000*tottime)
         except:
