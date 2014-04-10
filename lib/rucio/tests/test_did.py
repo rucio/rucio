@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 from datetime import datetime, timedelta
 
@@ -103,7 +103,7 @@ class TestDIDClients:
 
         self.scope_client.add_scope('jdoe', tmp_scope)
         for tmp_file in tmp_files:
-            self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+            self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
 
         results = []
         for result in self.did_client.list_dids(tmp_scope, {'name': 'file\_a\_*'}, type='file'):
@@ -290,7 +290,7 @@ class TestDIDClients:
         tmp_file = 'file_%s' % generate_uuid()
         tmp_rse = 'MOCK'
 
-        self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, 1L)
+        self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
 
         did = self.did_client.get_did(tmp_scope, tmp_file)
 
@@ -442,7 +442,7 @@ class TestDIDClients:
         file = generate_uuid()
         dsn = generate_uuid()
 
-        self.replica_client.add_replica(rse, scope, file, 1L, 1L)
+        self.replica_client.add_replica(rse, scope, file, 1L, '0cc737eb')
 
         did = self.did_client.get_did(scope, file)
 
@@ -461,7 +461,7 @@ class TestDIDClients:
         keys = ['project', 'run_number']
         values = ['data13_hip', 12345678]
 
-        self.replica_client.add_replica(rse, scope, file, 1L, 1L)
+        self.replica_client.add_replica(rse, scope, file, 1L, '0cc737eb')
         for i in xrange(2):
             self.did_client.set_metadata(scope, file, keys[i], values[i])
 

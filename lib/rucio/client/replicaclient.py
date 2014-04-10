@@ -47,9 +47,8 @@ class ReplicaClient(BaseClient):
         """
         List file replicas for a list of data identifiers (DIDs).
 
-
-
-        :param dids: The list of data identifiers (DIDs).
+        :param dids: The list of data identifiers (DIDs) like :
+        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
         :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
         :param unavailable: Also include unavailable replicas in the list.
         :param metalink: ``None`` (default) retrieves as JSON,
@@ -85,18 +84,23 @@ class ReplicaClient(BaseClient):
         Add file replicas to a RSE.
 
         :param rse: the RSE name.
-        :param files: The list of files.
+        :param files: The list of files. This is a list of DIDs like :
+        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
 
         :return: True if files were created successfully.
         """
-        return self.add_replicas(rse=rse, files=[{'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta, 'adler32': adler32, 'md5': md5}])
+        dict = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta, 'adler32': adler32}
+        if md5:
+            dict['md5'] = md5
+        return self.add_replicas(rse=rse, files=[dict])
 
     def add_replicas(self, rse, files):
         """
         Bulk add file replicas to a RSE.
 
         :param rse: the RSE name.
-        :param files: The list of files.
+        :param files: The list of files. This is a list of DIDs like :
+        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
 
         :return: True if files were created successfully.
         """
@@ -113,7 +117,8 @@ class ReplicaClient(BaseClient):
         Bulk delete file replicas from a RSE.
 
         :param rse: the RSE name.
-        :param files: The list of files.
+        :param files: The list of files. This is a list of DIDs like :
+        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
 
         :return: True if files have been deleted successfully.
         """
