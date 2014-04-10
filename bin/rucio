@@ -174,7 +174,14 @@ def list_replicas(args):
         replicas = client.list_replicas(dids, schemes=protocols)
         print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
         for replica in replicas:
-            print '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'], replica['rses'])
+            str = '%s\t%s\t%s\t%s\t' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
+            for rse in replica['rses']:
+                line = '%s%s\t:\t' % (str, rse)
+                for pfn in replica['rses'][rse]:
+                    output = '%s%s' % (line, pfn)
+                    print output.expandtabs()
+                    line = len(line.expandtabs()) * ' '
+                    str = len(str.expandtabs()) * ' '
     except Exception, e:
         print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
         print e
@@ -1055,6 +1062,36 @@ def list_rses(args):
     return SUCCESS
 
 
+def list_rse_usage(args):
+    """
+    %(prog)s list-rse-usage [options] <rse>
+
+    Show the space usage of a given rse
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    rseclient = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
+                          account=args.account,
+                          auth_type=args.auth_strategy, creds=creds,
+                          ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        usage = rseclient.get_rse_usage(rse=args.rse)
+    except Exception, e:
+            print 'Failed to get RSE info'
+            print e
+            return FAILURE
+    print 'Usage:'
+    print '======'
+    for elem in usage:
+        print '  ' + elem + ': ' + str(usage[elem])
+
+    return SUCCESS
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -1306,7 +1343,8 @@ Commands:
                 'info_rule': info_rule,
                 'list_rules': list_rules,
                 'delete_rule': delete_rule,
-                'list_rses': list_rses}
+                'list_rses': list_rses,
+                'list_rse_usage': list_rse_usage}
 
     try:
         start_time = time.time()

@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 from re import match
 from StringIO import StringIO
@@ -420,6 +420,10 @@ def add_protocol(rse, parameter, session=None):
             parameter['extended_attributes'] = json.dumps(parameter['extended_attributes'], separators=(',', ':'))
         except ValueError:
             pass  # String is not JSON
+
+    if parameter['scheme'] == 'srm':
+        if (not 'space_token' in parameter['extended_attributes']) or (not 'web_service_path' in parameter['extended_attributes']):
+            raise exception.InvalidObject('Missing values! For SRM, extended_attributes and web_service_path must be specified')
 
     try:
         # Open gaps in protocols priorities for new protocol
