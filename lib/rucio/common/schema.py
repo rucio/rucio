@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from jsonschema import validate, ValidationError
 
@@ -171,4 +172,4 @@ def validate_schema(name, obj):
     try:
         validate(obj, schemas.get(name, {}))
     except ValidationError, e:  # NOQA
-        raise InvalidObject("%(e)s" % locals())
+        raise InvalidObject("Problem validating %(name)s : %(e)s" % locals())
