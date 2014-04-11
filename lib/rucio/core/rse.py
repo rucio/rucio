@@ -23,6 +23,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
 
+import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter
 from rucio.common import exception, utils
@@ -63,7 +64,7 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     add_counter(rse_id=new_rse.id, session=session)
 
     # Add account counter
-    # rucio.core.account_counter.create_counters_for_new_rse(rse_id=new_rse.id, session=session)
+    rucio.core.account_counter.create_counters_for_new_rse(rse_id=new_rse.id, session=session)
 
     return new_rse.id
 

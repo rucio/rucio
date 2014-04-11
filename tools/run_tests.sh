@@ -11,7 +11,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 testopts="-t"
-noseopts="--exclude=.*test_rse_protocol_.* "
+noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic"
 dq2opts=""
 
 function usage {
@@ -24,10 +24,10 @@ function usage {
   echo '  -t    Do not include mock tables.'
   echo '  -i    Do only the initialization.'
   echo '  -d    Delete the sqlite db file.'
-  echo '  -u    Update pip dependencies.'
   echo '  -k    Keep database.'
   echo '  -1    Only run once.'
-  echo '  -q    Exclude DQ2 tests.'
+  echo '  -q    Exclude DQ2 tests'.
+  echo '  -a    Run alembic tests at the end'
   exit
 }
 
@@ -38,7 +38,7 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrctid1kq opt
+while getopts hrctid1kqa opt
 do
   case "$opt" in
     h) usage;;
@@ -50,6 +50,7 @@ do
     k) keep_db="true";;
     1) range=1;;
     q) dq2opts="--exclude=test_dq2*";;
+    a) alembic="true";;
   esac
 done
 
@@ -111,3 +112,10 @@ do
     echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts
 done
+
+if test ${alembic}; then
+    echo '==============================='
+    echo 'Running alembic tests with nose'
+    echo '==============================='
+    nosetests -v lib/rucio/tests/test_alembic.py
+fi

@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from traceback import format_exc
 
@@ -14,6 +15,7 @@ from sqlalchemy.engine import reflection
 from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 
 from rucio.common.config import config_get
+from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db import session, models, test_models
 from rucio.db.constants import AccountStatus, AccountType, IdentityType
 
@@ -28,7 +30,7 @@ def build_database(echo=True, tests=False):
     s = session.get_session()
     # TODO: Get last revision from alembic
     #  alembic current --head-only ?
-    s.add(models.AlembicVersion(version_num='469d262be19'))
+    s.add(models.AlembicVersion(version_num='d91002c5841'))
     s.commit()
 
 
@@ -130,6 +132,9 @@ def create_root_account():
     # GSS authentication
     identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
     iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
+
+    # Account counters
+    create_counters_for_new_account(account='root', session=s)
 
     # Apply
     s.add_all([account, identity1, identity2, identity3])

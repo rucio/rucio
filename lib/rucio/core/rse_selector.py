@@ -10,8 +10,9 @@
 
 from random import uniform, shuffle
 
-from rucio.common.exception import InsufficientQuota, InsufficientTargetRSEs, InvalidRuleWeight
-from rucio.core.quota import list_account_limits, list_account_usage
+from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight
+from rucio.core.account_counter import get_counter
+from rucio.core.account_limit import get_account_limit
 from rucio.core.rse import list_rse_attributes
 from rucio.db.session import read_session
 
@@ -31,7 +32,7 @@ class RSESelector():
         :param weight:   Weighting to use.
         :param copies:   Number of copies to create.
         :param session:  DB Session in use.
-        :raises:         InvalidRuleWeight, InsufficientQuota, InsufficientTargetRSEs
+        :raises:         InvalidRuleWeight, InsufficientAccountLimit, InsufficientTargetRSEs
         """
         self.account = account
         self.rses = []
@@ -51,13 +52,14 @@ class RSESelector():
             raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
         for rse in self.rses:
-            # TODO: Add RSE-space-left here!
-            rse['quota_left'] = list_account_limits(account=account, rse_id=rse['rse_id'], session=session) - list_account_usage(account=account, rse_id=rse['rse_id'], session=session)
+            #TODO: Add RSE-space-left here!
+            rse['quota_left'] = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)\
+                - get_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
 
         if len(self.rses) < self.copies:
-            raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
     def select_rse(self, size, preferred_rse_ids, blacklist=[]):
         """
@@ -67,7 +69,7 @@ class RSESelector():
         :param preferred_rse_ids:  Ordered list of preferred rses. (If possible replicate to them)
         :param blacklist:          List of blacklisted rses. (Do not put replicas on these sites)
         :returns:                  List of RSE ids.
-        :raises:                   InsufficientQuota, InsufficientTargetRSEs
+        :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
         """
 
         result = []
@@ -81,7 +83,7 @@ class RSESelector():
         # Remove rses which do not have enough quota
         rses = [rse for rse in rses if rse['quota_left'] > size]
         if len(rses) < self.copies:
-            raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
         for copy in range(self.copies):
             # Remove rses already in the result set

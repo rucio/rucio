@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
@@ -16,7 +16,7 @@ from traceback import format_exc
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_lock_state
-from rucio.common.exception import (InsufficientQuota, RuleNotFound, AccessDenied, InvalidRSEExpression,
+from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound,
                                     ReplicationRuleCreationFailed, InvalidRuleWeight)
 from rucio.common.utils import generate_http_error, render_json
@@ -126,8 +126,8 @@ class Rule:
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:
             raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
-        except InsufficientQuota, e:
-            raise generate_http_error(409, 'InsufficientQuota', e.args[0][0])
+        except InsufficientAccountLimit, e:
+            raise generate_http_error(409, 'InsufficientAccountLimit', e.args[0][0])
         except InvalidRSEExpression, e:
             raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
         except DataIdentifierNotFound, e:

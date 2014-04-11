@@ -240,10 +240,10 @@ class InputValidationError(RucioException):
         self._message = "There is an error with one of the input parameters."
 
 
-class InsufficientQuota(RucioException):
+class InsufficientAccountLimit(RucioException):
     def __init__(self, *args, **kwargs):
-        super(InsufficientQuota, self).__init__(args, kwargs)
-        self._message = "There is not enough quota to fulfil the operation."
+        super(InsufficientAccountLimit, self).__init__(args, kwargs)
+        self._message = "There is not enough space left to fulfil the operation."
 
 
 class InsufficientTargetRSEs(RucioException):
