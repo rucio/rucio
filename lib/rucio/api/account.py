@@ -9,6 +9,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 import rucio.api.permission
 import rucio.common.exception
@@ -61,32 +62,6 @@ def get_account_info(account):
     :returns: A list with all account information.
     """
     return account_core.get_account(account)
-
-
-def set_account_limits(account, limitationName, limitationValue):
-    """
-    Set's account's quota limit of account_core.
-
-    :param account:     The account name.
-    :param limitationName:  The limitation name.
-    :param limitationValue: The limitation value.
-
-    :returns: A Response code is returned and if successful is a "0". If an error occurs, the error message text is also returned.
-    """
-    raise NotImplementedError
-
-
-def get_account_limits(account):
-    """
-    Lists the limitation names/values for the specified account name.
-
-    REST API: http://<host>:<port>/rucio/account/<account>/limits
-
-    :param account:     The account name.
-
-    :returns: A Response code is returned and if successful is a "0". If an error occurs, the error message text is also returned.
-    """
-    raise NotImplementedError
 
 
 def get_account_status(account):

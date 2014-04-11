@@ -20,10 +20,11 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied
+from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
+from rucio.core.account_limit import set_account_limit, delete_account_limit
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rse_counter import get_counter as get_rse_counter
@@ -450,6 +451,21 @@ class TestReplicationRuleCore():
         rse_counter_after = get_rse_counter(self.rse3_id)
         assert(rse_counter_before['bytes'] + 3*100 == rse_counter_after['bytes'])
         assert(rse_counter_before['files'] + 3 == rse_counter_after['files'])
+
+    def test_rule_add_fails_account_limit(self):
+        """ REPLICATION RULE (CORE): Test if a rule fails correctly when account limit conflict"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        set_account_limit(account='jdoe', rse_id=self.rse1_id, bytes=5)
+
+        assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        delete_account_limit(account='jdoe', rse_id=self.rse1_id)
 
 
 class TestReplicationRuleClient():

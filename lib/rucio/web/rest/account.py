@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from datetime import datetime
 from json import dumps, loads
@@ -19,9 +20,10 @@ from web import application, ctx, data, header, seeother, BadRequest, Created, I
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
 from rucio.api.identity import add_account_identity
+from rucio.api.account_limit import get_account_limits, get_account_limit
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import authenticate, RucioController
 
@@ -36,6 +38,7 @@ urls = (
     '/(.+)/scopes/(.+)', 'Scopes',
     '/(.+)/identities', 'Identities',
     '/(.+)/limits', 'AccountLimits',
+    '/(.+)/limits/(.+)', 'AccountLimits',
     '/(.+)/rules', 'Rules',
     '/(.+)', 'AccountParameter',
     '/?$', 'Account',
@@ -249,9 +252,34 @@ class Account(RucioController):
 
 
 class AccountLimits(RucioController):
-    def GET(self, account):
-        """ get the current limits for an account """
-        raise BadRequest()
+    def GET(self, account, rse=None):
+        """ get the current limits for an account on a specific RSE
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+
+        :param X-Rucio-Account: Account identifier.
+        :param X-Rucio-Auth-Token: as an 32 character hex string.
+
+        :param account:   The account name.
+        :param rse:       The rse name.
+
+        :returns: JSON dict containing informations about the requested user.
+        """
+        header('Content-Type', 'application/json')
+        try:
+            if rse:
+                limits = get_account_limit(account=account, rse=rse)
+            else:
+                limits = get_account_limits(account=account)
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
+
+        return render_json(**limits)
 
     def PUT(self):
         """ update the limits for an account """
