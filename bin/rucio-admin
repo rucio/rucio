@@ -11,6 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Wen Guan, <wguan@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 """
 Rucio Administration Utility
@@ -23,7 +24,7 @@ import sys
 import time
 
 from rucio.client.accountclient import AccountClient
-from rucio.client.quotaclient import QuotaClient
+from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 
@@ -643,87 +644,55 @@ def list_scopes(args):
     return SUCCESS
 
 
-def set_quota(args):
+def set_account_limit(args):
     """
     %(prog)s set [options] <field1=value1 field2=value2 ...>
 
-    Set quota for an account.
+    Set account limit for an account and rse.
     """
-
-    raise NotImplementedError('This method is not implemented yet')
 
     # For the moment..
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = QuotaClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.account,
-                         auth_type=args.auth_strategy, creds=creds,
-                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = AccountLimitClient(rucio_host=args.host, auth_host=args.auth_host,
+                                account=args.issuer,
+                                auth_type=args.auth_strategy, creds=creds,
+                                ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        client.set_quota(account=args.account, quota=args.quota)
-        print 'Set new quota for account %s: %s' % (args.account, args.quota)
+        client.set_account_limit(account=args.limit_account, rse=args.rse, bytes=args.bytes)
+        print 'Set account limit for account %s on RSE %s: %s' % (args.limit_account, args.rse, args.bytes)
     except Exception, e:
-            print 'Failed to set quota'
+            print 'Failed to set account limit'
             print e
             return FAILURE
     return SUCCESS
 
 
-def get_quota(args):
-    """
-    %(prog)s get [options] <field1=value1 field2=value2 ...>
-
-    Get quota for an account.
-    """
-
-    raise NotImplementedError('This method is not implemented yet')
-
-    # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = QuotaClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.issuer,
-                         auth_type=args.auth_strategy, creds=creds,
-                         ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.get_quota(account=args.account)
-    except Exception, e:
-            print 'Failed to get quota'
-            print e
-            return FAILURE
-    return SUCCESS
-
-
-def delete_quota(args):
+def delete_account_limit(args):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
-    Delete quota for an account.
+    Delete account limit for an account and rse.
     """
-
-    raise NotImplementedError('This method is not implemented yet')
 
     # For the moment..
     creds = None
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = QuotaClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.issuer,
-                         auth_type=args.auth_strategy, creds=creds,
-                         ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = AccountLimitClient(rucio_host=args.host, auth_host=args.auth_host,
+                                account=args.issuer,
+                                auth_type=args.auth_strategy, creds=creds,
+                                ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        client.delete_quota(account=args.account, quota=args.quota)
-        print 'Deleted quota for account %s: %s' % (args.account, args.quota)
+        client.delete_account_limit(account=args.limit_account, rse=args.rse)
+        print 'Deleted account limit for account %s and RSE %s' % (args.limit_account, args.rse)
     except Exception, e:
-            print 'Failed to delete quota'
+            print 'Failed to delete account limit'
             print e
             return FAILURE
     return SUCCESS
@@ -882,26 +851,22 @@ Commands:
     list_scope_parser.set_defaults(which='list_scopes')
     list_scope_parser.add_argument('--account', dest='account', action='store', help='Account name')
 
-    # The quota subparser
-    quota_parser = subparsers.add_parser('quota', help='Quota methods')
-    quota_subparser = quota_parser.add_subparsers()
+    # The account-limit subparser
+    account_limit_parser = subparsers.add_parser('account-limit', help='Account limits')
+    account_limit_subparser = account_limit_parser.add_subparsers()
 
-    # The set_quota command
-    set_quota_parser = quota_subparser.add_parser('set', help='Set quota for an account')
-    set_quota_parser.set_defaults(which='set_quota')
-    set_quota_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    set_quota_parser.add_argument('--quota', dest='quota', action='store', help='Quota definition', required=True)
-
-    # The get_quota command
-    get_quota_parser = quota_subparser.add_parser('get', help='Get quota for an account')
-    get_quota_parser.set_defaults(which='get_quota')
-    get_quota_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    # The set_account_limit command
+    set_account_limit_parser = account_limit_subparser.add_parser('set', help='Set account limit for an account and rse.')
+    set_account_limit_parser.set_defaults(which='set_account_limit')
+    set_account_limit_parser.add_argument('limit_account', action='store', help='Account name')
+    set_account_limit_parser.add_argument('rse', action='store', help='RSE name')
+    set_account_limit_parser.add_argument('bytes', action='store', help='Account limit in bytes')
 
     # The delete_quota command
-    delete_quota_parser = quota_subparser.add_parser('delete', help='Delete quota for an account')
-    delete_quota_parser.set_defaults(which='delete_quota')
-    delete_quota_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    delete_quota_parser.add_argument('--quota', dest='quota', action='store', help='Quota definition', required=True)
+    delete_account_limit_parser = account_limit_subparser.add_parser('delete', help='Delete quota for an account')
+    delete_account_limit_parser.set_defaults(which='delete_account_limit')
+    delete_account_limit_parser.add_argument('limit_account', action='store', help='Account name')
+    delete_account_limit_parser.add_argument('rse', action='store', help='RSE name')
 
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
@@ -923,9 +888,8 @@ Commands:
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
                 'list_scopes': list_scopes,
-                'set_quota': set_quota,
-                'get_quota': get_quota,
-                'delete_quota': delete_quota,
+                'set_account_limit': set_account_limit,
+                'delete_account_limit': delete_account_limit,
                 'info_rse': info_rse
                 }
 

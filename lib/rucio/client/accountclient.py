@@ -8,6 +8,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from json import dumps
 from random import choice
@@ -175,6 +176,39 @@ class AccountClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def get_account_limits(self, account):
+        """
+        List the account rse limits of this account.
+
+        :param account: The account name.
+        """
+
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r).next()
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def get_account_limit(self, account, rse):
+        """
+        List the account rse limits of this account for the specific rse.
+
+        :param account: The account name.
+        :param rse:     The rse name.
+        """
+
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', rse])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r).next()
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)

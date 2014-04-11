@@ -18,7 +18,7 @@ from sqlalchemy.sql.expression import and_, or_, bindparam, text
 
 import rucio.core.did
 
-from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientQuota,
+from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound,
                                     ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight)
@@ -53,7 +53,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param subscription_id:  The subscription_id, if the rule is created by a subscription.
     :param session:          The database session in use.
     :returns:                A list of created replication rule ids.
-    :raises:                 InvalidReplicationRule, InsufficientQuota, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
+    :raises:                 InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
     """
     rule_ids = []
 
@@ -140,7 +140,7 @@ def add_rules(dids, rules, session=None):
                      {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
-    :raises:         InvalidReplicationRule, InsufficientQuota, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
+    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
     """
 
     with record_timer_block('rule.add_rules'):
@@ -602,7 +602,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                   weight=rule.weight,
                                                   copies=rule.copies,
                                                   session=session)
-                    except (InvalidRuleWeight, InsufficientQuota) as e:
+                    except (InvalidRuleWeight, InsufficientAccountLimit) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
                         rule.error = str(e)
@@ -636,7 +636,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                           rule=rule,
                                                           preferred_rse_ids=preferred_rse_ids,
                                                           session=session)
-                    except (InsufficientQuota, ReplicationRuleCreationFailed, InsufficientTargetRSEs, InvalidReplicationRule) as e:
+                    except (InsufficientAccountLimit, ReplicationRuleCreationFailed, InsufficientTargetRSEs, InvalidReplicationRule) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
                         rule.error = str(e)
@@ -825,7 +825,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
     :param rule:               The rule.
     :param preferred_rse_ids:  Preferred RSE's to select.
     :param session:            Session of the db.
-    :raises:                   InsufficientQuota, ReplicationRuleCreationFailed, InsufficientTargetRSEs, InvalidReplicationRule
+    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationFailed, InsufficientTargetRSEs, InvalidReplicationRule
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 

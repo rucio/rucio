@@ -12,6 +12,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2014
 
 """
     Rucio CLI.
@@ -1180,6 +1181,41 @@ def list_rse_usage(args):
 
     return SUCCESS
 
+
+def list_account_limits(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List rses.
+
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        if args.rse:
+            limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
+        else:
+            limits = client.get_account_limits(account=args.limit_account)
+    except Exception, e:
+        print 'Failed to list Account limits'
+        print e
+        return FAILURE
+
+    print "RSE: limit (bytes)"
+    print "=================="
+    for limit in limits.items():
+        print "%s: %s" % limit
+
+    return SUCCESS
+
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -1357,9 +1393,10 @@ Commands:
     list_account_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List account usage history')
 
     # The list-account-limits subparser
-    list_account_limits_parser = subparsers.add_parser('list-account-limits', help='list-account-limits method')
+    list_account_limits_parser = subparsers.add_parser('list-account-limits', help='List account limits on RSEs')
     list_account_limits_parser.set_defaults(which='list_account_limits')
-    list_account_limits_parser.add_argument(dest='account', action='store', help='Account name')
+    list_account_limits_parser.add_argument('limit_account', action='store', help='Account name')
+    list_account_limits_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
 
     # Add replication rule subparser
     add_rule_parser = subparsers.add_parser('add-rule', help='Add replication rule')
@@ -1432,7 +1469,8 @@ Commands:
                 'list_rules': list_rules,
                 'delete_rule': delete_rule,
                 'list_rses': list_rses,
-                'list_rse_usage': list_rse_usage}
+                'list_rse_usage': list_rse_usage,
+                'list_account_limits': list_account_limits}
 
     try:
         start_time = time.time()

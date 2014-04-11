@@ -13,8 +13,6 @@
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import bindparam, text
 
-from rucio.common.exception import CounterNotFound
-
 import rucio.core.account
 import rucio.core.rse
 
@@ -114,7 +112,6 @@ def get_counter(rse_id, account, session=None):
     :param rse_id:           The id of the RSE.
     :param account:          The account name.
     :param session:          The database session in use.
-    :raises CounterNotFound: If the counter does not exist.
     :returns:                A dictionary with total and bytes.
     """
 
@@ -122,7 +119,7 @@ def get_counter(rse_id, account, session=None):
         counter = session.query(models.AccountCounter).filter_by(rse_id=rse_id, account=account).one()
         return {'bytes': counter.bytes, 'files': counter.files, 'updated_at':  counter.updated_at}
     except NoResultFound:
-        raise CounterNotFound()
+        return {'bytes': 0, 'files': 0, 'updated_at': None}
 
 
 @read_session
@@ -168,7 +165,10 @@ def update_account_counter(account, rse_id, session=None):
         account_counter.bytes += sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])
         account_counter.files += sum([updated_account_counter.files for updated_account_counter in updated_account_counters])
     except NoResultFound:
-        pass
+        models.AccountCounter(rse_id=rse_id,
+                              account=account,
+                              files=sum([updated_account_counter.files for updated_account_counter in updated_account_counters]),
+                              bytes=sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])).save(session=session)
 
     for update in updated_account_counters:
         update.delete(flush=False, session=session)

@@ -79,7 +79,9 @@ def has_permission(issuer, action, kwargs):
             'set_rse_limits': perm_set_rse_limits,
             'query_request': perm_query_request,
             'cancel_request': perm_cancel_request,
-            'get_next': perm_get_next}
+            'get_next': perm_get_next,
+            'set_account_limit': perm_set_account_limit,
+            'delete_account_limit': perm_delete_account_limit}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -473,5 +475,27 @@ def perm_set_rse_limits(issuer, kwargs):
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_set_account_limit(issuer, kwargs):
+    """
+    Checks if an account can set an account limit.
+
+    :param account: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_delete_account_limit(issuer, kwargs):
+    """
+    Checks if an account can delete an account limit.
+
+    :param account: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
