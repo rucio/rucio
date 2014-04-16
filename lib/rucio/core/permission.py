@@ -57,8 +57,8 @@ def has_permission(issuer, action, kwargs):
             'update_protocol': perm_update_protocol,
             'add_replicas': perm_add_replicas,
             'delete_replicas': perm_delete_replicas,
-            'add_rse_attr': perm_add_rse_attr,
-            'del_rse_attr': perm_del_rse_attr,
+            'add_rse_attribute': perm_add_rse_attribute,
+            'del_rse_attribute': perm_del_rse_attribute,
             'del_rse': perm_del_rse,
             'del_rule': perm_del_rule,
             'lock_rule': perm_lock_rule,
@@ -103,7 +103,7 @@ def perm_add_rse(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_add_rule(issuer, kwargs):
@@ -121,7 +121,7 @@ def perm_add_rule(issuer, kwargs):
     return False
 
 
-def perm_add_rse_attr(issuer, kwargs):
+def perm_add_rse_attribute(issuer, kwargs):
     """
     Checks if an account can add a RSE attribute.
 
@@ -129,10 +129,10 @@ def perm_add_rse_attr(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
-def perm_del_rse_attr(issuer, kwargs):
+def perm_del_rse_attribute(issuer, kwargs):
     """
     Checks if an account can delete a RSE attribute.
 
@@ -140,7 +140,7 @@ def perm_del_rse_attr(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_del_rse(issuer, kwargs):
@@ -151,7 +151,7 @@ def perm_del_rse(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_add_account(issuer, kwargs):
