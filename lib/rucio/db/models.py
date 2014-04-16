@@ -337,7 +337,7 @@ class UpdatedDID(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_DIDS_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='UPDATED_DIDS_NAME_NN'),
-                   Index('UPDATED_DIDS_CREATED_AT_IDX', 'created_at'),
+                   Index('UPDATED_DIDS_SCOPERULENAME_IDX', 'scope', 'rule_evaluation_action', 'name')
                    )
 
 
