@@ -27,6 +27,7 @@ def build_database(echo=True, tests=False):
     # Put the database under version control
     s = session.get_session()
     # TODO: Get last revision from alembic
+    #  alembic current --head-only ?
     s.add(models.AlembicVersion(version_num='16a0aca82e12'))
     s.commit()
 

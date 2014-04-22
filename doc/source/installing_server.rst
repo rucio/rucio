@@ -72,4 +72,4 @@ puppet_ is an open and widely configuration management and automation system, fo
 
    $> curl -vvv -X GET -H "Rucio-Account: ddmlab" -H "Rucio-Username: xxxxx" -H "Rucio-Password: xxxx" https://localhost/auth/userpass
 
-you should get back an HTTP OK with a Rucio-Auth-Token in the HTTP header
+you should get back an HTTP OK with a X-Rucio-Auth-Token in the HTTP header

@@ -41,7 +41,7 @@ Authentication
 `GET /auth/userpass`
 """"""""""""""""""""
 
-Requesting a Rucio-Auth-Token with curl via username and password.
+Requesting a X-Rucio-Auth-Token with curl via username and password.
 
 **Responses**
 
@@ -57,7 +57,7 @@ Requesting a Rucio-Auth-Token with curl via username and password.
 `GET /auth/x509`
 """"""""""""""""
 
-Requesting a Rucio-Auth-Token with curl via a X509 certificate.
+Requesting a X-Rucio-Auth-Token with curl via a X509 certificate.
 
 **Responses**
 
@@ -74,7 +74,7 @@ Requesting a Rucio-Auth-Token with curl via a X509 certificate.
 `GET /auth/gss`
 """""""""""""""
 
-Requesting a Rucio-Auth-Token with curl via kerberos.
+Requesting a X-Rucio-Auth-Token with curl via kerberos.
 
 **Responses**
 
@@ -90,7 +90,7 @@ Requesting a Rucio-Auth-Token with curl via kerberos.
 `GET /auth/x509_proxy`
 """"""""""""""""""""""
 
-Requesting a Rucio-Auth-Token with curl via a Globus proxy.
+Requesting a X-Rucio-Auth-Token with curl via a Globus proxy.
 
 **Responses**
 

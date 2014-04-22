@@ -15,7 +15,7 @@ unittest2==0.5.1          # backport of unittest lib in python 2.7
 #webtest                  # test wsgi apps without starting an http server
 #mox                      # mock object framework
 coverage==3.7.1           # Nose module for test coverage
-sphinx==1.2               # required to build documentation
+sphinx==1.2.2               # required to build documentation
 Jinja2==2.7.2             # template engine
 sphinxcontrib-httpdomain==1.2.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
 sphinxcontrib-sdedit==0.3       #
@@ -32,3 +32,4 @@ pytest==2.3.4                   # Full-featured Python testing tool
 pytest-xdist==1.8               # py.test xdist plugin for distributed testing and loop-on-failing modes
 tabulate==0.7.1                 # Formating table like outputs
 xmltodict==0.8.3                # Makes working with XML feel like you are working with JSON
+git-review==1.23                # Command-line tool for Git / Gerrit
