@@ -80,19 +80,26 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False):
+def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False, scheme=None):
     """
     Main loop to select and delete files.
+
+    :param total_workers: The total number of workers.
+    :param chunk_size: the size of chunk for deletion.
+    :param once: If True, only runs one iteration of the main loop.
+    :param greedy: If True, delete right away replicas with tombstone.
+    :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     """
 
     logging.info('Starting reaper')
-
     while not graceful_stop.is_set():
         for rse in rses:
             rse_info = rsemgr.get_rse_info(rse['rse'])
             logging.info('Running on RSE %s' % (rse_info['rse']))
             try:
                 s = time.time()
+
                 if not greedy:
                     max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                     logging.info('Space usage for RSE %(rse)s: max_being_deleted_files, needed_free_space, used, free' % rse, max_being_deleted_files, needed_free_space, used, free)
@@ -113,8 +120,9 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         # logging.debug('update_replicas_states %s' % (time.time() - s))
                         monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
 
-                        # comment for the moment
-                        # rsemgr.delete(rse_id=rse['rse'], lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
+                        if not scheme:
+                            for replica in replicas:
+                                rsemgr.delete(rse_info=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
 
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
@@ -141,9 +149,16 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[]):
+def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], scheme=None):
     """
     Starts up the reaper threads.
+
+    :param total_workers: The total number of workers.
+    :param chunk_size: the size of chunk for deletion.
+    :param once: If True, only runs one iteration of the main loop.
+    :param greedy: If True, delete right away replicas with tombstone.
+    :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
     """
     print 'main: starting processes'
 
@@ -159,7 +174,8 @@ def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[]):
                   'once': once,
                   'chunk_size': chunk_size,
                   'greedy': greedy,
-                  'rses': rses[i:i + nb_rses_per_worker]}
+                  'rses': rses[i:i + nb_rses_per_worker],
+                  'scheme': scheme}
         r.extend(rses[i:i + nb_rses_per_worker])
         threads.append(threading.Thread(target=reaper, kwargs=kwargs))
     [t.start() for t in threads]

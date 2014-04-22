@@ -717,6 +717,12 @@ class Callback(BASE, ModelBase):
                    CheckConstraint('PAYLOAD IS NOT NULL', name='CALLBACKS_PAYLOAD_NN'),)
 
 
+class AlembicVersion(BASE):
+    """Table used to pinpoint actual database schema release."""
+    __tablename__ = "alembic_version"
+    version_num = Column(String(32), primary_key=True, nullable=False)
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -726,6 +732,7 @@ def register_models(engine):
               UpdatedAccountCounter,
               AccountLimit,
               AccountUsage,
+              AlembicVersion,
               Callback,
               DIDKey,
               DIDKeyValueAssociation,
@@ -763,6 +770,7 @@ def unregister_models(engine):
               AccountLimit,
               AccountUsage,
               Callback,
+              AlembicVersion,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,

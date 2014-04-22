@@ -24,6 +24,11 @@ def build_database(echo=True, tests=False):
     models.register_models(engine)
     if tests:
         test_models.register_models(engine)
+    # Put the database under version control
+    s = session.get_session()
+    # TODO: Get last revision from alembic
+    s.add(models.AlembicVersion(version_num='16a0aca82e12'))
+    s.commit()
 
 
 def dump_schema():

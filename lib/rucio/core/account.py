@@ -131,7 +131,6 @@ def list_accounts(filter={}, session=None):
     query = session.query(models.Account.account, models.Account.account_type,
                           models.Account.email).filter_by(status=AccountStatus.ACTIVE)
     if filter:
-
         if 'account_type' in filter:
             if (isinstance(filter['account_type'], str) or isinstance(filter['account_type'], unicode)):
                 query = query.filter_by(account_type=AccountType.from_sym(filter['account_type']))

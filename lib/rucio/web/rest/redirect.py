@@ -49,7 +49,7 @@ class Redirector(RucioController):
         :param name: The name of the file.
         """
         try:
-            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'F'}], schemes=['http', 'https'])]
+            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=['http', 'https'])]
 
             select = 'random'
             rse = None
