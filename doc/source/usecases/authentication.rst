@@ -17,11 +17,11 @@ Authenticate with rucio
     Core::
     DB::
 
-    HTTPClient:Rucio-Auth-Token=REST.GET auth/{userpass|x509|gss|proxy}
-    REST:Rucio-Auth-Token=Authentication.authorize(credentials)
-    Authentication:DB.store(Rucio-Auth-Token)
+    HTTPClient:X-Rucio-Auth-Token=REST.GET auth/{userpass|x509|gss|proxy}
+    REST:X-Rucio-Auth-Token=Authentication.authorize(credentials)
+    Authentication:DB.store(X-Rucio-Auth-Token)
 
-Every API call needs to provide a valid Rucio-Auth-Token. This authentication handshake is therefore omitted from the other sequence diagrams.
+Every API call needs to provide a valid X-Rucio-Auth-Token. This authentication handshake is therefore omitted from the other sequence diagrams.
 
 The client needs to provide the appropriate credentials for the authentication to succeed:
 
@@ -45,7 +45,7 @@ The client needs to present a valid Globus proxy certificate.
 
 
 ---------------------------
-Validate a Rucio-Auth-Token
+Validate a X-Rucio-Auth-Token
 ---------------------------
 
 .. sequence-diagram::
@@ -57,6 +57,6 @@ Validate a Rucio-Auth-Token
     DB::
 
     HTTPClient:[true|false]=REST.GET auth/validate
-    REST:[true|false]=Authentication.validate(Rucio-Auth-Token)
-    Authentication:storedCredentials=DB.retrieve(Rucio-Auth-Token)
+    REST:[true|false]=Authentication.validate(X-Rucio-Auth-Token)
+    Authentication:storedCredentials=DB.retrieve(X-Rucio-Auth-Token)
     Authentication:[true|false]=Authentication.validIfStoredCredentialsFound()

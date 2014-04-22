@@ -1,7 +1,7 @@
-$> curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Account: vgaronne" --cert $X509_USER_PROXY --key $X509_USER_PROXY -X GET https://localhost/auth/x509_proxy
+$> curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Account: vgaronne" --cert $X509_USER_PROXY --key $X509_USER_PROXY -X GET https://localhost/auth/x509_proxy
 HTTP/1.1 200 OK
 Date: Mon, 15 Oct 2012 10:58:37 GMT
 Server: Apache/2.2.22 (Unix) mod_ssl/2.2.22 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.15 mod_fastcgi/2.4.2
-Rucio-Auth-Token: 10520defe5314ef68677be7a479152ae
+X-X-X-Rucio-Auth-Token: 10520defe5314ef68677be7a479152ae
 Content-Length: 0
 Content-Type: application/octet-stream

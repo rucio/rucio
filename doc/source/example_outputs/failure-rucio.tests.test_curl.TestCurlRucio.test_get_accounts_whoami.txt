@@ -1,4 +1,4 @@
-$> curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/accounts/whoami
+$> curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "X-X-X-Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/accounts/whoami
 HTTP/1.1 401 Unauthorized
 Date: Mon, 15 Oct 2012 10:58:26 GMT
 Server: Apache/2.2.22 (Unix) mod_ssl/2.2.22 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.15 mod_fastcgi/2.4.2
@@ -21,7 +21,7 @@ Traceback (most recent call last):
     raise self.failureException(msg)
 AssertionError: '303 See Other' not found in 'HTTP/1.1 401 Unauthorized\r\nDate: Mon, 15 Oct 2012 10:58:26 GMT\r\nServer: Apache/2.2.22 (Unix) mod_ssl/2.2.22 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.15 mod_fastcgi/2.4.2\r\nExceptionMessage: Cannot authenticate with given credentials\r\nExceptionClass: CannotAuthenticate\r\nContent-Length: 62\r\nContent-Type: text/html\r\n\r\nCannotAuthenticate: Cannot authenticate with given credentials'
 -------------------- >> begin captured stdout << ---------------------
-$> curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/accounts/whoami
+$> curl -s -i -L --cacert /opt/rucio/etc/web/ca.crt -H "X-X-X-Rucio-Auth-Token: $RUCIO_TOKEN" -X GET https://localhost/accounts/whoami
 HTTP/1.1 401 Unauthorized
 Date: Mon, 15 Oct 2012 10:58:26 GMT
 Server: Apache/2.2.22 (Unix) mod_ssl/2.2.22 OpenSSL/0.9.8r DAV/2 mod_wsgi/3.3 Python/2.7.3 PHP/5.3.15 mod_fastcgi/2.4.2
