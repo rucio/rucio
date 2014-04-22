@@ -918,7 +918,7 @@ class UseCaseDefinition(UCEmulator):
                 with monitor.record_timer_block('panda.close'):
                     client.close(**source)
                 success = True
-        except Exception:
+        except DatabaseException:
             exc = sys.exc_info()
             print '== PanDA: Waiting 5 seconds for task data to arrive in %s (retry count: %s / task-type: %s)' % (source, retry, task_type)
             monitor.record_counter('panda.retry.close.%s' % (retry), 1)
@@ -953,7 +953,7 @@ class UseCaseDefinition(UCEmulator):
                             monitor.record_counter('panda.tasks.%s.EmptyOutputDataset' % task_type, 1)
                         success = True
                     except DatabaseException:
-                        monitor.record_counter('panda.retry.close.%s' % (retry), 1)
+                        monitor.record_counter('panda.retry.list_files.%s' % (retry), 1)
                         retry += 1
                         if retry > 5:
                             raise
