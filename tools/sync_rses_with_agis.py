@@ -30,7 +30,7 @@ if __name__ == '__main__':
     resp = requests.get(url=url)
     data = json.loads(resp.content)
 
-#    rses = ['BNL-OSG2_DDMTEST',]
+    rses = ['BNL-OSG2_DDMTEST', ]
     c = Client()
     for rse in data:
 
@@ -41,18 +41,18 @@ if __name__ == '__main__':
             continue
 
 #        if not rse['name'].startswith('IN2P3-LAPP_'):
-#        if not rse['name'].startswith('FZK-LCG2_'):
 #        if not rse['name'].startswith('LRZ-LMU'):
 #        if not rse['name'].startswith('INFN-FRASCATI'):
 #        if not rse['name'].startswith('IN2P3-LAPP_'):
 #        if not rse['name'].startswith('TAIWAN-LCG2'):
 
-        if not rse['name'].startswith('IN2P3-CC_'):
+#        if not rse['name'].startswith('IN2P3-CC_'):
+#            continue
+
+        if rse['name'] not in rses:
             continue
 
         print rse['name']
-        #if rse['name'] not in rses:
-        #    continue
 
         try:
             deterministic = not rse['is_tape']

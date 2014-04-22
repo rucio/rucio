@@ -72,26 +72,33 @@ class ReplicaClient(BaseClient):
         # pass json dict in querystring
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.ok:
-            if metalink is None:
+            if not metalink:
                 return self._load_json_data(r)
-            else:
-                return r.text
+            return r.text
         exc_cls, exc_msg = self._get_exception(r.headers)
         raise exc_cls(exc_msg)
 
-    def add_replica(self, rse, scope, name, bytes, adler32, md5=None, meta={}):
+    def add_replica(self, rse, scope, name, bytes, adler32, pfn=None, md5=None, meta={}):
         """
         Add file replicas to a RSE.
 
         :param rse: the RSE name.
-        :param files: The list of files. This is a list of DIDs like :
-        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+        :param scope: The scope of the file.
+        :param name: The name of the file.
+        :param bytes: The size in bytes.
+        :param adler32: adler32 checksum.
+        :param pfn: PFN of the file for non deterministic RSE.
+        :param md5: md5 checksum.
+        :param meta: Metadata attributes.
 
         :return: True if files were created successfully.
+
         """
         dict = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta, 'adler32': adler32}
         if md5:
             dict['md5'] = md5
+        if pfn:
+            dict['pfn'] = pfn
         return self.add_replicas(rse=rse, files=[dict])
 
     def add_replicas(self, rse, files):
