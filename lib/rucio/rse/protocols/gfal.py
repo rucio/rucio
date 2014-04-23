@@ -13,7 +13,10 @@ import os
 import re
 import urlparse
 
-import gfal2
+try:
+    import gfal2
+except:
+    pass
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
