@@ -51,7 +51,7 @@ md5 = {"description": "md5",
 
 uuid = {"description": "Universally Unique Identifier (UUID)",
         "type": "string",
-        "pattern": '^[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}$'}
+        "pattern": '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$'}
 
 meta = {"description": "Data Identifier(DID) metadata",
         "type": "object",
