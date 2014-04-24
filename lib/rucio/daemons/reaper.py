@@ -26,7 +26,9 @@ from rucio.core.rse_counter import get_counter
 from rucio.db.constants import ReplicaState
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
+from rucio.common.exception import SourceNotFound
 from rucio.common.utils import chunks
+
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -127,8 +129,11 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
                         if not scheme:
                             for replica in replicas:
-                                logging.debug('Deletion of %s on %s' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
-                                rsemgr.delete(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
+                                try:
+                                    logging.debug('Deletion of %s on %s' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
+                                    rsemgr.delete(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
+                                except SourceNotFound:
+                                    logging.warning('File %s on %s not found (already deleted ?).' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
 
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
