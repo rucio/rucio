@@ -158,7 +158,6 @@ class Default(protocol.RSEProtocol):
 
         # "ping" to see if the server is available
         try:
-            self.session.mount('https://', TLSv1HttpAdapter())
             res = self.session.request('HEAD', self.path2pfn(''), verify=False, timeout=self.timeout, cert=self.cert)
             if res.status_code != 200:
                 raise exception.ServiceUnavailable(res.text)
