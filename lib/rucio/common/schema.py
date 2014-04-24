@@ -36,7 +36,7 @@ rse = {"description": "RSE name",
 
 did_type = {"description": "DID type",
             "type": "string",
-            "enum": ["DATASET", "CONTAINER", "FILE"]}
+            "enum": ["DATASET", "CONTAINER", "FILE", "F"]}
 
 bytes = {"description": "Size in bytes",
          "type": "integer"}
