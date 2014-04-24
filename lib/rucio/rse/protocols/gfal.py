@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wguan@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import errno
 import os
@@ -320,10 +321,9 @@ class Default(protocol.RSEProtocol):
             ret = ctx.filecopy(params, str(src), str(dest))
             return ret
         except gfal2.GError as e:
-            if e.code == errno.ENOENT:
+            if e.code == errno.ENOENT or e.code == errno.EINVAL:
                 raise exception.SourceNotFound(e)
-            else:
-                raise exception.RucioException(e)
+            raise exception.RucioException(e)
 
     def __gfal2_rm(self, paths):
         """
@@ -346,10 +346,9 @@ class Default(protocol.RSEProtocol):
                     return ret
             return ret
         except gfal2.GError as e:
-            if e.code == errno.ENOENT:
+            if e.code == errno.ENOENT or e.code == errno.EINVAL:
                 raise exception.SourceNotFound(e)
-            else:
-                raise exception.RucioException(e)
+            raise exception.RucioException(e)
 
     def __gfal2_exist(self, path):
         """
@@ -365,15 +364,13 @@ class Default(protocol.RSEProtocol):
         ctx = self.__ctx
 
         try:
-            st = ctx.stat(str(path))
-            if st:
+            if ctx.stat(str(path)):
                 return 0
             return -1
         except gfal2.GError as e:
-            if e.code == errno.ENOENT:
+            if e.code == errno.ENOENT or e.code == errno.EINVAL:
                 return -1
-            else:
-                raise exception.RucioException(e)
+            raise exception.RucioException(e)
 
     def __gfal2_rename(self, path, new_path):
         """
