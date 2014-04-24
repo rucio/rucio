@@ -12,7 +12,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 from dogpile.cache import make_region
 
@@ -342,7 +342,7 @@ def perm_add_protocol(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_del_protocol(issuer, kwargs):
@@ -353,7 +353,7 @@ def perm_del_protocol(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_update_protocol(issuer, kwargs):
@@ -364,7 +364,7 @@ def perm_update_protocol(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_add_replicas(issuer, kwargs):
