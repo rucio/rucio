@@ -96,6 +96,11 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
     while not graceful_stop.is_set():
         for rse in rses:
             rse_info = rsemgr.get_rse_info(rse['rse'])
+            # Temporary hack to force gfal for deletion
+            for protocol in rse_info['protocols']:
+                if protocol['impl'] == 'rucio.rse.protocols.srm.Default':
+                    protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
+
             logging.info('Running on RSE %s' % (rse_info['rse']))
             try:
                 s = time.time()
@@ -122,7 +127,8 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
                         if not scheme:
                             for replica in replicas:
-                                rsemgr.delete(rse_info=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
+                                logging.debug('Deletion of %s on %s' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
+                                rsemgr.delete(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
 
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
