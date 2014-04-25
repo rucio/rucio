@@ -260,6 +260,11 @@ class TestDIDClients:
         self.did_client.add_datasets(dsns=dsns)
         self.did_client.attach_dids_to_dids(attachments=attachments)
 
+        cnt_name = 'cnt_%s' % generate_uuid()
+        self.did_client.add_container(scope='mock', name=cnt_name)
+        with assert_raises(UnsupportedOperation):
+            self.did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
+
     def test_add_dataset(self):
         """ DATA IDENTIFIERS (CLIENT): Add dataset """
         tmp_scope = 'mock'

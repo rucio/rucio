@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
@@ -198,25 +198,27 @@ def __add_collections_to_container(scope, name, collections, account, session):
     Add collections (datasets or containers) to container.
 
     :param scope: The scope name.
-    :param name: The data identifier name.
+    :param name: The container name.
     :param collections: .
     :param account: The account owner.
     :param session: The database session in use.
     """
+
     condition = or_()
-    condition_type = or_(models.DataIdentifier.did_type == DIDType.DATASET, models.DataIdentifier.did_type == DIDType.CONTAINER)
     for c in collections:
 
         if (scope == c['scope']) and (name == c['name']):
             raise exception.UnsupportedOperation('Self-append is not valid!')
 
         condition.append(and_(models.DataIdentifier.scope == c['scope'],
-                              models.DataIdentifier.name == c['name'],
-                              condition_type))
+                              models.DataIdentifier.name == c['name']))
 
     available_dids = {}
     child_type = None
     for row in session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter(condition):
+
+        if row.did_type == DIDType.FILE:
+            raise exception.UnsupportedOperation("Adding a file (%s:%s) to a container (%s:%s) is forbidden" % (row.scope, row.name, scope, name))
 
         if not child_type:
             child_type = row.did_type
@@ -282,7 +284,7 @@ def attach_dids_to_dids(attachments, account, session=None):
                                              models.DataIdentifier.name == parent_did.name))
             parent_dids.append((parent_did.scope, parent_did.name))
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % attachment())
+            raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (attachment['scope'], attachment['name']))
 
     for scope, name in parent_dids:
         models.UpdatedDID(scope=scope, name=name, rule_evaluation_action=DIDReEvaluation.ATTACH).save(session=session, flush=False)
