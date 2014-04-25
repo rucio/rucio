@@ -147,6 +147,8 @@ class Default(protocol.RSEProtocol):
             self.cert = credentials['cert']
         except KeyError:
             x509 = os.getenv('X509_USER_PROXY')
+            if not x509:
+                raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
             self.cert = (x509, x509)
 
         try:
