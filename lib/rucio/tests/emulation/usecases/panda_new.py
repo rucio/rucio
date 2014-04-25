@@ -203,8 +203,8 @@ class UseCaseDefinition(UCEmulator):
 
             for i in range(output_datasets_per_datatype):
                 final_dss[fds].update({'guid': str(uuid())})
-                dsn = '%s.%s' % (fds, i)
-                out_ds = {'scope': output['scope'], 'name': dsn, 'dids': [], 'meta': final_dss[fds].copy(),
+                dsn2 = '%s.%s' % (fds, i)
+                out_ds = {'scope': output['scope'], 'name': dsn2, 'dids': [], 'meta': final_dss[fds].copy(),
                           'rules': [{'account': output['account'], 'copies': 1, 'rse_expression': target_rses[i], 'grouping': 'DATASET', 'lifetime': output['lifetime']}]}
                 temp.append(out_ds)
 
@@ -228,7 +228,7 @@ class UseCaseDefinition(UCEmulator):
             while not success:
                 try:
                     with monitor.record_timer_block(['panda.add_datasets_to_container', ('panda.add_datasets_to_container.normailzed', len(temp))]):
-                        client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % (fds), dsns=[{'scope': dsn['scope'], 'name': dsn['name']} for dsn in temp])
+                        client.add_datasets_to_container(scope=output['scope'], name='cnt_%s' % (fds), dsns=[{'scope': d['scope'], 'name': d['name']} for d in temp])
                     success = True
                 except (DatabaseException, ConnectionError):
                     monitor.record_counter('panda.retry.add_datasets_to_container.%s' % (retry), 1)
@@ -411,9 +411,9 @@ class UseCaseDefinition(UCEmulator):
                                                                                                                                                             output['scope'], len(inserts_dis),
                                                                                                                                                             len(inserts_sub), len(sub_finish), log_ds,
                                                                                                                                                             final_dss, job_count, len(job_finish) * output_datasets_per_datatype)
-        #print '-', job_finish
-        #print '-', sub_finish
-        #print '-', task_finish
+        # print '-', job_finish
+        # print '-', sub_finish
+        # print '-', task_finish
         return {'jobs': job_finish, 'subs': sub_finish.values(), 'task': task_finish}
 
     def add_files_ds(self, client, ds, ret=None, sem=None):
@@ -461,8 +461,8 @@ class UseCaseDefinition(UCEmulator):
 
     def CREATE_TASK_input(self, ctx):
         try:
-        # Select input DS from file provided by Cedric using observed age distribution from Thomas
-        # Select task type
+            # Select input DS from file provided by Cedric using observed age distribution from Thomas
+            # Select task type
             success = False
             task_type = ''
             while not success:
@@ -470,7 +470,7 @@ class UseCaseDefinition(UCEmulator):
                     while not exit:
                         tt = choice(ctx.task_distribution)
                         exit = (tt.startswith(task_type.split('-')[0]) or (task_type is ''))
-                    #print '== PanDA [%s]: Selecting task from group %s' % (time.strftime('%D %H:%M:%S', time.localtime()), tt.split('-')[0])
+                    # print '== PanDA [%s]: Selecting task from group %s' % (time.strftime('%D %H:%M:%S', time.localtime()), tt.split('-')[0])
                     task_type = tt
                     ret = {'input': ctx.tasks[task_type]['input'],
                            'output': ctx.tasks[task_type]['output'],
@@ -900,7 +900,7 @@ class UseCaseDefinition(UCEmulator):
         else:
             threads = int(ctx.threads)
         if len(tasks):
-            #print '== PanDA [%s]: Finishing %s tasks.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(tasks))
+            # print '== PanDA [%s]: Finishing %s tasks.' % (time.strftime('%D %H:%M:%S', time.localtime()), len(tasks))
             monitor.record_counter('panda.helper.tasks_block', len(tasks))
             return {'tasks': tasks, 'threads': threads, 'safety_delay': ctx.safety_delay}
         else:

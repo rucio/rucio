@@ -9,7 +9,6 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 
-#import ast
 import json
 import time
 import threading
@@ -29,7 +28,7 @@ class UCEmulator(object):
         implementing the UseCase decorator) in a frequency according to the current time frame
         defined in the related time series.
     """
-    #__ucs = {}
+    # __ucs = {}
 
     def __init__(self, cfg=None, carbon_server=None, worker_mode=False):
         """

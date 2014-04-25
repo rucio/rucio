@@ -36,8 +36,8 @@ class TestSubscriptionCoreApi():
         subscription_name = uuid()
         result = add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                   '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',
-                                  'account': 'tier0'}, replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
+                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                                  replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
         assert_equal(result, None)
         with assert_raises(TypeError):
             result = update_subscription(name=subscription_name, account='root', filter='toto')
@@ -58,13 +58,13 @@ class TestSubscriptionCoreApi():
         subscription_name = uuid()
         result = add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                   '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',
-                                  'account': 'tier0'}, replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
+                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                                  replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
         assert_equal(result, None)
         result = add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                   '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',
-                                  'account': 'tier0'}, replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
+                                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                                  replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
 
     @raises(SubscriptionNotFound)
     def test_update_nonexisting_subscription(self):
@@ -96,8 +96,8 @@ class TestSubscriptionRestApi():
         subscription_name = uuid()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'name': subscription_name, 'filter': {'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
-                     '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',
-                     'account': 'tier0'}, 'replication_rules': [(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'subscription_policy': 'tier0'})
+                     '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).*\.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                     'replication_rules': [(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'subscription_policy': 'tier0'})
         r2 = TestApp(subs_app.wsgifunc(*mw)).post('/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 201)
 
@@ -196,7 +196,7 @@ class TestSubscriptionClient():
         result = self.client.add_subscription(name=subscription_name, filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
                                               '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                                               \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)',
-                                              'account': 'tier0'}, replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
+                                               'account': 'tier0'}, replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
 
     @raises(SubscriptionNotFound)
     def test_update_nonexisting_subscription(self):

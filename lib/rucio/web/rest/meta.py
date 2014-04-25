@@ -63,7 +63,6 @@ class Meta:
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-        type, regexp = None, None
         json_data = data()
         try:
             params = json_data and loads(json_data)

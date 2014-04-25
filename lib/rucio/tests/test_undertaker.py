@@ -28,17 +28,17 @@ class TestUndertaker:
         nbfiles = 5
 
         dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
-                 'scope': tmp_scope,
-                 'type': 'DATASET',
-                 'lifetime': -1} for i in xrange(nbdatasets)]
+                  'scope': tmp_scope,
+                  'type': 'DATASET',
+                  'lifetime': -1} for i in xrange(nbdatasets)]
 
         dsns2 = [{'name': 'dsn_%s' % generate_uuid(),
-                 'scope': tmp_scope,
-                 'type': 'DATASET',
-                 'lifetime': -1,
-                 'rules': [{'account': 'jdoe', 'copies': 1,
-                            'rse_expression':  'MOCK',
-                            'grouping': 'DATASET'}]} for i in xrange(nbdatasets)]
+                  'scope': tmp_scope,
+                  'type': 'DATASET',
+                  'lifetime': -1,
+                  'rules': [{'account': 'jdoe', 'copies': 1,
+                             'rse_expression':  'MOCK',
+                             'grouping': 'DATASET'}]} for i in xrange(nbdatasets)]
 
         add_dids(dids=dsns1 + dsns2, account='root')
 

@@ -8,11 +8,11 @@
 # - Luis Rodrigues, <luis.rodrigues@cern.ch>, 2013
 
 
-#add_replica(rse='MOCK', scope='test', name='testfile0001', bytes=1, issuer='root')
-#add_did(scope='test', name='testdataset1', type='DATASET', issuer='root')
-##bulk: see add_replicas
-#attach_dids(scope='ftest_scope', name='testdataset1', attachment={'dids': [{'scope': 'ftest_scope', 'name': 'testfile0002', 'type': 'FILE', 'bytes': 1 }, {'scope': 'ftest_scope', 'name': 'testfile0003', 'type': 'FILE', 'bytes': 1 }]}, issuer='root')
-#add_replication_rule(dids=[{'scope': 'mock', 'name': 'testfile0001'}], account='root', copies=1, rse_expression='MOCK', grouping='NONE', weight=None, lifetime=None, issuer='root', locked=None, subscription_id=None)
+# add_replica(rse='MOCK', scope='test', name='testfile0001', bytes=1, issuer='root')
+# add_did(scope='test', name='testdataset1', type='DATASET', issuer='root')
+# bulk: see add_replicas
+# attach_dids(scope='ftest_scope', name='testdataset1', attachment={'dids': [{'scope': 'ftest_scope', 'name': 'testfile0002', 'type': 'FILE', 'bytes': 1 }, {'scope': 'ftest_scope', 'name': 'testfile0003', 'type': 'FILE', 'bytes': 1 }]}, issuer='root')
+# add_replication_rule(dids=[{'scope': 'mock', 'name': 'testfile0001'}], account='root', copies=1, rse_expression='MOCK', grouping='NONE', weight=None, lifetime=None, issuer='root', locked=None, subscription_id=None)
 
 commands = [
     # create the files

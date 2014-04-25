@@ -195,5 +195,5 @@ class UCProcess(object):
             elif isinstance(ctx[key], (int, long, float)):
                 self.cs.gauge('%s.%s' % (prefix, key), ctx[key])
             else:
-                #print '%s\tCannot report\t%s.%s\t(type:\t%s)\t%s' % (now, prefix, key, type(ctx[key]), ctx[key])
+                # print '%s\tCannot report\t%s.%s\t(type:\t%s)\t%s' % (now, prefix, key, type(ctx[key]), ctx[key])
                 pass

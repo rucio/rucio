@@ -65,7 +65,7 @@ class UseCaseDefinition(UCEmulator):
         scope = metadata['project']
         metadata.pop('name', None)
 
-        #print 'metadata picked: ' + str(metadata)
+        # print 'metadata picked: ' + str(metadata)
 
         return {'scope': scope,
                 'metadata': metadata}
@@ -102,7 +102,7 @@ class UseCaseDefinition(UCEmulator):
         wildcard = {}
         wildcard['name'] = metadata['name']
 
-        #print 'wildcard picked: ' + str(wildcard)
+        # print 'wildcard picked: ' + str(wildcard)
 
         return {'scope': scope,
                 'wildcard': wildcard}

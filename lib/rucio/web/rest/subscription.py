@@ -106,7 +106,7 @@ class Subscription:
             update_subscription(name=name, account=ctx.env.get('issuer'), filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionNotFound, e:
             raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
-        #except Exception, e:
+        # except Exception, e:
         #    print e
         #    raise InternalError(e)
         raise Created()
