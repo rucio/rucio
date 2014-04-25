@@ -52,7 +52,7 @@ def parse_expression(expression, session):
     """
     result = region.get(expression)
     if type(result) is NoValue:
-        #Evaluate the correctness of the parentheses
+        # Evaluate the correctness of the parentheses
         parantheses_open_count = 0
         parantheses_close_count = 0
         for char in expression:
@@ -65,7 +65,7 @@ def parse_expression(expression, session):
         if (parantheses_open_count != parantheses_close_count):
             raise InvalidRSEExpression('Problem with parantheses.')
 
-        #Check the expression pattern
+        # Check the expression pattern
         match = re.match(PATTERN, expression)
         if match is None:
             raise InvalidRSEExpression('Expression does not comply to RSE Expression syntax')

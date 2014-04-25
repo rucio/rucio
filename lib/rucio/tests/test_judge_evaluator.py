@@ -24,7 +24,7 @@ class TestJudgeEvaluator():
 
     @classmethod
     def setUpClass(cls):
-        #Add test RSE
+        # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
@@ -35,7 +35,7 @@ class TestJudgeEvaluator():
         cls.rse4_id = get_rse(cls.rse4).id
         cls.rse5_id = get_rse(cls.rse5).id
 
-        #Add Tags
+        # Add Tags
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
         add_rse_attribute(cls.rse1, cls.T1, True)
@@ -43,7 +43,7 @@ class TestJudgeEvaluator():
         add_rse_attribute(cls.rse4, cls.T2, True)
         add_rse_attribute(cls.rse5, cls.T1, True)
 
-        #Add fake weights
+        # Add fake weights
         add_rse_attribute(cls.rse1, "fakeweight", 10)
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
@@ -56,15 +56,15 @@ class TestJudgeEvaluator():
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
 
-        #Add a first rule to the DS
+        # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         attach_dids(scope, dataset, files, 'jdoe')
 
-        #Fake judge
+        # Fake judge
         re_evaluator(once=True)
 
-        #Check if the Locks are created properly
+        # Check if the Locks are created properly
         for file in files:
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
 
@@ -78,17 +78,17 @@ class TestJudgeEvaluator():
 
         parent_container = 'dataset_' + str(uuid())
         add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
-        #Add a first rule to the DS
+        # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': parent_container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
         attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], 'jdoe')
-        #Fake judge
+        # Fake judge
         re_evaluator(once=True)
 
-        #Check if the Locks are created properly
+        # Check if the Locks are created properly
         for file in files:
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
 
-        #Check if the DatasetLocks are created properly
+        # Check if the DatasetLocks are created properly
         dataset_locks = get_dataset_locks(scope=scope, name=dataset)
         print dataset_locks
         assert(len(dataset_locks) == 2)
@@ -103,13 +103,13 @@ class TestJudgeEvaluator():
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
 
-        #Add a first rule to the DS
+        # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         account_counter_before = get_counter(self.rse1_id, 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        #Fake judge
+        # Fake judge
         re_evaluator(once=True)
         account_update(once=True)
 
@@ -128,7 +128,7 @@ class TestJudgeEvaluator():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        #Add a first rule to the DS
+        # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         account_update(once=True)
@@ -137,7 +137,7 @@ class TestJudgeEvaluator():
 
         detach_dids(scope, dataset, [files[0]], 'jdoe')
 
-        #Fake judge
+        # Fake judge
         re_evaluator(once=True)
         account_update(once=True)
 

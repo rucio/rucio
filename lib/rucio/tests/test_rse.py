@@ -269,7 +269,7 @@ class TestRSEClient():
                                       'scheme': 'MOCK_Fail',
                                       'port': 17,
                                       'prefix': '/the/one/with/all/the/files',
-                                      #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                                      # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                                       'domains': {
                                           'lan': {'read': 1,
                                                   'write': 1,
@@ -319,7 +319,7 @@ class TestRSEClient():
                                   'scheme': 'Mock_Insuff_Params',
                                   'port': 17,
                                   'prefix': '/the/one/with/all/the/files',
-                                  #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                                  # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                                   'domains': {
                                       'FIRENDS': {'read': 1,
                                                   'write': 1,
@@ -374,7 +374,7 @@ class TestRSEClient():
         self.client.delete_protocols(protocol_rse, scheme='MOCK')
         self.client.delete_rse(protocol_rse)
 
-   # DELETE PROTOCOLS
+    # DELETE PROTOCOLS
 
     @raises(RSENotFound)
     def test_del_protocol_rse_not_found(self):
@@ -446,8 +446,7 @@ class TestRSEClient():
                                           'lan': {'read': 1,
                                                   'write': 1,
                                                   'delete': 1
-                                                  }
-                                      },
+                                                  }},
                                       'extended_attributes': 'TheOneWithAllTheRest'
                                       })
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost')
@@ -508,8 +507,7 @@ class TestRSEClient():
                                           'lan': {'read': 1,
                                                   'write': 1,
                                                   'delete': 1
-                                                  }
-                                      },
+                                                  }},
                                       'extended_attributes': 'TheOneWithAllTheRest'
                                       })
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost', port=17)
@@ -681,7 +679,7 @@ class TestRSEClient():
         rse_attr = mgr.get_rse_info(protocol_rse)
         rse_attr['domain'] = ['lan']
         for op in ops:
-            #resp = self.client.get_protocols(protocol_rse, operation=op, protocol_domain='lan')
+            # resp = self.client.get_protocols(protocol_rse, operation=op, protocol_domain='lan')
             p = mgr.select_protocol(rse_attr, op)
             if op not in p['scheme'].lower():
                 for p in protocols:
@@ -736,7 +734,7 @@ class TestRSEClient():
         rse_attr = mgr.get_rse_info(protocol_rse)
         rse_attr['domain'] = ['lan']
         for op in ['delete', 'read', 'write']:
-            #resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='lan')
+            # resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='lan')
             p = mgr.select_protocol(rse_attr, op)
             print p['scheme']
             print op
@@ -747,7 +745,7 @@ class TestRSEClient():
                 raise Exception('Unexpected protocols returned for %s: %s' % (op, p))
         rse_attr['domain'] = ['wan']
         for op in ['delete', 'read', 'write']:
-            #resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='wan')
+            # resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='wan')
             p = mgr.select_protocol(rse_attr, op)
             if ((op == 'delete') and (p['port'] != 17)) or ((op == 'read') and (p['port'] != 42)) or ((op == 'write') and (p['port'] != 19)):
                 for p in protocols:
@@ -1049,7 +1047,7 @@ class TestRSEClient():
         self.client.delete_rse(protocol_rse)
 
     # To make this test work again the dogpile.cache must be maintained. A lot of work for a very artificial use case?
-    #def test_update_protocols_enable_new_default(self):
+    # def test_update_protocols_enable_new_default(self):
     #    """ RSE (CLIENTS): set new default protocol by setting it explicite."""
     #    protocol_rse = rse_name_generator()
     #    self.client.add_rse(protocol_rse)
@@ -1114,7 +1112,7 @@ class TestRSEClient():
     #    self.client.delete_protocols(protocol_rse, 'MOCK')
     #    self.client.delete_rse(protocol_rse)
     #
-    #def test_update_protocols_disable_default(self):
+    # def test_update_protocols_disable_default(self):
     #    """ RSE (CLIENTS): set new default protocol by disabling the current default protocol."""
     #    protocol_rse = rse_name_generator()
     #    self.client.add_rse(protocol_rse)
@@ -1175,7 +1173,7 @@ class TestRSEClient():
     #    self.client.delete_protocols(protocol_rse, 'MOCK')
     #    self.client.delete_rse(protocol_rse)
 
-    #def test_update_protocols_update_ranking_forward(self):
+    # def test_update_protocols_update_ranking_forward(self):
     #    """ RSE (CLIENTS): assign high priority to one protocol."""
     #    protocol_rse = rse_name_generator()
     #    self.client.add_rse(protocol_rse)
@@ -1260,7 +1258,7 @@ class TestRSEClient():
     #    self.client.delete_protocols(protocol_rse, 'MOCK')
     #    self.client.delete_rse(protocol_rse)
 
-    #def test_update_protocols_update_ranking_backward(self):
+    # def test_update_protocols_update_ranking_backward(self):
     #    """ RSE (CLIENTS): assign lower priority to one protocol."""
     #    protocol_rse = rse_name_generator()
     #    self.client.add_rse(protocol_rse)
@@ -1418,7 +1416,7 @@ class TestRSEClient():
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
-                      #'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {'lan': {'read': 1,
                                           'write': 1,
                                           'delete': 0}},

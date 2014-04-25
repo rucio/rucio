@@ -38,8 +38,6 @@ class ReplicaClient(BaseClient):
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.ok:
             return self._load_json_data(r)
-            #return r.text
-            #yield self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(r.headers)
         raise exc_cls(exc_msg)
 

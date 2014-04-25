@@ -426,7 +426,7 @@ def add_protocol(rse, parameter, session=None):
             pass  # String is not JSON
 
     if parameter['scheme'] == 'srm':
-        if (not 'space_token' in parameter['extended_attributes']) or (not 'web_service_path' in parameter['extended_attributes']):
+        if ('space_token' not in parameter['extended_attributes']) or ('web_service_path' not in parameter['extended_attributes']):
             raise exception.InvalidObject('Missing values! For SRM, extended_attributes and web_service_path must be specified')
 
     try:

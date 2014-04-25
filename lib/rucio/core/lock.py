@@ -33,11 +33,11 @@ def get_dataset_locks(scope, name, session=None):
     locks = []
     for row in query:
         locks.append({'rse_id': row.rse_id,
-                     'scope': row.scope,
-                     'name': row.name,
-                     'rule_id': row.rule_id,
-                     'account': row.account,
-                     'state': row.state})
+                      'scope': row.scope,
+                      'name': row.name,
+                      'rule_id': row.rule_id,
+                      'account': row.account,
+                      'state': row.state})
     return locks
 
 
@@ -169,7 +169,7 @@ def successful_transfer(scope, name, rse_id, session=None):
             continue
         elif (rule.locks_replicating_cnt == 0):
             rule.state = RuleState.OK
-            #Try to update the DatasetLocks
+            # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
 
@@ -202,6 +202,6 @@ def failed_transfer(scope, name, rse_id, session=None):
         elif rule.locks_stuck_cnt > 0:
             if rule.state != RuleState.STUCK:
                 rule.state = RuleState.STUCK
-                #Try to update the DatasetLocks
+                # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})

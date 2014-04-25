@@ -60,7 +60,7 @@ def declare_bad_file_replicas(pfns, rse, session=None):
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
             pfndict[path] = pfn
             condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
-            #session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
+            # session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
             # TODO set scope, name, rse as BAD in the replica table + locks...
 
 

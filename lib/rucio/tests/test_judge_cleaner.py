@@ -22,7 +22,7 @@ class TestJudgeCleaner():
 
     @classmethod
     def setUpClass(cls):
-        #Add test RSE
+        # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
@@ -33,7 +33,7 @@ class TestJudgeCleaner():
         cls.rse4_id = get_rse(cls.rse4).id
         cls.rse5_id = get_rse(cls.rse5).id
 
-        #Add Tags
+        # Add Tags
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
         add_rse_attribute(cls.rse1, cls.T1, True)
@@ -41,7 +41,7 @@ class TestJudgeCleaner():
         add_rse_attribute(cls.rse4, cls.T2, True)
         add_rse_attribute(cls.rse5, cls.T1, True)
 
-        #Add fake weights
+        # Add fake weights
         add_rse_attribute(cls.rse1, "fakeweight", 10)
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)

@@ -86,9 +86,9 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
                         tss = time.time()
                         replica.update_replicas_states([{'rse': rse_name,
-                                                       'scope': req['scope'],
-                                                       'name': req['name'],
-                                                       'state': ReplicaState.AVAILABLE}],
+                                                         'scope': req['scope'],
+                                                         'name': req['name'],
+                                                         'state': ReplicaState.AVAILABLE}],
                                                        session=session)
                         record_timer('daemons.conveyor.poller.004-replica-set_available', (time.time()-tss)*1000)
 

@@ -50,7 +50,7 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
             session = rucio_session.get_session()
             query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.state == RuleState.STUCK).\
                 with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle')
-                #order_by(models.ReplicationRule.expires_at)
+            #   order_by(models.ReplicationRule.expires_at)
 
             if total_processes*threads_per_process-1 > 0:
                 if session.bind.dialect.name == 'oracle':

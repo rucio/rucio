@@ -39,5 +39,3 @@ class BaseClient(object):
         self.auth_tok = auth_tok
         self.creds = creds or {}
         self.connection = None
-
-        #self.auth_plugin =

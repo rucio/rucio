@@ -46,7 +46,7 @@ class TestRSEExpressionParserCore():
         self.rse4_id = rse.add_rse(self.rse4)
         self.rse5_id = rse.add_rse(self.rse5)
 
-        #Add Attributes
+        # Add Attributes
         self.attribute = attribute_name_generator()
 
         rse.add_rse_attribute(self.rse1, self.attribute, "at")
@@ -55,7 +55,7 @@ class TestRSEExpressionParserCore():
         rse.add_rse_attribute(self.rse4, self.attribute, "uk")
         rse.add_rse_attribute(self.rse5, self.attribute, "us")
 
-        #Add Tags
+        # Add Tags
         self.tag1 = tag_generator()
         self.tag2 = tag_generator()
         rse.add_rse_attribute(self.rse1, self.tag1, True)
@@ -136,7 +136,7 @@ class TestRSEExpressionParserClient():
         self.rse4_id = rse.add_rse(self.rse4)
         self.rse5_id = rse.add_rse(self.rse5)
 
-        #Add Attributes
+        # Add Attributes
         self.attribute = attribute_name_generator()
 
         rse.add_rse_attribute(self.rse1, self.attribute, "at")
@@ -145,7 +145,7 @@ class TestRSEExpressionParserClient():
         rse.add_rse_attribute(self.rse4, self.attribute, "uk")
         rse.add_rse_attribute(self.rse5, self.attribute, "us")
 
-        #Add Tags
+        # Add Tags
         self.tag1 = tag_generator()
         self.tag2 = tag_generator()
         rse.add_rse_attribute(self.rse1, self.tag1, True)

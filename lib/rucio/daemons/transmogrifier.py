@@ -69,7 +69,7 @@ def is_matching_subscription(subscription, did, metadata):
     param metadata: The metadata dictionnary for the DID
     return: True/False
     """
-    #filter = subscription['filter']
+    # filter = subscription['filter']
     try:
         filter = loads(subscription['filter'])
     except ValueError, e:
