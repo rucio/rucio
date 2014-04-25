@@ -5,18 +5,16 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
-import shutil
 import os
 import re
+import shutil
 import subprocess
 import sys
 
-#from distutils.core import Command
 from distutils.command.sdist import sdist as _sdist
-#from distutils.command.build import build as _build
 
 try:
     from setuptools import setup
@@ -68,7 +66,6 @@ if os.path.isdir('.git'):
     if IsRelease:
         git_version_cmd = 'git describe --abbrev=4'
     else:
-        #git_version_cmd = '''git describe --long --dirty="-`date +%s`"| sed 's/.*\([-][0-9][0-9]*[-][a-z0-9]*\)/\1/' '''
         git_version_cmd = '''git describe --dirty=-dev`date +%s`'''
     git_version = run_git_command(git_version_cmd)
     branch_nick_cmd = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'
@@ -150,7 +147,6 @@ def write_requirements():
 
 requires = parse_requirements(requirements_files=requirements_files)
 depend_links = parse_dependency_links(requirements_files=requirements_files)
-#write_requirements()
 
 
 class CustomSdist(_sdist):
@@ -167,15 +163,6 @@ class CustomSdist(_sdist):
         print "Chosen packaging option: " + name
         self.distribution.data_files = data_files
         _sdist.get_file_list(self)
-
-    #def make_release_tree(self, base_dir, files):
-    #    _sdist.make_release_tree(self, base_dir, files)
-    #    print 'make_release_tree', base_dir, files
-
-
-    #def make_distribution(self):
-    #    _sdist.make_distribution(self)
-    #    print '_sdist.make_distribution'
 
 
 cmdclass['sdist'] = CustomSdist
