@@ -15,9 +15,7 @@ import re
 import subprocess
 import sys
 
-#from distutils.core import Command
 from distutils.command.sdist import sdist as _sdist
-#from distutils.command.build import build as _build
 
 if sys.version_info < (2, 4):
     print('ERROR: Rucio requires at least Python 2.5 to run.')
@@ -42,8 +40,7 @@ requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
 data_files = [('etc/', glob.glob('etc/*.template')),
               ('etc/web', glob.glob('etc/web/*.template')),
               ('etc/schemas', glob.glob('etc/schemas/*.json')),
-              ('tools/', glob.glob('tools/*[^patches]'))
-              ]
+              ('tools/', glob.glob('tools/*]'))]
 
 scripts = glob.glob('bin/rucio*')
 
@@ -83,7 +80,6 @@ if os.path.isdir('.git'):
     if IsRelease:
         git_version_cmd = 'git describe --abbrev=4'
     else:
-        #git_version_cmd = '''git describe --long --dirty="-`date +%s`"| sed 's/.*\([-][0-9][0-9]*[-][a-z0-9]*\)/\1/' '''
         git_version_cmd = '''git describe --dirty=-dev`date +%s`'''
     git_version = run_git_command(git_version_cmd)
     branch_nick_cmd = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'
@@ -165,7 +161,6 @@ def write_requirements():
 
 requires = parse_requirements(requirements_files=requirements_files)
 depend_links = parse_dependency_links(requirements_files=requirements_files)
-#write_requirements()
 
 
 class CustomSdist(_sdist):
@@ -182,15 +177,6 @@ class CustomSdist(_sdist):
         print "Chosen packaging option: " + name
         self.distribution.data_files = data_files
         _sdist.get_file_list(self)
-
-    #def make_release_tree(self, base_dir, files):
-    #    _sdist.make_release_tree(self, base_dir, files)
-    #    print 'make_release_tree', base_dir, files
-
-
-    #def make_distribution(self):
-    #    _sdist.make_distribution(self)
-    #    print '_sdist.make_distribution'
 
 
 cmdclass['sdist'] = CustomSdist
