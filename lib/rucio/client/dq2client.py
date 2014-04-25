@@ -196,7 +196,7 @@ class DQ2Client:
                 result[rse] = {'status': True}
 
         for rule in self.client.list_did_rules(scope=scope, name=dsn):
-            state, location, locked = rule['state'], rule['rse_expression'], rule['locked']
+            state, location = rule['state'], rule['rse_expression']
             if location not in result['location']:
                 result[location] = {'status': True}
             if state == 'REPLICATING':
@@ -734,7 +734,7 @@ class DQ2Client:
                 except StopIteration:
                     print 'Error'
                 except RSENotFound:
-                    #In DQ2 it does not fail if the site does not exist
+                    # In DQ2 it does not fail if the site does not exist
                     pass
         elif key == 'owner':
             # Need mapping DN to account

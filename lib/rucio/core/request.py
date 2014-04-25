@@ -368,7 +368,7 @@ def cancel_request_did(scope, name, dest_rse, req_type):
     # select correct transfertool and external transfer id based on request entry in database
     transfer_id = 'whatever'
 
-    #if transfertool == 'fts3':
+    # if transfertool == 'fts3':
     #    return fts3.cancel(transfer_id)
 
     return fts3.cancel(transfer_id)  # hardcoded for now

@@ -402,10 +402,10 @@ def rename(rse_settings, files):
         if 'scope' in f:  # LFN is provided
             key = '%s:%s' % (f['scope'], f['name'])
             # Check if new name is provided
-            if not 'new_name' in f:
+            if 'new_name' not in f:
                 f['new_name'] = f['name']
             # Check if new scope is provided
-            if not 'new_scope' in f:
+            if 'new_scope' not in f:
                 f['new_scope'] = f['scope']
             pfn = protocol.lfns2pfns({'name': f['name'], 'scope': f['scope']}).values()[0]
             new_pfn = protocol.lfns2pfns({'name': f['new_name'], 'scope': f['new_scope']}).values()[0]

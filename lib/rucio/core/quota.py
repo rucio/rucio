@@ -18,7 +18,7 @@ def list_account_limits(account, rse_id, session=None):
     :param session:  Database session in use
     :return:         Limit in Byte
     """
-    #Mocking the Answer:
+    # Mocking the Answer:
     return 1000000000000000000000
 
 
@@ -31,5 +31,5 @@ def list_account_usage(account, rse_id, session=None):
     :param session:  Database session in use
     :return:         Usage in Byte
     """
-    #Mocking the Answer:
+    # Mocking the Answer:
     return 4

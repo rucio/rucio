@@ -116,7 +116,7 @@ class TestRseSRM():
         self.tmpdir = TestRseSRM.tmpdir
         self.rse_id = 'FZK-LCG2_SCRATCHDISK'
         self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseSRM.user, TestRseSRM.static_file)
-        #self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseSRM.user, "srm://atlassrm-fzk.gridka.de/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/user/wguan/rucio.test.2")
+        # self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseSRM.user, "srm://atlassrm-fzk.gridka.de/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/user/wguan/rucio.test.2")
         self.mtc.setup_scheme('srm')
 
     # Mgr-Tests: GET

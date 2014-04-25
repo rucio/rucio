@@ -100,7 +100,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     new_rule.save(session=session)
                 except IntegrityError, e:
                     raise InvalidReplicationRule(e.args[0])
-                #except OperationalError, e:
+                # except OperationalError, e:
                 #    raise e
 
                 rule_ids.append(new_rule.id)
@@ -282,7 +282,7 @@ def delete_rule(rule_id, nowait=False, session=None):
                 account_counter_decreases[lock.rse_id] = []
             account_counter_decreases[lock.rse_id].append(lock.bytes)
 
-        #Delete the DatasetLocks
+        # Delete the DatasetLocks
         session.query(models.DatasetLock).filter(models.DatasetLock.rule_id == rule_id).delete(synchronize_session=False)
 
         # Decrease account_counters
@@ -305,7 +305,7 @@ def repair_rule(rule_id, session=None):
     :param session:   The database session in use.
     """
 
-    #start_time = time.time()
+    # start_time = time.time()
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
         # Identify what's wrong with the rule
@@ -472,20 +472,20 @@ def __evaluate_did_detach(eval_did, session=None):
     """
 
     with record_timer_block('rule.evaluate_did_detach'):
-        #Get all parent DID's
+        # Get all parent DID's
         parent_dids = rucio.core.did.list_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
-        #Get all RR from parents and eval_did
+        # Get all RR from parents and eval_did
         rules = session.query(models.ReplicationRule).filter_by(scope=eval_did.scope, name=eval_did.name).with_for_update(nowait=True).all()
         for did in parent_dids:
             rules.extend(session.query(models.ReplicationRule).filter_by(scope=did['scope'], name=did['name']).with_for_update(nowait=True).all())
 
-        #Get all the files of eval_did
+        # Get all the files of eval_did
         files = {}
         for file in rucio.core.did.list_files(scope=eval_did.scope, name=eval_did.name, session=session):
             files[(file['scope'], file['name'])] = True
 
-        #Iterate rules and delete locks
+        # Iterate rules and delete locks
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
         for rule in rules:
@@ -532,11 +532,11 @@ def __evaluate_did_attach(eval_did, session=None):
     """
 
     with record_timer_block('rule.evaluate_did_attach'):
-        #Get all parent DID's
+        # Get all parent DID's
         with record_timer_block('rule.evaluate_did_attach.list_parent_dids'):
             parent_dids = rucio.core.did.list_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
-        #Get immediate new child DID's
+        # Get immediate new child DID's
         with record_timer_block('rule.evaluate_did_attach.list_new_child_dids'):
             new_child_dids = session.query(models.DataIdentifierAssociation).filter(
                 models.DataIdentifierAssociation.scope == eval_did.scope,
@@ -558,7 +558,7 @@ def __evaluate_did_attach(eval_did, session=None):
 
             # Resolve the new_child_dids to its locks
             with record_timer_block('rule.evaluate_did_attach.resolve_did_to_locks_and_replicas'):
-                #Resolve the rules to possible target rses:
+                # Resolve the rules to possible target rses:
                 possible_rses = []
                 if session.bind.dialect.name != 'sqlite':
                     session.begin_nested()
@@ -590,7 +590,7 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule.state = RuleState.STUCK
                         rule.error = str(e)
                         rule.save(session=session)
-                        #Try to update the DatasetLocks
+                        # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                         continue
@@ -607,7 +607,7 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule.state = RuleState.STUCK
                         rule.error = str(e)
                         rule.save(session=session)
-                        #Try to update the DatasetLocks
+                        # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                         continue
@@ -641,7 +641,7 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule.state = RuleState.STUCK
                         rule.error = str(e)
                         rule.save(session=session)
-                        #Try to update the DatasetLocks
+                        # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                         continue
@@ -682,7 +682,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
     """
 
     datasetfiles = []  # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
-                       # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
+    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
     locks = {}         # {(scope,name): [SQLAlchemy]}
     replicas = {}      # {(scope, name): [SQLAlchemy]}
 
@@ -734,7 +734,7 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
     """
 
     datasetfiles = []  # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
-                       # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
+    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
     locks = {}         # {(scope,name): [SQLAlchemy]}
     replicas = {}      # {(scope, name): [SQLAlchemy]}
 

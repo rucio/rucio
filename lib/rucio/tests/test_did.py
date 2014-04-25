@@ -156,24 +156,24 @@ class TestDIDClients:
 
         dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
         results = []
-        for did in dids:
-            results.append(did)
+        for d in dids:
+            results.append(d)
         for dsn in dsns:
             assert_in(dsn, results)
         dsns.remove(tmp_dsn1)
 
         dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
         results = []
-        for did in dids:
-            results.append(did)
+        for d in dids:
+            results.append(d)
         for dsn in dsns:
             assert_in(dsn, results)
         dsns.remove(tmp_dsn2)
 
         dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
         results = []
-        for did in dids:
-            results.append(did)
+        for d in dids:
+            results.append(d)
         for dsn in dsns:
             assert_in(dsn, results)
 
@@ -209,7 +209,7 @@ class TestDIDClients:
             lfn = 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid())
             pfn = 'mock://localhost/tmp/rucio_rse/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             # it doesn't work with mock: TBF
-            #pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
+            # pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 10}
             files.append({'scope': tmp_scope, 'name': lfn,

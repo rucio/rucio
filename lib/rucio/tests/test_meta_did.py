@@ -65,4 +65,4 @@ class TestMetaDIDClient():
 #         with assert_raises(UnsupportedOperation):
 #             self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key=key3, value=value3)
 
-        #self.did_client.delete_metadata(scope=tmp_scope, name=tmp_dataset, key=key)
+        # self.did_client.delete_metadata(scope=tmp_scope, name=tmp_dataset, key=key)

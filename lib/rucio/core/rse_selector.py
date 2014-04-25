@@ -51,7 +51,7 @@ class RSESelector():
             raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
         for rse in self.rses:
-            #TODO: Add RSE-space-left here!
+            # TODO: Add RSE-space-left here!
             rse['quota_left'] = list_account_limits(account=account, rse_id=rse['rse_id'], session=session) - list_account_usage(account=account, rse_id=rse['rse_id'], session=session)
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
@@ -73,20 +73,20 @@ class RSESelector():
         result = []
         rses = self.rses
 
-        #Remove blacklisted rses
+        # Remove blacklisted rses
         if blacklist:
             rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
         if len(rses) < self.copies:
             raise InsufficientTargetRSEs('There are not enough target RSEs (due to blacklisting) to fulfil the request at this time.')
-        #Remove rses which do not have enough quota
+        # Remove rses which do not have enough quota
         rses = [rse for rse in rses if rse['quota_left'] > size]
         if len(rses) < self.copies:
             raise InsufficientQuota('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
         for copy in range(self.copies):
-            #Remove rses already in the result set
+            # Remove rses already in the result set
             rses = [rse for rse in rses if rse['rse_id'] not in result]
-            #Prioritize the preffered rses
+            # Prioritize the preffered rses
             preferred_rses = [rse for rse in rses if rse['rse_id'] in preferred_rse_ids]
             if preferred_rses:
                 rse_id = self.__choose_rse(preferred_rses)
