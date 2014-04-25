@@ -16,7 +16,7 @@ from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql.expression import case
+from sqlalchemy.sql.expression import case, bindparam, text
 
 from rucio.common import exception
 from rucio.common.utils import chunks
@@ -465,7 +465,6 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
     :returns: a list of dictionary replica.
     """
-
     if not rse_id:
         rse_id = get_rse_id(rse=rse, session=session)
 
@@ -481,7 +480,8 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_workers - 1, worker_number - 1))
+            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
         elif session.bind.dialect.name == 'postgresql':
