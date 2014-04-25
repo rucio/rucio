@@ -50,7 +50,7 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
                 raise TypeError('filter should be a dict')
             else:
                 for key in filter:
-                    if not key in accepted_keys:
+                    if key not in accepted_keys:
                         raise InvalidMetadata('Invalid metadata <%s>' % (key))
             validate_schema(name='subscription_filter', obj=filter)
         if replication_rules and type(replication_rules) != list:
@@ -92,7 +92,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
                 raise TypeError('filter should be a dict')
             else:
                 for key in filter:
-                    if not key in accepted_keys:
+                    if key not in accepted_keys:
                         raise InvalidMetadata('Invalid metadata <%s>' % (key))
             validate_schema(name='subscription_filter', obj=filter)
         if replication_rules and type(replication_rules) != list:

@@ -38,7 +38,7 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrctid1ukq opt
+while getopts hrctid1kq opt
 do
   case "$opt" in
     h) usage;;
@@ -47,19 +47,16 @@ do
     t) testopts="";;
     i) init_only="true";;
     d) delete_sqlite="true";;
-    u) update_deps="true";;
     k) keep_db="true";;
     1) range=1;;
     q) dq2opts="--exclude=test_dq2*";;
   esac
 done
 
-if test ${update_deps}; then
-    echo 'Update pip dependencies'
-    pip install -r tools/pip-requires
-    pip install -r tools/pip-requires-client
-    pip install -r tools/pip-requires-test
-fi
+echo 'Update pip dependencies'
+pip install -r tools/pip-requires
+pip install -r tools/pip-requires-client
+pip install -r tools/pip-requires-test
 
 echo 'Cleaning *.pyc files'
 find lib -iname "*.pyc" | xargs rm

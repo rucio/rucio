@@ -180,7 +180,7 @@ def main_function():
         proc_load[smallest] += uc[1]
         proc_mod[smallest].append(uc[0])
 
-   # Start Gearman queue observer
+    # Start Gearman queue observer
     if cfg['global']['operation_mode'] == 'gearman':
         print '=' * 36 + ' GEARMAN ' + '=' * 35
         try:
@@ -197,7 +197,7 @@ def main_function():
     procs = []
     for proc in proc_mod:
         if len(proc_mod[proc]):
-            #ucp = UCProcess(cfg, proc_mod[proc], multiprocessing.Event())
+            # ucp = UCProcess(cfg, proc_mod[proc], multiprocessing.Event())
             ucp = UCProcess(cfg, proc_mod[proc], stop_event)
             procs.append(ucp)
     print '=' * 30 + ' STARTING EXECUTION ' + '=' * 30

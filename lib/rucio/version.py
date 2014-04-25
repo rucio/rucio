@@ -16,7 +16,6 @@ except ImportError:
                     'final': False,
                     'revno': 0}
 
-#RUCIO_VERSION = ['2012', '1', version_info['version'] ]
 RUCIO_VERSION = [version_info['version'], ]
 FINAL = version_info['final']   # This becomes true at Release Candidate time
 
