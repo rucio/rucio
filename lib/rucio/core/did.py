@@ -287,8 +287,8 @@ def attach_dids_to_dids(attachments, account, session=None):
     for scope, name in parent_dids:
         models.UpdatedDID(scope=scope, name=name, rule_evaluation_action=DIDReEvaluation.ATTACH).save(session=session, flush=False)
 
-    #is_none = None
-    #rowcount = session.query(models.DataIdentifier).filter(or_(*parent_did_condition)).\
+    # is_none = None
+    # rowcount = session.query(models.DataIdentifier).filter(or_(*parent_did_condition)).\
     #    update({'rule_evaluation_required': datetime.utcnow(),
     #            'rule_evaluation_action': case([(models.DataIdentifier.rule_evaluation_action == DIDReEvaluation.DETACH, DIDReEvaluation.BOTH.value),
     #                                            (models.DataIdentifier.rule_evaluation_action == is_none, DIDReEvaluation.ATTACH.value),
@@ -404,7 +404,7 @@ def detach_dids(scope, name, dids, issuer, session=None):
     :param issuer: The issuer account.
     :param session: The database session in use.
     """
-    #Row Lock the parent did
+    # Row Lock the parent did
     query = session.query(models.DataIdentifier).with_for_update().filter_by(scope=scope, name=name).\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     try:
@@ -414,7 +414,7 @@ def detach_dids(scope, name, dids, issuer, session=None):
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    #TODO: should judge target did's status: open, monotonic, close.
+    # TODO: should judge target did's status: open, monotonic, close.
     query_all = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name)
     if query_all.first() is None:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' has no child data identifiers." % locals())
@@ -455,7 +455,7 @@ def list_new_dids(did_type, worker_number=None, total_workers=None, chunk_size=1
             row_count = 0
             for chunk in query.yield_per(10):
                 if int(md5(chunk.name).hexdigest(), 16) % total_workers == worker_number-1:
-                    #dids.append({'scope': scope, 'name': name, 'did_type': did_type})
+                    # dids.append({'scope': scope, 'name': name, 'did_type': did_type})
                     row_count += 1
                     if row_count <= chunk_size:
                         yield {'scope': chunk.scope, 'name': chunk.name, 'did_type': chunk.did_type}
@@ -481,8 +481,8 @@ def set_new_dids(dids, new_flag, session=None):
     """
     for did in dids:
         try:
-            #session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).with_for_update(nowait=True).first()
-            #session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).first()
+            # session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).with_for_update(nowait=True).first()
+            # session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).first()
             rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).update({'is_new': new_flag}, synchronize_session=False)
             if not rowcount:
                 raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))

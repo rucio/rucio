@@ -41,7 +41,7 @@ class RuleClient(BaseClient):
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
-        #TODO remove the subscription_id from the client; It will only be used by the core;
+        # TODO remove the subscription_id from the client; It will only be used by the core;
         data = dumps({'dids': dids, 'copies': copies, 'rse_expression': rse_expression,
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
                       'account': account, 'locked': locked})

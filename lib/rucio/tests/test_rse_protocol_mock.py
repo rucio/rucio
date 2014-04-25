@@ -68,7 +68,7 @@ class TestRseMOCK():
 
     # MGR-Tests: EXISTS
     # ATTENTION: this tests won't work no more with the new RSEMgr as the protocol object is no longer cached and therefore the list of files is also not 'persisted'
-    #def test_exists_mgr_ok_multi(self):
+    # def test_exists_mgr_ok_multi(self):
     #    """MOCK (RSE/PROTOCOLS): Check multiple files on storage (Success)"""
     #    for f in MgrTestCases.files_remote:
     #        mgr.upload(mgr.get_rse_info(self.rse_id), [{'name': f, 'scope': 'user.%s' % self.user}, ])
@@ -83,7 +83,7 @@ class TestRseMOCK():
         self.mtc.test_exists_mgr_ok_single_pfn()
 
     # ATTENTION: this tests won't work no more with the new RSEMgr as the protocol object is no longer cached and therefore the list of files is also not 'persisted'
-    #def test_exists_mgr_false_multi(self):
+    # def test_exists_mgr_false_multi(self):
     #    """MOCK (RSE/PROTOCOLS): Check multiple files on storage (Fail)"""
     #    for f in MgrTestCases.files_remote:
     #        mgr.upload(mgr.get_rse_info(self.rse_id), [{'name': f, 'scope': 'user.%s' % self.user}, ])

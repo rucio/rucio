@@ -126,7 +126,7 @@ def adler32(file):
     :returns: Hexified string, padded to 8 values.
     """
 
-    #adler starting value is _not_ 0
+    # adler starting value is _not_ 0
     adler = 1L
 
     try:
@@ -136,7 +136,7 @@ def adler32(file):
     except:
         raise Exception('FATAL - could not get checksum of file %s' % file)
 
-    #backflip on 32bit
+    # backflip on 32bit
     if adler < 0:
         adler = adler + 2 ** 32
 

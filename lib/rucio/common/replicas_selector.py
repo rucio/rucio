@@ -145,7 +145,7 @@ def geoIP_order(replicas, IPclient):
         se = replica.split('/')[2].split(':')[0]
         ses[se] = replica
         distance = getDistance(se, IPclient)
-        #print replica, distance
+        # print replica, distance
         distances[replica] = distance
-    #print sorted(distances.items(), key=lambda x: x[1])
+    # print sorted(distances.items(), key=lambda x: x[1])
     return map(lambda x: x[0], sorted(distances.items(), key=lambda x: x[1]))

@@ -123,7 +123,7 @@ class TestRseGFAL2():
         self.tmpdir = TestRseGFAL2.tmpdir
         self.rse_id = 'FZK-LCG2_SCRATCHDISK'
         self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, TestRseGFAL2.static_file)
-        #self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, "srm://atlassrm-fzk.gridka.de/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/user/wguan/rucio.test.2")
+        # self.mtc = MgrTestCases(self.tmpdir, 'FZK-LCG2_SCRATCHDISK', TestRseGFAL2.user, "srm://atlassrm-fzk.gridka.de/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/user/wguan/rucio.test.2")
         self.mtc.setup_scheme('srm', 'gfal')
 
     # Mgr-Tests: GET

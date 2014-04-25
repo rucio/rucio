@@ -105,7 +105,7 @@ class TestRseSFTP():
         """SFTP (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_pfn()
 
-   # Mgr-Tests: PUT
+    # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
         """SFTP (RSE/PROTOCOLS): Put multiple files to storage (Success)"""
         self.mtc.test_put_mgr_ok_multi()

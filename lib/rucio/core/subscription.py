@@ -129,7 +129,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
             raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
     except IntegrityError, e:
         raise RucioException(e.args)
-    #except IntegrityError, e:
+    # except IntegrityError, e:
     #    print e
     #    raise
 
