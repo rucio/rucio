@@ -714,7 +714,7 @@ class DQ2Client:
         """
         result = []
         if site is None and locations == []:
-            #Loop over all locations
+            # Loop over all locations
             rses = [rse['rse'] for rse in self.client.list_rses()]
         elif site:
             rses = [site, ]

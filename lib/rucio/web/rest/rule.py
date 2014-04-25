@@ -123,7 +123,7 @@ class Rule:
 
         try:
             rule_ids = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, weight=weight, lifetime=lifetime, grouping=grouping, account=account, locked=locked, subscription_id=subscription_id, issuer=ctx.env.get('issuer'))
-        #TODO: Add all other error cases here
+        # TODO: Add all other error cases here
         except InvalidReplicationRule, e:
             raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
         except InsufficientQuota, e:

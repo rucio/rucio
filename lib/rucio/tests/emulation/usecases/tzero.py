@@ -231,7 +231,7 @@ class UseCaseDefinition(UCEmulator):
                 ds = []
                 tmp_uuid = uuid()
                 for n, s in pattern:
-                    #newname = n.replace('data12', dataXX).replace('NNNNNNNN', str(runnumber).zfill(8)) % tagdict
+                    # newname = n.replace('data12', dataXX).replace('NNNNNNNN', str(runnumber).zfill(8)) % tagdict
                     # TODO: fix when meta-data is working properly
                     newname = n.replace('data12', dataXX).replace('NNNNNNNN', tmp_uuid) % tagdict
                     newscope = newname.split('.')[0]
@@ -239,7 +239,7 @@ class UseCaseDefinition(UCEmulator):
                     ds.append([newscope, newname, newsize, 0])  # 0 is initial value of file counter
 
                 # register run number
-                #client.add_value('run_number', runnumber)
+                # client.add_value('run_number', runnumber)
 
                 # open all datasets
                 open_ds = list()
@@ -249,7 +249,7 @@ class UseCaseDefinition(UCEmulator):
                             'stream_name': pcs[2],
                             'prod_step': pcs[3],
                             'datatype': pcs[4],
-                            #'version': pcs[5],
+                            # 'version': pcs[5],
                             'guid': uuid(),
                             }
                     meta['group'] = tz_group
@@ -262,8 +262,8 @@ class UseCaseDefinition(UCEmulator):
                 with monitor.record_timer_block(['tzero.add_datasets', ('tzero.add_datasets.normalized', len(open_ds))]):
                     client.add_datasets(open_ds)
                 monitor.record_counter('tzero.datasets', len(open_ds))
-                #dids = [{'scope': d['scope'], 'name': d['name']} for d in open_ds]
-                #with monitor.record_timer_block(['tzero.add_replication_rule', ('tzero.add_replication_rule.normalized', len(open_ds))]):
+                # dids = [{'scope': d['scope'], 'name': d['name']} for d in open_ds]
+                # with monitor.record_timer_block(['tzero.add_replication_rule', ('tzero.add_replication_rule.normalized', len(open_ds))]):
                 #    client.add_replication_rule(dids, copies=1, rse_expression=tz_rse,
                 #                                grouping='DATASET', account=tz_account)
                 success = True
@@ -294,14 +294,14 @@ class UseCaseDefinition(UCEmulator):
                 if target > c:
                     newfiles = []
                     for i in range(c + 1, target + 1):
-                        #filename = datasetname + '._' + str(i).zfill(6)
+                        # filename = datasetname + '._' + str(i).zfill(6)
                         # TODO: fix when meta-data is working properly
                         filename = datasetname + '._' + uuid()
                         onefile = {'name': filename, 'scope': scope, 'bytes': tz_filesize}
                         no_files += 1
                         newfiles.append(onefile)
                     d[3] = target
-                    #with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
+                    # with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
                     #   client.attach_dids_to_dids(attachments=inserts)
                     with monitor.record_timer_block(['tzero.add_files_to_dataset', ('tzero.add_files_to_dataset.normalized', len(newfiles))]):
                         try:

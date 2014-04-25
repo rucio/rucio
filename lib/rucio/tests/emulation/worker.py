@@ -9,7 +9,6 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 
 
-#import ast
 import gearman
 import json
 import pystatsd
@@ -19,7 +18,7 @@ import traceback
 
 def exec_uc(gearman_worker, gearman_job):
     ret = str()
-    #print '== Worker [%s]: %s' % (time.strftime('%H:%M:%S', time.localtime()), gearman_job)
+    # print '== Worker [%s]: %s' % (time.strftime('%H:%M:%S', time.localtime()), gearman_job)
     try:
         try:
             uc_data = json.loads(gearman_job.data)
