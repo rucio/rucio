@@ -7,7 +7,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch> , 2012
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2014
@@ -82,6 +82,12 @@ class ClientProtocolNotSupported(RucioException):
     def __init__(self, *args, **kwargs):
         super(ClientProtocolNotSupported, self).__init__(args, kwargs)
         self._message = "Client protocol not supported."
+
+
+class ConfigNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ConfigNotFound, self).__init__(args, kwargs)
+        self._message = "Configuration not found."
 
 
 class ConfigurationError(RucioException):
