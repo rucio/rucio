@@ -34,6 +34,10 @@ rse = {"description": "RSE name",
        "type": "string",
        "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
 
+replica_state = {"description": "Replica state",
+                 "type": "string",
+                 "enum": ["AVAILABLE", "UNAVAILABLE", "COPYING", "BEING_DELETED", "BAD", "SOURCE", "A", "U", "C", "B", "D", "S"]}
+
 did_type = {"description": "DID type",
             "type": "string",
             "enum": ["DATASET", "CONTAINER", "FILE", "F"]}
@@ -110,6 +114,7 @@ did = {"description": "Data Identifier(DID)",
                       "bytes": bytes,
                       "adler32": adler32,
                       "md5": md5,
+                      "state": replica_state,
                       "pfn": pfn},
        "required": ["scope", "name"],
        "additionalProperties": False}

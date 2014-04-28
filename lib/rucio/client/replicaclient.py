@@ -134,3 +134,21 @@ class ReplicaClient(BaseClient):
             return True
         exc_cls, exc_msg = self._get_exception(r.headers)
         raise exc_cls(exc_msg)
+
+    def update_replicas_states(self, rse, files):
+        """
+        Bulk update the file replicas states from a RSE.
+
+        :param rse: the RSE name.
+        :param files: The list of files. This is a list of DIDs like :
+        [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+
+        :return: True if files have been deleted successfully.
+        """
+        url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
+        data = {'rse': rse, 'files': files}
+        r = self._send_request(url, type='PUT', data=render_json(**data))
+        if r.status_code == codes.ok:
+            return True
+        exc_cls, exc_msg = self._get_exception(r.headers)
+        raise exc_cls(exc_msg)

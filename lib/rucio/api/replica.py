@@ -85,3 +85,25 @@ def delete_replicas(rse, files, issuer):
     if not permission.has_permission(issuer=issuer, action='delete_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete file replicas on %s' % (issuer, rse))
     replica.delete_replicas(rse=rse, files=files)
+
+
+def update_replicas_states(rse, files, issuer):
+
+    """
+    Update File replica information and state.
+
+    :param rse: The RSE name.
+    :param files: The list of files.
+    :param issuer: The issuer account.
+    """
+    validate_schema(name='dids', obj=files)
+
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='update_replicas_states', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not delete file replicas on %s' % (issuer, rse))
+    replicas = []
+    for file in files:
+        rep = file
+        rep['rse'] = rse
+        replicas.append(rep)
+    replica.update_replicas_states(replicas=replicas)

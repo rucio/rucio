@@ -289,7 +289,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         nbfiles += 1
         bytes += file['bytes']
         new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'],
-                                                path=file.get('path'), state=file.get('state', ReplicaState.AVAILABLE),
+                                                path=file.get('path'), state=ReplicaState.from_string(file.get('state', 'A')),
                                                 md5=file.get('md5'), adler32=file.get('adler32'), lock_cnt=file.get('lock_cnt', 0),
                                                 tombstone=file.get('tombstone'))
         new_replica.save(session=session, flush=False)
@@ -520,10 +520,7 @@ def update_replicas_states(replicas, session=None):
     """
     Update File replica information and state.
 
-    :param rse: the rse name.
-    :param scope: the tag name.
-    :param name: The data identifier name.
-    :param state: The state.
+    :param replicas: the list of replicas.
     :param session: The database session in use.
     """
     rse_ids = {}
@@ -534,6 +531,9 @@ def update_replicas_states(replicas, session=None):
             replica['rse_id'] = rse_ids[replica['rse']]
 
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
+
+        if isinstance(replica['state'], str) or isinstance(replica['state'], unicode):
+            replica['state'] = ReplicaState.from_string(replica['state'])
 
         if replica['state'] == ReplicaState.BEING_DELETED:
             query = query.filter_by(lock_cnt=0)

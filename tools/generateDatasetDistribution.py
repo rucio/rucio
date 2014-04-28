@@ -7,7 +7,7 @@
 #                       http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 import os
 import random
@@ -34,9 +34,9 @@ dictGroups = {'(null)': 'group0', '/atlas/dataprep/role=production': 'group1', '
 
 
 def createScope():
-    #add_account('panda', 'user', 'root')
-    #add_account('tier0', 'user', 'root')
-    #add_scope('data12_8TeV', 'root', 'root')
+    # add_account('panda', 'user', 'root')
+    # add_account('tier0', 'user', 'root')
+    # add_scope('data12_8TeV', 'root', 'root')
     add_scope('mc12_8TeV', 'root', 'root')
     for i in xrange(0, 20):
         print i
@@ -60,7 +60,7 @@ def createMetadata():
 
 
 def createRSEs():
-    #Add test RSEs
+    # Add test RSEs
     for i in xrange(0, 3):
         rse1 = str(uuid())
         rse2 = str(uuid())
@@ -123,7 +123,7 @@ def populateDB(filename=None):
                 provenance = dictDistrib[lower, upper][4]
                 group = dictDistrib[lower, upper][5]
                 if group == '/atlas/role=production':
-                    #account = 'atlasprod'
+                    # account = 'atlasprod'
                     account = 'panda'
                     if provenance == 'T0':
                         group = 'tier0'
@@ -131,7 +131,7 @@ def populateDB(filename=None):
                     else:
                         group = 'panda'
                 else:
-                    #account = dictGroups[group]
+                    # account = dictGroups[group]
                     account = 'panda'
                     scope = 'group.%s' % (dictGroups[group])
                     group = dictGroups[group]
@@ -149,7 +149,7 @@ def populateDB(filename=None):
                     while (len(source_rses) != nbreplicas and iter != 100):
                         rnd_site = random.choice(listrses)
                         iter += 1
-                        if (not rnd_site in source_rses):
+                        if (rnd_site not in source_rses):
                             source_rses.append(rnd_site)
 
                     run_number_string = str(run_number)
@@ -186,9 +186,9 @@ def populateDB(filename=None):
 
 
 def main(argv):
-    #createRSEs()
-    #createMetadata()
-    #createScope()
+    # createRSEs()
+    # createMetadata()
+    # createScope()
     filename = None
     try:
         filename = argv[0]
