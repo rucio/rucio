@@ -19,6 +19,7 @@
 
 import argcomplete
 import argparse
+import logging
 import os
 import random
 import sys
@@ -46,6 +47,38 @@ FAILURE = 1
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
+
+
+logger = logging.getLogger("user")
+
+
+def setup_logger(logger):
+    logger.setLevel(logging.DEBUG)
+    hdlr = logging.StreamHandler()
+
+    def emit_decorator(fn):
+        def func(*args):
+            levelno = args[0].levelno
+            if(levelno >= logging.CRITICAL):
+                color = '\033[31;1m'
+            elif(levelno >= logging.ERROR):
+                color = '\033[31;1m'
+            elif(levelno >= logging.WARNING):
+                color = '\033[33;1m'
+            elif(levelno >= logging.INFO):
+                color = '\033[32;1m'
+            elif(levelno >= logging.DEBUG):
+                color = '\033[36;1m'
+            else:
+                color = '\033[0m'
+            formatter = logging.Formatter('{0}%(asctime)s %(levelname)s [%(message)s]\033[0m'.format(color))
+            hdlr.setFormatter(formatter)
+            return fn(*args)
+        return func
+    hdlr.emit = emit_decorator(hdlr.emit)
+    logger.addHandler(hdlr)
+
+setup_logger(logger)
 
 
 def get_client(args):
@@ -174,14 +207,18 @@ def list_replicas(args):
         replicas = client.list_replicas(dids, schemes=protocols)
         print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
         for replica in replicas:
-            str = '%s\t%s\t%s\t%s\t' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
-            for rse in replica['rses']:
-                line = '%s%s\t:\t' % (str, rse)
-                for pfn in replica['rses'][rse]:
-                    output = '%s%s' % (line, pfn)
-                    print output.expandtabs()
-                    line = len(line.expandtabs()) * ' '
-                    str = len(str.expandtabs()) * ' '
+            if 'bytes' in replica:
+                str = '%s\t%s\t%s\t%s\t' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
+                for rse in replica['rses']:
+                    line = '%s%s\t:\t' % (str, rse)
+                    for pfn in replica['rses'][rse]:
+                        output = '%s%s' % (line, pfn)
+                        print output.expandtabs()
+                        line = len(line.expandtabs()) * ' '
+                        str = len(str.expandtabs()) * ' '
+            else:
+                str = '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], '???', '???', 'Unavalaible')
+                print str.expandtabs()
     except Exception, e:
         print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
         print e
@@ -647,17 +684,19 @@ def upload(args):
         try:
             dsn = {'scope': args.did.split(':')[0], 'name': args.did.split(':')[1]}
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+            logger.error('Cannot extract the scope and name from %s : [%s]' % (args.did, e))
             return FAILURE
 
     files = args.files
     list_files = []
     lfns = {}
     revert_dict = {}
+    logger.debug('Looping over the files')
     for name in files:
         size = os.stat(name).st_size
         checksum = adler32(name)
-        list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum})
+        logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, args.scope, os.path.basename(name)))
+        list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'U'})
         if not os.path.dirname(name) in lfns:
             lfns[os.path.dirname(name)] = []
         lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope})
@@ -681,92 +720,123 @@ def upload(args):
 
     rse_settings = rsemgr.get_rse_info(args.rse)
     add_files_individually = False
+
+    if args.account is None:
+        account = client.whoami()['account']
+    else:
+        account = args.account
+    logger.debug('Using account %s' % (account))
+
     if dsn:
+        logger.info('Creating the dataset %s:%s' % (dsn['scope'], dsn['name']))
         try:
-            if args.account is None:
-                account = client.whoami()['account']
-            else:
-                account = args.account
             try:
                 client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}], meta=metadata)
+                logger.info('Dataset successfully created')
             except DataIdentifierAlreadyExists, e:
-                print e
+                logger.warning(e)
+            logger.info('Adding the files to the dataset')
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
+            logger.info('Files successfully added to the dataset')
+            logger.info('Uploading the files on the RSE (%s)' % (args.rse))
             for dir in lfns:
                 try:
                     rsemgr.upload(rse_settings=rse_settings, lfns=lfns[dir], source_dir=dir)
-                    print 'Upload operation for %s:%s done' % (dsn['scope'], dsn['name'])
+                    logger.info('Upload operation for all files belonging to %s:%s done' % (dsn['scope'], dsn['name']))
                 except FileReplicaAlreadyExists, e:
                     add_files_individually = True
+                    logger.warning(e)
         except Duplicate, e:
             add_files_individually = True
+            logger.warning(e)
         except FileAlreadyExists, e:
             add_files_individually = True
+            logger.warning(e)
 
         if add_files_individually:
-            print 'Will check all individual files'
+            logger.info('Will check all files individually')
             for did in list_files:
                 add_files_individually = False
                 try:
+                    logger.info('Adding the file %s:%s to the dataset' % (did['scope'], did['name']))
                     client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=[did], rse=args.rse)
+                    logger.info('File %s:%s successfully added to the dataset' % (did['scope'], did['name']))
                 except Duplicate, e:
-                    print e
-                    add_files_individually = True
+                    logger.warning(e)
                 except FileAlreadyExists, e:
-                    print e
-                    add_files_individually = True
-                if add_files_individually:
-                    meta = client.get_metadata(did['scope'], did['name'])
-                    if rsemgr.exists(rse_settings=rse_settings, files={'name': did['name'], 'scope': did['scope']}):
-                        print 'File %s:%s already exists on RSE. Will not try to reupload' % (did['scope'], did['name'])
-                        print 'TODO : checksum validation'
+                    logger.warning(e)
+                meta = client.get_metadata(did['scope'], did['name'])
+                if rsemgr.exists(rse_settings=rse_settings, files={'name': did['name'], 'scope': did['scope']}):
+                    logger.info('File %s:%s already exists on RSE. Will not try to reupload' % (did['scope'], did['name']))
+                    logger.debug('TODO : checksum validation')
+                else:
+                    if meta['adler32'] == did['adler32']:
+                        logger.info('Local files and file %s:%s recorded in Rucio have the same checksum. Will try the upload' % (did['scope'], did['name']))
+                        directory = revert_dict[did['scope'], did['name']]
+                        rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
+                        logger.info('File %s:%s successfully uploaded on the storage' % (did['scope'], did['name']))
                     else:
-                        if meta['adler32'] == did['adler32']:
-                            print 'Local files and file recorded in Rucio have the same checksum. Will try the upload'
-                            directory = revert_dict[did['scope'], did['name']]
-                            rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
-                        else:
-                            print 'Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32'])
+                        logger.error('Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32']))
+                        return FAILURE
     else:
         try:
+            logger.info('Adding replicas in Rucio catalog')
             client.add_replicas(files=list_files, rse=args.rse)
+            logger.info('Replicas successfully added')
+            logger.info('Adding replication rule on RSE %s for the list of file' % (args.rse))
             client.add_replication_rule(list_files, copies=1, rse_expression=args.rse)
             for dir in lfns:
                 try:
                     rsemgr.upload(rse_settings=rse_settings, lfns=lfns[dir], source_dir=dir)
-                    print 'Upload operation for %(files)s done' % locals()
+                    logger.info('Upload operation for %(list_files)s done' % locals())
                 except FileReplicaAlreadyExists, e:
                     add_files_individually = True
+                    logger.warning(e)
         except Duplicate, e:
             add_files_individually = True
+            logger.warning(e)
 
         if add_files_individually:
-            print 'Will check all individual files'
+            logger.info('Will check all files individually')
             for did in list_files:
-                add_files_individually = False
                 try:
+                    logger.info('Adding the replica for file  %s:%s' % (did['scope'], did['name']))
                     client.add_replicas(files=[did], rse=args.rse)
                 except Duplicate, e:
-                    print e
-                    add_files_individually = True
+                    logger.warning(e)
                 except FileAlreadyExists, e:
-                    print e
-                    add_files_individually = True
-                if add_files_individually:
-                    meta = client.get_metadata(did['scope'], did['name'])
-                    if rsemgr.exists(rse_settings=rse_settings, files={'name': did['name'], 'scope': did['scope']}):
-                        print 'File %s:%s already exists on RSE. Will not try to reupload' % (did['scope'], did['name'])
-                        print 'TODO : checksum validation'
+                    logger.warning(e)
+                meta = client.get_metadata(did['scope'], did['name'])
+                if rsemgr.exists(rse_settings=rse_settings, files={'name': did['name'], 'scope': did['scope']}):
+                    logger.info('File %s:%s already exists on RSE. Will not try to reupload' % (did['scope'], did['name']))
+                    logger.debug('TODO : checksum validation')
+                else:
+                    if meta['adler32'] == did['adler32']:
+                        logger.info('Local files and file %s:%s recorded in Rucio have the same checksum. Will try the upload' % (did['scope'], did['name']))
+                        directory = revert_dict[did['scope'], did['name']]
+                        rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
+                        logger.info('File %s:%s successfully uploaded on the storage' % (did['scope'], did['name']))
                     else:
-                        if meta['adler32'] == did['adler32']:
-                            print 'Local files and file recorded in Rucio have the same checksum. Will try the upload'
-                            directory = revert_dict[did['scope'], did['name']]
-                            rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
-                        else:
-                            print 'Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32'])
-        #except Exception, e:
-        #    print 'Failed to upload %(files)s' % locals()
-        #    print e
+                        logger.error('Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32']))
+                        return FAILURE
+
+    replicas = []
+    replica_dictionary = {}
+    for rep in client.list_replicas(list_files):
+        replica_dictionary[rep['scope'], rep['name']] = rep['rses'].keys()
+    for file in list_files:
+        if (file['scope'], file['name']) not in replica_dictionary:
+            file['state'] = 'A'
+            replicas.append(file)
+        elif args.rse not in replica_dictionary[file['scope'], file['name']]:
+            file['state'] = 'A'
+            replicas.append(file)
+    if replicas != []:
+        logger.info('Will update the file replicas states')
+        client.update_replicas_states(rse=args.rse, files=replicas)
+        logger.info('File replicas states successfully updated')
+    logger.info('Upload successfull')
+    return SUCCESS
 
 
 def download(args):
@@ -790,7 +860,7 @@ def download(args):
             files = client.list_replicas([{'scope': scope, 'name': name}])
             for file in files:
                 rse = random.choice(file['rses'].keys())
-                if not rse in rse_dict:
+                if rse not in rse_dict:
                     rse_dict[rse] = rsemgr.get_rse_info(rse)
                 rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
             print 'download operation for %s:%s done' % (scope, name)
@@ -1340,7 +1410,7 @@ Commands:
                 'add-files-to-dataset': add_files_to_dataset,
                 'add-datasets-to-container': add_datasets_to_container,
                 'add-containers-to-container': add_containers_to_container,
-                #'add': add,
+                # 'add': add,
                 'add_dataset': add_dataset,
                 'add_container': add_container,
                 'delete': delete,

@@ -16,8 +16,8 @@ from urllib import unquote
 from urlparse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK
 
-from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns
-from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RucioException, RSENotFound
+from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states
+from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RucioException, RSENotFound, UnsupportedOperation
 from rucio.common.replicas_selector import random_order, geoIP_order
 
 
@@ -161,6 +161,36 @@ class Replicas(RucioController):
             print format_exc()
             raise InternalError(e)
         raise Created()
+
+    def PUT(self):
+        """
+        Update a file replicas state at a given RSE.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 Internal Error
+        """
+        json_data = data()
+        try:
+            parameters = parse_response(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            update_replicas_states(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'))
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation:
+            raise generate_http_error(500, 'UnsupportedOperation', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+        raise OK()
 
     def DELETE(self):
         """
