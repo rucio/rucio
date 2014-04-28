@@ -102,7 +102,7 @@ def populateDB(filename=None):
 
 
 def main(argv):
-    #createScope()
+    # createScope()
     populateDB()
 
 

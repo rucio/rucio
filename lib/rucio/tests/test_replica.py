@@ -12,7 +12,7 @@
 
 import xmltodict
 
-from nose.tools import assert_equal, assert_raises
+from nose.tools import assert_equal, assert_in, assert_raises
 
 from rucio.db.constants import DIDType
 from rucio.client.baseclient import BaseClient
@@ -112,7 +112,7 @@ class TestReplicaClients:
         self.replica_client = ReplicaClient()
 
     def test_add_list_replicas(self):
-        """ REPLICA (CLIENT): Add and list file replicas """
+        """ REPLICA (CLIENT): Add, change state and list file replicas """
         tmp_scope = 'mock'
         nbfiles = 5
 
@@ -133,6 +133,21 @@ class TestReplicaClients:
 
         replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['srm'])]
         assert_equal(len(replicas), 5)
+
+        files3 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        self.replica_client.add_replicas(rse='MOCK3', files=files3)
+        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'])]
+        for i in xrange(nbfiles):
+            assert_equal(replicas[i]['rses'], {})
+        files4 = []
+        for file in files3:
+            file['state'] = 'A'
+            files4.append(file)
+        self.replica_client.update_replicas_states('MOCK3', files=files4)
+        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'])]
+        assert_equal(len(replicas), 5)
+        for i in xrange(nbfiles):
+            assert_in('MOCK3', replicas[i]['rses'])
 
     def test_delete_replicas(self):
         """ REPLICA (CLIENT): Add and delete file replicas """

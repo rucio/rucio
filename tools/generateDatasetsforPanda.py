@@ -31,7 +31,7 @@ def createMetadata():
 
 
 def createRSEs():
-    #Add test RSEs
+    # Add test RSEs
     for i in xrange(0, 3):
         rse1 = str(uuid())
         rse2 = str(uuid())
@@ -56,9 +56,9 @@ def createRSEs():
 def populateDB():
     listrses = list_rses({'T1': '1'})
     print len(listrses), listrses
-    #listrses = list_rses()
-    #print len(listrses), listrses
-    #sys.exit()
+    # listrses = list_rses()
+    # print len(listrses), listrses
+    # sys.exit()
     account = 'root'
     project = 'mc12_8TeV'
 
@@ -84,7 +84,7 @@ def populateDB():
                     while (len(source_rses) != nbreplicas and iter != 100):
                         rnd_site = random.choice(listrses)
                         iter += 1
-                        if not rnd_site in source_rses:
+                        if rnd_site not in source_rses:
                             source_rses.append(rnd_site)
 
                     try:
@@ -107,6 +107,6 @@ def populateDB():
                     except RucioException, e:
                         print e
 
-#createRSEs()
-#createMetadata()
+# createRSEs()
+# createMetadata()
 populateDB()
