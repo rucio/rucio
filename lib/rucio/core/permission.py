@@ -3,14 +3,14 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#              http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2011
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
@@ -81,7 +81,18 @@ def has_permission(issuer, action, kwargs):
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
             'set_account_limit': perm_set_account_limit,
-            'delete_account_limit': perm_delete_account_limit}
+            'delete_account_limit': perm_delete_account_limit,
+            'config_sections': perm_config,
+            'config_add_section': perm_config,
+            'config_has_section': perm_config,
+            'config_options': perm_config,
+            'config_has_option': perm_config,
+            'config_get': perm_config,
+            'config_items': perm_config,
+            'config_set': perm_config,
+            'config_remove_section': perm_config,
+            'config_remove_option': perm_config
+            }
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -497,5 +508,16 @@ def perm_delete_account_limit(issuer, kwargs):
     :param account: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root'
+
+
+def perm_config(issuer, kwargs):
+    """
+    Checks if an account can read/write the configuration.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root'

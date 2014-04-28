@@ -723,6 +723,17 @@ class AlembicVersion(BASE):
     version_num = Column(String(32), primary_key=True, nullable=False)
 
 
+class Config(BASE, ModelBase, Versioned):
+    """Represents the configuration"""
+    __tablename__ = 'configs'
+    revision = '2b8e7bcb4783'
+    down_revision = '16a0aca82e12'
+    section = Column(String(128))
+    option = Column(String(128))
+    value = Column(String(4000))
+    _table_args = (PrimaryKeyConstraint('section', 'option', name='CONFIGS_PK'), )
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -754,7 +765,8 @@ def register_models(engine):
               Scope,
               Subscription,
               Token,
-              UpdatedDID)
+              UpdatedDID,
+              Config)
 
     for model in models:
         model.metadata.create_all(engine)
@@ -791,8 +803,8 @@ def unregister_models(engine):
               Scope,
               Subscription,
               Token,
-              UpdatedDID
-              )
+              UpdatedDID,
+              Config)
 
     for model in models:
         model.metadata.drop_all(engine)
