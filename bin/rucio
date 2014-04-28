@@ -947,13 +947,29 @@ def info_rule(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    RuleClient(rucio_host=args.host, auth_host=args.auth_host,
-               account=args.account, auth_type=args.auth_strategy, creds=creds,
-               ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+                        account=args.account, auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        raise NotImplementedError  # TODO
+        rule = client.get_replication_rule(rule_id=args.rule_id)
+        print "Id:                         %s" % rule['id']
+        print "Account:                    %s" % rule['account']
+        print "Scope:                      %s" % rule['scope']
+        print "Name:                       %s" % rule['name']
+        print "RSE Expression:             %s" % rule['rse_expression']
+        print "Copies:                     %s" % rule['copies']
+        print "State:                      %s" % rule['state']
+        print "Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'])
+        print "Grouping:                   %s" % rule['grouping']
+        print "Expires at:                 %s" % rule['expires_at']
+        print "Locked:                     %s" % rule['locked']
+        print "Weight:                     %s" % rule['weight']
+        print "Created at:                 %s" % rule['created_at']
+        print "Updated at:                 %s" % rule['updated_at']
+        print "Error:                      %s" % rule['error']
+        print "Subscription Id:            %s" % rule['subscription_id']
     except Exception, e:
-        print 'Failed to delete replication rule'
+        print 'Failed to get replication rule'
         print e
         return FAILURE
     return SUCCESS
@@ -1023,8 +1039,10 @@ def list_rules(args):
         print 'At least one option has to be given. Use -h to list the options.'
         return FAILURE
 
+    print "ID (account) SCOPE:NAME: STATE [LOCKS_OK/REPLCIATING/STUCK], RSE_EXPRESSION, COPIES"
+    print "==================================================================================="
     for rule in rules:
-        print rule
+        print "%s (%s) %s:%s: %s[%s/%s/%s], \"%s\", %s " % (rule['id'], rule['account'], rule['scope'], rule['name'], rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'], rule['rse_expression'], rule['copies'])
 
     return SUCCESS
 
