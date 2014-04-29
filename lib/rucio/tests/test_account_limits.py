@@ -25,11 +25,11 @@ class TestCoreAccountLimits():
 
     @classmethod
     def setUpClass(cls):
-        #Add test account
+        # Add test account
         cls.account = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
         add_account(account=cls.account, type=AccountType.USER)
 
-        #Add test RSE
+        # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse2 = 'MOCK2'
 
@@ -48,11 +48,11 @@ class TestAccountClient():
 
     @classmethod
     def setUpClass(cls):
-        #Add test account
+        # Add test account
         cls.account = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
         add_account(account=cls.account, type=AccountType.USER)
 
-        #Add test RSE
+        # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse2 = 'MOCK2'
 
