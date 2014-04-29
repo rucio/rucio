@@ -52,7 +52,7 @@ class RSESelector():
             raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
         for rse in self.rses:
-            #TODO: Add RSE-space-left here!
+            # TODO: Add RSE-space-left here!
             rse['quota_left'] = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)\
                 - get_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
 

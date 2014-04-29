@@ -28,6 +28,7 @@ function usage {
   echo '  -1    Only run once.'
   echo '  -q    Exclude DQ2 tests'.
   echo '  -a    Run alembic tests at the end'
+  echo '  -u    Update pip dependencies only'
   exit
 }
 
@@ -38,7 +39,7 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrctid1kqa opt
+while getopts hrctid1kqau opt
 do
   case "$opt" in
     h) usage;;
@@ -51,6 +52,7 @@ do
     1) range=1;;
     q) dq2opts="--exclude=test_dq2*";;
     a) alembic="true";;
+    u) pip_only="true";;
   esac
 done
 
@@ -58,6 +60,10 @@ echo 'Update pip dependencies'
 pip install -r tools/pip-requires
 pip install -r tools/pip-requires-client
 pip install -r tools/pip-requires-test
+
+if test ${pip_only}; then
+    exit
+fi
 
 echo 'Cleaning *.pyc files'
 find lib -iname "*.pyc" | xargs rm
