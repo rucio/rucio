@@ -1039,7 +1039,7 @@ def list_rules(args):
         print 'At least one option has to be given. Use -h to list the options.'
         return FAILURE
 
-    print "ID (account) SCOPE:NAME: STATE [LOCKS_OK/REPLCIATING/STUCK], RSE_EXPRESSION, COPIES"
+    print "ID (account) SCOPE:NAME: STATE [LOCKS_OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES"
     print "==================================================================================="
     for rule in rules:
         print "%s (%s) %s:%s: %s[%s/%s/%s], \"%s\", %s " % (rule['id'], rule['account'], rule['scope'], rule['name'], rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'], rule['rse_expression'], rule['copies'])
