@@ -650,12 +650,12 @@ class DQ2Client:
         return_dict = {}
         metadata = self.client.get_metadata(scope=scope, name=dsn)
         lastdate = str(metadata['updated_at'])
-        for x in self.client.list_files(scope, dsn):
+        for x in self.client.list_files(scope, dsn, long=True):
             dq2attrs['checksum'] = "ad:" + str(x['adler32'])
             dq2attrs['filesize'] = x['bytes']
             dq2attrs['scope'] = str(x['scope'])
-            did = str(x['scope'] + ':' + x['name'])
-            return_dict[did] = dq2attrs
+            guid = '%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32])
+            return_dict[guid] = dq2attrs
         return (return_dict, lastdate)
 
     def listMetaDataAttributes(self):

@@ -142,15 +142,16 @@ def list_content(scope, name):
     return did.list_content(scope=scope, name=name)
 
 
-def list_files(scope, name):
+def list_files(scope, name, long):
     """
     List data identifier file contents.
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param long:       A boolean to choose if GUID is returned or not.
     """
 
-    return did.list_files(scope=scope, name=name)
+    return did.list_files(scope=scope, name=name, long=long)
 
 
 def scope_list(scope, name=None, recursive=False):
