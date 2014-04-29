@@ -562,18 +562,22 @@ def list_child_datasets(scope, name, session=None):
 
 
 @stream_session
-def list_files(scope, name, session=None):
+def list_files(scope, name, long=False, session=None):
     """
     List data identifier file contents.
 
     :param scope:      The scope name.
     :param name:       The data identifier name.
+    :param long:       A boolean to choose if GUID is returned or not.
     :param session:    The database session in use.
     """
     try:
         did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
         if did.did_type == DIDType.FILE:
-            yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
+            if long:
+                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32, 'guid': did.guid}
+            else:
+                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
         else:
             query = session.query(models.DataIdentifierAssociation)
             dids = [(scope, name), ]
@@ -581,8 +585,13 @@ def list_files(scope, name, session=None):
                 s, n = dids.pop()
                 for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
                     if tmp_did.child_type == DIDType.FILE:
-                        yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
+                        if long:
+                            child_did = session.query(models.DataIdentifier).filter_by(scope=tmp_did.child_scope, name=tmp_did.child_name).one()
+                            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'guid': child_did.guid}
+                        else:
+                            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
                     else:
                         dids.append((tmp_did.child_scope, tmp_did.child_name))
     except NoResultFound:

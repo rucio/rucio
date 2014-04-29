@@ -429,8 +429,13 @@ class Files(RucioController):
         :returns: A dictionary containing all replicas information.
         """
         header('Content-Type', 'application/x-json-stream')
+        long = False
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'long' in params:
+                long = True
         try:
-            for file in list_files(scope=scope, name=name):
+            for file in list_files(scope=scope, name=name, long=long):
                 yield dumps(file) + "\n"
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])

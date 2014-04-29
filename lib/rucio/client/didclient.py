@@ -266,16 +266,21 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def list_files(self, scope, name):
+    def list_files(self, scope, name, long=None):
         """
         List data identifier file contents.
 
         :param scope: The scope name.
         :param name: The data identifier name.
+        :param long: A boolean to choose if GUID is returned or not.
         """
 
+        payload = {}
         path = '/'.join([self.DIDS_BASEURL, scope, name, 'files'])
-        url = build_url(choice(self.list_hosts), path=path)
+        if long:
+            payload['long'] = True
+        url = build_url(choice(self.list_hosts), path=path, params=payload)
+
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
