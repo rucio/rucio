@@ -2,7 +2,8 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
@@ -66,7 +67,8 @@ def request_transfer(once=False, src=None, dst=None):
     tmp_proto['port'] = src.split(':')[2].split('/')[0]
     tmp_proto['prefix'] = '/'.join([''] + src.split(':')[2].split('/')[1:])
     if scheme == 'srm':
-        tmp_proto['extended_attributes'] = {'space_token': srctoken}
+        tmp_proto['extended_attributes'] = {'space_token': srctoken,
+                                            'web_service_path': ''}
     rse.add_protocol(site_a, tmp_proto)
 
     tmp_proto = {
@@ -81,7 +83,8 @@ def request_transfer(once=False, src=None, dst=None):
     tmp_proto['port'] = dst.split(':')[2].split('/')[0]
     tmp_proto['prefix'] = '/'.join([''] + dst.split(':')[2].split('/')[1:])
     if scheme == 'srm':
-        tmp_proto['extended_attributes'] = {'space_token': dsttoken}
+        tmp_proto['extended_attributes'] = {'space_token': dsttoken,
+                                            'web_service_path': ''}
     rse.add_protocol(site_b, tmp_proto)
 
     si = rsemanager.get_rse_info(site_a)

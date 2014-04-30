@@ -7,7 +7,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -1447,12 +1447,9 @@ Commands:
                 'add-files-to-dataset': add_files_to_dataset,
                 'add-datasets-to-container': add_datasets_to_container,
                 'add-containers-to-container': add_containers_to_container,
-                # 'add': add,
                 'add_dataset': add_dataset,
                 'add_container': add_container,
                 'delete': delete,
-                # 'delete_dataset': delete_dataset,
-                # 'delete_container': delete_container,
                 'list-dids': list_dids,
                 'list_files': list_files,
                 'list_scopes': list_scopes,
