@@ -2,7 +2,8 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
@@ -19,9 +20,10 @@ import time
 import traceback
 
 from rucio.common.config import config_get
-from rucio.core import request, rse, lock, replica
+from rucio.core import request
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.constants import RequestType, RequestState, ReplicaState
+from rucio.daemons.conveyor import common
+from rucio.db.constants import RequestState, RequestType
 from rucio.db.session import get_session
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -48,7 +50,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
         try:
             ts = time.time()
-            reqs = request.get_next(req_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+            reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
                                     limit=100,
                                     process=process, total_processes=total_processes,
@@ -68,51 +70,9 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
                 response = request.query_request(req['request_id'], 'fts3', session=session)
 
-                if response['new_state'] is not None:
-                    request.set_request_state(req['request_id'], response['new_state'], session=session)
-                    if response['new_state'] == RequestState.DONE:
-                        tss = time.time()
-                        try:
-                            lock.successful_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
-                        except:
-                            session.rollback()
-                            logging.warn('Could not update lock for successful transfer %s:%s at %s' % (req['scope'], req['name'], req['dest_rse_id']))
-                            continue
-                        record_timer('daemons.conveyor.poller.002-lock-successful_transfer', (time.time()-tss)*1000)
-
-                        tss = time.time()
-                        rse_name = rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse']
-                        record_timer('daemons.conveyor.poller.003-replica-get_rse', (time.time()-ts)*1000)
-
-                        tss = time.time()
-                        replica.update_replicas_states([{'rse': rse_name,
-                                                         'scope': req['scope'],
-                                                         'name': req['name'],
-                                                         'state': ReplicaState.AVAILABLE}],
-                                                       session=session)
-                        record_timer('daemons.conveyor.poller.004-replica-set_available', (time.time()-tss)*1000)
-
-                        tss = time.time()
-                        request.archive_request(req['request_id'], session=session)
-                        record_timer('daemons.conveyor.poller.005-request-archive_successful', (time.time()-tss)*1000)
-
-                    elif response['new_state'] == RequestState.FAILED or response['new_state'] == RequestState.LOST:  # TODO: resubmit does not set failed_transfer
-                        tss = time.time()
-                        try:
-                            lock.failed_transfer(req['scope'], req['name'], req['dest_rse_id'], session=session)
-                        except:
-                            session.rollback()
-                            logging.warn('Could not update lock for failed transfer %s:%s at %s' % (req['scope'], req['name'], req['dest_rse_id']))
-                            continue
-                        record_timer('daemons.conveyor.poller.002-lock-failed_transfer', (time.time()-tss)*1000)
-
-                        tss = time.time()
-                        request.archive_request(req['request_id'], session=session)
-                        record_timer('daemons.conveyor.poller.003-request-archive_failed', (time.time()-tss)*1000)
-
-                    logging.info('UPDATED %s:%s at %s to %s' % (req['scope'], req['name'], rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse'], response['new_state']))
-
                 record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
+
+                common.update_request_state(req, response, session)
 
                 record_counter('daemons.conveyor.poller.query_request')
 

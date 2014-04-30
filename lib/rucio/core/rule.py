@@ -293,7 +293,7 @@ def delete_rule(rule_id, nowait=False, session=None):
         rule.delete(session=session)
 
         for transfer in transfers_to_delete:
-            cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], req_type=RequestType.TRANSFER)
+            cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], request_type=RequestType.TRANSFER)
 
 
 @transactional_session
@@ -519,7 +519,7 @@ def __evaluate_did_detach(eval_did, session=None):
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
         for transfer in transfers_to_delete:
-            cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], req_type=RequestType.TRANSFER)
+            cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse=transfer['rse_id'], request_type=RequestType.TRANSFER)
 
 
 @transactional_session
