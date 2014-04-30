@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -34,7 +35,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, prefer
 
     # locks_to_create =     {'rse_id': [locks]}
     # replicas_to_create =  {'rse_id': [replicas]}
-    # transfers_to_create = [{'dest_rse_id':, 'scope':, 'name':, 'req_type':, 'metadata':}]
+    # transfers_to_create = [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     if rule.grouping == RuleGrouping.NONE:
         replicas_to_create, locks_to_create, transfers_to_create = __apply_rule_to_files_none_grouping(datasetfiles=datasetfiles, locks=locks, replicas=replicas, rseselector=rseselector, rule=rule, preferred_rse_ids=preferred_rse_ids, session=session)
@@ -64,7 +65,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselect
     """
     locks_to_create = {}            # {'rse_id': [locks]}
     replicas_to_create = {}         # {'rse_id': [replicas]}
-    transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'req_type':, 'metadata':}]
+    transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     for dataset in datasetfiles:
         for file in dataset['files']:
@@ -111,7 +112,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
     """
     locks_to_create = {}            # {'rse_id': [locks]}
     replicas_to_create = {}         # {'rse_id': [replicas]}
-    transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'req_type':, 'metadata':}]
+    transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     bytes = 0
     rse_coverage = {}  # {'rse_id': coverage }
@@ -184,7 +185,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
     """
     locks_to_create = {}            # {'rse_id': [locks]}
     replicas_to_create = {}         # {'rse_id': [replicas]}
-    transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'req_type':, 'metadata':}]
+    transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     for dataset in datasetfiles:
         bytes = sum([file['bytes'] for file in dataset['files']])
@@ -309,8 +310,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, locks_to_create, lock
         transfers_to_create.append({'dest_rse_id': rse_id,
                                     'scope': file['scope'],
                                     'name': file['name'],
-                                    'metadata': {},
-                                    'req_type': RequestType.TRANSFER})
+                                    'attributes': {},
+                                    'request_type': RequestType.TRANSFER})
         return True
 
 

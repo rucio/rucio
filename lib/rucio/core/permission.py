@@ -72,7 +72,7 @@ def has_permission(issuer, action, kwargs):
             'detach_dids': perm_detach_dids,
             'attach_dids_to_dids': perm_attach_dids_to_dids,
             'set_status': perm_set_status,
-            'queue_request': perm_queue_request,
+            'queue_requests': perm_queue_requests,
             'submit_deletion': perm_submit_transfer,
             'submit_transfer': perm_submit_transfer,
             'set_rse_usage': perm_set_rse_usage,
@@ -402,9 +402,9 @@ def perm_delete_replicas(issuer, kwargs):
     return str(kwargs.get('rse', '')).endswith('SCRATCHDISK') or issuer == 'root' or issuer in get_special_accounts()
 
 
-def perm_queue_request(issuer, kwargs):
+def perm_queue_requests(issuer, kwargs):
     """
-    Checks if an account can submit a transfer or deletion request on a destination RSE for a data identifier.
+    Checks if an account can submit transfer or deletion requests on destination RSEs for data identifiers.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

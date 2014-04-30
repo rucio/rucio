@@ -23,8 +23,9 @@ import stomp
 
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
-from rucio.core.request import set_request_state
-from rucio.db.constants import FTSState, RequestState
+from rucio.daemons.conveyor.common import update_request_state
+from rucio.db.constants import RequestState, FTSState
+from rucio.db.session import get_session
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -40,6 +41,7 @@ class Consumer(object):
 
     def __init__(self, broker):
         self.__broker = broker
+        self.__session = get_session()
 
     def on_error(self, headers, message):
         record_counter('daemons.conveyor.consumer.error')
@@ -49,17 +51,23 @@ class Consumer(object):
         record_counter('daemons.conveyor.consumer.message')
 
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
-
         if isinstance(msg['job_metadata'], dict) \
            and 'issuer' in msg['job_metadata'].keys() \
-           and msg['job_metadata']['issuer'].startswith('rucio-transfertool') \
-           and 'request_id' in msg['job_metadata'].keys():
+           and msg['job_metadata']['issuer'].startswith('rucio-transfertool'):
+            req = {'request_id': msg['job_metadata']['request_id'],
+                   'scope': msg['job_metadata']['scope'],
+                   'name': msg['job_metadata']['name'],
+                   'dest_rse_id': msg['job_metadata']['dest_rse_id']}
+            response = {'new_state': None}
+
             if str(msg['job_state']) == str(FTSState.FINISHED):
-                logging.info('%s: DONE', msg['job_metadata']['request_id'])
-                set_request_state(msg['job_metadata']['request_id'], RequestState.DONE)
+                response['new_state'] = RequestState.DONE
             elif str(msg['job_state']) == str(FTSState.FAILED):
-                logging.info('%s: FAILED', msg['job_metadata']['request_id'])
-                set_request_state(msg['job_metadata']['request_id'], RequestState.FAILED)
+                response['new_state'] = RequestState.FAILED
+            elif str(msg['job_state']) == str(FTSState.FINISHEDDIRTY):
+                response['new_state'] = RequestState.FAILED
+
+            update_request_state(req, response, self.__session)
 
 
 def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1):

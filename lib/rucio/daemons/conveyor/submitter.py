@@ -2,7 +2,8 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0OA
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
@@ -60,7 +61,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
             ts = time.time()
 
-            reqs = request.get_next(req_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+            reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.QUEUED,
                                     limit=100,
                                     process=process,
@@ -92,6 +93,9 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                                'type': DIDType.FILE}],
                                                         schemes=[scheme],
                                                         session=session):
+
+                        # TODO: Source protection
+
                         for endpoint in source['rses']:
                             for pfn in source['rses'][endpoint]:
                                 tmpsrc.append(str(pfn))
@@ -142,6 +146,13 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                 ts = time.time()
                 rse_info = rsemgr.get_rse_info(rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse'])
+
+                # TODO
+                if not rse_info['deterministic']:
+                    logging.warn('Non-deterministic destination RSE %s - support coming soon' % rse_info['rse'])
+                    session.commit()
+                    continue
+
                 record_timer('daemons.conveyor.submitter.002-get_rse', (time.time() - ts) * 1000)
 
                 ts = time.time()
@@ -175,6 +186,14 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     sources = tmp_sources
 
                 ts = time.time()
+
+                tmp_metadata = {'request_id': req['request_id'],
+                                'scope': req['scope'],
+                                'name': req['name'],
+                                'dest_rse_id': req['dest_rse_id']}
+                if 'previous_attempt_id' in req and req['previous_attempt_id'] is not None:
+                    tmp_metadata = {'previous_attempt_id': req['previous_attempt_id']}
+
                 eid = request.submit_transfers(transfers=[{'request_id': req['request_id'],
                                                            'src_urls': sources,
                                                            'dest_urls': destinations,
@@ -184,7 +203,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                            'src_spacetoken': src_spacetoken,
                                                            'dest_spacetoken': dest_spacetoken}],
                                                transfertool='fts3',
-                                               job_metadata={'request_id': req['request_id']},
+                                               job_metadata=tmp_metadata,
                                                session=session)
                 record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time() - ts) * 1000)
 
@@ -196,7 +215,20 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                session=session)
                 record_timer('daemons.conveyor.submitter.006-replica-set_copying', (time.time() - ts) * 1000)
 
-                logging.info('COPYING EID %s DID %s:%s FROM %s TO %s ' % (eid, req['scope'], req['name'], sources, destinations))
+                if req['previous_attempt_id'] is not None:
+                    logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s ' % (req['retry_count'],
+                                                                                                       eid,
+                                                                                                       req['previous_attempt_id'],
+                                                                                                       req['scope'],
+                                                                                                       req['name'],
+                                                                                                       sources,
+                                                                                                       destinations))
+                else:
+                    logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s ' % (eid,
+                                                                                  req['scope'],
+                                                                                  req['name'],
+                                                                                  sources,
+                                                                                  destinations))
                 record_counter('daemons.conveyor.submitter.submit_request')
 
                 session.commit()

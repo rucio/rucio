@@ -8,13 +8,17 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
-from re import match
+import json
+import logging
+import re
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from rucio.common.exception import RucioException
+from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter
+from rucio.core.rse import get_rse_by_id
 from rucio.db import models
 from rucio.db.constants import RequestState, FTSState
 from rucio.db.session import read_session, transactional_session
@@ -22,11 +26,37 @@ from rucio.transfertool import fts3
 
 
 @transactional_session
+def requeue_and_archive(request_id, session=None):
+    """
+    Requeue and archive a failed request.
+    TODO: Multiple requeue.
+
+    :param request_id: Original request ID as a string.
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.requeue_request')
+    new_req = get_request(request_id, session=session)
+    archive_request(request_id, session=session)
+    new_req['request_id'] = generate_uuid()
+    new_req['previous_attempt_id'] = request_id
+    new_req['retry_count'] += 1
+
+    # hardcoded for now - only requeue a couple of times
+    if new_req['retry_count'] < 4:
+        queue_requests([new_req], session=session)
+        return new_req
+
+    return
+
+
+@transactional_session
 def queue_requests(requests, session=None):
     """
-    Submit transfer or deletion requests on a destination RSE for a data identifier.
+    Submit transfer or deletion requests on destination RSEs for data identifiers.
 
-    :param requests: Dictionary containing 'scope', 'name', 'dest_rse_id', 'req_type', 'metadata'
+    :param requests: List of dictionaries containing 'scope', 'name', 'dest_rse_id', 'request_type', 'attributes'
+    :param session: Database session to use.
     :returns: List of Request-IDs as 32 character hex strings
     """
 
@@ -34,48 +64,34 @@ def queue_requests(requests, session=None):
 
     try:
         for req in requests:
-            new_request = models.Request(request_type=req['req_type'],
+            new_request = models.Request(request_type=req['request_type'],
                                          scope=req['scope'],
                                          name=req['name'],
                                          dest_rse_id=req['dest_rse_id'],
-                                         attributes=str(req['metadata']),
+                                         attributes=json.dumps(req['attributes']),
                                          state=RequestState.QUEUED)
-
+            if 'previous_attempt_id' in req and 'retry_count' in req:
+                new_request = models.Request(id=req['request_id'],
+                                             request_type=req['request_type'],
+                                             scope=req['scope'],
+                                             name=req['name'],
+                                             dest_rse_id=req['dest_rse_id'],
+                                             attributes=req['attributes'],
+                                             state=RequestState.QUEUED,
+                                             previous_attempt_id=req['previous_attempt_id'],
+                                             retry_count=req['retry_count'])
             new_request.save(session=session, flush=False)
         session.flush()
     except IntegrityError, e:
         if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*REQUESTS_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
-            pass  # silently accept - we already have a transfer request for this DID@RSE
+           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*REQUESTS_PK.*violated.*', e.args[0]) \
+           or re.match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+            logging.warn('Transfer request for DID %s:%s at RSE %s exists - ignoring' % (req['scope'],
+                                                                                         req['name'],
+                                                                                         get_rse_by_id(req['dest_rse_id'])['rse']))
         else:
             raise RucioException(e.args)
-    except:
-        raise
-
-
-@transactional_session
-def queue_request(scope, name, dest_rse_id, req_type, metadata={}, session=None):
-    """
-    Submit a transfer or deletion request on a destination RSE for a data identifier.
-
-    :param scope: Data identifier scope as a string.
-    :param name: Data identifier name as a string.
-    :param dest_rse: RSE identifier as a string.
-    :param req_type: Type of the request as a string.
-    :param metadata: Metadata key/value pairs as a dictionary.
-    :returns: Request-ID as a 32 character hex string.
-    """
-
-    record_counter('core.request.queue_request')
-
-    queue_requests(requests=[{'scope': scope,
-                              'name': name,
-                              'dest_rse_id': dest_rse_id,
-                              'req_type': req_type,
-                              'metadata': metadata}],
-                   session=session)
 
 
 @transactional_session
@@ -83,7 +99,8 @@ def submit_deletion(url, session=None):
     """
     Submit a deletion request to a deletiontool.
 
-    :param src_url: URL acceptable to deletiontool as a string.
+    :param url: URL acceptable to deletiontool as a string.
+    :param session: Database sesssion to use.
     :returns: Deletiontool external ID.
     """
 
@@ -98,6 +115,7 @@ def submit_transfers(transfers, transfertool, job_metadata={}, session=None):
     :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'bytes', 'md5', 'adler32'
     :param transfertool: Transfertool as a string.
     :param job_metadata: Metadata key/value pairs for all files as a dictionary.
+    :param session: Database session to use.
     :returns: Transfertool external ID.
     """
 
@@ -126,6 +144,7 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, filesize, md5
     :param dest_urls: Destination URLs acceptable to transfertool as a list of strings.
     :param transfertool: Transfertool as a string.
     :param metadata: Metadata key/value pairs as a dictionary.
+    :param session: Database session to use.
     :returns: Transfertool external ID.
     """
 
@@ -143,38 +162,33 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, filesize, md5
 
 
 @transactional_session
-def get_next(req_type, state, limit=100, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+def get_next(request_type, state, limit=100, process=None, total_processes=None, thread=None, total_threads=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
 
-    :param account: Account identifier as a string.
-    :param req_type: Type of the request as a string or list of strings.
+    :param request_type: Type of the request as a string or list of strings.
     :param state: State of the request as a string.
-    :param n: Integer of requests to retrieve.
+    :param limit: Integer of requests to retrieve.
     :param process: Identifier of the caller process as an integer.
     :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
+    :param session: Database session to use.
     :returns: Request as a dictionary.
     """
 
-    record_counter('core.request.get_next.%s-%s' % (req_type, state))
+    record_counter('core.request.get_next.%s-%s' % (request_type, state))
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
-    if type(req_type) == str:
-        req_type = [req_type, req_type]
-    elif len(req_type) == 1:
-        req_type = [req_type[0], req_type[0]]
+    if type(request_type) == str:
+        request_type = [request_type, request_type]
+    elif len(request_type) == 1:
+        request_type = [request_type[0], request_type[0]]
 
-    query = session.query(models.Request).add_columns(models.Request.id,
-                                                      models.Request.request_type,
-                                                      models.Request.scope,
-                                                      models.Request.name,
-                                                      models.Request.dest_rse_id)\
-                                         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_CRE_IDX)", 'oracle')\
+    query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_CRE_IDX)", 'oracle')\
                                          .filter_by(state=state)\
-                                         .filter(models.Request.request_type.in_(req_type))\
+                                         .filter(models.Request.request_type.in_(request_type))\
                                          .order_by(asc(models.Request.created_at))
 
     if (total_processes-1) > 0:
@@ -200,11 +214,10 @@ def get_next(req_type, state, limit=100, process=None, total_processes=None, thr
     else:
         result = []
         for t in tmp:
-            result.append({'request_id': t[1],
-                           'request_type': t[2],
-                           'scope': t[3],
-                           'name': t[4],
-                           'dest_rse_id': t[5]})
+            t2 = dict(t)
+            t2.pop('_sa_instance_state')
+            t2['request_id'] = t2['id']
+            result.append(t2)
         return result
 
 
@@ -214,6 +227,7 @@ def __get_external_id(request_id, session=None):
     Retrieve the ID used by the external tool.
 
     :param request_id: Request-ID as a 32 character hex string.
+    :param session: Database session to use.
     :returns: External ID as a string.
     """
 
@@ -230,6 +244,7 @@ def query_request(request_id, transfertool, session=None):
 
     :param request_id: Request-ID as a 32 character hex string.
     :param transfertool: Transfertool name as a string.
+    :param session: Database session to use.
     :returns: Request status information as a dictionary.
     """
 
@@ -269,6 +284,7 @@ def set_request_state(request_id, new_state, session=None):
 
     :param request_id: Request-ID as a 32 character hex string.
     :param new_state: New state as string.
+    :param session: Database session to use.
     """
 
     record_counter('core.request.set_request_state')
@@ -285,11 +301,14 @@ def get_request(request_id, session=None):
     Retrieve a request by its ID.
 
     :param request_id: Request-ID as a 32 character hex string.
+    :param session: Database session to use.
     :returns: Request as a dictionary.
     """
 
     try:
-        return session.query(models.Request).filter_by(id=request_id).first()
+        tmp = dict(session.query(models.Request).filter_by(id=request_id).first())
+        tmp.pop('_sa_instance_state')
+        return tmp
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -300,6 +319,7 @@ def archive_request(request_id, session=None):
     Move a request to the history table.
 
     :param request_id: Request-ID as a 32 character hex string.
+    :param session: Database session to use.
     """
 
     record_counter('core.request.archive')
@@ -327,6 +347,7 @@ def purge_request(request_id, session=None):
     Purge a request.
 
     :param request_id: Request Identifier as a 32 character hex string.
+    :param session: Database session to use.
     """
 
     record_counter('core.request.purge_request')
@@ -353,22 +374,19 @@ def cancel_request(request_id, transfertool):
         return fts3.cancel(transfer_id)
 
 
-def cancel_request_did(scope, name, dest_rse, req_type):
+def cancel_request_did(scope, name, dest_rse, request_type):
     """
     Cancel a request based on a DID and request type.
 
     :param scope: Data identifier scope as a string.
     :param name: Data identifier name as a string.
     :param dest_rse: RSE name as a string.
-    :param req_type: Type of the request as a string.
+    :param request_type: Type of the request as a string.
     """
 
     record_counter('core.request.cancel_request_did')
 
     # select correct transfertool and external transfer id based on request entry in database
     transfer_id = 'whatever'
-
-    # if transfertool == 'fts3':
-    #    return fts3.cancel(transfer_id)
 
     return fts3.cancel(transfer_id)  # hardcoded for now

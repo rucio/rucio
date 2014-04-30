@@ -6,39 +6,34 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import request
 
 
-def queue_request(scope, name, dest_rse, req_type, issuer, account, metadata={}):
+def queue_requests(requests, issuer):
     """
-    Submit a transfer or deletion request on a destination RSE for a data identifier.
+    Submit transfer or deletion requests on destination RSEs for data identifiers.
 
-    :param scope: Data identifier scope as a string.
-    :param name: Data identifier name as a string.
-    :param dest_rse: RSE name as a string.
-    :param req_type: Type of the request as a string.
+    :param requests: List of dictionaries containing 'scope', 'name', 'dest_rse_id', 'request_type', 'attributes'
     :param issuer: Issuing account as a string.
-    :param account: Account identifier as a string.
-    :param metadata: Metadata key/value pairs as a dictionary.
-    :returns: Request-ID as a 32 character hex string.
+    :returns: List of Request-IDs as 32 character hex strings
     """
 
-    kwargs = {'account': account, 'issuer': issuer, 'scope': scope, 'name': name, 'dest_rse': dest_rse, 'req_type': req_type, 'metadata': metadata}
-    if not permission.has_permission(issuer=issuer, action='queue_request', kwargs=kwargs):
-        raise exception.AccessDenied('%(account)s can not request %(req_type)s on %(destination_rse)s for %(scope)s:%(name)s' % locals())
+    kwargs = {'requests': requests, 'issuer': issuer}
+    if not permission.has_permission(issuer=issuer, action='queue_requests', kwargs=kwargs):
+        raise exception.AccessDenied('%(issuer)s can not queue request' % locals())
 
-    return request.queue_request(scope=scope, name=name, dest_rse=dest_rse, req_type=req_type, metadata=metadata)
+    return request.queue_requests(requests)
 
 
 def submit_deletion(url, issuer, account):
     """
     Submit a deletion request to a deletiontool.
 
-    :param src_url: URL acceptable to deletiontool as a string.
+    :param url: URL acceptable to deletiontool as a string.
     :param issuer: Issuing account as a string.
     :param account: Account identifier as a string.
     :returns: Deletiontool external ID.
@@ -105,38 +100,38 @@ def cancel_request(request_id, issuer, account):
     return request.cancel_request(request_id)
 
 
-def cancel_request_did(scope, name, dest_rse, req_type, issuer, account):
+def cancel_request_did(scope, name, dest_rse, request_type, issuer, account):
     """
     Cancel a request based on a DID and request type.
 
     :param scope: Data identifier scope as a string.
     :param name: Data identifier name as a string.
     :param dest_rse: RSE name as a string.
-    :param req_type: Type of the request as a string.
+    :param request_type: Type of the request as a string.
     :param issuer: Issuing account as a string.
     :param account: Account identifier as a string.
     """
 
     kwargs = {'account': account, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, action='cancel_request_did', kwargs=kwargs):
-        raise exception.AccessDenied('%(account)s cannot cancel %(req_type)s request for %(scope)s:%(name)s' % locals())
+        raise exception.AccessDenied('%(account)s cannot cancel %(request_type)s request for %(scope)s:%(name)s' % locals())
 
-    return request.cancel_request_did(scope, name, dest_rse, req_type)
+    return request.cancel_request_did(scope, name, dest_rse, request_type)
 
 
-def get_next(req_type, state, issuer, account):
+def get_next(request_type, state, issuer, account):
     """
     Retrieve the next request matching the request type and state.
 
-    :param req_type: Type of the request as a string.
+    :param request_type: Type of the request as a string.
     :param state: State of the request as a string.
     :param issuer: Issuing account as a string.
     :param account: Account identifier as a string.
     :returns: Request as a dictionary.
     """
 
-    kwargs = {'account': account, 'issuer': issuer, 'req_type': req_type, 'state': state}
+    kwargs = {'account': account, 'issuer': issuer, 'request_type': request_type, 'state': state}
     if not permission.has_permission(issuer=issuer, action='get_next', kwargs=kwargs):
-        raise exception.AccessDenied('%(account)s cannot get the next request of type %(req_type)s in state %(state)s' % locals())
+        raise exception.AccessDenied('%(account)s cannot get the next request of type %(request_type)s in state %(state)s' % locals())
 
-    return request.get_next(req_type, state)
+    return request.get_next(request_type, state)
