@@ -23,7 +23,7 @@ from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.rule import add_replication_rule
 from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
-from rucio.common.exception import DatabaseException, DataIdentifierNotFound, InvalidReplicationRule
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, InvalidRSEExpression
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
 from rucio.core import monitor
@@ -156,7 +156,10 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                         else:
                                             monitor.record_counter(counters='transmogrifier.addnewrule.activity.other', delta=1)
                                     except InvalidReplicationRule, e:
-                                        logging.error('Thread %i : %s' (worker_number, str(e)))
+                                        logging.error('Thread %i : %s' % (worker_number, str(e)))
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
+                                    except InvalidRSEExpression, e:
+                                        logging.error('Thread %i : %s' % (worker_number, str(e)))
                                         monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
                                 logging.info('Thread %i :Rule inserted in %f seconds' % (worker_number, time.time()-stime))
                     except DataIdentifierNotFound, e:
