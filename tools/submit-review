@@ -50,7 +50,7 @@ push_commit() {
         msg=`git log -1 --pretty=oneline | cut -d" " -f2-`
         cid=`git log -1 | grep Change-Id: | awk '{print $2;}'`
         echo Amending commit $cmt
-        $dry git commit -a --amend -m "$msg ; $BASH_ARGV
+        $dry git commit --amend -m "$msg ; $BASH_ARGV
 
 Change-Id: $cid"
         if [ ! $? -eq 0 ] ; then
