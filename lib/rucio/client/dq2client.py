@@ -18,12 +18,13 @@ Compatibility Wrapper for DQ2 and Rucio.
 '''
 
 import copy
+import hashlib
 import re
 
 from datetime import datetime
 from rucio.client.client import Client
 from rucio.common.utils import generate_uuid
-from rucio.common.exception import InvalidMetadata, RSENotFound, NameTypeError, InputValidationError
+from rucio.common.exception import InvalidMetadata, RSENotFound, NameTypeError, InputValidationError, UnsupportedOperation
 
 
 class DQ2Client:
@@ -265,9 +266,41 @@ class DQ2Client:
         """
         result = {}
         metadata = self.client.get_metadata(scope=scope, name=dsn)
+        metadata_mapping = {'owner': 'account', 'creationdate': 'created_at', 'deleteddate': 'deleted_at', 'lifetime': 'expired_at', 'hidden': 'hidden', 'versioncreationdate': 'created_at'}
+        metadata_static = {'latestversion': 1, 'lastoperationdn': None, 'lastoperationip': None, 'closeddate': None, 'frozendate': None, 'freezingdate': None, 'group': None, 'provenance': None,
+                           'version': 1, 'origin': None, 'physicsgroup': None, 'temperature': None, 'tier0state': None, 'tier0type': None}
         for key in attributes:
-            if key in metadata:
-                result[key] = metadata[key]
+            if key in metadata_mapping:
+                result[key] = metadata[metadata_mapping[key]]
+            elif key in metadata_static:
+                result[key] = metadata_static[key]
+            elif key in ['duid', 'vuid', 'latestvuid']:
+                result[key] = hashlib.md5(scope+':'+dsn).hexdigest()
+            elif key == 'state':
+                result[key] = 2
+                if metadata['is_open']:
+                    result[key] = 0
+            elif key == 'type':
+                if metadata['did_type'] == 'DATASET':
+                    result[key] = 1
+                elif metadata['did_type'] == 'CONTAINER':
+                    result[key] = 2
+            elif key in ['nbfiles', 'length']:
+                nbfiles, length = 0, 0
+                for did in self.client.list_files(scope=scope, name=dsn):
+                    nbfiles += 1
+                    length += did['bytes']
+                if key == 'nbfiles':
+                    result[key] = nbfiles
+                else:
+                    result[key] = length
+            elif key == '#replicas':
+                replicas = []
+                for reps in self.client.list_replicas([{'scope': scope, 'name': dsn}]):
+                    for rep in reps['rses']:
+                        if rep not in replicas:
+                            replicas.append(rep)
+                result[key] = len(replicas)
             else:
                 raise InvalidMetadata
         return result
@@ -340,7 +373,6 @@ class DQ2Client:
         """
         result = {}
         files = []
-        attrList = ['total', 'found']
         dq2attrs = {'pdn': '', 'archived': 'primary', 'version': 0, 'checkstate': 6, 'transferState': 0, 'found': 0, 'total': 0, 'immutable': 0}
         metadata = self.client.get_metadata(scope, name=dsn)
         # @immutable
@@ -358,24 +390,34 @@ class DQ2Client:
                     for item in self.client.list_rses(rule['rse_expression']):
                         replicating_rses.append(item['rse'])
         else:
-            raise NotImplementedError
+            pass
             # will call self.client.get_dataset_locks() for LockState if old=True
 
         # list_replicas()
-        for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}]):
+        for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}], schemes=['srm']):
             rses = f['rses'].keys()
             if not f['name'] in files:
                 files.append(f['name'])
                 for rse in rses:
                     if rse not in result:
-                        result[rse] = [dq2attrs]
-                for attr in attrList:
-                    if attr not in result[rse][-1]:
-                        result[rse][-1][attr] = 0
-                    result[rse][-1][attr] += 1
-        for rse in replicating_rses:
-            if rse in result.keys():
+                        result[rse] = [copy.deepcopy(dq2attrs)]
+                        result[rse][-1]['found'] = 0
+                    result[rse][-1]['found'] += 1
+        for rse in result:
+            result[rse][-1]['total'] = len(files)
+            if rse in replicating_rses:
                 result[rse][-1]['transferState'] = 1
+
+        if old:
+            replicas = {0: [], 1: []}
+            for rse in result:
+                if result[rse][0]['found'] == result[rse][0]['total']:
+                    replicas[1].append(rse)
+                else:
+                    replicas[0].append(rse)
+            vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+            vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
+            return {vuid: replicas}
 
         return result
 
@@ -400,26 +442,17 @@ class DQ2Client:
 
         """
         result = {}
-        complete = []
-        incomplete = []
         replicas = {0: [], 1: []}
+        self.client.get_metadata(scope=scope, name=cn)
         for i in self.client.list_content(scope, cn):
             if i['type'] == 'DATASET' and i['name'] not in result:
-                did = '%s:%s' % (scope, i['name'])
-                result[i['name']] = {did: replicas}
+                vuid = hashlib.md5(scope+':'+i['name']).hexdigest()
+                vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
+                result[i['name']] = {vuid: replicas}
 
         for dsn in result.keys():
-            replicas = self.listDatasetReplicas(scope=scope, dsn=dsn, old=False)
-            did = '%s:%s' % (scope, dsn)
-            for site in replicas.keys():
-                if replicas[site][-1]['total'] != replicas[site][-1]['found']:
-                    incomplete.append(site)
-                elif replicas[site][-1]['total'] == replicas[site][-1]['found']:
-                    complete.append(site)
-                else:
-                    pass
-            result[dsn][did][1] = list(set(complete))
-            result[dsn][did][0] = list(set(incomplete))
+            replicas = self.listDatasetReplicas(scope=scope, dsn=dsn, old=True)
+            result[dsn] = replicas
 
         return result
 
@@ -566,11 +599,40 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def listFileReplicas(self):
+    def listFileReplicas(self, location, dsn, version=0, scope=None):
         """
-        ToDo
+
+        @param dsn is the dataset name.
+        @param version is the dataset version number.
+        @param scope: is the dataset scope.
+        @param location is the location place of the dataset
+              B{Exceptions:}
+               in case there is a dataset with the given name.
+            - DQDaoException is raised,
+                in case there is a python or database error in the central catalogs.
+            - DQUnknownDatasetException is raised,
+                in case there is no dataset with the given name.
+              @ return dictionnary e.g.:
+        {'content': [guid1,...], 'transferState': 1, 'length': 46018142, 'checkstate': 6, 'found': 200, 'total': 200, 'immutable': 1}]
         """
-        raise NotImplementedError
+        lfn_to_guid = {}
+        total = 0
+        length = 0
+        found = 0
+        guids = []
+        immutable = 1
+        if self.client.get_metadata(scope, dsn)['is_open']:
+            immutable = 1
+        for x in self.client.list_files(scope, dsn, long=True):
+            guid = '%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32])
+            lfn_to_guid[(scope, x['name'])] = guid
+            total += 1
+        for replica in self.client.list_replicas([{'scope': scope, 'name': dsn}], schemes=['srm']):
+            if location in replica['rses']:
+                length += replica['bytes']
+                found += 1
+                guids.append(lfn_to_guid[(replica['scope'], replica['name'])])
+        return {'content': guids, 'transferState': 1, 'length': length, 'checkstate': 6, 'found': found, 'total': total, 'immutable': immutable}
 
     def listFileReplicasBySites(self, dsn, version=0, locations=[], threshold=None, timeout=None, scope=None):
         """
@@ -696,9 +758,18 @@ class DQ2Client:
 
     def ping(self):
         """
-        ToDo
+        Checks if the Rucio clients are well configured.
+
+        @return: dictionary containing the client's configuration settings.::
+            {
+                'rucio'      : (url_insecure, url_secure, alive),
+            }
         """
-        raise NotImplementedError
+        try:
+            self.client.ping()
+            return {'rucio': (self.client.host, self.client.host, True)}
+        except:
+            return {'rucio': (self.client.host, self.client.host, False)}
 
     def queryReplicaHistory(self):
         """
@@ -1002,27 +1073,39 @@ class DQ2Client:
         @param scope: is the dataset scope.
 
         B{Exceptions:}
-           - DQDaoException is raised,
-               in case there is a python or database error in the central catalogs.
-           - DQFileExistsInDatasetException is raised,
-               in case the given guid is already registered for the given dataset.
-           - DQInvalidRequestException is raised,
-               in case no files have been added to the content catalog.
-           - DQSecurityException is raised,
-               in case the user has no permissions to update the dataset.
-           - DQUnknownDatasetException is raised,
-               in case there is no dataset with the given name.
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+            - UnsupportedOperation otherwise.
+        """
+        # If DID not in Rucio, raise execption
+        self.client.get_metadata(scope=scope, name=dsn)
+        raise UnsupportedOperation('New version of a dataset cannot be created in Rucio')
 
-        @return: Dictionary containing the dataset version information.::
-           {'vuid': vuid_1, 'version': 1, 'duid': duid}
+    def registerNewVersion2(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None):
         """
-        raise NotImplementedError
+        Register a new version of the dataset with the
+        given additional files (lists of lfns and guids).
+        Plus, it notifies the subscription catalog for changes
+        on the dataset and on dataset previous version.
 
-    def registerNewVersion2(self):
+        @since: 0.2.0
+
+        @param dsn: is the dataset name.
+        @param lfns: is a list of logical filenames (LFN).
+        @param guids: is a list of file unique identifiers (GUID).
+            Note: the GUID is typically assigned by external tools
+            (e.g. POOL) and must be passed along as is.
+        @param sizes: is a list of the file sizes.
+        @param checksums: is a list of the file checksums.
+            [md5:<md5_32_character_string>, ...]
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+            - UnsupportedOperation otherwise.
         """
-        ToDo
-        """
-        raise NotImplementedError
+        # If DID not in Rucio, raise execption
+        self.client.get_metadata(scope=scope, name=dsn)
+        raise UnsupportedOperation('New version of a dataset cannot be created in Rucio')
 
     def resetSubscription(self, dsn, location, version=0, scope=None):
         """
@@ -1075,7 +1158,14 @@ class DQ2Client:
                 in case there is no dataset with the given name.
 
         """
-        self.client.set_metadata(scope=scope, name=dsn, key=attrname, value=attrvalue)
+        metadata_mapping = {'owner': 'account', 'lifetime': 'expired_at', 'hidden': 'hidden'}
+        if attrname in metadata_mapping:
+            self.client.set_metadata(scope=scope, name=dsn, key=attrname, value=attrvalue)
+        metadata_static = ['duid', 'state', 'creationdate', 'latestversion', 'lastoperationdn', 'lastoperationip', 'closeddate', 'frozendate', 'deleteddate', 'type',
+                           'freezingdate', 'group', 'provenance', 'nbfiles', 'length', 'vuid', 'version', 'versioncreationdate', 'latestvuid', 'origin', 'physicsgroup', 'temperature', '#replicas', 'tier0state', 'tier0type']
+        if attrname in metadata_static:
+            raise InvalidMetadata('%s is a static metadata and cannot be updated' % (attrname))
+        raise InvalidMetadata('%s is not a valid DQ2 metadata' % (attrname))
 
     def setReplicaMetaDataAttribute(self, dsn, location, attrname, attrvalue, scope=None):
         """
@@ -1083,8 +1173,48 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def verifyFilesInDataset(self):
+    def verifyFilesInDataset(self, dsn, guids, version=None, scope=None):
         """
-        ToDo
+        Verifies if the given files' global unique identifiers (GUIDS) are registered on the dataset.
+
+        (since 0.4.0)
+
+        @param dsn: is the dataset name.
+        @param guids: is a list of file unique identifiers (GUID).
+            Note: the GUID is typically assigned by external tools
+            (e.g. POOL) and must be passed along as is.
+        @param version: is the dataset version number (0 => the latest version).
+        @param scope: is the dataset scope.
+
+        B{Exceptions}:
+            - DQDaoException is raised,
+                in case there is a python or database error in the central catalogs.
+            - DQUnknownDatasetException is raised,
+                in case there is no dataset with the given name.
+
+        @return: Dictionary with the following format:
+            {
+                GUIDX: True, # exist
+                (...)
+                GUIDY: False # don't exist
+            }
         """
-        raise NotImplementedError
+        result = {}
+        for guid in guids:
+            result[guid] = False
+        for did in self.client.list_files(scope=scope, name=dsn):
+            guid = self.client.get_metadata(scope=did['scope'], name=did['name'])['guid']
+            if guid in guids:
+                result[guid] = True
+                continue
+            if guid.upper() in guids:
+                result[guid.upper()] = True
+                continue
+            guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+            if guid in guids:
+                result[guid] = True
+                continue
+            if guid.upper() in guids:
+                result[guid.upper()] = True
+                continue
+        return result
