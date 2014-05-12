@@ -9,6 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - David Cameron, <david.cameron@cern.ch>, 2014
+# - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
 
 import json
 import requests
@@ -36,6 +37,10 @@ if __name__ == '__main__':
         if rse['state'] != 'ACTIVE':
             continue
 
+        # TODO: remove when Conveyor is fixed for nondeterministic endpoints
+        if rse['is_tape']:
+            continue
+
         # Check if RSE exists
         try:
             c.get_rse(rse['name'])
@@ -49,7 +54,10 @@ if __name__ == '__main__':
             c.add_rse_attribute(rse['name'], 'istape', str(rse['is_tape']))
             c.add_rse_attribute(rse['name'], 'cloud', str(rse['cloud']))
             c.add_rse_attribute(rse['name'], 'spacetoken', str(rse['token']))
+            c.add_rse_attribute(rse['name'], 'country', str(rse['country']))
+            c.add_rse_attribute(rse['name'], 'site', str(rse['site']))
         except RucioException as e:
             print str(e)
+            sys.exit(CRITICAL)
 
     sys.exit(OK)
