@@ -67,7 +67,7 @@ def options(section, session=None):
     :returns: ['option', ...]
     """
 
-    tmp = session.query(models.Config.option).filter_by(section=section).distinct().all()
+    tmp = session.query(models.Config.opt).filter_by(section=section).distinct().all()
 
     res = []
     for t in tmp:
@@ -87,7 +87,7 @@ def has_option(section, option, session=None):
     :returns: True/False
     """
 
-    query = session.query(models.Config).filter_by(section=section, option=option)
+    query = session.query(models.Config).filter_by(section=section, opt=option)
 
     return True if query.first() else False
 
@@ -106,7 +106,7 @@ def get(section, option, session=None):
     :returns: The auto-coerced value.
     """
 
-    tmp = session.query(models.Config.value).filter_by(section=section, option=option).first()
+    tmp = session.query(models.Config.value).filter_by(section=section, opt=option).first()
 
     if tmp is not None:
         return __convert_type(tmp[0])
@@ -125,7 +125,7 @@ def items(section, session=None):
     :returns: [('option', auto-coerced value), ...]
     """
 
-    tmp = session.query(models.Config.option, models.Config.value).filter_by(section=section).all()
+    tmp = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
 
     res = []
     for t in tmp:
@@ -146,14 +146,15 @@ def set(section, option, value, session=None):
     """
 
     if not has_option(section=section, option=option, session=session):
-        new_option = models.Config(section=section, option=option, value=value)
+        new_option = models.Config(section=section, opt=option, value=value)
         new_option.save(session=session)
     else:
         old_option = models.Config.__history_mapper__.class_(section=section,
-                                                             option=option,
-                                                             value=session.query(models.Config.value).filter_by(section=section, option=option).first()[0])
+                                                             opt=option,
+                                                             value=session.query(models.Config.value).filter_by(section=section,
+                                                                                                                opt=option).first()[0])
         old_option.save(session=session)
-        session.query(models.Config).filter_by(section=section, option=option).update({'value': str(value)})
+        session.query(models.Config).filter_by(section=section, opt=option).update({'value': str(value)})
 
 
 @transactional_session
@@ -171,7 +172,7 @@ def remove_section(section, session=None):
     else:
         for old in session.query(models.Config.value).filter_by(section=section).all():
             old_option = models.Config.__history_mapper__.class_(section=old[0],
-                                                                 option=old[1],
+                                                                 opt=old[1],
                                                                  value=old[2])
             old_option.save(session=session)
         session.query(models.Config).filter_by(section=section).delete()
@@ -193,10 +194,11 @@ def remove_option(section, option, session=None):
         return False
     else:
         old_option = models.Config.__history_mapper__.class_(section=section,
-                                                             option=option,
-                                                             value=session.query(models.Config.value).filter_by(section=section, option=option).first()[0])
+                                                             opt=option,
+                                                             value=session.query(models.Config.value).filter_by(section=section,
+                                                                                                                opt=option).first()[0])
         old_option.save(session=session)
-        session.query(models.Config).filter_by(section=section, option=option).delete()
+        session.query(models.Config).filter_by(section=section, opt=option).delete()
         return True
 
 

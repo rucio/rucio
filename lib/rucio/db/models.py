@@ -706,15 +706,15 @@ class Token(BASE, ModelBase):
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),)
 
 
-class Callback(BASE, ModelBase):
-    """Represents the event callbacks"""
-    __tablename__ = 'callbacks'
+class Message(BASE, ModelBase):
+    """Represents the event messages"""
+    __tablename__ = 'messages'
     id = Column(GUID(), default=utils.generate_uuid)
     event_type = Column(String(1024))
     payload = Column(String(4000))
-    _table_args = (PrimaryKeyConstraint('id', name='CALLBACKS_ID_PK'),
-                   CheckConstraint('EVENT_TYPE IS NOT NULL', name='CALLBACKS_EVENT_TYPE_NN'),
-                   CheckConstraint('PAYLOAD IS NOT NULL', name='CALLBACKS_PAYLOAD_NN'),)
+    _table_args = (PrimaryKeyConstraint('id', name='MESSAGES_ID_PK'),
+                   CheckConstraint('EVENT_TYPE IS NOT NULL', name='MESSAGES_EVENT_TYPE_NN'),
+                   CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),)
 
 
 class AlembicVersion(BASE):
@@ -729,9 +729,9 @@ class Config(BASE, ModelBase, Versioned):
     revision = '2b8e7bcb4783'
     down_revision = '16a0aca82e12'
     section = Column(String(128))
-    option = Column(String(128))
+    opt = Column(String(128))
     value = Column(String(4000))
-    _table_args = (PrimaryKeyConstraint('section', 'option', name='CONFIGS_PK'), )
+    _table_args = (PrimaryKeyConstraint('section', 'opt', name='CONFIGS_PK'), )
 
 
 def register_models(engine):
@@ -744,12 +744,12 @@ def register_models(engine):
               AccountLimit,
               AccountUsage,
               AlembicVersion,
-              Callback,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
               Identity,
               IdentityAccountAssociation,
+              Message,
               RSE,
               RSEAttrAssociation,
               RSECounter,
@@ -781,13 +781,13 @@ def unregister_models(engine):
               UpdatedAccountCounter,
               AccountLimit,
               AccountUsage,
-              Callback,
               AlembicVersion,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
               Identity,
               IdentityAccountAssociation,
+              Message,
               RSE,
               RSEAttrAssociation,
               RSECounter,

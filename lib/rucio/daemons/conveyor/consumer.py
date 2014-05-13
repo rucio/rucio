@@ -51,8 +51,13 @@ class Consumer(object):
         record_counter('daemons.conveyor.consumer.message')
 
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
-        if isinstance(msg['job_metadata'], dict) \
+        if 'job_metadata' in msg.keys() \
+           and isinstance(msg['job_metadata'], dict) \
            and 'issuer' in msg['job_metadata'].keys() \
+           and 'request_id' in msg['job_metadata'].keys() \
+           and 'scope' in msg['job_metadata'].keys() \
+           and 'name' in msg['job_metadata'].keys() \
+           and 'dest_rse_id' in msg['job_metadata'].keys() \
            and msg['job_metadata']['issuer'].startswith('rucio-transfertool'):
             req = {'request_id': msg['job_metadata']['request_id'],
                    'scope': msg['job_metadata']['scope'],
@@ -67,7 +72,10 @@ class Consumer(object):
             elif str(msg['job_state']) == str(FTSState.FINISHEDDIRTY):
                 response['new_state'] = RequestState.FAILED
 
-            update_request_state(req, response, self.__session)
+            if update_request_state(req, response, self.__session):
+                self.__session.commit()
+            else:
+                self.__session.rollback()
 
 
 def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1):

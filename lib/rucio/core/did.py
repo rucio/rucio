@@ -16,7 +16,6 @@
 from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
-# from time import time
 
 from sqlalchemy import and_, or_, case
 from sqlalchemy.exc import DatabaseError, IntegrityError
@@ -28,7 +27,6 @@ import rucio.core.rule
 
 from rucio.common import exception
 from rucio.common.utils import chunks
-from rucio.core.callback import add_callback
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.replica import add_replicas
 from rucio.db import models
@@ -794,7 +792,6 @@ def set_status(scope, name, session=None, **kwargs):
         if k == 'open':
             query = query.filter_by(is_open=True).filter(models.DataIdentifier.did_type != DIDType.FILE)
             values['is_open'] = False
-            add_callback(event_type='CLOSE', payload={'scope': scope, 'name': name}, session=session)
 
     rowcount = query.update(values, synchronize_session='fetch')
 
