@@ -880,25 +880,26 @@ CREATE INDEX "REQUESTS_TYP_STA_CRE_IDX" ON "REQUESTS" ("REQUEST_TYPE", "STATE", 
 
 
 
--- ========================================= CALLBACKS =========================================
--- Description: Table to store callbacks before sending them
+-- ========================================= MESSAGES =========================================
+-- Previously called: CALLBACKS
+-- Description: Table to store messages before sending them to a broker
 -- Estimated volume: 20,000 rows per 10. min.
--- Access pattern: list the last callbacks by created date for the last n minutes
+-- Access pattern: list the last messages by created date for the last n minutes
 -- this table could be of IOT type but then an overflow segment would need to be defined because of the column definition lengths, the row
 -- length can go over 4K
 -- Is it really necessary EVENT_TYPE to be with max size of 1024?
 
-CREATE TABLE callbacks (
+CREATE TABLE messages (
     id RAW(16),
     updated_at TIMESTAMP(6),
     created_at TIMESTAMP(6),
     event_type VARCHAR2(1024 CHAR),
     payload VARCHAR2(4000 CHAR),
-    CONSTRAINT "CALLBACKS_PK" PRIMARY KEY (id),
-    CONSTRAINT "CALLBACKS_EVENT_TYPE_NN" CHECK ("EVENT_TYPE" IS NOT NULL),
-    CONSTRAINT "CALLBACKS_PAYLOAD_NN" CHECK ("PAYLOAD" IS NOT NULL),
-    CONSTRAINT "CALLBACKS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "CALLBACKS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
+    CONSTRAINT "MESSAGES_PK" PRIMARY KEY (id),
+    CONSTRAINT "MESSAGES_EVENT_TYPE_NN" CHECK ("EVENT_TYPE" IS NOT NULL),
+    CONSTRAINT "MESSAGES_PAYLOAD_NN" CHECK ("PAYLOAD" IS NOT NULL),
+    CONSTRAINT "MESSAGES_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+    CONSTRAINT "MESSAGES_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
 )  PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
 
 
@@ -1175,7 +1176,36 @@ CREATE TABLE LOGGING_TABPARTITIONS
 
 
 
+-- ========================================= CONFIGS =========================================
+-- Description: Table to store the shared configuration of Rucio
+-- Estimated volume: ~100 key-value pairs
+-- Access pattern: List by section (rarely), List by option (rarely), List by Section+Option (often), Insert (rarely)
+
+CREATE TABLE CONFIGS
+(   SECTION VARCHAR2(128 CHAR),
+    OPT VARCHAR2(128 CHAR),
+    VALUE VARCHAR2(4000 CHAR),
+    UPDATED_AT DATE,
+    CREATED_AT DATE,
+    CONSTRAINT CONFIGS_CREATED_NN CHECK (CREATED_AT IS NOT NULL) ENABLE,
+    CONSTRAINT CONFIGS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) ENABLE,
+    CONSTRAINT CONFIGS_PK PRIMARY KEY (SECTION, OPTION)
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
 
 
 
 
+
+-- ========================================= CONFIGS_HISTORY =========================================
+-- Description: Table to store the history of modifications to the shared configuration of Rucio
+-- Estimated volume: ~1000
+-- Access pattern: Insert (rarely), Select (rarely)
+
+CREATE TABLE CONFIGS_HISTORY
+(   SECTION VARCHAR2(128 CHAR),
+    OPT VARCHAR2(128 CHAR),
+    VALUE VARCHAR2(4000 CHAR),
+    UPDATED_AT DATE,
+    CREATED_AT DATE,
+    CONSTRAINT CONFIGS_HISTORY_PK PRIMARY KEY (SECTION, OPTION, UPDATED_AT)
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01;

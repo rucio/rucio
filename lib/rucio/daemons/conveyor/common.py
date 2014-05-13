@@ -16,6 +16,7 @@ import logging
 import time
 
 from rucio.core import lock, replica, request, rse
+from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import RequestState, ReplicaState
 
@@ -25,9 +26,10 @@ def update_request_state(req, response, session):
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
 
-    :param req: The internal request dictionary
-    :param response: The transfertool response dictionary, retrieved via request.query_request()
-    :param session: The database session to use
+    :param req: The internal request dictionary.
+    :param response: The transfertool response dictionary, retrieved via request.query_request().
+    :param session: The database session to use.
+    :returns commit_or_rollback: Boolean.
     """
 
     if response['new_state'] is not None:
@@ -35,18 +37,19 @@ def update_request_state(req, response, session):
                                   response['new_state'],
                                   session=session)
         if response['new_state'] == RequestState.DONE:
+
             tss = time.time()
+
             try:
                 lock.successful_transfer(req['scope'],
                                          req['name'],
                                          req['dest_rse_id'],
                                          session=session)
             except:
-                session.rollback()
                 logging.warn('Could not update lock for successful transfer %s:%s at %s' % (req['scope'],
                                                                                             req['name'],
                                                                                             req['dest_rse_id']))
-                return
+                return False
             record_timer('daemons.conveyor.common.update_request_state.001-lock-successful_transfer', (time.time()-tss)*1000)
 
             tss = time.time()
@@ -63,8 +66,15 @@ def update_request_state(req, response, session):
             record_timer('daemons.conveyor.common.update_request_state.003-replica-set_available', (time.time()-tss)*1000)
 
             tss = time.time()
+
             request.archive_request(req['request_id'],
                                     session=session)
+
+            add_message('REQUEST-DONE', {'scope': req['scope'],
+                                         'name': req['name'],
+                                         'rse_src': 'dummy',
+                                         'rse_dst': rse_name})
+
             record_timer('daemons.conveyor.common.update_request_state.004-request-archive_successful', (time.time()-tss)*1000)
 
         elif response['new_state'] == RequestState.FAILED:
@@ -75,11 +85,10 @@ def update_request_state(req, response, session):
                                      req['dest_rse_id'],
                                      session=session)
             except:
-                session.rollback()
                 logging.warn('Could not update lock for failed transfer %s:%s at %s' % (req['scope'],
                                                                                         req['name'],
                                                                                         req['dest_rse_id']))
-                return
+                return False
             record_timer('daemons.conveyor.common.update_request_state.005-lock-failed_transfer', (time.time()-tss)*1000)
 
             tss = time.time()
@@ -89,6 +98,7 @@ def update_request_state(req, response, session):
                 logging.critical('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'],
                                                                     req['name'],
                                                                     req['request_id']))
+                add_message('REQUEST-FAILED', {'dummy': 'information'})
             else:
                 logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                              req['name'],
@@ -106,12 +116,13 @@ def update_request_state(req, response, session):
                                      req['dest_rse_id'],
                                      session=session)
             except:
-                session.rollback()
                 logging.warn('Could not update lock for failed transfer %s:%s at %s' % (req['scope'],
                                                                                         req['name'],
                                                                                         req['dest_rse_id']))
-                return
+                return False
             record_timer('daemons.conveyor.common.update_request_state.007-lock-failed_transfer', (time.time()-tss)*1000)
+
+            add_message('REQUEST-LOST', {'dummy': 'information'})
 
             logging.critical('LOST DID %s:%s REQUEST %s' % (req['scope'],
                                                             req['name'],
@@ -123,3 +134,5 @@ def update_request_state(req, response, session):
                                                                    rse.get_rse_by_id(req['dest_rse_id'],
                                                                                      session=session)['rse'],
                                                                    response['new_state']))
+
+    return True

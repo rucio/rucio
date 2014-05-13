@@ -26,20 +26,20 @@ import sqlalchemy as sa
 def upgrade():
     op.create_table('configs',
                     sa.Column('section', sa.String(128)),
-                    sa.Column('option', sa.String(128)),
+                    sa.Column('opt', sa.String(128)),
                     sa.Column('value', sa.String(4000)),
                     sa.Column('updated_at', sa.DateTime),
                     sa.Column('created_at', sa.DateTime))
-    op.create_primary_key('configs_pk', 'configs', ['section', 'option'])
+    op.create_primary_key('configs_pk', 'configs', ['section', 'opt'])
     op.create_check_constraint('configs_created_nn', 'configs', 'created_at is not null')
     op.create_check_constraint('configs_updated_nn', 'configs', 'updated_at is not null')
     op.create_table('configs_history',
                     sa.Column('section', sa.String(128)),
-                    sa.Column('option', sa.String(128)),
+                    sa.Column('opt', sa.String(128)),
                     sa.Column('value', sa.String(4000)),
                     sa.Column('updated_at', sa.DateTime),
                     sa.Column('created_at', sa.DateTime))
-    op.create_primary_key('configs_history_pk', 'configs_history', ['section', 'option', 'updated_at'])
+    op.create_primary_key('configs_history_pk', 'configs_history', ['section', 'opt', 'updated_at'])
 
 
 def downgrade():
