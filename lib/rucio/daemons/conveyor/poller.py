@@ -13,6 +13,7 @@
 Conveyor is a daemon to manage file transfers.
 """
 
+import datetime
 import logging
 import sys
 import threading
@@ -53,6 +54,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
                                     limit=100,
+                                    older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads,
                                     session=session)
@@ -72,11 +74,12 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
                 record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
 
-                common.update_request_state(req, response, session)
+                if common.update_request_state(req, response, session):
+                    session.commit()
+                else:
+                    session.rollback()
 
                 record_counter('daemons.conveyor.poller.query_request')
-
-                session.commit()
 
         except:
             session.rollback()

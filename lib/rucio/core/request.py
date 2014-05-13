@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
+import datetime
 import json
 import logging
 import re
@@ -37,17 +38,18 @@ def requeue_and_archive(request_id, session=None):
 
     record_counter('core.request.requeue_request')
     new_req = get_request(request_id, session=session)
-    archive_request(request_id, session=session)
-    new_req['request_id'] = generate_uuid()
-    new_req['previous_attempt_id'] = request_id
-    new_req['retry_count'] += 1
 
-    # hardcoded for now - only requeue a couple of times
-    if new_req['retry_count'] < 4:
-        queue_requests([new_req], session=session)
-        return new_req
+    if new_req:
 
-    return
+        archive_request(request_id, session=session)
+        new_req['request_id'] = generate_uuid()
+        new_req['previous_attempt_id'] = request_id
+        new_req['retry_count'] += 1
+
+        # hardcoded for now - only requeue a couple of times
+        if new_req['retry_count'] < 4:
+            queue_requests([new_req], session=session)
+            return new_req
 
 
 @transactional_session
@@ -161,8 +163,8 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, filesize, md5
                             session=session)
 
 
-@transactional_session
-def get_next(request_type, state, limit=100, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+@read_session
+def get_next(request_type, state, limit=100, older_than=None, process=None, total_processes=None, thread=None, total_threads=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -170,6 +172,7 @@ def get_next(request_type, state, limit=100, process=None, total_processes=None,
     :param request_type: Type of the request as a string or list of strings.
     :param state: State of the request as a string.
     :param limit: Integer of requests to retrieve.
+    :param older_than: Only select requests older than this DateTime.
     :param process: Identifier of the caller process as an integer.
     :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
@@ -190,6 +193,9 @@ def get_next(request_type, state, limit=100, process=None, total_processes=None,
                                          .filter_by(state=state)\
                                          .filter(models.Request.request_type.in_(request_type))\
                                          .order_by(asc(models.Request.created_at))
+
+    if isinstance(older_than, datetime.datetime):
+        query = query.filter(models.Request.created_at < older_than)
 
     if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
@@ -296,7 +302,7 @@ def set_request_state(request_id, new_state, session=None):
 
 
 @read_session
-def get_request(request_id, session=None):
+def get_request(request_id, old=True, session=None):
     """
     Retrieve a request by its ID.
 
@@ -306,9 +312,14 @@ def get_request(request_id, session=None):
     """
 
     try:
-        tmp = dict(session.query(models.Request).filter_by(id=request_id).first())
-        tmp.pop('_sa_instance_state')
-        return tmp
+        tmp = session.query(models.Request).filter_by(id=request_id).first()
+
+        if tmp is None:
+            return
+        else:
+            tmp = dict(tmp)
+            tmp.pop('_sa_instance_state')
+            return tmp
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -323,22 +334,22 @@ def archive_request(request_id, session=None):
     """
 
     record_counter('core.request.archive')
-
     req = get_request(request_id=request_id, session=session)
-    hist_request = models.Request.__history_mapper__.class_(id=req['id'],
-                                                            request_type=req['request_type'],
-                                                            scope=req['scope'],
-                                                            name=req['name'],
-                                                            dest_rse_id=req['dest_rse_id'],
-                                                            attributes=req['attributes'],
-                                                            state=req['state'],
-                                                            external_id=req['external_id'],
-                                                            retry_count=req['retry_count'],
-                                                            err_msg=req['err_msg'],
-                                                            previous_attempt_id=req['previous_attempt_id']
-                                                            )
-    hist_request.save(session=session)
-    purge_request(request_id=request_id, session=session)
+
+    if req:
+        hist_request = models.Request.__history_mapper__.class_(id=req['id'],
+                                                                request_type=req['request_type'],
+                                                                scope=req['scope'],
+                                                                name=req['name'],
+                                                                dest_rse_id=req['dest_rse_id'],
+                                                                attributes=req['attributes'],
+                                                                state=req['state'],
+                                                                external_id=req['external_id'],
+                                                                retry_count=req['retry_count'],
+                                                                err_msg=req['err_msg'],
+                                                                previous_attempt_id=req['previous_attempt_id'])
+        hist_request.save(session=session)
+        purge_request(request_id=request_id, session=session)
 
 
 @transactional_session

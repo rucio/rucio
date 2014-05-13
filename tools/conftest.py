@@ -7,15 +7,16 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
-#import json
-#import os
-#import subprocess
+# import json
+# import os
+# import subprocess
 
 import pytest
 
-#from rucio.client import Client
-#from rucio.db.util import build_database, destroy_database, create_root_account
+# from rucio.client import Client
+# from rucio.db.util import build_database, destroy_database, create_root_account
 
 
 def pytest_collection_modifyitems(items):
