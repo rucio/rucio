@@ -685,17 +685,17 @@ CREATE INDEX "UPDATED_ACCNT_CNTRS_RSE_IDX" ON updated_account_counters (account,
 -- Access pattern: by account
 
 CREATE TABLE account_limits (
-    account VARCHAR2(25 CHAR),
-    rse_id RAW(16),
-    bytes NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "ACCOUNT_LIMITS_PK" PRIMARY KEY (account, rse_id),
-    CONSTRAINT "ACCOUNT_LIMITS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
-    CONSTRAINT "ACCOUNT_LIMITS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "ACCOUNT_LIMITS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
-    CONSTRAINT "ACCOUNT_LIMITS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+ account VARCHAR2(25 CHAR),
+ rse_id RAW(16),
+ bytes NUMBER(19),
+ updated_at DATE,
+ created_at DATE,
+ CONSTRAINT ACCOUNT_LIMITS_PK PRIMARY KEY (account, rse_id),
+ CONSTRAINT ACCOUNT_LIMITS_created_nn CHECK (created_at is not null),
+ CONSTRAINT ACCOUNT_LIMITS_updated_nn CHECK (updated_at is not null),
+ CONSTRAINT ACCOUNT_LIMITS_ACCOUNT_FK FOREIGN KEY(account) REFERENCES accounts (account),
+ CONSTRAINT ACCOUNT_LIMITS_RSE_ID_FK FOREIGN KEY(rse_id) REFERENCES rses(id)
+) ORGANIZATION INDEX tablespace ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
 
 
@@ -1181,19 +1181,16 @@ CREATE TABLE LOGGING_TABPARTITIONS
 -- Estimated volume: ~100 key-value pairs
 -- Access pattern: List by section (rarely), List by option (rarely), List by Section+Option (often), Insert (rarely)
 
-CREATE TABLE CONFIGS
-(   SECTION VARCHAR2(128 CHAR),
-    OPT VARCHAR2(128 CHAR),
-    VALUE VARCHAR2(4000 CHAR),
-    UPDATED_AT DATE,
-    CREATED_AT DATE,
-    CONSTRAINT CONFIGS_CREATED_NN CHECK (CREATED_AT IS NOT NULL) ENABLE,
-    CONSTRAINT CONFIGS_UPDATED_NN CHECK (UPDATED_AT IS NOT NULL) ENABLE,
-    CONSTRAINT CONFIGS_PK PRIMARY KEY (SECTION, OPTION)
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
-
-
-
+CREATE TABLE configs (
+  section VARCHAR2(128 CHAR),
+  opt VARCHAR2(128 CHAR),
+  value VARCHAR2(4000 CHAR),
+  updated_at DATE,
+  created_at DATE,
+  CONSTRAINT configs_pk PRIMARY KEY (section, opt),
+  CONSTRAINT configs_created_nn CHECK (created_at is not null),
+  CONSTRAINT configs_updated_nn CHECK (updated_at is not null)
+) PCTFREE 0 tablespace   ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
 
 -- ========================================= CONFIGS_HISTORY =========================================
@@ -1201,11 +1198,11 @@ CREATE TABLE CONFIGS
 -- Estimated volume: ~1000
 -- Access pattern: Insert (rarely), Select (rarely)
 
-CREATE TABLE CONFIGS_HISTORY
-(   SECTION VARCHAR2(128 CHAR),
-    OPT VARCHAR2(128 CHAR),
-    VALUE VARCHAR2(4000 CHAR),
-    UPDATED_AT DATE,
-    CREATED_AT DATE,
-    CONSTRAINT CONFIGS_HISTORY_PK PRIMARY KEY (SECTION, OPTION, UPDATED_AT)
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+CREATE TABLE configs_history (
+  section VARCHAR2(128 CHAR),
+  opt VARCHAR2(128 CHAR),
+  value VARCHAR2(4000 CHAR),
+  updated_at DATE,
+  created_at DATE,
+  CONSTRAINT configs_history_pk PRIMARY KEY (section, opt, updated_at) USING INDEX COMPRESS 1
+) PCTFREE 0 COMPRESS FOR OLTP tablespace ATLAS_RUCIO_HIST_DATA01;
