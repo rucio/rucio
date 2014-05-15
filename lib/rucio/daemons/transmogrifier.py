@@ -114,8 +114,9 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
             for did in list_new_dids(worker_number=worker_number, total_workers=total_workers, chunk_size=chunk_size):
                 d = {'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']}
                 dids.append(d)
-            for sub in list_subscriptions(None, None, SubscriptionState.ACTIVE):
-                subscriptions.append(sub)
+            for sub in list_subscriptions(None, None):
+                if sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
+                    subscriptions.append(sub)
         except:
             logging.error('Thread %i : Failed to get list of new DIDs or subsscriptions' % (worker_number))
             if once:
