@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 """
 REST utilities
@@ -23,6 +24,15 @@ from rucio.common.utils import generate_http_error
 
 def authenticate():
     """ Hook to authenticate. """
+
+    # Allow cross-site scripting
+    header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+    header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+    header('Access-Control-Allow-Methods', '*')
+    header('Access-Control-Allow-Credentials', 'true')
+
+    if ctx.env.get('REQUEST_METHOD') == 'OPTIONS':
+        raise OK
 
     if ctx.env.get('REQUEST_METHOD') == 'GET':
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')

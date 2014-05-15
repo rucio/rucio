@@ -8,10 +8,11 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from traceback import format_exc
 from urlparse import parse_qs
-from web import application, ctx, notfound, found, InternalError
+from web import application, ctx, header, notfound, found, InternalError
 
 
 from logging import getLogger, StreamHandler, DEBUG
@@ -48,6 +49,12 @@ class Redirector(RucioController):
         :param scope: The scope name of the file.
         :param name: The name of the file.
         """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+
         try:
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=['http', 'https'])]
 
@@ -93,5 +100,4 @@ class Redirector(RucioController):
 ----------------------"""
 
 app = application(urls, globals())
-# app.add_processor(loadhook(authenticate))
 application = app.wsgifunc()
