@@ -20,9 +20,10 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.client.subscriptionclient import SubscriptionClient
 
 
-class Client(AccountClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient):
+class Client(AccountClient, MetaClient, PingClient, ReplicaClient, RSEClient, ScopeClient, DIDClient, RuleClient, SubscriptionClient):
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
