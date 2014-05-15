@@ -1,17 +1,46 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+-->
+
 <!DOCTYPE html>
 <html>
   <head>
+    {{ js_token|safe }}
     <title>Rucio Monitor</title>
-    <script src="static/jquery-1.11.0.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="static/rucio.css">
+    <script src="static/jquery-2.1.1.min.js"></script>
+    <script src="static/rucio.js"></script>
+    <script src="static/index.js"></script>
   </head>
   <body>
-    <h1><img src="media/rucio_logo.png" height=100px style="vertical-align:top">Rucio Monitor</h1>
-    <p>
-      Hello, {{ rucio_user }}
-    </p>
-    <hr>
-    <p>
-      Rucio Version: {{ rucio_version }}
-    </p>
+    <div class="topbar">
+      <div style="float:left">
+        <a href="#">Rules</a> |  <a href="#">Subscriptions</a> |  <a href="#">Accounting</a> |  <a href="#">Transfers</a> |  <a href="#">Stage In</a> |  <a href="#">Deletion</a> |  <a href="#">Popularity</a> |  <a href="#">Infrastructure</a>
+      </div>
+      <div style="float:right">Acting on behalf of <a href="#">{{ rucio_account }}</a></div>
+    </div>
+    <div class="content">
+      <div class="h2">List scopes</div>
+      <div id="scopes">loading</div>
+    </div>
+    <div class="bottombar">
+      <div style="float:left">
+        <div style="padding-left: 0px">Rucio Monitor Version: <span>{{ rucio_monitor_version }}</span></div>
+        <div style="padding-left: 0px">Rucio Server Version: <span id="rucio_server_version">loading</span></div>
+        <div style="padding-left: 0px">&copy; 2012-2014 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
+      </div>
+      <div style="float:right; text-align:right;">
+        <div><a href="mailto:rucio-support@cern.ch">rucio-support@cern.ch</a></div>
+        <div><a href="http://rucio.cern.ch/">http://rucio.cern.ch/</a></div>
+      </div>
+    </div>
   </body>
 </html>

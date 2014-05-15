@@ -8,10 +8,11 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
-from web import application, header
+from web import application, ctx, header
 
 from rucio import version
 from rucio.web.rest.common import RucioController
@@ -36,6 +37,11 @@ class Ping(RucioController):
 
         :returns: A dictionary with the Rucio server information.
         """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
 
         header('Content-Type', 'application/json')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
