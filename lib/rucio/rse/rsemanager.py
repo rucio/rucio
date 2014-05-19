@@ -222,6 +222,7 @@ def download(rse_settings, files, dest_dir='.', printstatements=False):
                             print 'File validated'
                         os.rename(tempfile, finalfile)
                     else:
+                        os.unlink(tempfile)
                         raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(f['adler32'])))
                 else:
                     protocol.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['name']))

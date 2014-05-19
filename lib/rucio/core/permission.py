@@ -57,6 +57,7 @@ def has_permission(issuer, action, kwargs):
             'update_protocol': perm_update_protocol,
             'add_replicas': perm_add_replicas,
             'delete_replicas': perm_delete_replicas,
+            'update_replicas_states': perm_update_replicas_states,
             'add_rse_attribute': perm_add_rse_attribute,
             'del_rse_attribute': perm_del_rse_attribute,
             'del_rse': perm_del_rse,
@@ -351,7 +352,7 @@ def perm_add_protocol(issuer, kwargs):
     """
     Checks if an account can add a protocol to an RSE.
 
-    :param account: Account identifier which issues the command.
+    :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
@@ -362,7 +363,7 @@ def perm_del_protocol(issuer, kwargs):
     """
     Checks if an account can delete protocols from an RSE.
 
-    :param account: Account identifier which issues the command.
+    :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
@@ -373,7 +374,7 @@ def perm_update_protocol(issuer, kwargs):
     """
     Checks if an account can update protocols of an RSE.
 
-    :param account: Account identifier which issues the command.
+    :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
@@ -384,7 +385,7 @@ def perm_add_replicas(issuer, kwargs):
     """
     Checks if an account can add replicas.
 
-    :param account: Account identifier which issues the command.
+    :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
@@ -395,7 +396,18 @@ def perm_delete_replicas(issuer, kwargs):
     """
     Checks if an account can delete replicas.
 
-    :param account: Account identifier which issues the command.
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK') or issuer == 'root' or issuer in get_special_accounts()
+
+
+def perm_update_replicas_states(issuer, kwargs):
+    """
+    Checks if an account can delete replicas.
+
+    :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
@@ -487,7 +499,7 @@ def perm_set_rse_limits(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_set_account_limit(issuer, kwargs):
@@ -498,7 +510,7 @@ def perm_set_account_limit(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_delete_account_limit(issuer, kwargs):
@@ -509,7 +521,7 @@ def perm_delete_account_limit(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_config(issuer, kwargs):

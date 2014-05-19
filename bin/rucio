@@ -39,7 +39,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileReplicaAlreadyExists, FileAlreadyExists
+from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileReplicaAlreadyExists, FileAlreadyExists, AccessDenied
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager as rsemgr
 
@@ -834,7 +834,11 @@ def upload(args):
             replicas.append(file)
     if replicas != []:
         logger.info('Will update the file replicas states')
-        client.update_replicas_states(rse=args.rse, files=replicas)
+        try:
+            client.update_replicas_states(rse=args.rse, files=replicas)
+        except AccessDenied, e:
+            logger.info(e)
+            return FAILURE
         logger.info('File replicas states successfully updated')
     logger.info('Upload successfull')
     return SUCCESS
