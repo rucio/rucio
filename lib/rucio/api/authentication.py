@@ -6,12 +6,13 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
 
 from rucio.api import permission
 from rucio.common import exception
-from rucio.core import authentication
+from rucio.core import authentication, identity
+from rucio.db.constants import IdentityType
 
 
 def get_auth_token_user_pass(account, username, password, appid, ip=None):
@@ -61,12 +62,15 @@ def get_auth_token_x509(account, dn, appid, ip=None):
 
     The token lifetime is 1 hour.
 
-    :param account: Account identifier as a string.
+    :param account: Account identifier as a string. If account is none, the default will be used.
     :param dn: Client certificate distinguished name string, as extracted by Apache/mod_ssl.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :returns: Authentication token as a variable-length string.
     """
+
+    if account is None:
+        account = identity.get_default_account(dn, IdentityType.X509)
 
     kwargs = {'account': account, 'dn': dn}
     if not permission.has_permission(issuer=account, action='get_auth_token_x509', kwargs=kwargs):
