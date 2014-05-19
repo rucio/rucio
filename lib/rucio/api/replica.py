@@ -100,7 +100,7 @@ def update_replicas_states(rse, files, issuer):
 
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='update_replicas_states', kwargs=kwargs):
-        raise exception.AccessDenied('Account %s can not delete file replicas on %s' % (issuer, rse))
+        raise exception.AccessDenied('Account %s can not update file replicas state on %s' % (issuer, rse))
     replicas = []
     for file in files:
         rep = file
