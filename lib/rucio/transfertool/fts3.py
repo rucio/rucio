@@ -102,7 +102,7 @@ def submit_transfers(transfers, job_metadata):
                                   'copy_pin_lifetime': -1,
                                   'job_metadata': job_metadata,
                                   'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'null',
-                                  'overwrite': False}}
+                                  'overwrite': True}}
 
         r = None
         params_str = json.dumps(params_dict)
@@ -130,7 +130,7 @@ def submit_transfers(transfers, job_metadata):
 def submit(request_id, src_urls, dest_urls,
            src_spacetoken=None, dest_spacetoken=None,
            filesize=None, md5=None, adler32=None,
-           overwrite=False, job_metadata={}):
+           overwrite=True, job_metadata={}):
     """
     Submit a transfer to FTS3 via JSON.
 
