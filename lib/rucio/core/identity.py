@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 import hashlib
@@ -95,6 +95,26 @@ def add_account_identity(identity, type, account, email, default=False, session=
         iaa.save(session=session)
     except IntegrityError:
         raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
+
+
+@read_session
+def get_default_account(identity, type, session=None):
+    """
+    Retrieves the default account mapped to an identity.
+
+    :param identity: The identity key name. For example, x509DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass).
+    :param session: The database session to use.
+    :returns: The default account name, None otherwise.
+    """
+
+    tmp = session.query(models.IdentityAccountAssociation).filter_by(identity=identity,
+                                                                     identity_type=type,
+                                                                     is_default=True).first()
+    if tmp is None:
+        raise exception.IdentityError('There is no default account for identity (%s, %s)' % (identity, type))
+
+    return tmp.account
 
 
 @transactional_session
