@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -14,10 +14,10 @@
 from re import search
 from traceback import format_exc
 
-from web import application, ctx, BadRequest, header, InternalError
+from web import application, ctx, OK, BadRequest, header, InternalError
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, validate_auth_token
-from rucio.common.exception import AccessDenied, RucioException
+from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
 
@@ -35,6 +35,20 @@ class UserPass(RucioController):
     """
     Authenticate a Rucio account temporarily via username and password.
     """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
 
     def GET(self):
         """
@@ -88,6 +102,20 @@ class GSS(RucioController):
     Authenticate a Rucio account temporarily via a GSS token.
     """
 
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
+
     def GET(self):
         """
         HTTP Success:
@@ -134,6 +162,20 @@ class x509(RucioController):
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
     """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
 
     def GET(self):
         """
@@ -188,6 +230,9 @@ class x509(RucioController):
         except AccessDenied:
             print 'Cannot Authenticate', account, dn, appid, ip
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
+        except IdentityError:
+            print 'Cannot Authenticate', account, dn, appid, ip
+            raise generate_http_error(401, 'CannotAuthenticate', 'No default account set for %(dn)s' % locals())
 
         if not result:
             print 'Cannot Authenticate', account, dn, appid, ip
@@ -201,6 +246,20 @@ class Validate(RucioController):
     """
     Validate a Rucio Auth Token.
     """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
 
     def GET(self):
         """
