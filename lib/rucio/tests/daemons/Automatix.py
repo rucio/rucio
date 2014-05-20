@@ -21,6 +21,7 @@ import threading
 
 from datetime import datetime
 from json import load
+from math import exp
 from os import remove, rmdir, stat
 from sys import stdout
 from time import sleep, time
@@ -32,6 +33,7 @@ from rucio.core import monitor
 from rucio.rse import rsemanager as rsemgr
 
 from rucio.common.utils import execute, generate_uuid
+from rucio.common.exception import FileReplicaAlreadyExists
 
 logging.getLogger("automatix").setLevel(logging.CRITICAL)
 
@@ -69,17 +71,37 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         try:
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
-            rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
+            for i in xrange(0, 3):
+                gs, ret = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
+                logging.info(gs, ret)
+                if not gs:
+                    for x in ret:
+                        if not isinstance(ret[x], FileReplicaAlreadyExists):
+                            sleep(exp(i))
+                            logging.error('Problem to upload a file %s' % str(ret[x]))
+                            break
+                else:
+                    break
             logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, filename))
         except Exception, e:
-            logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload (files)s' % locals())
+            logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
             logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, e))
     else:
         logging.warning('Thread [%i/%i] : No dsn is specified' % (worker_number, total_workers))
         try:
             client.add_replicas(files=list_files, rse=rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=rse)
-            rsemgr.upload(rse_info, lfns=lfns)
+            for i in xrange(0, 3):
+                gs, ret = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
+                logging.info(gs, ret)
+                if not gs:
+                    for x in ret:
+                        if not isinstance(ret[x], FileReplicaAlreadyExists):
+                            sleep(exp(i))
+                            logging.error('Problem to upload a file %s' % str(ret[x]))
+                            break
+                else:
+                    break
             logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, filename))
         except Exception, e:
             logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
