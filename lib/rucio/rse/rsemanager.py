@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 import copy
 import os
@@ -436,4 +437,31 @@ def rename(rse_settings, files):
                 raise ret[x]
             else:
                 return ret[x]
+    return [gs, ret]
+
+
+def get_space_usage(rse_settings, scheme=None):
+    """
+        Get RSE space usage information.
+
+        :param scheme: optional filter to select which protocol to be used.
+
+        :returns: a list with dict containing 'totalsize' and 'unusedsize'
+
+        :raises ServiceUnavailable: if some generic error occured in the library.
+    """
+    gs = True
+    ret = {}
+
+    protocol = create_protocol(rse_settings, 'read', scheme)
+    protocol.connect()
+
+    try:
+        totalsize, unusedsize = protocol.get_space_usage()
+        ret["totalsize"] = totalsize
+        ret["unusedsize"] = unusedsize
+    except Exception as e:
+        ret = e
+        gs = False
+
     return [gs, ret]

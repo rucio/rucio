@@ -10,6 +10,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import errno
+import json
 import os
 import re
 import urlparse
@@ -393,3 +394,48 @@ class Default(protocol.RSEProtocol):
             return ret
         except gfal2.GError as e:
             raise exception.RucioException(e)
+
+    def get_space_usage(self):
+        """
+        Get RSE space usage information.
+
+        :returns: a list with dict containing 'totalsize' and 'unusedsize'
+
+        :raises ServiceUnavailable: if some generic error occured in the library.
+        """
+        endpoint_basepath = self.path2pfn(self.attributes['prefix'])
+        space_token = None
+        if self.attributes['extended_attributes'] is not None and 'space_token' in self.attributes['extended_attributes'].keys():
+            space_token = self.attributes['extended_attributes']['space_token']
+
+        if space_token is None or space_token == "":
+            raise exception.RucioException("Space token is not defined for protocol: %s" % (self.attributes['scheme']))
+
+        try:
+            totalsize, unusedsize = self.__gfal2_get_space_usage(endpoint_basepath, space_token)
+            return totalsize, unusedsize
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+    def __gfal2_get_space_usage(self, path, space_token):
+        """
+        Uses gfal2 to get space usage info with space token.
+
+        :param path: the endpoint path
+        :param space_token: a string space token. E.g. "ATLASDATADISK"
+
+        :returns: a list with dict containing 'totalsize' and 'unusedsize'
+
+        :raises ServiceUnavailable: if failed.
+        """
+
+        ctx = self.__ctx
+
+        try:
+            ret_usage = ctx.getxattr(str(path), str("spacetoken.description?" + space_token))
+            usage = json.loads(ret_usage)
+            totalsize = usage[0]["totalsize"]
+            unusedsize = usage[0]["unusedsize"]
+            return totalsize, unusedsize
+        except gfal2.GError as e:
+            raise Exception(str(e))
