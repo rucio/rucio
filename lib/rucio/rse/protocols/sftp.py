@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-214
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012
 
 
@@ -32,14 +32,14 @@ class Default(protocol.RSEProtocol):
         """
         status = ''
         try:
-            print 'path: %s ' % pfn
             cmd = 'stat ' + self.pfn2path(pfn)
-            print cmd
             status = self.__connection.execute(cmd)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
-        if status[0].endswith('No such file or directory\n'):
-            return False
+        for s in status:
+            if s.endswith('No such file or directory\n'):
+                return False
+
         return True
 
     def connect(self):
@@ -108,8 +108,8 @@ class Default(protocol.RSEProtocol):
             self.__connection.put(sf, self.pfn2path(target))
         except IOError as e:
                 try:
-                    self.__connection.execute('mkdir -p %s' % '/'.join(target.split('/')[0:-1]))
-                    self.__connection.put(sf, target)
+                    self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2path(target).split('/')[0:-1]))
+                    self.__connection.put(sf, self.pfn2path(target))
                 except Exception, e:
                     raise exception.DestinationNotAccessible(e)
         except OSError as e:
@@ -149,10 +149,7 @@ class Default(protocol.RSEProtocol):
         """
         try:
             path = self.pfn2path(pfn)
-            new_path = self.pfn2path(pfn)
-            print 'sftp rename'
-            print('mkdir -p %s' % '/'.join(new_path.split('/')[0:-1]))
-            print('mv %s %s' % (path, new_path))
+            new_path = self.pfn2path(new_pfn)
             self.__connection.execute('mkdir -p %s' % '/'.join(new_path.split('/')[0:-1]))
             self.__connection.execute('mv %s %s' % (path, new_path))
         except IOError as e:
@@ -165,7 +162,16 @@ class Default(protocol.RSEProtocol):
                 raise exception.ServiceUnavailable(e)
 
     def pfn2path(self, pfn):
-        print 'pfn2path', pfn
         tmp = self.parse_pfns(pfn).values()[0]
-        print 'path', '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
         return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
+
+    def stat(self, pfn):
+        """ Determines the file size in bytes  of the provided file.
+
+            :param pfn: The PFN the file.
+
+            :returns: a dict containing the key filesize.
+        """
+        path = self.pfn2path(pfn)
+        info = self.__connection.execute('stat %s' % path)
+        return {'filesize': int(info[1].split()[1])}

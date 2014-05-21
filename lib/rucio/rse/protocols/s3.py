@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
 
 
 from subprocess import call
@@ -219,3 +219,13 @@ class Default(protocol.RSEProtocol):
     def pfn2path(self, pfn):
         tmp = self.parse_pfn(pfn)
         return '/'.join([tmp['path'], tmp['name']])
+
+    def stat(self, pfn):
+        """ Determines the file size in bytes  of the provided file.
+
+            :param pfn: The PFN the file.
+
+            :returns: a dict containing the key filesize.
+        """
+        info = self.__s3.object_info(S3Uri(pfn))
+        return {'filesize': int(info['headers']['content-length'])}
