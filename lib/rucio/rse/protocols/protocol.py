@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -238,5 +238,17 @@ class RSEProtocol(object):
             :returns: a list with dict containing 'totalsize' and 'unusedsize'
 
             :raises ServiceUnavailable: if some generic error occured in the library.
+        raise NotImplementedError
+
+    def stat(self, path):
+        """
+            Returns the stats of a file.
+
+            :param path: path to file
+
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+
+            :returns: a dict with two keys, filesize and adler32 of the file provided in path.
         """
         raise NotImplementedError
