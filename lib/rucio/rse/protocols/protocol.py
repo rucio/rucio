@@ -8,6 +8,7 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 import hashlib
 
@@ -227,5 +228,15 @@ class RSEProtocol(object):
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
+        """
+        raise NotImplementedError
+
+    def get_space_usage(self):
+        """
+            Get RSE space usage information.
+
+            :returns: a list with dict containing 'totalsize' and 'unusedsize'
+
+            :raises ServiceUnavailable: if some generic error occured in the library.
         """
         raise NotImplementedError
