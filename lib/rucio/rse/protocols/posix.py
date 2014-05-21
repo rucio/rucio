@@ -6,14 +6,16 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
 
 
 import os
+import os.path
 import shutil
 from subprocess import call
 
 from rucio.common import exception
+from rucio.common.utils import adler32
 from rucio.rse.protocols import protocol
 
 
@@ -31,7 +33,6 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         status = ''
-        print 'posix: pfn', pfn
         try:
             status = os.path.exists(self.pfn2path(pfn))
         except Exception as e:
@@ -156,3 +157,13 @@ class Default(protocol.RSEProtocol):
     def pfn2path(self, pfn):
         tmp = self.parse_pfns(pfn).values()[0]
         return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
+
+    def stat(self, pfn):
+        """ Determines the file size in bytes and checksum (adler32) of the provided file.
+
+            :param pfn: The PFN the file.
+
+            :returns: a dict containing the keys filesize and adler32.
+        """
+        path = self.pfn2path(pfn)
+        return {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}

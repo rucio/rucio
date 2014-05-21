@@ -194,7 +194,7 @@ def download(rse_settings, files, dest_dir='.', printstatements=False):
 
     """
     ret = {}
-    gs = True
+    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
     protocol = create_protocol(rse_settings, 'read')
     protocol.connect()
 
@@ -258,7 +258,7 @@ def exists(rse_settings, files):
         :raises RSENotConnected: no connection to a specific storage has been established
     """
     ret = {}
-    gs = True
+    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
     protocol = create_protocol(rse_settings, 'read')
     protocol.connect()
@@ -290,7 +290,8 @@ def upload(rse_settings, lfns, source_dir=None):
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
 
-        :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe'}]
+        :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'},
+                                                                                                    {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}]
         :param source_dir:  path to the local directory including the source files
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
@@ -301,29 +302,71 @@ def upload(rse_settings, lfns, source_dir=None):
         :raises ServiceUnavailable: for any other reason
     """
     ret = {}
-    gs = True
+    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
     protocol = create_protocol(rse_settings, 'write')
     protocol.connect()
+    protocol_delete = create_protocol(rse_settings, 'delete')
+    protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
     for lfn in lfns:
         name = lfn['name']
         scope = lfn['scope']
+        if 'adler32' not in lfn:
+            gs = False
+            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing checksum for file %s:%s' % (lfn['scope'], lfn['name']))
+            continue
+        if 'filesize' not in lfn:
+            gs = False
+            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing checksum for file %s:%s' % (lfn['scope'], lfn['name']))
+            continue
+
         pfn = protocol.lfns2pfns(lfn).values()[0]
         # Check if file replica is already on the storage system
         if protocol.exists(pfn):
             ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage' % (name, scope))
             gs = False
         else:
-            try:
-                protocol.put(name, pfn, source_dir)
-                ret['%s:%s' % (scope, name)] = True
+            if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
+                try:
+                    protocol_delete.delete('%s.rucio.upload', protocol_delete.lfns2pfns(lfn).values()[0])
+                except Exception as e:
+                    ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
+            try:  # Try uploading file
+                protocol.put(name, '%s.rucio.upload' % pfn, source_dir)
             except Exception as e:
                 gs = False
                 ret['%s:%s' % (scope, name)] = e
+                continue
+
+            valid = None
+            try:  # Get metadata of file to verify if upload was successful
+                stats = protocol.stat('%s.rucio.upload' % pfn)
+                if ('adler32' in stats) and ('adler32' in lfn):
+                    valid = stats['adler32'] == lfn['adler32']
+                if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
+                    valid = stats['filesize'] == lfn['filesize']
+            except NotImplementedError:
+                valid = True  # If the protocol doesn't support stat of a file, we agreed on assuming that the file was uploaded without error
+            except Exception as e:
+                gs = False
+                ret['%s:%s' % (scope, name)] = e
+                continue
+
+            if valid:  # The upload finished successful and the file can be renamed
+                try:
+                    protocol.rename('%s.rucio.upload' % pfn, pfn)
+                    ret['%s:%s' % (scope, name)] = True
+                except Exception as e:
+                    gs = False
+                    ret['%s:%s' % (scope, name)] = e
+            else:
+                gs = False
+                ret['%s:%s' % (scope, name)] = exception.RucioException('Replica %s is corrupted.' % pfn)
 
     protocol.close()
+    protocol_delete.close()
     if len(ret) == 1:
         for x in ret:
             if isinstance(ret[x], Exception):
@@ -348,7 +391,7 @@ def delete(rse_settings, lfns):
 
     """
     ret = {}
-    gs = True
+    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
     protocol = create_protocol(rse_settings, 'delete')
     protocol.connect()
@@ -391,7 +434,7 @@ def rename(rse_settings, files):
         :raises ServiceUnavailable: for any other reason
     """
     ret = {}
-    gs = True
+    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
     protocol = create_protocol(rse_settings, 'write')
     protocol.connect()

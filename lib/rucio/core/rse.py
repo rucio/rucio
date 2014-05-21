@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
@@ -480,7 +480,7 @@ def get_rse_protocols(rse, session=None):
             'domain': utils.rse_supported_protocol_domains(),
             'protocols': list(),
             'deterministic': _rse.deterministic,
-            'rse_type': _rse.rse_type,
+            'rse_type': str(_rse.rse_type),
             'credentials': None,
             'volatile': _rse.volatile
             }
