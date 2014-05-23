@@ -14,6 +14,7 @@
 Client class for callers of the Rucio system
 """
 
+import random
 import re
 
 from getpass import getuser
@@ -25,6 +26,7 @@ from tempfile import mkstemp
 from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
+from dogpile.cache import make_region
 from requests import get, post, put, delete
 from requests.status_codes import codes, _codes
 from requests.exceptions import SSLError
@@ -33,12 +35,23 @@ from requests_kerberos import HTTPKerberosAuth
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
-from rucio.common.utils import build_url, parse_response
+from rucio.common.utils import build_url, my_key_generator, parse_response
 
 LOG = getLogger(__name__)
 sh = StreamHandler()
 sh.setLevel(ERROR)
 LOG.addHandler(sh)
+
+
+region = make_region(function_key_generator=my_key_generator).configure(
+    'dogpile.cache.memory',
+    expiration_time=60,
+)
+
+
+@region.cache_on_arguments(namespace='host_to_choose')
+def choice(hosts):
+    return random.choice(hosts)
 
 
 class BaseClient(object):
