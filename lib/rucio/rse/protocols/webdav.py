@@ -84,7 +84,9 @@ class Parser:
         self.hrefflag = 0
         self.href = ''
         self.status = 0
+        self.size = 0
         self.dict = {}
+        self.sizes = {}
         self.list = []
 
     def feed(self, data):
@@ -96,16 +98,20 @@ class Parser:
         del self._parser
 
     def start(self, tag, attrs):
-        if (tag == 'D:href'):
+        if (tag == 'D:href' or tag == 'd:href'):
             self.hrefflag = 1
-        if (tag == 'D:status'):
+        if (tag == 'D:status' or tag == 'd:status'):
             self.status = 1
+        if (tag == 'D:getcontentlength' or tag == 'd:getcontentlength'):
+            self.size = 1
 
     def end(self, tag):
-        if (tag == 'D:href'):
+        if (tag == 'D:href' or tag == 'd:href'):
             self.hrefflag = 0
-        if (tag == 'D:status'):
+        if (tag == 'D:status' or tag == 'd:status'):
             self.status = 0
+        if (tag == 'D:getcontentlength' or tag == 'd:getcontentlength'):
+            self.size = 0
 
     def data(self, data):
         if self.hrefflag:
@@ -113,6 +119,8 @@ class Parser:
             self.list.append(self.href)
         if self.status:
             self.dict[self.href] = data
+        if self.size:
+            self.sizes[self.href] = data
 
 
 class Default(protocol.RSEProtocol):
@@ -261,7 +269,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.SourceNotFound()
             it = uploadInChunks(full_name, 10000000, progressbar)
             result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
-            if result.status_code in [201, ]:
+            if result.status_code in [200, 201]:
                 return
             if result.status_code in [409, ]:
                 raise exception.FileReplicaAlreadyExists()
@@ -379,23 +387,31 @@ class Default(protocol.RSEProtocol):
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
+    def stat(self, path):
+        """
+            Returns the stats of a file.
 
-#    def stat(self,basepath,file):
-#        path=self.server+basepath+file
-#        print 'Checking existence of '+path
-#        headers={'Depth':'1'}
-#        self.exists(basepath,file)
-#        try:
-#            result=self.session.request('PROPFIND',path,verify=False,headers=headers)
-#            p = Parser()
-#            p.feed(result.text)
-#            #print p.dict
-#            #if p.dict.has_key(basepath+file):
-#            #    print p.dict[basepath+file]
-#            list=p.list
-#            print basepath+file
-#            list.remove(basepath+file+'/')
-#            p.close()
-#            return list
-#        except requests.exceptions.ConnectionError,e:
-#            raise exception.ServiceUnavailable(e)
+            :param path: path to file
+
+            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises SourceNotFound: if the source file was not found on the referred storage.
+
+            :returns: a dict with two keys, filesize and adler32 of the file provided in path.
+        """
+        headers = {'Depth': '1'}
+        dict = {}
+        try:
+            result = self.session.request('PROPFIND', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
+            if result.status_code in [404, ]:
+                raise exception.SourceNotFound()
+            if result.status_code in [400, ]:
+                raise NotImplementedError
+            p = Parser()
+            p.feed(result.text)
+            for f in p.sizes:
+                if '%s%s' % (self.server, f) == path:
+                    dict['size'] = p.sizes['f']
+            p.close()
+            return dict
+        except requests.exceptions.ConnectionError, e:
+            raise exception.ServiceUnavailable(e)
