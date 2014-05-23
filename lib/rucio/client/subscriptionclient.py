@@ -8,10 +8,10 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 from json import dumps
-from random import choice
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
+from rucio.client.baseclient import choice
 from rucio.common.utils import build_url
 
 

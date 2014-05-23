@@ -10,9 +10,9 @@
 from requests.status_codes import codes
 
 from exceptions import ValueError
-from random import choice
 
 from rucio.client.baseclient import BaseClient
+from rucio.client.baseclient import choice
 from rucio.common.utils import build_url
 
 
