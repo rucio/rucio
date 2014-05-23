@@ -238,6 +238,7 @@ class RSEProtocol(object):
             :returns: a list with dict containing 'totalsize' and 'unusedsize'
 
             :raises ServiceUnavailable: if some generic error occured in the library.
+        """
         raise NotImplementedError
 
     def stat(self, path):
