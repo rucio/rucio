@@ -56,6 +56,8 @@ if __name__ == '__main__':
             c.add_rse_attribute(rse['name'], 'spacetoken', str(rse['token']))
             c.add_rse_attribute(rse['name'], 'country', str(rse['country']))
             c.add_rse_attribute(rse['name'], 'site', str(rse['site']))
+            for group in rse['ddmgroups']:
+                c.add_rse_attribute(rse['name'], str(group), True)
         except RucioException as e:
             print str(e)
             sys.exit(CRITICAL)
