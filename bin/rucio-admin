@@ -12,6 +12,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Wen Guan, <wguan@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - David Cameron, <david.cameron@cern.ch>, 2014
 
 """
 Rucio Administration Utility
@@ -19,6 +20,7 @@ Rucio Administration Utility
 
 import argcomplete
 import argparse
+import json
 import os
 import sys
 import time
@@ -28,6 +30,7 @@ from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.configclient import ConfigClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.client.subscriptionclient import SubscriptionClient
 
 from rucio import version
 
@@ -793,6 +796,96 @@ def delete_config_option(args):
     return SUCCESS
 
 
+def add_subscription(args):
+    """
+    %(prog)s add [options] name filter replication_rules
+
+    Add subscription.
+
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
+                                account=args.issuer,
+                                auth_type=args.auth_strategy, creds=creds,
+                                ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        client.add_subscription(args.name, json.loads(args.filter), json.loads(args.replication_rules),
+                                'tier0', args.lifetime, False, False)
+        print 'Subscription added'
+    except Exception, e:
+        print 'Failed to add subscription'
+        print e
+        return FAILURE
+
+    return SUCCESS
+
+
+def list_subscriptions(args):
+    """
+    %(prog)s list [options] [name]
+
+    List subscriptions.
+
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
+                                account=args.issuer,
+                                auth_type=args.auth_strategy, creds=creds,
+                                ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        subs = client.list_subscriptions(name=args.name, account=args.subs_account)
+        for sub in subs:
+            if (args.long):
+                print '\n'.join('%s: %s' % (str(k),str(v)) for (k,v) in sub.items())
+                print
+            else:
+                print "%s: %s %s\n  filter: %s\n  rules: %s" % (sub['account'], sub['name'], sub['state'], sub['filter'], sub['replication_rules'])
+    except Exception, e:
+        print 'Failed to list subscription'
+        print e
+        return FAILURE
+
+    return SUCCESS
+
+
+def update_subscription(args):
+    """
+    %(prog)s update [options] name filter replication_rules
+
+    Update a subscription.
+
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
+                                account=args.issuer,
+                                auth_type=args.auth_strategy, creds=creds,
+                                ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        client.update_subscription(args.name, json.loads(args.filter), json.loads(args.replication_rules),
+                                   'tier0', args.lifetime, False, False)
+        print 'Subscription updated'
+    except Exception, e:
+        print 'Failed to update subscription'
+        print e
+        return FAILURE
+
+    return SUCCESS
+
+
 if __name__ == '__main__':
     usage = """
 %(prog)s
@@ -986,6 +1079,35 @@ Commands:
     delete_config_parser.add_argument('--section', dest='section', action='store', help='Section name', required=True)
     delete_config_parser.add_argument('--option', dest='option', action='store', help='Option name', required=True)
 
+    # The subscription parser
+    subs_parser = subparsers.add_parser('subscription', help='Subscription methods')
+    subs_subparser = subs_parser.add_subparsers()
+
+    # The add-subscription command
+    add_sub_parser = subs_subparser.add_parser('add', help='Add subscription')
+    add_sub_parser.set_defaults(which='add_subscription')
+    add_sub_parser.add_argument(dest='name', action='store', help='Subscription name')
+    add_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
+    add_sub_parser.add_argument(dest='replication_rules', action='store', help='Replication rules (eg \'[{"copies": 2, "rse_expression": "tier=2", "lifetime": 3600}]\')')
+    add_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
+    # subscription policy, retroactive and dry_run hard-coded for now
+
+    # The list-subscriptions command
+    list_sub_parser = subs_subparser.add_parser('list', help='List subscriptions')
+    list_sub_parser.set_defaults(which='list_subscriptions')
+    list_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
+    list_sub_parser.add_argument('--long', dest='long', action='store_true', help='Long listing')
+    list_sub_parser.add_argument(dest='name', nargs='?', action='store', help='Subscription name')
+
+    # The update-subscription command
+    update_sub_parser = subs_subparser.add_parser('update', help='Update subscription')
+    update_sub_parser.set_defaults(which='update_subscription')
+    update_sub_parser.add_argument(dest='name', action='store', help='Subscription name')
+    update_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
+    update_sub_parser.add_argument(dest='replication_rules', action='store', help='Replication rules (eg \'[{"copies": 2, "rse_expression": "tier=2", "lifetime": 3600}]\')')
+    update_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
+    # subscription policy, retroactive and dry_run hard-coded for now
+
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
                 'delete_account': delete_account,
@@ -1012,7 +1134,10 @@ Commands:
                 'info_rse': info_rse,
                 'get_config': get_config,
                 'set_config_option': set_config_option,
-                'delete_config_option': delete_config_option
+                'delete_config_option': delete_config_option,
+                'add_subscription': add_subscription,
+                'list_subscriptions': list_subscriptions,
+                'update_subscription': update_subscription
                 }
 
     argcomplete.autocomplete(oparser)
