@@ -143,7 +143,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                     try:
                                         grouping = rule['grouping']
                                     except:
-                                        grouping = 'NONE'
+                                        grouping = 'DATASET'
                                     try:
                                         lifetime = int(rule['lifetime'])
                                     except:

@@ -121,6 +121,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                     continue
 
                 for files in chunks(replicas, chunk_size):
+                    logging.debug('Running on : %s' % str(files))
                     try:
                         s = time.time()
                         update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
@@ -128,7 +129,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
 
                         if not scheme:
-                            for replica in replicas:
+                            for replica in files:
                                 try:
                                     logging.debug('Deletion of %s on %s' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
                                     rsemgr.delete(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
