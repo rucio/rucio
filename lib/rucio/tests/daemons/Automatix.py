@@ -73,10 +73,10 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         success_upload = True
         for i in xrange(0, 3):
             gs, ret = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
-            logging.info(gs, ret)
+            logging.info('Returned global status : %s, Returned : %s' % (str(gs), str(ret)))
             if not gs:
                 for x in ret:
-                    if not isinstance(ret[x], FileReplicaAlreadyExists):
+                    if (not isinstance(ret[x], FileReplicaAlreadyExists)) and ret[x] is not True:
                         sleep(exp(i))
                         success_upload = False
                         logging.error('Problem to upload file %s with error %s' % (x, str(ret[x])))
@@ -97,7 +97,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         try:
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
-            logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, filename))
+            logging.info('Thread [%i/%i] : Upload operation for %s:%s done' % (worker_number, total_workers, dsn['scope'], dsn['name']))
         except Exception, e:
             logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
             logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
@@ -109,7 +109,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         try:
             client.add_replicas(files=list_files, rse=rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=rse)
-            logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, filename))
+            logging.info('Thread [%i/%i] : Upload operation for %s done' % (worker_number, total_workers, str(list_files)))
         except Exception, e:
             logging.error('Thread [%(worker_number)s/%(total_workers)s] : Failed to upload %(files)s' % locals())
             logging.error('Thread [%i/%i] : %s' % (worker_number, total_workers, str(e)))
@@ -161,6 +161,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
         now = datetime.now()
         dsn_extension = '%s.%s.%s.%s' % (now.year, now.month, now.day, generate_uuid())
         totretries = 3
+        status = False
         for site in sites:
             for retry in xrange(0, totretries):
                 ts = time()
@@ -204,15 +205,18 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     monitor.record_timer('automatix.datasetinjection', (time() - ts) * 1000)
                     break
                 else:
-                    logging.info('Thread [%i/%i] : Failed to upload files. Will retry another time (attempt %s/%s)' % (worker_number, total_workers, str(retry), str(totretries)))
+                    logging.info('Thread [%i/%i] : Failed to upload files. Will retry another time (attempt %s/%s)' % (worker_number, total_workers, str(retry + 1), str(totretries)))
         if once is True:
             logging.info('Thread [%i/%i] : Run with once mode. Exiting' % (worker_number, total_workers))
             break
         tottime = time() - starttime
-        logging.info('Thread [%i/%i] : It took %s seconds to upload one dataset on %s' % (worker_number, total_workers, str(tottime), str(sites)))
-        if sleep_time > tottime:
-            logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (worker_number, total_workers, str(sleep_time - tottime)))
-            sleep(sleep_time - tottime)
+        if status:
+            logging.info('Thread [%i/%i] : It took %s seconds to upload one dataset on %s' % (worker_number, total_workers, str(tottime), str(sites)))
+            if sleep_time > tottime:
+                logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (worker_number, total_workers, str(sleep_time - tottime)))
+                sleep(sleep_time - tottime)
+        else:
+            logging.info('Thread [%i/%i] : Retrying a new upload' % (worker_number, total_workers))
 
 
 def run(total_workers=1, once=False):
