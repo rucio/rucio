@@ -94,13 +94,19 @@ def deliver_messages(once=False):
             to_delete = []
             for t in tmp:
                 try:
-                    random.sample(conns, 1)[0].send(body=json.dumps({'event_type': t['event_type'],
+                    random.sample(conns, 1)[0].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
                                                                      'payload': t['payload'],
                                                                      'created_at': str(t['created_at'])}),
                                                     destination=config_get('messaging-hermes', 'destination'))
-                except:
+                except ValueError:
+                    logging.warn('Cannot serialize payload to JSON: %s' % str(t['payload']))
                     continue
+                except Exception, e:
+                    logging.warn('Could not deliver message: ' % str(e))
+                    continue
+
                 to_delete.append(t['id'])
+
             delete_messages(to_delete)
     logging.info('graceful stop requested')
 
