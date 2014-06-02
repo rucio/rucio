@@ -908,7 +908,7 @@ CREATE TABLE messages (
 -- ========================================= TOKENS (physical structure IOT) =========================================
 -- Description: Table to store auth tokens
 -- Estimated volume: ~100,000
--- Access pattern: by token. Cleanup of expired token done by account.
+-- Access pattern: by token (frequently). Cleanup of expired token done by account (rarely)
 
 CREATE TABLE tokens (
     account VARCHAR2(25 CHAR),
@@ -917,7 +917,7 @@ CREATE TABLE tokens (
     ip VARCHAR2(39 CHAR),
     updated_at DATE,
     created_at DATE,
-    CONSTRAINT "TOKENS_PK" PRIMARY KEY (account, token),
+    CONSTRAINT "TOKENS_PK" PRIMARY KEY (token),
     CONSTRAINT "TOKENS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT "TOKENS_EXPIRED_AT_NN" CHECK ("EXPIRED_AT" IS NOT NULL),
     CONSTRAINT "TOKENS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),

@@ -701,7 +701,7 @@ class Token(BASE, ModelBase):
     account = Column(String(25))
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
-    _table_args = (PrimaryKeyConstraint('account', 'token', name='TOKENS_TOKEN_ACCOUNT_PK'),
+    _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),)
 
