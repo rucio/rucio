@@ -69,10 +69,11 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
             for req in reqs:
                 ts = time.time()
-
                 response = request.query_request(req['request_id'], 'fts3', session=session)
-
                 record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
+
+                req['src_rse'] = 'UNKNOWN'
+                response['transfer_id'] = req['external_id']
 
                 if common.update_request_state(req, response, session):
                     session.commit()
@@ -121,4 +122,4 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
 
         # Interruptible joins require a timeout.
         while len(threads) > 0:
-            [t.join(timeout=3.14) for t in threads if t is not None and t.isAlive()]
+            [t.join(timeout=3.14) for t in threads if t and t.isAlive()]

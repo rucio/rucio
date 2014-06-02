@@ -54,16 +54,9 @@ class Consumer(object):
         if 'job_metadata' in msg.keys() \
            and isinstance(msg['job_metadata'], dict) \
            and 'issuer' in msg['job_metadata'].keys() \
-           and 'request_id' in msg['job_metadata'].keys() \
-           and 'scope' in msg['job_metadata'].keys() \
-           and 'name' in msg['job_metadata'].keys() \
-           and 'dest_rse_id' in msg['job_metadata'].keys() \
-           and msg['job_metadata']['issuer'].startswith('rucio-transfertool'):
-            req = {'request_id': msg['job_metadata']['request_id'],
-                   'scope': msg['job_metadata']['scope'],
-                   'name': msg['job_metadata']['name'],
-                   'dest_rse_id': msg['job_metadata']['dest_rse_id']}
-            response = {'new_state': None}
+           and str(msg['job_metadata']['issuer']) == str('rucio'):
+            response = {'new_state': None,
+                        'transfer_id': msg['job_id']}
 
             if str(msg['job_state']) == str(FTSState.FINISHED):
                 response['new_state'] = RequestState.DONE
@@ -72,7 +65,7 @@ class Consumer(object):
             elif str(msg['job_state']) == str(FTSState.FINISHEDDIRTY):
                 response['new_state'] = RequestState.FAILED
 
-            if update_request_state(req, response, self.__session):
+            if update_request_state(msg['job_metadata'], response, self.__session):
                 self.__session.commit()
             else:
                 self.__session.rollback()
@@ -161,4 +154,4 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
 
     # Interruptible joins require a timeout.
     while len(threads) > 0:
-        [t.join(timeout=3.14) for t in threads if t is not None and t.isAlive()]
+        [t.join(timeout=3.14) for t in threads if t and t.isAlive()]

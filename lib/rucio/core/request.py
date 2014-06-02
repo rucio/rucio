@@ -110,7 +110,7 @@ def submit_deletion(url, session=None):
 
 
 @transactional_session
-def submit_transfers(transfers, transfertool, job_metadata={}, session=None):
+def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=None):
     """
     Submit transfer request to a transfertool.
 
@@ -244,7 +244,7 @@ def __get_external_id(request_id, session=None):
 
 
 @read_session
-def query_request(request_id, transfertool, session=None):
+def query_request(request_id, transfertool='fts3', session=None):
     """
     Query the status of a request.
 
@@ -281,6 +281,31 @@ def query_request(request_id, transfertool, session=None):
         raise NotImplementedError
 
     return req_status
+
+
+@read_session
+def query_request_details(request_id, transfertool='fts3', session=None):
+    """
+    Query the detailed status of a request. Can also be done after the
+    external transfer has finished.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    :param transfertool: Transfertool name as a string.
+    :param session: Database session to use.
+    :returns: Detailed request status information as a dictionary.
+    """
+
+    record_counter('core.request.query_request_details')
+
+    external_id = __get_external_id(request_id, session=session)
+
+    if external_id is None:
+        return
+
+    if transfertool == 'fts3':
+        return fts3.query_details(external_id)
+
+    raise NotImplementedError
 
 
 @transactional_session

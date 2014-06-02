@@ -78,35 +78,38 @@ def submit_transfers(transfers, job_metadata):
 
     # Rewrite the checksums into FTS3 format, prefer adler32 if available
     for transfer in transfers:
-        if 'md5' in transfer.keys() and transfer['md5'] is not None:
+        if 'md5' in transfer.keys() and transfer['md5']:
             transfer['checksum'] = 'MD5:%s' % str(transfer['md5'])
-        if 'adler32' in transfer.keys() and transfer['adler32'] is not None:
+        if 'adler32' in transfer.keys() and transfer['adler32']:
             transfer['checksum'] = 'ADLER32:%s' % str(transfer['adler32'])
 
     transfer_ids = {}
 
-    job_metadata['issuer'] = 'rucio-transfertool-fts3'
+    job_metadata['issuer'] = 'rucio'
+    job_metadata['previous_attempt_id'] = None
 
     # we have to loop until we get proper fts3 bulk submission
     for transfer in transfers:
 
         job_metadata['request_id'] = transfer['request_id']
 
+        if 'previous_attempt_id' in transfer.keys():
+            job_metadata['previous_attempt_id'] = transfer['previous_attempt_id']
+
         params_dict = {'files': [{'sources': transfer['src_urls'],
                                   'destinations': transfer['dest_urls'],
-                                  'metadata': {'issuer': 'rucio-transfertool-fts3'},
+                                  'metadata': {'issuer': 'rucio'},
                                   'filesize': int(transfer['filesize']),
                                   'checksum': str(transfer['checksum'])}],
-                       'params': {'verify_checksum': True if transfer['checksum'] is not None else False,
-                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] is not None else 'null',
+                       'params': {'verify_checksum': True if transfer['checksum'] else False,
+                                  'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
                                   'copy_pin_lifetime': -1,
                                   'job_metadata': job_metadata,
-                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] is not None else 'null',
+                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else 'null',
                                   'overwrite': True}}
 
         r = None
         params_str = json.dumps(params_dict)
-
         __HOST = __fts_host()
         if __HOST.startswith('https://'):
             r = requests.post('%s/jobs' % __HOST,
@@ -119,7 +122,7 @@ def submit_transfers(transfers, job_metadata):
                               data=params_str,
                               headers={'Content-Type': 'application/json'})
 
-        if r is not None and r.status_code == 200:
+        if r and r.status_code == 200:
             transfer_ids[transfer['request_id']] = str(r.json()['job_id'])
         else:
             raise Exception('Could not submit transfer: %s', r.content)
@@ -167,24 +170,46 @@ def query(transfer_id):
     :returns: Transfer status information as a dictionary.
     """
 
-    r = None
+    job = None
 
     __HOST = __fts_host()
     if __HOST.startswith('https://'):
-        r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
-                         verify=__CACERT,
-                         cert=(__USERCERT, __USERCERT),
-                         headers={'Content-Type': 'application/json'})
+        job = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
+                           verify=__CACERT,
+                           cert=(__USERCERT, __USERCERT),
+                           headers={'Content-Type': 'application/json'})
     else:
-        r = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
-                         headers={'Content-Type': 'application/json'})
+        job = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
+                           headers={'Content-Type': 'application/json'})
+    if job and job.status_code == 200:
+        return job.json()
 
-    if r is not None and r.status_code == 200:
-        return r.json()
-    elif r.status_code == 404:
-        return None
+    raise Exception('Could not retrieve transfer information: %s', job.content)
 
-    raise Exception('Could not retrieve transfer information: %s', r.content)
+
+def query_details(transfer_id):
+    """
+    Query the detailed status of a transfer in FTS3 via JSON.
+
+    :param transfer_id: FTS transfer identifier as a string.
+    :returns: Detailed transfer status information as a dictionary.
+    """
+
+    files = None
+
+    __HOST = __fts_host()
+    if __HOST.startswith('https://'):
+        files = requests.get('%s/jobs/%s/files' % (__HOST, transfer_id),
+                             verify=__CACERT,
+                             cert=(__USERCERT, __USERCERT),
+                             headers={'Content-Type': 'application/json'})
+    else:
+        files = requests.get('%s/jobs/%s/files' % (__HOST, transfer_id),
+                             headers={'Content-Type': 'application/json'})
+    if files and files.status_code == 200:
+        return files.json()
+
+    return None
 
 
 def cancel(transfer_id):
@@ -216,7 +241,7 @@ def whoami():
         r = requests.get('%s/whoami' % __HOST,
                          headers={'Content-Type': 'application/json'})
 
-    if r is not None and r.status_code == 200:
+    if r and r.status_code == 200:
         return r.json()
 
     raise Exception('Could not retrieve credentials: %s', r.content)
@@ -241,7 +266,7 @@ def version():
         r = requests.get('%s/' % __HOST,
                          headers={'Content-Type': 'application/json'})
 
-    if r is not None and r.status_code == 200:
+    if r and r.status_code == 200:
         return r.json()
 
     raise Exception('Could not retrieve version: %s', r.content)

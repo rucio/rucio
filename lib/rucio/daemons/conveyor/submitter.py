@@ -96,9 +96,9 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                         # TODO: Source protection
 
-                        for endpoint in source['rses']:
-                            for pfn in source['rses'][endpoint]:
-                                tmpsrc.append(str(pfn))
+                        for source_rse in source['rses']:
+                            for pfn in source['rses'][source_rse]:
+                                tmpsrc.append((str(source_rse), str(pfn)))
                         filesize = long(source['bytes'])
                         md5 = source['md5']
                         adler32 = source['adler32']
@@ -182,7 +182,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 if mock:
                     tmp_sources = []
                     for s in sources:
-                        tmp_sources.append(':'.join(['mock']+s.split(':')[1:]))
+                        tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:])))
                     sources = tmp_sources
 
                 ts = time.time()
@@ -190,12 +190,14 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 tmp_metadata = {'request_id': req['request_id'],
                                 'scope': req['scope'],
                                 'name': req['name'],
+                                'src_rse': sources[0][0],
+                                'dst_rse': rse_info['rse'],
                                 'dest_rse_id': req['dest_rse_id']}
-                if 'previous_attempt_id' in req and req['previous_attempt_id'] is not None:
-                    tmp_metadata = {'previous_attempt_id': req['previous_attempt_id']}
+                if 'previous_attempt_id' in req and req['previous_attempt_id']:
+                    tmp_metadata['previous_attempt_id'] = req['previous_attempt_id']
 
                 eid = request.submit_transfers(transfers=[{'request_id': req['request_id'],
-                                                           'src_urls': sources,
+                                                           'src_urls': [s[1] for s in sources],
                                                            'dest_urls': destinations,
                                                            'filesize': filesize,
                                                            'md5': md5,
@@ -215,7 +217,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                session=session)
                 record_timer('daemons.conveyor.submitter.006-replica-set_copying', (time.time() - ts) * 1000)
 
-                if req['previous_attempt_id'] is not None:
+                if req['previous_attempt_id']:
                     logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s ' % (req['retry_count'],
                                                                                                        eid,
                                                                                                        req['previous_attempt_id'],
@@ -272,4 +274,4 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False):
 
         # Interruptible joins require a timeout.
         while len(threads) > 0:
-            [t.join(timeout=3.14) for t in threads if t is not None and t.isAlive()]
+            [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
