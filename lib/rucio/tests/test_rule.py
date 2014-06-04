@@ -16,6 +16,7 @@ import random
 from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises
 
 from rucio.client.accountclient import AccountClient
+from rucio.client.lockclient import LockClient
 from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
@@ -502,6 +503,7 @@ class TestReplicationRuleClient():
         self.did_client = DIDClient()
         self.subscription_client = SubscriptionClient()
         self.account_client = AccountClient()
+        self.lock_client = LockClient()
 
     def test_add_rule(self):
         """ REPLICATION RULE (CLIENT): Add a replication rule """
@@ -585,3 +587,16 @@ class TestReplicationRuleClient():
         assert_raises(AccessDenied, delete_rule, rule_id_1)
         self.rule_client.update_lock_state(rule_id=rule_id_1, lock_state=False)
         delete_rule(rule_id=rule_id_1)
+
+    def test_dataset_lock(self):
+        """ DATASETLOCK (CLIENT): Get a datasetlock for a specific dataset"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
+
+        rule_ids = [lock['rule_id'] for lock in self.lock_client.get_dataset_locks(scope=scope, name=dataset)]
+        assert_in(rule_id_1, rule_ids)
