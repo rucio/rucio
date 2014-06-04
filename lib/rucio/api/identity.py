@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
 
 from rucio.api import permission
 from rucio.common import exception
@@ -49,7 +50,7 @@ def add_account_identity(identity_key, type, account, email, issuer, default=Fal
     """
     kwargs = {'identity': identity_key, 'type': type, 'account': account}
     if not permission.has_permission(issuer=issuer, action='add_account_identity', kwargs=kwargs):
-            raise exception.AccessDenied('Account %s can not identity' % (issuer))
+            raise exception.AccessDenied('Account %s can not add account identity' % (issuer))
 
     return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(type), default=default, email=email, account=account)
 
