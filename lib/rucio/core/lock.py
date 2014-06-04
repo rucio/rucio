@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 from sqlalchemy.sql.expression import and_, or_
@@ -25,10 +25,32 @@ def get_dataset_locks(scope, name, session=None):
     :param name:           Name of the dataset.
     :param session:        The db session.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
-    :raises:               NoResultFound
     """
 
     query = session.query(models.DatasetLock).filter_by(scope=scope, name=name)
+
+    locks = []
+    for row in query:
+        locks.append({'rse_id': row.rse_id,
+                      'scope': row.scope,
+                      'name': row.name,
+                      'rule_id': row.rule_id,
+                      'account': row.account,
+                      'state': row.state})
+    return locks
+
+
+@read_session
+def get_dataset_locks_by_rse(rse_id, session=None):
+    """
+    Get the dataset locks of an RSE.
+
+    :param rse_id:         RSE id to get the locks from.
+    :param session:        The db session.
+    :return:               List of dicts {'rse_id': ..., 'state': ...}
+    """
+
+    query = session.query(models.DatasetLock).filter_by(rse_id=rse_id)
 
     locks = []
     for row in query:
