@@ -406,6 +406,7 @@ def delete(rse_settings, lfns):
             ret['%s:%s' % (lfn['scope'], lfn['name'])] = e
             gs = False
 
+    protocol.close()
     if len(ret) == 1:
         for x in ret:
             if isinstance(ret[x], Exception):
@@ -474,6 +475,7 @@ def rename(rse_settings, files):
                 ret[key] = e
                 gs = False
 
+    protocol.close()
     if len(ret) == 1:
         for x in ret:
             if isinstance(ret[x], Exception):
@@ -507,4 +509,5 @@ def get_space_usage(rse_settings, scheme=None):
         ret = e
         gs = False
 
+    protocol.close()
     return [gs, ret]

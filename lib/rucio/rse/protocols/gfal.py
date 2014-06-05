@@ -148,14 +148,6 @@ class Default(protocol.RSEProtocol):
 
         self.__ctx = gfal2.creat_context()
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
-        endpoint_basepath = self.path2pfn(self.attributes['prefix'])
-
-        try:
-            ret = self.__gfal2_exist(endpoint_basepath)
-            if ret:
-                raise exception.RSEAccessDenied()
-        except Exception as e:
-            raise exception.RSEAccessDenied(e)
 
     def get(self, path, dest):
         """
