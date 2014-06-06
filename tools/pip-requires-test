@@ -22,7 +22,7 @@ sphinxcontrib-sdedit==0.3       #
 PIL==1.1.7                      #
 Pygments>=1.2                   # Python Syntax highlighter
 docutils>=0.9                   # Needed for sphinx
-pep8==1.5.6                     # checks for PEP8 code style compliance
+pep8==1.5.7                     # checks for PEP8 code style compliance
 pyflakes==0.8.1                 # Passive checker of Python programs
 flake8==2.1.0                   # Wrapper around PyFlakes&pep8
 pylint==0.25.2                  # static code analysis
