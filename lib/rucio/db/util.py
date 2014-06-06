@@ -5,11 +5,14 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from traceback import format_exc
+
+from alembic.config import Config
+from alembic import command
 
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
@@ -26,12 +29,10 @@ def build_database(echo=True, tests=False):
     models.register_models(engine)
     if tests:
         test_models.register_models(engine)
+
     # Put the database under version control
-    s = session.get_session()
-    # TODO: Get last revision from alembic
-    #  alembic current --head-only ?
-    s.add(models.AlembicVersion(version_num='d91002c5841'))
-    s.commit()
+    alembic_cfg = Config(config_get('alembic', 'cfg'))
+    command.stamp(alembic_cfg, "head")
 
 
 def dump_schema():
