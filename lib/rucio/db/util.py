@@ -11,8 +11,8 @@
 
 from traceback import format_exc
 
-from alembic.config import Config
 from alembic import command
+from alembic.config import Config
 
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
