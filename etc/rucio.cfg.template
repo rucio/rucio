@@ -99,3 +99,6 @@ adler32 = 52590737
 #bytes = 1000000000
 #md5sum = 1a3031f43cc0c0cf4f8341920a9faf52
 #adler32 = 5ff2d417
+
+[alembic]
+cfg = alembic.ini
