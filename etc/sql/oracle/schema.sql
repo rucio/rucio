@@ -909,11 +909,15 @@ CREATE TABLE messages (
 -- Description: Table to store auth tokens
 -- Estimated volume: ~100,000
 -- Access pattern: by token (frequently). Cleanup of expired token done by account (rarely)
+--           DELETE FROM atlas_rucio.tokens WHERE atlas_rucio.tokens.expired_at < :expired_at_1 AND atlas_rucio.tokens.account = :account_1
+--           SELECT atlas_rucio.tokens.account AS atlas_rucio_tokens_account, atlas_rucio.tokens.expired_at AS atlas_rucio_tokens_expired_at
+--           FROM atlas_rucio.tokens
+--           WHERE atlas_rucio.tokens.token = :token_1 AND atlas_rucio.tokens.expired_at > :expired_at_1
 
 CREATE TABLE tokens (
     account VARCHAR2(25 CHAR),
-    token VARCHAR2(352 CHAR),
     expired_at DATE,
+    token VARCHAR2(352 CHAR),
     ip VARCHAR2(39 CHAR),
     updated_at DATE,
     created_at DATE,
@@ -922,8 +926,9 @@ CREATE TABLE tokens (
     CONSTRAINT "TOKENS_EXPIRED_AT_NN" CHECK ("EXPIRED_AT" IS NOT NULL),
     CONSTRAINT "TOKENS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
     CONSTRAINT "TOKENS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
-) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
+)  TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
 
+CREATE INDEX "TOKENS_ACCOUNT_EXPIRED_AT_IDX" ON "TOKENS"(ACCOUNT, expired_at) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
 
 
 -- ========================================= ACCOUNT_USAGE (physical structure IOT) =========================================

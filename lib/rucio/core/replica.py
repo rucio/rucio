@@ -541,7 +541,7 @@ def update_replicas_states(replicas, session=None):
         rowcount = query.update({'state': replica['state']})
 
         if not rowcount:
-            raise exception.UnsupportedOperation('State for replica %(scope)s:%(name)s cannot be updated')
+            raise exception.UnsupportedOperation('State for replica %(scope)s:%(name)s cannot be updated' % replica)
     return True
 
 

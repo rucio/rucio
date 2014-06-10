@@ -703,7 +703,9 @@ class Token(BASE, ModelBase):
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
-                   CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),)
+                   CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
+                   Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at')
+                   )
 
 
 class Message(BASE, ModelBase):
