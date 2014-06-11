@@ -26,6 +26,8 @@ script_location = lib/rucio/db/migrate_repo/
 
 sqlalchemy.url = sqlite:////tmp/rucio.db
 
+# version_table_schema = ATLAS_RUCIO
+
 # Logging configuration
 [loggers]
 keys = root,sqlalchemy,alembic
