@@ -68,6 +68,8 @@ def _add_hint(conn, element, multiparams, params):
         element = element.prefix_with("/*+ INDEX(DIDS DIDS_PK) */")
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'updated_dids':
         element = element.prefix_with("/*+ INDEX(updated_dids UPDATED_DIDS_SCOPERULENAME_IDX) */")
+    if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'tokens':
+        element = element.prefix_with("/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */")
     return element, multiparams, params
 
 
