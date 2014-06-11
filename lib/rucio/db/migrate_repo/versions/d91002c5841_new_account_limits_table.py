@@ -19,8 +19,9 @@ Create Date: 2014-04-14 17:05:24.328328
 revision = 'd91002c5841'
 down_revision = '469d262be19'
 
-from alembic import op
-from alembic import context
+
+from alembic import context, op
+
 import sqlalchemy as sa
 from rucio.db.types import GUID
 

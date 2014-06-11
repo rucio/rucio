@@ -19,7 +19,7 @@ Create Date: 2014-04-08 16:20:48.185087
 revision = '2b8e7bcb4783'
 down_revision = 'd91002c5841'
 
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 
 
@@ -30,22 +30,26 @@ def upgrade():
                     sa.Column('value', sa.String(4000)),
                     sa.Column('updated_at', sa.DateTime),
                     sa.Column('created_at', sa.DateTime))
-    op.create_primary_key('configs_pk', 'configs', ['section', 'opt'])
-    op.create_check_constraint('configs_created_nn', 'configs', 'created_at is not null')
-    op.create_check_constraint('configs_updated_nn', 'configs', 'updated_at is not null')
+    if context.get_context().dialect.name != 'sqlite':
+        op.create_primary_key('configs_pk', 'configs', ['section', 'opt'])
+        op.create_check_constraint('configs_created_nn', 'configs', 'created_at is not null')
+        op.create_check_constraint('configs_updated_nn', 'configs', 'updated_at is not null')
     op.create_table('configs_history',
                     sa.Column('section', sa.String(128)),
                     sa.Column('opt', sa.String(128)),
                     sa.Column('value', sa.String(4000)),
                     sa.Column('updated_at', sa.DateTime),
                     sa.Column('created_at', sa.DateTime))
-    op.create_primary_key('configs_history_pk', 'configs_history', ['section', 'opt', 'updated_at'])
+    if context.get_context().dialect.name != 'sqlite':
+        op.create_primary_key('configs_history_pk', 'configs_history', ['section', 'opt', 'updated_at'])
 
 
 def downgrade():
-    op.drop_constraint('configs_pk', 'configs')
-    op.drop_constraint('configs_created_nn', 'configs')
-    op.drop_constraint('configs_updated_nn', 'configs')
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_constraint('configs_pk', 'configs')
+        op.drop_constraint('configs_created_nn', 'configs')
+        op.drop_constraint('configs_updated_nn', 'configs')
     op.drop_table('configs')
-    op.drop_constraint('configs_history_pk', 'configs_history')
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_constraint('configs_history_pk', 'configs_history')
     op.drop_table('configs_history')
