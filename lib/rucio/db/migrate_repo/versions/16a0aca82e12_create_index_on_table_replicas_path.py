@@ -23,8 +23,8 @@ from alembic import op
 
 
 def upgrade():
-    op.create_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens', ['path'])
+    op.create_index('REPLICAS_PATH_IDX', 'replicas', ['path'])
 
 
 def downgrade():
-    op.drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX')
+    op.drop_index('REPLICAS_PATH_IDX')
