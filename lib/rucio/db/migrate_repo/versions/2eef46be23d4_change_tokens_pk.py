@@ -19,14 +19,16 @@ Create Date: 2014-05-30 10:47:46.880093
 revision = '2eef46be23d4'
 down_revision = '58c8b78301ab'
 
-from alembic import op
+from alembic import context, op
 
 
 def upgrade():
-    op.drop_constraint('tokens_pk', 'tokens')
-    op.create_primary_key('tokens_pk', 'tokens', ['token'])
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_constraint('tokens_pk', 'tokens')
+        op.create_primary_key('tokens_pk', 'tokens', ['token'])
 
 
 def downgrade():
-    op.drop_constraint('tokens_pk', 'tokens')
-    op.create_primary_key('tokens_pk', 'tokens', ['account', 'token'])
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_constraint('tokens_pk', 'tokens')
+        op.create_primary_key('tokens_pk', 'tokens', ['account', 'token'])
