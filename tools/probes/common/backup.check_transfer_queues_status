@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+
+'''
+Probe to check the queues of the transfer service
+'''
+
+import sys
+
+from rucio.core import monitor
+from rucio.db.session import get_session
+
+# Exit statuses
+UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+
+queues = ["select 'requests.queued', count(*) from atlas_rucio.requests where request_type='T' and state='Q' union select 'requests.submitted', count(*) from atlas_rucio.requests where request_type='T' and state='S' union select 'requests.failed', count(*) from atlas_rucio.requests where request_type='T' and state='F' union select 'requests.done', count(*) from atlas_rucio.requests where request_type='T' and state='D'",
+'''SELECT CASE WHEN state = 'D' THEN 'transfers.mockfts3.finisheddirty' WHEN state = 'X' THEN 'transfers.mockfts3.done' WHEN state = 'A' THEN 'transfers.mockfts3.active' WHEN state = 'F' THEN 'transfers.mockfts3.failed' WHEN state = 'S' THEN 'transfers.mockfts3.submitted' ELSE state END state_desc, num_rows FROM (
+select  /*+ index_ffs(mock_fts_transfers MOCK_FTS_TRASNFERS_STATE_IDX) */   state, count(1) num_rows 
+FROM atlas_rucio.mock_fts_transfers
+where state is not null 
+GROUP BY state)''',
+]
+
+if __name__ == "__main__":
+    try:
+        session = get_session()
+	for q in queues:
+             result = session.execute(q).fetchall()
+             for r in result:
+                 print 'queues.%s'%r[0], r[1],
+                 monitor.record_gauge(stat='queues.%s'%r[0], value=r[1])
+    except:
+        sys.exit(UNKNOWN)
+    sys.exit(OK)
