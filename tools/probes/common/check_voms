@@ -89,8 +89,8 @@ if __name__ == '__main__':
     admin = VOMSAdminProxy(vo='atlas', host='voms.cern.ch', port=8443,
                            user_cert=cert, user_key=key)
     res = admin.call_method('list-users')
-    #print cert, key
-    #print res
+    # print cert, key
+    # print res
     if isinstance(res, types.ListType):
         for user in res:
             nbusers += 1
@@ -105,8 +105,8 @@ if __name__ == '__main__':
                 except TypeError, e:
                     print e
                     pass
-                #print dn, ca, email, nickname
-                #nickname = None
+                # print dn, ca, email, nickname
+                # nickname = None
                 if nickname:
                     if validate_nickname(nickname=nickname, email=email, dn=dn, debug=True):
                         account = nickname
@@ -114,20 +114,20 @@ if __name__ == '__main__':
                             c.add_account(account=account, type='USER')
                             print 'Account %(account)s added' % locals()
                         except Duplicate:
-                            #print 'Account %(account)s already added' % locals()
+                            # print 'Account %(account)s already added' % locals()
                             pass
                         try:
                             c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
                             print 'Identity %(dn)s added' % locals()
                         except Duplicate:
-                            #print 'Identity %(account)s already added' % locals()
+                            # print 'Identity %(account)s already added' % locals()
                             pass
                         try:
                             scope = 'user.' + account
                             c.add_scope(account, scope)
                             print 'Scope %(scope)s added' % locals()
                         except Duplicate:
-                            #print 'Scope %(scope)s already added' % locals()
+                            # print 'Scope %(scope)s already added' % locals()
                             pass
                 else:
                     nonicknames.append(user._DN)

@@ -25,16 +25,16 @@ if __name__ == "__main__":
         session = get_session()
         result = session.execute('select count(1) from atlas_rucio.updated_dids').fetchone()[0]
         monitor.record_gauge(stat='judge.updated_dids', value=result)
-        #created_at, count, max, min, avg, stdev = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  
-        #result = session.execute('select * from atlas_rucio.concurency_stats where created_at > sysdate - 1/1440')
-        #for row in result:
+        # created_at, count, max, min, avg, stdev = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        # result = session.execute('select * from atlas_rucio.concurency_stats where created_at > sysdate - 1/1440')
+        # for row in result:
         #   created_at, count, max, min, avg, stdev = row
-        #monitor.record_gauge(stat='judge.updated_dids_per_min.count', value=count or 0)
-        #monitor.record_gauge(stat='judge.updated_dids_per_min.max', value=max or 0)
-        #monitor.record_gauge(stat='judge.updated_dids_per_min.min', value=min or 0)
-        #monitor.record_gauge(stat='judge.updated_dids_per_min.avg', value=avg or 0)
-        #monitor.record_gauge(stat='judge.updated_dids_per_min.stdev', value=stdev or 0)
-        #print created_at, count, max, min, avg, stdev 
+        # monitor.record_gauge(stat='judge.updated_dids_per_min.count', value=count or 0)
+        # monitor.record_gauge(stat='judge.updated_dids_per_min.max', value=max or 0)
+        # monitor.record_gauge(stat='judge.updated_dids_per_min.min', value=min or 0)
+        # monitor.record_gauge(stat='judge.updated_dids_per_min.avg', value=avg or 0)
+        # monitor.record_gauge(stat='judge.updated_dids_per_min.stdev', value=stdev or 0)
+        # print created_at, count, max, min, avg, stdev
     except:
         print traceback.format_exc()
         sys.exit(UNKNOWN)

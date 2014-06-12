@@ -9,8 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 #
 import argparse
-import gfal2
-import json
 import os
 import sys
 

@@ -24,33 +24,33 @@ UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 
 if __name__ == "__main__":
     sql_connection = config_get('database', 'default')
-    user     = 'XXXXX'
+    user = 'XXXXX'
     password = 'XXXXX'
-    dsn = sql_connection.split('@')[1] 
+    dsn = sql_connection.split('@')[1]
     connection = cx_Oracle.connect(user, password, dsn)
     cursor = connection.cursor()
     try:
         query = '''SELECT mname.metric_name, round(VALUE)
-FROM 
-gv$sysmetric sysm, 
+FROM
+gv$sysmetric sysm,
 v$metricname mname
-WHERE 
+WHERE
 mname.metric_id IN (2004, 2006, 2030, 2145, 2058, 2147, 2000, 2016, 2143, 4000, 2024, 2025)
-AND mname.group_id = 2 
-AND inst_id =2 
-AND mname.metric_id = sysm.metric_id 
+AND mname.group_id = 2
+AND inst_id = 2
+AND mname.metric_id = sysm.metric_id
 AND mname.group_id = sysm.group_id
 ORDER BY inst_id, mname.metric_name, mname.metric_unit'''
         cursor.execute(query)
         for (metric, value) in cursor:
-            m = 'oracle.%s' %  metric.replace(' ', '_')
-            print m, value,' ',
+            m = 'oracle.%s' % metric.replace(' ', '_')
+            print m, value, ' ',
             monitor.record_gauge(stat=m, value=value)
     except:
         sys.exit(UNKNOWN)
     finally:
         cursor.close()
         connection.close()
-        #monitor.record_gauge(stat='judge.waiting_dids', value=result)
-        #print result
+        # monitor.record_gauge(stat='judge.waiting_dids', value=result)
+        # print result
     sys.exit(OK)
