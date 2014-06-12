@@ -13,7 +13,7 @@ Probe to check the queues of the transfer service
 '''
 
 import sys
-from rucio.common.exception  import ServiceUnavailable
+from rucio.common.exception import ServiceUnavailable
 from rucio.rse import rsemanager
 
 scheme = 'https'

@@ -20,33 +20,33 @@ from rucio.db.session import get_session
 # Exit statuses
 UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 
-queues=["""SELECT 
-CASE 
- WHEN state = 'Q' THEN 'requests.history.queued' 
- WHEN state = 'S' THEN 'requests.history.submitted' 
- WHEN state = 'F' THEN 'requests.history.failed' 
- WHEN state = 'D' THEN 'requests.history.done' 
- WHEN state = 'L' THEN 'requests.history.lost' 
+queues = ["""SELECT
+CASE
+ WHEN state = 'Q' THEN 'requests.history.queued'
+ WHEN state = 'S' THEN 'requests.history.submitted'
+ WHEN state = 'F' THEN 'requests.history.failed'
+ WHEN state = 'D' THEN 'requests.history.done'
+ WHEN state = 'L' THEN 'requests.history.lost'
  ELSE state
 END state_desc ,
 num_rows
-FROM 
+FROM
 (
 select  /*+ INDEX(REQUESTS_HISTORY REQUESTS_H_TYP_STA_IDX) */ state, count(*) num_rows
 FROM atlas_rucio.requests_history
 WHERE request_type='T'
 GROUP BY state
-)""","""SELECT 
-CASE 
- WHEN state = 'Q' THEN 'requests.queued' 
- WHEN state = 'S' THEN 'requests.submitted' 
- WHEN state = 'F' THEN 'requests.failed' 
- WHEN state = 'D' THEN 'requests.done' 
- WHEN state = 'L' THEN 'requests.lost' 
+)""", """SELECT
+CASE
+ WHEN state = 'Q' THEN 'requests.queued'
+ WHEN state = 'S' THEN 'requests.submitted'
+ WHEN state = 'F' THEN 'requests.failed'
+ WHEN state = 'D' THEN 'requests.done'
+ WHEN state = 'L' THEN 'requests.lost'
  ELSE state
 END state_desc ,
 num_rows
-FROM 
+FROM
 (
 select state, count(*) num_rows
 FROM atlas_rucio.requests
@@ -57,11 +57,11 @@ GROUP BY state
 if __name__ == "__main__":
     try:
         session = get_session()
-	for q in queues:
-             result = session.execute(q).fetchall()
-             for r in result:
-                 print 'queues.%s'%r[0], r[1],
-                 monitor.record_gauge(stat='queues.%s'%r[0], value=r[1])
+        for q in queues:
+            result = session.execute(q).fetchall()
+            for r in result:
+                print 'queues.%s' % r[0], r[1],
+                monitor.record_gauge(stat='queues.%s' % r[0], value=r[1])
     except:
         sys.exit(UNKNOWN)
     sys.exit(OK)

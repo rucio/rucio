@@ -20,15 +20,15 @@ from rucio.db.session import get_session
 # Exit statuses
 UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 
-#select (select rse from "ATLAS_RUCIO".rses where id = rse_id),
+# select (select rse from "ATLAS_RUCIO".rses where id = rse_id),
 #       n
-#from 
-#(SELECT /*+ index_FFS(replicas REPLICAS_TOMBSTONE_IDX) */
-#      CASE WHEN ("ATLAS_RUCIO".replicas.tombstone IS NOT NULL) THEN "ATLAS_RUCIO".replicas.rse_id END as rse_id,                       
+# from
+# (SELECT /*+ index_FFS(replicas REPLICAS_TOMBSTONE_IDX) */
+#      CASE WHEN ("ATLAS_RUCIO".replicas.tombstone IS NOT NULL) THEN "ATLAS_RUCIO".replicas.rse_id END as rse_id,
 #      count(*) as n
-#FROM "ATLAS_RUCIO".replicas
-#WHERE "ATLAS_RUCIO".replicas.tombstone is not null                
-#GROUP BY CASE WHEN ("ATLAS_RUCIO".replicas.tombstone IS NOT NULL) THEN "ATLAS_RUCIO".replicas.rse_id END)
+# FROM "ATLAS_RUCIO".replicas
+# WHERE "ATLAS_RUCIO".replicas.tombstone is not null
+# GROUP BY CASE WHEN ("ATLAS_RUCIO".replicas.tombstone IS NOT NULL) THEN "ATLAS_RUCIO".replicas.rse_id END)
 
 if __name__ == "__main__":
     try:

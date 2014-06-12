@@ -11,7 +11,8 @@
 import sys
 from rucio.client import Client
 
-host = sys.argv[1]
-#print 'Ping %s' % host
-c = Client(rucio_host='https://%s' % host)
-print 'Rucio version installed : %s ' % c.ping()['version']
+if __name__ == "__main__":
+    host = sys.argv[1]
+    # print 'Ping %s' % host
+    c = Client(rucio_host='https://%s' % host)
+    print 'Rucio version installed : %s ' % c.ping()['version']
