@@ -31,7 +31,7 @@ OK = 0
 
 if __name__ == '__main__':
     account_map = {'Role=pilot': 'pilot', 'Role=production': 'pilot'}
-    #account_map = {'Role=pilot': 'pilot', 'Role=production': 'ddmusr01'}
+    # account_map = {'Role=pilot': 'pilot', 'Role=production': 'ddmusr01'}
     status = OK
     nbusers = 0
     nonicknames = []
@@ -53,7 +53,7 @@ if __name__ == '__main__':
                         c.add_identity(account=account_map[account], identity=dn, authtype='X509', email=email, default=True)
                         print 'Identity %(dn)s added' % locals()
                     except Duplicate:
-                        #print 'Identity %(account)s already added' % locals()
+                        # print 'Identity %(account)s already added' % locals()
                         pass
                 except:
                     print 'ERROR getting info for %s' % (user._DN)
