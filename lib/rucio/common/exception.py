@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 
 """Exceptions used with Rucio.
@@ -418,6 +418,12 @@ class RSETagNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSETagNotFound, self).__init__(args, kwargs)
         self._message = "RSE Tag does not exist."
+
+
+class RessourceTemporaryUnavailable(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RessourceTemporaryUnavailable, self).__init__(args, kwargs)
+        self._message = "The ressource is temporary not available."
 
 
 class RuleNotFound(RucioException):

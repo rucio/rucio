@@ -39,7 +39,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileReplicaAlreadyExists, FileAlreadyExists, AccessDenied
+from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileReplicaAlreadyExists, FileAlreadyExists, AccessDenied, RessourceTemporaryUnavailable
 from rucio.common.utils import adler32
 from rucio.rse import rsemanager as rsemgr
 
@@ -700,7 +700,7 @@ def upload(args):
         list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'U'})
         if not os.path.dirname(name) in lfns:
             lfns[os.path.dirname(name)] = []
-        lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope})
+        lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope, 'adler32': checksum, 'filesize': size})
         revert_dict[args.scope, os.path.basename(name)] = os.path.dirname(name)
 
     metadata = {}
@@ -720,6 +720,9 @@ def upload(args):
         metadata['campaign'] = args.campaign
 
     rse_settings = rsemgr.get_rse_info(args.rse)
+    if rse_settings['availability_write'] != 1:
+        logger.critical('RSE is not available for write now')
+        return FAILURE
     add_files_individually = False
 
     if args.account is None:
@@ -753,7 +756,9 @@ def upload(args):
         except FileAlreadyExists, e:
             add_files_individually = True
             logger.warning(e)
-
+        except RessourceTemporaryUnavailable, e:
+            logger.error(e)
+            return FAILURE
         if add_files_individually:
             logger.info('Will check all files individually')
             for did in list_files:
@@ -774,7 +779,7 @@ def upload(args):
                     if meta['adler32'] == did['adler32']:
                         logger.info('Local files and file %s:%s recorded in Rucio have the same checksum. Will try the upload' % (did['scope'], did['name']))
                         directory = revert_dict[did['scope'], did['name']]
-                        rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
+                        rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope'], 'adler32': did['adler32'], 'filesize': did['bytes']}], source_dir=directory)
                         logger.info('File %s:%s successfully uploaded on the storage' % (did['scope'], did['name']))
                     else:
                         logger.error('Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32']))
@@ -796,6 +801,9 @@ def upload(args):
         except Duplicate, e:
             add_files_individually = True
             logger.warning(e)
+        except RessourceTemporaryUnavailable, e:
+            logger.error(e)
+            return FAILURE
 
         if add_files_individually:
             logger.info('Will check all files individually')
@@ -815,7 +823,7 @@ def upload(args):
                     if meta['adler32'] == did['adler32']:
                         logger.info('Local files and file %s:%s recorded in Rucio have the same checksum. Will try the upload' % (did['scope'], did['name']))
                         directory = revert_dict[did['scope'], did['name']]
-                        rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope']}], source_dir=directory)
+                        rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': did['name'], 'scope': did['scope'], 'adler32': did['adler32'], 'filesize': did['bytes']}], source_dir=directory)
                         logger.info('File %s:%s successfully uploaded on the storage' % (did['scope'], did['name']))
                     else:
                         logger.error('Checksum mismatch between local (%s) and recorded file (%s)' % (meta['adler32'], did['adler32']))
@@ -864,10 +872,14 @@ def download(args):
             scope, name = did.split(':')
             files = client.list_replicas([{'scope': scope, 'name': name}])
             for file in files:
-                rse = random.choice(file['rses'].keys())
-                if rse not in rse_dict:
-                    rse_dict[rse] = rsemgr.get_rse_info(rse)
-                rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
+                list_rses = file['rses'].keys()
+                random.shuffle(list_rses)
+                for rse in list_rses:
+                    if rse not in rse_dict:
+                        rse_dict[rse] = rsemgr.get_rse_info(rse)
+                    if rse_dict[rse]['availability_read']:
+                        rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
+                        break
             print 'download operation for %s:%s done' % (scope, name)
         except ValueError, e:
             print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)

@@ -8,7 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 
 from rucio.api import permission
@@ -282,3 +282,19 @@ def parse_rse_expression(rse_expression):
     for rse_id in rse_ids:
         rses.append(rse_module.list_rses(filters={'id': rse_id})[0]['rse'])
     return rses
+
+
+def update_rse(rse, parameters, issuer):
+    """
+    Update RSE properties like availability or name.
+
+    :param rse: the name of the new rse.
+    :param parameters: A dictionnary with property (name, read, write, delete as keys).
+    :param issuer: The issuer account.
+
+    :raises RSENotFound: If RSE is not found.
+    """
+    kwargs = {'rse': rse}
+    if not permission.has_permission(issuer=issuer, action='update_rse', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update RSE' % (issuer))
+    return rse_module.update_rse(rse=rse, parameters=parameters)

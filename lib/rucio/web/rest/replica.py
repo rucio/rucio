@@ -17,7 +17,7 @@ from urlparse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK
 
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states
-from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RucioException, RSENotFound, UnsupportedOperation
+from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RessourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation
 from rucio.common.replicas_selector import random_order, geoIP_order
 
 
@@ -155,6 +155,8 @@ class Replicas(RucioController):
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RessourceTemporaryUnavailable, e:
+            raise generate_http_error(503, 'RessourceTemporaryUnavailable', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -183,7 +185,7 @@ class Replicas(RucioController):
             update_replicas_states(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except UnsupportedOperation:
+        except UnsupportedOperation, e:
             raise generate_http_error(500, 'UnsupportedOperation', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
@@ -216,6 +218,8 @@ class Replicas(RucioController):
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RessourceTemporaryUnavailable, e:
+            raise generate_http_error(503, 'RessourceTemporaryUnavailable', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:

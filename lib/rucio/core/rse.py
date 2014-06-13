@@ -49,7 +49,7 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     """
     new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
-                         continent=continent, time_zone=time_zone, ISP=ISP)
+                         continent=continent, time_zone=time_zone, ISP=ISP, availability=7)
     try:
         new_rse.save(session=session)
     except IntegrityError:
@@ -168,7 +168,8 @@ def list_rses(filters={}, session=None):
     """
 
     rse_list = []
-
+    availability = 7
+    availability_mapping = {'read': 4, 'write': 2, 'delete': 1}
     false_value = False  # To make pep8 checker happy ...
     if filters:
         query = session.query(models.RSE).\
@@ -178,11 +179,19 @@ def list_rses(filters={}, session=None):
         for (k, v) in filters.items():
             if hasattr(models.RSE, k):
                 query = query.filter(getattr(models.RSE, k) == v)
+            elif k in ['read', 'write', 'read']:
+                if v is True:
+                    availability = availability | availability_mapping[k]
+                else:
+                    availability = availability & ~availability_mapping[k]
             else:
                 t = aliased(models.RSEAttrAssociation)
                 query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
                 query = query.filter(t.key == k)
                 query = query.filter(t.value == v)
+
+        if 'availability' not in filters and availability != 7:
+            query = query.filter(getattr(models.RSE, 'availability') == availability)
 
         for row in query:
             d = {}
@@ -475,8 +484,15 @@ def get_rse_protocols(rse, session=None):
     if not _rse:
         raise exception.RSENotFound('RSE \'%s\' not found')
 
+    read = True if _rse.availability & 4 else False
+    write = True if _rse.availability & 2 else False
+    delete = True if _rse.availability & 1 else False
+
     info = {'id': _rse.id,
             'rse': _rse.rse,
+            'availability_read': read,
+            'availability_write': write,
+            'availability_delete': delete,
             'domain': utils.rse_supported_protocol_domains(),
             'protocols': list(),
             'deterministic': _rse.deterministic,
@@ -676,3 +692,43 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
             for p in prots:
                 p.update({op_name: i})
                 i += 1
+
+
+@transactional_session
+def update_rse(rse, parameters, session=None):
+    """
+    Update RSE properties like availability or name.
+
+    :param rse: the name of the new rse.
+    :param  parameters: A dictionnary with property (name, read, write, delete as keys).
+    :param session: The database session in use.
+
+    :raises RSENotFound: If RSE is not found.
+    """
+    try:
+        query = session.query(models.RSE).filter_by(rse=rse).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
+    rse_id = query.id
+    availability = 0
+    for column in query:
+        if column[0] == 'availability':
+            availability = column[1] or availability
+    print availability
+    param = {}
+    availability_mapping = {'read': 4, 'write': 2, 'delete': 1}
+    for key in parameters:
+        if key == 'name':
+            param['rse'] = parameters['name']
+        if key in ['read', 'write', 'delete']:
+            if parameters[key] is True:
+                availability = availability | availability_mapping[key]
+            else:
+                availability = availability & ~availability_mapping[key]
+    param['availability'] = availability
+    query.update(param)
+    if 'name' in parameters:
+        add_rse_attribute(rse=parameters['name'], key=parameters['name'], value=1, session=session)
+        query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == rse)
+        rse_attr = query.one()
+        rse_attr.delete(session=session)

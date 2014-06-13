@@ -75,6 +75,21 @@ class RSEClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(r.headers)
         raise exc_cls(exc_msg)
 
+    def update_rse(self, rse, parameters):
+        """
+        Update RSE properties like availability or name.
+
+        :param rse: the name of the new rse.
+        :param  parameters: A dictionnary with property (name, read, write, delete as keys).
+        """
+        path = 'rses/' + rse
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='PUT', data=dumps(parameters))
+        if r.status_code == codes.created:
+            return True
+        exc_cls, exc_msg = self._get_exception(r.headers)
+        raise exc_cls(exc_msg)
+
     def delete_rse(self, rse):
         """
         Sends the request to delete a rse.
