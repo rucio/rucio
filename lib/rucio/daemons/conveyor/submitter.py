@@ -24,7 +24,8 @@ from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported
-from rucio.core import replica, request, rse
+from rucio.common.utils import construct_surl_DQ2
+from rucio.core import did, replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import DIDType, RequestType, RequestState, ReplicaState
 from rucio.db.session import get_session
@@ -61,7 +62,9 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
             ts = time.time()
 
-            reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+            reqs = request.get_next(request_type=[RequestType.TRANSFER,
+                                                  RequestType.STAGEIN,
+                                                  RequestType.STAGEOUT],
                                     state=RequestState.QUEUED,
                                     limit=100,
                                     process=process,
@@ -70,7 +73,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                     total_threads=total_threads,
                                     session=session)
 
-            record_timer('daemons.conveyor.submitter.000-get_next', (time.time() - ts) * 1000)
+            record_timer('daemons.conveyor.submitter.get_next', (time.time() - ts) * 1000)
 
             if reqs is None or reqs == []:
                 if once:
@@ -126,7 +129,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                 if tmpsrc == []:
                     record_counter('daemons.conveyor.submitter.nosource')
-                    logging.warn('No source replicas found for DID %s:%s - deep check for unavailable replicas' % (req['scope'], req['name']))
+                    logging.warn('No source replicas found for DID %s:%s - deep check for unavailable replicas' % (req['scope'],
+                                                                                                                   req['name']))
 
                     if sum(1 for tmp in replica.list_replicas([{'scope': req['scope'],
                                                                 'name': req['name'],
@@ -142,22 +146,34 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     for tmp in tmpsrc:
                         sources.append(tmp)
 
-                record_timer('daemons.conveyor.submitter.001-list_replicas', (time.time() - ts) * 1000)
+                record_timer('daemons.conveyor.submitter.list_replicas', (time.time() - ts) * 1000)
 
                 ts = time.time()
                 rse_info = rsemgr.get_rse_info(rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse'])
+                record_timer('daemons.conveyor.submitter.get_rse', (time.time() - ts) * 1000)
 
-                # TODO
+                dsn = 'other'
+                pfn = {}
                 if not rse_info['deterministic']:
-                    logging.warn('Non-deterministic destination RSE %s - support coming soon' % rse_info['rse'])
-                    session.commit()
-                    continue
+                    ts = time.time()
+                    for parent in did.list_parent_dids(req['scope'], req['name'], session=session):
+                        if parent['type'] == DIDType.DATASET:
+                            dsn = parent['name']
+                            break
+                    record_timer('daemons.conveyor.submitter.list_parent_dids', (time.time() - ts) * 1000)
 
-                record_timer('daemons.conveyor.submitter.002-get_rse', (time.time() - ts) * 1000)
+                    ts = time.time()
+                    nondet = rsemgr.create_protocol(rse_info, 'write', scheme='srm')  # always use SRM
+                    record_timer('daemons.conveyor.submitter.create_protocol', (time.time() - ts) * 1000)
 
-                ts = time.time()
-                pfn = rsemgr.lfns2pfns(rse_info, lfns=[{'scope': req['scope'], 'name': req['name']}], scheme=scheme)
-                record_timer('daemons.conveyor.submitter.003-lfns2pfns', (time.time() - ts) * 1000)
+                    pfn['%s:%s' % (req['scope'], req['name'])] = nondet.path2pfn(construct_surl_DQ2(dsn, req['name']))
+                else:
+                    ts = time.time()
+                    pfn = rsemgr.lfns2pfns(rse_info,
+                                           lfns=[{'scope': req['scope'],
+                                                  'name': req['name']}],
+                                           scheme=scheme)
+                    record_timer('daemons.conveyor.submitter.lfns2pfns', (time.time() - ts) * 1000)
 
                 destinations = []
                 for k in pfn:
@@ -207,7 +223,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                transfertool='fts3',
                                                job_metadata=tmp_metadata,
                                                session=session)
-                record_timer('daemons.conveyor.submitter.004-submit_transfer', (time.time() - ts) * 1000)
+                record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                 ts = time.time()
                 replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
@@ -215,7 +231,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                           'name': req['name'],
                                                           'state': ReplicaState.COPYING}],
                                                session=session)
-                record_timer('daemons.conveyor.submitter.006-replica-set_copying', (time.time() - ts) * 1000)
+                record_timer('daemons.conveyor.submitter.replica-set_copying', (time.time() - ts) * 1000)
 
                 if req['previous_attempt_id']:
                     logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s ' % (req['retry_count'],
@@ -266,7 +282,11 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False):
 
     else:
         logging.info('starting submitter threads')
-        threads = [threading.Thread(target=submitter, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'mock': mock}) for i in xrange(0, total_threads)]
+        threads = [threading.Thread(target=submitter, kwargs={'process': process,
+                                                              'total_processes': total_processes,
+                                                              'thread': i,
+                                                              'total_threads': total_threads,
+                                                              'mock': mock}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 
