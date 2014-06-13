@@ -11,6 +11,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 
 from json import dumps
@@ -18,8 +19,10 @@ from nose.tools import raises, assert_equal, assert_true, assert_in, assert_rais
 from paste.fixture import TestApp
 
 from rucio.client.rseclient import RSEClient
+from rucio.client.replicaclient import ReplicaClient
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
-                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError)
+                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, RessourceTemporaryUnavailable)
+from rucio.common.utils import generate_uuid
 from rucio.core.rse import add_rse, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator
@@ -148,6 +151,37 @@ class TestRSEClient():
         bad_rse = 'MOCK_$*&##@!'
         with assert_raises(InvalidObject):
             ret = self.client.add_rse(bad_rse)
+
+    def test_update_rse(self):
+        """ RSE (CLIENTS): update rse."""
+        rse = rse_name_generator()
+        renamed_rse = 'renamed_rse%s' % rse
+        ret = self.client.add_rse(rse)
+        assert_true(ret)
+
+        ret = self.client.update_rse(rse, {'name': renamed_rse})
+        assert_true(ret)
+        dict2 = self.client.get_rse(renamed_rse)
+        assert_equal(renamed_rse, dict2['rse'])
+
+        tmp_scope = 'mock'
+        nbfiles = 5
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        replica_client = ReplicaClient()
+        replica_client.add_replicas(rse=renamed_rse, files=files1)
+
+        ret = self.client.update_rse(renamed_rse, {'write': False, 'delete': False})
+        assert_true(ret)
+        dict2 = self.client.get_rse(renamed_rse)
+        assert_equal(dict2['availability_write'], False)
+        assert_equal(dict2['availability_delete'], False)
+
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        with assert_raises(RessourceTemporaryUnavailable):
+            replica_client.add_replicas(rse=renamed_rse, files=files2)
+
+        with assert_raises(RessourceTemporaryUnavailable):
+            replica_client.delete_replicas(rse=renamed_rse, files=files1)
 
     def test_list_rses(self):
         """ RSE (CLIENTS): try to list rses."""
