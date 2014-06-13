@@ -13,6 +13,7 @@ include tools/pip-requires-client
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.template
 graft doc
+graft tools/probes
 prune dist
 prune examples
 prune .coverage
