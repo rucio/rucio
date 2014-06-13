@@ -6,9 +6,7 @@ include README.rst
 include TODO
 include setup.py
 include setup.cfg
-include lib/rucio/db/rucio_migrate_repo/README
-include lib/rucio/db/rucio_migrate_repo/migrate.cfg
-include lib/rucio/db/rucio_migrate_repo/versions/*.sql
+include lib/rucio/db/migrate_repo/script.py.mako
 include tools/pip-requires-client
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.template
