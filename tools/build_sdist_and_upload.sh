@@ -11,14 +11,19 @@
 
 # Push on pypi@cern
 /bin/cp setup_rucio.py setup.py
+/bin/cp  README.rucio.rst README.rst
 python setup.py --release register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
+
 /bin/cp setup_rucio_client.py setup.py
 python setup.py --release register -r https://voatlasrucio-pip.cern.ch/ sdist upload -r https://voatlasrucio-pip.cern.ch/
 /bin/cp setup_rucio.py setup.py
 
 # Push on pypi@org
 /bin/cp setup_rucio.py setup.py
+/bin/cp  README.rucio.rst README.rst
 python setup.py --release register sdist upload
+
 /bin/cp setup_rucio_client.py setup.py
+/bin/cp README.client.rst README.rst
 python setup.py --release register sdist upload
 /bin/cp setup_rucio.py setup.py

@@ -2,7 +2,7 @@ include MANIFEST.in pylintrc
 include AUTHORS
 include LICENSE
 include ChangeLog
-include README
+include README.rst
 include TODO
 include setup.py
 include setup.cfg
