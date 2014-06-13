@@ -78,6 +78,7 @@ def submit_transfers(transfers, job_metadata):
 
     # Rewrite the checksums into FTS3 format, prefer adler32 if available
     for transfer in transfers:
+        transfer['checksum'] = None
         if 'md5' in transfer.keys() and transfer['md5']:
             transfer['checksum'] = 'MD5:%s' % str(transfer['md5'])
         if 'adler32' in transfer.keys() and transfer['adler32']:
