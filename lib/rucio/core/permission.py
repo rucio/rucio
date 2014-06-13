@@ -52,6 +52,7 @@ def has_permission(issuer, action, kwargs):
             'add_rule': perm_add_rule,
             'add_scope': perm_add_scope,
             'add_rse': perm_add_rse,
+            'update_rse': perm_update_rse,
             'add_protocol': perm_add_protocol,
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
@@ -112,6 +113,17 @@ def perm_default(issuer, kwargs):
 def perm_add_rse(issuer, kwargs):
     """
     Checks if an account can add a RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
+
+
+def perm_update_rse(issuer, kwargs):
+    """
+    Checks if an account can update a RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

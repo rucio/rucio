@@ -325,6 +325,9 @@ def add_replicas(rse, files, account, rse_id=None, session=None):
     else:
         replica_rse = get_rse(rse=None, rse_id=rse_id, session=session)
 
+    if not (replica_rse.availability & 2):
+        raise exception.RessourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
+
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
     if not replica_rse.deterministic:
@@ -380,6 +383,9 @@ def delete_replicas(rse, files, session=None):
     :param session: The database session in use.
     """
     replica_rse = get_rse(rse=rse, session=session)
+
+    if not (replica_rse.availability & 1):
+        raise exception.RessourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
 
     replica_condition, parent_condition, did_condition = list(), list(), list()
     for file in files:
@@ -541,7 +547,7 @@ def update_replicas_states(replicas, session=None):
         rowcount = query.update({'state': replica['state']})
 
         if not rowcount:
-            raise exception.UnsupportedOperation('State for replica %(scope)s:%(name)s cannot be updated' % replica)
+            raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s cannot be updated' % replica)
     return True
 
 

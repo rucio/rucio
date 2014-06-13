@@ -9,13 +9,14 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 
 from json import dumps, loads
 from traceback import format_exc
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input, loadhook
 
-from rucio.api.rse import (add_rse, list_rses, del_rse, add_rse_attribute,
+from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attribute,
                            list_rse_attributes, del_rse_attribute,
                            add_protocol, get_rse_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
@@ -105,6 +106,44 @@ class RSE(RucioController):
         kwargs['issuer'] = ctx.env.get('issuer')
         try:
             add_rse(rse, **kwargs)
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except Duplicate, e:
+            raise generate_http_error(409, 'Duplicate', e[0][0])
+        except InvalidObject, e:
+            raise generate_http_error(400, 'InvalidObject', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print e
+            print format_exc()
+            raise InternalError(e)
+
+        raise Created()
+
+    def PUT(self, rse):
+        """ Update RSE properties (e.g. name, availability).
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad request
+            401 Unauthorized
+            500 Internal Error
+
+        """
+        json_data = data()
+        kwargs = {}
+
+        try:
+            parameters = json_data and loads(json_data)
+            kwargs['parameters'] = parameters
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        kwargs['issuer'] = ctx.env.get('issuer')
+        try:
+            update_rse(rse, **kwargs)
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:

@@ -229,6 +229,7 @@ CREATE TABLE rses (
     ASN VARCHAR2(255 CHAR),
     longitude FLOAT,
     latitude FLOAT,
+    availability NUMBER DEFAULT 7,
     updated_at DATE,
     created_at DATE,
     deleted NUMBER(1),

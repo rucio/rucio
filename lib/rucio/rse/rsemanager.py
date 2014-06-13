@@ -319,7 +319,7 @@ def upload(rse_settings, lfns, source_dir=None):
             continue
         if 'filesize' not in lfn:
             gs = False
-            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing checksum for file %s:%s' % (lfn['scope'], lfn['name']))
+            ret['%s:%s' % (scope, name)] = exception.RucioException('Missing filesize for file %s:%s' % (lfn['scope'], lfn['name']))
             continue
 
         pfn = protocol.lfns2pfns(lfn).values()[0]

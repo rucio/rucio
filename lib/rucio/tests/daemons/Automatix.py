@@ -64,10 +64,10 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         checksum = adler32(fullpath)
         logging.info('Thread [%i/%i] : File %s : Size %s , adler32 %s' % (worker_number, total_workers, fullpath, str(size), checksum))
         list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum, 'meta': {'guid': generate_uuid()}})
-        lfns.append({'name': filename, 'scope': scope})
+        lfns.append({'name': filename, 'scope': scope, 'filesize': size, 'adler32': checksum})
 
     # Physical upload
-    logging.info('Thread [%i/%i] : Uploading physically the files on %s' % (worker_number, total_workers, rse))
+    logging.info('Thread [%i/%i] : Uploading physically the files %s on %s' % (worker_number, total_workers, str(lfns), rse))
     rse_info = rsemgr.get_rse_info(rse)
     try:
         success_upload = True
@@ -151,6 +151,7 @@ def generate_file(fname, size):
 
 
 def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, once=False):
+    sleep(sleep_time * (total_workers - worker_number) / total_workers)
     while not graceful_stop.is_set():
         starttime = time()
         logging.info('Thread [%i/%i] : Getting data distribution' % (worker_number, total_workers))
