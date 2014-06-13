@@ -40,7 +40,7 @@ packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common',
             'rucio.tests.emulation', 'rucio.tests.emulation.usecases']
 requirements_files = ['tools/pip-requires-client']
 description = "Rucio Client Lite Package"
-data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
+data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template']),
               ('tools/', ['tools/pip-requires-client', ]), ]
 
 scripts = ['bin/rucio', 'bin/rucio-admin']
