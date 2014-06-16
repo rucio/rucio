@@ -43,7 +43,7 @@ region = make_region(function_key_generator=my_key_generator).configure(
 @transactional_session
 def parse_expression(expression, session):
     """
-    Parse a RSE expression and return the list of RSE-ids
+    Parse a RSE expression and return the list of available RSE-ids.
 
     :param expression:  RSE expression, e.g: 'CERN|BNL'
     :param session:     Database session in use
@@ -201,7 +201,7 @@ class RSEAttribute(BaseExpressionElement):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        output = list_rses({self.key: self.value}, session=session)
+        output = list_rses({self.key: self.value, 'write': True}, session=session)
         if not output:
             return set()
         return set([rse['id'] for rse in output])
