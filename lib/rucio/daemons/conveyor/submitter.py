@@ -23,7 +23,7 @@ import traceback
 from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported
+from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation
 from rucio.common.utils import construct_surl_DQ2
 from rucio.core import did, replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
@@ -73,6 +73,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                     total_threads=total_threads,
                                     session=session)
 
+            if reqs:
+                logging.debug('Getting %s requests to submit' % (str(len(reqs))))
             record_timer('daemons.conveyor.submitter.get_next', (time.time() - ts) * 1000)
 
             if reqs is None or reqs == []:
@@ -226,34 +228,46 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                 ts = time.time()
-                replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
-                                                          'scope': req['scope'],
-                                                          'name': req['name'],
-                                                          'state': ReplicaState.COPYING}],
-                                               session=session)
-                record_timer('daemons.conveyor.submitter.replica-set_copying', (time.time() - ts) * 1000)
+                try:
+                    logging.debug('Will update replica state for %s:%s at %s' % (req['scope'], req['name'], req['dest_rse_id']))
+                    replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
+                                                              'scope': req['scope'],
+                                                              'name': req['name'],
+                                                              'state': ReplicaState.COPYING}],
+                                                   session=session)
+                    record_timer('daemons.conveyor.submitter.replica-set_copying', (time.time() - ts) * 1000)
 
-                if req['previous_attempt_id']:
-                    logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s ' % (req['retry_count'],
-                                                                                                       eid,
-                                                                                                       req['previous_attempt_id'],
-                                                                                                       req['scope'],
-                                                                                                       req['name'],
-                                                                                                       sources,
-                                                                                                       destinations))
-                else:
-                    logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s ' % (eid,
-                                                                                  req['scope'],
-                                                                                  req['name'],
-                                                                                  sources,
-                                                                                  destinations))
-                record_counter('daemons.conveyor.submitter.submit_request')
+                    if req['previous_attempt_id']:
+                        logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s ' % (req['retry_count'],
+                                                                                                           eid,
+                                                                                                           req['previous_attempt_id'],
+                                                                                                           req['scope'],
+                                                                                                           req['name'],
+                                                                                                           sources,
+                                                                                                           destinations))
+                    else:
+                        logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s ' % (eid,
+                                                                                      req['scope'],
+                                                                                      req['name'],
+                                                                                      sources,
+                                                                                      destinations))
+                    record_counter('daemons.conveyor.submitter.submit_request')
 
-                session.commit()
+                    session.commit()
+                except UnsupportedOperation, e:
+                    # The replica doesn't exist
+                    # Need to cancel the request
+                    logging.warning(e)
+                    request.cancel_request(req['request_id'], transfertool='fts3')
+                    request.purge_request(req['request_id'], session=session)
+                    logging.info('Canceling FTS request %s' % req['request_id'])
+                    session.commit()
 
         except:
             session.rollback()
             logging.critical(traceback.format_exc())
+            request.cancel_request(req['request_id'], transfertool='fts3')
+            logging.info('Canceling FTS request %s' % req['request_id'])
 
         if once:
             return

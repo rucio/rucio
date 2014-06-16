@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -59,7 +60,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                                     thread=thread, total_threads=total_threads,
                                     session=session)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
-
+            logging.debug('Getting %s requests to poll' % (str(len(reqs))))
             if reqs is None or reqs == []:
                 if once:
                     break

@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 
 """
@@ -34,7 +35,7 @@ def update_request_state(req, response, session):
     :param session: The database session to use.
     :returns commit_or_rollback: Boolean.
     """
-
+    logging.debug('Running on request %s' % (str(req)))
     if response['new_state']:
 
         rse_name = None
@@ -78,38 +79,46 @@ def update_request_state(req, response, session):
             record_timer('daemons.conveyor.common.update_request_state.lock-successful_transfer', (time.time()-tss)*1000)
 
             tss = time.time()
-            replica.update_replicas_states([{'rse': rse_name,
-                                             'scope': req['scope'],
-                                             'name': req['name'],
-                                             'state': ReplicaState.AVAILABLE}],
-                                           session=session)
-            record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
+            try:
+                logging.debug('Will update replica state for %s:%s at %s' % (req['scope'], req['name'], rse_name))
+                replica.update_replicas_states([{'rse': rse_name,
+                                                 'scope': req['scope'],
+                                                 'name': req['name'],
+                                                 'state': ReplicaState.AVAILABLE}],
+                                               session=session)
+                record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
 
-            tss = time.time()
+                tss = time.time()
 
-            request.archive_request(req['request_id'],
-                                    session=session)
+                request.archive_request(req['request_id'],
+                                        session=session)
 
-            duration = (datetime.datetime.strptime(details['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                        datetime.datetime.strptime(details['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
-            add_message('transfer-done', {'activity': 'rucio-integration',  # no other support for now
-                                          'request-id': req['request_id'],
-                                          'duration': duration,
-                                          'file-size': did_meta['bytes'],
-                                          'guid': did_meta['guid'],
-                                          'previous-request-id': req['previous_attempt_id'],
-                                          'protocol': details['dest_surl'].split(':')[0],
-                                          'scope': req['scope'],
-                                          'name': req['name'],
-                                          'src-rse': req['src_rse'],
-                                          'src-url': details['source_surl'],
-                                          'dst-rse': rse_name,
-                                          'dst-url': details['dest_surl'],
-                                          'transfer-endpoint': config_get('conveyor', 'ftshosts'),
-                                          'transfer-id': response['transfer_id'],
-                                          'tool-id': 'rucio-conveyor'})
+                duration = (datetime.datetime.strptime(details['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                            datetime.datetime.strptime(details['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
+                add_message('transfer-done', {'activity': 'rucio-integration',  # no other support for now
+                                              'request-id': req['request_id'],
+                                              'duration': duration,
+                                              'file-size': did_meta['bytes'],
+                                              'guid': did_meta['guid'],
+                                              'previous-request-id': req['previous_attempt_id'],
+                                              'protocol': details['dest_surl'].split(':')[0],
+                                              'scope': req['scope'],
+                                              'name': req['name'],
+                                              'src-rse': req['src_rse'],
+                                              'src-url': details['source_surl'],
+                                              'dst-rse': rse_name,
+                                              'dst-url': details['dest_surl'],
+                                              'transfer-endpoint': config_get('conveyor', 'ftshosts'),
+                                              'transfer-id': response['transfer_id'],
+                                              'tool-id': 'rucio-conveyor'})
 
-            record_timer('daemons.conveyor.common.update_request_state.request-archive_request', (time.time()-tss)*1000)
+                record_timer('daemons.conveyor.common.update_request_state.request-archive_request', (time.time()-tss)*1000)
+            except exception.UnsupportedOperation, e:
+                # The replica doesn't exist
+                request.archive_request(req['request_id'],
+                                        session=session)
+                logging.warning(e)
+                return True
 
         elif response['new_state'] == RequestState.FAILED:
             tss = time.time()
