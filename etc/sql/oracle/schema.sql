@@ -213,7 +213,6 @@ CREATE UNIQUE INDEX SCOPES_SCOPE_UQ ON SCOPES(UPPER(scope)) tablespace ATLAS_RUC
 -- Estimated volume: ~700 which can be reduced to ~200
 -- Access pattern: By rse/id
 
-
 CREATE TABLE rses (
     id RAW(16),
     rse VARCHAR2(255 CHAR),
