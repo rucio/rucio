@@ -258,16 +258,23 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     # The replica doesn't exist
                     # Need to cancel the request
                     logging.warning(e)
-                    request.cancel_request(req['request_id'], transfertool='fts3')
-                    request.purge_request(req['request_id'], session=session)
                     logging.info('Canceling FTS request %s' % req['request_id'])
-                    session.commit()
+                    try:
+                        request.cancel_request(req['request_id'], transfertool='fts3')
+                        request.purge_request(req['request_id'], session=session)
+                        session.commit()
+                    except Exception, e:
+                        logging.warning('Cannot cancel FTS job : %s' % str(e))
+                        session.rollback()
 
         except:
             session.rollback()
             logging.critical(traceback.format_exc())
-            request.cancel_request(req['request_id'], transfertool='fts3')
             logging.info('Canceling FTS request %s' % req['request_id'])
+            try:
+                request.cancel_request(req['request_id'], transfertool='fts3')
+            except Exception, e:
+                logging.warning('Cannot cancel FTS job : %s' % str(e))
 
         if once:
             return

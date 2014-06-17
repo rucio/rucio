@@ -219,8 +219,20 @@ def cancel(transfer_id):
 
     :param transfer_id: FTS transfer identifier as a string.
     """
+    job = None
+    __HOST = __fts_host()
+    if __HOST.startswith('https://'):
+        job = requests.delete('%s/jobs/%s' % (__HOST, transfer_id),
+                              verify=__CACERT,
+                              cert=(__USERCERT, __USERCERT),
+                              headers={'Content-Type': 'application/json'})
+    else:
+        job = requests.delete('%s/jobs/%s' % (__HOST, transfer_id),
+                              headers={'Content-Type': 'application/json'})
+    if job and job.status_code == 200:
+        return job.json()
 
-    pass
+    raise Exception('Could not cancel transfer: %s', job.content)
 
 
 def whoami():

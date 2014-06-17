@@ -274,8 +274,9 @@ def query_request(request_id, transfertool='fts3', session=None):
         if response is None:
             req_status['new_state'] = RequestState.LOST
         else:
-
-            if response['job_state'] == str(FTSState.FAILED) or response['job_state'] == str(FTSState.FINISHEDDIRTY):
+            if 'job_state' not in response:
+                req_status['new_state'] = RequestState.LOST
+            elif response['job_state'] == str(FTSState.FAILED) or response['job_state'] == str(FTSState.FINISHEDDIRTY):
                 req_status['new_state'] = RequestState.FAILED
             elif response['job_state'] == str(FTSState.FINISHED):
                 req_status['new_state'] = RequestState.DONE
