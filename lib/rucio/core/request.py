@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 
 import datetime
 import json
@@ -14,7 +15,7 @@ import logging
 import re
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import asc
+from sqlalchemy.sql.expression import asc, bindparam, text
 
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
@@ -199,7 +200,8 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
 
     if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_processes-1, process))
+            bindparams = [bindparam('worker_number', process), bindparam('total_workers', total_processes-1)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_processes-1, process))
         elif session.bind.dialect.name == 'postgresql':
@@ -207,7 +209,8 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
 
     if (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            query = query.filter('ORA_HASH(name, %s) = %s' % (total_threads-1, thread))
+            bindparams = [bindparam('worker_number', thread), bindparam('total_workers', total_threads-1)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
         elif session.bind.dialect.name == 'postgresql':
