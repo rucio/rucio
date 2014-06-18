@@ -277,11 +277,8 @@ def parse_rse_expression(rse_expression):
     :returns:  List of RSEs
     :raises:   InvalidRSEExpression
     """
-    rses = []
-    rse_ids = parse_expression(rse_expression)
-    for rse_id in rse_ids:
-        rses.append(rse_module.list_rses(filters={'id': rse_id})[0]['rse'])
-    return rses
+    rses = parse_expression(rse_expression)
+    return [rse['rse'] for rse in rses]
 
 
 def update_rse(rse, parameters, issuer):

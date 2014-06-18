@@ -21,7 +21,7 @@ import rucio.core.did
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound,
                                     ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException,
-                                    AccessDenied, InvalidRuleWeight)
+                                    AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.core import account_counter, rse_counter
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.monitor import record_timer_block
@@ -53,18 +53,22 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param subscription_id:  The subscription_id, if the rule is created by a subscription.
     :param session:          The database session in use.
     :returns:                A list of created replication rule ids.
-    :raises:                 InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
+    :raises:                 InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
     """
     rule_ids = []
 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
         with record_timer_block('rule.add_rule.parse_rse_expression'):
-            rse_ids = parse_expression(rse_expression, session=session)
+            rses = parse_expression(rse_expression, session=session)
+
+            if lifetime is None:  # Check if one of the rses is a staging area
+                if [rse for rse in rses if rse.get('staging_area', False)]:
+                    raise StagingAreaRuleRequiresLifetime()
 
         # 2. Create the rse selector
         with record_timer_block('rule.add_rule.create_rse_selector'):
-            rseselector = RSESelector(account=account, rse_ids=rse_ids, weight=weight, copies=copies, session=session)
+            rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, session=session)
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
@@ -109,7 +113,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
                 datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                                     nowait=False,
-                                                                                    restrict_rses=rse_ids,
+                                                                                    restrict_rses=[rse['id'] for rse in rses],
                                                                                     session=session)
 
             # 6. Apply the replication rule to create locks, replicas and transfers
@@ -140,7 +144,7 @@ def add_rules(dids, rules, session=None):
                      {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
-    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight
+    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
     """
 
     with record_timer_block('rule.add_rules'):
@@ -151,7 +155,7 @@ def add_rules(dids, rules, session=None):
         with record_timer_block('rule.add_rules.parse_rse_expressions'):
             for rule in rules:
                 restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
-            restrict_rses = list(set(restrict_rses))
+            restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
 
         for elem in dids:
             rule_ids[(elem['scope'], elem['name'])] = []
@@ -174,11 +178,15 @@ def add_rules(dids, rules, session=None):
             for rule in rules:
                 with record_timer_block('rule.add_rules.add_rule'):
                     # 4. Resolve the rse_expression into a list of RSE-ids
-                    rse_ids = parse_expression(rule['rse_expression'], session=session)
+                    rses = parse_expression(rule['rse_expression'], session=session)
+
+                    if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
+                        if [rse for rse in rses if rse.get('staging_area', False)]:
+                            raise StagingAreaRuleRequiresLifetime()
 
                     # 5. Create the RSE selector
                     with record_timer_block('rule.add_rules.create_rse_selector'):
-                        rseselector = RSESelector(account=rule['account'], rse_ids=rse_ids, weight=rule.get('weight'), copies=rule['copies'], session=session)
+                        rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.get('weight'), copies=rule['copies'], session=session)
 
                     # 4. Create the replication rule
                     with record_timer_block('rule.add_rules.create_rule'):
@@ -397,8 +405,7 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
     query = session.query(models.UpdatedDID.id,
                           models.UpdatedDID.scope,
                           models.UpdatedDID.name,
-                          models.UpdatedDID.rule_evaluation_action).\
-        order_by(models.UpdatedDID.created_at)
+                          models.UpdatedDID.rule_evaluation_action)
 
     if total_workers > 0:
         if session.bind.dialect.name == 'oracle':
@@ -574,7 +581,7 @@ def __evaluate_did_attach(eval_did, session=None):
 
                 datasetfiles, locks, replicas = __resolve_dids_to_locks_and_replicas(dids=new_child_dids,
                                                                                      nowait=True,
-                                                                                     restrict_rses=possible_rses,
+                                                                                     restrict_rses=[rse['id'] for rse in possible_rses],
                                                                                      session=session)
 
             # Evaluate the replication rules
@@ -584,7 +591,7 @@ def __evaluate_did_attach(eval_did, session=None):
                     if session.bind.dialect.name != 'sqlite':
                         session.begin_nested()
                     try:
-                        rse_ids = parse_expression(rule.rse_expression, session=session)
+                        rses = parse_expression(rule.rse_expression, session=session)
                     except (InvalidRSEExpression) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
@@ -598,7 +605,7 @@ def __evaluate_did_attach(eval_did, session=None):
                     # 2. Create the RSE Selector
                     try:
                         rseselector = RSESelector(account=rule.account,
-                                                  rse_ids=rse_ids,
+                                                  rses=rses,
                                                   weight=rule.weight,
                                                   copies=rule.copies,
                                                   session=session)

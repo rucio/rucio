@@ -9,6 +9,8 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
+from datetime import datetime
+
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.db import models
@@ -73,18 +75,19 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselect
                 # Nothing to do as the file already has the requested amount of locks
                 continue
             if len(preferred_rse_ids) == 0:
-                rse_ids = rseselector.select_rse(size=file['bytes'],
-                                                 preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])]],
-                                                 blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
+                rse_tuples = rseselector.select_rse(size=file['bytes'],
+                                                    preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])]],
+                                                    blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
             else:
-                rse_ids = rseselector.select_rse(size=file['bytes'],
-                                                 preferred_rse_ids=preferred_rse_ids,
-                                                 blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
-            for rse_id in rse_ids:
+                rse_tuples = rseselector.select_rse(size=file['bytes'],
+                                                    preferred_rse_ids=preferred_rse_ids,
+                                                    blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
+            for rse_tuple in rse_tuples:
                 __create_lock_and_replica(file=file,
                                           dataset=dataset,
                                           rule=rule,
-                                          rse_id=rse_id,
+                                          rse_id=rse_tuple[0],
+                                          staging_area=rse_tuple[1],
                                           locks_to_create=locks_to_create,
                                           locks=locks,
                                           replicas_to_create=replicas_to_create,
@@ -128,10 +131,10 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                 if replica.state == ReplicaState.BEING_DELETED:
                     blacklist.add(replica.rse_id)
     if len(preferred_rse_ids) == 0:
-        rse_ids = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)], list(blacklist))
+        rse_tuples = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)], list(blacklist))
     else:
-        rse_ids = rseselector.select_rse(bytes, preferred_rse_ids, list(blacklist))
-    for rse_id in rse_ids:
+        rse_tuples = rseselector.select_rse(bytes, preferred_rse_ids, list(blacklist))
+    for rse_tuple in rse_tuples:
         for dataset in datasetfiles:
             dataset_is_replicating = False
             for file in dataset['files']:
@@ -140,7 +143,8 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                 if __create_lock_and_replica(file=file,
                                              dataset=dataset,
                                              rule=rule,
-                                             rse_id=rse_id,
+                                             rse_id=rse_tuple[0],
+                                             staging_area=rse_tuple[1],
                                              locks_to_create=locks_to_create,
                                              locks=locks,
                                              replicas_to_create=replicas_to_create,
@@ -153,14 +157,14 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                     dslock = session.query(models.DatasetLock).filter(models.DatasetLock.scope == dataset['scope'],
                                                                       models.DatasetLock.name == dataset['name'],
                                                                       models.DatasetLock.rule_id == rule.id,
-                                                                      models.DatasetLock.rse_id == rse_id).one()
+                                                                      models.DatasetLock.rse_id == rse_tuple[0]).one()
                     if dataset_is_replicating:
                         dslock.state = LockState.REPLICATING
                 except NoResultFound:
                     models.DatasetLock(scope=dataset['scope'],
                                        name=dataset['name'],
                                        rule_id=rule.id,
-                                       rse_id=rse_id,
+                                       rse_id=rse_tuple[0],
                                        state=LockState.REPLICATING if dataset_is_replicating else LockState.OK,
                                        account=rule.account).save(flush=False, session=session)
 
@@ -200,10 +204,10 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                 if replica.state == ReplicaState.BEING_DELETED:
                     blacklist.add(replica.rse_id)
         if len(preferred_rse_ids) == 0:
-            rse_ids = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)], list(blacklist))
+            rse_tuples = rseselector.select_rse(bytes, [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)], list(blacklist))
         else:
-            rse_ids = rseselector.select_rse(bytes, preferred_rse_ids, list(blacklist))
-        for rse_id in rse_ids:
+            rse_tuples = rseselector.select_rse(bytes, preferred_rse_ids, list(blacklist))
+        for rse_tuple in rse_tuples:
             dataset_is_replicating = False
             for file in dataset['files']:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
@@ -211,7 +215,8 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                 if __create_lock_and_replica(file=file,
                                              dataset=dataset,
                                              rule=rule,
-                                             rse_id=rse_id,
+                                             rse_id=rse_tuple[0],
+                                             staging_area=rse_tuple[1],
                                              locks_to_create=locks_to_create,
                                              locks=locks,
                                              replicas_to_create=replicas_to_create,
@@ -224,21 +229,21 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                     dslock = session.query(models.DatasetLock).filter(models.DatasetLock.scope == dataset['scope'],
                                                                       models.DatasetLock.name == dataset['name'],
                                                                       models.DatasetLock.rule_id == rule.id,
-                                                                      models.DatasetLock.rse_id == rse_id).one()
+                                                                      models.DatasetLock.rse_id == rse_tuple[0]).one()
                     if dataset_is_replicating:
                         dslock.state = LockState.REPLICATING
                 except NoResultFound:
                     models.DatasetLock(scope=dataset['scope'],
                                        name=dataset['name'],
                                        rule_id=rule.id,
-                                       rse_id=rse_id,
+                                       rse_id=rse_tuple[0],
                                        state=LockState.REPLICATING if dataset_is_replicating else LockState.OK,
                                        account=rule.account).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
 
-def __create_lock_and_replica(file, dataset, rule, rse_id, locks_to_create, locks, replicas_to_create, replicas, transfers_to_create):
+def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, replicas_to_create, replicas, transfers_to_create):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
@@ -246,6 +251,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, locks_to_create, lock
     :param dataset:              Dataset dictionary holding the dataset information.
     :param rule:                 Rule object.
     :param rse_id:               RSE id the lock and replica should be created at.
+    :param staging_area:         Boolean variable if the RSE is a staging area.
     :param locks_to_create:      Dictionary of the locks to create.
     :param locks:                Dictionary of all locks.
     :param replicas_to_create:   Dictionary of the replicas to create.
@@ -258,6 +264,14 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, locks_to_create, lock
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
     if len(existing_replicas) > 0:  # A replica already exists
         existing_replica = existing_replicas[0]
+        if staging_area:  # Staging pin has to be extended
+            lifetime = rule.expires_at - datetime.utcnow()
+            lifetime = lifetime.seconds()
+            transfers_to_create.append({'dest_rse_id': rse_id,
+                                        'scope': file['scope'],
+                                        'name': file['name'],
+                                        'attributes': {'lifetime': lifetime},
+                                        'request_type': RequestType.STAGEIN})
         if existing_replica.state == ReplicaState.AVAILABLE:  # Replica is fully available
             new_lock = __create_lock(rule=rule,
                                      rse_id=rse_id,
@@ -307,11 +321,21 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, locks_to_create, lock
             locks_to_create[rse_id] = []
         locks_to_create[rse_id].append(new_lock)
         locks[(file['scope'], file['name'])].append(new_lock)
-        transfers_to_create.append({'dest_rse_id': rse_id,
-                                    'scope': file['scope'],
-                                    'name': file['name'],
-                                    'attributes': {},
-                                    'request_type': RequestType.TRANSFER})
+        if staging_area:  # If the target RSE is a staging area
+            lifetime = rule.expires_at - datetime.utcnow()
+            lifetime = lifetime.seconds()
+            transfers_to_create.append({'dest_rse_id': rse_id,
+                                        'scope': file['scope'],
+                                        'name': file['name'],
+                                        'attributes': {'lifetime': lifetime},
+                                        'request_type': RequestType.STAGEIN})
+        else:  # Target RSE is not a staging area
+            transfers_to_create.append({'dest_rse_id': rse_id,
+                                        'scope': file['scope'],
+                                        'name': file['name'],
+                                        'attributes': {},
+                                        'request_type': RequestType.TRANSFER})
+
         return True
 
 

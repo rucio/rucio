@@ -43,7 +43,7 @@ region = make_region(function_key_generator=my_key_generator).configure(
 @transactional_session
 def parse_expression(expression, session):
     """
-    Parse a RSE expression and return the list of available RSE-ids.
+    Parse a RSE expression and return the list of RSE dictionaries.
 
     :param expression:  RSE expression, e.g: 'CERN|BNL'
     :param session:     Database session in use
@@ -72,7 +72,10 @@ def parse_expression(expression, session):
         else:
             if match.group() != expression:
                 raise InvalidRSEExpression('Expression does not comply to RSE Expression syntax')
-        result = list(__resolve_term_expression(expression)[0].resolve_elements(session=session))
+        result_tuple = __resolve_term_expression(expression)[0].resolve_elements(session=session)
+        result = []
+        for rse in list(result_tuple[0]):
+            result.append(result_tuple[1][rse])
         random.shuffle(result)
         if not result:
             raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
@@ -179,8 +182,8 @@ class BaseExpressionElement:
         Resolve the ExpressionElement and return a set of RSE ids
 
         :param session:  Database session in use
-        :returns:        Set of RSE ids
-        :rtype:          Set of Strings
+        :returns:        (Set of RSE ids, Dictionary of RSE dicts)
+        :rtype:          (Set of Strings, Dictionary of RSE dicts organized by rse_id)
         """
         pass
 
@@ -203,8 +206,11 @@ class RSEAttribute(BaseExpressionElement):
         """
         output = list_rses({self.key: self.value, 'write': True}, session=session)
         if not output:
-            return set()
-        return set([rse['id'] for rse in output])
+            return (set(), {})
+        rse_dict = {}
+        for rse in output:
+            rse_dict[rse['id']] = rse
+        return (set([rse['id'] for rse in output]), rse_dict)
 
 
 class BaseRSEOperator(BaseExpressionElement):
@@ -258,7 +264,9 @@ class ComplementOperator(BaseRSEOperator):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        return self.left_term.resolve_elements(session=session) - self.right_term.resolve_elements(session=session)
+        left_term_tuple = self.left_term.resolve_elements(session=session)
+        right_term_tuple = self.right_term.resolve_elements(session=session)
+        return (left_term_tuple[0] - right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
 
 
 class UnionOperator(BaseRSEOperator):
@@ -290,7 +298,9 @@ class UnionOperator(BaseRSEOperator):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        return self.left_term.resolve_elements(session=session) | self.right_term.resolve_elements(session=session)
+        left_term_tuple = self.left_term.resolve_elements(session=session)
+        right_term_tuple = self.right_term.resolve_elements(session=session)
+        return (left_term_tuple[0] | right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
 
 
 class IntersectOperator(BaseRSEOperator):
@@ -322,4 +332,6 @@ class IntersectOperator(BaseRSEOperator):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        return self.left_term.resolve_elements(session=session) & self.right_term.resolve_elements(session=session)
+        left_term_tuple = self.left_term.resolve_elements(session=session)
+        right_term_tuple = self.right_term.resolve_elements(session=session)
+        return (left_term_tuple[0] & right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
