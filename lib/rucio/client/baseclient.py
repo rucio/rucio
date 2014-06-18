@@ -217,7 +217,7 @@ class BaseClient(object):
         if headers is not None:
             hds.update(headers)
 
-        while retry < self.request_retries:
+        while retry <= self.request_retries:
             try:
                 if type == 'GET':
                     r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
@@ -237,7 +237,7 @@ class BaseClient(object):
                     raise
                 continue
 
-            if r.status_code == codes.unauthorized:
+            if r and r.status_code == codes.unauthorized:
                 self.__get_token()
                 hds['X-Rucio-Auth-Token'] = self.auth_token
                 retry += 1
@@ -374,7 +374,7 @@ class BaseClient(object):
 
         retry = 0
         LOG.debug('get a new token')
-        while retry < self.AUTH_RETRIES:
+        while retry <= self.AUTH_RETRIES:
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
                     raise CannotAuthenticate('userpass authentication failed')
