@@ -237,7 +237,7 @@ class BaseClient(object):
                     raise
                 continue
 
-            if r and r.status_code == codes.unauthorized:
+            if r is not None and r.status_code == codes.unauthorized:
                 self.__get_token()
                 hds['X-Rucio-Auth-Token'] = self.auth_token
                 retry += 1
