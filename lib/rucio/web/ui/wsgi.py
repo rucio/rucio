@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 import os
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rucio.web.monitor.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rucio.web.ui.settings")
 
 from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()

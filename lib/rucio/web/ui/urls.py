@@ -10,7 +10,7 @@
 
 from django.conf.urls import patterns, url
 
-from rucio.web.monitor.views import main
+from rucio.web.ui.views import main
 
 urlpatterns = patterns('',
                        url(r'^$', main.index, name='index'))

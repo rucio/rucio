@@ -15,18 +15,18 @@ SECRET_KEY = '0xDEADBEEF'
 DEBUG = True
 TEMPLATE_DEBUG = True
 ALLOWED_HOSTS = []
-ROOT_URLCONF = 'rucio.web.monitor.urls'
-WSGI_APPLICATION = 'rucio.web.monitor.wsgi.application'
+ROOT_URLCONF = 'rucio.web.ui.urls'
+WSGI_APPLICATION = 'rucio.web.ui.wsgi.application'
 DATABASES = {}
 LANGUAGE_CODE = 'en-gb'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
-STATIC_URL = '/monitor/static/'
+STATIC_URL = '/ui/static/'
 
 INSTALLED_APPS = (
-    'rucio.web.monitor',
+    'rucio.web.ui',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
