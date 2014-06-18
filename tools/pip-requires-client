@@ -10,4 +10,4 @@ requests-kerberos==0.5   # A Kerberos authentication handler for python-requests
 urllib3==1.8.2           # HTTP library with thread-safe connection pooling and file post support
 wsgiref==0.1.2           # WSGI (PEP 333) Reference Library
 dogpile.core==0.4.1      # Caching API
-dogpile.cache==0.5.3     # Caching API plugins
+dogpile.cache==0.5.4     # Caching API plugins

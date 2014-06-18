@@ -5,6 +5,7 @@
 # psycopg2==2.5.2          # PostgreSQL
 SQLAlchemy==0.9.4          # db backend
 alembic==0.6.5             # Lightweight database migration tool for SQLAlchemy
+Mako==1.0.0                # Templating language
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
 web.py==0.37               # Python web framework
 #python-memcached          # Cache

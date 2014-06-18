@@ -10,6 +10,7 @@ include lib/rucio/db/migrate_repo/script.py.mako
 include tools/pip-requires-client
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.template
+recursive-include lib/rucio/db/migrate_repo/versions/*.py
 graft doc
 graft tools/probes
 prune dist
