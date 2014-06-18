@@ -229,10 +229,12 @@ class BaseClient(object):
                     r = delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
-            except SSLError:
-                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
-                self.ca_cert = False
+            except SSLError, e:
+                LOG.warning('SSLError: ' + str(e))
                 retry += 1
+                self.ca_cert = False
+                if retry > self.request_retries:
+                    raise
                 continue
 
             if r.status_code == codes.unauthorized:
@@ -258,8 +260,8 @@ class BaseClient(object):
         while retry < self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, verify=self.ca_cert)
-            except SSLError:
-                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
+            except SSLError, e:
+                LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
                 retry += 1
                 continue
@@ -313,8 +315,8 @@ class BaseClient(object):
         while retry < self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, cert=cert, verify=self.ca_cert)
-            except SSLError:
-                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
+            except SSLError, e:
+                LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
                 retry += 1
                 continue
@@ -346,8 +348,8 @@ class BaseClient(object):
         while retry < self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
-            except SSLError:
-                LOG.warning('Couldn\'t verify ca cert. Using unverified connection')
+            except SSLError, e:
+                LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
                 retry += 1
                 continue
