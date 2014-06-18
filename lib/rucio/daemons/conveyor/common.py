@@ -35,7 +35,7 @@ def update_request_state(req, response, session):
     :param session: The database session to use.
     :returns commit_or_rollback: Boolean.
     """
-    logging.debug('Running on request %s' % (str(req)))
+    logging.debug('UPDATING REQUEST %s' % (str(req)))
     if response['new_state']:
 
         rse_name = None
@@ -80,7 +80,7 @@ def update_request_state(req, response, session):
 
             tss = time.time()
             try:
-                logging.debug('Will update replica state for %s:%s at %s' % (req['scope'], req['name'], rse_name))
+                logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], rse_name))
                 replica.update_replicas_states([{'rse': rse_name,
                                                  'scope': req['scope'],
                                                  'name': req['name'],

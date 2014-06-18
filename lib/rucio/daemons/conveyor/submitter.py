@@ -74,7 +74,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                     session=session)
 
             if reqs:
-                logging.debug('Getting %s requests to submit' % (str(len(reqs))))
+                logging.debug('getting %s requests to submit' % (str(len(reqs))))
             record_timer('daemons.conveyor.submitter.get_next', (time.time() - ts) * 1000)
 
             if reqs is None or reqs == []:
@@ -158,17 +158,32 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 pfn = {}
                 if not rse_info['deterministic']:
                     ts = time.time()
+
+                    # select a containing dataset
                     for parent in did.list_parent_dids(req['scope'], req['name'], session=session):
                         if parent['type'] == DIDType.DATASET:
                             dsn = parent['name']
                             break
                     record_timer('daemons.conveyor.submitter.list_parent_dids', (time.time() - ts) * 1000)
 
+                    # always use SRM
                     ts = time.time()
-                    nondet = rsemgr.create_protocol(rse_info, 'write', scheme='srm')  # always use SRM
+                    nondet = rsemgr.create_protocol(rse_info, 'write', scheme='srm')
                     record_timer('daemons.conveyor.submitter.create_protocol', (time.time() - ts) * 1000)
 
-                    pfn['%s:%s' % (req['scope'], req['name'])] = nondet.path2pfn(construct_surl_DQ2(dsn, req['name']))
+                    # if there exists a prefix for SRM, use it
+                    prefix = ''
+                    for s in rse_info['protocols']:
+                        if s['scheme'] == 'srm':
+                            prefix = s['prefix']
+
+                    # DQ2 path always starts with /, but prefix might not end with /
+                    tmp_path = '%s%s' % (prefix[:-1], construct_surl_DQ2(dsn, req['name']))
+                    if prefix[-1] != '/':
+                        tmp_path = '%s%s' % (prefix, construct_surl_DQ2(dsn, req['name']))
+
+                    # add the hostname
+                    pfn['%s:%s' % (req['scope'], req['name'])] = nondet.path2pfn(tmp_path)
                 else:
                     ts = time.time()
                     pfn = rsemgr.lfns2pfns(rse_info,
@@ -229,7 +244,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                 ts = time.time()
                 try:
-                    logging.debug('Will update replica state for %s:%s at %s' % (req['scope'], req['name'], req['dest_rse_id']))
+                    logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], req['dest_rse_id']))
                     replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
                                                               'scope': req['scope'],
                                                               'name': req['name'],
@@ -258,7 +273,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     # The replica doesn't exist
                     # Need to cancel the request
                     logging.warning(e)
-                    logging.info('Canceling FTS request %s' % req['request_id'])
+                    logging.info('Cancelling transfer request %s' % req['request_id'])
                     try:
                         request.cancel_request(req['request_id'], transfertool='fts3')
                         request.purge_request(req['request_id'], session=session)
@@ -266,11 +281,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     except Exception, e:
                         logging.warning('Cannot cancel FTS job : %s' % str(e))
                         session.rollback()
-
         except:
             session.rollback()
             logging.critical(traceback.format_exc())
-            logging.info('Canceling FTS request %s' % req['request_id'])
+            logging.info('Cancelling transfer request %s' % req['request_id'])
             try:
                 request.cancel_request(req['request_id'], transfertool='fts3')
             except Exception, e:
