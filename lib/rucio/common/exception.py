@@ -462,6 +462,12 @@ class SourceNotFound(RucioException):
         self._message = "Source file not found."
 
 
+class StagingAreaRuleRequiresLifetime(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(StagingAreaRuleRequiresLifetime, self).__init__(args, kwargs)
+        self._message = "A rule involving a staging area requires a lifetime!"
+
+
 class SubscriptionDuplicate(RucioException):
     def __init__(self, *args, **kwargs):
         super(SubscriptionDuplicate, self).__init__(args, kwargs)

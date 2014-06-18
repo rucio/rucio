@@ -23,31 +23,37 @@ class RSESelector():
     """
 
     @read_session
-    def __init__(self, account, rse_ids, weight, copies, session=None):
+    def __init__(self, account, rses, weight, copies, session=None):
         """
         Initialize the RSE Selector.
 
         :param account:  Account owning the rule.
-        :param rse_ids:  List of rse_ids.
+        :param rses:     List of rse dictionaries.
         :param weight:   Weighting to use.
         :param copies:   Number of copies to create.
         :param session:  DB Session in use.
         :raises:         InvalidRuleWeight, InsufficientAccountLimit, InsufficientTargetRSEs
         """
         self.account = account
-        self.rses = []
+        self.rses = []  # [{'rse_id':, 'weight':, 'staging_area'}]
         self.copies = copies
         if weight is not None:
-            for rse_id in rse_ids:
-                attributes = list_rse_attributes(rse=None, rse_id=rse_id, session=session)
+            for rse in rses:
+                attributes = list_rse_attributes(rse=None, rse_id=rse['id'], session=session)
                 if weight not in attributes:
                     continue  # The RSE does not have the required weight set, therefore it is ignored
                 try:
-                    self.rses.append({'rse_id': rse_id, 'weight': float(attributes[weight])})
+                    self.rses.append({'rse_id': rse['id'],
+                                      'weight': float(attributes[weight]),
+                                      'staging_area': rse['staging_area']})
                 except ValueError:
-                    raise InvalidRuleWeight('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse_id, weight))
+                    raise InvalidRuleWeight('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse['id'], weight))
         else:
-            self.rses = [{'rse_id': rse_id, 'weight': 1} for rse_id in rse_ids]
+            for rse in rses:
+                self.rses.append({'rse_id': rse['id'],
+                                  'weight': 1,
+                                  'staging_area': rse['staging_area']})
+
         if len(self.rses) < self.copies:
             raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
@@ -68,7 +74,7 @@ class RSESelector():
         :param size:               Size of the block being replicated.
         :param preferred_rse_ids:  Ordered list of preferred rses. (If possible replicate to them)
         :param blacklist:          List of blacklisted rses. (Do not put replicas on these sites)
-        :returns:                  List of RSE ids.
+        :returns:                  List of (RSE_id, staging_area) tuples.
         :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
         """
 
@@ -87,27 +93,27 @@ class RSESelector():
 
         for copy in range(self.copies):
             # Remove rses already in the result set
-            rses = [rse for rse in rses if rse['rse_id'] not in result]
+            rses = [rse for rse in rses if rse['rse_id'] not in [item[0] for item in result]]
             # Prioritize the preffered rses
             preferred_rses = [rse for rse in rses if rse['rse_id'] in preferred_rse_ids]
             if preferred_rses:
-                rse_id = self.__choose_rse(preferred_rses)
+                rse = self.__choose_rse(preferred_rses)
             else:
-                rse_id = self.__choose_rse(rses)
-            result.append(rse_id)
-            self.__update_quota(rse_id, size)
+                rse = self.__choose_rse(rses)
+            result.append(rse)
+            self.__update_quota(rse, size)
         return result
 
-    def __update_quota(self, rse_id, size):
+    def __update_quota(self, rse, size):
         """
         Update the internal quota value.
 
-        :param rse_ids:  RSE-id to update.
+        :param rse:      RSE tuple to update.
         :param size:     Size to substract.
         """
 
         for element in self.rses:
-            if element['rse_id'] == rse_id:
+            if element['rse_id'] == rse[0]:
                 element['quota_left'] -= size
                 return
 
@@ -116,7 +122,7 @@ class RSESelector():
         Choose an RSE based on weighting.
 
         :param rses:  The rses to be considered for the choose.
-        :return:      The id of the chosen rse
+        :return:      The (rse_id, staging_area) tuple of the chosen RSE.
         """
 
         shuffle(rses)
@@ -125,4 +131,4 @@ class RSESelector():
         for rse in rses:
             weight += rse['weight']
             if pick <= weight:
-                return rse['rse_id']
+                return (rse['rse_id'], rse['staging_area'])
