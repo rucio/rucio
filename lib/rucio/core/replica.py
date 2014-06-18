@@ -474,12 +474,12 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     if not rse_id:
         rse_id = get_rse_id(rse=rse, session=session)
 
-    # filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE).\
+    # filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
     none_value = None  # Hack to get pep8 happy...
     query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
+        filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         order_by(models.RSEFileAssociation.tombstone).\
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
