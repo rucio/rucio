@@ -395,6 +395,7 @@ class RSE(BASE, SoftModelBase):
     rse_type = Column(RSEType.db_type(name='RSES_TYPE_CHK'), default=RSEType.DISK)
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
+    staging_area = Column(Boolean(name='RSE_STAGING_AREA_CHK'), default=False)
     city = Column(String(255))
     region_code = Column(String(2))
     country_name = Column(String(255))

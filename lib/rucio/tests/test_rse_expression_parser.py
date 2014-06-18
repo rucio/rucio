@@ -81,44 +81,44 @@ class TestRSEExpressionParserCore():
 
     def test_simple_rse_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE reference """
-        assert_equal(rse_expression_parser.parse_expression(self.rse1), [self.rse1_id])
+        assert_equal([rse['id'] for rse in rse_expression_parser.parse_expression(self.rse1)], [self.rse1_id])
 
     def test_attribute_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE attribute reference """
-        assert_equal(rse_expression_parser.parse_expression("%s=uk" % self.attribute), [self.rse4_id])
+        assert_equal([rse['id'] for rse in rse_expression_parser.parse_expression("%s=uk" % self.attribute)], [self.rse4_id])
 
     def test_tag_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE tag reference """
-        assert_equal(sorted(rse_expression_parser.parse_expression(self.tag1)), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression(self.tag1)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
 
     def test_parantheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test parantheses """
-        assert_equal(sorted(rse_expression_parser.parse_expression("(%s)" % self.tag1)), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("(%s)" % self.tag1)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
 
     def test_union(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test union operator """
-        assert_equal(sorted(rse_expression_parser.parse_expression("%s|%s" % (self.tag1, self.tag2))), sorted([self.rse1_id, self.rse2_id, self.rse3_id, self.rse4_id, self.rse5_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("%s|%s" % (self.tag1, self.tag2))]), sorted([self.rse1_id, self.rse2_id, self.rse3_id, self.rse4_id, self.rse5_id]))
 
     def test_complement(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test complement operator """
-        assert_equal(sorted(rse_expression_parser.parse_expression("%s\\%s" % (self.tag1, self.rse3))), sorted([self.rse1_id, self.rse2_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("%s\\%s" % (self.tag1, self.rse3))]), sorted([self.rse1_id, self.rse2_id]))
 
     def test_intersect(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test intersect operator """
-        assert_equal(rse_expression_parser.parse_expression("%s&%s=uk" % (self.tag2, self.attribute)), [self.rse4_id])
+        assert_equal([rse['id'] for rse in rse_expression_parser.parse_expression("%s&%s=uk" % (self.tag2, self.attribute))], [self.rse4_id])
 
     def test_order_of_operations(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test order of operations """
-        assert_equal(sorted(rse_expression_parser.parse_expression("%s\\%s|%s=fr" % (self.tag1, self.rse3, self.attribute))), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
-        assert_equal(sorted(rse_expression_parser.parse_expression("%s\\(%s|%s=fr)" % (self.tag1, self.rse3, self.attribute))), sorted([self.rse1_id, self.rse2_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("%s\\%s|%s=fr" % (self.tag1, self.rse3, self.attribute))]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("%s\\(%s|%s=fr)" % (self.tag1, self.rse3, self.attribute))]), sorted([self.rse1_id, self.rse2_id]))
 
     def test_complicated_expression_1(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
-        assert_equal(sorted(rse_expression_parser.parse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
 
     def test_complicated_expression_2(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 2"""
-        assert_equal(sorted(rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))), sorted([self.rse1_id, self.rse2_id, self.rse5_id]))
+        assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))]), sorted([self.rse1_id, self.rse2_id, self.rse5_id]))
 
 
 class TestRSEExpressionParserClient():

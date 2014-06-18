@@ -219,6 +219,7 @@ CREATE TABLE rses (
     rse_type VARCHAR2(4 CHAR),
     deterministic NUMBER(1),
     volatile NUMBER(1),
+    staging_area NUMBER(1),
     city VARCHAR2(255 CHAR),
     region_code VARCHAR2(2 CHAR),
     country_name VARCHAR2(255 CHAR),
@@ -243,6 +244,7 @@ CREATE TABLE rses (
     CONSTRAINT "RSES_TYPE_CHK" CHECK (rse_type IN ('DISK', 'TAPE')),
     CONSTRAINT "RSE_DETERMINISTIC_CHK" CHECK (deterministic IN (0, 1)),
     CONSTRAINT "RSE_VOLATILE_CHK" CHECK (volatile IN (0, 1)),
+    CONSTRAINT "RSE_STAGING_AREA_CHK" CHECK (staging_area IN (0,1)),
     CONSTRAINT "RSES_DELETED_CHK" CHECK (deleted IN (0, 1))
 ) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
