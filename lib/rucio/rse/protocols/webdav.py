@@ -398,6 +398,7 @@ class Default(protocol.RSEProtocol):
 
             :returns: a dict with two keys, filesize and adler32 of the file provided in path.
         """
+        raise NotImplementedError
         headers = {'Depth': '1'}
         dict = {}
         try:

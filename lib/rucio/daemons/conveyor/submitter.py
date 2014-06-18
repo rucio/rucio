@@ -275,7 +275,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     logging.warning(e)
                     logging.info('Cancelling transfer request %s' % req['request_id'])
                     try:
-                        request.cancel_request(req['request_id'], transfertool='fts3')
+                        request.cancel_request(eid[req['request_id']], transfertool='fts3')
                         request.purge_request(req['request_id'], session=session)
                         session.commit()
                     except Exception, e:
@@ -286,7 +286,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
             logging.critical(traceback.format_exc())
             logging.info('Cancelling transfer request %s' % req['request_id'])
             try:
-                request.cancel_request(req['request_id'], transfertool='fts3')
+                request.cancel_request(eid[req['request_id']], transfertool='fts3')
             except Exception, e:
                 logging.warning('Cannot cancel FTS job : %s' % str(e))
 
