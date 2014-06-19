@@ -116,7 +116,6 @@ class SubscriptionState(DeclEnum):
 
 class RequestType(DeclEnum):
     TRANSFER = 'T', 'TRANSFER'
-    DELETE = 'D', 'DELETE'
     UPLOAD = 'U', 'UPLOAD'
     DOWNLOAD = 'D', 'DOWNLOAD'
     STAGEIN = 'I', 'STAGEIN'
