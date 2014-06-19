@@ -84,7 +84,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
             record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
-            logging.error(traceback.format_exc())
+            logging.critical(traceback.format_exc())
         if once:
             break
 
