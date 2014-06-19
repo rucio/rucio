@@ -7,8 +7,8 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 
-from django.http import response
 from django.shortcuts import render_to_response
 
 from rucio import version
@@ -48,7 +48,7 @@ def index(request):
             except:
                 return render_to_response('problem.html', locals())
 
-            #response.set_cookie('x-rucio-auth-token', value=token, max_age=3600)
+            # response.set_cookie('x-rucio-auth-token', value=token, max_age=3600)
             js_token = __to_js('token', token)
         else:
             js_token = __to_js('token', session_token)
