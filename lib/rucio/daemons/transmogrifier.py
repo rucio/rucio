@@ -23,7 +23,7 @@ from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.rule import add_replication_rule
 from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
-from rucio.common.exception import DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, InvalidRSEExpression, InsufficientTargetRSEs
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
 from rucio.core import monitor
@@ -152,7 +152,9 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                         add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rule['rse_expression'],
                                                              grouping=grouping, weight=None, lifetime=lifetime, locked=False, subscription_id=subscription['id'], issuer='root')
                                         monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
-                                        if subscription['name'].startswith('group'):
+                                        if subscription['name'].find('test') > -1:
+                                            monitor.record_counter(counters='transmogrifier.addnewrule.activity.test', delta=1)
+                                        elif subscription['name'].startswith('group'):
                                             monitor.record_counter(counters='transmogrifier.addnewrule.activity.group', delta=1)
                                         elif subscription['name'].startswith('tier0export'):
                                             monitor.record_counter(counters='transmogrifier.addnewrule.activity.tier0export', delta=1)
@@ -163,12 +165,26 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                     except InvalidReplicationRule, e:
                                         logging.error('Thread %i : %s' % (worker_number, str(e)))
                                         monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.errortype.InvalidReplicationRule', delta=1)
                                     except InvalidRSEExpression, e:
                                         logging.error('Thread %i : %s' % (worker_number, str(e)))
                                         monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.errortype.InvalidRSEExpression', delta=1)
                                     except InsufficientTargetRSEs, e:
+                                        # For the future might need a retry
                                         logging.error('Thread %i : %s' % (worker_number, str(e)))
                                         monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.errortype.InsufficientTargetRSEs', delta=1)
+                                    except InsufficientAccountLimit, e:
+                                        # For the future might need a retry
+                                        logging.error('Thread %i : %s' % (worker_number, str(e)))
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.errortype.InsufficientAccountLimit', delta=1)
+                                    except Exception, e:
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.error', delta=1)
+                                        monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
+                                        exc_type, exc_value, exc_traceback = exc_info()
+                                        logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
                                 logging.info('Thread %i :Rule inserted in %f seconds' % (worker_number, time.time()-stime))
                     except DataIdentifierNotFound, e:
                         logging.warning(e)
