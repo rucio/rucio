@@ -50,6 +50,8 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
     while not graceful_stop.is_set():
         try:
             # Select a bunch of rules for this worker to clean
+            # TODO: This block must be in core/rule.py in a method: List_expired_rules
+            # See [RUCIO-468]
             session = rucio_session.get_session()
             query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.expires_at < datetime.utcnow()).\
                 with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
@@ -66,7 +68,7 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                     query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
 
             start = time.time()
-            rules = query.limit(1000).all()
+            rules = query.yield_per(1000).limit(1000).all()
             session.commit()
             session.remove()
             logging.debug('rule_cleaner index query time %f rule-size=%d' % (time.time() - start, len(rules)))
