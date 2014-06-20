@@ -671,7 +671,7 @@ class Request(BASE, ModelBase, Versioned):
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
                    CheckConstraint('dest_rse_id IS NOT NULL', name='REQUESTS_RSE_ID_NN'),
                    Index('REQUESTS_ID_IDX', 'id'),
-                   Index('REQUESTS_TYP_STA_CRE_IDX', 'request_type', 'state', 'created_at')
+                   Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'updated_at')
                    )
 
 

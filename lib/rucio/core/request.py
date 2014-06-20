@@ -190,13 +190,13 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
     elif len(request_type) == 1:
         request_type = [request_type[0], request_type[0]]
 
-    query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_CRE_IDX)", 'oracle')\
+    query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
                                          .filter_by(state=state)\
                                          .filter(models.Request.request_type.in_(request_type))\
-                                         .order_by(asc(models.Request.created_at))
+                                         .order_by(asc(models.Request.updated_at))
 
     if isinstance(older_than, datetime.datetime):
-        query = query.filter(models.Request.created_at < older_than)
+        query = query.filter(models.Request.updated_at < older_than)
 
     if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':

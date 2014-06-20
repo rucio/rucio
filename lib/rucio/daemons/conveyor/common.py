@@ -23,9 +23,11 @@ from rucio.core import did, lock, replica, request, rse
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import RequestState, ReplicaState
+from rucio.db.session import transactional_session
 
 
-def update_request_state(req, response, session):
+@transactional_session
+def update_request_state(req, response, session=None):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
