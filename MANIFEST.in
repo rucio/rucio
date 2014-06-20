@@ -3,22 +3,21 @@ include AUTHORS
 include LICENSE
 include ChangeLog
 include README.rst
-include TODO
 include setup.py
 include setup.cfg
 include lib/rucio/db/migrate_repo/script.py.mako
 include tools/pip-requires-client
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.template
-recursive-include lib/rucio/db/migrate_repo/versions/*.py
+recursive-include lib/rucio/db/migrate_repo/versions *.py
+recursive-include tools/probes *
 graft doc
-graft tools/probes
 prune dist
 prune examples
 prune .coverage
 prune build/
 prune covhtml
-prune  doc/build/
+prune doc/build/
 prune lib/rucio*egg-info/
 prune tools/patches
 prune .tox

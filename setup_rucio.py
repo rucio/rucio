@@ -5,11 +5,10 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
 import glob
-import shutil
 import os
 import re
 import subprocess
@@ -37,34 +36,16 @@ packages = find_packages('lib/')
 description = "Rucio Package"
 IsRelease = False
 requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
-data_files = [('etc/', glob.glob('etc/*.template')),
-              ('etc/web', glob.glob('etc/web/*.template')),
-              ('etc/schemas', glob.glob('etc/schemas/*.json')),
-              ('tools/', glob.glob('tools/*]'))]
+data_files = [('rucio/etc/', glob.glob('etc/*.template')),
+              ('rucio/etc/web', glob.glob('etc/web/*.template')),
+              ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
+              ('rucio/tools/', glob.glob('tools/pip-requires*')),
+              ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*'))]
 
 scripts = glob.glob('bin/rucio*')
 
-# Arguments to the setup script to build Basic/Lite distributions
+# Arguments to the setup script to build stable release
 copy_args = sys.argv[1:]
-if '--client' in copy_args:
-    name = 'rucio-clients'
-    packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common',
-                'rucio.rse.protocols', 'rucio.rse', 'rucio.tests',
-                'rucio.tests.emulation', 'rucio.tests.emulation.usecases']
-    requirements_files = ['tools/pip-requires-client']
-    description = "Rucio Client Lite Package"
-    data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template']),
-                  ('tools/', ['tools/pip-requires-client', ]), ]
-
-    scripts = ['bin/rucio', 'bin/rucio-admin']
-    if os.path.exists('build/'):
-        shutil.rmtree('build/')
-    if os.path.exists('lib/rucio_clients.egg-info/'):
-        shutil.rmtree('lib/rucio_clients.egg-info/')
-    if os.path.exists('lib/rucio.egg-info/'):
-        shutil.rmtree('lib/rucio.egg-info/')
-    copy_args.remove('--client')
-
 if '--release' in copy_args:
     IsRelease = True
     copy_args.remove('--release')
