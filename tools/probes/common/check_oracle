@@ -24,8 +24,6 @@ UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 
 if __name__ == "__main__":
 
-    monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=100)
-
     sql_connection = config_get('database', 'default')
     user = 'XXXXX'
     password = 'XXXXX'
