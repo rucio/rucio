@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from django.shortcuts import render_to_response
 
@@ -48,7 +49,6 @@ def index(request):
             except:
                 return render_to_response('problem.html', locals())
 
-            # response.set_cookie('x-rucio-auth-token', value=token, max_age=3600)
             js_token = __to_js('token', token)
         else:
             js_token = __to_js('token', session_token)
@@ -56,4 +56,8 @@ def index(request):
     else:
         return render_to_response('problem.html', locals())
 
-    return render_to_response('index.html', locals())
+    response = render_to_response('index.html', locals())
+    if session_token is None:
+        response.set_cookie('x-rucio-auth-token', value=token, max_age=3600)
+
+    return response
