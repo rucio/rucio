@@ -189,8 +189,9 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='POST', data=render_json_list(attachments))
-        if r.status_code == codes.created:
+        if r.status_code in (codes.ok, codes.no_content, codes.created):
             return True
+
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
 
@@ -377,11 +378,11 @@ class DIDClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps(kwargs)
         r = self._send_request(url, type='PUT', data=data)
-        if r.status_code == codes.ok or r.status_code == codes.no_content:
+        if r.status_code in (codes.ok, codes.no_content, codes.created):
             return True
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
-            raise exc_cls(exc_msg)
+
+        exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+        raise exc_cls(exc_msg)
 
     def close(self, scope, name):
         """
