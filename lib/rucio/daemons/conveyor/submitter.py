@@ -232,12 +232,12 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     tmp_metadata['previous_attempt_id'] = req['previous_attempt_id']
 
                 # Extend the metadata dictionary with request attributes
-                if req.attributes:
-                    attr = eval(req.attributes)
+                if req['attributes']:
+                    attr = eval(req['attributes'])
                     tmp_metadata.update(attr)
 
                 # in case of stage request, restrict source url to destination url
-                if req.request_type == RequestType.STAGEIN:
+                if req['request_type'] == RequestType.STAGEIN:
                     tmp_sources = []
                     for s in sources:
                         for d in destinations:
