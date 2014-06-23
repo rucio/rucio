@@ -156,6 +156,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                 dsn = 'other'
                 pfn = {}
+                paths = {}
                 if not rse_info['deterministic']:
                     ts = time.time()
 
@@ -181,6 +182,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     tmp_path = '%s%s' % (prefix[:-1], construct_surl_DQ2(dsn, req['name']))
                     if prefix[-1] != '/':
                         tmp_path = '%s%s' % (prefix, construct_surl_DQ2(dsn, req['name']))
+                    paths[req['scope'], req['name']] = construct_surl_DQ2(dsn, req['name'])
 
                     # add the hostname
                     pfn['%s:%s' % (req['scope'], req['name'])] = nondet.path2pfn(tmp_path)
@@ -245,11 +247,19 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 ts = time.time()
                 try:
                     logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], req['dest_rse_id']))
-                    replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
-                                                              'scope': req['scope'],
-                                                              'name': req['name'],
-                                                              'state': ReplicaState.COPYING}],
-                                                   session=session)
+                    if rse_info['deterministic']:
+                        replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
+                                                                  'scope': req['scope'],
+                                                                  'name': req['name'],
+                                                                  'state': ReplicaState.COPYING}],
+                                                       session=session)
+                    else:
+                        replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
+                                                                  'scope': req['scope'],
+                                                                  'name': req['name'],
+                                                                  'path': paths[req['scope'], req['name']],
+                                                                  'state': ReplicaState.COPYING}],
+                                                       session=session)
                     record_timer('daemons.conveyor.submitter.replica-set_copying', (time.time() - ts) * 1000)
 
                     if req['previous_attempt_id']:
