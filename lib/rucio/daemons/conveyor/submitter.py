@@ -103,19 +103,21 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                         # TODO: Source protection
 
+                        filesize = long(source['bytes'])
+                        md5 = source['md5']
+                        adler32 = source['adler32']
+                        src_spacetoken = source['space_token'] if 'space_token' in source.keys() else None
+
                         for source_rse in source['rses']:
                             if req['request_type'] == RequestType.STAGEIN:
                                 if dest_rse['rse'] == '%s_STAGING' % (source_rse):
                                     for pfn in source['rses'][source_rse]:
                                         tmpsrc.append((str(source_rse), str(pfn)))
+                                        src_spacetoken = source['space_token'] if 'space_token' in source.keys() else None
                             else:
                                 for pfn in source['rses'][source_rse]:
                                     tmpsrc.append((str(source_rse), str(pfn)))
 
-                        filesize = long(source['bytes'])
-                        md5 = source['md5']
-                        adler32 = source['adler32']
-                        src_spacetoken = source['space_token'] if 'space_token' in source.keys() else None
                 except DataIdentifierNotFound:
                     record_counter('daemons.conveyor.submitter.lost_did')
                     logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
