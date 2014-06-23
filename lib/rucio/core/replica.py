@@ -544,7 +544,10 @@ def update_replicas_states(replicas, session=None):
         if replica['state'] == ReplicaState.BEING_DELETED:
             query = query.filter_by(lock_cnt=0)
 
-        rowcount = query.update({'state': replica['state']})
+        if 'path' in replica and replica['path']:
+            rowcount = query.update({'state': replica['state'], 'path': replica['path']})
+        else:
+            rowcount = query.update({'state': replica['state']})
 
         if not rowcount:
             raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s cannot be updated' % replica)
