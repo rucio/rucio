@@ -322,12 +322,12 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
         locks_to_create[rse_id].append(new_lock)
         locks[(file['scope'], file['name'])].append(new_lock)
         if staging_area:  # If the target RSE is a staging area
-            querytime = rule.expires_at - datetime.utcnow()
-            querytime = querytime.seconds
+            lifetime = rule.expires_at - datetime.utcnow()
+            lifetime = lifetime.seconds
             transfers_to_create.append({'dest_rse_id': rse_id,
                                         'scope': file['scope'],
                                         'name': file['name'],
-                                        'attributes': {'lifetime': querytime},
+                                        'attributes': {'lifetime': lifetime},
                                         'request_type': RequestType.STAGEIN})
         else:  # Target RSE is not a staging area
             transfers_to_create.append({'dest_rse_id': rse_id,
