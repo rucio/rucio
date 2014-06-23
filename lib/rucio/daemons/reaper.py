@@ -177,6 +177,8 @@ def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], sche
     if not rses:
         rses = rse_core.list_rses()
 
+    # rses = [rse for rse in rses if rse['rse'] == 'NDGF-T1-RUCIOTEST_DATADISK']
+
     threads = list()
     nb_rses_per_worker = len(rses) / total_workers
     r = []
