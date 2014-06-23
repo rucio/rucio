@@ -231,6 +231,20 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 if 'previous_attempt_id' in req and req['previous_attempt_id']:
                     tmp_metadata['previous_attempt_id'] = req['previous_attempt_id']
 
+                # Extend the metadata dictionary with request attributes
+                if req.attributes:
+                    attr = eval(req.attributes)
+                    tmp_metadata.update(attr)
+
+                # in case of stage request, restrict source url to destination url
+                if req.request_type == RequestType.STAGEIN:
+                    tmp_sources = []
+                    for s in sources:
+                        for d in destinations:
+                            if s[1] == d:
+                                tmp_sources.append(s)
+                    sources = tmp_sources
+
                 eid = request.submit_transfers(transfers=[{'request_id': req['request_id'],
                                                            'src_urls': [s[1] for s in sources],
                                                            'dest_urls': destinations,
