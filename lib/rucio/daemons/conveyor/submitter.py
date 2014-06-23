@@ -91,6 +91,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 md5 = None
                 adler32 = None
                 src_spacetoken = None
+                logging.debug(req)
+                dest_rse = rse.get_rse_by_id(req['dest_rse_id'], session=session)
 
                 try:
                     for source in replica.list_replicas(dids=[{'scope': req['scope'],
@@ -102,8 +104,14 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                         # TODO: Source protection
 
                         for source_rse in source['rses']:
-                            for pfn in source['rses'][source_rse]:
-                                tmpsrc.append((str(source_rse), str(pfn)))
+                            if req['request_type'] == RequestType.STAGEIN:
+                                if dest_rse['rse'] == '%s_STAGING' % (source_rse):
+                                    for pfn in source['rses'][source_rse]:
+                                        tmpsrc.append((str(source_rse), str(pfn)))
+                            else:
+                                for pfn in source['rses'][source_rse]:
+                                    tmpsrc.append((str(source_rse), str(pfn)))
+
                         filesize = long(source['bytes'])
                         md5 = source['md5']
                         adler32 = source['adler32']
@@ -151,7 +159,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 record_timer('daemons.conveyor.submitter.list_replicas', (time.time() - ts) * 1000)
 
                 ts = time.time()
-                rse_info = rsemgr.get_rse_info(rse.get_rse_by_id(req['dest_rse_id'], session=session)['rse'])
+                rse_info = rsemgr.get_rse_info(dest_rse['rse'])
                 record_timer('daemons.conveyor.submitter.get_rse', (time.time() - ts) * 1000)
 
                 dsn = 'other'
@@ -179,13 +187,21 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                             prefix = s['prefix']
 
                     # DQ2 path always starts with /, but prefix might not end with /
-                    tmp_path = '%s%s' % (prefix[:-1], construct_surl_DQ2(dsn, req['name']))
+                    path = construct_surl_DQ2(dsn, req['name'])
+
+                    tmp_path = '%s%s' % (prefix[:-1], path)
                     if prefix[-1] != '/':
-                        tmp_path = '%s%s' % (prefix, construct_surl_DQ2(dsn, req['name']))
-                    paths[req['scope'], req['name']] = construct_surl_DQ2(dsn, req['name'])
+                        tmp_path = '%s%s' % (prefix, path)
+                    paths[req['scope'], req['name']] = path
 
                     # add the hostname
                     pfn['%s:%s' % (req['scope'], req['name'])] = nondet.path2pfn(tmp_path)
+                    if req['request_type'] == RequestType.STAGEIN:
+                        if len(sources) == 1:
+                            pfn['%s:%s' % (req['scope'], req['name'])] = sources[0][1]
+                        else:
+                            raise
+
                 else:
                     ts = time.time()
                     pfn = rsemgr.lfns2pfns(rse_info,
@@ -232,18 +248,13 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     tmp_metadata['previous_attempt_id'] = req['previous_attempt_id']
 
                 # Extend the metadata dictionary with request attributes
-                if req['attributes']:
-                    attr = eval(req['attributes'])
-                    tmp_metadata.update(attr)
-
-                # in case of stage request, restrict source url to destination url
+                copy_pin_lifetime, overwrite, bring_online = -1, True, None
                 if req['request_type'] == RequestType.STAGEIN:
-                    tmp_sources = []
-                    for s in sources:
-                        for d in destinations:
-                            if s[1] == d:
-                                tmp_sources.append(s)
-                    sources = tmp_sources
+                    if req['attributes']:
+                        attr = eval(req['attributes'])
+                        copy_pin_lifetime = attr.get('lifetime')
+                    overwrite = False
+                    bring_online = True
 
                 eid = request.submit_transfers(transfers=[{'request_id': req['request_id'],
                                                            'src_urls': [s[1] for s in sources],
@@ -252,10 +263,14 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                            'md5': md5,
                                                            'adler32': adler32,
                                                            'src_spacetoken': src_spacetoken,
-                                                           'dest_spacetoken': dest_spacetoken}],
+                                                           'dest_spacetoken': dest_spacetoken,
+                                                           'overwrite': overwrite,
+                                                           'bring_online': bring_online,
+                                                           'copy_pin_lifetime': copy_pin_lifetime}],
                                                transfertool='fts3',
                                                job_metadata=tmp_metadata,
                                                session=session)
+
                 record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                 ts = time.time()
