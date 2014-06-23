@@ -31,7 +31,6 @@ if __name__ == '__main__':
     resp = requests.get(url=url)
     data = json.loads(resp.content)
 
-    rses = [u'TR-10-ULAKBIM_DATADISK', u'TR-10-ULAKBIM_LOCALGROUPDISK', u'TR-10-ULAKBIM_PRODDISK', u'TR-10-ULAKBIM_SCRATCHDISK']
     c = Client()
     for rse in data:
 
@@ -42,16 +41,6 @@ if __name__ == '__main__':
             continue
 
         # if not rse['name'].startswith('IN2P3-LAPP_'):
-        # if not rse['name'].startswith('LRZ-LMU'):
-        # if not rse['name'].startswith('INFN-FRASCATI'):
-        # if not rse['name'].startswith('IN2P3-LAPP_'):
-        # if not rse['name'].startswith('TAIWAN-LCG2'):
-
-        # if not rse['name'].startswith('IN2P3-CC_'):
-        #     continue
-
-        if rse['name'] not in rses:
-            continue
 
         try:
             deterministic = not rse['is_tape']
@@ -66,17 +55,17 @@ if __name__ == '__main__':
         space_token = rse['token']
 
         # Add mock protocol for testing
-        params = {'hostname': None,
+        params = {'hostname': 'mock.ndgf.org',
                   'scheme': 'mock',
                   'port': None,
-                  'prefix': prefix,
+                  'prefix': '',
                   'impl': 'rucio.rse.protocols.mock.Default',
                   'extended_attributes': None,
-                  'domains': {"lan": {"read": 1,
-                                      "write": 1,
+                  'domains': {"lan": {"read": 2,
+                                      "write": 2,
                                       "delete": 1},
-                              "wan": {"read": 1,
-                                      "write": 1,
+                              "wan": {"read": 2,
+                                      "write": 2,
                                       "delete": 1}}}
 
         # c.add_protocol(rse=rse['name'], params=params)
