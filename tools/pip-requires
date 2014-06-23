@@ -27,7 +27,7 @@ meld3==0.6.10              # an HTML/XML templating system for Python 2.3+
 # This must be installed before matplotlib !!!
 # numpy==1.6.1             # Numerical Python libs
 
-pysftp==0.2.2              # forces installation of paramikoi and pycrypto
+pysftp==0.2.8              # forces installation of paramikoi and pycrypto
 paramiko==1.7.7.2
 pycrypto==2.6
 s3cmd==1.5.0-alpha3        # Package built from http://s3tools.org/download
