@@ -40,6 +40,7 @@ data_files = [('rucio/etc/', glob.glob('etc/*.template')),
               ('rucio/etc/web', glob.glob('etc/web/*.template')),
               ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
               ('rucio/tools/', glob.glob('tools/pip-requires*')),
+              ('rucio/tools/', ['bootstrap.py', 'reset_database.py']),
               ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*'))]
 
 scripts = glob.glob('bin/rucio*')
