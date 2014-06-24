@@ -21,12 +21,13 @@ import traceback
 
 from rucio.core import monitor
 from rucio.core import rse as rse_core
+from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse_counter import get_counter
 from rucio.db.constants import ReplicaState
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
-from rucio.common.exception import SourceNotFound
+from rucio.common.exception import SourceNotFound, ServiceUnavailable
 from rucio.common.utils import chunks
 
 
@@ -125,6 +126,12 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                     try:
                         s = time.time()
                         update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
+
+                        for replica in files:
+                            add_message('deletion-planned', {'scope': replica['scope'],
+                                                             'name': replica['name'],
+                                                             'rse': rse_info['rse']})
+
                         # logging.debug('update_replicas_states %s' % (time.time() - s))
                         monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
 
@@ -132,9 +139,32 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                             for replica in files:
                                 try:
                                     logging.debug('Deletion of %s on %s' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
+                                    s = time.time()
                                     rsemgr.delete(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
+                                    duration = time.time() - s
+                                    add_message('deletion-done', {'scope': replica['scope'],
+                                                                  'name': replica['name'],
+                                                                  'rse': rse_info['rse'],
+                                                                  'duration': duration})
                                 except SourceNotFound:
-                                    logging.warning('File %s on %s not found (already deleted ?).' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
+                                    err_msg = 'File %s on %s not found (already deleted ?).' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse'])
+                                    logging.warning(err_msg)
+                                    add_message('deletion-failed', {'scope': replica['scope'],
+                                                                    'name': replica['name'],
+                                                                    'rse': rse_info['rse'],
+                                                                    'reason': err_msg})
+                                except ServiceUnavailable, e:
+                                    logging.error(str(e))
+                                    add_message('deletion-failed', {'scope': replica['scope'],
+                                                                    'name': replica['name'],
+                                                                    'rse': rse_info['rse'],
+                                                                    'reason': str(e)})
+                                except:
+                                    logging.critical(traceback.format_exc())
+                                    # add_message('deletion-failed', {'scope': replica['scope'],
+                                    #                              'name': replica['name'],
+                                    #                              'rse': rse_info['rse'],
+                                    #                              'reason': str(traceback.format_exc())})
 
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
