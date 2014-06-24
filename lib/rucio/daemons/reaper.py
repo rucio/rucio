@@ -128,8 +128,11 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
 
                         for replica in files:
+                            replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ]))
                             add_message('deletion-planned', {'scope': replica['scope'],
                                                              'name': replica['name'],
+                                                             'file-size': replica['bytes'],
+                                                             'url': replica['pfn'],
                                                              'rse': rse_info['rse']})
 
                         # logging.debug('update_replicas_states %s' % (time.time() - s))
@@ -138,26 +141,32 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         if not scheme:
                             for replica in files:
                                 try:
-                                    logging.debug('Deletion of %s on %s' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse']))
+                                    logging.debug('Deletion of %s on %s' % (replica['pfn'], rse['rse']))
                                     s = time.time()
                                     rsemgr.delete(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
                                     duration = time.time() - s
                                     add_message('deletion-done', {'scope': replica['scope'],
                                                                   'name': replica['name'],
                                                                   'rse': rse_info['rse'],
+                                                                  'file-size': replica['bytes'],
+                                                                  'url': replica['pfn'],
                                                                   'duration': duration})
                                 except SourceNotFound:
-                                    err_msg = 'File %s on %s not found (already deleted ?).' % (str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])), rse['rse'])
+                                    err_msg = 'File %s on %s not found (already deleted ?).' % (replica['pfn'], rse['rse'])
                                     logging.warning(err_msg)
                                     add_message('deletion-failed', {'scope': replica['scope'],
                                                                     'name': replica['name'],
                                                                     'rse': rse_info['rse'],
+                                                                    'file-size': replica['bytes'],
+                                                                    'url': replica['pfn'],
                                                                     'reason': err_msg})
                                 except ServiceUnavailable, e:
                                     logging.error(str(e))
                                     add_message('deletion-failed', {'scope': replica['scope'],
                                                                     'name': replica['name'],
                                                                     'rse': rse_info['rse'],
+                                                                    'file-size': replica['bytes'],
+                                                                    'url': replica['pfn'],
                                                                     'reason': str(e)})
                                 except:
                                     logging.critical(traceback.format_exc())
