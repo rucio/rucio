@@ -107,7 +107,7 @@ def submit_transfers(transfers, job_metadata):
                                   'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                                   'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                                   'job_metadata': job_metadata,
-                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else 'null',
+                                  'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
                                   'overwrite': transfer['overwrite']}}
 
         r = None
