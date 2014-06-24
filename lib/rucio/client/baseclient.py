@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -257,13 +257,15 @@ class BaseClient(object):
         url = build_url(self.auth_host, path='auth/userpass')
 
         retry = 0
-        while retry < self.AUTH_RETRIES:
+        while retry <= self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, verify=self.ca_cert)
             except SSLError, e:
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
                 retry += 1
+                if retry > self.request_retries:
+                    raise
                 continue
             break
 
@@ -312,13 +314,15 @@ class BaseClient(object):
         else:
             cert = (client_cert, client_key)
 
-        while retry < self.AUTH_RETRIES:
+        while retry <= self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, cert=cert, verify=self.ca_cert)
             except SSLError, e:
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
                 retry += 1
+                if retry > self.request_retries:
+                    raise
                 continue
             break
 
@@ -345,13 +349,15 @@ class BaseClient(object):
         url = build_url(self.auth_host, path='auth/gss')
 
         retry = 0
-        while retry < self.AUTH_RETRIES:
+        while retry <= self.AUTH_RETRIES:
             try:
                 r = get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
             except SSLError, e:
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
                 retry += 1
+                if retry > self.request_retries:
+                    raise
                 continue
             break
 
