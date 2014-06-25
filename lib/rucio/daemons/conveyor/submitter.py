@@ -93,6 +93,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 src_spacetoken = None
                 logging.debug(req)
                 dest_rse = rse.get_rse_by_id(req['dest_rse_id'], session=session)
+                allowed_rses = []
+                if req['request_type'] == RequestType.STAGEIN:
+                    rses = rse.list_rses(filters={'staging_buffer': dest_rse['rse']}, session=session)
+                    allowed_rses = [x['rse'] for x in rses]
 
                 try:
                     for source in replica.list_replicas(dids=[{'scope': req['scope'],
@@ -101,17 +105,17 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                         schemes=[scheme],
                                                         session=session):
 
-                        # TODO: Source protection
-
                         filesize = long(source['bytes'])
                         md5 = source['md5']
                         adler32 = source['adler32']
+                        # TODO: Source protection
 
                         for source_rse in source['rses']:
                             if req['request_type'] == RequestType.STAGEIN:
-                                if dest_rse['rse'] == '%s_STAGING' % (source_rse):
+                                if source_rse in allowed_rses:
                                     for pfn in source['rses'][source_rse]:
-                                        tmpsrc.append((str(source_rse), str(pfn)))
+                                        # In case of staging request, we only use one source
+                                        tmpsrc = [(str(source_rse), str(pfn)), ]
                             else:
                                 for pfn in source['rses'][source_rse]:
                                     tmpsrc.append((str(source_rse), str(pfn)))
@@ -254,7 +258,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                         attr = eval(req['attributes'])
                         copy_pin_lifetime = attr.get('lifetime')
                     overwrite = False
-                    bring_online = True
+                    bring_online = 3600
 
                 eid = request.submit_transfers(transfers=[{'request_id': req['request_id'],
                                                            'src_urls': [s[1] for s in sources],
@@ -266,7 +270,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                            'dest_spacetoken': dest_spacetoken,
                                                            'overwrite': overwrite,
                                                            'bring_online': bring_online,
-                                                           'copy_pin_lifetime': copy_pin_lifetime}],
+                                                           'copy_pin_lifetime': copy_pin_lifetime}, ],
                                                transfertool='fts3',
                                                job_metadata=tmp_metadata,
                                                session=session)
