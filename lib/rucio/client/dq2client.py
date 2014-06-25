@@ -21,9 +21,27 @@ import copy
 import hashlib
 import re
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from rucio.client.client import Client
 from rucio.common.exception import DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError, InputValidationError, UnsupportedOperation, ScopeNotFound, ReplicaNotFound, RuleNotFound, FileAlreadyExists
+
+
+def validate_time_formats(time_string):
+    try:
+        d = re.match(r'((?P<days>\d+) days?)?'
+                     r'(, )?'
+                     r'((?P<hours>\d+):(?P<minutes>\d+):(?P<seconds>\d+))?',
+                     str(time_string))
+
+        if not filter(lambda r: r[1], d.groupdict().items()):
+            err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
+            raise InputValidationError(err_msg)
+
+            delta = timedelta(**dict([(key, (value and int(value) or 0)) for key, value in d.groupdict(0).items()]))
+            return delta
+    except:
+        err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
+        raise InputValidationError(err_msg)
 
 
 def extract_scope(dsn):
@@ -309,11 +327,25 @@ class DQ2Client:
             size += f['bytes']
         return size
 
-    def getMasterReplicaLocation(self):
+    def getMasterReplicaLocation(self, dsn, version=0, scope=None):
         """
-        ToDo --> N/A ?
+        Returns the master replicas location, in Rucio, this is the oldest rule.
+
+        @param dsn: is the dataset name.
+        @param version: the version (not used in Rucio.
+        @param scope: is the dataset scope.
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
-        raise NotImplementedError
+        self.client.get_metadata(scope=scope, name=dsn)
+        oldest_rule = datetime.now()
+        rse = None
+        for rule in self.client.list_did_rules(scope=scope, name=dsn):
+            if rule['created_at'] < oldest_rule:
+                oldest_rule = rule['created_at']
+                rse = rule['rse_expression']
+        return rse
 
     def getMetaDataAttribute(self, dsn, attributes, version=0, scope=None):
         """
@@ -1553,9 +1585,62 @@ class DQ2Client:
 
     def setReplicaMetaDataAttribute(self, dsn, location, attrname, attrvalue, scope=None):
         """
-        ToDo Ookey
+        Set the value of the given attribute to the given
+        value for the given dataset replica. Operates on the current version.
+
+        @param dsn: is the dataset name.
+        @param location: is the location name.
+        @param attrname: is the metadata dataset attribute name.
+        @param attrvalue: is the metadata dataset attribute value.
+        @param scope: is dataset scope.
+
+        B{Exceptions:}
+            - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
+            - InvalidMetadata is is raised in case of non valid attrname
+            - InputValidationError is case of non valid attrvalue
+            - UnsupportedOperation if the replica doesn't exist.
         """
-        raise NotImplementedError
+        attributes = ['group', 'owner', 'archived', 'pin_lifetime', 'lifetime']
+        if attrname not in attributes:
+            raise InvalidMetadata('%s is not a valid DQ2 replica metadata' % (attrname))
+        self.client.get_metadata(scope=scope, name=dsn)
+        is_at_site = False
+        account = self.client.account
+        if attrname == 'owner':
+            account = attrvalue
+        elif attrname == 'group':
+            account = attrvalue
+        lifetime = None
+        for rule in self.client.list_did_rules(scope=scope, name=dsn):
+            if rule['rse_expression'] == location:
+                is_at_site = True
+                if attrname == 'owner' or attrname == 'group':
+                    if rule['account'] == attrvalue:
+                        return 0
+                elif attrname == 'archived':
+                    # Does nothing
+                    pass
+                elif attrname == 'lifetime':
+                    lifetime = validate_time_formats([attrvalue, ])[0]
+                    if lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                        errMsg = 'lifetime must be greater than O!' % locals()
+                        raise InputValidationError(errMsg)
+
+                    self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=lifetime, grouping=rule['grouping'], account=account, locked=False)
+                    self.client.delete_replication_rule(rule['id'])
+                elif attrname == 'pin_lifetime':
+                    if attrvalue is None or attrvalue is '':
+                        self.client.update_lock_state(rule['id'], lock_state=False)
+                    else:
+                        pin_lifetime = validate_time_formats([attrvalue, ])[0]
+                        if pin_lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                            errMsg = 'pin_lifetime must be greater than O!' % locals()
+                            raise InputValidationError(errMsg)
+                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=pin_lifetime, grouping=rule['grouping'], account=account, locked=True)
+        if not is_at_site:
+            raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))
+        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=account, locked=False)
+        return 0
 
     def verifyFilesInDataset(self, dsn, guids, version=None, scope=None):
         """
