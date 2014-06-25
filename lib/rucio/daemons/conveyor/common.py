@@ -23,11 +23,9 @@ from rucio.core import did, lock, replica, request, rse
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import RequestState, ReplicaState
-from rucio.db.session import transactional_session
 
 
-@transactional_session
-def update_request_state(req, response, session=None):
+def update_request_state(req, response, session):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
@@ -128,30 +126,30 @@ def update_request_state(req, response, session=None):
             record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
 
             tss = time.time()
+            add_message('transfer-failed', {'activity': 'rucio-integration',  # no other support for now
+                                            'request-id': req['request_id'],
+                                            'checksum-adler': did_meta['adler32'],
+                                            'checksum-md5': did_meta['md5'],
+                                            'dst-rse': rse_name,
+                                            'dst-url': details['dest_surl'],
+                                            'name': req['name'],
+                                            'guid': did_meta['guid'],
+                                            'file-size': did_meta['bytes'],
+                                            'previous-request-id': req['request_id'],
+                                            'protocol': details['dest_surl'].split(':')[0],
+                                            'reason': details['reason'],
+                                            'reason-link': '%s/fts3/ftsmon/#/job/%s' % (config_get('conveyor', 'ftshosts'),
+                                                                                        response['transfer_id']),
+                                            'scope': req['scope'],
+                                            'src-rse': req['src_rse'],
+                                            'src-url': details['source_surl'],
+                                            'tool-id': 'rucio-conveyor',
+                                            'transfer-endpoint': config_get('conveyor', 'ftshosts'),
+                                            'transfer-id': response['transfer_id']})
             if new_req is None:
                 logging.critical('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'],
                                                                     req['name'],
                                                                     req['request_id']))
-                add_message('transfer-failed', {'activity': 'rucio-integration',  # no other support for now
-                                                'request-id': req['request_id'],
-                                                'checksum-adler': did_meta['adler32'],
-                                                'checksum-md5': did_meta['md5'],
-                                                'dst-rse': rse_name,
-                                                'dst-url': details['dest_surl'],
-                                                'name': req['name'],
-                                                'guid': did_meta['guid'],
-                                                'file-size': did_meta['bytes'],
-                                                'previous-request-id': req['request_id'],
-                                                'protocol': details['dest_surl'].split(':')[0],
-                                                'reason': details['reason'],
-                                                'reason-link': '%s/fts3/ftsmon/#/job/%s' % (config_get('conveyor', 'ftshosts'),
-                                                                                            response['transfer_id']),
-                                                'scope': req['scope'],
-                                                'src-rse': req['src_rse'],
-                                                'src-url': details['source_surl'],
-                                                'tool-id': 'rucio-conveyor',
-                                                'transfer-endpoint': config_get('conveyor', 'ftshosts'),
-                                                'transfer-id': response['transfer_id']})
                 tss = time.time()
                 try:
                     lock.failed_transfer(req['scope'],
