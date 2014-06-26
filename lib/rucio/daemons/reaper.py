@@ -177,7 +177,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                     #                              'rse': rse_info['rse'],
                                     #                              'reason': str(traceback.format_exc())})
 
-                        p.close()
+                            p.close()
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse=rse['rse'], files=files)
