@@ -148,6 +148,14 @@ class Default(protocol.RSEProtocol):
 
         self.__ctx = gfal2.creat_context()
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
+        endpoint_basepath = self.path2pfn(self.attributes['prefix'])
+
+        try:
+            ret = self.__gfal2_exist(endpoint_basepath)
+            if not ret == 0:
+                raise exception.RSEAccessDenied()
+        except Exception as e:
+            raise exception.RSEAccessDenied(e)
 
     def get(self, path, dest):
         """
@@ -314,7 +322,7 @@ class Default(protocol.RSEProtocol):
             ret = ctx.filecopy(params, str(src), str(dest))
             return ret
         except gfal2.GError as e:
-            if e.code == errno.ENOENT or e.code == errno.EINVAL:
+            if e.code == errno.ENOENT:
                 raise exception.SourceNotFound(e)
             raise exception.RucioException(e)
 
@@ -339,7 +347,7 @@ class Default(protocol.RSEProtocol):
                     return ret
             return ret
         except gfal2.GError as e:
-            if e.code == errno.ENOENT or e.code == errno.EINVAL:
+            if e.code == errno.ENOENT:
                 raise exception.SourceNotFound(e)
             raise exception.RucioException(e)
 
@@ -361,7 +369,7 @@ class Default(protocol.RSEProtocol):
                 return 0
             return -1
         except gfal2.GError as e:
-            if e.code == errno.ENOENT or e.code == errno.EINVAL:
+            if e.code == errno.ENOENT:
                 return -1
             raise exception.RucioException(e)
 
