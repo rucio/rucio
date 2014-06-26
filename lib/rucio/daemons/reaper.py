@@ -128,7 +128,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
 
                         for replica in files:
-                            replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ]))
+                            replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ]).values()[0])
                             add_message('deletion-planned', {'scope': replica['scope'],
                                                              'name': replica['name'],
                                                              'file-size': replica['bytes'],
