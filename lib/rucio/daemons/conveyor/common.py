@@ -7,6 +7,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 
 
 """
@@ -23,9 +24,11 @@ from rucio.core import did, lock, replica, request, rse
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import RequestState, ReplicaState
+from rucio.db.session import transactional_session
 
 
-def update_request_state(req, response, session):
+@transactional_session
+def update_request_state(req, response, session=None):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
@@ -93,8 +96,17 @@ def update_request_state(req, response, session):
                 request.archive_request(req['request_id'],
                                         session=session)
 
-                duration = (datetime.datetime.strptime(details['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                            datetime.datetime.strptime(details['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
+                if 'start_time' in details and details['start_time']:
+                    duration = (datetime.datetime.strptime(details['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                                datetime.datetime.strptime(details['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
+                elif 'staging_start' in details and details['staging_start']:
+                    # In case of staging resquest
+                    duration = (datetime.datetime.strptime(details['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                                datetime.datetime.strptime(details['staging_start'], '%Y-%m-%dT%H:%M:%S')).seconds
+                else:
+                    # TODO: Proper error propagation
+                    duration = -1
+
                 add_message('transfer-done', {'activity': 'rucio-integration',  # no other support for now
                                               'request-id': req['request_id'],
                                               'duration': duration,
