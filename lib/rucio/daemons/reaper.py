@@ -121,6 +121,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                     logging.info('Reaper %s: nothing to do for %s' % (worker_number, rse['rse']))
                     continue
 
+                p = rsemgr.create_protocol(rse_info, 'delete', scheme=None)
                 for files in chunks(replicas, chunk_size):
                     logging.debug('Running on : %s' % str(files))
                     try:
@@ -139,11 +140,12 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
 
                         if not scheme:
+                            p.connect()
                             for replica in files:
                                 try:
                                     logging.debug('Deletion of %s on %s' % (replica['pfn'], rse['rse']))
                                     s = time.time()
-                                    rsemgr.delete(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ])
+                                    p.delete(replica['pfn'])
                                     duration = time.time() - s
                                     add_message('deletion-done', {'scope': replica['scope'],
                                                                   'name': replica['name'],
@@ -175,6 +177,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                     #                              'rse': rse_info['rse'],
                                     #                              'reason': str(traceback.format_exc())})
 
+                        p.close()
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse=rse['rse'], files=files)
