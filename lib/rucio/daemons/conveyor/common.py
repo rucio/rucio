@@ -17,6 +17,7 @@ Methods common to different conveyor daemons.
 import datetime
 import logging
 import time
+import traceback
 
 from rucio.common import exception
 from rucio.common.config import config_get
@@ -75,10 +76,12 @@ def update_request_state(req, response, session=None):
                                          req['dest_rse_id'],
                                          session=session)
             except:
-                logging.warn('Could not update lock for successful transfer %s:%s at %s' % (req['scope'],
-                                                                                            req['name'],
-                                                                                            rse_name))
+                logging.warn('Could not update lock for successful transfer %s:%s at %s (%s)' % (req['scope'],
+                                                                                                 req['name'],
+                                                                                                 rse_name,
+                                                                                                 traceback.format_exc()))
                 return False
+
             record_timer('daemons.conveyor.common.update_request_state.lock-successful_transfer', (time.time()-tss)*1000)
 
             tss = time.time()
@@ -169,9 +172,10 @@ def update_request_state(req, response, session=None):
                                          req['dest_rse_id'],
                                          session=session)
                 except:
-                    logging.warn('Could not update lock for failed transfer %s:%s at %s' % (req['scope'],
-                                                                                            req['name'],
-                                                                                            rse_name))
+                    logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (req['scope'],
+                                                                                                 req['name'],
+                                                                                                 rse_name,
+                                                                                                 traceback.format_exc()))
                     return False
                 record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
 
@@ -190,9 +194,10 @@ def update_request_state(req, response, session=None):
                                      req['dest_rse_id'],
                                      session=session)
             except:
-                logging.warn('Could not update lock for failed transfer %s:%s at %s' % (req['scope'],
-                                                                                        req['name'],
-                                                                                        rse_name))
+                logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (req['scope'],
+                                                                                             req['name'],
+                                                                                             rse_name,
+                                                                                             traceback.format_exc()))
                 return False
             record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
 
