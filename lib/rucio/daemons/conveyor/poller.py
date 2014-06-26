@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -51,7 +51,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
             ts = time.time()
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=100,
+                                    limit=10000,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
@@ -76,7 +76,10 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
 
                     record_counter('daemons.conveyor.poller.query_request')
                 except:
-                    logging.critical(traceback.format_exc())
+                    logging.critical('Problem when dealing with: ' + str(req) + '\n' + traceback.format_exc())
+
+            logging.info('poller: Sleep 1s')
+            time.sleep(1)
 
         except:
             logging.critical(traceback.format_exc())
