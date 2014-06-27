@@ -182,6 +182,10 @@ def successful_transfer(scope, name, rse_id, session=None):
         rule.locks_replicating_cnt -= 1
         rule.locks_ok_cnt += 1
 
+        # rowcount = session.query(models.ReplicationRule).filter_by(id=lock.rule_id).\
+        #    update({'locks_replicating_cnt': models.ReplicationRule.locks_replicating_cnt - 1,
+        #            'locks_ok_cnt':  models.ReplicationRule.locks_ok_cnt + 1})
+
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
             continue
