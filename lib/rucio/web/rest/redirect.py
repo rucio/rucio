@@ -19,7 +19,7 @@ from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException
-from rucio.common.replicas_selector import random_order, geoIP_order
+from rucio.common.replicas_selector import random_order, geoIP_order, site_selector
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController
 
@@ -60,31 +60,40 @@ class Redirector(RucioController):
 
             select = 'random'
             rse = None
+            site = None
             if ctx.query:
                 params = parse_qs(ctx.query[1:])
                 if 'select' in params:
                     select = params['select'][0]
                 if 'rse' in params:
                     rse = params['rse'][0]
+                if 'site' in params:
+                    site = params['site'][0]
 
             for r in replicas:
                 if r['rses']:
-                    replicalist = []
+                    replicadict = {}
                     if rse:
                         if rse in r['rses']:
                             return found(r['rses'][rse][0])
                         return notfound("Sorry, the replica you were looking for was not found.")
                     else:
-                        for rep in r['rses'].values():
-                            replicalist.extend(rep)
-                        if replicalist == []:
+                        for rep in r['rses']:
+                            for replica in r['rses'][rep]:
+                                replicadict[replica] = rep
+                        if not replicadict:
+                            return notfound("Sorry, the replica you were looking for was not found.")
+                        elif site:
+                            rep = site_selector(replicadict, site)
+                            if rep:
+                                return found(rep[0])
                             return notfound("Sorry, the replica you were looking for was not found.")
                         else:
                             client_ip = ctx.get('ip')
                             if select == 'geoip':
-                                rep = geoIP_order(replicalist, client_ip)
+                                rep = geoIP_order(replicadict, client_ip)
                             else:
-                                rep = random_order(replicalist, client_ip)
+                                rep = random_order(replicadict, client_ip)
                             return found(rep[0])
 
             return notfound("Sorry, the replica you were looking for was not found.")
