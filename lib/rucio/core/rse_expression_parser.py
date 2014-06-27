@@ -18,14 +18,15 @@ import string
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
+from rucio.common import schema
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.utils import my_key_generator
 from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
 
 
-DEFAULT_RSE_ATTRIBUTE = r'([A-Z0-9]+([_-][A-Z0-9]+)*)'
-RSE_ATTRIBUTE = r'([A-Za-z0-9\.]+=[A-Za-z0-9]+)'
+DEFAULT_RSE_ATTRIBUTE = schema.default_rse_attribute['pattern']
+RSE_ATTRIBUTE = schema.rse_attribute['pattern']
 PRIMITIVE = r'(\(*(%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE)
 
 UNION = r'(\|%s)' % (PRIMITIVE)
