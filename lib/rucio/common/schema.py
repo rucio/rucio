@@ -34,6 +34,14 @@ rse = {"description": "RSE name",
        "type": "string",
        "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
 
+rse_attribute = {"description": "RSE attribute",
+                 "type": "string",
+                 "pattern": r'([A-Za-z0-9\._-]+=[A-Za-z0-9_-]+)'}
+
+default_rse_attribute = {"description": "Default RSE attribute",
+                         "type": "string",
+                         "pattern": r'([A-Z0-9]+([_-][A-Z0-9]+)*)'}
+
 replica_state = {"description": "Replica state",
                  "type": "string",
                  "enum": ["AVAILABLE", "UNAVAILABLE", "COPYING", "BEING_DELETED", "BAD", "SOURCE", "A", "U", "C", "B", "D", "S"]}
@@ -157,6 +165,7 @@ schemas = {'account': account,
            'account_type': account_type,
            'name': name,
            'rse': rse,
+           'rse_attribute': rse_attribute,
            'scope': scope,
            'did': did,
            'dids': dids,
