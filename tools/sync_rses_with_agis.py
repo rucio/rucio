@@ -34,18 +34,13 @@ if __name__ == '__main__':
     c = Client()
     for rse in data:
 
-        # if not rse['is_rucio']:
-        #     continue
-
         if rse['state'] != 'ACTIVE':
             continue
-
-        # if not rse['name'].startswith('IN2P3-LAPP_'):
 
         try:
             deterministic = not rse['is_tape']
             volatile = False
-            c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
+        #    c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
@@ -73,7 +68,7 @@ if __name__ == '__main__':
             try:
                 o = urlparse.urlparse(protocol)
 
-                if o.scheme not in ('https', 'http', 'srm'):
+                if o.scheme not in ('https', 'http', 'srm', 'gsiftp'):
                     continue
 
                 extended_attributes = None
@@ -85,6 +80,13 @@ if __name__ == '__main__':
                     extended_attributes = None
                     impl = 'rucio.rse.protocols.webdav.Default'
                     priority = 2
+                    continue
+                elif o.scheme == 'gsiftp':
+                    extended_attributes = None
+                    impl = 'rucio.rse.protocols.gsiftp.Default'
+                    priority = 3
+                else:
+                    continue
 
                 netloc = o.netloc
                 if o.port and str(o.port) in o.netloc:
@@ -107,6 +109,7 @@ if __name__ == '__main__':
                                       "wan": {"read": priority,
                                               "write": priority,
                                               "delete": priority}}}
+
                 print 'Add protocol', rse['name'], params
                 c.add_protocol(rse=rse['name'], params=params)
             except:
