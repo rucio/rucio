@@ -102,7 +102,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     for source in replica.list_replicas(dids=[{'scope': req['scope'],
                                                                'name': req['name'],
                                                                'type': DIDType.FILE}],
-                                                        schemes=[scheme],
+                                                        schemes=[scheme, 'gsiftp'],
                                                         session=session):
 
                         filesize = long(source['bytes'])
@@ -117,7 +117,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                         # In case of staging request, we only use one source
                                         tmpsrc = [(str(source_rse), str(pfn)), ]
                             else:
-                                for pfn in source['rses'][source_rse]:
+                                filtered_sources = [x for x in source['rses'][source_rse] if x.startswith('gsiftp')]
+                                if not filtered_sources:
+                                    filtered_sources = source['rses'][source_rse]
+                                for pfn in filtered_sources:
                                     tmpsrc.append((str(source_rse), str(pfn)))
 
                 except DataIdentifierNotFound:
