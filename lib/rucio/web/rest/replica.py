@@ -91,9 +91,9 @@ class Replicas(RucioController):
                         replicas.append(replica)
                         dictreplica[replica] = rse
                 if select == 'geoip':
-                    replicas = geoIP_order(replicas, client_ip)
+                    replicas = geoIP_order(dictreplica, client_ip)
                 else:
-                    replicas = random_order(replicas, client_ip)
+                    replicas = random_order(dictreplica, client_ip)
                 if metalink is None:
                     yield dumps(rfile) + '\n'
                 elif metalink == 3:
@@ -295,9 +295,9 @@ class ListReplicas(RucioController):
                         replicas.append(replica)
                         dictreplica[replica] = rse
                 if select == 'geoip':
-                    replicas = geoIP_order(replicas, client_ip)
+                    replicas = geoIP_order(dictreplica, client_ip)
                 else:
-                    replicas = random_order(replicas, client_ip)
+                    replicas = random_order(dictreplica, client_ip)
                 if metalink is None:
                     yield dumps(rfile) + '\n'
                 elif metalink == 3:
