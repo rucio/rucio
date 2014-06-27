@@ -12,7 +12,7 @@ from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to RSEs using the local filesystem."""
+    """ Implementing access to RSEs using gsiftp."""
 
     def __init__(self, protocol_attr, rse_settings):
         """ Initializes the object with information about the referred RSE.

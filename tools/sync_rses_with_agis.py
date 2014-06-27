@@ -40,7 +40,7 @@ if __name__ == '__main__':
         try:
             deterministic = not rse['is_tape']
             volatile = False
-        #    c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
+            c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
