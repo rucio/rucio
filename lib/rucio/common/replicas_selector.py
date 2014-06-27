@@ -24,6 +24,8 @@ from dogpile.cache import make_region
 from math import asin, cos, radians, sin, sqrt
 
 from rucio.common import utils
+from rucio.common.exception import InvalidRSEExpression
+from rucio.core.rse_expression_parser import parse_expression
 
 region = make_region(function_key_generator=utils.my_key_generator).configure(
     'dogpile.cache.memory',
@@ -126,26 +128,44 @@ def getDistance(se1, se2):
 def random_order(replicas, IPclient):
     """
     Return a list of replicas in a random order.
-    :param replicas : A list of replicas (URIs).
-    :param session: The database session in use.
+    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
+    :param IPclient: The IP of the client.
     """
-    random.shuffle(replicas)
+    random.shuffle(replicas.keys())
     return replicas
 
 
 def geoIP_order(replicas, IPclient):
     """
     Return a list of replicas sorted by distance to the IPclient.
-    :param replicas : A list of replicas (URIs).
-    :param session: The database session in use.
+    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
+    :param IPclient: The IP of the client.
     """
-    ses = {}
     distances = {}
     for replica in replicas:
         se = replica.split('/')[2].split(':')[0]
-        ses[se] = replica
         distance = getDistance(se, IPclient)
         # print replica, distance
         distances[replica] = distance
     # print sorted(distances.items(), key=lambda x: x[1])
     return map(lambda x: x[0], sorted(distances.items(), key=lambda x: x[1]))
+
+
+def site_selector(replicas, site):
+    """
+    Return a list of replicas located on one site.
+    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
+    :param site : The name of the site
+    """
+    result = []
+    try:
+        rses = parse_expression("site=%s" % site)
+    except InvalidRSEExpression:
+        return result
+    except Exception:
+        return result
+    rses = [i['rse'] for i in rses]
+    for replica in replicas:
+        if replicas[replica] in rses:
+            result.append(replica)
+    return result
