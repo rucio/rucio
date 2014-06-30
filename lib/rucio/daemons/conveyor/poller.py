@@ -35,6 +35,9 @@ logging.basicConfig(stream=sys.stdout,
 
 graceful_stop = threading.Event()
 
+# http://bugs.python.org/issue7980
+datetime.datetime.strptime('', '')
+
 
 def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     """
@@ -79,7 +82,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                     logging.critical('Problem when dealing with: ' + str(req) + '\n' + traceback.format_exc())
 
             logging.info('poller: Sleep 1s')
-#            time.sleep(1)
+            time.sleep(1)
 
         except:
             logging.critical(traceback.format_exc())

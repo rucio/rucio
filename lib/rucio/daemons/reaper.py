@@ -152,7 +152,6 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                     s = time.time()
                                     p.delete(replica['pfn'])
                                     monitor.record_timer('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']), (time.time()-s)*1000)
-                                    logging.debug('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']))
                                     duration = time.time() - s
 
                                     add_message('deletion-done', {'scope': replica['scope'],
