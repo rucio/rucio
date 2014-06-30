@@ -39,7 +39,7 @@ def update_request_state(req, response, session=None):
     :param session: The database session to use.
     :returns commit_or_rollback: Boolean.
     """
-    logging.debug('UPDATING REQUEST %s' % (str(req)))
+    logging.debug('UPDATING REQUEST %s to %s' % (str(req), str(response)))
     if response['new_state']:
 
         rse_name = None
@@ -65,7 +65,8 @@ def update_request_state(req, response, session=None):
         if not details:
             logging.warning('Could not request detailed transfer information - reporting will be missing values.')
         else:
-            details = details[0]  # there is always only one file
+            if type(details) == list or type(details) == tuple:
+                details = details[0]  # there is always only one file
 
         if response['new_state'] == RequestState.DONE:
 
@@ -80,7 +81,7 @@ def update_request_state(req, response, session=None):
                                                                                                  req['name'],
                                                                                                  rse_name,
                                                                                                  traceback.format_exc()))
-                return False
+                raise
 
             record_timer('daemons.conveyor.common.update_request_state.lock-successful_transfer', (time.time()-tss)*1000)
 
@@ -96,13 +97,12 @@ def update_request_state(req, response, session=None):
 
                 tss = time.time()
 
-                request.archive_request(req['request_id'],
-                                        session=session)
+                request.archive_request(req['request_id'], session=session)
 
-                if 'start_time' in details and details['start_time']:
+                if details and 'start_time' in details and details['start_time']:
                     duration = (datetime.datetime.strptime(details['finish_time'], '%Y-%m-%dT%H:%M:%S') -
                                 datetime.datetime.strptime(details['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
-                elif 'staging_start' in details and details['staging_start']:
+                elif details and 'staging_start' in details and details['staging_start']:
                     # In case of staging resquest
                     duration = (datetime.datetime.strptime(details['finish_time'], '%Y-%m-%dT%H:%M:%S') -
                                 datetime.datetime.strptime(details['staging_start'], '%Y-%m-%dT%H:%M:%S')).seconds
@@ -110,28 +110,29 @@ def update_request_state(req, response, session=None):
                     # TODO: Proper error propagation
                     duration = -1
 
-                add_message('transfer-done', {'activity': 'rucio-integration',  # no other support for now
-                                              'request-id': req['request_id'],
-                                              'duration': duration,
-                                              'file-size': did_meta['bytes'],
-                                              'guid': did_meta['guid'],
-                                              'previous-request-id': req['previous_attempt_id'],
-                                              'protocol': details['dest_surl'].split(':')[0],
-                                              'scope': req['scope'],
-                                              'name': req['name'],
-                                              'src-rse': req['src_rse'],
-                                              'src-url': details['source_surl'],
-                                              'dst-rse': rse_name,
-                                              'dst-url': details['dest_surl'],
-                                              'transfer-endpoint': config_get('conveyor', 'ftshosts'),
-                                              'transfer-id': response['transfer_id'],
-                                              'tool-id': 'rucio-conveyor'})
+                if details:
+                    add_message('transfer-done', {'activity': 'rucio-integration',  # no other support for now
+                                                  'request-id': req['request_id'],
+                                                  'duration': duration,
+                                                  'file-size': did_meta['bytes'],
+                                                  'guid': did_meta['guid'],
+                                                  'previous-request-id': req['previous_attempt_id'],
+                                                  'protocol': details['dest_surl'].split(':')[0],
+                                                  'scope': req['scope'],
+                                                  'name': req['name'],
+                                                  'src-rse': req['src_rse'],
+                                                  'src-url': details['source_surl'],
+                                                  'dst-rse': rse_name,
+                                                  'dst-url': details['dest_surl'],
+                                                  'transfer-endpoint': config_get('conveyor', 'ftshosts'),
+                                                  'transfer-id': response['transfer_id'],
+                                                  'tool-id': 'rucio-conveyor'},
+                                session=session)
 
                 record_timer('daemons.conveyor.common.update_request_state.request-archive_request', (time.time()-tss)*1000)
             except exception.UnsupportedOperation, e:
                 # The replica doesn't exist
-                request.archive_request(req['request_id'],
-                                        session=session)
+                request.archive_request(req['request_id'], session=session)
                 logging.warning(e)
                 return True
 
@@ -160,7 +161,8 @@ def update_request_state(req, response, session=None):
                                             'src-url': details['source_surl'],
                                             'tool-id': 'rucio-conveyor',
                                             'transfer-endpoint': config_get('conveyor', 'ftshosts'),
-                                            'transfer-id': response['transfer_id']})
+                                            'transfer-id': response['transfer_id']},
+                        session=session)
             if new_req is None:
                 logging.critical('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'],
                                                                     req['name'],
@@ -176,7 +178,7 @@ def update_request_state(req, response, session=None):
                                                                                                  req['name'],
                                                                                                  rse_name,
                                                                                                  traceback.format_exc()))
-                    return False
+                    raise
                 record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
 
             else:
@@ -198,7 +200,7 @@ def update_request_state(req, response, session=None):
                                                                                              req['name'],
                                                                                              rse_name,
                                                                                              traceback.format_exc()))
-                return False
+                raise
             record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
 
             add_message('transfer-lost', {'activity': 'rucio-integration',  # no other support for now
@@ -220,7 +222,8 @@ def update_request_state(req, response, session=None):
                                           'src-url': details['source_surl'],
                                           'tool-id': 'rucio-conveyor',
                                           'transfer-endpoint': config_get('conveyor', 'ftshosts'),
-                                          'transfer-id': response['transfer_id']})
+                                          'transfer-id': response['transfer_id']},
+                        session=session)
 
             logging.critical('LOST DID %s:%s REQUEST %s' % (req['scope'],
                                                             req['name'],
