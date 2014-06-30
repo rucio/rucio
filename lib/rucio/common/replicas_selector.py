@@ -131,8 +131,9 @@ def random_order(replicas, IPclient):
     :param replicas : A dict with RSEs as values and replicas as keys (URIs).
     :param IPclient: The IP of the client.
     """
-    random.shuffle(replicas.keys())
-    return replicas
+    list_replicas = replicas.keys()
+    random.shuffle(list_replicas)
+    return list_replicas
 
 
 def geoIP_order(replicas, IPclient):
