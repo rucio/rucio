@@ -48,7 +48,7 @@ FAILURE = 1
 graceful_stop = threading.Event()
 
 
-def upload(files, scope, metadata, rse, account, source_dir, worker_number, total_workers, did=None):
+def upload(files, scope, metadata, rse, account, source_dir, worker_number, total_workers, dataset_lifetime, did=None):
     logging.debug('In upload')
     dsn = None
     if did:
@@ -95,7 +95,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
     logging.info('Thread [%i/%i] : Registering DIDs and replicas in Rucio' % (worker_number, total_workers))
     if dsn:
         try:
-            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata)
+            client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}], meta=metadata, lifetime=dataset_lifetime)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
             logging.info('Thread [%i/%i] : Upload operation for %s:%s done' % (worker_number, total_workers, dsn['scope'], dsn['name']))
         except Exception, e:
@@ -150,7 +150,7 @@ def generate_file(fname, size):
     return exitcode
 
 
-def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, once=False):
+def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, once=False, dataset_lifetime=None):
     sleep(sleep_time * (total_workers - worker_number) / total_workers)
     while not graceful_stop.is_set():
         starttime = time()
@@ -196,7 +196,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     generate_file(fname, filesize)
                     fnames.append(fname)
                 logging.info('Thread [%i/%i] : Upload %s to %s' % (worker_number, total_workers, dsn, site))
-                status = upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, worker_number=worker_number, total_workers=total_workers, did=dsn)
+                status = upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, worker_number=worker_number, total_workers=total_workers, dataset_lifetime=dataset_lifetime, did=dsn)
                 for fname in fnames:
                     remove(fname)
                 rmdir(tmpdir)
@@ -240,6 +240,10 @@ def run(total_workers=1, once=False):
         account = config_get_int('automatix', 'account')
     except:
         account = 'root'
+    try:
+        dataset_lifetime = config_get_int('automatix', 'dataset_lifetime')
+    except:
+        dataset_lifetime = None
     threads = list()
     for worker_number in xrange(0, total_workers):
         kwargs = {'worker_number': worker_number + 1,
@@ -248,7 +252,8 @@ def run(total_workers=1, once=False):
                   'sites': sites,
                   'sleep_time': sleep_time,
                   'account': account,
-                  'inputfile': inputfile}
+                  'inputfile': inputfile,
+                  'dataset_lifetime': dataset_lifetime}
         threads.append(threading.Thread(target=automatix, kwargs=kwargs))
     [t.start() for t in threads]
     while threads[0].is_alive():
