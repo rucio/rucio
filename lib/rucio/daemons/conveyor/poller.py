@@ -51,7 +51,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
             ts = time.time()
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=10000,
+                                    limit=100000,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
@@ -79,7 +79,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                     logging.critical('Problem when dealing with: ' + str(req) + '\n' + traceback.format_exc())
 
             logging.info('poller: Sleep 1s')
-            time.sleep(1)
+#            time.sleep(1)
 
         except:
             logging.critical(traceback.format_exc())

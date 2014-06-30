@@ -264,23 +264,28 @@ def query_request(request_id, transfertool='fts3', session=None):
     req_status = {'request_id': request_id,
                   'new_state': None}
 
-    if external_id is None:
+    if not external_id:
         req_status['new_state'] = RequestState.LOST
         return req_status
 
     if transfertool == 'fts3':
-        response = fts3.query(external_id)
+        try:
+            response = fts3.query(external_id)
+            req_status['details'] = response
+        except Exception:
+            raise
 
-        if response is None:
+        if not response:
             req_status['new_state'] = RequestState.LOST
         else:
             if 'job_state' not in response:
                 req_status['new_state'] = RequestState.LOST
-            elif response['job_state'] == str(FTSState.FAILED) or response['job_state'] == str(FTSState.FINISHEDDIRTY):
+            elif response['job_state'] in (str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY)):
                 req_status['new_state'] = RequestState.FAILED
             elif response['job_state'] == str(FTSState.FINISHED):
                 req_status['new_state'] = RequestState.DONE
-
+#            elif response['job_state'] == str(FTSState.CANCELED):
+#                req_status['new_state'] = RequestState.FAILED ?
     else:
         raise NotImplementedError
 
@@ -303,7 +308,7 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
     external_id = __get_external_id(request_id, session=session)
 
-    if external_id is None:
+    if not external_id:
         return
 
     if transfertool == 'fts3':

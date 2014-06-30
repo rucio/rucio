@@ -18,7 +18,6 @@ import threading
 import time
 import traceback
 
-
 from rucio.core import monitor
 from rucio.core import rse as rse_core
 from rucio.core.message import add_message
@@ -99,6 +98,12 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
     while not graceful_stop.is_set():
         for rse in rses:
             rse_info = rsemgr.get_rse_info(rse['rse'])
+            rse_protocol = rse_core.get_rse_protocols(rse['rse'])
+
+            if not rse_protocol['availability_delete']:
+                logging.info('RSE %s is not available for deletion' % (rse_info['rse']))
+                continue
+
             # Temporary hack to force gfal for deletion
             for protocol in rse_info['protocols']:
                 if protocol['impl'] == 'rucio.rse.protocols.srm.Default':
@@ -106,15 +111,15 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
             logging.info('Running on RSE %s' % (rse_info['rse']))
             try:
-                s = time.time()
 
+                needed_free_space, max_being_deleted_files = None, 10000
                 if not greedy:
                     max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                     logging.info('Space usage for RSE %(rse)s: max_being_deleted_files, needed_free_space, used, free' % rse, max_being_deleted_files, needed_free_space, used, free)
+
+                s = time.time()
+                with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                     replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files)
-                else:
-                    with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                        replicas = list_unlocked_replicas(rse=rse['rse'], limit=10000)
                 logging.debug('list_unlocked_replicas %s %s %s' % (rse['rse'], time.time() - s, len(replicas)))
 
                 if not replicas:
@@ -146,7 +151,10 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                     logging.debug('Deletion of %s on %s' % (replica['pfn'], rse['rse']))
                                     s = time.time()
                                     p.delete(replica['pfn'])
+                                    monitor.record_timer('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']), (time.time()-s)*1000)
+                                    logging.debug('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']))
                                     duration = time.time() - s
+
                                     add_message('deletion-done', {'scope': replica['scope'],
                                                                   'name': replica['name'],
                                                                   'rse': rse_info['rse'],
