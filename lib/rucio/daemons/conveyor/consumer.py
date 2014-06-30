@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -56,7 +57,8 @@ class Consumer(object):
            and 'issuer' in msg['job_metadata'].keys() \
            and str(msg['job_metadata']['issuer']) == str('rucio'):
             response = {'new_state': None,
-                        'transfer_id': msg['job_id']}
+                        'transfer_id': msg['job_id'],
+                        'details': msg}
 
             if str(msg['job_state']) == str(FTSState.FINISHED):
                 response['new_state'] = RequestState.DONE

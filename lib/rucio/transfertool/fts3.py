@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 
 import json
 import logging
@@ -211,7 +211,7 @@ def query_details(transfer_id):
     if files and files.status_code == 200:
         return files.json()
 
-    return None
+    return
 
 
 def cancel(transfer_id):

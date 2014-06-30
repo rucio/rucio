@@ -8,6 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 
 from sqlalchemy.sql.expression import and_, or_
 
@@ -127,11 +128,13 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
     """
     query = session.query(models.DataIdentifierAssociation.child_scope,
                           models.DataIdentifierAssociation.child_name,
-                          models.ReplicaLock)\
-        .outerjoin(models.ReplicaLock,
-                   and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                        models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
+                          models.ReplicaLock).\
+        with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
+        outerjoin(models.ReplicaLock,
+                  and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                       models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
         .filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
+
     if restrict_rses is not None:
         rse_clause = []
         for rse_id in restrict_rses:
@@ -139,13 +142,14 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
         if rse_clause:
             query = session.query(models.DataIdentifierAssociation.child_scope,
                                   models.DataIdentifierAssociation.child_name,
-                                  models.ReplicaLock)\
-                           .outerjoin(models.ReplicaLock,
-                                      and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                                           models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
-                                           or_(*rse_clause)))\
-                           .filter(models.DataIdentifierAssociation.scope == scope,
-                                   models.DataIdentifierAssociation.name == name)
+                                  models.ReplicaLock).\
+                with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
+                outerjoin(models.ReplicaLock,
+                          and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                               models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                               or_(*rse_clause)))\
+                .filter(models.DataIdentifierAssociation.scope == scope,
+                        models.DataIdentifierAssociation.name == name)
 
     query = query.with_for_update(nowait=nowait)
 
