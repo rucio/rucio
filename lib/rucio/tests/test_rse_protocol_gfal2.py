@@ -60,7 +60,7 @@ class TestRseGFAL2():
             cls.static_file = 'srm://%s:%s%s%s/data.raw' % (hostname, port, web_service_path, prefix)
         else:
             cls.static_file = 'srm://%s%s%s/data.raw' % (hostname, web_service_path, prefix)
-        cmd = 'srmcp --debug=false -retry_num=0 file:///%s/data.raw %s' % (cls.tmpdir, cls.static_file)
+        cmd = 'srmcp -2 --debug=false -retry_num=0 file:///%s/data.raw %s' % (cls.tmpdir, cls.static_file)
         execute(cmd)
 
         rse_settings = mgr.get_rse_info('FZK-LCG2_SCRATCHDISK')
@@ -72,7 +72,7 @@ class TestRseGFAL2():
 
         for f in MgrTestCases.files_remote:
             tmp = mgr.lfns2pfns(rse_settings, {'name': f, 'scope': 'user.%s' % cls.user}, scheme='srm').values()[0]
-            cmd = 'srmcp --debug=false -retry_num=0  file:///%s/data.raw %s' % (cls.tmpdir, tmp)
+            cmd = 'srmcp -2 --debug=false -retry_num=0  file:///%s/data.raw %s' % (cls.tmpdir, tmp)
             execute(cmd)
 
     @classmethod
@@ -101,21 +101,21 @@ class TestRseGFAL2():
         else:
             srm_path = ''.join(["srm://", hostname, web_service_path])
 
-        list_files_cmd_user = 'srmls --debug=false -retry_num=0 -recursion_depth=3 %s%s/user/%s' % (srm_path, prefix, cls.user)
+        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/user/%s' % (srm_path, prefix, cls.user)
         clean_files = str(execute(list_files_cmd_user)[1]).split('\n')
-        list_files_cmd_user = 'srmls --debug=false -retry_num=0 -recursion_depth=3 %s%s/group/%s' % (srm_path, prefix, cls.user)
+        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/group/%s' % (srm_path, prefix, cls.user)
         clean_files += str(execute(list_files_cmd_user)[1]).split('\n')
         clean_files.append("1024  " + clean_raw)
         for files in clean_files:
             if len(files.strip()) > 0:
                 file = files.split()[1]
                 if not file.endswith("/"):
-                    clean_cmd = 'srmrm --debug=false -retry_num=0 %s/%s' % (srm_path, file)
+                    clean_cmd = 'srmrm -2 --debug=false -retry_num=0 %s/%s' % (srm_path, file)
                     execute(clean_cmd)
 
         clean_directory = ['user', 'group']
         for directory in clean_directory:
-            clean_cmd = 'srmrmdir --debug=false -retry_num=0 -recursive %s%s/%s/%s' % (srm_path, prefix, directory, cls.user)
+            clean_cmd = 'srmrmdir -2 --debug=false -retry_num=0 -recursive %s%s/%s/%s' % (srm_path, prefix, directory, cls.user)
             execute(clean_cmd)
 
     def setup(self):
