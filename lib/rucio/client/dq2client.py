@@ -23,7 +23,7 @@ import re
 
 from datetime import datetime, timedelta
 from rucio.client.client import Client
-from rucio.common.exception import DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError, InputValidationError, UnsupportedOperation, ScopeNotFound, ReplicaNotFound, RuleNotFound, FileAlreadyExists
+from rucio.common.exception import DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError, InputValidationError, UnsupportedOperation, ScopeNotFound, ReplicaNotFound, RuleNotFound, FileAlreadyExists, FileConsistencyMismatch
 
 
 def validate_time_formats(time_string):
@@ -1258,6 +1258,7 @@ class DQ2Client:
         @param rse: is the rse.
 
         """
+        result = {}
         # check dataset status (not closed)
         info = self.client.get_did(scope, dsn)
         if not (info['open']):
@@ -1277,11 +1278,26 @@ class DQ2Client:
                 file['adler32'] = checksum[3:]
             files.append(file)
         # add new file to dataset(rse need assign), in rucio rse is pre-assign(by user or group
-        self.client.add_files_to_dataset(scope=scope, name=dsn, files=files, rse=rse)
-
-        # add existing file to dataset
-        # self.client.attach_dids(scope=scope, name=dsn, dids=files)
-        return True
+        try:
+            self.client.add_files_to_dataset(scope=scope, name=dsn, files=files, rse=rse)
+            for lfn in lfns:
+                result[lfn] = {'status': True}
+        except (FileAlreadyExists, Duplicate):
+            for did in files:
+                try:
+                    self.client.add_files_to_dataset(scope=scope, name=dsn, files=[did], rse=rse)
+                    result[lfn] = {'status': True}
+                except (FileAlreadyExists, Duplicate):
+                    meta = self.client.get_metadata(did['scope'], did['name'])
+                    guid = meta['guid']
+                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    if guid != did['meta']['guid']:
+                        result[lfn] = {'status': False, 'error': FileConsistencyMismatch('guid mismatch DDM %s vs user %s' % (guid, did['meta']['guid']))}
+                    elif meta['adler32'] != did['adler32']:
+                        result[lfn] = {'status': False, 'error': FileConsistencyMismatch('adler32 mismatch DDM %s vs user %s' % (meta['adler32'], did['adler32']))}
+                    elif meta['bytes'] != did['bytes']:
+                        result[lfn] = {'status': False, 'error': FileConsistencyMismatch('filesize mismatch DDM %s vs user %s' % (meta['bytes'], did['bytes']))}
+        return result
 
     def registerFilesInDatasets(self, datasets):
         """
