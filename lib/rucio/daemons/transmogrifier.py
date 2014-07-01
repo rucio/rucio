@@ -149,7 +149,8 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                     except:
                                         lifetime = None
                                     try:
-                                        add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rule['rse_expression'],
+                                        rse_expression = str(rule['rse_expression']).encode('string-escape')
+                                        add_replication_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rse_expression,
                                                              grouping=grouping, weight=None, lifetime=lifetime, locked=False, subscription_id=subscription['id'], issuer='root')
                                         monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
                                         if subscription['name'].find('test') > -1:
