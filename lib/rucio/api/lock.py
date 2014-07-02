@@ -32,4 +32,4 @@ def get_dataset_locks_by_rse(rse):
     """
 
     rse_id = get_rse_id(rse=rse)
-    return lock.get_dataset_locks(rse_id=rse_id)
+    return lock.get_dataset_locks_by_rse_id(rse_id=rse_id)

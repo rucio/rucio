@@ -42,7 +42,7 @@ def get_dataset_locks(scope, name, session=None):
 
 
 @read_session
-def get_dataset_locks_by_rse(rse_id, session=None):
+def get_dataset_locks_by_rse_id(rse_id, session=None):
     """
     Get the dataset locks of an RSE.
 
