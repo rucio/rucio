@@ -58,4 +58,5 @@ class LockClient(BaseClient):
             return locks
         else:
             exc_cls, exc_msg = self._get_exception(r.headers)
+
             raise exc_cls(exc_msg)

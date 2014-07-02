@@ -24,8 +24,8 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/(.*)/', 'LockByRSE',
-        '/(.*)/(.*)', 'LockByScopeName',)
+urls = ('/(.*)/(.*)', 'LockByScopeName',
+        '/(.*)', 'LockByRSE')
 
 
 class LockByRSE:
@@ -43,7 +43,7 @@ class LockByRSE:
 
         :returns: JSON dict containing informations about the requested user.
         """
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         did_type = None
         if ctx.query:
             params = parse_qs(ctx.query[1:])
@@ -79,7 +79,7 @@ class LockByScopeName:
 
         :returns: JSON dict containing informations about the requested user.
         """
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         did_type = None
         if ctx.query:
             params = parse_qs(ctx.query[1:])
