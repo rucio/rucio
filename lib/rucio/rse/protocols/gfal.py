@@ -322,7 +322,7 @@ class Default(protocol.RSEProtocol):
             ret = ctx.filecopy(params, str(src), str(dest))
             return ret
         except gfal2.GError as e:
-            if e.code == errno.ENOENT:
+            if e.code == errno.ENOENT or 'No such file' in e.message:
                 raise exception.SourceNotFound(e)
             raise exception.RucioException(e)
 
@@ -347,7 +347,7 @@ class Default(protocol.RSEProtocol):
                     return ret
             return ret
         except gfal2.GError as e:
-            if e.code == errno.ENOENT:
+            if e.code == errno.ENOENT or 'No such file' in e.message:
                 raise exception.SourceNotFound(e)
             raise exception.RucioException(e)
 
@@ -369,7 +369,7 @@ class Default(protocol.RSEProtocol):
                 return 0
             return -1
         except gfal2.GError as e:
-            if e.code == errno.ENOENT:
+            if e.code == errno.ENOENT or 'No such file' in e.message:
                 return -1
             raise exception.RucioException(e)
 
@@ -397,6 +397,8 @@ class Default(protocol.RSEProtocol):
             ret = ctx.rename(str(path), str(new_path))
             return ret
         except gfal2.GError as e:
+            if e.code == errno.ENOENT or 'No such file' in e.message:
+                raise exception.SourceNotFound(e)
             raise exception.RucioException(e)
 
     def get_space_usage(self):
