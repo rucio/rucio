@@ -18,17 +18,11 @@ import threading
 import time
 import traceback
 
-from datetime import datetime
-
 from sqlalchemy.exc import DatabaseError
-from sqlalchemy.sql.expression import bindparam
-from sqlalchemy.sql.expression import text
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
-from rucio.db import session as rucio_session
-from rucio.db import models
-from rucio.core.rule import delete_rule
+from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
@@ -49,28 +43,10 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
 
     while not graceful_stop.is_set():
         try:
-            # Select a bunch of rules for this worker to clean
-            # TODO: This block must be in core/rule.py in a method: List_expired_rules
-            # See [RUCIO-468]
-            session = rucio_session.get_session()
-            query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.expires_at < datetime.utcnow()).\
-                with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
-                order_by(models.ReplicationRule.expires_at)
-
-            if total_processes*threads_per_process-1 > 0:
-                if session.bind.dialect.name == 'oracle':
-                    bindparams = [bindparam('worker_number', process*threads_per_process+thread),
-                                  bindparam('total_workers', total_processes*threads_per_process-1)]
-                    query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-                elif session.bind.dialect.name == 'mysql':
-                    query = query.filter('mod(md5(name), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
-                elif session.bind.dialect.name == 'postgresql':
-                    query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
-
             start = time.time()
-            rules = query.yield_per(1000).limit(1000).all()
-            session.commit()
-            session.remove()
+            rules = get_expired_rules(total_workers=total_processes*threads_per_process-1,
+                                      worker_number=process*threads_per_process+thread,
+                                      limit=1000)
             logging.debug('rule_cleaner index query time %f rule-size=%d' % (time.time() - start, len(rules)))
 
             if not rules and not once:

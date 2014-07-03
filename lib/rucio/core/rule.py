@@ -420,6 +420,33 @@ def get_updated_dids(total_workers, worker_number, limit=10, session=None):
     return query.order_by(models.UpdatedDID.created_at).limit(limit).all()
 
 
+@read_session
+def get_expired_rules(total_workers, worker_number, limit=10, session=None):
+    """
+    Get expired rules.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of rules to return.
+    :param session:            Database session in use.
+    """
+
+    query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.expires_at < datetime.utcnow()).\
+        with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
+        order_by(models.ReplicationRule.expires_at)
+
+    if session.bind.dialect.name == 'oracle':
+        bindparams = [bindparam('worker_number', worker_number),
+                      bindparam('total_workers', total_workers)]
+        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+    elif session.bind.dialect.name == 'mysql':
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers, worker_number))
+    elif session.bind.dialect.name == 'postgresql':
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers, worker_number))
+
+    return query.limit(limit).all()
+
+
 @transactional_session
 def delete_duplicate_updated_dids(scope, name, rule_evaluation_action, id, session=None):
     """
