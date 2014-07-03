@@ -1,0 +1,30 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Cheng-Hsi Chao, <cheng-hsi.chaos@cern.ch>, 2014
+
+[ldap]
+ldap_host = ldap-host.domain.name
+baseDN = dc=foo,dc=bar,dc=domain,dc=
+searchFilter = (objectClass=OpenLDAPperson)
+
+# set as DEFAULT to use annonymous bind
+username = DEFAULT
+# Leave blank for prompt
+password =
+
+cacertfile = /etc/grid-security/certificates
+certfile = /etc/grid-security/hostcert.pem
+keyfile = /etc/grid-security/hostkey.pem
+
+[attributes]
+accounts = uid
+uid = uid
+email = mail
+identity = gecos
+# DEFAULT set as X509
+auth_type = DEFAULT
