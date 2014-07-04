@@ -72,7 +72,8 @@ def queue_requests(requests, session=None):
                                          name=req['name'],
                                          dest_rse_id=req['dest_rse_id'],
                                          attributes=json.dumps(req['attributes']),
-                                         state=RequestState.QUEUED)
+                                         state=RequestState.QUEUED,
+                                         rule_id=req['rule_id'])
             if 'previous_attempt_id' in req and 'retry_count' in req:
                 new_request = models.Request(id=req['request_id'],
                                              request_type=req['request_type'],
@@ -82,7 +83,8 @@ def queue_requests(requests, session=None):
                                              attributes=req['attributes'],
                                              state=RequestState.QUEUED,
                                              previous_attempt_id=req['previous_attempt_id'],
-                                             retry_count=req['retry_count'])
+                                             retry_count=req['retry_count'],
+                                             rule_id=req['rule_id'])
             new_request.save(session=session, flush=False)
         session.flush()
     except IntegrityError, e:
@@ -201,20 +203,20 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
     if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
             bindparams = [bindparam('worker_number', process), bindparam('total_workers', total_processes-1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+            query = query.filter(text('ORA_HASH(rule_id, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_processes-1, process))
+            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
 
     if (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
             bindparams = [bindparam('worker_number', thread), bindparam('total_workers', total_threads-1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+            query = query.filter(text('ORA_HASH(rule_id, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
 
     tmp = query.limit(limit).all()
 
@@ -330,7 +332,7 @@ def set_request_state(request_id, new_state, session=None):
     record_counter('core.request.set_request_state')
 
     try:
-        session.query(models.Request).filter_by(id=request_id).update({'state': new_state})
+        session.query(models.Request).filter_by(id=request_id).update({'state': new_state}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 

@@ -28,7 +28,6 @@ from rucio.common.utils import construct_surl_DQ2
 from rucio.core import did, replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import DIDType, RequestType, RequestState, ReplicaState
-from rucio.db.session import get_session
 from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -48,7 +47,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
     logging.info('submitter starting')
 
-    session = get_session()
     try:
         scheme = config_get('conveyor', 'scheme')
     except NoOptionError:
@@ -70,17 +68,15 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                     process=process,
                                     total_processes=total_processes,
                                     thread=thread,
-                                    total_threads=total_threads,
-                                    session=session)
+                                    total_threads=total_threads)
 
             if reqs:
                 logging.debug('getting %s requests to submit' % (str(len(reqs))))
             record_timer('daemons.conveyor.submitter.get_next', (time.time() - ts) * 1000)
 
-            if reqs is None or reqs == []:
+            if not reqs:
                 if once:
                     break
-                session.commit()
                 time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
@@ -92,18 +88,17 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 adler32 = None
                 src_spacetoken = None
                 logging.debug(req)
-                dest_rse = rse.get_rse_by_id(req['dest_rse_id'], session=session)
+                dest_rse = rse.get_rse_by_id(req['dest_rse_id'])
                 allowed_rses = []
                 if req['request_type'] == RequestType.STAGEIN:
-                    rses = rse.list_rses(filters={'staging_buffer': dest_rse['rse']}, session=session)
+                    rses = rse.list_rses(filters={'staging_buffer': dest_rse['rse']})
                     allowed_rses = [x['rse'] for x in rses]
 
                 try:
                     for source in replica.list_replicas(dids=[{'scope': req['scope'],
                                                                'name': req['name'],
                                                                'type': DIDType.FILE}],
-                                                        schemes=[scheme, 'gsiftp'],
-                                                        session=session):
+                                                        schemes=[scheme, 'gsiftp']):
 
                         filesize = long(source['bytes'])
                         md5 = source['md5']
@@ -128,19 +123,15 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
                                                                                                     req['name'],
                                                                                                     req['request_id']))
+                    # TODO: Merge these two calls
                     request.set_request_state(req['request_id'],
-                                              RequestState.LOST,
-                                              session=session)  # if the DID does not exist anymore
-                    request.archive_request(req['request_id'],
-                                            session=session)
-                    session.commit()
+                                              RequestState.LOST)  # if the DID does not exist anymore
+                    request.archive_request(req['request_id'])
                     continue
                 except:
                     record_counter('daemons.conveyor.submitter.unexpected')
                     logging.critical('Something unexpected happened: %s' % traceback.format_exc())
                     continue
-                finally:
-                    session.commit()
 
                 sources = []
 
@@ -153,11 +144,9 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                                 'name': req['name'],
                                                                 'type': DIDType.FILE}],
                                                               schemes=[scheme],
-                                                              unavailable=True,
-                                                              session=session)):
+                                                              unavailable=True)):
                         logging.critical('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
 
-                    session.commit()
                     continue
                 else:
                     for tmp in tmpsrc:
@@ -176,7 +165,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     ts = time.time()
 
                     # select a containing dataset
-                    for parent in did.list_parent_dids(req['scope'], req['name'], session=session):
+                    for parent in did.list_parent_dids(req['scope'], req['name']):
                         if parent['type'] == DIDType.DATASET:
                             dsn = parent['name']
                             break
@@ -275,8 +264,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                            'bring_online': bring_online,
                                                            'copy_pin_lifetime': copy_pin_lifetime}, ],
                                                transfertool='fts3',
-                                               job_metadata=tmp_metadata,
-                                               session=session)
+                                               job_metadata=tmp_metadata)
 
                 record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
@@ -287,15 +275,13 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                         replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
                                                                   'scope': req['scope'],
                                                                   'name': req['name'],
-                                                                  'state': ReplicaState.COPYING}],
-                                                       session=session)
+                                                                  'state': ReplicaState.COPYING}])
                     else:
                         replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
                                                                   'scope': req['scope'],
                                                                   'name': req['name'],
                                                                   'path': paths[req['scope'], req['name']],
-                                                                  'state': ReplicaState.COPYING}],
-                                                       session=session)
+                                                                  'state': ReplicaState.COPYING}])
                     record_timer('daemons.conveyor.submitter.replica-set_copying', (time.time() - ts) * 1000)
 
                     if req['previous_attempt_id']:
@@ -313,8 +299,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                                                       sources,
                                                                                       destinations))
                     record_counter('daemons.conveyor.submitter.submit_request')
-
-                    session.commit()
                 except UnsupportedOperation, e:
                     # The replica doesn't exist
                     # Need to cancel the request
@@ -322,13 +306,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     logging.info('Cancelling transfer request %s' % req['request_id'])
                     try:
                         request.cancel_request(eid[req['request_id']], transfertool='fts3')
-                        request.purge_request(req['request_id'], session=session)
-                        session.commit()
+                        request.purge_request(req['request_id'])
                     except Exception, e:
                         logging.warning('Cannot cancel FTS job : %s' % str(e))
-                        session.rollback()
         except:
-            session.rollback()
             logging.critical(traceback.format_exc())
             logging.info('Cancelling transfer request %s' % req['request_id'])
             try:

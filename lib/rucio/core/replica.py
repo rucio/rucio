@@ -545,9 +545,9 @@ def update_replicas_states(replicas, session=None):
             query = query.filter_by(lock_cnt=0)
 
         if 'path' in replica and replica['path']:
-            rowcount = query.update({'state': replica['state'], 'path': replica['path']})
+            rowcount = query.update({'state': replica['state'], 'path': replica['path']}, synchronize_session=False)
         else:
-            rowcount = query.update({'state': replica['state']})
+            rowcount = query.update({'state': replica['state']}, synchronize_session=False)
 
         if not rowcount:
             raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s cannot be updated' % replica)
