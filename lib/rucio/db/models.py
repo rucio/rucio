@@ -666,6 +666,7 @@ class Request(BASE, ModelBase, Versioned):
     retry_count = Column(Integer(), default=0)
     err_msg = Column(String(4000))
     previous_attempt_id = Column(GUID())
+    rule_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'dest_rse_id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
@@ -673,6 +674,7 @@ class Request(BASE, ModelBase, Versioned):
                    Index('REQUESTS_ID_IDX', 'id'),
                    Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'updated_at')
                    )
+#                   ForeignKeyConstraint(['rule_id'], ['rules.id'], name='REQUESTS_RULE_ID_FK'),
 
 
 class Subscription(BASE, ModelBase, Versioned):

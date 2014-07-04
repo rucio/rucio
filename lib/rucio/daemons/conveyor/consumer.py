@@ -26,7 +26,6 @@ from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
 from rucio.daemons.conveyor.common import update_request_state
 from rucio.db.constants import RequestState, FTSState
-from rucio.db.session import get_session
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -42,7 +41,6 @@ class Consumer(object):
 
     def __init__(self, broker):
         self.__broker = broker
-        self.__session = get_session()
 
     def on_error(self, headers, message):
         record_counter('daemons.conveyor.consumer.error')
