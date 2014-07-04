@@ -236,3 +236,9 @@ def update_request_state(req, response, session=None):
                                                                    response['new_state']))
 
     return True
+
+
+@transactional_session
+def update_requests_states(reqs, session=None):
+    for req, response in reqs:
+        update_request_state(req=req, response=response, session=session)

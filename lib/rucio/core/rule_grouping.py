@@ -271,6 +271,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                         'scope': file['scope'],
                                         'name': file['name'],
                                         'attributes': {'lifetime': lifetime},
+                                        'rule_id': rule.id,
                                         'request_type': RequestType.STAGEIN})
         if existing_replica.state == ReplicaState.AVAILABLE:  # Replica is fully available
             new_lock = __create_lock(rule=rule,
@@ -327,12 +328,14 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
             transfers_to_create.append({'dest_rse_id': rse_id,
                                         'scope': file['scope'],
                                         'name': file['name'],
+                                        'rule_id': rule.id,
                                         'attributes': {'lifetime': lifetime},
                                         'request_type': RequestType.STAGEIN})
         else:  # Target RSE is not a staging area
             transfers_to_create.append({'dest_rse_id': rse_id,
                                         'scope': file['scope'],
                                         'name': file['name'],
+                                        'rule_id': rule.id,
                                         'attributes': {},
                                         'request_type': RequestType.TRANSFER})
 
