@@ -15,13 +15,17 @@ from rucio.common import exception
 from rucio.common.schema import validate_schema
 
 
-def declare_bad_file_replicas(pfns, rse):
+def declare_bad_file_replicas(pfns, rse, issuer):
     """
-    Get a list of replicas and declare them bad
+    Declare a list of bad replicas.
 
     :param pfns: The list of PFNs.
     :param rse: The RSE name.
+    :param issuer: The issuer account.
     """
+    kwargs = {}
+    if not permission.has_permission(issuer=issuer, action='declare_bad_file_replicas', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not declare bad replicas on %s' % (issuer, rse))
     return replica.declare_bad_file_replicas(pfns=pfns, rse=rse)
 
 
@@ -56,7 +60,6 @@ def add_replicas(rse, files, issuer):
     :param rse: The RSE name.
     :param files: The list of files.
     :param issuer: The issuer account.
-    :param account: The account owner. If None, then issuer is selected.
 
     :returns: True is successful, False otherwise
     """
@@ -75,7 +78,6 @@ def delete_replicas(rse, files, issuer):
     :param rse: The RSE name.
     :param files: The list of files.
     :param issuer: The issuer account.
-    :param account: The account owner. If None, then issuer is selected.
 
     :returns: True is successful, False otherwise
     """

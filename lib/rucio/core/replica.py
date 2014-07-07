@@ -31,7 +31,7 @@ from rucio.rse import rsemanager as rsemgr
 @transactional_session
 def declare_bad_file_replicas(pfns, rse, session=None):
     """
-    Get a list of replicas and declare them bad
+    Declare a list of bad replicas.
 
     :param pfns: The list of PFNs.
     :param rse: The RSE name.
@@ -39,7 +39,7 @@ def declare_bad_file_replicas(pfns, rse, session=None):
     """
     rse_info = rsemgr.get_rse_info(rse, session=session)
     rse_id = rse_info['id']
-    pfndict = {}
+    replicas = []
     p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
     if rse_info['deterministic']:
         parsed_pfn = p.parse_pfns(pfns=pfns)
@@ -51,17 +51,65 @@ def declare_bad_file_replicas(pfns, rse, session=None):
             else:
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
-            pfndict[pfn] = {'scope': scope, 'name': name, 'rse_id': rse_id}
-        # TODO set scope, name, rse_id as BAD in the replica table + locks...
+            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
+        try:
+            update_replicas_states(replicas, session=session)
+        except exception.UnsupportedOperation:
+            pass
     else:
-        condition = []
+        path_clause = []
         parsed_pfn = p.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            pfndict[path] = pfn
-            condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
-            # session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
-            # TODO set scope, name, rse as BAD in the replica table + locks...
+            path_clause.append(or_(models.RSEFileAssociation.path == path))
+        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+            with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
+            filter(models.RSEFileAssociation.rse_id == rse_id)
+        query.update({'state': ReplicaState.BAD})
+
+
+@read_session
+def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, session=None):
+    """
+    List RSE File replicas with no locks.
+
+    :param rse: the rse name.
+    :param bytes: the amount of needed bytes.
+    :param session: The database session in use.
+
+    :returns: a list of dictionary {'scope' scope, 'name': name, 'rse_id': rse_id, 'rse': rse}.
+    """
+    if session.bind.dialect.name == 'oracle':
+        # The filter(text...)) is needed otherwise, SQLA uses bind variables and the index is not used.
+        query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+            with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_STATE_IDX)", 'oracle').\
+            filter(text("CASE WHEN (atlas_rucio.replicas.state != 'A') THEN atlas_rucio.replicas.rse_id END IS NOT NULL")).\
+            filter(models.RSEFileAssociation.state == ReplicaState.BAD)
+    else:
+        query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+            filter(models.RSEFileAssociation.state == ReplicaState.BAD)
+        # with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_STATE_IDX)", 'oracle').\
+        # filter(case([(models.RSEFileAssociation.state != 'A', models.RSEFileAssociation.rse_id), ]) != none_value)
+
+    if worker_number and total_workers and total_workers - 1 > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
+
+    query = query.limit(limit)
+    rows = []
+    rse_map = {}
+    for scope, name, rse_id in query.yield_per(1000):
+        if rse_id not in rse_map:
+            rse = get_rse(rse=None, rse_id=rse_id)
+            rse_map[rse_id] = rse['rse']
+        d = {'scope': scope, 'name': name, 'rse_id': rse_id, 'rse': rse_map[rse_id]}
+        rows.append(d)
+    return rows
 
 
 @stream_session

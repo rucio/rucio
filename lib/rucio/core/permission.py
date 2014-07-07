@@ -56,6 +56,7 @@ def has_permission(issuer, action, kwargs):
             'add_protocol': perm_add_protocol,
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
+            'declare_bad_file_replicas': perm_declare_bad_file_replicas,
             'add_replicas': perm_add_replicas,
             'delete_replicas': perm_delete_replicas,
             'update_replicas_states': perm_update_replicas_states,
@@ -385,6 +386,17 @@ def perm_del_protocol(issuer, kwargs):
 def perm_update_protocol(issuer, kwargs):
     """
     Checks if an account can update protocols of an RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
+
+
+def perm_declare_bad_file_replicas(issuer, kwargs):
+    """
+    Checks if an account can declare bad file replicas.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

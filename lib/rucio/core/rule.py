@@ -31,7 +31,7 @@ from rucio.core.request import queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db import models
-from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDReEvaluation, DIDType, RequestType
+from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType
 from rucio.db.session import read_session, transactional_session, stream_session
 
 
@@ -694,6 +694,9 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
             rule.state == RuleState.OK
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+    session.query(models.RSEFileAssociation).filter_by(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.AVAILABLE, 'tombstone': datetime.utcnow()})
+    # State set to AVAILABLE to be processed by the reaper. Might be changed later.
+    session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
 
 
 @transactional_session
@@ -733,6 +736,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             rule.state == RuleState.REPLICATING
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
+    session.query(models.RSEFileAssociation).filter_by(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
 
 
 @transactional_session
