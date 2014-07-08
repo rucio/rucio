@@ -476,6 +476,78 @@ def delete_updated_did(id, session=None):
 
 
 @transactional_session
+def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=None):
+    """
+    Update rules if a file replica is lost.
+
+    :param scope:          Scope of the replica.
+    :param name:           Name of the replica.
+    :param rse_id:         RSE id of the replica.
+    :param nowait:         Nowait parameter for the FOR UPDATE statement.
+    :param session:        The database session in use.
+    """
+
+    locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
+
+    for lock in locks:
+        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
+        if lock.state == LockState.OK:
+            rule.locks_ok_cnt -= 1
+        elif lock.state == LockState.REPLICATING:
+            rule.locks_replicating_cnt -= 1
+        elif lock.state == LockState.STUCK:
+            rule.locks_stuck_cnt -= 1
+        account_counter.decrease(rse_id=rse_id, account=rule.account, files=1, bytes=lock.bytes, session=session)
+        if rule.state == RuleState.SUSPENDED:
+            continue
+        elif rule.state == RuleState.STUCK:
+            continue
+        elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
+            rule.state == RuleState.OK
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+
+
+@transactional_session
+def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None):
+    """
+    Update rules if a file replica is bad and has to be recreated.
+
+    :param scope:          Scope of the replica.
+    :param name:           Name of the replica.
+    :param rse_id:         RSE id of the replica.
+    :param nowait:         Nowait parameter for the FOR UPDATE statement.
+    :param session:        The database session in use.
+    """
+
+    locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
+
+    for lock in locks:
+        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
+        if lock.state == LockState.OK:
+            rule.locks_ok_cnt -= 1
+        elif lock.state == LockState.REPLICATING:
+            rule.locks_replicating_cnt -= 1
+        elif lock.state == LockState.STUCK:
+            rule.locks_stuck_cnt -= 1
+        rule.locks_replicating_cnt += 1
+        queue_requests(requests=[{'dest_rse_id': rse_id,
+                                  'scope': scope,
+                                  'name': name,
+                                  'rule_id': rule.id,
+                                  'attributes': {},
+                                  'request_type': RequestType.TRANSFER}], session=session)
+        if rule.state == RuleState.SUSPENDED:
+            continue
+        elif rule.state == RuleState.STUCK:
+            continue
+        else:
+            rule.state == RuleState.REPLICATING
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
+
+
+@transactional_session
 def __repair_rule_with_stuck_locks(rule_obj, session=None):
     """
     Repair a rule which has stuck replication locks.
