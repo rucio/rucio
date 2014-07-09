@@ -39,7 +39,7 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
                                 **Example**: ``'data_export'``
     :type subscription_policy:  String
-    :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
+    :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
@@ -60,7 +60,9 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     state = SubscriptionState.ACTIVE
     if retroactive:
         state = SubscriptionState.NEW
-    new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
+    if lifetime:
+        lifetime = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
+    new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=lifetime,
                                            retroactive=retroactive, policyid=policyid)
     try:
         new_subscription.save(session=session)
@@ -94,7 +96,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
                                 **Example**: ``'data_export'``
     :type subscription_policy:  String
-    :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
+    :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
