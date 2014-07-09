@@ -20,6 +20,7 @@ Compatibility Wrapper for DQ2 and Rucio.
 import copy
 import hashlib
 import re
+import string
 
 from datetime import datetime, timedelta
 from rucio.client.client import Client
@@ -749,11 +750,51 @@ class DQ2Client:
                 raise InvalidMetadata
         raise NotImplementedError
 
-    def listDatasetsByNameInSite(self):
+    def listDatasetsByNameInSite(self, site, complete=None, name=None, p=None, rpp=None, group=None):
         """
-        ToDo
+        List datasets at site
+
+        @param site: is the location to be searched for.
+        @param complete: is the location state of the dataset at a site and may have
+            the following values: None: in which case the
+            location state is ignore; LocationState.COMPLETE: lists only datasets
+            fully present at the site (no files missing);
+            LocationState.INCOMPLETE: lists only datasets partially present at the
+            site (some files missing).
+        @param page: is the page to be displayed.
+        @param rpp: are the results per page.
+        @param group: Not used
+
+        B{Exceptions:}
+            - RSENotFound is raised in case the site doesn't exist.
+
+        @return: Tuple of dataset.
+            ('dsn1', 'dsn2'... )
         """
-        raise NotImplementedError
+        result = []
+        pattern = None
+        if name:
+            pattern = string.replace(name, '*', '.*')
+        for did in self.client.get_dataset_locks_by_rse(site):
+            scope = did['scope']
+            dsn = did['name']
+            state = did['state']
+            if pattern:
+                if re.match(pattern, dsn):
+                    match = True
+                else:
+                    match = False
+            else:
+                match = True
+            if complete == 1:
+                if state == 'OK' and match:
+                    result.append('%s:%s' % (scope, dsn))
+            elif complete == 0:
+                if state != 'OK' and match:
+                    result.append('%s:%s' % (scope, dsn))
+            elif match:
+                result.append('%s:%s' % (scope, dsn))
+        return tuple(result)
 
     def listDatasetsInContainer(self, cn, scope):
         """
@@ -786,11 +827,41 @@ class DQ2Client:
                     raise NameTypeError
         raise DataIdentifierNotFound
 
-    def listDatasetsInSite(self):
+    def listDatasetsInSite(self, site, complete=None, page=1, rpp=100):
         """
-        ToDo
+        List all the datasets and their versions available on
+        the given site.
+
+        @param site: is the location to be searched for.
+        @param complete: is the location state of the dataset at a site and may have
+            the following values: None: in which case the
+            location state is ignore; LocationState.COMPLETE: lists only datasets
+            fully present at the site (no files missing);
+            LocationState.INCOMPLETE: lists only datasets partially present at the
+            site (some files missing).
+        @param page: is the page to be displayed.
+        @param rpp: are the results per page.
+
+        B{Exceptions:}
+            - RSENotFound is raised in case the site doesn't exist.
+
+        @return: List of dataset versions.
+            {'dsn': [version_numberX,... version_numberY]}
         """
-        raise NotImplementedError
+        result = {}
+        for did in self.client.get_dataset_locks_by_rse(site):
+            scope = did['scope']
+            name = did['name']
+            state = did['state']
+            if complete == 1:
+                if state == 'OK':
+                    result['%s:%s' % (scope, name)] = [1]
+            elif complete == 0:
+                if state != 'OK':
+                    result['%s:%s' % (scope, name)] = [1]
+            else:
+                result['%s:%s' % (scope, name)] = [1]
+        return result
 
     def listFileReplicas(self, location, dsn, version=0, scope=None):
         """
@@ -1028,11 +1099,34 @@ class DQ2Client:
                     result.append(rse)
         return result
 
-    def listSubscriptionsInSite(self):
+    def listSubscriptionsInSite(self, site, long=False):
         """
-        ToDo
+        Returns a dict of all subscribed uids in a site containing all attributes.
+
+        @param site: is the dataset subscription dq2.location.
+        @param long: List dataset in long format (total sum for all the file sizes + total num of files).
+
+        B{Exceptions:}
+            - RSENotFound is raised in case the site doesn't exist.
+
+        @return: Returns a list of all subscribed uids in a site containing all attributes.
+            {'dsn': [versionX, versionY]}
         """
-        raise NotImplementedError
+        result = {}
+        for did in self.client.get_dataset_locks_by_rse(site):
+            scope = did['scope']
+            name = did['name']
+            state = did['state']
+            if long:
+                if state != 'OK':
+                    result['%s:%s' % (scope, name)] = {'totalSize': 0, 'version': 1, 'totalFiles': 0}
+                    for i in self.client.list_files(scope=scope, name=name):
+                        result['%s:%s' % (scope, name)]['totalFiles'] += 1
+                        result['%s:%s' % (scope, name)]['totalSize'] += i['bytes']
+            else:
+                if state != 'OK':
+                    result['%s:%s' % (scope, name)] = [1]
+        return result
 
     def listSuspiciousFiles(self):
         """
