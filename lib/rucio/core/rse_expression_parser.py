@@ -9,6 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import abc
 import random
@@ -205,7 +206,7 @@ class RSEAttribute(BaseExpressionElement):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        output = list_rses({self.key: self.value, 'write': True}, session=session)
+        output = list_rses({self.key: self.value, 'availability_write': True}, session=session)
         if not output:
             return (set(), {})
         rse_dict = {}
