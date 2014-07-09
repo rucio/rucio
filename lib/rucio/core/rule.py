@@ -444,7 +444,7 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     elif session.bind.dialect.name == 'postgresql':
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers, worker_number))
 
-    return query.limit(limit).all()
+    return query.yield_per(limit).limit(limit).all()
 
 
 @transactional_session
