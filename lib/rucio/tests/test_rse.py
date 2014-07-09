@@ -170,7 +170,7 @@ class TestRSEClient():
         replica_client = ReplicaClient()
         replica_client.add_replicas(rse=renamed_rse, files=files1)
 
-        ret = self.client.update_rse(renamed_rse, {'write': False, 'delete': False})
+        ret = self.client.update_rse(renamed_rse, {'availability_write': False, 'availability_delete': False})
         assert_true(ret)
         dict2 = self.client.get_rse(renamed_rse)
         assert_equal(dict2['availability_write'], False)

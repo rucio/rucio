@@ -168,10 +168,13 @@ def list_rses(filters={}, session=None):
     """
 
     rse_list = []
-    availability = 7
-    availability_mapping = {'read': 4, 'write': 2, 'delete': 1}
+    availability_mask1 = 0
+    availability_mask2 = 7
+    availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     false_value = False  # To make pep8 checker happy ...
     if filters:
+        if 'availability' in filters and ('availability_read' in filters or 'availability_write' in filters or 'availability_delete' in filters):
+            raise exception.InvalidObject('Cannot use availability and read, write, delete filter at the same time.')
         query = session.query(models.RSE).\
             join(models.RSEAttrAssociation, models.RSE.id == models.RSEAttrAssociation.rse_id).\
             filter(models.RSE.deleted == false_value).group_by(models.RSE)
@@ -179,19 +182,26 @@ def list_rses(filters={}, session=None):
         for (k, v) in filters.items():
             if hasattr(models.RSE, k):
                 query = query.filter(getattr(models.RSE, k) == v)
-            elif k in ['read', 'write', 'read']:
-                if v is True:
-                    availability = availability | availability_mapping[k]
+            elif k in ['availability_read', 'availability_write', 'availability_delete']:
+                if v:
+                    availability_mask1 = availability_mask1 | availability_mapping[k]
                 else:
-                    availability = availability & ~availability_mapping[k]
+                    availability_mask2 = availability_mask2 & ~availability_mapping[k]
             else:
                 t = aliased(models.RSEAttrAssociation)
                 query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
                 query = query.filter(t.key == k)
                 query = query.filter(t.value == v)
 
-        if 'availability' not in filters and availability != 7:
-            query = query.filter(getattr(models.RSE, 'availability') == availability)
+        condition1, condition2 = [], []
+        for i in xrange(0, 8):
+            if (i | availability_mask1 == i):
+                condition1.append(models.RSE.availability == i)
+            if (i & availability_mask2 == i):
+                condition2.append(models.RSE.availability == i)
+
+        if 'availability' not in filters:
+            query = query.filter(sqlalchemy.and_(sqlalchemy.or_(*condition1), sqlalchemy.or_(*condition2)))
 
         for row in query:
             d = {}
@@ -714,13 +724,12 @@ def update_rse(rse, parameters, session=None):
     for column in query:
         if column[0] == 'availability':
             availability = column[1] or availability
-    print availability
     param = {}
-    availability_mapping = {'read': 4, 'write': 2, 'delete': 1}
+    availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     for key in parameters:
         if key == 'name':
             param['rse'] = parameters['name']
-        if key in ['read', 'write', 'delete']:
+        if key in ['availability_read', 'availability_write', 'availability_delete']:
             if parameters[key] is True:
                 availability = availability | availability_mapping[key]
             else:

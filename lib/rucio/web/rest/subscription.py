@@ -15,7 +15,7 @@ from web import application, ctx, data, header, BadRequest, Created, InternalErr
 
 from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
-from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
+from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
 from rucio.web.rest.common import authenticate
 
@@ -106,9 +106,10 @@ class Subscription:
             update_subscription(name=name, account=ctx.env.get('issuer'), filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionNotFound, e:
             raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
-        # except Exception, e:
-        #    print e
-        #    raise InternalError(e)
+        except InvalidObject, e:
+            raise generate_http_error(400, 'InvalidObject', e[0][0])
+        except Exception, e:
+            raise InternalError(e)
         raise Created()
 
     def POST(self, name):
@@ -143,6 +144,8 @@ class Subscription:
             raise generate_http_error(409, 'SubscriptionDuplicate', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except InvalidObject, e:
+            raise generate_http_error(400, 'InvalidObject', e[0][0])
         except Exception, e:
             raise InternalError(e)
 

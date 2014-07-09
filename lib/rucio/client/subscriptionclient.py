@@ -40,7 +40,7 @@ class SubscriptionClient(BaseClient):
         :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
                                     **Example**: ``'data_export'``
         :type subscription_policy:  String
-        :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
+        :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
         :type lifetime:  Integer or False
         :param retroactive: Flag to know if the subscription should be applied on previous data
         :type retroactive:  Boolean
@@ -102,7 +102,7 @@ class SubscriptionClient(BaseClient):
         :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
                                     **Example**: ``'data_export'``
         :type subscription_policy:  String
-        :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
+        :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
         :type lifetime:  Integer or False
         :param retroactive: Flag to know if the subscription should be applied on previous data
         :type retroactive:  Boolean
