@@ -13,13 +13,14 @@ import datetime
 import json
 import logging
 import re
+import time
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_by_id
 from rucio.db import models
 from rucio.db.constants import RequestState, FTSState
@@ -129,7 +130,9 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
     transfer_id = None
 
     if transfertool == 'fts3':
+        ts = time.time()
         transfer_ids = fts3.submit_transfers(transfers=transfers, job_metadata=job_metadata)
+        record_timer('daemons.conveyor.submitter.fts3.submit_transfers', (time.time() - ts) * 1000)
 
     for transfer_id in transfer_ids:
         session.query(models.Request)\
