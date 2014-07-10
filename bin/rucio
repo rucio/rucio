@@ -1422,7 +1422,7 @@ Commands:
     add_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE Expression')
     add_rule_parser.add_argument('--weight', dest='weight', action='store', help='RSE Weight')
     add_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Rule lifetime (in seconds)')
-    add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['dataset', 'all', 'none'], help='Rule grouping')
+    add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['DATASET', 'ALL', 'NONE'], help='Rule grouping')
     add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
 
     # Delete replication rule subparser
