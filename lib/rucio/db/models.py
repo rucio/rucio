@@ -667,6 +667,10 @@ class Request(BASE, ModelBase, Versioned):
     err_msg = Column(String(4000))
     previous_attempt_id = Column(GUID())
     rule_id = Column(GUID())
+    bytes = Column(BigInteger)
+    md5 = Column(String(32))
+    adler32 = Column(String(8))
+    dest_url = Column(String(2048))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'dest_rse_id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
