@@ -32,6 +32,10 @@ def upgrade():
     op.add_column('requests', sa.Column('md5', String(32)))
     op.add_column('requests', sa.Column('adler32', String(8)))
     op.add_column('requests', sa.Column('dest_url', String(2048)))
+    op.add_column('requests_history', sa.Column('bytes', BigInteger))
+    op.add_column('requests_history', sa.Column('md5', String(32)))
+    op.add_column('requests_history', sa.Column('adler32', String(8)))
+    op.add_column('requests_history', sa.Column('dest_url', String(2048)))
 
 
 def downgrade():
@@ -39,3 +43,7 @@ def downgrade():
     op.drop_column('requests', 'md5')
     op.drop_column('requests', 'adler32')
     op.drop_column('requests', 'dest_url')
+    op.drop_column('requests_history', 'bytes')
+    op.drop_column('requests_history', 'md5')
+    op.drop_column('requests_history', 'adler32')
+    op.drop_column('requests_history', 'dest_url')
