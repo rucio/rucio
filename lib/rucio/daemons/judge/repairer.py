@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
@@ -17,15 +17,10 @@ import time
 import traceback
 
 from sqlalchemy.exc import DatabaseError
-from sqlalchemy.sql.expression import bindparam
-from sqlalchemy.sql.expression import text
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
-from rucio.db import session as rucio_session
-from rucio.db import models
-from rucio.db.constants import RuleState
-from rucio.core.rule import repair_rule
+from rucio.core.rule import repair_rule, get_stuck_rules
 from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
@@ -47,25 +42,10 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
     while not graceful_stop.is_set():
         try:
             # Select a bunch of rules for this worker to repair
-            session = rucio_session.get_session()
-            query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.state == RuleState.STUCK).\
-                with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle')
-            #   order_by(models.ReplicationRule.expires_at)
-
-            if total_processes*threads_per_process-1 > 0:
-                if session.bind.dialect.name == 'oracle':
-                    bindparams = [bindparam('worker_number', process*threads_per_process+thread),
-                                  bindparam('total_workers', total_processes*threads_per_process-1)]
-                    query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-                elif session.bind.dialect.name == 'mysql':
-                    query = query.filter('mod(md5(name), %s) = %s' % (total_processes*threads_per_process-1, process*threads_per_process+thread))
-                elif session.bind.dialect.name == 'sqlite':
-                    pass
-
             start = time.time()
-            rules = query.limit(1000).all()
-            session.commit()
-            session.remove()
+            rules = get_stuck_rules(total_workers=total_processes*threads_per_process-1,
+                                    worker_number=process*threads_per_process+thread,
+                                    delta=0 if once else 600)
             logging.debug('rule_repairer index query time %f rule-size=%d' % (time.time() - start, len(rules)))
 
             if not rules and not once:
@@ -92,6 +72,8 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
             logging.critical(traceback.format_exc())
         if once:
             return
+        else:
+            time.sleep(30)
 
     logging.info('rule_repairer: graceful stop requested')
     record_gauge('rule.judge.repairer.threads.%d' % (process*threads_per_process+thread), 0)

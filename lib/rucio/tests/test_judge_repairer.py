@@ -10,13 +10,14 @@
 
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.did import add_did, attach_dids
-from rucio.core.lock import get_replica_locks
+from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import get_rule, add_rule
 from rucio.daemons.judge.repairer import rule_repairer
-from rucio.db import models
-from rucio.db.constants import DIDType, RuleState, LockState  # , RuleGrouping
+from rucio.daemons.judge.evaluator import re_evaluator
+from rucio.db.constants import DIDType, RuleState
 from rucio.db.session import get_session
+from rucio.db import models
 from rucio.tests.test_rule import create_files, tag_generator
 
 
@@ -49,58 +50,107 @@ class TestJudgeRepairer():
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
 
-    # def test_stuck_rule(self):
-    #     """ JUDGE REPAIRER: Test to repair a STUCK replication rule"""
-    #     scope = 'mock'
-    #     files = create_files(3, scope, self.rse1)
-    #     dataset = 'dataset_' + str(uuid())
-    #     add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-    #     attach_dids(scope, dataset, files, 'jdoe')
+    def test_to_repair_a_rule_with_NONE_grouping_whose_transfer_failed(self):
+        """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
 
-    #     session = get_session()
-    #     new_rule = models.ReplicationRule(account='jdoe', name=dataset, scope=scope, copies=1, rse_expression=self.rse1, locked=False, grouping=RuleGrouping.DATASET, expires_at=None, weight=None, subscription_id=None, state=RuleState.STUCK)
-    #     new_rule.save(session=session)
-    #     session.commit()
-
-    #     rule_repairer(once=True)
-
-    #     assert(get_rule(rule_id=new_rule.id)['state'] == 'OK')
-
-    #     for file in files:
-    #         rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
-    #         assert(len(rse_locks) == 1)
-
-    def DISABLED_stuck_rule_failed_transfer(self):
-        """ JUDGE REPAIRER: Test to repair a STUCK replication rule because of a failed transfer"""
+        rule_repairer(once=True)  # Clean out the repairer
         scope = 'mock'
-        files = create_files(3, scope, self.rse4)
+        files = create_files(3, scope, self.rse4, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
-        # Fake DB entries to make the RULE STUCK
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[2]['name'])[0].rse_id)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=get_replica_locks(scope=files[1]['scope'], name=files[2]['name'])[0].rse_id)
+        failed_transfer(scope=scope, name=files[2]['name'], rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
+
+        assert(rule_id == get_rule(rule_id)['id'].replace('-', '').lower())
+        assert(RuleState.STUCK == get_rule(rule_id)['state'])
+        rule_repairer(once=True)
+        assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
+
+    def test_to_repair_a_rule_with_ALL_grouping_whose_transfer_failed(self):
+        """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = 'mock'
+        files = create_files(4, scope, self.rse4, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.T1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[2]['name'])[0].rse_id)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=get_replica_locks(scope=files[1]['scope'], name=files[2]['name'])[0].rse_id)
+        failed_transfer(scope=scope, name=files[2]['name'], rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
+        failed_transfer(scope=scope, name=files[3]['name'], rse_id=get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
+
+        assert(rule_id == get_rule(rule_id)['id'].replace('-', '').lower())
+        assert(RuleState.STUCK == get_rule(rule_id)['state'])
+        rule_repairer(once=True)
+        assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
+        assert(get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id == get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
+
+    def test_to_repair_a_rule_with_DATASET_grouping_whose_transfer_failed(self):
+        """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = 'mock'
+        files = create_files(4, scope, self.rse4, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[2]['name'])[0].rse_id)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=get_replica_locks(scope=files[1]['scope'], name=files[2]['name'])[0].rse_id)
+        failed_transfer(scope=scope, name=files[2]['name'], rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
+        failed_transfer(scope=scope, name=files[3]['name'], rse_id=get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
+
+        assert(rule_id == get_rule(rule_id)['id'].replace('-', '').lower())
+        assert(RuleState.STUCK == get_rule(rule_id)['state'])
+        rule_repairer(once=True)
+        assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
+        assert(get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id == get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
+
+    def test_repair_a_rule_with_missing_locks(self):
+        """ JUDGE EVALUATOR: Test the judge when a rule gets STUCK from re_evaluating and there are missing locks"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse4)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+
+        # Add a first rule to the DS
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        # Fake judge
+        re_evaluator(once=True)
+
+        # Check if the Locks are created properly
+        for file in files:
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+
+        # Add more files to the DID
+        files2 = create_files(3, scope, self.rse4)
+        attach_dids(scope, dataset, files2, 'jdoe')
+
+        # Mark the rule STUCK to fake that the re-evaluation failed
         session = get_session()
-        # Mark one Lock as STUCK
-        session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == files[0]['scope'],
-                                                 models.ReplicaLock.name == files[0]['name'],
-                                                 models.ReplicaLock.rse_id != self.rse4_id).one().state = LockState.STUCK
-        # Mark the Rule as STUCK
-        rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id[0]).one()
-
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         rule.state = RuleState.STUCK
-        rule.locks_replicating_cnt = 2
-        rule.locks_stuck_cnt = 1
-
         session.commit()
 
-        # print get_rule(rule_id=rule_id[0])
-
-        # Run repair statement
         rule_repairer(once=True)
-        assert(get_rule(rule_id=rule_id[0])['state'] == 'OK')
 
         for file in files:
-            rse_locks = get_replica_locks(scope=file['scope'], name=file['name'], lockmode=None)
-            assert(len(rse_locks) == 1)
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+        for file in files2:
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+            assert(len(set([lock.rse_id for lock in get_replica_locks(scope=files[0]['scope'], name=files[0]['name'])]).intersection(set([lock.rse_id for lock in get_replica_locks(scope=file['scope'], name=file['name'])]))) == 2)
+        assert(12 == get_rule(rule_id)['locks_replicating_cnt'])
