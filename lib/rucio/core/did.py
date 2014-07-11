@@ -18,7 +18,7 @@ from hashlib import md5
 from re import match
 
 from sqlalchemy import and_, or_, case
-from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_
 from sqlalchemy.sql.expression import bindparam, text
@@ -681,63 +681,17 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     :paran did: The data identifier info.
     :param session: The database session in use.
     """
-# Check enum types
-#     enum = session.query(models.DIDKeyValueAssociation).filter_by(key=key).first()
-#     if enum:
-#         try:
-#             session.query(models.DIDKeyValueAssociation).filter_by(key=key, value=value).one()
-#         except NoResultFound:
-#             raise exception.InvalidValueForKey("The value '%(value)s' is invalid for the key '%(key)s'" % locals())
-#
-# Check constraints
-#     try:
-#         k = session.query(models.DIDKey).filter_by(key=key).one()
-#     except NoResultFound:
-#         raise exception.KeyNotFound("'%(key)s' not found." % locals())
-#
-# Check value against regexp, if defined
-#     if k.value_regexp and not match(k.value_regexp, str(value)):
-#         raise exception.InvalidValueForKey("The value '%s' for the key '%s' does not match the regular expression '%s'" % (value, key, k.value_regexp))
-#
-# Check value type, if defined
-#     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
-#     if k.value_type and not isinstance(value, type_map.get(k.value_type)):
-#             raise exception.InvalidValueForKey("The value '%s' for the key '%s' does not match the required type '%s'" % (value, key, k.value_type))
-#
-#     if not did:
-#         did = get_did(scope=scope, name=name, session=session)
-#
-# Check key_type
-#     if k.key_type in (KeyType.FILE, KeyType.DERIVED) and did['type'] != DIDType.FILE:
-#         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != file" % locals())
-#     elif k.key_type == KeyType.COLLECTION and did['type'] not in (DIDType.DATASET, DIDType.CONTAINER):
-#         raise exception.UnsupportedOperation("The key '%(key)s' cannot be applied on data identifier with type != dataset|container" % locals())
-
-    # models.DataIdentifier.__table__.append_column(Column(key, models.String(50)))
-    session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
-    # values = {key: value}
-    # stmt = models.DataIdentifier.__table__.update().where(models.DataIdentifier.__table__.c.scope == bindparam('s')).where(models.DataIdentifier.__table__.c.name == bindparam('n')).values(**values)
-    # session.execute(stmt, [{'s': scope, 'n': name}, ])
-
-
-#    if key == 'guid':
-#        try:
-#            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'guid': value}, synchronize_session='fetch')  # add DIDtype
-#            # or synchronize_session=False
-#            # session.expire_all() ?
-#        except IntegrityError, e:
-#            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists for a file!' % locals())
-    # else:
-    #    new_meta = models.DIDAttribute(scope=scope, name=name, key=key, value=value, did_type=did['did_type'])
-    #    try:
-    #        new_meta.save(session=session)
-    #    except IntegrityError, e:
-    #        print e.args[0]
-    #        if e.args[0] == "(IntegrityError) foreign key constraint failed":
-    #            raise exception.KeyNotFound("Key '%(key)s' not found" % locals())
-    #        if e.args[0] == "(IntegrityError) columns scope, name, key are not unique":
-    #            raise exception.Duplicate('Metadata \'%(key)s-%(value)s\' already exists!' % locals())
-    #        raise
+    if key == 'lifetime':
+        try:
+            expired_at = datetime.utcnow() + timedelta(seconds=value)
+            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
+        except TypeError, e:
+            raise exception.InvalidValueForKey(e)
+    else:
+        try:
+            session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
+        except CompileError, e:
+            raise exception.InvalidMetadata(e)
 
 
 @read_session

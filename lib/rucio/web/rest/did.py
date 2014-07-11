@@ -27,7 +27,8 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     AccessDenied, KeyNotFound, DatabaseException,
                                     Duplicate, InvalidValueForKey,
                                     UnsupportedStatus, UnsupportedOperation,
-                                    RSENotFound, RucioException, RuleNotFound)
+                                    RSENotFound, RucioException, RuleNotFound,
+                                    InvalidMetadata)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import authenticate, RucioController
 
@@ -504,6 +505,8 @@ class Meta(RucioController):
             raise generate_http_error(409, 'Duplicate', e[0][0])
         except KeyNotFound, e:
             raise generate_http_error(400, 'KeyNotFound', e[0][0])
+        except InvalidMetadata, e:
+            raise generate_http_error(400, 'InvalidMetadata', e[0][0])
         except InvalidValueForKey, e:
             raise generate_http_error(400, 'InvalidValueForKey', e[0][0])
         except RucioException, e:
