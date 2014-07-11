@@ -67,12 +67,13 @@ class RSESelector():
         if len(self.rses) < self.copies:
             raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
-    def select_rse(self, size, preferred_rse_ids, blacklist=[]):
+    def select_rse(self, size, preferred_rse_ids, copies=0, blacklist=[]):
         """
         Select n RSEs to replicate data to.
 
         :param size:               Size of the block being replicated.
         :param preferred_rse_ids:  Ordered list of preferred rses. (If possible replicate to them)
+        :param copies:             Select this amount of copies, if 0 use the pre-defined rule value.
         :param blacklist:          List of blacklisted rses. (Do not put replicas on these sites)
         :returns:                  List of (RSE_id, staging_area) tuples.
         :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
@@ -80,18 +81,19 @@ class RSESelector():
 
         result = []
         rses = self.rses
+        count = self.copies if copies == 0 else copies
 
         # Remove blacklisted rses
         if blacklist:
             rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
-        if len(rses) < self.copies:
+        if len(rses) < count:
             raise InsufficientTargetRSEs('There are not enough target RSEs (due to blacklisting) to fulfil the request at this time.')
         # Remove rses which do not have enough quota
         rses = [rse for rse in rses if rse['quota_left'] > size]
-        if len(rses) < self.copies:
+        if len(rses) < count:
             raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
-        for copy in range(self.copies):
+        for copy in range(count):
             # Remove rses already in the result set
             rses = [rse for rse in rses if rse['rse_id'] not in [item[0] for item in result]]
             # Prioritize the preffered rses

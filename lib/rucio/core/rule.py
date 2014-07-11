@@ -20,7 +20,7 @@ import rucio.core.did
 
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound,
-                                    ReplicationRuleCreationFailed, InsufficientTargetRSEs, RucioException,
+                                    ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.core import account_counter, rse_counter
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
@@ -29,9 +29,9 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.replica import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.core.request import queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
-from rucio.core.rule_grouping import apply_rule_grouping
+from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping
 from rucio.db import models
-from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDReEvaluation, DIDType, RequestType
+from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDReEvaluation, DIDType, RequestType
 from rucio.db.session import read_session, transactional_session, stream_session
 
 
@@ -53,7 +53,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param subscription_id:  The subscription_id, if the rule is created by a subscription.
     :param session:          The database session in use.
     :returns:                A list of created replication rule ids.
-    :raises:                 InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
+    :raises:                 InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
     """
     rule_ids = []
 
@@ -144,7 +144,7 @@ def add_rules(dids, rules, session=None):
                      {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
-    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
+    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
     """
 
     with record_timer_block('rule.add_rules'):
@@ -313,13 +313,124 @@ def repair_rule(rule_id, session=None):
     :param session:   The database session in use.
     """
 
+    # Rule error cases:
+    # (A) A rule get's an exception on rule-creation. This can only be the MissingSourceReplica exception.
+    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs
+    #     InsufficientAccountLimit. The re-evaluation has to be done again and potential missing locks have to be
+    #     created.
+    # (C) Transfers fail and mark locks (and the rule) as STUCK. All STUCK locks have to be repaired.
+    # (D) Files are declared as BAD.
+
     # start_time = time.time()
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
-        # Identify what's wrong with the rule
-        # (B) Rule is STUCK due to repeatedly failed transfers
-        if rule.locks_stuck_cnt > 0:
-            __repair_rule_with_stuck_locks(rule_obj=rule, session=session)
+
+        if session.bind.dialect.name != 'sqlite':
+            session.begin_nested()
+
+        # Evaluate the RSE expression to see if there is an alternative RSE anyway
+        try:
+            rses = parse_expression(rule.rse_expression, session=session)
+        except (InvalidRSEExpression) as e:
+            session.rollback()
+            rule.state = RuleState.STUCK
+            rule.error = str(e)
+            rule.save(session=session)
+            # Try to update the DatasetLocks
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+            return
+
+        # Create the RSESelector
+        try:
+            rseselector = RSESelector(account=rule.account,
+                                      rses=rses,
+                                      weight=rule.weight,
+                                      copies=rule.copies,
+                                      session=session)
+        except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
+            session.rollback()
+            rule.state = RuleState.STUCK
+            rule.error = str(e)
+            rule.save(session=session)
+            # Try to update the DatasetLocks
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+            return
+
+        # Get the did
+        did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
+                                                          models.DataIdentifier.name == rule.name).one()
+
+        # Resolve the did to its contents
+        datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                            nowait=False,
+                                                                            restrict_rses=[rse['id'] for rse in rses],
+                                                                            session=session)
+
+        # 1. Try to find missing locks and create them based on grouping
+        if did.did_type != DIDType.FILE:
+            try:
+                __find_missing_locks_and_create_them(datasetfiles=datasetfiles,
+                                                     locks=locks,
+                                                     replicas=replicas,
+                                                     rseselector=rseselector,
+                                                     rule=rule,
+                                                     session=session)
+            except (InsufficientAccountLimit, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed) as e:
+                session.rollback()
+                rule.state = RuleState.STUCK
+                rule.error = str(e)
+                rule.save(session=session)
+                # Try to update the DatasetLocks
+                if rule.grouping != RuleGrouping.NONE:
+                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                return
+
+        # 2. Try to find STUCK locks and repair them based on grouping
+        try:
+            __find_stuck_locks_and_repair_them(datasetfiles=datasetfiles,
+                                               locks=locks,
+                                               replicas=replicas,
+                                               rseselector=rseselector,
+                                               rule=rule,
+                                               session=session)
+        except (InsufficientAccountLimit, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed) as e:
+            session.rollback()
+            rule.state = RuleState.STUCK
+            rule.error = str(e)
+            rule.save(session=session)
+            # Try to update the DatasetLocks
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+            return
+
+        if session.bind.dialect.name != 'sqlite':
+            session.commit()
+
+        if rule.locks_stuck_cnt != 0:
+            rule.state = RuleState.STUCK
+            # Try to update the DatasetLocks
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+            # TODO: Increase some kind of Stuck Counter here, The rule should at some point be SUSPENDED
+            return
+
+        if rule.locks_replicating_cnt > 0:
+            rule.state = RuleState.REPLICATING
+            rule.error = None
+            # Try to update the DatasetLocks
+            if rule.grouping != RuleGrouping.NONE:
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
+            return
+
+        rule.state = RuleState.OK
+        rule.error = None
+        # Try to update the DatasetLocks
+        if rule.grouping != RuleGrouping.NONE:
+            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+        return
+
     except NoResultFound:
         # The rule has been deleted in the meanwhile
         return
@@ -377,7 +488,7 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     :param name:                    The name of the did to be re-evaluated.
     :param rule_evaluation_action:  The Rule evaluation action.
     :param session:                 The database session in use.
-    :raises:                        DataIdentifierNotFound
+    :raises:                        DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
     """
 
     try:
@@ -445,6 +556,43 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
         query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers, worker_number))
 
     return query.yield_per(limit).limit(limit).all()
+
+
+@read_session
+def get_stuck_rules(total_workers, worker_number, delta=600, session=None):
+    """
+    Get stuck rules.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param delta:              Delta in seconds to select rules in.
+    :param session:            Database session in use.
+    """
+
+    if session.bind.dialect.name == 'oracle':
+        query = session.query(models.ReplicationRule.id).\
+            with_hint(models.ReplicationRule, "+ index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
+            filter(text("CASE when rules.state='S' THEN rules.state ELSE null END)= 'S' ")).\
+            filter(models.ReplicationRule.state == RuleState.STUCK).\
+            filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
+            order_by(models.ReplicationRule.updated_at)
+    else:
+        query = session.query(models.ReplicationRule.id).\
+            with_hint(models.ReplicationRule, "+ index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
+            filter(models.ReplicationRule.state == RuleState.STUCK).\
+            filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
+            order_by(models.ReplicationRule.updated_at)
+
+    if session.bind.dialect.name == 'oracle':
+        bindparams = [bindparam('worker_number', worker_number),
+                      bindparam('total_workers', total_workers)]
+        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+    elif session.bind.dialect.name == 'mysql':
+        query = query.filter('mod(md5(name), %s) = %s' % (total_workers, worker_number))
+    elif session.bind.dialect.name == 'postgresql':
+        query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers, worker_number))
+
+    return query.all()
 
 
 @transactional_session
@@ -537,6 +685,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
                                   'rule_id': rule.id,
                                   'attributes': {},
                                   'request_type': RequestType.TRANSFER}], session=session)
+        lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             continue
         elif rule.state == RuleState.STUCK:
@@ -548,24 +697,94 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
 
 @transactional_session
-def __repair_rule_with_stuck_locks(rule_obj, session=None):
+def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselector, rule, session=None):
     """
-    Repair a rule which has stuck replication locks.
+    Find missing locks for a rule and create them.
 
-    :param rule_obj:  The SQL Alchemy rule object.
-    :param session:   The database session in use.
+    :param datasetfiles:       Dict holding all datasets and files.
+    :param locks:              Dict holding locks.
+    :param replicas:           Dict holding replicas.
+    :param rseselector:        The RSESelector to be used.
+    :param rule:               The rule.
+    :param session:            Session of the db.
+    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
+    :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
-    # Evaluate the RSE expression to see if there is an alternative RSE anyway
-    # If not, the whole process can be stopped right now.
+    mod_datasetfiles = []    # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
+    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
 
-    # Get all STUCK locks
-    stuck_locks = session.query(models.ReplicaLock).query(models.ReplicaLock.rule_id == rule_obj.id,
-                                                          models.ReplicaLock.state == LockState.STUCK).\
-        with_for_update(nowait=True).all()
+    for dataset in datasetfiles:
+        mod_files = []
+        preferred_rse_ids = []
+        for file in dataset['files']:
+            if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) < rule.copies:
+                mod_files.append(file)
+            else:
+                preferred_rse_ids = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
+        if len(mod_files) > 0:
+            mod_datasetfiles.append({'scope': dataset['scope'], 'name': dataset['name'], 'files': mod_files})
+            __create_locks_replicas_transfers(datasetfiles=mod_datasetfiles,
+                                              locks=locks,
+                                              replicas=replicas,
+                                              rseselector=rseselector,
+                                              rule=rule,
+                                              preferred_rse_ids=preferred_rse_ids,
+                                              session=session)
 
-    for stuck_lock in stuck_locks:
-        print stuck_lock
+
+@transactional_session
+def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselector, rule, session=None):
+    """
+    Find stuck locks for a rule and repair them.
+
+    :param datasetfiles:       Dict holding all datasets and files.
+    :param locks:              Dict holding locks.
+    :param replicas:           Dict holding replicas.
+    :param rseselector:        The RSESelector to be used.
+    :param rule:               The rule.
+    :param session:            Session of the db.
+    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
+    :attention:                This method modifies the contents of the locks and replicas input parameters.
+    """
+
+    replicas_to_create, locks_to_create, transfers_to_create,\
+        locks_to_delete = repair_stuck_locks_and_apply_rule_grouping(datasetfiles=datasetfiles,
+                                                                     locks=locks,
+                                                                     replicas=replicas,
+                                                                     rseselector=rseselector,
+                                                                     rule=rule,
+                                                                     session=session)
+    try:
+        # Add the replicas
+        session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
+        session.flush()
+
+        # Add the locks
+        session.add_all([item for sublist in locks_to_create.values() for item in sublist])
+        session.flush()
+
+        # Increase rse_counters
+        for rse_id in replicas_to_create.keys():
+            rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
+
+        # Increase account_counters
+        for rse_id in locks_to_create.keys():
+            account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
+
+        # Decrease account_counters
+        for rse_id in locks_to_delete:
+            account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(locks_to_delete[rse_id]), bytes=sum([lock.bytes for lock in locks_to_delete[rse_id]]), session=session)
+
+        # Delete the locks:
+        for lock in [item for sublist in locks_to_delete.values() for item in sublist]:
+            session.delete(lock)
+
+        # Add the transfers
+        queue_requests(requests=transfers_to_create, session=session)
+        session.flush()
+    except (IntegrityError), e:
+        raise ReplicationRuleCreationTemporaryFailed(e.args[0])
 
 
 @transactional_session
@@ -635,6 +854,7 @@ def __evaluate_did_attach(eval_did, session=None):
 
     :param eval_did:  The did object in use.
     :param session:   The database session in use.
+    :raises:          ReplicationRuleCreationTemporaryFailed
     """
 
     with record_timer_block('rule.evaluate_did_attach'):
@@ -708,7 +928,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                   weight=rule.weight,
                                                   copies=rule.copies,
                                                   session=session)
-                    except (InvalidRuleWeight, InsufficientAccountLimit) as e:
+                    except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
                         rule.error = str(e)
@@ -742,7 +962,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                           rule=rule,
                                                           preferred_rse_ids=preferred_rse_ids,
                                                           session=session)
-                    except (InsufficientAccountLimit, ReplicationRuleCreationFailed, InsufficientTargetRSEs, InvalidReplicationRule) as e:
+                    except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
                         rule.error = str(e)
@@ -751,6 +971,9 @@ def __evaluate_did_attach(eval_did, session=None):
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                         continue
+                    except ReplicationRuleCreationTemporaryFailed, e:
+                        session.rollback()
+                        raise e
 
                     # 4. Update the Rule State
                     if rule.state == RuleState.STUCK:
@@ -931,7 +1154,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
     :param rule:               The rule.
     :param preferred_rse_ids:  Preferred RSE's to select.
     :param session:            Session of the db.
-    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationFailed, InsufficientTargetRSEs, InvalidReplicationRule
+    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
@@ -963,7 +1186,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
         queue_requests(requests=transfers_to_create, session=session)
         session.flush()
     except (IntegrityError), e:
-        raise ReplicationRuleCreationFailed(e.args[0])
+        raise ReplicationRuleCreationTemporaryFailed(e.args[0])
 
 
 @transactional_session
@@ -986,6 +1209,7 @@ def __delete_lock_and_update_replica(lock, nowait=False, session=None):
             replica.tombstone = datetime.utcnow()
         lock.delete(session=session)
         if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
+            replica.state = ReplicaState.UNAVAILABLE
             return True
     except NoResultFound:
         pass

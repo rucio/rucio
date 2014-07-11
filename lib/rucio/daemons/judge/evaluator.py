@@ -19,7 +19,7 @@ import time
 import traceback
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException, DataIdentifierNotFound
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_duplicate_updated_dids, delete_updated_did
 from rucio.core.monitor import record_gauge, record_counter
 
@@ -80,6 +80,9 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                     except DatabaseException, e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
+                    except ReplicationRuleCreationTemporaryFailed, e:
+                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        logging.ubfi('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)

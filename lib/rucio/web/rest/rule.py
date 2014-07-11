@@ -18,7 +18,7 @@ from web import application, ctx, data, header, Created, InternalError, OK, load
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_lock_state
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound,
-                                    ReplicationRuleCreationFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
+                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import authenticate
 
@@ -132,8 +132,8 @@ class Rule:
             raise generate_http_error(409, 'InvalidRSEExpression', e.args[0][0])
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
-        except ReplicationRuleCreationFailed, e:
-            raise generate_http_error(409, 'ReplicationRuleCreationFailed', e.args[0][0])
+        except ReplicationRuleCreationTemporaryFailed, e:
+            raise generate_http_error(409, 'ReplicationRuleCreationTemporaryFailed', e.args[0][0])
         except InvalidRuleWeight, e:
             raise generate_http_error(409, 'InvalidRuleWeight', e.args[0][0])
         except StagingAreaRuleRequiresLifetime, e:

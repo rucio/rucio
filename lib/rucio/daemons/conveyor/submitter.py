@@ -271,12 +271,8 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 ts = time.time()
                 try:
                     logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], req['dest_rse_id']))
-                    if rse_info['deterministic']:
-                        replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
-                                                                  'scope': req['scope'],
-                                                                  'name': req['name'],
-                                                                  'state': ReplicaState.COPYING}])
-                    else:
+                    if not rse_info['deterministic']:
+                        # No update for COPYING state needed anymore!
                         replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
                                                                   'scope': req['scope'],
                                                                   'name': req['name'],
