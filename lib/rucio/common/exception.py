@@ -354,9 +354,9 @@ class NotAFile(RucioException):
         self._message = 'Specified name is not a file'
 
 
-class ReplicationRuleCreationFailed(RucioException):
+class ReplicationRuleCreationTemporaryFailed(RucioException):
     def __init__(self, *args, **kwargs):
-        super(ReplicationRuleCreationFailed, self).__init__(args, kwargs)
+        super(ReplicationRuleCreationTemporaryFailed, self).__init__(args, kwargs)
         self._message = "The creation of the replication rule failed at this time. Please try again later."
 
 
