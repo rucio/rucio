@@ -571,14 +571,14 @@ def get_stuck_rules(total_workers, worker_number, delta=600, session=None):
 
     if session.bind.dialect.name == 'oracle':
         query = session.query(models.ReplicationRule.id).\
-            with_hint(models.ReplicationRule, "+ index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
-            filter(text("CASE when rules.state='S' THEN rules.state ELSE null END)= 'S' ")).\
+            with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
+            filter(text("(CASE when rules.state='S' THEN rules.state ELSE null END)= 'S' ")).\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
             order_by(models.ReplicationRule.updated_at)
     else:
         query = session.query(models.ReplicationRule.id).\
-            with_hint(models.ReplicationRule, "+ index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
+            with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
             filter(models.ReplicationRule.state == RuleState.STUCK).\
             filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
             order_by(models.ReplicationRule.updated_at)
