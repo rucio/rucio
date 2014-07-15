@@ -36,24 +36,25 @@ from rucio.db.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, session=None):
     """
     Adds a replication rule for every did in dids
 
-    :param dids:             List of data identifiers.
-    :param account:          Account issuing the rule.
-    :param copies:           The number of replicas.
-    :param rse_expression:   RSE expression which gets resolved into a list of rses.
-    :param grouping:         ALL -  All files will be replicated to the same RSE.
-                             DATASET - All files in the same dataset will be replicated to the same RSE.
-                             NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
-    :param weight:           Weighting scheme to be used.
-    :param lifetime:         The lifetime of the replication rule in seconds.
-    :param locked:           If the rule is locked.
-    :param subscription_id:  The subscription_id, if the rule is created by a subscription.
-    :param session:          The database session in use.
-    :returns:                A list of created replication rule ids.
-    :raises:                 InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
+    :param dids:                       List of data identifiers.
+    :param account:                    Account issuing the rule.
+    :param copies:                     The number of replicas.
+    :param rse_expression:             RSE expression which gets resolved into a list of rses.
+    :param grouping:                   ALL -  All files will be replicated to the same RSE.
+                                       DATASET - All files in the same dataset will be replicated to the same RSE.
+                                       NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
+    :param weight:                     Weighting scheme to be used.
+    :param lifetime:                   The lifetime of the replication rule in seconds.
+    :param locked:                     If the rule is locked.
+    :param subscription_id:            The subscription_id, if the rule is created by a subscription.
+    :param source_replica_expression:  Only use replicas as source from this RSEs.
+    :param session:                    The database session in use.
+    :returns:                          A list of created replication rule ids.
+    :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
     """
     rule_ids = []
 
@@ -65,6 +66,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
                     raise StagingAreaRuleRequiresLifetime()
+
+            if source_replica_expression:
+                source_rses = parse_expression(source_replica_expression, session=session)
+            else:
+                source_rses = []
 
         # 2. Create the rse selector
         with record_timer_block('rule.add_rule.create_rse_selector'):
@@ -99,21 +105,21 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   grouping=grouping,
                                                   expires_at=expires_at,
                                                   weight=weight,
+                                                  source_replica_expression=source_replica_expression,
                                                   subscription_id=subscription_id)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
                     raise InvalidReplicationRule(e.args[0])
-                # except OperationalError, e:
-                #    raise e
 
                 rule_ids.append(new_rule.id)
 
             # 5. Resolve the did to its contents
             with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
+                # Get all Replicas, not only the ones interesting for the rse_expression
                 datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                                     nowait=False,
-                                                                                    restrict_rses=[rse['id'] for rse in rses],
+                                                                                    restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
                                                                                     session=session)
 
             # 6. Apply the replication rule to create locks, replicas and transfers
@@ -124,9 +130,14 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   rseselector=rseselector,
                                                   rule=new_rule,
                                                   preferred_rse_ids=[],
+                                                  source_rses=[rse['id'] for rse in source_rses],
                                                   session=session)
 
-            if new_rule.locks_replicating_cnt == 0:
+            if new_rule.locks_stuck_cnt > 0:
+                new_rule.state = RuleState.STUCK
+                new_rule.error = 'MissingSourceReplica'
+                session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.STUCK})
+            elif new_rule.locks_replicating_cnt == 0:
                 new_rule.state = RuleState.OK
             else:
                 new_rule.state = RuleState.REPLICATING
@@ -152,10 +163,16 @@ def add_rules(dids, rules, session=None):
 
         # 1. Fetch the RSEs from the RSE expression to restrict further queries just on these RSEs
         restrict_rses = []
+        all_source_rses = []
         with record_timer_block('rule.add_rules.parse_rse_expressions'):
             for rule in rules:
                 restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
             restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
+
+            for rule in rules:
+                if rule.get('source_replica_expression'):
+                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), session=session))
+            all_source_rses = list(set([rse['id'] for rse in all_source_rses]))
 
         for elem in dids:
             rule_ids[(elem['scope'], elem['name'])] = []
@@ -170,9 +187,10 @@ def add_rules(dids, rules, session=None):
 
             # 3. Resolve the did into its contents
             with record_timer_block('rule.add_rules.resolve_dids_to_locks_replicas'):
+                # Get all Replicas, not only the ones interesting for the rse_expression
                 datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                                     nowait=False,
-                                                                                    restrict_rses=restrict_rses,
+                                                                                    restrict_rses=restrict_rses + all_source_rses,
                                                                                     session=session)
 
             for rule in rules:
@@ -183,6 +201,11 @@ def add_rules(dids, rules, session=None):
                     if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
                         if [rse for rse in rses if rse.get('staging_area', False)]:
                             raise StagingAreaRuleRequiresLifetime()
+
+                    if rule.get('source_replica_expression'):
+                        source_rses = parse_expression(rule.get('source_replica_expression'), session=session)
+                    else:
+                        source_rses = []
 
                     # 5. Create the RSE selector
                     with record_timer_block('rule.add_rules.create_rse_selector'):
@@ -206,6 +229,7 @@ def add_rules(dids, rules, session=None):
                                                           grouping=grouping,
                                                           expires_at=expires_at,
                                                           weight=rule.get('weight'),
+                                                          source_replica_expression=rule.get('source_replica_expression'),
                                                           subscription_id=rule.get('subscription_id'))
                         try:
                             new_rule.save(session=session)
@@ -222,9 +246,14 @@ def add_rules(dids, rules, session=None):
                                                           rseselector=rseselector,
                                                           rule=new_rule,
                                                           preferred_rse_ids=[],
+                                                          source_rses=[rse['id'] for rse in source_rses],
                                                           session=session)
 
-                    if new_rule.locks_replicating_cnt == 0:
+                    if new_rule.locks_stuck_cnt > 0:
+                        new_rule.state = RuleState.STUCK
+                        new_rule.error = 'MissingSourceReplica'
+                        session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                    elif new_rule.locks_replicating_cnt == 0:
                         new_rule.state = RuleState.OK
                     else:
                         new_rule.state = RuleState.REPLICATING
@@ -331,6 +360,10 @@ def repair_rule(rule_id, session=None):
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
             rses = parse_expression(rule.rse_expression, session=session)
+            if rule.source_replica_expression:
+                source_rses = parse_expression(rule.source_replica_expression, session=session)
+            else:
+                source_rses = []
         except (InvalidRSEExpression) as e:
             session.rollback()
             rule.state = RuleState.STUCK
@@ -365,7 +398,7 @@ def repair_rule(rule_id, session=None):
         # Resolve the did to its contents
         datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                             nowait=False,
-                                                                            restrict_rses=[rse['id'] for rse in rses],
+                                                                            restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
                                                                             session=session)
 
         # 1. Try to find missing locks and create them based on grouping
@@ -376,6 +409,7 @@ def repair_rule(rule_id, session=None):
                                                      replicas=replicas,
                                                      rseselector=rseselector,
                                                      rule=rule,
+                                                     source_rses=[rse['id'] for rse in source_rses],
                                                      session=session)
             except (InsufficientAccountLimit, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed) as e:
                 session.rollback()
@@ -387,6 +421,8 @@ def repair_rule(rule_id, session=None):
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 return
 
+        session.flush()
+
         # 2. Try to find STUCK locks and repair them based on grouping
         try:
             __find_stuck_locks_and_repair_them(datasetfiles=datasetfiles,
@@ -394,6 +430,7 @@ def repair_rule(rule_id, session=None):
                                                replicas=replicas,
                                                rseselector=rseselector,
                                                rule=rule,
+                                               source_rses=[rse['id'] for rse in source_rses],
                                                session=session)
         except (InsufficientAccountLimit, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed) as e:
             session.rollback()
@@ -697,7 +734,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
 
 @transactional_session
-def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselector, rule, session=None):
+def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
     """
     Find missing locks for a rule and create them.
 
@@ -706,6 +743,7 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
     :param replicas:           Dict holding replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
+    :param source_rses:        RSE ids for eglible source RSEs.
     :param session:            Session of the db.
     :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
@@ -730,11 +768,12 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
                                               rseselector=rseselector,
                                               rule=rule,
                                               preferred_rse_ids=preferred_rse_ids,
+                                              source_rses=source_rses,
                                               session=session)
 
 
 @transactional_session
-def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselector, rule, session=None):
+def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
     """
     Find stuck locks for a rule and repair them.
 
@@ -743,6 +782,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselecto
     :param replicas:           Dict holding replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
+    :param source_rses:        RSE ids of eglible source RSEs.
     :param session:            Session of the db.
     :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
@@ -754,6 +794,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselecto
                                                                      replicas=replicas,
                                                                      rseselector=rseselector,
                                                                      rule=rule,
+                                                                     source_rses=source_rses,
                                                                      session=session)
     try:
         # Add the replicas
@@ -911,6 +952,9 @@ def __evaluate_did_attach(eval_did, session=None):
                         session.begin_nested()
                     try:
                         rses = parse_expression(rule.rse_expression, session=session)
+                        source_rses = []
+                        if rule.source_replica_expression:
+                            source_rses = parse_expression(rule.source_replica_expression, session=session)
                     except (InvalidRSEExpression) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
@@ -954,6 +998,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                       rule_id=rule.id,
                                                       session=session)
                             preferred_rse_ids = [lock['rse_id'] for lock in locks]
+                    locks_stuck_before = rule.locks_stuck_cnt
                     try:
                         __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                                           locks=locks,
@@ -961,6 +1006,7 @@ def __evaluate_did_attach(eval_did, session=None):
                                                           rseselector=rseselector,
                                                           rule=rule,
                                                           preferred_rse_ids=preferred_rse_ids,
+                                                          source_rses=[rse['id'] for rse in source_rses],
                                                           session=session)
                     except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
                         session.rollback()
@@ -978,6 +1024,11 @@ def __evaluate_did_attach(eval_did, session=None):
                     # 4. Update the Rule State
                     if rule.state == RuleState.STUCK:
                         pass
+                    elif rule.locks_stuck_cnt > 0:
+                        if locks_stuck_before != rule.locks_stuck_cnt:
+                            rule.state = RuleState.STUCK
+                            rule.error = 'MissingSourceReplica'
+                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                     elif rule.locks_replicating_cnt > 0:
                         rule.state = RuleState.REPLICATING
                         if rule.grouping != RuleGrouping.NONE:
@@ -1143,7 +1194,7 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
 
 
 @transactional_session
-def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], session=None):
+def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a created replication rule to a set of files
 
@@ -1153,6 +1204,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
     :param preferred_rse_ids:  Preferred RSE's to select.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
@@ -1164,6 +1216,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
                                                                                    rseselector=rseselector,
                                                                                    rule=rule,
                                                                                    preferred_rse_ids=preferred_rse_ids,
+                                                                                   source_rses=source_rses,
                                                                                    session=session)
     try:
         # Add the replicas

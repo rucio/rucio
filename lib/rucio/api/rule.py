@@ -13,23 +13,24 @@ from rucio.common.exception import AccessDenied
 from rucio.core import rule
 
 
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, issuer):
+def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, issuer):
     """
     Adds a replication rule.
 
-    :param dids:             The data identifier set.
-    :param copies:           The number of replicas.
-    :param rse_expression:   Boolean string expression to give the list of RSEs.
-    :param weight:           If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
-    :param lifetime:         The lifetime of the replication rules (in seconds).
-    :param grouping:         ALL -  All files will be replicated to the same RSE.
-                             DATASET - All files in the same dataset will be replicated to the same RSE.
-                             NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
-    :param account:          The account owning the rule.
-    :param locked:           If the rule is locked, it cannot be deleted.
-    :param issuer:           The issuing account of this operation.
-    :param subscription_id:  The subscription_id, if the rule is created by a subscription
-    :returns:                List of created replication rules
+    :param dids:                       The data identifier set.
+    :param copies:                     The number of replicas.
+    :param rse_expression:             Boolean string expression to give the list of RSEs.
+    :param weight:                     If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
+    :param lifetime:                   The lifetime of the replication rules (in seconds).
+    :param grouping:                   ALL -  All files will be replicated to the same RSE.
+                                       DATASET - All files in the same dataset will be replicated to the same RSE.
+                                       NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
+    :param account:                    The account owning the rule.
+    :param locked:                     If the rule is locked, it cannot be deleted.
+    :param issuer:                     The issuing account of this operation.
+    :param subscription_id:            The subscription_id, if the rule is created by a subscription.
+    :param source_replica_expression:  Only use replicas from this RSE as sources.
+    :returns:                          List of created replication rules.
     """
     if account is None:
         account = issuer

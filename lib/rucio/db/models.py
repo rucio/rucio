@@ -564,6 +564,7 @@ class ReplicationRule(BASE, ModelBase):
     locks_ok_cnt = Column(BigInteger, default=0)
     locks_replicating_cnt = Column(BigInteger, default=0)
     locks_stuck_cnt = Column(BigInteger, default=0)
+    source_replica_expression = Column(String(255))
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
