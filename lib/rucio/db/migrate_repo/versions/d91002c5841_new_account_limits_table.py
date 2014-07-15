@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 """New account_limits table
 
@@ -30,7 +31,6 @@ def upgrade():
     if context.get_context().dialect.name != 'sqlite':
         op.drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits')
-        op.drop_constraint('ACCOUNT_LIMITS_RSE_ID_FK', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits')
     op.drop_table('account_limits')
@@ -43,17 +43,17 @@ def upgrade():
                     sa.Column('created_at', sa.DateTime))
     if context.get_context().dialect.name != 'sqlite':
         op.create_primary_key('ACCOUNT_LIMITS_PK', 'account_limits', ['account', 'rse_id'])
-        op.create_check_constraint('ACCOUNT_LIMITS_created_nn', 'account_limits', 'created_at is not null')
-        op.create_check_constraint('ACCOUNT_LIMITS_updated_nn', 'account_limits', 'updated_at is not null')
-        op.create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', 'account', 'account')
-        op.create_foreign_key('ACCOUNT_LIMITS_RSE_ID_FK', 'account_limits', 'rses', 'rse_id', 'rse_id')
+        op.create_check_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits', 'created_at is not null')
+        op.create_check_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits', 'updated_at is not null')
+        op.create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', ['account'], ['account'])
+        op.create_foreign_key('ACCOUNT_LIMITS_RSE_ID_FK', 'account_limits', 'rses', ['rse_id'], ['id'])
 
 
 def downgrade():
     if context.get_context().dialect.name != 'sqlite':
         op.drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits')
-        op.drop_constraint('ACCOUNT_LIMITS_created_nn', 'account_limits')
-        op.drop_constraint('ACCOUNT_LIMITS_updated_nn', 'account_limits')
+        op.drop_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits')
+        op.drop_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_RSE_ID_FK', 'account_limits')
     op.drop_table('account_limits')
@@ -67,6 +67,6 @@ def downgrade():
                     sa.Column('created_at', sa.DateTime))
     if context.get_context().dialect.name != 'sqlite':
         op.create_primary_key('ACCOUNT_LIMITS_PK', 'account_limits', ['account', 'rse_expression', 'name'])
-        op.create_check_constraint('ACCOUNT_LIMITS_created_nn', 'account_limits', 'created_at is not null')
-        op.create_check_constraint('ACCOUNT_LIMITS_updated_nn', 'account_limits', 'updated_at is not null')
-        op.create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', 'account', 'account')
+        op.create_check_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits', 'created_at is not null')
+        op.create_check_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits', 'updated_at is not null')
+        op.create_foreign_key('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits', 'accounts', ['account'], ['account'])
