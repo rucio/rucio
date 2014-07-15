@@ -629,7 +629,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                             'scope': file['scope'],
                                             'name': file['name'],
                                             'rule_id': rule.id,
-                                            'attributes': {'source_rses': source_rses if source_rses else None},
+                                            'attributes': {'source_rses': source_rses if source_rses else None,
+                                                           'acitivity': rule.activity},
                                             'request_type': RequestType.TRANSFER})
                 return True
             return False
@@ -687,7 +688,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                             'scope': file['scope'],
                                             'name': file['name'],
                                             'rule_id': rule.id,
-                                            'attributes': {'source_rses': source_rses if source_rses else None},
+                                            'attributes': {'source_rses': source_rses if source_rses else None,
+                                                           'activity': rule.activity},
                                             'request_type': RequestType.TRANSFER})
 
         if available_source_replica:
@@ -777,5 +779,6 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, source_rses, 
                                 'scope': lock.scope,
                                 'name': lock.name,
                                 'rule_id': rule.id,
-                                'attributes': {'source_rses': source_rses if source_rses else None},
+                                'attributes': {'source_rses': source_rses if source_rses else None,
+                                               'activity': rule.activity},
                                 'request_type': RequestType.TRANSFER})
