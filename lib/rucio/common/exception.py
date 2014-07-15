@@ -324,6 +324,12 @@ class MissingFileParameter(RucioException):
         self._message = "File parameter is missing."
 
 
+class MissingSourceReplica(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(MissingSourceReplica, self).__init__(args, kwargs)
+        self._message = "Source replicas are missing to fulfil the request at this moment."
+
+
 class NameTypeError(RucioException):
     def __init__(self, *args, **kwargs):
         super(NameTypeError, self).__init__(args, kwargs)

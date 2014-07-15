@@ -19,7 +19,7 @@ from rucio.db.session import transactional_session
 
 
 @transactional_session
-def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], session=None):
+def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply rule grouping to files.
 
@@ -29,6 +29,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, prefer
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  List of replicas to create, List of locks to create, List of transfers to create
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
@@ -40,17 +41,41 @@ def apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, prefer
     # transfers_to_create = [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     if rule.grouping == RuleGrouping.NONE:
-        replicas_to_create, locks_to_create, transfers_to_create = __apply_rule_to_files_none_grouping(datasetfiles=datasetfiles, locks=locks, replicas=replicas, rseselector=rseselector, rule=rule, preferred_rse_ids=preferred_rse_ids, session=session)
+        replicas_to_create, locks_to_create,\
+            transfers_to_create = __apply_rule_to_files_none_grouping(datasetfiles=datasetfiles,
+                                                                      locks=locks,
+                                                                      replicas=replicas,
+                                                                      rseselector=rseselector,
+                                                                      rule=rule,
+                                                                      preferred_rse_ids=preferred_rse_ids,
+                                                                      source_rses=source_rses,
+                                                                      session=session)
     elif rule.grouping == RuleGrouping.ALL:
-        replicas_to_create, locks_to_create, transfers_to_create = __apply_rule_to_files_all_grouping(datasetfiles=datasetfiles, locks=locks, replicas=replicas, rseselector=rseselector, rule=rule, preferred_rse_ids=preferred_rse_ids, session=session)
+        replicas_to_create, locks_to_create,\
+            transfers_to_create = __apply_rule_to_files_all_grouping(datasetfiles=datasetfiles,
+                                                                     locks=locks,
+                                                                     replicas=replicas,
+                                                                     rseselector=rseselector,
+                                                                     rule=rule,
+                                                                     preferred_rse_ids=preferred_rse_ids,
+                                                                     source_rses=source_rses,
+                                                                     session=session)
     else:  # rule.grouping == RuleGrouping.DATASET:
-        replicas_to_create, locks_to_create, transfers_to_create = __apply_rule_to_files_dataset_grouping(datasetfiles=datasetfiles, locks=locks, replicas=replicas, rseselector=rseselector, rule=rule, preferred_rse_ids=preferred_rse_ids, session=session)
+        replicas_to_create, locks_to_create,\
+            transfers_to_create = __apply_rule_to_files_dataset_grouping(datasetfiles=datasetfiles,
+                                                                         locks=locks,
+                                                                         replicas=replicas,
+                                                                         rseselector=rseselector,
+                                                                         rule=rule,
+                                                                         preferred_rse_ids=preferred_rse_ids,
+                                                                         source_rses=source_rses,
+                                                                         session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
 
 @transactional_session
-def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, session=None):
+def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
     """
     Apply rule grouping to files.
 
@@ -59,6 +84,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
     :param replicas:           Dict holding all replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
+    :param source_rses:        RSE ids of eglible source_rses.
     :param session:            Session of the db.
     :returns:                  List of replicas to create, List of locks to create, List of transfers to create, List of locks to Delete
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
@@ -72,33 +98,36 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
 
     if rule.grouping == RuleGrouping.NONE:
         replicas_to_create, locks_to_create, transfers_to_create,\
-            locks_to_delete = __repair_stuck_locks_and_create_missing_locks_with_none_grouping(datasetfiles=datasetfiles,
-                                                                                               locks=locks,
-                                                                                               replicas=replicas,
-                                                                                               rseselector=rseselector,
-                                                                                               rule=rule,
-                                                                                               session=session)
+            locks_to_delete = __repair_stuck_locks_with_none_grouping(datasetfiles=datasetfiles,
+                                                                      locks=locks,
+                                                                      replicas=replicas,
+                                                                      rseselector=rseselector,
+                                                                      rule=rule,
+                                                                      source_rses=source_rses,
+                                                                      session=session)
     elif rule.grouping == RuleGrouping.ALL:
         replicas_to_create, locks_to_create, transfers_to_create,\
-            locks_to_delete = __repair_stuck_locks_and_create_missing_locks_with_all_grouping(datasetfiles=datasetfiles,
-                                                                                              locks=locks,
-                                                                                              replicas=replicas,
-                                                                                              rseselector=rseselector,
-                                                                                              rule=rule,
-                                                                                              session=session)
+            locks_to_delete = __repair_stuck_locks_with_all_grouping(datasetfiles=datasetfiles,
+                                                                     locks=locks,
+                                                                     replicas=replicas,
+                                                                     rseselector=rseselector,
+                                                                     rule=rule,
+                                                                     source_rses=source_rses,
+                                                                     session=session)
     else:
         replicas_to_create, locks_to_create, transfers_to_create,\
-            locks_to_delete = __repair_stuck_locks_and_create_missing_locks_with_dataset_grouping(datasetfiles=datasetfiles,
-                                                                                                  locks=locks,
-                                                                                                  replicas=replicas,
-                                                                                                  rseselector=rseselector,
-                                                                                                  rule=rule,
-                                                                                                  session=session)
+            locks_to_delete = __repair_stuck_locks_with_dataset_grouping(datasetfiles=datasetfiles,
+                                                                         locks=locks,
+                                                                         replicas=replicas,
+                                                                         rseselector=rseselector,
+                                                                         rule=rule,
+                                                                         source_rses=source_rses,
+                                                                         session=session)
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
 @transactional_session
-def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], session=None):
+def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a rule to files with NONE grouping.
 
@@ -108,6 +137,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselect
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
@@ -138,6 +168,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselect
                                           staging_area=rse_tuple[1],
                                           locks_to_create=locks_to_create,
                                           locks=locks,
+                                          source_rses=source_rses,
                                           replicas_to_create=replicas_to_create,
                                           replicas=replicas,
                                           transfers_to_create=transfers_to_create)
@@ -146,7 +177,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselect
 
 
 @transactional_session
-def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], session=None):
+def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a rule to files with ALL grouping.
 
@@ -156,6 +187,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
@@ -202,6 +234,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                              staging_area=rse_tuple[1],
                                              locks_to_create=locks_to_create,
                                              locks=locks,
+                                             source_rses=source_rses,
                                              replicas_to_create=replicas_to_create,
                                              replicas=replicas,
                                              transfers_to_create=transfers_to_create):
@@ -227,7 +260,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
 
 
 @transactional_session
-def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], session=None):
+def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
     Apply a rule to files with ALL grouping.
 
@@ -237,6 +270,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
@@ -281,6 +315,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                                              staging_area=rse_tuple[1],
                                              locks_to_create=locks_to_create,
                                              locks=locks,
+                                             source_rses=source_rses,
                                              replicas_to_create=replicas_to_create,
                                              replicas=replicas,
                                              transfers_to_create=transfers_to_create):
@@ -306,7 +341,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
 
 
 @transactional_session
-def __repair_stuck_locks_and_create_missing_locks_with_none_grouping(datasetfiles, locks, replicas, rseselector, rule, session=None):
+def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
     """
     Apply a rule to files with NONE grouping.
 
@@ -315,6 +350,7 @@ def __repair_stuck_locks_and_create_missing_locks_with_none_grouping(datasetfile
     :param replicas:           Dict holding all replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
@@ -331,33 +367,46 @@ def __repair_stuck_locks_and_create_missing_locks_with_none_grouping(datasetfile
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
             for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
-                blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
-                rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                    preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
-                                                    copies=1,
-                                                    blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
-                for rse_tuple in rse_tuples:
-                    __create_lock_and_replica(file=file,
-                                              dataset=dataset,
-                                              rule=rule,
-                                              rse_id=rse_tuple[0],
-                                              staging_area=rse_tuple[1],
-                                              locks_to_create=locks_to_create,
-                                              locks=locks,
-                                              replicas_to_create=replicas_to_create,
-                                              replicas=replicas,
-                                              transfers_to_create=transfers_to_create)
-                rule.locks_stuck_cnt -= 1
-                if lock.rse_id in locks_to_delete:
-                    locks_to_delete[lock.rse_id].append(lock)
+                # Check if this is a STUCK lock due to source_replica filtering
+                if source_rses:
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
+                    # Check if there is an eglible source replica for this lock
+                    for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
+                        if replica.rse_id in source_rses:
+                            __update_lock_replica_and_create_transfer(lock=lock,
+                                                                      replica=associated_replica,
+                                                                      rule=rule,
+                                                                      source_rses=source_rses,
+                                                                      transfers_to_create=transfers_to_create)
                 else:
-                    locks_to_delete[lock.rse_id] = [lock]
+                    blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
+                    rse_tuples = rseselector.select_rse(size=file['bytes'],
+                                                        preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
+                                                        copies=1,
+                                                        blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                    for rse_tuple in rse_tuples:
+                        __create_lock_and_replica(file=file,
+                                                  dataset=dataset,
+                                                  rule=rule,
+                                                  rse_id=rse_tuple[0],
+                                                  staging_area=rse_tuple[1],
+                                                  locks_to_create=locks_to_create,
+                                                  locks=locks,
+                                                  source_rses=source_rses,
+                                                  replicas_to_create=replicas_to_create,
+                                                  replicas=replicas,
+                                                  transfers_to_create=transfers_to_create)
+                    rule.locks_stuck_cnt -= 1
+                    if lock.rse_id in locks_to_delete:
+                        locks_to_delete[lock.rse_id].append(lock)
+                    else:
+                        locks_to_delete[lock.rse_id] = [lock]
 
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
 @transactional_session
-def __repair_stuck_locks_and_create_missing_locks_with_all_grouping(datasetfiles, locks, replicas, rseselector, rule, session=None):
+def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
     """
     Apply a rule to files with ALL grouping.
 
@@ -366,6 +415,7 @@ def __repair_stuck_locks_and_create_missing_locks_with_all_grouping(datasetfiles
     :param replicas:           Dict holding all replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
@@ -383,41 +433,54 @@ def __repair_stuck_locks_and_create_missing_locks_with_all_grouping(datasetfiles
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
             for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
-                blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
-                if not alternative_rses:
-                    rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                        preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
-                                                        copies=1,
-                                                        blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                # Check if this is a STUCK lock due to source_replica filtering
+                if source_rses:
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
+                    # Check if there is an eglible source replica for this lock
+                    for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
+                        if replica.rse_id in source_rses:
+                            __update_lock_replica_and_create_transfer(lock=lock,
+                                                                      replica=associated_replica,
+                                                                      rule=rule,
+                                                                      source_rses=source_rses,
+                                                                      transfers_to_create=transfers_to_create)
                 else:
-                    rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                        preferred_rse_ids=alternative_rses,
-                                                        copies=1,
-                                                        blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
-                for rse_tuple in rse_tuples:
-                    if rse_tuple[0] not in alternative_rses:
-                        alternative_rses.append(rse_tuple[0])
-                    __create_lock_and_replica(file=file,
-                                              dataset=dataset,
-                                              rule=rule,
-                                              rse_id=rse_tuple[0],
-                                              staging_area=rse_tuple[1],
-                                              locks_to_create=locks_to_create,
-                                              locks=locks,
-                                              replicas_to_create=replicas_to_create,
-                                              replicas=replicas,
-                                              transfers_to_create=transfers_to_create)
-                rule.locks_stuck_cnt -= 1
-                if lock.rse_id in locks_to_delete:
-                    locks_to_delete[lock.rse_id].append(lock)
-                else:
-                    locks_to_delete[lock.rse_id] = [lock]
+                    blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
+                    if not alternative_rses:
+                        rse_tuples = rseselector.select_rse(size=file['bytes'],
+                                                            preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
+                                                            copies=1,
+                                                            blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                    else:
+                        rse_tuples = rseselector.select_rse(size=file['bytes'],
+                                                            preferred_rse_ids=alternative_rses,
+                                                            copies=1,
+                                                            blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                    for rse_tuple in rse_tuples:
+                        if rse_tuple[0] not in alternative_rses:
+                            alternative_rses.append(rse_tuple[0])
+                        __create_lock_and_replica(file=file,
+                                                  dataset=dataset,
+                                                  rule=rule,
+                                                  rse_id=rse_tuple[0],
+                                                  staging_area=rse_tuple[1],
+                                                  locks_to_create=locks_to_create,
+                                                  locks=locks,
+                                                  source_rses=source_rses,
+                                                  replicas_to_create=replicas_to_create,
+                                                  replicas=replicas,
+                                                  transfers_to_create=transfers_to_create)
+                    rule.locks_stuck_cnt -= 1
+                    if lock.rse_id in locks_to_delete:
+                        locks_to_delete[lock.rse_id].append(lock)
+                    else:
+                        locks_to_delete[lock.rse_id] = [lock]
 
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
 @transactional_session
-def __repair_stuck_locks_and_create_missing_locks_with_dataset_grouping(datasetfiles, locks, replicas, rseselector, rule, session=None):
+def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
     """
     Apply a rule to files with DATASET grouping.
 
@@ -426,6 +489,7 @@ def __repair_stuck_locks_and_create_missing_locks_with_dataset_grouping(datasetf
     :param replicas:           Dict holding all replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
+    :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
@@ -443,40 +507,53 @@ def __repair_stuck_locks_and_create_missing_locks_with_dataset_grouping(datasetf
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
             for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
-                blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
-                if not alternative_rses:
-                    rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                        preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
-                                                        copies=1,
-                                                        blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                # Check if this is a STUCK lock due to source_replica filtering
+                if source_rses:
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
+                    # Check if there is an eglible source replica for this lock
+                    for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
+                        if replica.rse_id in source_rses:
+                            __update_lock_replica_and_create_transfer(lock=lock,
+                                                                      replica=associated_replica,
+                                                                      rule=rule,
+                                                                      source_rses=source_rses,
+                                                                      transfers_to_create=transfers_to_create)
                 else:
-                    rse_tuples = rseselector.select_rse(size=file['bytes'],
-                                                        preferred_rse_ids=alternative_rses,
-                                                        copies=1,
-                                                        blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
-                for rse_tuple in rse_tuples:
-                    if rse_tuple[0] not in alternative_rses:
-                        alternative_rses.append(rse_tuple[0])
-                    __create_lock_and_replica(file=file,
-                                              dataset=dataset,
-                                              rule=rule,
-                                              rse_id=rse_tuple[0],
-                                              staging_area=rse_tuple[1],
-                                              locks_to_create=locks_to_create,
-                                              locks=locks,
-                                              replicas_to_create=replicas_to_create,
-                                              replicas=replicas,
-                                              transfers_to_create=transfers_to_create)
-                rule.locks_stuck_cnt -= 1
-                if lock.rse_id in locks_to_delete:
-                    locks_to_delete[lock.rse_id].append(lock)
-                else:
-                    locks_to_delete[lock.rse_id] = [lock]
+                    blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
+                    if not alternative_rses:
+                        rse_tuples = rseselector.select_rse(size=file['bytes'],
+                                                            preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
+                                                            copies=1,
+                                                            blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                    else:
+                        rse_tuples = rseselector.select_rse(size=file['bytes'],
+                                                            preferred_rse_ids=alternative_rses,
+                                                            copies=1,
+                                                            blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED] + blacklist_rses + [lock.rse_id])
+                    for rse_tuple in rse_tuples:
+                        if rse_tuple[0] not in alternative_rses:
+                            alternative_rses.append(rse_tuple[0])
+                        __create_lock_and_replica(file=file,
+                                                  dataset=dataset,
+                                                  rule=rule,
+                                                  rse_id=rse_tuple[0],
+                                                  staging_area=rse_tuple[1],
+                                                  locks_to_create=locks_to_create,
+                                                  locks=locks,
+                                                  source_rses=source_rses,
+                                                  replicas_to_create=replicas_to_create,
+                                                  replicas=replicas,
+                                                  transfers_to_create=transfers_to_create)
+                    rule.locks_stuck_cnt -= 1
+                    if lock.rse_id in locks_to_delete:
+                        locks_to_delete[lock.rse_id].append(lock)
+                    else:
+                        locks_to_delete[lock.rse_id] = [lock]
 
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
-def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, replicas_to_create, replicas, transfers_to_create):
+def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_to_create, locks, source_rses, replicas_to_create, replicas, transfers_to_create):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
@@ -487,6 +564,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
     :param staging_area:         Boolean variable if the RSE is a staging area.
     :param locks_to_create:      Dictionary of the locks to create.
     :param locks:                Dictionary of all locks.
+    :param source_rses:          RSE ids of eglible source replicas.
     :param replicas_to_create:   Dictionary of the replicas to create.
     :param replicas:             Dictionary of the replicas.
     :param transfers_to_create:  List of transfers to create.
@@ -494,19 +572,24 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
     :attention:                  This method modifies the contents of the locks, locks_to_create, replicas_to_create and replicas input parameters.
     """
 
+    # If it is a Staging Area, the pin has to be extended
+    if staging_area:
+        lifetime = rule.expires_at - datetime.utcnow()
+        lifetime = lifetime.seconds
+        transfers_to_create.append({'dest_rse_id': rse_id,
+                                    'scope': file['scope'],
+                                    'name': file['name'],
+                                    'attributes': {'lifetime': lifetime},
+                                    'rule_id': rule.id,
+                                    'request_type': RequestType.STAGEIN})
+
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
-    if len(existing_replicas) > 0:  # A replica already exists
+
+    if len(existing_replicas) > 0:  # A replica already exists (But could be UNAVAILABLE)
         existing_replica = existing_replicas[0]
-        if staging_area:  # Staging pin has to be extended
-            lifetime = rule.expires_at - datetime.utcnow()
-            lifetime = lifetime.seconds
-            transfers_to_create.append({'dest_rse_id': rse_id,
-                                        'scope': file['scope'],
-                                        'name': file['name'],
-                                        'attributes': {'lifetime': lifetime},
-                                        'rule_id': rule.id,
-                                        'request_type': RequestType.STAGEIN})
-        if existing_replica.state == ReplicaState.AVAILABLE:  # Replica is fully AVAILABLE
+
+        # Replica is fully available -- AVAILABLE
+        if existing_replica.state == ReplicaState.AVAILABLE:
             new_lock = __create_lock(rule=rule,
                                      rse_id=rse_id,
                                      scope=file['scope'],
@@ -519,27 +602,39 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
             return False
-        elif existing_replica.state == ReplicaState.UNAVAILABLE:  # Replica is not available: UNAVAILABLE
+
+        # Replica is not available -- UNAVAILABLE
+        elif existing_replica.state == ReplicaState.UNAVAILABLE:
+            available_source_replica = True
+            if source_rses:
+                available_source_replica = False
+                # Check if there is an eglible source replica for this lock
+                for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
+                    if replica.rse_id in source_rses:
+                        available_source_replica = True
+                        break
             new_lock = __create_lock(rule=rule,
                                      rse_id=rse_id,
                                      scope=file['scope'],
                                      name=file['name'],
                                      bytes=file['bytes'],
                                      existing_replica=existing_replica,
-                                     state=LockState.REPLICATING)
+                                     state=LockState.REPLICATING if available_source_replica else LockState.STUCK)
             if rse_id not in locks_to_create:
                 locks_to_create[rse_id] = []
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
-            if not staging_area:
+            if not staging_area and available_source_replica:
                 transfers_to_create.append({'dest_rse_id': rse_id,
                                             'scope': file['scope'],
                                             'name': file['name'],
                                             'rule_id': rule.id,
-                                            'attributes': {},
+                                            'attributes': {'source_rses': source_rses if source_rses else None},
                                             'request_type': RequestType.TRANSFER})
-            return True
-        else:  # Replica is not available at rse yet COPYING
+                return True
+            return False
+        # Replica is not available at the rse yet -- COPYING
+        else:
             new_lock = __create_lock(rule=rule,
                                      rse_id=rse_id,
                                      scope=file['scope'],
@@ -553,46 +648,52 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
             locks[(file['scope'], file['name'])].append(new_lock)
             return True
     else:  # Replica has to be created
+        available_source_replica = True
+        if source_rses:
+            available_source_replica = False
+            # Check if there is an eglible source replica for this lock
+            for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
+                if replica.rse_id in source_rses:
+                    available_source_replica = True
+                    break
+
         new_replica = __create_replica(rse_id=rse_id,
                                        scope=file['scope'],
                                        name=file['name'],
                                        bytes=file['bytes'],
                                        md5=file['md5'],
                                        adler32=file['adler32'],
-                                       state=ReplicaState.COPYING)
+                                       state=ReplicaState.COPYING if available_source_replica else ReplicaState.UNAVAILABLE)
         if rse_id not in replicas_to_create:
             replicas_to_create[rse_id] = []
         replicas_to_create[rse_id].append(new_replica)
         replicas[(file['scope'], file['name'])].append(new_replica)
+
         new_lock = __create_lock(rule=rule,
                                  rse_id=rse_id,
                                  scope=file['scope'],
                                  name=file['name'],
                                  bytes=file['bytes'],
                                  existing_replica=new_replica,
-                                 state=LockState.REPLICATING)
+                                 state=LockState.REPLICATING if available_source_replica else LockState.STUCK)
         if rse_id not in locks_to_create:
             locks_to_create[rse_id] = []
         locks_to_create[rse_id].append(new_lock)
         locks[(file['scope'], file['name'])].append(new_lock)
-        if staging_area:  # If the target RSE is a staging area
-            lifetime = rule.expires_at - datetime.utcnow()
-            lifetime = lifetime.seconds
-            transfers_to_create.append({'dest_rse_id': rse_id,
-                                        'scope': file['scope'],
-                                        'name': file['name'],
-                                        'rule_id': rule.id,
-                                        'attributes': {'lifetime': lifetime},
-                                        'request_type': RequestType.STAGEIN})
-        else:  # Target RSE is not a staging area
-            transfers_to_create.append({'dest_rse_id': rse_id,
-                                        'scope': file['scope'],
-                                        'name': file['name'],
-                                        'rule_id': rule.id,
-                                        'attributes': {},
-                                        'request_type': RequestType.TRANSFER})
 
-        return True
+        if not staging_area:  # Target RSE is not a staging area
+            if available_source_replica:
+                transfers_to_create.append({'dest_rse_id': rse_id,
+                                            'scope': file['scope'],
+                                            'name': file['name'],
+                                            'rule_id': rule.id,
+                                            'attributes': {'source_rses': source_rses if source_rses else None},
+                                            'request_type': RequestType.TRANSFER})
+
+        if available_source_replica:
+            return True
+        else:
+            return False
 
 
 def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
@@ -624,7 +725,10 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_replicating_cnt += 1
-
+    elif state == LockState.STUCK:
+        existing_replica.lock_cnt += 1
+        existing_replica.tombstone = None
+        rule.locks_stuck_cnt += 1
     return new_lock
 
 
@@ -651,3 +755,27 @@ def __create_replica(rse_id, scope, name, bytes, state, md5, adler32):
                                             state=state,
                                             lock_cnt=0)
     return new_replica
+
+
+def __update_lock_replica_and_create_transfer(lock, replica, rule, source_rses, transfers_to_create):
+    """
+    This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
+
+    :param lock:                 The lock to update.
+    :param replica:              The replica to update.
+    :param rule:                 Rule to update.
+    :param source_rses:          RSE ids of eglible source replicas.
+    :param transfers_to_create:  List of transfers to create.
+    :attention:                  This method modifies the contents of the transfers_to_create input parameters.
+    """
+
+    lock.state = LockState.REPLICATING
+    rule.locks_stuck_cnt -= 1
+    rule.locks_replicating_cnt += 1
+    replica.state = ReplicaState.COPYING
+    transfers_to_create.append({'dest_rse_id': lock.rse_id,
+                                'scope': lock.scope,
+                                'name': lock.name,
+                                'rule_id': rule.id,
+                                'attributes': {'source_rses': source_rses if source_rses else None},
+                                'request_type': RequestType.TRANSFER})

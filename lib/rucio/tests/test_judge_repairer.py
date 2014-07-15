@@ -15,7 +15,7 @@ from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import get_rule, add_rule
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.db.constants import DIDType, RuleState
+from rucio.db.constants import DIDType, RuleState, ReplicaState
 from rucio.db.session import get_session
 from rucio.db import models
 from rucio.tests.test_rule import create_files, tag_generator
@@ -154,3 +154,37 @@ class TestJudgeRepairer():
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
             assert(len(set([lock.rse_id for lock in get_replica_locks(scope=files[0]['scope'], name=files[0]['name'])]).intersection(set([lock.rse_id for lock in get_replica_locks(scope=file['scope'], name=file['name'])]))) == 2)
         assert(12 == get_rule(rule_id)['locks_replicating_cnt'])
+
+    def test_repair_a_rule_with_source_replica_expression(self):
+        """ JUDGE EVALUATOR: Test the judge when a with two rules with source_replica_expression"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse4)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        # Add a first rule to the DS
+        rule_id1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id2 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, source_replica_expression=self.rse1)[0]
+
+        assert(RuleState.REPLICATING == get_rule(rule_id1)['state'])
+        assert(RuleState.STUCK == get_rule(rule_id2)['state'])
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse1_id)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse1_id)
+        successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse1_id)
+        # Also make replicas AVAILABLE
+        session = get_session()
+        replica = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=files[0]['name'], rse_id=self.rse1_id).one()
+        replica.state = ReplicaState.AVAILABLE
+        replica = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=files[1]['name'], rse_id=self.rse1_id).one()
+        replica.state = ReplicaState.AVAILABLE
+        replica = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=files[2]['name'], rse_id=self.rse1_id).one()
+        replica.state = ReplicaState.AVAILABLE
+        session.commit()
+
+        rule_repairer(once=True)
+
+        assert(RuleState.OK == get_rule(rule_id1)['state'])
+        print get_rule(rule_id2)
+        assert(RuleState.REPLICATING == get_rule(rule_id2)['state'])
