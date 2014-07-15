@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 """Add availability column to table RSEs
 
@@ -29,4 +30,4 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_column('rses', sa.Column('availability', sa.Integer))
+    op.drop_column('rses', 'availability')
