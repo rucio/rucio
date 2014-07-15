@@ -102,7 +102,7 @@ class Rule:
         """
         json_data = data()
         try:
-            grouping, weight, lifetime, locked, subscription_id = 'DATASET', None, None, False, None
+            grouping, weight, lifetime, locked, subscription_id, source_replica_expression = 'DATASET', None, None, False, None, None
             params = loads(json_data)
             dids = params['dids']
             account = params['account']
@@ -118,11 +118,23 @@ class Rule:
                 locked = params['locked']
             if 'subscription_id' in params:
                 subscription_id = params['subscription_id']
+            if 'source_replica_expression' in params:
+                source_replica_expression = params['source_replica_expression']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            rule_ids = add_replication_rule(dids=dids, copies=copies, rse_expression=rse_expression, weight=weight, lifetime=lifetime, grouping=grouping, account=account, locked=locked, subscription_id=subscription_id, issuer=ctx.env.get('issuer'))
+            rule_ids = add_replication_rule(dids=dids,
+                                            copies=copies,
+                                            rse_expression=rse_expression,
+                                            weight=weight,
+                                            lifetime=lifetime,
+                                            grouping=grouping,
+                                            account=account,
+                                            locked=locked,
+                                            subscription_id=subscription_id,
+                                            source_replica_expression=source_replica_expression,
+                                            issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:
             raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])

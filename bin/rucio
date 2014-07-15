@@ -991,7 +991,8 @@ def add_rule(args):
                                                lifetime=args.lifetime,
                                                grouping=args.grouping,
                                                account=args.account,
-                                               locked=args.locked)
+                                               locked=args.locked,
+                                               source_replica_expression=args.source_replica_expression)
         for rule in rule_ids:
             print rule
     except Exception, e:
@@ -1424,6 +1425,7 @@ Commands:
     add_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Rule lifetime (in seconds)')
     add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['DATASET', 'ALL', 'NONE'], help='Rule grouping')
     add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
+    add_rule_parser.add_argument('--source-replice-expression', dest='source_replica_expression', action='store', help='Source Replica Expression')
 
     # Delete replication rule subparser
     delete_rule_parser = subparsers.add_parser('delete-rule', help='Delete replication rule')
