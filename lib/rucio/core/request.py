@@ -418,7 +418,7 @@ def cancel_request(request_id, transfertool):
     record_counter('core.request.cancel_request')
 
     # select correct transfertool and external transfer id based on rucio transfer id entry in database
-    transfer_id = request_id
+    transfer_id = __get_external_id(request_id)
 
     if transfertool == 'fts3':
         return fts3.cancel(transfer_id)
