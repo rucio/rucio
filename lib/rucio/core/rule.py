@@ -36,7 +36,7 @@ from rucio.db.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -52,6 +52,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param locked:                     If the rule is locked.
     :param subscription_id:            The subscription_id, if the rule is created by a subscription.
     :param source_replica_expression:  Only use replicas as source from this RSEs.
+    :param activity:                   Activity to be passed on to the conveyor.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
@@ -106,6 +107,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   expires_at=expires_at,
                                                   weight=weight,
                                                   source_replica_expression=source_replica_expression,
+                                                  activity=activity,
                                                   subscription_id=subscription_id)
                 try:
                     new_rule.save(session=session)
@@ -230,6 +232,7 @@ def add_rules(dids, rules, session=None):
                                                           expires_at=expires_at,
                                                           weight=rule.get('weight'),
                                                           source_replica_expression=rule.get('source_replica_expression'),
+                                                          activity=rule.get('activity'),
                                                           subscription_id=rule.get('subscription_id'))
                         try:
                             new_rule.save(session=session)

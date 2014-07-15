@@ -522,6 +522,7 @@ CREATE TABLE rules (
     updated_at DATE,
     created_at DATE,
     source_replica_expression VARCHAR2(255 CHAR),
+    activity VARCHAR2(50 CHAR),
     locks_ok_cnt NUMBER(10) DEFAULT 0,
     locks_replicating_cnt NUMBER(10) DEFAULT 0,
     locks_stuck_cnt NUMBER(10) DEFAULT 0,
