@@ -183,6 +183,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                                                         'reason': str(e)})
                                     except:
                                         logging.critical(traceback.format_exc())
+
                                         # add_message('deletion-failed', {'scope': replica['scope'],
                                         #                              'name': replica['name'],
                                         #                              'rse': rse_info['rse'],
