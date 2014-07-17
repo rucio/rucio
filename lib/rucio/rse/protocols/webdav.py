@@ -170,9 +170,9 @@ class Default(protocol.RSEProtocol):
         try:
             res = self.session.request('HEAD', self.path2pfn(''), verify=False, timeout=self.timeout, cert=self.cert)
             if res.status_code != 200:
-                raise exception.ServiceUnavailable(res.text)
+                raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), res.text))
         except requests.exceptions.ConnectionError, e:
-            raise exception.ServiceUnavailable(e)
+            raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), e))
 
     def close(self):
         self.session.close()
