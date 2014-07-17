@@ -145,49 +145,55 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
 
                         if not scheme:
-                            p.connect()
-                            for replica in files:
-                                try:
-                                    logging.debug('Deletion of %s on %s' % (replica['pfn'], rse['rse']))
-                                    s = time.time()
-                                    p.delete(replica['pfn'])
-                                    monitor.record_timer('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']), (time.time()-s)*1000)
-                                    duration = time.time() - s
+                            try:
+                                deleted_files = []
+                                p.connect()
+                                for replica in files:
+                                    try:
+                                        logging.debug('Deletion of %s on %s' % (replica['pfn'], rse['rse']))
+                                        s = time.time()
+                                        p.delete(replica['pfn'])
+                                        monitor.record_timer('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']), (time.time()-s)*1000)
+                                        duration = time.time() - s
 
-                                    add_message('deletion-done', {'scope': replica['scope'],
-                                                                  'name': replica['name'],
-                                                                  'rse': rse_info['rse'],
-                                                                  'file-size': replica['bytes'],
-                                                                  'url': replica['pfn'],
-                                                                  'duration': duration})
-                                except SourceNotFound:
-                                    err_msg = 'File %s on %s not found (already deleted ?).' % (replica['pfn'], rse['rse'])
-                                    logging.warning(err_msg)
-                                    add_message('deletion-failed', {'scope': replica['scope'],
-                                                                    'name': replica['name'],
-                                                                    'rse': rse_info['rse'],
-                                                                    'file-size': replica['bytes'],
-                                                                    'url': replica['pfn'],
-                                                                    'reason': err_msg})
-                                except ServiceUnavailable, e:
-                                    logging.error(str(e))
-                                    add_message('deletion-failed', {'scope': replica['scope'],
-                                                                    'name': replica['name'],
-                                                                    'rse': rse_info['rse'],
-                                                                    'file-size': replica['bytes'],
-                                                                    'url': replica['pfn'],
-                                                                    'reason': str(e)})
-                                except:
-                                    logging.critical(traceback.format_exc())
-                                    # add_message('deletion-failed', {'scope': replica['scope'],
-                                    #                              'name': replica['name'],
-                                    #                              'rse': rse_info['rse'],
-                                    #                              'reason': str(traceback.format_exc())})
+                                        deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
-                            p.close()
+                                        add_message('deletion-done', {'scope': replica['scope'],
+                                                                      'name': replica['name'],
+                                                                      'rse': rse_info['rse'],
+                                                                      'file-size': replica['bytes'],
+                                                                      'url': replica['pfn'],
+                                                                      'duration': duration})
+                                    except SourceNotFound:
+                                        err_msg = 'File %s on %s not found (already deleted ?).' % (replica['pfn'], rse['rse'])
+                                        logging.warning(err_msg)
+                                        add_message('deletion-failed', {'scope': replica['scope'],
+                                                                        'name': replica['name'],
+                                                                        'rse': rse_info['rse'],
+                                                                        'file-size': replica['bytes'],
+                                                                        'url': replica['pfn'],
+                                                                        'reason': err_msg})
+                                    except ServiceUnavailable, e:
+                                        logging.error(str(e))
+                                        add_message('deletion-failed', {'scope': replica['scope'],
+                                                                        'name': replica['name'],
+                                                                        'rse': rse_info['rse'],
+                                                                        'file-size': replica['bytes'],
+                                                                        'url': replica['pfn'],
+                                                                        'reason': str(e)})
+                                    except:
+                                        logging.critical(traceback.format_exc())
+                                        # add_message('deletion-failed', {'scope': replica['scope'],
+                                        #                              'name': replica['name'],
+                                        #                              'rse': rse_info['rse'],
+                                        #                              'reason': str(traceback.format_exc())})
+                            except ServiceUnavailable, e:
+                                logging.error(str(e))
+                            finally:
+                                p.close()
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
-                            delete_replicas(rse=rse['rse'], files=files)
+                            delete_replicas(rse=rse['rse'], files=deleted_files)
                         logging.debug('delete_replicas %s %s %s' % (rse['rse'], len(files), time.time() - s))
                         monitor.record_counter(counters='reaper.deletion.done',  delta=len(files))
                     except:
