@@ -179,9 +179,9 @@ def validate_auth_token(token):
     if not value:  # no cached entry found
         value = query_token(token)
         token_region.set(token, value)
-    else:  # Found cached entry
-        if value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
-            return
+    elif value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
+        token_region.delete(token)
+        return
     return value
 
 
