@@ -1,0 +1,50 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+
+import json
+import requests
+import sys
+
+from rucio.core.rse import list_rses, update_rse
+
+UNKNOWN = 3
+CRITICAL = 2
+WARNING = 1
+OK = 0
+
+if __name__ == '__main__':
+    url = 'http://atlas-agis-api.cern.ch/request/ddmendpointstatus/query/list/?json'
+    resp = requests.get(url=url)
+    data = json.loads(resp.content)
+    mapping = {'r': 'availability_read', 'w': 'availability_write', 'd': 'availability_delete'}
+    blacklisted_sites = {'availability_read': [], 'availability_write': [], 'availability_delete': []}
+    for site in data:
+        for activity in data[site]:
+            if activity in ['r', 'w', 'd']:
+                try:
+                    if data[site][activity]['status']['value'] == 'OFF':
+                        blacklisted_sites[mapping[activity]].append(site)
+                except KeyError, e:
+                    print e
+
+    # Blacklisting
+    for activity in blacklisted_sites:
+        for site in list_rses({activity: True}):
+            if site['rse'] in blacklisted_sites[activity]:
+                print '%s will be blacklisted for %s' % (site['rse'], activity)
+                update_rse(site, {activity: False})
+
+    # Whitelisting
+    for activity in blacklisted_sites:
+        for site in list_rses({activity: False}):
+            if site['rse'] not in blacklisted_sites[activity]:
+                print '%s will be whitelisted for %s' % (site['rse'], activity)
+                update_rse(site['rse'], {activity: True})
+    sys.exit(OK)
