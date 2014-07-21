@@ -17,11 +17,10 @@ from rucio.common.utils import generate_uuid
 from rucio.core.account import account_exists
 from rucio.db import models
 from rucio.db.constants import IdentityType
-from rucio.db.session import read_session, transactional_session, get_session
+from rucio.db.session import read_session, transactional_session
 
 # Create cache region used for token validation
 from dogpile.cache import make_region
-from dogpile.cache.api import NoValue
 
 
 def token_key_generator(namespace, fn, **kwargs):
@@ -160,7 +159,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     return token
 
 
-def validate_auth_token(token, session=None):
+def validate_auth_token(token):
     """
     Validate an authentication token.
 
@@ -169,7 +168,7 @@ def validate_auth_token(token, session=None):
 
     :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
     """
-    if token is None:
+    if not token:
         return
 
     # Be gentle with bash variables, there can be whitespace
@@ -177,16 +176,17 @@ def validate_auth_token(token, session=None):
 
     # Check if token ca be found in cache region
     value = token_region.get(token)
-    if type(value) is NoValue:  # no cached entry found
-        value = query_token(token, session)
+    if not value:  # no cached entry found
+        value = query_token(token)
         token_region.set(token, value)
     else:  # Found cached entry
-        if value['lifetime'] < datetime.datetime.utcnow():  # check if expired
-            value = None
+        if value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
+            return
     return value
 
 
-def query_token(token, session):
+@read_session
+def query_token(token, session=None):
     """
     Validate an authentication token using the database. This method will only be called if no entry could be found in the according cache.
 
@@ -195,19 +195,10 @@ def query_token(token, session):
 
     :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
     """
-    # Due to caching the read_session decorator is not applicable and thus, a session must be requested manually
-    local_session = (session is None)  # inidcates if a session agrument was provided or not
-    if local_session:
-        session = get_session()
-
     # Query the DB to validate token
     r = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
 
-    # Releasing the local session again
-    if local_session:
-        session.remove()
-
-    if r is not None and r != []:
+    if r:
         return {'account': r[0][0], 'lifetime': r[0][1]}
 
     return None
