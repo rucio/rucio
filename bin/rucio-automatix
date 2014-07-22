@@ -25,12 +25,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
-    parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
+    parser.add_argument("--input-file", action="store", default=" /opt/rucio/etc/automatix.json", type=str, help='Automatix configuration')
+    parser.add_argument("--threads-per-process", action="store", default=1, type=int, help='Total number of workers per process')
 
     args = parser.parse_args()
 
     print 'Start Automatix'
     try:
-        run(total_workers=args.total_workers, once=args.run_once)
+        run(total_workers=args.threads_per_process, once=args.run_once, inputfile=args.input_file)
     except KeyboardInterrupt:
         stop()

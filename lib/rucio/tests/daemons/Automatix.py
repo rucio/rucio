@@ -220,7 +220,7 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
             logging.info('Thread [%i/%i] : Retrying a new upload' % (worker_number, total_workers))
 
 
-def run(total_workers=1, once=False):
+def run(total_workers=1, once=False, inputfile=None):
     """
     Starts up the automatix threads.
     """
@@ -228,9 +228,7 @@ def run(total_workers=1, once=False):
         sites = [s.strip() for s in config_get('automatix', 'sites').split(',')]
     except:
         raise Exception('Could not load sites from configuration')
-    try:
-        inputfile = config_get('automatix', 'inputfile')
-    except:
+    if not inputfile:
         inputfile = '/opt/rucio/etc/automatix.json'
     try:
         sleep_time = config_get_int('automatix', 'sleep_time')
