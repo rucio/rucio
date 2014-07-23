@@ -179,6 +179,8 @@ def successful_transfer(scope, name, rse_id, session=None):
 
     locks = session.query(models.ReplicaLock).with_for_update(nowait=True).filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
+        if lock.state == LockState.OK:
+            continue
         lock.state = LockState.OK
 
         # Update the rule counters
@@ -217,6 +219,8 @@ def failed_transfer(scope, name, rse_id, session=None):
 
     locks = session.query(models.ReplicaLock).with_for_update(nowait=True).filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
+        if lock.state == LockState.STUCK:
+            continue
         lock.state = LockState.STUCK
 
         # Update the rule counters

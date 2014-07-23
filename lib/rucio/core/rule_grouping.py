@@ -371,13 +371,12 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
-                        if replica.rse_id in source_rses:
-                            __update_lock_replica_and_create_transfer(lock=lock,
-                                                                      replica=associated_replica,
-                                                                      rule=rule,
-                                                                      source_rses=source_rses,
-                                                                      transfers_to_create=transfers_to_create)
+                    if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses]:
+                        __update_lock_replica_and_create_transfer(lock=lock,
+                                                                  replica=associated_replica,
+                                                                  rule=rule,
+                                                                  source_rses=source_rses,
+                                                                  transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
                     rse_tuples = rseselector.select_rse(size=file['bytes'],
@@ -396,11 +395,11 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                                                   replicas_to_create=replicas_to_create,
                                                   replicas=replicas,
                                                   transfers_to_create=transfers_to_create)
-                    rule.locks_stuck_cnt -= 1
-                    if lock.rse_id in locks_to_delete:
-                        locks_to_delete[lock.rse_id].append(lock)
-                    else:
-                        locks_to_delete[lock.rse_id] = [lock]
+                        rule.locks_stuck_cnt -= 1
+                        if lock.rse_id in locks_to_delete:
+                            locks_to_delete[lock.rse_id].append(lock)
+                        else:
+                            locks_to_delete[lock.rse_id] = [lock]
 
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
@@ -437,13 +436,12 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
-                        if replica.rse_id in source_rses:
-                            __update_lock_replica_and_create_transfer(lock=lock,
-                                                                      replica=associated_replica,
-                                                                      rule=rule,
-                                                                      source_rses=source_rses,
-                                                                      transfers_to_create=transfers_to_create)
+                    if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses]:
+                        __update_lock_replica_and_create_transfer(lock=lock,
+                                                                  replica=associated_replica,
+                                                                  rule=rule,
+                                                                  source_rses=source_rses,
+                                                                  transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
                     if not alternative_rses:
@@ -470,11 +468,11 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                                                   replicas_to_create=replicas_to_create,
                                                   replicas=replicas,
                                                   transfers_to_create=transfers_to_create)
-                    rule.locks_stuck_cnt -= 1
-                    if lock.rse_id in locks_to_delete:
-                        locks_to_delete[lock.rse_id].append(lock)
-                    else:
-                        locks_to_delete[lock.rse_id] = [lock]
+                        rule.locks_stuck_cnt -= 1
+                        if lock.rse_id in locks_to_delete:
+                            locks_to_delete[lock.rse_id].append(lock)
+                        else:
+                            locks_to_delete[lock.rse_id] = [lock]
 
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
@@ -511,13 +509,12 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eglible source replica for this lock
-                    for replica in [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE]:
-                        if replica.rse_id in source_rses:
-                            __update_lock_replica_and_create_transfer(lock=lock,
-                                                                      replica=associated_replica,
-                                                                      rule=rule,
-                                                                      source_rses=source_rses,
-                                                                      transfers_to_create=transfers_to_create)
+                    if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses]:
+                        __update_lock_replica_and_create_transfer(lock=lock,
+                                                                  replica=associated_replica,
+                                                                  rule=rule,
+                                                                  source_rses=source_rses,
+                                                                  transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
                     if not alternative_rses:
@@ -544,11 +541,11 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                                                   replicas_to_create=replicas_to_create,
                                                   replicas=replicas,
                                                   transfers_to_create=transfers_to_create)
-                    rule.locks_stuck_cnt -= 1
-                    if lock.rse_id in locks_to_delete:
-                        locks_to_delete[lock.rse_id].append(lock)
-                    else:
-                        locks_to_delete[lock.rse_id] = [lock]
+                        rule.locks_stuck_cnt -= 1
+                        if lock.rse_id in locks_to_delete:
+                            locks_to_delete[lock.rse_id].append(lock)
+                        else:
+                            locks_to_delete[lock.rse_id] = [lock]
 
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
