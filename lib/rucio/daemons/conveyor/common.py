@@ -167,6 +167,11 @@ def update_request_state(req, response, session=None):
                 logging.critical('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'],
                                                                     req['name'],
                                                                     req['request_id']))
+                replica.update_replicas_states([{'rse': rse_name,
+                                                 'scope': req['scope'],
+                                                 'name': req['name'],
+                                                 'state': ReplicaState.UNAVAILABLE}],
+                                               session=session)
                 tss = time.time()
                 try:
                     lock.failed_transfer(req['scope'],
