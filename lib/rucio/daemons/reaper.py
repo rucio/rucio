@@ -167,6 +167,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                     except SourceNotFound:
                                         err_msg = 'File %s on %s not found (already deleted ?).' % (replica['pfn'], rse['rse'])
                                         logging.warning(err_msg)
+                                        deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                                         add_message('deletion-failed', {'scope': replica['scope'],
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
