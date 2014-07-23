@@ -2,12 +2,12 @@
 
 argparse==1.2.1          # Command-line parsing library
 distribute==0.7.3        # Easily download, build, install, upgrade, and uninstall Python packages
-argcomplete==0.8.0       # Bash tab completion for argparse
+argcomplete==0.8.1       # Bash tab completion for argparse
 kerberos==1.1.1          # Kerberos high-level interface
 requests==2.3.0          # Python HTTP for Humans
 requests-kerberos==0.5   # A Kerberos authentication handler for python-requests
 #  TODO: requests-cache==0.4.4  # Persistent cache for requests library
-urllib3==1.8.2           # HTTP library with thread-safe connection pooling and file post support
+urllib3==1.9             # HTTP library with thread-safe connection pooling and file post support
 wsgiref==0.1.2           # WSGI (PEP 333) Reference Library
 dogpile.core==0.4.1      # Caching API
 dogpile.cache==0.5.4     # Caching API plugins

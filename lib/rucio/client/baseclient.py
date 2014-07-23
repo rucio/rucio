@@ -21,13 +21,13 @@ from getpass import getuser
 from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs
 from shutil import move
-from socket import gethostbyaddr, gethostbyname_ex
+from socket import gethostbyname_ex, gethostbyaddr
 from tempfile import mkstemp
 from urlparse import urlparse
 
 from ConfigParser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
-from requests import get, post, put, delete
+from requests import session
 from requests.status_codes import codes, _codes
 from requests.exceptions import SSLError
 from requests_kerberos import HTTPKerberosAuth
@@ -80,7 +80,7 @@ class BaseClient(object):
         self.host = rucio_host
         self.list_hosts = []
         self.auth_host = auth_host
-        # self.session = session(config={'Keep-Alive': True})
+        self.session = session()
 
         try:
             if self.host is None:
@@ -220,15 +220,21 @@ class BaseClient(object):
         while retry <= self.request_retries:
             try:
                 if type == 'GET':
-                    r = get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
+                    r = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
                 elif type == 'PUT':
-                    r = put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    r = post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'DEL':
-                    r = delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
+#             except ConnectionError, e:
+#                 LOG.warning('ConnectionError: ' + str(e))
+#                 retry += 1
+#                 if retry > self.request_retries:
+#                     raise
+#                 continue
             except SSLError, e:
                 LOG.warning('SSLError: ' + str(e))
                 retry += 1
@@ -259,7 +265,7 @@ class BaseClient(object):
         retry = 0
         while retry <= self.AUTH_RETRIES:
             try:
-                r = get(url, headers=headers, verify=self.ca_cert)
+                r = self.session.get(url, headers=headers, verify=self.ca_cert)
             except SSLError, e:
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
@@ -316,7 +322,7 @@ class BaseClient(object):
 
         while retry <= self.AUTH_RETRIES:
             try:
-                r = get(url, headers=headers, cert=cert, verify=self.ca_cert)
+                r = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
             except SSLError, e:
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
@@ -351,7 +357,7 @@ class BaseClient(object):
         retry = 0
         while retry <= self.AUTH_RETRIES:
             try:
-                r = get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
+                r = self.session.get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
             except SSLError, e:
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
