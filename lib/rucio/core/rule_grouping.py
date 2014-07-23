@@ -375,7 +375,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
-                                                                  source_rses=source_rses,
+                                                                  source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
@@ -440,7 +440,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
-                                                                  source_rses=source_rses,
+                                                                  source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
@@ -513,7 +513,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
-                                                                  source_rses=source_rses,
+                                                                  source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
@@ -626,8 +626,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                             'scope': file['scope'],
                                             'name': file['name'],
                                             'rule_id': rule.id,
-                                            'attributes': {'source_rses': source_rses if source_rses else None,
-                                                           'acitivity': rule.activity},
+                                            'attributes': {'source_rses': [replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses] if source_rses else None,
+                                                           'activity': rule.activity},
                                             'request_type': RequestType.TRANSFER})
                 return True
             return False
@@ -685,7 +685,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                             'scope': file['scope'],
                                             'name': file['name'],
                                             'rule_id': rule.id,
-                                            'attributes': {'source_rses': source_rses if source_rses else None,
+                                            'attributes': {'source_rses': [replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses] if source_rses else None,
                                                            'activity': rule.activity},
                                             'request_type': RequestType.TRANSFER})
 
