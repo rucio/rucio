@@ -60,7 +60,10 @@ class RSEProtocol(object):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self._get_path(scope=scope, name=name)])
+            if lfn['path'] is not None:
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, lfn['path']])
+            else:
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self._get_path(scope=scope, name=name)])
         return pfns
 
     def __lfns2pfns_client(self, lfns):
