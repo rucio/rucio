@@ -66,7 +66,10 @@ class Consumer(object):
             elif str(msg['job_state']) == str(FTSState.FINISHEDDIRTY):
                 response['new_state'] = RequestState.FAILED
 
-            update_request_state(msg['job_metadata'], response)
+            try:
+                update_request_state(msg['job_metadata'], response)
+            except:
+                pass  # whatever happens, don't invalidate the stomp connection
 
 
 def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1):
