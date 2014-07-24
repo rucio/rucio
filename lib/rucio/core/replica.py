@@ -202,7 +202,7 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
             for protocol in tmp_protocols[rse]:
                 if not schemes or protocol.attributes['scheme'] in schemes:
                     try:
-                        replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name}).values()[0])
+                        replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name, 'path': replica.path}).values()[0])
                     except:
                         # temporary protection
                         print format_exc()
