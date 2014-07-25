@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from rucio.api import permission
 from rucio.common import exception
@@ -73,3 +74,25 @@ def list_identities(**kwargs):
     returns: A list of all enabled identities.
     """
     return identity.list_identities(**kwargs)
+
+
+def get_default_account(identity_key, type):
+    """
+    Returns the default account for this identity.
+
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass).
+    """
+    return identity.get_default_account(identity_key, IdentityType.from_sym(type))
+
+
+def list_accounts_for_identity(identity_key, type):
+    """
+    Returns a list of all accounts for an identity.
+
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass).
+
+    returns: A list of all accounts for the identity.
+    """
+    return identity.list_accounts_for_identity(identity_key, IdentityType.from_sym(type))
