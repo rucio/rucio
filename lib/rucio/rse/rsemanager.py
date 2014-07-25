@@ -16,7 +16,6 @@ import copy
 import os
 
 from dogpile.cache import make_region
-from dogpile.cache.api import NoValue
 from urlparse import urlparse
 
 from rucio.common import exception, utils
@@ -36,7 +35,6 @@ rse_region = make_region(function_key_generator=rse_key_generator).configure(
 )
 
 
-@rse_region.cache_on_arguments()  # Sets the dogpile.cache for this method based on the provided RSE name
 def get_rse_info(rse, session=None):
     """ Returns all protocol related RSE attributes.
 
@@ -67,7 +65,7 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     rse_info = rse_region.get(rse)
-    if type(rse_info) is NoValue:  # no cached entry found
+    if not rse_info:  # no cached entry found
         rse_info = __request_rse_info(rse, session=session)  # NOQA
         rse_region.set(rse, rse_info)
     return rse_info

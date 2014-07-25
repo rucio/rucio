@@ -480,7 +480,7 @@ def add_protocol(rse, parameter, session=None):
 @read_session
 def get_rse_protocols(rse, session=None):
     """
-    Returns protocol information. Parameter comibantions are: (operation OR default) XOR scheme.
+    Returns protocol information. Parameter combinations are: (operation OR default) XOR scheme.
 
     :param rse: The name of the rse.
     :param session: The database session.
