@@ -270,16 +270,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                 ts = time.time()
                 try:
-                    logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], req['dest_rse_id']))
-                    if not rse_info['deterministic']:
-                        # No update for COPYING state needed anymore!
-                        replica.update_replicas_states(replicas=[{'rse_id': req['dest_rse_id'],
-                                                                  'scope': req['scope'],
-                                                                  'name': req['name'],
-                                                                  'path': paths[req['scope'], req['name']],
-                                                                  'state': ReplicaState.COPYING}])
-                    record_timer('daemons.conveyor.submitter.replica-set_copying', (time.time() - ts) * 1000)
-
                     if req['previous_attempt_id']:
                         logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s ' % (req['retry_count'],
                                                                                                            eid,
