@@ -132,7 +132,7 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
     if transfertool == 'fts3':
         ts = time.time()
         transfer_ids = fts3.submit_transfers(transfers=transfers, job_metadata=job_metadata)
-        record_timer('daemons.conveyor.submitter.fts3.submit_transfers', (time.time() - ts) * 1000)
+        record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000)
 
     for transfer_id in transfer_ids:
         session.query(models.Request)\
@@ -275,7 +275,9 @@ def query_request(request_id, transfertool='fts3', session=None):
 
     if transfertool == 'fts3':
         try:
+            ts = time.time()
             response = fts3.query(external_id)
+            record_timer('core.request.query_request_fts3', (time.time() - ts) * 1000)
             req_status['details'] = response
         except Exception:
             raise
@@ -317,7 +319,10 @@ def query_request_details(request_id, transfertool='fts3', session=None):
         return
 
     if transfertool == 'fts3':
-        return fts3.query_details(external_id)
+        ts = time.time()
+        tmp = fts3.query_details(external_id)
+        record_timer('core.request.query_details_fts3', (time.time() - ts) * 1000)
+        return tmp
 
     raise NotImplementedError
 
@@ -421,7 +426,10 @@ def cancel_request(request_id, transfertool):
     transfer_id = __get_external_id(request_id)
 
     if transfertool == 'fts3':
-        return fts3.cancel(transfer_id)
+        ts = time.time()
+        tmp = fts3.cancel(transfer_id)
+        record_timer('core.request.cancel_request_fts3', (time.time() - ts) * 1000)
+        return tmp
 
 
 def cancel_request_did(scope, name, dest_rse, request_type):
