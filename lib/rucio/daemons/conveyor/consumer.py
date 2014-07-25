@@ -47,7 +47,7 @@ class Consumer(object):
         logging.error('[%s] %s' % (self.__broker, message))
 
     def on_message(self, headers, message):
-        record_counter('daemons.conveyor.consumer.message')
+        record_counter('daemons.conveyor.consumer.message_all')
 
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
         if 'job_metadata' in msg.keys() \
@@ -58,6 +58,7 @@ class Consumer(object):
                         'transfer_id': msg['job_id'],
                         'details': msg}
 
+            record_counter('daemons.conveyor.consumer.message_rucio')
             if str(msg['job_state']) == str(FTSState.FINISHED):
                 response['new_state'] = RequestState.DONE
             elif str(msg['job_state']) == str(FTSState.FAILED):
