@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 '''
 Probe to check the queues of the transfer service
@@ -20,7 +20,7 @@ from rucio.db.session import get_session
 # Exit statuses
 UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 
-queues = ["""SELECT
+history_queue = """SELECT
 CASE
  WHEN state = 'Q' THEN 'requests.history.queued'
  WHEN state = 'S' THEN 'requests.history.submitted'
@@ -36,7 +36,9 @@ select  /*+ INDEX(REQUESTS_HISTORY REQUESTS_H_TYP_STA_IDX) */ state, count(*) nu
 FROM atlas_rucio.requests_history
 WHERE request_type='T'
 GROUP BY state
-)""", """SELECT
+)"""
+
+active_queue = """SELECT
 CASE
  WHEN state = 'Q' THEN 'requests.queued'
  WHEN state = 'S' THEN 'requests.submitted'
@@ -52,16 +54,26 @@ select state, count(*) num_rows
 FROM atlas_rucio.requests
 WHERE request_type='T'
 GROUP BY state
-)"""]
+)"""
 
+metrics = {'requests.queued': 0,
+           'requests.submitted': 0,
+           'requests.failed': 0,
+           'requests.done': 0,
+           'requests.lost': 0}
 if __name__ == "__main__":
     try:
         session = get_session()
-        for q in queues:
-            result = session.execute(q).fetchall()
-            for r in result:
-                print 'queues.%s' % r[0], r[1],
-                monitor.record_gauge(stat='queues.%s' % r[0], value=r[1])
+        result = session.execute(history_queue).fetchall()
+        for r in result:
+            print 'queues.%s' % r[0], r[1],
+            monitor.record_gauge(stat='queues.%s' % r[0], value=r[1])
+        result = session.execute(active_queue).fetchall()
+        for r in result:
+            metrics[r[0]] = r[1]
+        for k in metrics.keys():
+            print 'queues.%s' % k, metrics[k],
+            monitor.record_gauge(stat='queues.%s' % k, value=metrics[k])
     except:
         sys.exit(UNKNOWN)
     sys.exit(OK)
