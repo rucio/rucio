@@ -126,6 +126,34 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, ds_scope=None, ds_name=None, lifetime=None):
+    """
+    This method creates a transfer dictionary and returns it
+
+    :param dest_rse_id:   The destination RSE id.
+    :param request_Type:  The request type.
+    :param scope:         The scope of the file.
+    :param name:          The name of the file.
+    :param rule:          The rule responsible for the transfer.
+    :param ds_scope:      Dataset the file belongs to.
+    :param ds_name:       Dataset the file belongs to.
+    :param lifetime:      Lifetime in the case of STAGIN requests.
+    :returns:             Request dictionary.
+    """
+    attributes = {'activity': rule.activity,
+                  'source_replica_expression': rule.source_replica_expression,
+                  'lifetime': lifetime,
+                  'ds_scope': ds_scope,
+                  'ds_name': ds_name}
+
+    return {'dest_rse_id': dest_rse_id,
+            'scope': scope,
+            'name': name,
+            'rule_id': rule.id,
+            'attributes': attributes,
+            'request_type': request_type}
+
+
 @transactional_session
 def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None):
     """
@@ -573,12 +601,14 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
     if staging_area:
         lifetime = rule.expires_at - datetime.utcnow()
         lifetime = lifetime.seconds
-        transfers_to_create.append({'dest_rse_id': rse_id,
-                                    'scope': file['scope'],
-                                    'name': file['name'],
-                                    'attributes': {'lifetime': lifetime},
-                                    'rule_id': rule.id,
-                                    'request_type': RequestType.STAGEIN})
+        transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                        request_type=RequestType.STAGEIN,
+                                                        scope=file['scope'],
+                                                        name=file['name'],
+                                                        rule=rule,
+                                                        ds_scope=dataset['scope'],
+                                                        ds_name=dataset['name'],
+                                                        lifetime=lifetime))
 
     existing_replicas = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == rse_id]
 
@@ -622,13 +652,13 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
             locks_to_create[rse_id].append(new_lock)
             locks[(file['scope'], file['name'])].append(new_lock)
             if not staging_area and available_source_replica:
-                transfers_to_create.append({'dest_rse_id': rse_id,
-                                            'scope': file['scope'],
-                                            'name': file['name'],
-                                            'rule_id': rule.id,
-                                            'attributes': {'source_rses': [replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses] if source_rses else None,
-                                                           'activity': rule.activity},
-                                            'request_type': RequestType.TRANSFER})
+                transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                                request_type=RequestType.TRANSFER,
+                                                                scope=file['scope'],
+                                                                name=file['name'],
+                                                                rule=rule,
+                                                                ds_scope=dataset['scope'],
+                                                                ds_name=dataset['name']))
                 return True
             return False
         # Replica is not available at the rse yet -- COPYING
@@ -681,13 +711,13 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
 
         if not staging_area:  # Target RSE is not a staging area
             if available_source_replica:
-                transfers_to_create.append({'dest_rse_id': rse_id,
-                                            'scope': file['scope'],
-                                            'name': file['name'],
-                                            'rule_id': rule.id,
-                                            'attributes': {'source_rses': [replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses] if source_rses else None,
-                                                           'activity': rule.activity},
-                                            'request_type': RequestType.TRANSFER})
+                transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
+                                                                request_type=RequestType.TRANSFER,
+                                                                scope=file['scope'],
+                                                                name=file['name'],
+                                                                rule=rule,
+                                                                ds_scope=dataset['scope'],
+                                                                ds_name=dataset['name']))
 
         if available_source_replica:
             return True
@@ -772,10 +802,8 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, source_rses, 
     rule.locks_stuck_cnt -= 1
     rule.locks_replicating_cnt += 1
     replica.state = ReplicaState.COPYING
-    transfers_to_create.append({'dest_rse_id': lock.rse_id,
-                                'scope': lock.scope,
-                                'name': lock.name,
-                                'rule_id': rule.id,
-                                'attributes': {'source_rses': source_rses if source_rses else None,
-                                               'activity': rule.activity},
-                                'request_type': RequestType.TRANSFER})
+    transfers_to_create.append(create_transfer_dict(dest_rse_id=lock.rse_id,
+                                                    scope=lock.scope,
+                                                    name=lock.name,
+                                                    rule=rule,
+                                                    request_type=RequestType.TRANSFER))

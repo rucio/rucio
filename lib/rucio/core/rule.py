@@ -29,7 +29,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.replica import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.core.request import queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
-from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping
+from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db import models
 from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDReEvaluation, DIDType, RequestType
 from rucio.db.session import read_session, transactional_session, stream_session
@@ -719,12 +719,11 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         elif lock.state == LockState.STUCK:
             rule.locks_stuck_cnt -= 1
         rule.locks_replicating_cnt += 1
-        queue_requests(requests=[{'dest_rse_id': rse_id,
-                                  'scope': scope,
-                                  'name': name,
-                                  'rule_id': rule.id,
-                                  'attributes': {},
-                                  'request_type': RequestType.TRANSFER}], session=session)
+        queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
+                                                      request_type=RequestType.TRANSFER,
+                                                      scope=scope,
+                                                      name=name,
+                                                      rule=rule)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             continue
