@@ -13,7 +13,8 @@
 from django.shortcuts import render_to_response
 
 from rucio import version
-from rucio.api import authentication
+from rucio.api import authentication, identity
+from rucio.common.exception import IdentityError
 
 
 def __to_js(var, value):
@@ -32,17 +33,23 @@ def index(request):
 
     token = None
     js_token = None
-    js_account = 'root'
+    js_account = None
     rucio_ui_version = version.version_string()
 
     if request.is_secure():
-
         renv = request.environ
-        session_token = authentication.validate_auth_token(request.COOKIES.get('x-rucio-auth-token'))
+        session_token = request.COOKIES.get('x-rucio-auth-token')
+        validate_token = authentication.validate_auth_token(session_token)
 
-        if session_token is None:
+        if validate_token is None:
             try:
-                token = authentication.get_auth_token_x509('root',
+                try:
+                    def_account = identity.get_default_account(renv['SSL_CLIENT_S_DN'], 'x509')
+                except IdentityError:
+                    accounts = identity.list_accounts_for_identity(renv['SSL_CLIENT_S_DN'], 'x509')
+                    def_account = accounts[0]
+
+                token = authentication.get_auth_token_x509(def_account,
                                                            renv['SSL_CLIENT_S_DN'],
                                                            'webui',
                                                            renv['REMOTE_ADDR'])
@@ -50,8 +57,12 @@ def index(request):
                 return render_to_response('problem.html', locals())
 
             js_token = __to_js('token', token)
+            js_account = __to_js('account', def_account)
+            account = def_account
         else:
             js_token = __to_js('token', session_token)
+            js_account = __to_js('account', validate_token['account'])
+            account = validate_token['account']
 
     else:
         return render_to_response('problem.html', locals())
