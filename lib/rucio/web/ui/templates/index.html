@@ -8,12 +8,14 @@
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 -->
 
 <!DOCTYPE html>
 <html>
   <head>
     {{ js_token|safe }}
+    {{ js_account|safe }}
     <title>Rucio UI</title>
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
@@ -27,7 +29,7 @@
       <div style="float:left">
         <a href="#">Rules</a> |  <a href="#">Subscriptions</a> |  <a href="#">Accounting</a> |  <a href="#">Transfers</a> |  <a href="#">Stage In</a> |  <a href="#">Deletion</a> |  <a href="#">Popularity</a> |  <a href="#">Infrastructure</a>
       </div>
-      <div style="float:right">Acting on behalf of <a href="#">{{ js_account }}</a></div>
+      <div style="float:right">Acting on behalf of <a href="#">{{ account }}</a></div>
     </div>
     <div class="content">
       <div class="h2">List scopes</div>

@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import hashlib
 import os
@@ -149,3 +150,23 @@ def list_identities(session=None, **kwargs):
         id_list.append((id.identity, id.identity_type))
 
     return id_list
+
+
+@read_session
+def list_accounts_for_identity(identity, type, session=None):
+    """
+    Returns a list of all accounts for an identity.
+
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type: The type of the authentication (x509, gss, userpass).
+    :param session: The database session in use.
+
+    returns: A list of all accounts for the identity.
+    """
+
+    account_list = []
+
+    for iaa in session.query(models.IdentityAccountAssociation).filter_by(identity=identity, identity_type=type):
+        account_list.append((iaa.account))
+
+    return account_list
