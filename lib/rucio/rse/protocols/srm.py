@@ -52,17 +52,19 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if type(lfns) == dict else lfns
         if not self.attributes['port']:
             for lfn in lfns:
-                scope, name = lfn['scope'], lfn['name']
+                scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')
+                if not path:
+                    path = self._get_path(scope=scope, name=name)
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
-                                                         hostname, web_service_path, prefix,
-                                                         self._get_path(scope=scope, name=name)])
+                                                         hostname, web_service_path, prefix, path])
         else:
             for lfn in lfns:
-                scope, name = lfn['scope'], lfn['name']
+                scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')
+                if not path:
+                    path = self._get_path(scope=scope, name=name)
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
                                                          hostname, ':', str(self.attributes['port']),
-                                                         web_service_path, prefix,
-                                                         self._get_path(scope=scope, name=name)])
+                                                         web_service_path, prefix, path])
 
         return pfns
 
