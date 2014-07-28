@@ -659,7 +659,7 @@ class TestRSEClient():
     @raises(RSENotFound)
     def test_get_protocols_rse_not_found(self):
         """ RSE (CLIENTS): get all protocols of rse (RSENotFound)."""
-        mgr.get_rse_info('The One that shouldn\'t be here')
+        mgr.get_rse_info("TheOnethatshouldnotbehere")
 
     def test_get_protocols_operations(self):
         """ RSE (CLIENTS): get protocols for operations of rse."""

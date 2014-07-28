@@ -25,13 +25,14 @@ DEFAULT_PROTOCOL = 1
 
 def rse_key_generator(namespace, fn, **kwargs):
     def generate_key(rse, session=None):
-        return rse
+        return str(rse)
     return generate_key
 
 # Preparing region for dogpile.cache
 rse_region = make_region(function_key_generator=rse_key_generator).configure(
-    'dogpile.cache.memory',
+    'dogpile.cache.memcached',  # 'dogpile.cache.memory'
     expiration_time=3600,
+    arguments={'url': "127.0.0.1:11211"}
 )
 
 
@@ -64,10 +65,10 @@ def get_rse_info(rse, session=None):
         :raises RSENotFound: if the provided RSE coud not be found in the database.
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
-    rse_info = rse_region.get(rse)
+    rse_info = rse_region.get(str(rse))
     if not rse_info:  # no cached entry found
-        rse_info = __request_rse_info(rse, session=session)  # NOQA
-        rse_region.set(rse, rse_info)
+        rse_info = __request_rse_info(str(rse), session=session)  # NOQA
+        rse_region.set(str(rse), rse_info)
     return rse_info
 
 
