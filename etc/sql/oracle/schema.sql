@@ -877,7 +877,7 @@ CREATE TABLE REQUESTS
      CONSTRAINT "REQUESTS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL) ,
      CONSTRAINT "REQUESTS_RSE_ID_NN" CHECK (dest_rse_id IS NOT NULL) ,
      CONSTRAINT "REQUESTS_TYPE_CHK" CHECK (request_type IN ('U', 'D', 'T','I','0')) ,
-     CONSTRAINT "REQUESTS_STATE_CHK" CHECK (state IN ('Q', 'S', 'D', 'F', 'L'))
+     CONSTRAINT "REQUESTS_STATE_CHK" CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L'))
        ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01 ;
 
 -- commented out because PK is added instead
