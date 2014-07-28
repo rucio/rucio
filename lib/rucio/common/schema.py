@@ -26,9 +26,17 @@ scope = {"description": "Scope name",
          "type": "string",
          "pattern": "^[a-zA-Z'_'-.0-9]{1,30}$"}
 
+r_scope = {"description": "Scope name",
+           "type": "string",
+           "pattern": "\w"}
+
 name = {"description": "Data Identifier name",
         "type": "string",
         "pattern": "^[A-Za-z0-9][A-Za-z0-9\.\-\_]{1,255}$"}
+
+r_name = {"description": "Data Identifier name",
+          "type": "string",
+          "pattern": "\w"}
 
 rse = {"description": "RSE name",
        "type": "string",
@@ -127,11 +135,32 @@ did = {"description": "Data Identifier(DID)",
        "required": ["scope", "name"],
        "additionalProperties": False}
 
+r_did = {"description": "Data Identifier(DID)",
+         "type": "object",
+         "properties": {"scope": r_scope,
+                        "name": r_name,
+                        "type": did_type,
+                        "meta": meta,
+                        "rules": rules,
+                        "bytes": bytes,
+                        "adler32": adler32,
+                        "md5": md5,
+                        "state": replica_state,
+                        "pfn": pfn},
+         "required": ["scope", "name"],
+         "additionalProperties": False}
+
 dids = {"description": "Array of Data Identifiers(DIDs)",
         "type": "array",
         "items": did,
         "minItems": 1,
         "maxItems": 1000}
+
+r_dids = {"description": "Array of Data Identifiers(DIDs)",
+          "type": "array",
+          "items": r_did,
+          "minItems": 1,
+          "maxItems": 1000}
 
 attachment = {"description": "Attachement",
               "type": "object",
@@ -164,11 +193,15 @@ subscription_filter = {"type": "object",
 schemas = {'account': account,
            'account_type': account_type,
            'name': name,
+           'r_name': r_name,
            'rse': rse,
            'rse_attribute': rse_attribute,
            'scope': scope,
+           'r_scope': r_scope,
            'did': did,
+           'r_did': r_did,
            'dids': dids,
+           'r_dids': r_dids,
            'collection': collection,
            'collections': collections,
            'attachment': attachment,

@@ -44,7 +44,7 @@ def list_replicas(dids, schemes=None, unavailable=False):
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
     :param unavailable: Also include unavailable replicas in the list.
     """
-    validate_schema(name='dids', obj=dids)
+    validate_schema(name='r_dids', obj=dids)
 
     return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable)
 
@@ -79,7 +79,7 @@ def delete_replicas(rse, files, issuer):
 
     :returns: True is successful, False otherwise
     """
-    validate_schema(name='dids', obj=files)
+    validate_schema(name='r_dids', obj=files)
 
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='delete_replicas', kwargs=kwargs):

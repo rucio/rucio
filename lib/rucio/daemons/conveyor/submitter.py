@@ -27,7 +27,7 @@ from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupport
 from rucio.common.utils import construct_surl_DQ2
 from rucio.core import did, replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.constants import DIDType, RequestType, RequestState, ReplicaState
+from rucio.db.constants import DIDType, RequestType, RequestState
 from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
