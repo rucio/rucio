@@ -21,6 +21,7 @@ from rucio.db.session import read_session, transactional_session
 
 # Create cache region used for token validation
 from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 
 
 def token_key_generator(namespace, fn, **kwargs):
@@ -176,7 +177,7 @@ def validate_auth_token(token):
 
     # Check if token ca be found in cache region
     value = token_region.get(token)
-    if not value:  # no cached entry found
+    if value is NO_VALUE:  # no cached entry found
         value = query_token(token)
         token_region.set(token, value)
     elif value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
