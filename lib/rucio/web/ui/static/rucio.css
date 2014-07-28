@@ -7,6 +7,7 @@
  *
  * Authors:
  * - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ * - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
  */
 
 /* solarized palette: http://ethanschoonover.com/solarized */
@@ -23,3 +24,5 @@ div.content { background-color: #fdf6e3; color: #586e75; width:100%; overflow: h
 div.h1 { font-size: xx-large; font-weight: bold; color: #cb4b16; }
 div.h2 { font-size: x-large; font-weight: bold; color: #cb4b16; }
 div.h3 { font-size: large; font-weight: bold; color: #cb4b16; }
+
+select { width: 100px; }
