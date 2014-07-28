@@ -124,6 +124,7 @@ class RequestType(DeclEnum):
 
 class RequestState(DeclEnum):
     QUEUED = 'Q', 'QUEUED'
+    SUBMITTING = 'G', 'SUBMITTING'
     SUBMITTED = 'S', 'SUBMITTED'
     FAILED = 'F', 'FAILED'
     DONE = 'D', 'DONE'
