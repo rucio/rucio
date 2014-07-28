@@ -164,10 +164,19 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
         filter(models.RSE.deleted == is_false).\
         order_by(models.RSEFileAssociation.scope).\
         order_by(models.RSEFileAssociation.name)
+
     tmp_protocols = {}
+    key = None
     for replica_condition in chunks(replica_conditions, 20):
         for replica, rse in replica_query.filter(or_(*replica_condition)):
-            key = '%s:%s' % (replica.scope, replica.name)
+
+            if not key:
+                key = '%s:%s' % (replica.scope, replica.name)
+            elif key != '%s:%s' % (replica.scope, replica.name):
+                yield replicas[key]
+                del replicas[key]
+                key = '%s:%s' % (replica.scope, replica.name)
+
             if 'bytes' not in replicas[key]:
                 replicas[key]['bytes'] = replica.bytes
                 replicas[key]['md5'] = replica.md5
@@ -211,9 +220,13 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
                             replicas[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
                         except KeyError:
                             replicas[key]['space_token'] = None
-
-    for key in replicas:
+    if key:
         yield replicas[key]
+
+    # Files with no replicas
+    for replica in replicas:
+        if not replicas[replica]['rses']:
+            yield replicas[replica]
 
 
 @transactional_session
