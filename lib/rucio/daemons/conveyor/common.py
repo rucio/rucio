@@ -39,7 +39,9 @@ def update_request_state(req, response, session=None):
     :param session: The database session to use.
     :returns commit_or_rollback: Boolean.
     """
-    logging.debug('UPDATING REQUEST %s to %s' % (str(req), str(response)))
+
+    logging.debug('UPDATING REQUEST %s FOR TRANSFER STATE %s' % (str(req['request_id']), str(response['job_state'])))
+
     if response['new_state']:
 
         rse_name = None

@@ -44,9 +44,9 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
-    logging.info('poller starting')
+    logging.info('poller starting - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
 
-    logging.info('poller started')
+    logging.info('poller started - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
 
     while not graceful_stop.is_set():
 
@@ -54,12 +54,14 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
             ts = time.time()
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=100000,
+                                    limit=1000,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
-            logging.debug('Polling %s requests' % (str(len(reqs)) if reqs else 0))
+
+            logging.debug('%i:%i - polling %s requests' % (process, thread, str(len(reqs)) if reqs else 0))
+
             if reqs is None or reqs == []:
                 if once:
                     break
@@ -67,22 +69,17 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                 continue
 
             for req in reqs:
-                try:
-                    ts = time.time()
-                    response = request.query_request(req['request_id'], 'fts3')
-                    record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
+                ts = time.time()
+                response = request.query_request(req['request_id'], 'fts3')
+                record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
 
-                    req['src_rse'] = 'UNKNOWN'
-                    response['transfer_id'] = req['external_id']
+                req['src_rse'] = 'UNKNOWN'
+                response['job_state'] = response['details']['job_state']
+                response['transfer_id'] = req['external_id']
 
-                    common.update_request_state(req, response)
+                common.update_request_state(req, response)
 
-                    record_counter('daemons.conveyor.poller.query_request')
-                except:
-                    logging.critical('Problem when dealing with: ' + str(req) + '\n' + traceback.format_exc())
-
-            logging.info('poller: Sleep 1s')
-            time.sleep(1)
+                record_counter('daemons.conveyor.poller.query_request')
 
         except:
             logging.critical(traceback.format_exc())
@@ -90,9 +87,9 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
         if once:
             return
 
-    logging.info('poller: graceful stop requested')
+    logging.debug('%i:%i - graceful stop requests' % (process, thread))
 
-    logging.info('poller: graceful stop done')
+    logging.debug('%i:%i - graceful stop done' % (process, thread))
 
 
 def stop(signum=None, frame=None):
