@@ -1,0 +1,56 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+-->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    {{ js_token|safe }}
+    {{ js_account|safe }}
+    <title>Rucio UI</title>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="static/rucio.css">
+    <link rel="stylesheet" href="static/jquery-ui-1.11.0/jquery-ui.css">
+    <script src="static/jquery-2.1.1.min.js"></script>
+    <script src="static/jquery-ui-1.11.0/jquery-ui.min.js"></script>
+    <script src="static/rucio.js"></script>
+    <script src="static/index.js"></script>
+  </head>
+  <body>
+    <div class="topbar">
+      <div style="float:left">
+        <a href="#">Rules</a> |  <a href="#">Subscriptions</a> |  <a href="#">Accounting</a> |  <a href="#">Transfers</a> |  <a href="#">Stage In</a> |  <a href="#">Deletion</a> |  <a href="#">Popularity</a> |  <a href="#">Infrastructure</a>
+      </div>
+      <div style="float:right">Acting on behalf of <a href="#">
+          <select name="account" id="account">
+            {% for acc in accounts %}
+            <option value={{ acc }}>{{ acc }}</option>
+            </div>
+      {% endfor %}
+      </select></a></div>
+    </div>
+    <div class="content">
+      {% block content_block %}{% endblock %}
+    </div>
+    <div class="bottombar">
+      <div style="float:left">
+        <div style="padding-left: 0px">Rucio UI Version: <span>{{ rucio_ui_version }}</span></div>
+        <div style="padding-left: 0px">Rucio Server Version: <span id="rucio_server_version">loading</span></div>
+        <div style="padding-left: 0px">&copy; 2012-2014 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
+      </div>
+      <div style="float:right; text-align:right;">
+        <div><a href="mailto:rucio-support@cern.ch">rucio-support@cern.ch</a></div>
+        <div><a href="http://rucio.cern.ch/">http://rucio.cern.ch/</a></div>
+      </div>
+    </div>
+  </body>
+</html>
