@@ -9,5 +9,6 @@ requests-kerberos==0.5   # A Kerberos authentication handler for python-requests
 #  TODO: requests-cache==0.4.4  # Persistent cache for requests library
 urllib3==1.9             # HTTP library with thread-safe connection pooling and file post support
 wsgiref==0.1.2           # WSGI (PEP 333) Reference Library
+dogpile==0.2.2           # Caching API
 dogpile.core==0.4.1      # Caching API
 dogpile.cache==0.5.4     # Caching API plugins
