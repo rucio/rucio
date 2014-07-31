@@ -98,8 +98,9 @@ class RSEProtocol(object):
             :returns: RSE specific URI of the physical file
         """
         hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
-        correctedscope = "/".join(scope.split('.'))
-        return '%s/%s/%s/%s' % (correctedscope, hstr[0:2], hstr[2:4], name)
+        if scope.startswith('user') or scope.startswith('group'):
+            scope = scope.replace('.', '/')
+        return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
 
     def _get_path_nondeterministic_server(self, scope, name):
         """ Provides the path of a replica for non-detemernisic sites. Will be assigned to get path by the __init__ method if neccessary. """
