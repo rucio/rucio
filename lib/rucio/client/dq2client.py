@@ -1687,10 +1687,6 @@ class DQ2Client:
         metadata_mapping = {'owner': 'account', 'lifetime': 'expired_at', 'hidden': 'hidden'}
         if attrname in metadata_mapping:
             self.client.set_metadata(scope=scope, name=dsn, key=attrname, value=attrvalue)
-        metadata_static = ['duid', 'state', 'creationdate', 'latestversion', 'lastoperationdn', 'lastoperationip', 'closeddate', 'frozendate', 'deleteddate', 'type',
-                           'freezingdate', 'group', 'provenance', 'nbfiles', 'length', 'vuid', 'version', 'versioncreationdate', 'latestvuid', 'origin', 'physicsgroup', 'temperature', '#replicas', 'tier0state', 'tier0type']
-        if attrname in metadata_static:
-            raise InvalidMetadata('%s is a static metadata and cannot be updated' % (attrname))
         raise InvalidMetadata('%s is not a valid DQ2 metadata' % (attrname))
 
     def setReplicaMetaDataAttribute(self, dsn, location, attrname, attrvalue, scope=None):
