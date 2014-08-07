@@ -346,14 +346,30 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     :returns: True is successful.
     """
     nbfiles, bytes = 0, 0
+    # Check for the replicas already available
+    condition = or_()
+    for f in files:
+        condition.append(and_(models.RSEFileAssociation.scope == f['scope'], models.RSEFileAssociation.name == f['name'], models.RSEFileAssociation.rse_id == rse_id))
+
+    q = session.query(models.RSEFileAssociation.scope,
+                      models.RSEFileAssociation.name,
+                      models.RSEFileAssociation.rse_id).filter(condition)
+    available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
+
     for file in files:
-        nbfiles += 1
-        bytes += file['bytes']
-        new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'],
-                                                path=file.get('path'), state=ReplicaState.from_string(file.get('state', 'A')),
-                                                md5=file.get('md5'), adler32=file.get('adler32'), lock_cnt=file.get('lock_cnt', 0),
-                                                tombstone=file.get('tombstone'))
-        new_replica.save(session=session, flush=False)
+        found = False
+        for available_replica in available_replicas:
+            if file['scope'] == available_replica['scope'] and file['name'] == available_replica['name'] and rse_id == available_replica['rse_id']:
+                found = True
+                break
+        if not found:
+            nbfiles += 1
+            bytes += file['bytes']
+            new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'],
+                                                    path=file.get('path'), state=ReplicaState.from_string(file.get('state', 'A')),
+                                                    md5=file.get('md5'), adler32=file.get('adler32'), lock_cnt=file.get('lock_cnt', 0),
+                                                    tombstone=file.get('tombstone'))
+            new_replica.save(session=session, flush=False)
     try:
         session.flush()
         return nbfiles, bytes
