@@ -19,7 +19,7 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
-from rucio.common.exception import Duplicate, DataIdentifierNotFound
+from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter, get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas
@@ -216,9 +216,6 @@ class TestReplicaClients:
 
         files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK', files=files1)
-
-        with assert_raises(Duplicate):
-            self.replica_client.add_replicas(rse='MOCK', files=files1)
 
         files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK3', files=files2)
