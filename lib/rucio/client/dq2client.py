@@ -177,7 +177,7 @@ class DQ2Client:
                 # if rule['account'] == account:
                 # print 'Will delete %s:%s from %s ruleid %s' % (scope, dsn, rule['rse_expression'], rule['id'])
                 self.client.delete_replication_rule(rule['id'])
-                result['rse_expression'] = {'status': True}
+                result[rule['rse_expression']] = {'status': True}
         for location in locations:
             if location not in result:
                 result[location] = {'status': False, 'error': RuleNotFound}
@@ -239,8 +239,9 @@ class DQ2Client:
             - DataIdentifierNotFound is raised in case the container or dataset name doesn't exist.
 
         @see: https://twiki.cern.ch/twiki/bin/view/Atlas/DonQuijote2ContainerCatalogUC0004
-        ToDo Cedric
         """
+        if name.endswith('/'):
+            name = name[:-1]
         raise NotImplementedError
 
     def deleteFilesFromDataset(self, dsn, guids=[], scope=None):
@@ -260,10 +261,12 @@ class DQ2Client:
         @return: List of lfns that failed to be added since they are duplicates?
         """
         dids = []
-        # create rucio parameter
-        for fn in guids:
-            did = {'scope': scope, 'name': fn}
-            dids.append(did)
+        for file in self.client.list_files(scope=scope, name=dsn, long=True):
+            guid = file['guid']
+            guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+            if guid in guids or guid.upper() in guids:
+                did = {'scope': file['scope'], 'name': file['name']}
+                dids.append(did)
         self.client.detach_dids(scope=scope, name=dsn, dids=dids)
 
     def eraseDataset(self, dsn, scope):
@@ -293,7 +296,8 @@ class DQ2Client:
                 result[location]['error'] = 'Cannot delete replicating datasets'
                 will_erase = False
         if will_erase:
-            self.client.set_metadata(scope=scope, name=dsn, key='expired_at', value=datetime.now())
+            # self.client.set_metadata(scope=scope, name=dsn, key='expired_at', value=str(datetime.now()))
+            self.client.set_metadata(scope=scope, name=dsn, key='lifetime', value=0.0001)
         return result
 
     def freezeDataset(self, dsn, scope):
@@ -497,7 +501,7 @@ class DQ2Client:
         """
         result = {}
         files = []
-        dq2attrs = {'pdn': '', 'archived': 'primary', 'version': 0, 'checkstate': 6, 'transferState': 0, 'found': 0, 'total': 0, 'immutable': 0}
+        dq2attrs = {'pdn': '', 'archived': 'primary', 'version': 1, 'checkstate': 6, 'transferState': 0, 'found': 0, 'total': 0, 'immutable': 0}
         metadata = self.client.get_metadata(scope, name=dsn)
         # @immutable
         if not metadata['is_open']:
@@ -565,6 +569,8 @@ class DQ2Client:
           'state': row.state})
 
         """
+        if cn.endswith('/'):
+            cn = cn[:-1]
         result = {}
         replicas = {0: [], 1: []}
         self.client.get_metadata(scope=scope, name=cn)
@@ -693,7 +699,6 @@ class DQ2Client:
                         type = 'dataset'
                     elif metaDataAttributes[key] == 2:
                         type = 'container'
-            print scope, dsn, filters
             if long:
                 for name in self.client.list_dids(scope, filters, type):
                     meta = {'totalSize': 0, 'totalFiles': 0}
@@ -806,6 +811,8 @@ class DQ2Client:
         {u'adler32': None, u'name': u'2013-12-30_12', u'bytes': None, u'scope': u'ams-2014-ISS.B700-pass5', u'type': u'DATASET', u'md5': None}, ....]
 
         """
+        if cn.endswith('/'):
+            cn = cn[:-1]
         ret = []
         try:
             if self.client.get_metadata(scope, cn)['did_type'] == 'CONTAINER':
@@ -1093,10 +1100,7 @@ class DQ2Client:
             for rse in self.client.list_rses(rse_expression):
                 if rse not in list_rses:
                     list_rses.append(rse['rse'])
-        for replica in self.client.list_replicas([{'scope': scope, 'name': dsn}], unavailable=True):
-            for rse in replica['rses']:
-                if (rse in list_rses) and (rse not in result):
-                    result.append(rse)
+        result = list_rses
         return result
 
     def listSubscriptionsInSite(self, site, long=False):
@@ -1221,6 +1225,8 @@ class DQ2Client:
         @rtype: NoneType
 
         """
+        if name.endswith('/'):
+            name = name[:-1]
         self.client.add_container(scope=scope, name=name)
         if datasets:
             # self.client.add_datasets_to_container(scope=scope, name=name, datasets=datasets)
@@ -1229,7 +1235,6 @@ class DQ2Client:
 
     def registerDatasetLocation(self, dsn, location, version=0, complete=0, group=None, archived=None, acl_alias=None, lifetime=None, pin_lifetime=None, scope=None):
         """
-        ToDo -->KuoHao
         Register new replica of a dataset(which must already defined in the repository)
 
         @param dsn: is the dataset name.
@@ -1249,12 +1254,25 @@ class DQ2Client:
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
             - UnsupportedOperation is raised in case the location does not exist.
         """
+        if lifetime:
+            lifetime = validate_time_formats(lifetime)
+            if lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                errMsg = 'lifetime must be greater than O!' % locals()
+                raise InputValidationError(errMsg)
+            lifetime = lifetime.days * 86400 + lifetime.seconds
+        if pin_lifetime:
+            pin_lifetime = validate_time_formats(pin_lifetime)
+            if pin_lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                errMsg = 'pin_lifetime must be greater than O!' % locals()
+                raise InputValidationError(errMsg)
+            pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
+
         if location in [loc['rse'] for loc in self.client.list_rses()]:
             dids = []
             did = {'scope': scope, 'name': dsn}
             dids.append(did)
             # Add replication rule
-            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=None, locked=False)
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='NONE', account=None, locked=False)
         else:
             raise UnsupportedOperation('Unknown RSE [%s]' % (location))
         return True
@@ -1290,6 +1308,19 @@ class DQ2Client:
         @param scope: is the dataset scope.
         """
         self.client.get_did(scope, dsn)
+        if replica_lifetime:
+            replica_lifetime = validate_time_formats(replica_lifetime)
+            if replica_lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                errMsg = 'replica_lifetime must be greater than O!' % locals()
+                raise InputValidationError(errMsg)
+            replica_lifetime = replica_lifetime.days * 86400 + replica_lifetime.seconds
+
+        if pin_lifetime:
+            pin_lifetime = validate_time_formats(pin_lifetime)
+            if pin_lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                errMsg = 'pin_lifetime must be greater than O!' % locals()
+                raise InputValidationError(errMsg)
+            pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
         if not owner:
             owner = 'root'
         else:
@@ -1328,6 +1359,8 @@ class DQ2Client:
         @see: https://twiki.cern.ch/twiki/bin/view/Atlas/DonQuijote2ContainerCatalogUC0011
 
         """
+        if name.endswith('/'):
+            name = name[:-1]
         dsns = []
         # create rucio parameter
         for ds in datasets:
@@ -1335,7 +1368,7 @@ class DQ2Client:
             dsns.append(dsn)
         self.client.add_datasets_to_container(scope=scope, name=name, dsns=dsns)
 
-    def registerFilesInDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None, rse=None):
+    def registerFilesInDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None, rse=None, pfns=[]):
         """
         ToDo-->KuoHao
 
@@ -1360,23 +1393,29 @@ class DQ2Client:
 
         # merge lfn, guid, size, checksum into rucio file format
         files = []
+        index = 0
         for lfn, guid, size, checksum in zip(lfns, guids, sizes, checksums):
             if lfn.find(':') > -1:
                 s, lfn = lfn.split(':')[0], lfn.split(':')[1]
             else:
                 s = scope
-            file = {'scope': s, 'name': lfn, 'bytes': size, 'meta': {'guid': guid}}
+            try:
+                pfn = pfns[index]
+                file = {'scope': s, 'name': lfn, 'bytes': size, 'meta': {'guid': guid}, 'pfn': pfn}
+            except IndexError:
+                file = {'scope': s, 'name': lfn, 'bytes': size, 'meta': {'guid': guid}}
             if checksum.startswith('md5:'):
                 file['md5'] = checksum[4:]
             elif checksum.startswith('ad:'):
                 file['adler32'] = checksum[3:]
             files.append(file)
+            index += 1
         # add new file to dataset(rse need assign), in rucio rse is pre-assign(by user or group
         try:
             self.client.add_files_to_dataset(scope=scope, name=dsn, files=files, rse=rse)
             for lfn in lfns:
                 result[lfn] = {'status': True}
-        except (FileAlreadyExists, Duplicate):
+        except (FileAlreadyExists, Duplicate, UnsupportedOperation):
             for did in files:
                 try:
                     self.client.add_files_to_dataset(scope=scope, name=dsn, files=[did], rse=rse)
@@ -1391,12 +1430,12 @@ class DQ2Client:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('adler32 mismatch DDM %s vs user %s' % (meta['adler32'], did['adler32']))}
                     elif meta['bytes'] != did['bytes']:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('filesize mismatch DDM %s vs user %s' % (meta['bytes'], did['bytes']))}
+                except UnsupportedOperation, e:
+                    result[lfn] = {'status': False, 'error': e}
         return result
 
-    def registerFilesInDatasets(self, datasets):
+    def registerFilesInDatasets(self, datasets, rse=None):
         """
-        ToDo-->KuoHao
-
         Add existing files to an existing dataset.(attach file to dataset)
 
         @param dataset: is a dictionary containing the dataset name and a list of its files.
@@ -1405,40 +1444,38 @@ class DQ2Client:
         """
         # Scope information need to be recorded in file information
         # ckeck dataset status (not closed)
-        for dsn in datasets:
-            scope, dsn = extract_scope(dsn)
+        for dataset in datasets:
+            scope, dsn = extract_scope(dataset)
             info = self.client.get_did(scope, dsn)
             if not (info['open']):
                 raise UnsupportedOperation
 
+        result = {}
         for dataset in datasets:
             scope, dsn = extract_scope(dataset)
+            vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+            vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
+            result[vuid] = None
             # get file information
             lfns = []
             guids = []
             sizes = []
             checksums = []
-            scopes = []
+            pfns = []
             for file in datasets[dataset]:
-                lfns.append(file['lfn'])
                 guids.append(file['guid'])
                 sizes.append(file['size'])
                 checksums.append(file['checksum'])
-                scopes.append(file['scope'])
+                pfns.append(file['surl'])
+                if 'scope' not in file:
+                    if file['lfn'].find(':') > -1:
+                        lfns.append(file['lfn'])
+                    else:
+                        lfns.append('%s:%s' % (scope, file['lfn']))
+                else:
+                    lfns.append('%s:%s' % (file['scope'], file['lfn']))
 
-            # merge lfn, guid, size, checksum into rucio file format
-            files = []
-            for lfn, guid, size, checksum, scope in zip(lfns, guids, sizes, checksums, scopes):
-                file = {'scope': scope, 'name': lfn, 'bytes': size, 'meta': {'guid': guid}}
-                if checksum.startswith('md5:'):
-                    file['md5'] = checksum[4:]
-                elif checksum.startswith('ad:'):
-                    file['adler32'] = checksum[3:]
-                files.append(file)
-            # attach files to dataset
-            for scope in scopes:
-                self.client.attach_dids(scope=scope, name=dataset, dids=files)
-        return True
+            self.registerFilesInDataset(dsn, lfns=lfns, guids=guids, sizes=sizes, checksums=checksums, ignore=False, scope=scope, rse=rse, pfns=pfns)
 
     def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, scope=None, rse=None):
         """
@@ -1496,7 +1533,8 @@ class DQ2Client:
         vuid = hashlib.md5(scope+':'+dsn).hexdigest()
         vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
         duid = vuid
-        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=7*86400, grouping='DATASET', account=None, locked=False)
+        if rse:
+            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False)
         return {'duid': duid, 'version': 1, 'vuid': vuid}
 
     def registerNewDataset2(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None,  provenance=None, group=None, hidden=False, ignore=False, scope=None, rse=None):
@@ -1558,7 +1596,8 @@ class DQ2Client:
                         self.client.add_files_to_dataset(scope=scope, name=dsn, files=[f], rse=rse)
                     except FileAlreadyExists:
                         statuses[f['name']] = {'status': False, 'error': FileAlreadyExists, 'duid': duid}
-        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=7*86400, grouping='DATASET', account=None, locked=False)
+        if rse:
+            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False)
         return {'duid': duid, 'version': 1, 'vuid': vuid}, statuses
 
     def registerNewVersion(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None):
@@ -1727,21 +1766,22 @@ class DQ2Client:
                     # Does nothing
                     pass
                 elif attrname == 'lifetime':
-                    lifetime = validate_time_formats([attrvalue, ])[0]
+                    lifetime = validate_time_formats(attrvalue)
                     if lifetime == timedelta(days=0, seconds=0, microseconds=0):
                         errMsg = 'lifetime must be greater than O!' % locals()
                         raise InputValidationError(errMsg)
-
+                    lifetime = lifetime.days * 86400 + lifetime.seconds
                     self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=lifetime, grouping=rule['grouping'], account=account, locked=False)
                     self.client.delete_replication_rule(rule['id'])
                 elif attrname == 'pin_lifetime':
                     if attrvalue is None or attrvalue is '':
                         self.client.update_lock_state(rule['id'], lock_state=False)
                     else:
-                        pin_lifetime = validate_time_formats([attrvalue, ])[0]
+                        pin_lifetime = validate_time_formats(attrvalue)
                         if pin_lifetime == timedelta(days=0, seconds=0, microseconds=0):
                             errMsg = 'pin_lifetime must be greater than O!' % locals()
                             raise InputValidationError(errMsg)
+                        pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
                         self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=pin_lifetime, grouping=rule['grouping'], account=account, locked=True)
         if not is_at_site:
             raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))
