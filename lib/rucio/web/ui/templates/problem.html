@@ -1,3 +1,4 @@
+$def with (env)
 <!--
  Copyright European Organization for Nuclear Research (CERN)
 
@@ -8,21 +9,18 @@
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 -->
 
 <!DOCTYPE html>
 <html>
   <head>
-    {{ js_token|safe }}
     <title>Rucio UI - Problem</title>
     <link rel="shortcut icon" href="/media/favicon.ico" type="image/x-icon">
     <link rel="icon" href="/media/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" type="text/css" href="static/rucio.css">
-    <script src="static/jquery-2.1.1.min.js"></script>
-    <script src="static/rucio.js"></script>
-    <script src="static/problem.js"></script>
   </head>
   <body>
-    Access Forbidden: There's a problem: {{ renv }}
+    Access Forbidden: There's a problem: $env
   </body>
 </html>
