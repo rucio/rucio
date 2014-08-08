@@ -16,7 +16,8 @@ from rucio.web.ui.common.utils import check_token
 
 
 urls = (
-    '', 'Index'
+    '', 'Index',
+    '/subscriptions', 'Subscriptions'
     )
 
 
@@ -24,6 +25,11 @@ class Index():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.index())
+
+class Subscriptions():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.subscriptions())
 
 
 """----------------------
