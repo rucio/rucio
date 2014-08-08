@@ -1,3 +1,0 @@
-# These dependencies are only needed for the monitor
-
-django==1.6.4        # web framework
