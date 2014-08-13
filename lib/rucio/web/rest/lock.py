@@ -17,7 +17,7 @@ from web import application, ctx, header, InternalError, loadhook
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error, APIEncoder
-from rucio.web.rest.common import authenticate
+from rucio.web.rest.common import rucio_loadhook
 
 logger = getLogger("rucio.lock")
 sh = StreamHandler()
@@ -105,5 +105,5 @@ class LockByScopeName:
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

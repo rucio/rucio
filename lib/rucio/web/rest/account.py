@@ -25,7 +25,7 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
-from rucio.web.rest.common import authenticate, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
 logger = getLogger("rucio.account")
@@ -140,6 +140,13 @@ class AccountParameter(RucioController):
             acc = get_account_info(account)
         except AccountNotFound, e:
             raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
 
         dict = acc.to_dict()
 
@@ -389,5 +396,5 @@ class Rules(RucioController):
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()
