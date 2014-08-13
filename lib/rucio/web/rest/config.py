@@ -16,7 +16,7 @@ from web import application, ctx, Created, loadhook, header
 
 from rucio.api import config
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import authenticate, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
 logger = getLogger("rucio.config")
@@ -152,5 +152,5 @@ class OptionSet(RucioController):
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

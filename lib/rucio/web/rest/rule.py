@@ -20,7 +20,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.common.utils import generate_http_error, render_json
-from rucio.web.rest.common import authenticate
+from rucio.web.rest.common import rucio_loadhook
 
 logger = getLogger("rucio.rule")
 sh = StreamHandler()
@@ -187,5 +187,5 @@ class Rule:
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

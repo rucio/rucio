@@ -13,7 +13,7 @@
 from web import application, ctx, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.identity import add_identity, add_account_identity
-from rucio.rest.common import authenticate, RucioController
+from rucio.rest.common import rucio_loadhook, RucioController
 
 
 urls = (
@@ -138,5 +138,5 @@ class GSS(RucioController):
    ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

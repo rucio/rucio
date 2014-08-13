@@ -224,7 +224,7 @@ class BaseClient(object):
                 elif type == 'PUT':
                     r = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    r = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    r = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=True)
                 elif type == 'DEL':
                     r = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:

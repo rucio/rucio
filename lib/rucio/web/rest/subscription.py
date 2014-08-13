@@ -17,7 +17,7 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
-from rucio.web.rest.common import authenticate
+from rucio.web.rest.common import rucio_loadhook
 
 logger = getLogger("rucio.subscription")
 sh = StreamHandler()
@@ -199,5 +199,5 @@ class Rules:
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

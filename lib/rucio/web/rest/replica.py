@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -14,7 +14,7 @@ from json import dumps, loads
 from traceback import format_exc
 from urllib import unquote
 from urlparse import parse_qs
-from web import application, ctx, Created, data, header, InternalError, loadhook, OK
+from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
 
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas
 from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RessourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation
@@ -22,7 +22,7 @@ from rucio.common.replicas_selector import random_order, geoIP_order
 
 
 from rucio.common.utils import generate_http_error, parse_response
-from rucio.web.rest.common import authenticate, RucioController
+from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
 
 urls = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
@@ -287,7 +287,7 @@ class ListReplicas(RucioController):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n<files>\n'
 
             # then, stream the replica information
-            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable):
+            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id')):
                 client_ip = ctx.get('ip')
                 replicas = []
                 dictreplica = {}
@@ -413,5 +413,6 @@ class BadReplicas(RucioController):
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
+app.add_processor(unloadhook(rucio_unloadhook))
 application = app.wsgifunc()

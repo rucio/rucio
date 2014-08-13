@@ -7,7 +7,7 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2013
+# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2014
 
 import sys
 
@@ -94,7 +94,6 @@ def get_engine(echo=True):
             except NoOptionError:
                 pass
         _ENGINE = create_engine(sql_connection, **params)
-
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
         elif 'sqlite' in sql_connection:
@@ -104,7 +103,7 @@ def get_engine(echo=True):
         # Override engine.connect method with db error wrapper
         # To have auto_reconnect (will come in next sqlalchemy releases)
         _ENGINE.connect = wrap_db_error(_ENGINE.connect)
-        _ENGINE.connect()
+        # _ENGINE.connect()
     assert(_ENGINE)
     return _ENGINE
 
@@ -206,9 +205,7 @@ def get_session():
         finally:
             _LOCK.release()
     assert(_MAKER)
-#    session = _MAKER()
     session = scoped_session(_MAKER)
-#    session = scoped_session(sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True))
     return session
 
 
@@ -233,11 +230,9 @@ def read_session(function):
                 kwargs['session'] = session
                 return function(*args, **kwargs)
             except TimeoutError, e:
-                print e
                 session.rollback()
                 raise DatabaseException(str(e))
             except DatabaseError, e:
-                print e
                 session.rollback()
                 raise DatabaseException(str(e))
             except:

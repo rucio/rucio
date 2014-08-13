@@ -16,7 +16,7 @@ from web import application, loadhook, ctx, data, BadRequest, Created, InternalE
 from rucio.api.account_limit import set_account_limit, delete_account_limit
 from rucio.common.exception import RSENotFound, AccessDenied, AccountNotFound
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import authenticate, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
 logger = getLogger("rucio.account_limit")
@@ -113,5 +113,5 @@ class AccountLimit(RucioController):
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

@@ -16,7 +16,7 @@ from web import application, header, BadRequest, Created, InternalError, loadhoo
 from rucio.api.scope import add_scope, get_scopes, list_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import authenticate
+from rucio.web.rest.common import rucio_loadhook
 
 logger = getLogger("rucio.scope")
 sh = StreamHandler()
@@ -127,5 +127,5 @@ class ScopeList:
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

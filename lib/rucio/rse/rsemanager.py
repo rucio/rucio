@@ -15,25 +15,11 @@
 import copy
 import os
 
-from dogpile.cache import make_region
 from urlparse import urlparse
 
 from rucio.common import exception, utils
 
 DEFAULT_PROTOCOL = 1
-
-
-def rse_key_generator(namespace, fn, **kwargs):
-    def generate_key(rse, session=None):
-        return str(rse)
-    return generate_key
-
-# Preparing region for dogpile.cache
-rse_region = make_region(function_key_generator=rse_key_generator).configure(
-    'dogpile.cache.memcached',  # 'dogpile.cache.memory'
-    expiration_time=3600,
-    arguments={'url': "127.0.0.1:11211"}
-)
 
 
 def get_rse_info(rse, session=None):
@@ -65,10 +51,11 @@ def get_rse_info(rse, session=None):
         :raises RSENotFound: if the provided RSE coud not be found in the database.
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
-    rse_info = rse_region.get(str(rse))
+    # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
+    rse_info = rse_region.get(str(rse), ignore_expiration=True)   # NOQA
     if not rse_info:  # no cached entry found
         rse_info = __request_rse_info(str(rse), session=session)  # NOQA
-        rse_region.set(str(rse), rse_info)
+        rse_region.set(str(rse), rse_info)  # NOQA
     return rse_info
 
 

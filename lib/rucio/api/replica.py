@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -40,17 +40,17 @@ def get_did_from_pfns(pfns, rse):
     return replica.get_did_from_pfns(pfns=pfns, rse=rse)
 
 
-def list_replicas(dids, schemes=None, unavailable=False):
+def list_replicas(dids, schemes=None, unavailable=False, request_id=None):
     """
     List file replicas for a list of data identifiers.
 
     :param dids: The list of data identifiers (DIDs).
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
     :param unavailable: Also include unavailable replicas in the list.
+    :param request_id: ID associated with the request for debugging.
     """
     validate_schema(name='r_dids', obj=dids)
-
-    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable)
+    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=request_id)
 
 
 def add_replicas(rse, files, issuer):

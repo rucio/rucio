@@ -16,7 +16,7 @@ from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql.expression import case, bindparam, text
+from sqlalchemy.sql.expression import case, bindparam, select, text
 
 from rucio.common import exception
 from rucio.common.utils import chunks
@@ -149,13 +149,14 @@ def get_did_from_pfns(pfns, rse, session=None):
 
 
 @stream_session
-def list_replicas(dids, schemes=None, unavailable=False, session=None):
+def list_replicas(dids, schemes=None, unavailable=False, request_id=None, session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
     :param dids: The list of data identifiers (DIDs).
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
     :param unavailable: Also include unavailable replicas in the list.
+    :param request_id: ID associated with the request for debugging.
     :param session: The database session in use.
     """
     # Get the list of files
@@ -207,28 +208,33 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
 
     # Get the list of replicas
     is_false = False
-    replica_query = session.query(models.RSEFileAssociation, models.RSE.rse).with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').\
-        join(models.RSE, models.RSEFileAssociation.rse_id == models.RSE.id).\
-        filter(models.RSE.deleted == is_false).\
-        order_by(models.RSEFileAssociation.scope).\
-        order_by(models.RSEFileAssociation.name)
-
     tmp_protocols = {}
     key = None
-    for replica_condition in chunks(replica_conditions, 20):
-        for replica, rse in replica_query.filter(or_(*replica_condition)):
+    for replica_condition in chunks(replica_conditions, 50):
 
+        replica_query = select(columns=(models.RSEFileAssociation.scope,
+                                        models.RSEFileAssociation.name,
+                                        models.RSEFileAssociation.bytes,
+                                        models.RSEFileAssociation.md5,
+                                        models.RSEFileAssociation.adler32,
+                                        models.RSEFileAssociation.path,
+                                        models.RSE.rse),
+                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, or_(*replica_condition)),
+                               order_by=(models.RSEFileAssociation.scope, models.RSEFileAssociation.name)).\
+            with_hint(models.RSEFileAssociation.scope,  text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
+            compile()
+        for scope, name, bytes, md5, adler32, path, rse in session.execute(replica_query.statement, replica_query.params).fetchall():
             if not key:
-                key = '%s:%s' % (replica.scope, replica.name)
-            elif key != '%s:%s' % (replica.scope, replica.name):
+                key = '%s:%s' % (scope, name)
+            elif key != '%s:%s' % (scope, name):
                 yield replicas[key]
                 del replicas[key]
-                key = '%s:%s' % (replica.scope, replica.name)
+                key = '%s:%s' % (scope, name)
 
             if 'bytes' not in replicas[key]:
-                replicas[key]['bytes'] = replica.bytes
-                replicas[key]['md5'] = replica.md5
-                replicas[key]['adler32'] = replica.adler32
+                replicas[key]['bytes'] = bytes
+                replicas[key]['md5'] = md5
+                replicas[key]['adler32'] = adler32
 
             if rse not in replicas[key]['rses']:
                 replicas[key]['rses'][rse] = []
@@ -259,7 +265,7 @@ def list_replicas(dids, schemes=None, unavailable=False, session=None):
             for protocol in tmp_protocols[rse]:
                 if not schemes or protocol.attributes['scheme'] in schemes:
                     try:
-                        replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': replica.scope, 'name': replica.name, 'path': replica.path}).values()[0])
+                        replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0])
                     except:
                         # temporary protection
                         print format_exc()

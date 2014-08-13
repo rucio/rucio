@@ -57,21 +57,6 @@ When ``pip`` is available, the distribution can be downloaded from the Rucio PyP
 
 This command will download the latest version of Rucio and install it to your system.
 
-it will ask for the password and login.
-
-To avoid this, you need to create a :file:`~/.pip/pip.conf` with::
-
-    [install]
-    index-url =
-        http://pypi.python.org/simple
-
-    extra-index-url=
-        http://<username>:<password>@atlas-pip.cern.ch/simple
-
-- *username*, which is the registered username on the PyPI server.
-- *password*, that will be used to authenticate. If omitted the user
-    will be prompt to type it when needed.
-
 Upgrade via pip
 ~~~~~~~~~~~~~~~
 
