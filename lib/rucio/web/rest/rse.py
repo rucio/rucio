@@ -24,7 +24,7 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
                            set_rse_limits, get_rse_limits, parse_rse_expression)
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, InvalidRSEExpression
 from rucio.common.utils import generate_http_error, render_json
-from rucio.web.rest.common import authenticate, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
 urls = (
     '/(.+)/attr/(.+)', 'Attributes',
@@ -635,5 +635,5 @@ class Limits:
 ----------------------"""
 
 app = application(urls, globals())
-app.add_processor(loadhook(authenticate))
+app.add_processor(loadhook(rucio_loadhook))
 application = app.wsgifunc()

@@ -179,7 +179,7 @@ def validate_auth_token(token):
     value = token_region.get(token)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token)
-        token_region.set(token, value)
+        value and token_region.set(token, value)
     elif value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
         token_region.delete(token)
         return
@@ -198,8 +198,6 @@ def query_token(token, session=None):
     """
     # Query the DB to validate token
     r = session.query(models.Token.account, models.Token.expired_at).filter(models.Token.token == token, models.Token.expired_at > datetime.datetime.utcnow()).all()
-
     if r:
         return {'account': r[0][0], 'lifetime': r[0][1]}
-
     return None

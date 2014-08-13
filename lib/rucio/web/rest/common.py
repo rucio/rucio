@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 """
@@ -13,17 +13,18 @@ REST utilities
 """
 
 from json import loads
+from time import time
 from traceback import format_exc
 from web import BadRequest, ctx, data, header, InternalError
 from web.webapi import Created, HTTPError, OK, seeother
 
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error
+from rucio.common.utils import generate_http_error, generate_uuid
 
 
-def authenticate():
-    """ Hook to authenticate. """
+def rucio_loadhook():
+    """ Rucio load Hook to authenticate, timing, etc. """
 
     # Allow cross-site scripting
     header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
@@ -53,8 +54,20 @@ def authenticate():
     if auth is None:
         raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
-    # Propagate the issuer to the controller
+    # Propagate the issuer, request_id and start_time to the controller
     ctx.env['issuer'] = auth.get('account')
+    ctx.env['request_id'] = generate_uuid()
+    ctx.env['start_time'] = time()
+
+
+def rucio_unloadhook():
+    """ Rucio unload Hook."""
+    duration = time() - ctx.env['start_time']
+    ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+    if not ip:
+        ip = ctx.ip
+    # print ctx.env.get('request_id'), ctx.env.get('REQUEST_METHOD'), ctx.env.get('REQUEST_URI'), ctx.data, duration, ctx.env.get('issuer'), ip
+    print ctx.env.get('REQUEST_METHOD'), ctx.env.get('REQUEST_URI'), duration, ctx.env.get('issuer'), ip
 
 
 def load_json_data():
