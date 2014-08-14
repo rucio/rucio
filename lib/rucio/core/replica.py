@@ -638,6 +638,28 @@ def update_replicas_states(replicas, session=None):
 
 
 @transactional_session
+def touch_replicas(replicas, session=None):
+    """
+    Update file replica accessed time.
+
+    :param replicas: the list of replicas.
+    :param session: The database session in use.
+
+    :returns: True, if successful, False otherwise.
+    """
+    rse_ids, now = {}, datetime.utcnow()
+    for replica in replicas:
+        if 'rse_id' not in replica:
+            if replica['rse'] not in rse_ids:
+                rse_ids[replica['rse']] = get_rse(rse=replica['rse'], session=session).id
+            replica['rse_id'] = rse_ids[replica['rse']]
+        print replica['scope'], replica['name']
+        session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
+            update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+    return True
+
+
+@transactional_session
 def update_replica_state(rse, scope, name, state, session=None):
     """
     Update File replica information and state.
