@@ -15,13 +15,13 @@ unittest2==0.5.1          # backport of unittest lib in python 2.7
 #webtest                  # test wsgi apps without starting an http server
 #mox                      # mock object framework
 coverage==3.7.1           # Nose module for test coverage
-sphinx==1.2.2               # required to build documentation
-Jinja2==2.7.2             # template engine
+sphinx==1.2.2             # required to build documentation
+Jinja2==2.7.3             # template engine
 sphinxcontrib-httpdomain==1.2.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
 sphinxcontrib-sdedit==0.3       #
 PIL==1.1.7                      #
-Pygments>=1.2                   # Python Syntax highlighter
-docutils>=0.9                   # Needed for sphinx
+Pygments>=1.6                   # Python Syntax highlighter
+docutils>=0.12                   # Needed for sphinx
 pep8==1.5.7                     # checks for PEP8 code style compliance
 pyflakes==0.8.1                 # Passive checker of Python programs
 flake8==2.2.2                   # Wrapper around PyFlakes&pep8
