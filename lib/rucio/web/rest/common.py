@@ -21,6 +21,7 @@ from web.webapi import Created, HTTPError, OK, seeother
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error, generate_uuid
+from rucio.core.monitor import record_timer
 
 
 def rucio_loadhook():
@@ -67,7 +68,11 @@ def rucio_unloadhook():
     if not ip:
         ip = ctx.ip
     # print ctx.env.get('request_id'), ctx.env.get('REQUEST_METHOD'), ctx.env.get('REQUEST_URI'), ctx.data, duration, ctx.env.get('issuer'), ip
-    print ctx.env.get('REQUEST_METHOD'), ctx.env.get('REQUEST_URI'), duration, ctx.env.get('issuer'), ip
+    # Record a time serie for each REST operations
+    time_serie_name = '.'.join(('http', 'methods', ctx.env.get('REQUEST_METHOD'), 'resources.'))
+    time_serie_name += '.'.join(filter(None, ctx.env.get('REQUEST_URI').split('/'))[:4])
+    time_serie_name = time_serie_name.replace('..', '.').lower()
+    record_timer(time_serie_name, duration * 1000)
 
 
 def load_json_data():
