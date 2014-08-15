@@ -697,7 +697,7 @@ def upload(args):
         size = os.stat(name).st_size
         checksum = adler32(name)
         logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, args.scope, os.path.basename(name)))
-        list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'U'})
+        list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C'})
         if not os.path.dirname(name) in lfns:
             lfns[os.path.dirname(name)] = []
         lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope, 'adler32': checksum, 'filesize': size})
