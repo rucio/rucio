@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from os.path import dirname, join
 
@@ -17,7 +18,8 @@ from rucio.web.ui.common.utils import check_token
 
 urls = (
     '', 'Index',
-    '/subscriptions', 'Subscriptions'
+    '/subscriptions', 'Subscriptions',
+    '/infrastructure', 'Infrastructure'
     )
 
 
@@ -31,6 +33,12 @@ class Subscriptions():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.subscriptions())
+
+
+class Infrastructure():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.infrastructure())
 
 
 """----------------------
