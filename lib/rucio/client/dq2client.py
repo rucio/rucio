@@ -38,8 +38,8 @@ def validate_time_formats(time_string):
             err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
             raise InputValidationError(err_msg)
 
-            delta = timedelta(**dict([(key, (value and int(value) or 0)) for key, value in d.groupdict(0).items()]))
-            return delta
+        delta = timedelta(**dict([(key, (value and int(value) or 0)) for key, value in d.groupdict(0).items()]))
+        return delta
     except:
         err_msg = 'Parameter value [%s] is not a valid time delta !' % (time_string)
         raise InputValidationError(err_msg)
@@ -1016,7 +1016,7 @@ class DQ2Client:
             immutable = 0
         exists = False
         for rule in self.client.list_did_rules(scope, dsn):
-            if rule['rse_expression'] == location or [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]:
+            if rule['rse_expression'] == location or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]:
                 exists = True
                 if rule['created_at'] < creationdate:
                     creationdate = rule['created_at']
