@@ -20,6 +20,7 @@ from rucio.tests.common import execute
 class TestReplicaHttpRedirection:
 
     def setup(self):
+        self.cacert = config_get('test', 'cacert')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
         self.marker = '$> '
@@ -33,7 +34,7 @@ class TestReplicaHttpRedirection:
         print self.token
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
-        cmd = 'curl -s -i --cacert /opt/rucio/etc/web/ca.crt -H "X-Rucio-Auth-Token: %s" -X GET %s/%s/%s''' % (self.token, self.host, tmp_scope, tmp_name)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" -X GET %s/%s/%s''' % (self.cacert, self.token, self.host, tmp_scope, tmp_name)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
