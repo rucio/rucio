@@ -102,3 +102,9 @@ adler32 = 52590737
 
 [alembic]
 cfg = alembic.ini
+
+[test]
+cacert = /opt/rucio/etc/web/ca.crt
+#cacert = /etc/pki/tls/certs/CERN-bundle.pem
+usercert = /opt/rucio/etc/web/usercert.pem
+#usercert = /home/mario/.ssh/usercert_with_key.pem
