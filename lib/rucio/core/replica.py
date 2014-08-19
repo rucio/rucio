@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from datetime import datetime
 from re import match
@@ -83,13 +84,12 @@ def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, sessi
         # The filter(text...)) is needed otherwise, SQLA uses bind variables and the index is not used.
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_STATE_IDX)", 'oracle').\
-            filter(text("CASE WHEN (atlas_rucio.replicas.state != 'A') THEN atlas_rucio.replicas.rse_id END IS NOT NULL")).\
+            filter(text("CASE WHEN (%s.replicas.state != 'A') THEN %s.replicas.rse_id END IS NOT NULL" % (session.bind.dialect.default_schema_name,
+                                                                                                          session.bind.dialect.default_schema_name))).\
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
     else:
         query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
-        # with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_STATE_IDX)", 'oracle').\
-        # filter(case([(models.RSEFileAssociation.state != 'A', models.RSEFileAssociation.rse_id), ]) != none_value)
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
