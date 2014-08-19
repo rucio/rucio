@@ -405,7 +405,7 @@ class RSE(BASE, SoftModelBase):
     ASN = Column(String(255))
     longitude = Column(Float())
     latitude = Column(Float())
-    availability = Column(Integer, default=7)
+    availability = Column(Integer, server_default='7')
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
