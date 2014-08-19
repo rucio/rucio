@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -26,7 +26,7 @@ from rucio.core.rse_counter import get_counter
 from rucio.db.constants import ReplicaState
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
-from rucio.common.exception import SourceNotFound, ServiceUnavailable
+from rucio.common.exception import SourceNotFound, ServiceUnavailable, RSEAccessDenied
 from rucio.common.utils import chunks
 
 
@@ -174,7 +174,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                                                         'file-size': replica['bytes'],
                                                                         'url': replica['pfn'],
                                                                         'reason': err_msg})
-                                    except ServiceUnavailable, e:
+                                    except (ServiceUnavailable, RSEAccessDenied) as e:
                                         logging.error(str(e))
                                         add_message('deletion-failed', {'scope': replica['scope'],
                                                                         'name': replica['name'],
