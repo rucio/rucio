@@ -45,11 +45,11 @@ def upgrade():
 
 
 def downgrade():
-    if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('configs_pk', 'configs')
-        op.drop_constraint('configs_created_nn', 'configs')
-        op.drop_constraint('configs_updated_nn', 'configs')
+    if context.get_context().dialect.name is 'postgresql':
+        op.drop_constraint('configs_pk', 'configs', type_='primary')
+        op.drop_constraint('configs_created_nn', 'configs', type_='check')
+        op.drop_constraint('configs_updated_nn', 'configs', type_='check')
     op.drop_table('configs')
-    if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('configs_history_pk', 'configs_history')
+    if context.get_context().dialect.name is 'postgresql':
+        op.drop_constraint('configs_history_pk', 'configs_history', type_='check')
     op.drop_table('configs_history')

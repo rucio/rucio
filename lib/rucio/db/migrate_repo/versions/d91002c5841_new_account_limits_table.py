@@ -28,8 +28,8 @@ from rucio.db.types import GUID
 
 
 def upgrade():
-    if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits')
+    if context.get_context().dialect.name == 'postgresql':
+        op.drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits', type_='primary')
         op.drop_constraint('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits')
@@ -50,8 +50,8 @@ def upgrade():
 
 
 def downgrade():
-    if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits')
+    if context.get_context().dialect.name == 'postgresql':
+        op.drop_constraint('ACCOUNT_LIMITS_PK', 'account_limits', type_='primary')
         op.drop_constraint('ACCOUNT_LIMITS_CREATED_NN', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_UPDATED_NN', 'account_limits')
         op.drop_constraint('ACCOUNT_LIMITS_ACCOUNT_FK', 'account_limits')

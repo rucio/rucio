@@ -70,7 +70,9 @@ def rucio_unloadhook():
     # print ctx.env.get('request_id'), ctx.env.get('REQUEST_METHOD'), ctx.env.get('REQUEST_URI'), ctx.data, duration, ctx.env.get('issuer'), ip
     # Record a time serie for each REST operations
     time_serie_name = '.'.join(('http', 'methods', ctx.env.get('REQUEST_METHOD'), 'resources.'))
-    time_serie_name += '.'.join(filter(None, ctx.env.get('REQUEST_URI').split('/'))[:4])
+    time_serie_name += '.'.join(filter(None, ctx.env.get('SCRIPT_NAME').split('/'))[:4])
+    if ctx.path == '/list':
+        time_serie_name += '.list'
     time_serie_name = time_serie_name.replace('..', '.').lower()
     record_timer(time_serie_name, duration * 1000)
 
