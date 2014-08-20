@@ -540,7 +540,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
-                   Index('REPLICAS_PATH_IDX', 'path'),
+                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=255),
                    )
 #                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
 
@@ -713,7 +713,7 @@ class Token(BASE, ModelBase):
     account = Column(String(25))
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
-    _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),
+    _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
                    Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at')
