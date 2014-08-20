@@ -26,7 +26,7 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('rses', sa.Column('availability', sa.Integer, default=7))
+    op.add_column('rses', sa.Column('availability', sa.Integer, server_default='7'))
 
 
 def downgrade():
