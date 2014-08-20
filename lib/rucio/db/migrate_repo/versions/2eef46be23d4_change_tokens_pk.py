@@ -24,11 +24,15 @@ from alembic import context, op
 
 def upgrade():
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('tokens_pk', 'tokens')
+        op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        op.drop_constraint('tokens_pk', 'tokens', type_='primary')
         op.create_primary_key('tokens_pk', 'tokens', ['token'])
+        op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
 
 
 def downgrade():
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('tokens_pk', 'tokens')
+        op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+        op.drop_constraint('tokens_pk', 'tokens', type_='primary')
         op.create_primary_key('tokens_pk', 'tokens', ['account', 'token'])
+        op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])

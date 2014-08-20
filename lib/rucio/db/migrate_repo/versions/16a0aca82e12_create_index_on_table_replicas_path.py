@@ -27,4 +27,4 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index('REPLICAS_PATH_IDX')
+    op.drop_index('REPLICAS_PATH_IDX', 'replicas')
