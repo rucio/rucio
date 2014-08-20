@@ -23,8 +23,12 @@ from alembic import op
 
 
 def upgrade():
+    op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
     op.create_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens', ['account', 'expired_at'])
+    op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])
 
 
 def downgrade():
-    op.drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX')
+    op.drop_constraint('tokens_account_fk', 'tokens', type_='foreignkey')
+    op.drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
+    op.create_foreign_key('tokens_account_fk', 'tokens', 'accounts', ['account'], ['account'])

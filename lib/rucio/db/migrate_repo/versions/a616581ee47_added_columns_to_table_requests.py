@@ -21,7 +21,7 @@ down_revision = '2854cd9e168'
 
 import sqlalchemy as sa
 
-from alembic import op
+from alembic import context, op
 from sqlalchemy import BigInteger
 
 from rucio.db.models import String
@@ -39,11 +39,12 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_column('requests', 'bytes')
-    op.drop_column('requests', 'md5')
-    op.drop_column('requests', 'adler32')
-    op.drop_column('requests', 'dest_url')
-    op.drop_column('requests_history', 'bytes')
-    op.drop_column('requests_history', 'md5')
-    op.drop_column('requests_history', 'adler32')
-    op.drop_column('requests_history', 'dest_url')
+    if context.get_context().dialect.name != 'sqlite':
+        op.drop_column('requests', 'bytes')
+        op.drop_column('requests', 'md5')
+        op.drop_column('requests', 'adler32')
+        op.drop_column('requests', 'dest_url')
+        op.drop_column('requests_history', 'bytes')
+        op.drop_column('requests_history', 'md5')
+        op.drop_column('requests_history', 'adler32')
+        op.drop_column('requests_history', 'dest_url')

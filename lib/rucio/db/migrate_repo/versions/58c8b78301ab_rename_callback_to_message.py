@@ -23,12 +23,16 @@ from alembic import context, op
 
 
 def upgrade():
+
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('callbacks_pk', 'callbacks')
-        op.drop_constraint('callbacks_event_type_nn', 'callbacks')
-        op.drop_constraint('callbacks_payload_nn', 'callbacks')
-        op.drop_constraint('callbacks_created_nn', 'callbacks')
-        op.drop_constraint('callbacks_updated_nn', 'callbacks')
+        op.drop_constraint('callbacks_pk', 'callbacks', type_='primary')
+
+    if context.get_context().dialect.name not in ('sqlite', 'mysql'):
+        op.drop_constraint('callbacks_event_type_nn', 'callbacks', type_='check')
+        op.drop_constraint('callbacks_payload_nn', 'callbacks', type_='check')
+        op.drop_constraint('callbacks_created_nn', 'callbacks', type_='check')
+        op.drop_constraint('callbacks_updated_nn', 'callbacks', type_='check')
+
     op.rename_table('callbacks', 'messages')
     if context.get_context().dialect.name != 'sqlite':
         op.create_primary_key('messages_pk', 'messages', ['id'])
@@ -39,13 +43,18 @@ def upgrade():
 
 
 def downgrade():
+
+    if context.get_context().dialect.name not in ('sqlite', 'mysql'):
+        op.drop_constraint('messages_event_type_nn', 'messages', type_='check')
+        op.drop_constraint('messages_payload_nn', 'messages', type_='check')
+        op.drop_constraint('messages_created_nn', 'messages', type_='check')
+        op.drop_constraint('messages_updated_nn', 'messages', type_='check')
+
     if context.get_context().dialect.name != 'sqlite':
-        op.drop_constraint('messages_pk', 'messages')
-        op.drop_constraint('messages_event_type_nn', 'messages')
-        op.drop_constraint('messages_payload_nn', 'messages')
-        op.drop_constraint('messages_created_nn', 'messages')
-        op.drop_constraint('messages_updated_nn', 'messages')
+        op.drop_constraint('messages_pk', 'messages', type_='primary')
+
     op.rename_table('messages', 'callbacks')
+
     if context.get_context().dialect.name != 'sqlite':
         op.create_primary_key('callbacks_pk', 'callbacks', ['id'])
         op.create_check_constraint('callbacks_event_type_nn', 'callbacks', 'event_type is not null')

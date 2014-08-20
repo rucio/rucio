@@ -24,9 +24,9 @@ from alembic import op
 
 def upgrade():
     op.create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ["request_type", "state", "updated_at"])
-    op.drop_index('REQUESTS_TYP_STA_CRE_IDX')
+    op.drop_index('REQUESTS_TYP_STA_CRE_IDX', 'requests')
 
 
 def downgrade():
     op.create_index('REQUESTS_TYP_STA_CRE_IDX', 'requests', ["request_type", "state", "created_at"])
-    op.drop_index('REQUESTS_TYP_STA_UPD_IDX')
+    op.drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
