@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from datetime import datetime, timedelta
 
@@ -736,7 +737,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             rule.state == RuleState.REPLICATING
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
-    session.query(models.RSEFileAssociation).filter_by(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
+    session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
 
 
 @transactional_session
