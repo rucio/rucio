@@ -740,7 +740,11 @@ def upload(args):
             except DataIdentifierAlreadyExists, e:
                 logger.warning(e)
             logger.info('Adding the files to the dataset')
-            client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
+            try:
+                client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=args.rse)
+            except DataIdentifierAlreadyExists, e:
+                logger.error(e)
+                return FAILURE
             logger.info('Files successfully added to the dataset')
             logger.info('Uploading the files on the RSE (%s)' % (args.rse))
             for dir in lfns:

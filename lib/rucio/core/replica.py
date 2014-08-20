@@ -17,6 +17,7 @@ from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import case, bindparam, select, text
 
 from rucio.common import exception
@@ -303,6 +304,10 @@ def __bulk_add_new_file_dids(files, account, session=None):
     except IntegrityError, e:
         raise exception.RucioException(e.args)
     except DatabaseError, e:
+        raise exception.RucioException(e.args)
+    except FlushError, e:
+        if match('New instance .* with identity key .* conflicts with persistent instance', e.args[0]):
+            raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
         raise exception.RucioException(e.args)
     return True
 
