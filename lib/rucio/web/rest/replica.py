@@ -17,7 +17,7 @@ from urlparse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
 
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas
-from rucio.common.exception import AccessDenied, DataIdentifierNotFound, Duplicate, RessourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, RessourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation
 from rucio.common.replicas_selector import random_order, geoIP_order
 
 
@@ -154,6 +154,8 @@ class Replicas(RucioController):
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
             raise generate_http_error(409, 'Duplicate', e[0][0])
+        except DataIdentifierAlreadyExists, e:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RessourceTemporaryUnavailable, e:
