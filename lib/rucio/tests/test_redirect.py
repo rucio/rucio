@@ -31,19 +31,14 @@ class TestReplicaHttpRedirection:
 
     def test_replica_http_redirection(self):
         """ REPLICA (redirection): http redirection to replica"""
-        print self.token
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" -X GET %s/redirect/%s/%s''' % (self.cacert, self.token, self.host, tmp_scope, tmp_name)
-        print self.marker + cmd
         exitcode, out, err = execute(cmd)
-        print out
         assert_in('404 Not Found', out)
         # add replicas
         self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope, 'name': tmp_name, 'bytes': 1L, 'adler32': '0cc737eb'}])
         self.replica_client.add_replicas(rse='MOCK3', files=[{'scope': tmp_scope, 'name': tmp_name, 'bytes': 1L, 'adler32': '0cc737eb'}])
-        print self.marker + cmd
         exitcode, out, err = execute(cmd)
-        print out
         assert_in('302 Found', out)
         assert_in('Location: https://mock', out)

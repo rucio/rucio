@@ -45,7 +45,7 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
             start = time.time()
             rules = get_stuck_rules(total_workers=total_processes*threads_per_process-1,
                                     worker_number=process*threads_per_process+thread,
-                                    delta=0 if once else 600)
+                                    delta=-1 if once else 600)
             logging.debug('rule_repairer index query time %f rule-size=%d' % (time.time() - start, len(rules)))
 
             if not rules and not once:
