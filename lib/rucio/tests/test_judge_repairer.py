@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.did import add_did, attach_dids
@@ -186,5 +187,4 @@ class TestJudgeRepairer():
         rule_repairer(once=True)
 
         assert(RuleState.OK == get_rule(rule_id1)['state'])
-        print get_rule(rule_id2)
         assert(RuleState.REPLICATING == get_rule(rule_id2)['state'])
