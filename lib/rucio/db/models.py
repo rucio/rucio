@@ -477,16 +477,16 @@ class RSEProtocols(BASE, ModelBase):
     __tablename__ = 'rse_protocols'
     rse_id = Column(GUID())
     scheme = Column(String(255))
-    hostname = Column(String(255), default='')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as beeing default
-    port = Column(Integer, default=0)  # like host, for local protocol the port 0 is assumed to be default
+    hostname = Column(String(255), server_default='')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as beeing default
+    port = Column(Integer, server_default='0')  # like host, for local protocol the port 0 is assumed to be default
     prefix = Column(String(1024), nullable=True)
     impl = Column(String(255), nullable=False)
-    read_lan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    write_lan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    delete_lan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    read_wan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    write_wan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
-    delete_wan = Column(Integer, default=0)  # if no value is provided, 0 i.e. not supported is assumed as default value
+    read_lan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    write_lan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    delete_lan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    read_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    write_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    delete_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(1024), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
@@ -529,7 +529,7 @@ class RSEFileAssociation(BASE, ModelBase):
     adler32 = Column(String(8))
     path = Column(String(1024))
     state = Column(ReplicaState.db_type(name='REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE)
-    lock_cnt = Column(Integer, default=0)
+    lock_cnt = Column(Integer, server_default='0')
     accessed_at = Column(DateTime)
     tombstone = Column(DateTime)
     rse = relationship("RSE", backref=backref('replicas', order_by="RSE.id"))
@@ -557,13 +557,13 @@ class ReplicationRule(BASE, ModelBase):
     state = Column(RuleState.db_type(name='RULES_STATE_CHK'), default=RuleState.REPLICATING)
     error = Column(String(255))
     rse_expression = Column(String(255))
-    copies = Column(SmallInteger, default=1)
+    copies = Column(SmallInteger, server_default='1')
     expires_at = Column(DateTime)
     weight = Column(String(255))
     locked = Column(Boolean(name='RULES_LOCKED_CHK'), default=False)
-    locks_ok_cnt = Column(BigInteger, default=0)
-    locks_replicating_cnt = Column(BigInteger, default=0)
-    locks_stuck_cnt = Column(BigInteger, default=0)
+    locks_ok_cnt = Column(BigInteger, server_default='0')
+    locks_replicating_cnt = Column(BigInteger, server_default='0')
+    locks_stuck_cnt = Column(BigInteger, server_default='0')
     source_replica_expression = Column(String(255))
     activity = Column(String(50))
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
@@ -665,7 +665,7 @@ class Request(BASE, ModelBase, Versioned):
     attributes = Column(String(4000))
     state = Column(RequestState.db_type(name='REQUESTS_STATE_CHK'), default=RequestState.QUEUED)
     external_id = Column(String(64))
-    retry_count = Column(Integer(), default=0)
+    retry_count = Column(Integer(), server_default='0')
     err_msg = Column(String(4000))
     previous_attempt_id = Column(GUID())
     rule_id = Column(GUID())
@@ -690,7 +690,7 @@ class Subscription(BASE, ModelBase, Versioned):
     name = Column(String(64))
     filter = Column(String(2048))
     replication_rules = Column(String(1024))
-    policyid = Column(SmallInteger, default=0)
+    policyid = Column(SmallInteger, server_default='0')
     state = Column(SubscriptionState.db_type(name='SUBSCRIPTIONS_STATE_CHK', default=SubscriptionState.ACTIVE))
     last_processed = Column(DateTime, default=datetime.datetime.utcnow())
     account = Column(String(25))

@@ -34,7 +34,7 @@ class TestReplicaHttpRedirection:
         print self.token
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" -X GET %s/%s/%s''' % (self.cacert, self.token, self.host, tmp_scope, tmp_name)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" -X GET %s/redirect/%s/%s''' % (self.cacert, self.token, self.host, tmp_scope, tmp_name)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out

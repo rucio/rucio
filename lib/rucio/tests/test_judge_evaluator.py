@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_counter import get_counter
@@ -90,7 +91,6 @@ class TestJudgeEvaluator():
 
         # Check if the DatasetLocks are created properly
         dataset_locks = get_dataset_locks(scope=scope, name=dataset)
-        print dataset_locks
         assert(len(dataset_locks) == 2)
 
     def test_account_counter_judge_evaluate_attach(self):
