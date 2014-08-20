@@ -867,26 +867,60 @@ def download(args):
                            account=args.account, auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
     rse_dict = {}
+    summary = {}
     for did in args.dids:
         try:
             scope, name = did.split(':')
+            logger.info('Starting download for %s:%s' % (scope, name))
+            summary['%s:%s' % (scope, name)] = {}
+            logger.debug('Getting the list of replicas')
             files = client.list_replicas([{'scope': scope, 'name': name}])
             for file in files:
-                list_rses = file['rses'].keys()
-                random.shuffle(list_rses)
-                for rse in list_rses:
-                    if rse not in rse_dict:
-                        rse_dict[rse] = rsemgr.get_rse_info(rse)
-                    if rse_dict[rse]['availability_read']:
-                        rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
-                        break
-            print 'download operation for %s:%s done' % (scope, name)
+                if os.path.isfile('%s/%s/%s' % (args.dir, file['scope'], file['name'])):
+                    logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
+                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
+                else:
+                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 0
+                    list_rses = file['rses'].keys()
+                    random.shuffle(list_rses)
+                    logger.debug('Choosing RSE')
+                    index = 0
+                    for rse in list_rses:
+                        if rse not in rse_dict:
+                            rse_dict[rse] = rsemgr.get_rse_info(rse)
+                        if rse_dict[rse]['availability_read']:
+                            logger.debug('Getting file %s:%s from %s' % (file['scope'], file['name'], rse))
+                            try:
+                                rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
+                                logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
+                                summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
+                                break
+                            except Exception, e:
+                                logger.warning(e)
+                                index += 1
+                                if index != len(rse):
+                                    logger.debug('Will retry download on an other RSE')
+                    if summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] == 0:
+                        logger.error('Cannot download file %s:%s' % (file['scope'], file['name']))
+            logger.info('Download operation for %s:%s done' % (scope, name))
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, e))
             return FAILURE
         except Exception, e:
-            print 'Failed to download %(scope)s:%(name)s' % locals()
-            print e
+            logger.error('Failed to download %(scope)s:%(name)s' % locals())
+            logger.error(e)
+    print '----------------------------------'
+    print 'Download summary'
+    for did in summary:
+        print 'DID %s' % (did)
+        total_files = len(summary[did])
+        downloaded_files = 0
+        local_files = 0
+        for file in summary[did]:
+            if summary[did][file] == 1:
+                downloaded_files += 1
+            elif summary[did][file] == 2:
+                local_files += 1
 
 
 def get_metadata(args):
