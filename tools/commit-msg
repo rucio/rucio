@@ -102,3 +102,10 @@ _gen_ChangeId() {
 
 
 add_ChangeId
+
+# Test if a JIRA ticket is associated with the commit msg
+if ! grep '^\[RUCIO-' "$MSG" >/dev/null
+then
+    echo "No JIRA ticket(s) is/are associated with the commit msg !!!"
+    exit 1
+fi

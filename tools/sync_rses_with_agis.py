@@ -68,7 +68,7 @@ if __name__ == '__main__':
             try:
                 o = urlparse.urlparse(protocol)
 
-                if o.scheme not in ('https', 'http', 'srm', 'gsiftp'):
+                if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'xrootd'):
                     continue
 
                 extended_attributes = None
@@ -85,6 +85,10 @@ if __name__ == '__main__':
                     extended_attributes = None
                     impl = 'rucio.rse.protocols.gsiftp.Default'
                     priority = 3
+                elif o.scheme == 'xrootd':
+                    extended_attributes = None
+                    impl = 'rucio.rse.protocols.xrootd.Default'
+                    priority = 4
                 else:
                     continue
 
