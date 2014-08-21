@@ -67,6 +67,12 @@ class Consumer(object):
                 response['new_state'] = RequestState.FAILED
 
             try:
+                if response['new_state']:
+                    logging.debug('DID %s:%s FROM %s TO %s STATE %s' % (msg['job_metadata']['scope'],
+                                                                        msg['job_metadata']['name'],
+                                                                        msg['job_metadata']['src_rse'],
+                                                                        msg['job_metadata']['dst_rse'],
+                                                                        response['new_state']))
                 update_request_state(msg['job_metadata'], response)
             except:
                 pass  # whatever happens, don't invalidate the stomp connection
