@@ -189,7 +189,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                         #                              'name': replica['name'],
                                         #                              'rse': rse_info['rse'],
                                         #                              'reason': str(traceback.format_exc())})
-                            except ServiceUnavailable, e:
+                            except (ServiceUnavailable, RSEAccessDenied) as e:
                                 logging.error(str(e))
                             finally:
                                 p.close()
