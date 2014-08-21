@@ -60,9 +60,10 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                                     thread=thread, total_threads=total_threads)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
 
-            logging.debug('%i:%i - polling %s requests' % (process, thread, str(len(reqs)) if reqs else 0))
+            if reqs:
+                logging.debug('%i:%i - polling %i requests' % (process, thread, len(reqs)))
 
-            if reqs is None or reqs == []:
+            if not reqs or reqs == []:
                 if once:
                     break
                 time.sleep(1)  # Only sleep if there is nothing to do
