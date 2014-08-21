@@ -81,14 +81,14 @@ main() {
         if [[ "$@" == *-d* ]]; then
             dry='echo '
         fi
-    
+
         if [[ "$@" == *-h* ]]; then
             usage;
         else
             set_commit_msg;
             push_commit "$@";
         fi
-    fi        
+    fi
 }
 
 
