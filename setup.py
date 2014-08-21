@@ -6,8 +6,9 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 
+import datetime
 import glob
 import os
 import re
@@ -35,6 +36,7 @@ name = 'rucio'
 packages = find_packages('lib/')
 description = "Rucio Package"
 IsRelease = False
+IsNightly = False
 requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
 data_files = [('rucio/etc/', glob.glob('etc/*.template')),
               ('rucio/etc/web', glob.glob('etc/web/*.template')),
@@ -50,6 +52,9 @@ copy_args = sys.argv[1:]
 if '--release' in copy_args:
     IsRelease = True
     copy_args.remove('--release')
+if '--nightly' in copy_args:
+    IsNightly = datetime.datetime.now().strftime('%Y%m%d')
+    copy_args.remove('--nightly')
 
 
 def run_git_command(cmd):
@@ -165,7 +170,7 @@ cmdclass['sdist'] = CustomSdist
 
 setup(
     name=name,
-    version=version.version_string(),
+    version=version.version_string() if not IsNightly else IsNightly,
     packages=packages,
     package_dir={'': 'lib'},
     data_files=data_files,
