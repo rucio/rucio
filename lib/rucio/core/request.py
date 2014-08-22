@@ -345,6 +345,23 @@ def set_request_state(request_id, new_state, session=None):
         raise RucioException(e.args)
 
 
+@transactional_session
+def touch_request(request_id, session=None):
+    """
+    Update the timestamp of a request. Fails silently if the request_id does not exist.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.touch_request')
+
+    try:
+        session.query(models.Request).filter_by(id=request_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
 @read_session
 def get_request(request_id, old=True, session=None):
     """

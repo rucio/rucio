@@ -42,6 +42,8 @@ def update_request_state(req, response, session=None):
 
     logging.debug('UPDATING REQUEST %s FOR TRANSFER STATE %s' % (str(req['request_id']), str(response['job_state'])))
 
+    request.touch_request(req['request_id'], session=session)
+
     if response['new_state']:
 
         rse_name = None
@@ -122,9 +124,9 @@ def update_request_state(req, response, session=None):
                                                   'protocol': details['dest_surl'].split(':')[0],
                                                   'scope': req['scope'],
                                                   'name': req['name'],
-                                                  'src-rse': req['src_rse'],
+                                                  'src-rse': response['details']['job_metadata']['src_rse'],
                                                   'src-url': details['source_surl'],
-                                                  'dst-rse': rse_name,
+                                                  'dst-rse': response['details']['job_metadata']['dst_rse'],
                                                   'dst-url': details['dest_surl'],
                                                   'transfer-endpoint': config_get('conveyor', 'ftshosts'),
                                                   'transfer-id': response['transfer_id'],
@@ -150,7 +152,7 @@ def update_request_state(req, response, session=None):
                                             'request-id': req['request_id'],
                                             'checksum-adler': did_meta['adler32'],
                                             'checksum-md5': did_meta['md5'],
-                                            'dst-rse': rse_name,
+                                            'dst-rse': response['details']['job_metadata']['dst_rse'],
                                             'dst-url': details['dest_surl'],
                                             'name': req['name'],
                                             'guid': did_meta['guid'],
@@ -161,7 +163,7 @@ def update_request_state(req, response, session=None):
                                             'transfer-link': '%s/fts3/ftsmon/#/job/%s' % (config_get('conveyor', 'ftshosts').replace('8446', '8449'),
                                                                                           response['transfer_id']),
                                             'scope': req['scope'],
-                                            'src-rse': req['src_rse'],
+                                            'src-rse': response['details']['job_metadata']['src_rse'],
                                             'src-url': details['source_surl'],
                                             'tool-id': 'rucio-conveyor',
                                             'transfer-endpoint': config_get('conveyor', 'ftshosts'),
@@ -205,7 +207,7 @@ def update_request_state(req, response, session=None):
                                           'request-id': req['request_id'],
                                           'checksum-adler': did_meta['adler32'],
                                           'checksum-md5': did_meta['md5'],
-                                          'dst-rse': rse_name,
+                                          'dst-rse': response['details']['job_metadata']['dst_rse'],
                                           'dst-url': details['dest_surl'],
                                           'name': req['name'],
                                           'guid': did_meta['guid'],
@@ -216,7 +218,7 @@ def update_request_state(req, response, session=None):
                                           'transfer-link': '%s/fts3/ftsmon/#/job/%s' % (config_get('conveyor', 'ftshosts').replace('8446', '8449'),
                                                                                         response['transfer_id']),
                                           'scope': req['scope'],
-                                          'src-rse': req['src_rse'],
+                                          'src-rse': response['details']['job_metadata']['src_rse'],
                                           'src-url': details['source_surl'],
                                           'tool-id': 'rucio-conveyor',
                                           'transfer-endpoint': config_get('conveyor', 'ftshosts'),
