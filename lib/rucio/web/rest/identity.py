@@ -6,14 +6,14 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 
 from web import application, ctx, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.identity import add_identity, add_account_identity
-from rucio.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
 
 urls = (
