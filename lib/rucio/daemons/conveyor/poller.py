@@ -74,7 +74,6 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                 response = request.query_request(req['request_id'], 'fts3')
                 record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
 
-                req['src_rse'] = 'UNKNOWN'
                 response['job_state'] = response['details']['job_state']
                 response['transfer_id'] = req['external_id']
 
