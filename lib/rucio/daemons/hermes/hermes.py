@@ -108,6 +108,7 @@ def deliver_messages(once=False):
                 to_delete.append(t['id'])
 
             delete_messages(to_delete)
+            logging.debug('submitted %i messages' % len(to_delete))
     logging.info('graceful stop requested')
 
     for conn in conns:

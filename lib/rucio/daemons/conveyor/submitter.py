@@ -45,14 +45,14 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
     Main loop to submit a new transfer primitive to a transfertool.
     """
 
-    logging.info('submitter starting')
+    logging.info('submitter starting - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
 
     try:
         scheme = config_get('conveyor', 'scheme')
     except NoOptionError:
         scheme = 'srm'
 
-    logging.info('submitter started')
+    logging.info('submitter started - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
 
     while not graceful_stop.is_set():
 
@@ -69,12 +69,12 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                     total_processes=total_processes,
                                     thread=thread,
                                     total_threads=total_threads)
-
-            if reqs:
-                logging.debug('getting %s requests to submit' % (str(len(reqs))))
             record_timer('daemons.conveyor.submitter.get_next', (time.time() - ts) * 1000)
 
-            if not reqs:
+            if reqs:
+                logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
+
+            if not reqs or reqs == []:
                 if once:
                     break
                 time.sleep(1)  # Only sleep if there is nothing to do
