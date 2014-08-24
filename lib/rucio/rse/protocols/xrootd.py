@@ -7,6 +7,7 @@
 #
 # Authors:
 # - WeiJen Chang, <wchang@cern.ch>, 2013
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 import os
 
@@ -19,15 +20,15 @@ from rucio.common.utils import execute
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the XRootD protocol."""
 
-    def __init__(self, props):
+    def __init__(self, protocol_attr, rse_settings):
         """ Initializes the object with information about the referred RSE.
 
             :param props Properties derived from the RSE Repository
         """
-        self.rse = props
-        self.scheme = self.rse['scheme']
-        self.hostname = self.rse['hostname']
-        self.port = str(self.rse['port'])
+        super(Default, self).__init__(protocol_attr, rse_settings)
+        self.scheme = self.attributes['scheme']
+        self.hostname = self.attributes['hostname']
+        self.port = str(self.attributes['port'])
 
     def get_path(self, lfn, scope):
         """ Transforms the physical file name into the local URI in the referred RSE.
