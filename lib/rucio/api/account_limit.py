@@ -89,3 +89,27 @@ def delete_account_limit(account, rse, issuer):
 
     rse_id = get_rse_id(rse=rse)
     return account_limit_core.delete_account_limit(account=account, rse_id=rse_id)
+
+
+def get_account_usage(account, rse, issuer):
+    """
+    Get the account usage and connect it with (if available) the account limits of the account.
+
+    :param account:  The account to read.
+    :param rse:      The rse to read (If none, get all).
+    :param issuer:   The issuer account.
+
+    :returns:        List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
+    """
+
+    kwargs = {'account': account, 'rse': rse}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='get_account_usage', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not list account usage.' % (issuer))
+
+    if not account_exists(account=account):
+        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
+
+    rse_id = None
+    if rse:
+        rse_id = get_rse_id(rse=rse)
+    return account_limit_core.get_account_usage(account=account, rse_id=rse_id)
