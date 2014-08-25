@@ -245,19 +245,17 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, sessio
                 if not schemes:
                     try:
                         protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
-                    except exception.RSEProtocolNotSupported, e:
-                        print "[%s] RSE %s" % (e, rse)
+                    except exception.RSEProtocolNotSupported:
+                        pass  # no need to be verbose
                     except:
-                        # temporary protection
                         print format_exc()
                 else:
                     for s in schemes:
                         try:
                             protocols.append(rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse, session=session), operation='read', scheme=s))
-                        except exception.RSEProtocolNotSupported, e:
-                            print "[%s] Cannot find protocol %s for RSE %s" % (e, s, rse)
+                        except exception.RSEProtocolNotSupported:
+                            pass  # no need to be verbose
                         except:
-                            # temporary protection
                             print format_exc()
                 tmp_protocols[rse] = protocols
 

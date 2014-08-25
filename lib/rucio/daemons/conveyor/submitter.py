@@ -87,7 +87,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 md5 = None
                 adler32 = None
                 src_spacetoken = None
-                logging.debug(req)
                 dest_rse = rse.get_rse(rse=None, rse_id=req['dest_rse_id'])
                 allowed_rses = []
                 if req['request_type'] == RequestType.STAGEIN:
@@ -117,7 +116,6 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                     filtered_sources = source['rses'][source_rse]
                                 for pfn in filtered_sources:
                                     tmpsrc.append((str(source_rse), str(pfn)))
-
                 except DataIdentifierNotFound:
                     record_counter('daemons.conveyor.submitter.lost_did')
                     logging.warn('DID %s:%s does not exist anymore - marking request %s as LOST' % (req['scope'],
@@ -139,14 +137,12 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     record_counter('daemons.conveyor.submitter.nosource')
                     logging.warn('No source replicas found for DID %s:%s - deep check for unavailable replicas' % (req['scope'],
                                                                                                                    req['name']))
-
                     if sum(1 for tmp in replica.list_replicas([{'scope': req['scope'],
                                                                 'name': req['name'],
                                                                 'type': DIDType.FILE}],
                                                               schemes=[scheme],
                                                               unavailable=True)):
                         logging.critical('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
-
                     continue
                 else:
                     for tmp in tmpsrc:
@@ -200,10 +196,14 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
 
                 else:
                     ts = time.time()
-                    pfn = rsemgr.lfns2pfns(rse_info,
-                                           lfns=[{'scope': req['scope'],
-                                                  'name': req['name']}],
-                                           scheme=scheme)
+                    try:
+                        pfn = rsemgr.lfns2pfns(rse_info,
+                                               lfns=[{'scope': req['scope'],
+                                                      'name': req['name']}],
+                                               scheme=scheme)
+                    except RSEProtocolNotSupported:
+                        logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
+
                     record_timer('daemons.conveyor.submitter.lfns2pfns', (time.time() - ts) * 1000)
 
                 destinations = []
@@ -252,38 +252,40 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     overwrite = False
                     bring_online = 3600
 
-                eid = request.submit_transfers(transfers=[{'request_id': req['request_id'],
-                                                           'src_urls': [s[1] for s in sources],
-                                                           'dest_urls': destinations,
-                                                           'filesize': filesize,
-                                                           'md5': md5,
-                                                           'adler32': adler32,
-                                                           'src_spacetoken': src_spacetoken,
-                                                           'dest_spacetoken': dest_spacetoken,
-                                                           'overwrite': overwrite,
-                                                           'bring_online': bring_online,
-                                                           'copy_pin_lifetime': copy_pin_lifetime}, ],
-                                               transfertool='fts3',
-                                               job_metadata=tmp_metadata)
+                eid, transfer_host = request.submit_transfers(transfers=[{'request_id': req['request_id'],
+                                                                          'src_urls': [s[1] for s in sources],
+                                                                          'dest_urls': destinations,
+                                                                          'filesize': filesize,
+                                                                          'md5': md5,
+                                                                          'adler32': adler32,
+                                                                          'src_spacetoken': src_spacetoken,
+                                                                          'dest_spacetoken': dest_spacetoken,
+                                                                          'overwrite': overwrite,
+                                                                          'bring_online': bring_online,
+                                                                          'copy_pin_lifetime': copy_pin_lifetime}, ],
+                                                              transfertool='fts3',
+                                                              job_metadata=tmp_metadata)
 
                 record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                 ts = time.time()
                 try:
                     if req['previous_attempt_id']:
-                        logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s ' % (req['retry_count'],
-                                                                                                           eid,
-                                                                                                           req['previous_attempt_id'],
-                                                                                                           req['scope'],
-                                                                                                           req['name'],
-                                                                                                           sources,
-                                                                                                           destinations))
+                        logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s' % (req['retry_count'],
+                                                                                                                   eid,
+                                                                                                                   req['previous_attempt_id'],
+                                                                                                                   req['scope'],
+                                                                                                                   req['name'],
+                                                                                                                   sources,
+                                                                                                                   destinations,
+                                                                                                                   transfer_host))
                     else:
-                        logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s ' % (eid,
-                                                                                      req['scope'],
-                                                                                      req['name'],
-                                                                                      sources,
-                                                                                      destinations))
+                        logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s' % (eid,
+                                                                                              req['scope'],
+                                                                                              req['name'],
+                                                                                              sources,
+                                                                                              destinations,
+                                                                                              transfer_host))
                     record_counter('daemons.conveyor.submitter.submit_request')
                 except UnsupportedOperation, e:
                     # The replica doesn't exist

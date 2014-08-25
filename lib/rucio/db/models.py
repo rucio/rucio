@@ -665,6 +665,7 @@ class Request(BASE, ModelBase, Versioned):
     attributes = Column(String(4000))
     state = Column(RequestState.db_type(name='REQUESTS_STATE_CHK'), default=RequestState.QUEUED)
     external_id = Column(String(64))
+    external_host = Column(String(256))
     retry_count = Column(Integer(), server_default='0')
     err_msg = Column(String(4000))
     previous_attempt_id = Column(GUID())
@@ -680,7 +681,6 @@ class Request(BASE, ModelBase, Versioned):
                    Index('REQUESTS_ID_IDX', 'id'),
                    Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'updated_at')
                    )
-#                   ForeignKeyConstraint(['rule_id'], ['rules.id'], name='REQUESTS_RULE_ID_FK'),
 
 
 class Subscription(BASE, ModelBase, Versioned):
