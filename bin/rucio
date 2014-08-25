@@ -1241,7 +1241,7 @@ def list_account_limits(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
-    List rses.
+    List account limits.
 
     """
     creds = None
@@ -1267,6 +1267,40 @@ def list_account_limits(args):
     print "=================="
     for limit in limits.items():
         print "%s: %s" % limit
+
+    return SUCCESS
+
+
+def list_account_usage(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List account usage.
+
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        if args.rse:
+            usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
+        else:
+            usage = client.get_account_usage(account=args.usage_account)
+    except Exception, e:
+        print 'Failed to list Account usage'
+        print e
+        return FAILURE
+
+    print "RSE: usage (bytes), limit (bytes), quota_left (bytes)"
+    print "====================================================="
+    for item in usage:
+        print "%s: %s, %s, %s" % (item['rse'], item['bytes'], item['bytes_limit'], item['bytes_remaining'])
 
     return SUCCESS
 
@@ -1444,8 +1478,8 @@ Commands:
     # The list-account-usage subparser
     list_account_usage_parser = subparsers.add_parser('list-account-usage', help='list-account-usage method')
     list_account_usage_parser.set_defaults(which='list_account_usage')
-    list_account_usage_parser.add_argument(dest='account', action='store', help='Account name')
-    list_account_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List account usage history')
+    list_account_usage_parser.add_argument(dest='usage_account', action='store', help='Account name')
+    list_account_usage_parser.add_argument('--rse', action='store', help='Show usage for this rse')
 
     # The list-account-limits subparser
     list_account_limits_parser = subparsers.add_parser('list-account-limits', help='List account limits on RSEs')
@@ -1523,7 +1557,8 @@ Commands:
                 'delete_rule': delete_rule,
                 'list_rses': list_rses,
                 'list_rse_usage': list_rse_usage,
-                'list_account_limits': list_account_limits}
+                'list_account_limits': list_account_limits,
+                'list_account_usage': list_account_usage}
 
     try:
         start_time = time.time()

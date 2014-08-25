@@ -11,6 +11,7 @@
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
+from rucio.core.rse import get_rse_by_id
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 
@@ -95,3 +96,33 @@ def delete_account_limit(account, rse_id, session=None):
         return True
     except NoResultFound:
         return False
+
+
+@transactional_session
+def get_account_usage(account, rse_id=None, session=None):
+    """
+    Read the account usage and connect it with (if available) the account limits of the account.
+
+    :param account:  The account to read.
+    :param rse_id:   The rse_id to read (If none, get all).
+    :param session:  Database session in use.
+
+    :returns:        List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
+    """
+
+    if not rse_id:
+        # All RSESs
+        limits = get_account_limits(account=account, session=session)
+        counters = session.query(models.AccountCounter).filter_by(account=account).all()
+    else:
+        # One RSE
+        limits = get_account_limits(account=account, rse_ids=[rse_id], session=session)
+        counters = session.query(models.AccountCounter).filter_by(account=account, rse_id=rse_id).all()
+    result_list = []
+    for counter in counters:
+        if counter.bytes > 0 or counter.files > 0 or rse_id in limits.keys():
+            result_list.append({'rse': get_rse_by_id(rse_id=counter.rse_id, session=session).rse,
+                                'bytes': counter.bytes, 'files': counter.files,
+                                'bytes_limit': limits.get(counter.rse_id, float("Inf")),
+                                'bytes_remaining': limits.get(counter.rse_id, float("Inf"))})
+    return result_list

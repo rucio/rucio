@@ -20,7 +20,7 @@ from web import application, ctx, data, header, seeother, BadRequest, Created, I
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
 from rucio.api.identity import add_account_identity
-from rucio.api.account_limit import get_account_limits, get_account_limit
+from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound
@@ -40,6 +40,8 @@ urls = (
     '/(.+)/limits', 'AccountLimits',
     '/(.+)/limits/(.+)', 'AccountLimits',
     '/(.+)/rules', 'Rules',
+    '/(.+)/usage/', 'Usage1',
+    '/(.+)/usage/(.+)', 'Usage2',
     '/(.+)', 'AccountParameter',
     '/?$', 'Account',
 )
@@ -389,6 +391,92 @@ class Rules(RucioController):
         except Exception, e:
             print format_exc()
             raise InternalError(e)
+
+    def PUT(self):
+        raise BadRequest()
+
+    def POST(self):
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
+
+
+class Usage1(RucioController):
+
+    def GET(self, account):
+        """
+        Return the account usage of the account.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param account: The account name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for usage in get_account_usage(account=account, rse=None, issuer=ctx.env.get('issuer')):
+                yield dumps(usage, cls=APIEncoder) + '\n'
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+    def PUT(self):
+        raise BadRequest()
+
+    def POST(self):
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
+
+
+class Usage2(RucioController):
+
+    def GET(self, account, rse):
+        """
+        Return the account usage of the account.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param account: The account name.
+        :param rse:     The rse.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for usage in get_account_usage(account=account, rse=rse, issuer=ctx.env.get('issuer')):
+                yield dumps(usage, cls=APIEncoder) + '\n'
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+    def PUT(self):
+        raise BadRequest()
+
+    def POST(self):
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
 
 
 """----------------------

@@ -94,7 +94,8 @@ def has_permission(issuer, action, kwargs):
             'config_items': perm_config,
             'config_set': perm_config,
             'config_remove_section': perm_config,
-            'config_remove_option': perm_config
+            'config_remove_option': perm_config,
+            'get_account_usage': perm_get_account_usage
             }
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
@@ -560,3 +561,14 @@ def perm_config(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return issuer == 'root'
+
+
+def perm_get_account_usage(issuer, kwargs):
+    """
+    Checks if an account can get the account usage of an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts() or kwargs.get('account') == issuer
