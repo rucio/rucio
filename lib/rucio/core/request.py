@@ -13,12 +13,14 @@
 import datetime
 import json
 import logging
+import random
 import re
 import time
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
+from rucio.common.config import config_get
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
@@ -27,6 +29,8 @@ from rucio.db import models
 from rucio.db.constants import RequestState, FTSState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
+
+__HOSTS = [b.strip() for b in config_get('conveyor', 'ftshosts').split(',')]
 
 
 @transactional_session
@@ -43,7 +47,6 @@ def requeue_and_archive(request_id, session=None):
     new_req = get_request(request_id, session=session)
 
     if new_req:
-
         archive_request(request_id, session=session)
         new_req['request_id'] = generate_uuid()
         new_req['previous_attempt_id'] = request_id
@@ -129,18 +132,22 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
     record_counter('core.request.submit_transfer')
 
     transfer_id = None
+    external_host = random.sample(__HOSTS, 1)[0]
 
     if transfertool == 'fts3':
         ts = time.time()
-        transfer_ids = fts3.submit_transfers(transfers=transfers, job_metadata=job_metadata)
+        transfer_ids = fts3.submit_transfers(transfers, job_metadata, external_host)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000)
 
     for transfer_id in transfer_ids:
         session.query(models.Request)\
                .filter_by(id=transfer_id)\
-               .update({'state': RequestState.SUBMITTED, 'external_id': transfer_ids[transfer_id]}, synchronize_session=False)
+               .update({'state': RequestState.SUBMITTED,
+                        'external_id': transfer_ids[transfer_id],
+                        'external_host': external_host},
+                       synchronize_session=False)
 
-    return transfer_ids
+    return (transfer_ids, external_host)
 
 
 @transactional_session
@@ -237,22 +244,6 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
 
 
 @read_session
-def __get_external_id(request_id, session=None):
-    """
-    Retrieve the ID used by the external tool.
-
-    :param request_id: Request-ID as a 32 character hex string.
-    :param session: Database session to use.
-    :returns: External ID as a string.
-    """
-
-    try:
-        return session.query(models.Request.external_id).filter_by(id=request_id).first()[0]
-    except IntegrityError, e:
-        raise RucioException(e.args)
-
-
-@read_session
 def query_request(request_id, transfertool='fts3', session=None):
     """
     Query the status of a request.
@@ -265,19 +256,19 @@ def query_request(request_id, transfertool='fts3', session=None):
 
     record_counter('core.request.query_request')
 
-    external_id = __get_external_id(request_id, session=session)
+    req = get_request(request_id, session=session)
 
     req_status = {'request_id': request_id,
                   'new_state': None}
 
-    if not external_id:
+    if not req:
         req_status['new_state'] = RequestState.LOST
         return req_status
 
     if transfertool == 'fts3':
         try:
             ts = time.time()
-            response = fts3.query(external_id)
+            response = fts3.query(req['external_id'], req['external_host'])
             record_timer('core.request.query_request_fts3', (time.time() - ts) * 1000)
             req_status['details'] = response
         except Exception:
@@ -288,12 +279,12 @@ def query_request(request_id, transfertool='fts3', session=None):
         else:
             if 'job_state' not in response:
                 req_status['new_state'] = RequestState.LOST
-            elif response['job_state'] in (str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY)):
+            elif response['job_state'] in (str(FTSState.FAILED),
+                                           str(FTSState.FINISHEDDIRTY),
+                                           str(FTSState.CANCELED)):
                 req_status['new_state'] = RequestState.FAILED
             elif response['job_state'] == str(FTSState.FINISHED):
                 req_status['new_state'] = RequestState.DONE
-#            elif response['job_state'] == str(FTSState.CANCELED):
-#                req_status['new_state'] = RequestState.FAILED ?
     else:
         raise NotImplementedError
 
@@ -314,14 +305,14 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
     record_counter('core.request.query_request_details')
 
-    external_id = __get_external_id(request_id, session=session)
+    req = get_request(request_id, session=session)
 
-    if not external_id:
+    if not req:
         return
 
     if transfertool == 'fts3':
         ts = time.time()
-        tmp = fts3.query_details(external_id)
+        tmp = fts3.query_details(req['external_id'], req['external_host'])
         record_timer('core.request.query_details_fts3', (time.time() - ts) * 1000)
         return tmp
 
@@ -347,6 +338,24 @@ def set_request_state(request_id, new_state, session=None):
 
 
 @transactional_session
+def set_external_host(request_id, external_host, session=None):
+    """
+    Update the state of a request. Fails silently if the request_id does not exist.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    :param external_host: Selected external host as string in format protocol://fqdn:port
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.set_external_host')
+
+    try:
+        session.query(models.Request).filter_by(id=request_id).update({'external_host': external_host}, synchronize_session=False)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@transactional_session
 def touch_request(request_id, session=None):
     """
     Update the timestamp of a request. Fails silently if the request_id does not exist.
@@ -364,7 +373,7 @@ def touch_request(request_id, session=None):
 
 
 @read_session
-def get_request(request_id, old=True, session=None):
+def get_request(request_id, session=None):
     """
     Retrieve a request by its ID.
 
@@ -376,7 +385,7 @@ def get_request(request_id, old=True, session=None):
     try:
         tmp = session.query(models.Request).filter_by(id=request_id).first()
 
-        if tmp is None:
+        if not tmp:
             return
         else:
             tmp = dict(tmp)
@@ -409,7 +418,8 @@ def archive_request(request_id, session=None):
                                                                 external_id=req['external_id'],
                                                                 retry_count=req['retry_count'],
                                                                 err_msg=req['err_msg'],
-                                                                previous_attempt_id=req['previous_attempt_id'])
+                                                                previous_attempt_id=req['previous_attempt_id'],
+                                                                external_host=req['external_host'])
         hist_request.save(session=session)
         purge_request(request_id=request_id, session=session)
 
@@ -431,21 +441,22 @@ def purge_request(request_id, session=None):
         raise RucioException(e.args)
 
 
-def cancel_request(request_id, transfertool):
+@read_session
+def cancel_request(request_id, transfertool, session=None):
     """
     Cancel a request.
 
     :param request_id: Request Identifier as a 32 character hex string.
+    :param session: Database session to use.
     """
 
     record_counter('core.request.cancel_request')
 
-    # select correct transfertool and external transfer id based on rucio transfer id entry in database
-    transfer_id = __get_external_id(request_id)
+    req = get_request(request_id, session=session)
 
     if transfertool == 'fts3':
         ts = time.time()
-        tmp = fts3.cancel(transfer_id)
+        tmp = fts3.cancel(req['transfer_id'], req['external_host'])
         record_timer('core.request.cancel_request_fts3', (time.time() - ts) * 1000)
         return tmp
 

@@ -11,7 +11,6 @@
 
 import json
 import logging
-import random
 import sys
 
 import requests
@@ -24,39 +23,23 @@ logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-__HOSTS = [b.strip() for b in config_get('conveyor', 'ftshosts').split(',')]
 __CACERT = config_get('conveyor', 'cacert')
 __USERCERT = config_get('conveyor', 'usercert')
 
 
-def __fts_host(source=None, destination=None, method='uniform'):
-    """
-    Select an FTS3 submission host, optionally based on source and destination URLs.
-
-    :param source: URL of an example source file as a string.
-    :param destination: URL of an example destination file as a string.
-    :param method: Selection algorithm, one of ['uniform'], as a string.
-    :returns: FTS Submission Host as a string.
-    """
-
-    if method == 'uniform':
-        return random.sample(__HOSTS, 1)[0]
-    else:
-        return __HOSTS[0]
-
-
-def submit_transfers(transfers, job_metadata):
+def submit_transfers(transfers, job_metadata, transfer_host):
     """
     Submit a transfer to FTS3 via JSON.
 
     :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'filesize', 'md5', 'adler32', 'overwrite', 'job_metadata', 'src_spacetoken', 'dest_spacetoken'
     :param job_metadata: Dictionary containing key/value pairs, for all transfers.
+    :param transfer_host: FTS server as a string.
     :returns: List of FTS transfer identifiers
     """
 
     # Early sanity check
     for transfer in transfers:
-        if transfer['src_urls'] is None or transfer['src_urls'] == []:
+        if not transfer['src_urls'] or transfer['src_urls'] == []:
             raise Exception('No sources defined')
 
     # FTS3 expects 'davs' as the scheme identifier instead of https
@@ -112,15 +95,15 @@ def submit_transfers(transfers, job_metadata):
 
         r = None
         params_str = json.dumps(params_dict)
-        __HOST = __fts_host()
-        if __HOST.startswith('https://'):
-            r = requests.post('%s/jobs' % __HOST,
+
+        if transfer_host.startswith('https://'):
+            r = requests.post('%s/jobs' % transfer_host,
                               verify=__CACERT,
                               cert=(__USERCERT, __USERCERT),
                               data=params_str,
                               headers={'Content-Type': 'application/json'})
         else:
-            r = requests.post('%s/jobs' % __HOST,
+            r = requests.post('%s/jobs' % transfer_host,
                               data=params_str,
                               headers={'Content-Type': 'application/json'})
 
@@ -164,24 +147,24 @@ def submit(request_id, src_urls, dest_urls,
                             job_metadata=job_metadata)[0]
 
 
-def query(transfer_id):
+def query(transfer_id, transfer_host):
     """
     Query the status of a transfer in FTS3 via JSON.
 
     :param transfer_id: FTS transfer identifier as a string.
+    :param transfer_host: FTS server as a string.
     :returns: Transfer status information as a dictionary.
     """
 
     job = None
 
-    __HOST = __fts_host()
-    if __HOST.startswith('https://'):
-        job = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
+    if transfer_host.startswith('https://'):
+        job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
                            verify=__CACERT,
                            cert=(__USERCERT, __USERCERT),
                            headers={'Content-Type': 'application/json'})
     else:
-        job = requests.get('%s/jobs/%s' % (__HOST, transfer_id),
+        job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
                            headers={'Content-Type': 'application/json'})
     if job and job.status_code == 200:
         return job.json()
@@ -189,24 +172,24 @@ def query(transfer_id):
     raise Exception('Could not retrieve transfer information: %s', job.content)
 
 
-def query_details(transfer_id):
+def query_details(transfer_id, transfer_host):
     """
     Query the detailed status of a transfer in FTS3 via JSON.
 
     :param transfer_id: FTS transfer identifier as a string.
+    :param transfer_host: FTS server as a string.
     :returns: Detailed transfer status information as a dictionary.
     """
 
     files = None
 
-    __HOST = __fts_host()
-    if __HOST.startswith('https://'):
-        files = requests.get('%s/jobs/%s/files' % (__HOST, transfer_id),
+    if transfer_host.startswith('https://'):
+        files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                              verify=__CACERT,
                              cert=(__USERCERT, __USERCERT),
                              headers={'Content-Type': 'application/json'})
     else:
-        files = requests.get('%s/jobs/%s/files' % (__HOST, transfer_id),
+        files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                              headers={'Content-Type': 'application/json'})
     if files and files.status_code == 200:
         return files.json()
@@ -214,21 +197,23 @@ def query_details(transfer_id):
     return
 
 
-def cancel(transfer_id):
+def cancel(transfer_id, transfer_host):
     """
     Cancel a transfer that has been submitted to FTS via JSON.
 
     :param transfer_id: FTS transfer identifier as a string.
+    :param transfer_host: FTS server as a string.
     """
+
     job = None
-    __HOST = __fts_host()
-    if __HOST.startswith('https://'):
-        job = requests.delete('%s/jobs/%s' % (__HOST, transfer_id),
+
+    if transfer_host.startswith('https://'):
+        job = requests.delete('%s/jobs/%s' % (transfer_host, transfer_id),
                               verify=__CACERT,
                               cert=(__USERCERT, __USERCERT),
                               headers={'Content-Type': 'application/json'})
     else:
-        job = requests.delete('%s/jobs/%s' % (__HOST, transfer_id),
+        job = requests.delete('%s/jobs/%s' % (transfer_host, transfer_id),
                               headers={'Content-Type': 'application/json'})
     if job and job.status_code == 200:
         return job.json()
@@ -236,23 +221,24 @@ def cancel(transfer_id):
     raise Exception('Could not cancel transfer: %s', job.content)
 
 
-def whoami():
+def whoami(transfer_host):
     """
     Returns credential information from the FTS3 server.
+
+    :param transfer_host: FTS server as a string.
 
     :returns: Credentials as stored by the FTS3 server as a dictionary.
     """
 
     r = None
 
-    __HOST = __fts_host()
-    if __HOST.startswith('https://'):
-        r = requests.get('%s/whoami' % __HOST,
+    if transfer_host.startswith('https://'):
+        r = requests.get('%s/whoami' % transfer_host,
                          verify=__CACERT,
                          cert=(__USERCERT, __USERCERT),
                          headers={'Content-Type': 'application/json'})
     else:
-        r = requests.get('%s/whoami' % __HOST,
+        r = requests.get('%s/whoami' % transfer_host,
                          headers={'Content-Type': 'application/json'})
 
     if r and r.status_code == 200:
@@ -261,23 +247,24 @@ def whoami():
     raise Exception('Could not retrieve credentials: %s', r.content)
 
 
-def version():
+def version(transfer_host):
     """
     Returns FTS3 server information.
+
+    :param transfer_host: FTS server as a string.
 
     :returns: FTS3 server information as a dictionary.
     """
 
     r = None
 
-    __HOST = __fts_host()
-    if __HOST.startswith('https://'):
-        r = requests.get('%s/' % __HOST,
+    if transfer_host.startswith('https://'):
+        r = requests.get('%s/' % transfer_host,
                          verify=__CACERT,
                          cert=(__USERCERT, __USERCERT),
                          headers={'Content-Type': 'application/json'})
     else:
-        r = requests.get('%s/' % __HOST,
+        r = requests.get('%s/' % transfer_host,
                          headers={'Content-Type': 'application/json'})
 
     if r and r.status_code == 200:
