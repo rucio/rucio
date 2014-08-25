@@ -212,3 +212,22 @@ class AccountClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def get_account_usage(self, account, rse=None):
+        """
+        List the account usage for one or all rses of this account.
+
+        :param account: The account name.
+        :param rse:     The rse name.
+        """
+        if rse:
+            path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', rse])
+        else:
+            path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage/'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
