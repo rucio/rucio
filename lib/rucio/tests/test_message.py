@@ -8,10 +8,9 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
-from re import compile
-
-from nose.tools import assert_equal, assert_in, assert_is_instance, assert_raises, assert_regexp_matches
+from nose.tools import assert_equal, assert_in, assert_is_instance, assert_raises
 
 from rucio.core.message import add_message, retrieve_messages, delete_messages, truncate_messages
 from rucio.common.exception import InvalidObject
@@ -24,10 +23,10 @@ class TestMessagesCore():
 
         truncate_messages()
 
-        message_id = add_message(event_type='NEW_DID', payload={'name': 'name',
-                                                                'name_Y': 'scope_X',
-                                                                'type': 'file'})
-        assert_regexp_matches(message_id, compile('[a-f0-9]{8}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{4}[a-f0-9]{12}'))
+        add_message(event_type='NEW_DID', payload={'name': 'name',
+                                                   'name_Y': 'scope_X',
+                                                   'type': 'file'})
+
         with assert_raises(InvalidObject):
                 add_message(event_type='NEW_DID', payload={'name': 'name',
                                                            'name_Y': 'scope_X',

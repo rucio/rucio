@@ -25,7 +25,9 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.core import account_counter, rse_counter
 from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
+from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
+from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.replica import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.core.request import queue_requests, cancel_request_did
@@ -469,7 +471,14 @@ def repair_rule(rule_id, session=None):
         rule.error = None
         # Try to update the DatasetLocks
         if rule.grouping != RuleGrouping.NONE:
-            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+            dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
+            for dataset_lock in dataset_locks:
+                dataset_lock.state = LockState.OK
+                add_message(event_type='DATASETLOCK_OK',
+                            payload={'scope': dataset_lock.scope,
+                                     'name': dataset_lock.name,
+                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                            session=session)
         return
 
     except NoResultFound:
@@ -694,7 +703,15 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
         elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
             rule.state == RuleState.OK
             if rule.grouping != RuleGrouping.NONE:
-                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+                dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
+                for dataset_lock in dataset_locks:
+                    dataset_lock.state = LockState.OK
+                    add_message(event_type='DATASETLOCK_OK',
+                                payload={'scope': dataset_lock.scope,
+                                         'name': dataset_lock.name,
+                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                session=session)
+
     session.query(models.RSEFileAssociation).filter_by(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.AVAILABLE, 'tombstone': datetime.utcnow()})
     # State set to AVAILABLE to be processed by the reaper. Might be changed later.
     session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
@@ -883,7 +900,14 @@ def __evaluate_did_detach(eval_did, session=None):
             elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
                 rule.state == RuleState.OK
                 if rule.grouping != RuleGrouping.NONE:
-                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+                    dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
+                    for dataset_lock in dataset_locks:
+                        dataset_lock.state = LockState.OK
+                        add_message(event_type='DATASETLOCK_OK',
+                                    payload={'scope': dataset_lock.scope,
+                                             'name': dataset_lock.name,
+                                             'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                    session=session)
 
         session.flush()
 
@@ -1043,7 +1067,14 @@ def __evaluate_did_attach(eval_did, session=None):
                     elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
                         rule.state = RuleState.OK
                         if rule.grouping != RuleGrouping.NONE:
-                            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+                            dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
+                            for dataset_lock in dataset_locks:
+                                dataset_lock.state = LockState.OK
+                                add_message(event_type='DATASETLOCK_OK',
+                                            payload={'scope': dataset_lock.scope,
+                                                     'name': dataset_lock.name,
+                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                            session=session)
 
                     if session.bind.dialect.name != 'sqlite':
                         session.commit()
