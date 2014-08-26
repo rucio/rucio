@@ -50,8 +50,8 @@ def update_request_state(req, response, session=None):
 
         tss = time.time()
         try:
-            rse_name = rse.get_rse_by_id(req['dest_rse_id'],
-                                         session=session)['rse']
+            rse_name = rse.get_rse_name(rse_id=req['dest_rse_id'],
+                                        session=session)
         except exception.RSENotFound:
             logging.warning('RSE ID %s not found - Cannot proceed updating the state for this request' % req['dest_rse_id'])
             return False

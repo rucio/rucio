@@ -130,28 +130,30 @@ def get_rse_id(rse, session=None):
     :param rse: the rse name.
     :param session: The database session in use.
 
+    :returns: The rse id.
+
     :raises RSENotFound: If referred RSE was not found in the database.
     """
     try:
-        return session.query(models.RSE).filter_by(rse=rse).one().id
+        return session.query(models.RSE.id).filter_by(rse=rse).one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
 
 
 @read_session
-def get_rse_by_id(rse_id, session=None):
+def get_rse_name(rse_id, session=None):
     """
-    Get a RSE properties or raise if it does not exist.
+    Get a RSE name or raise if it does not exist.
 
     :param rse_id: the rse uuid from the database.
     :param session: The database session in use.
 
-    :returns: The row-object od the matching RSE.
+    :returns: The rse name.
 
     :raises RSENotFound: If referred RSE was not found in the database.
     """
     try:
-        return session.query(models.RSE).filter_by(id=rse_id).one()
+        return session.query(models.RSE.rse).filter_by(id=rse_id).one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
 
@@ -232,11 +234,8 @@ def add_rse_attribute(rse, key, value, session=None):
 
     :returns: True is successful
     """
-    # Check location
-    l = get_rse(rse=rse, session=session)
-
     try:
-        new_rse_attr = models.RSEAttrAssociation(rse_id=l.id, key=key, value=value)
+        new_rse_attr = models.RSEAttrAssociation(rse_id=get_rse_id(rse=rse, session=session), key=key, value=value)
         new_rse_attr = session.merge(new_rse_attr)
         new_rse_attr.save(session=session)
     except IntegrityError:
@@ -254,8 +253,7 @@ def del_rse_attribute(rse, key, session=None):
 
     :return: True if RSE attribute was deleted successfully else False.
     """
-    l = get_rse(rse=rse, session=session)
-    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=l.id).filter(models.RSEAttrAssociation.key == key)
+    query = session.query(models.RSEAttrAssociation).filter_by(rse_id=get_rse_id(rse=rse, session=session)).filter(models.RSEAttrAssociation.key == key)
     rse_attr = query.one()
     rse_attr.delete(session=session)
 
@@ -274,7 +272,7 @@ def list_rse_attributes(rse, rse_id=None, session=None):
     """
     rse_attrs = {}
     if rse_id is None:
-        rse_id = get_rse(rse=rse, session=session).id
+        rse_id = get_rse_id(rse=rse, session=session)
 
     query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id)
     for attr in query:
@@ -295,8 +293,7 @@ def set_rse_usage(rse, source, used, free, session=None):
 
     :returns: True if successful, otherwise false.
     """
-    rse = get_rse(rse)
-    rse_usage = models.RSEUsage(rse_id=rse.id, source=source, used=used, free=free)
+    rse_usage = models.RSEUsage(rse_id=get_rse_id(rse=rse, session=session), source=source, used=used, free=free)
     # versioned_session(session)
     rse_usage = session.merge(rse_usage)
     rse_usage.save(session=session)
@@ -347,8 +344,7 @@ def set_rse_limits(rse, name, value, session=None):
 
     :returns: True if successful, otherwise false.
     """
-    rse = get_rse(rse=rse, session=session)
-    rse_limit = models.RSELimit(rse_id=rse.id, name=name, value=value)
+    rse_limit = models.RSELimit(rse_id=get_rse_id(rse, session=session), name=name, value=value)
     rse_limit = session.merge(rse_limit)
     rse_limit.save(session=session)
     return True
@@ -388,10 +384,9 @@ def list_rse_usage_history(rse, source=None, session=None):
 
     :returns:  list of locations.
     """
-    rse = get_rse(rse)
-    query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=rse.id).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
+    query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=get_rse_id(rse=rse, session=session)).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
     for usage in query.yield_per(5):
-        yield ({'rse': rse.rse, 'source': usage.source, 'used': usage.used, 'total': usage.used + usage.free, 'free': usage.free, 'updated_at': usage.updated_at})
+        yield ({'rse': rse, 'source': usage.source, 'used': usage.used, 'total': usage.used + usage.free, 'free': usage.free, 'updated_at': usage.updated_at})
 
 
 @transactional_session
@@ -412,7 +407,7 @@ def add_protocol(rse, parameter, session=None):
                        for the given RSE.
     """
 
-    rid = get_rse(rse=rse, session=session).id
+    rid = get_rse_id(rse=rse, session=session)
     if not rid:
         raise exception.RSENotFound('RSE \'%s\' not found')
     # Insert new protocol entry
@@ -571,7 +566,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                        for the given RSE.
     """
 
-    rid = get_rse(rse=rse, session=session).id
+    rid = get_rse_id(rse=rse, session=session)
     # Transform nested domains to match DB schema e.g. [domains][lan][read] => [read_lan]
     if 'domains' in data:
         for s in data['domains']:
@@ -672,7 +667,7 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
     :raises RSEProtocolNotSupported: If no macthing scheme was found for the given RSE.
     """
 
-    rid = get_rse(rse=rse, session=session).id
+    rid = get_rse_id(rse=rse, session=session)
     if not rid:
         raise exception.RSENotFound('RSE \'%s\' not found')
     terms = [models.RSEProtocols.rse_id == rid, models.RSEProtocols.scheme == scheme]
