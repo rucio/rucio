@@ -12,7 +12,7 @@ import rucio.common.exception
 
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
-from rucio.core.rse import get_rse_id, get_rse_by_id
+from rucio.core.rse import get_rse_id, get_rse_name
 
 
 def get_account_limits(account):
@@ -28,7 +28,7 @@ def get_account_limits(account):
 
     rse_instead_id = {}
     for elem in account_limit_core.get_account_limits(account=account).items():
-        rse_instead_id[get_rse_by_id(elem[0]).rse] = elem[1]
+        rse_instead_id[get_rse_name(elem[0])] = elem[1]
     return rse_instead_id
 
 

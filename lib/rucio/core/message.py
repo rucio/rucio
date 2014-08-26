@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 import json
 
@@ -33,9 +34,7 @@ def add_message(event_type, payload, session=None):
     except TypeError, e:
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
 
-    new_message.save(session=session)
-
-    return new_message.id
+    new_message.save(session=session, flush=False)
 
 
 @transactional_session

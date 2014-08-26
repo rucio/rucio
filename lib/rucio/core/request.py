@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 import datetime
 import json
@@ -21,7 +22,7 @@ from sqlalchemy.sql.expression import asc, bindparam, text
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_by_id
+from rucio.core.rse import get_rse_name
 from rucio.db import models
 from rucio.db.constants import RequestState, FTSState
 from rucio.db.session import read_session, transactional_session
@@ -95,7 +96,7 @@ def queue_requests(requests, session=None):
            or re.match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
             logging.warn('Transfer request for DID %s:%s at RSE %s exists - ignoring' % (req['scope'],
                                                                                          req['name'],
-                                                                                         get_rse_by_id(req['dest_rse_id'])['rse']))
+                                                                                         get_rse_name(req['dest_rse_id'])))
         else:
             raise RucioException(e.args)
 

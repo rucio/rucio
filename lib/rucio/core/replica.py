@@ -22,7 +22,7 @@ from sqlalchemy.sql.expression import case, bindparam, select, text
 
 from rucio.common import exception
 from rucio.common.utils import chunks
-from rucio.core.rse import get_rse, get_rse_id
+from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
 from rucio.db.constants import DIDType, ReplicaState
@@ -106,8 +106,7 @@ def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, sessi
     rse_map = {}
     for scope, name, rse_id in query.yield_per(1000):
         if rse_id not in rse_map:
-            rse = get_rse(rse=None, rse_id=rse_id)
-            rse_map[rse_id] = rse['rse']
+            rse_map[rse_id] = get_rse_name(rse_id=rse_id, session=session)
         d = {'scope': scope, 'name': name, 'rse_id': rse_id, 'rse': rse_map[rse_id]}
         rows.append(d)
     return rows
@@ -621,7 +620,7 @@ def update_replicas_states(replicas, session=None):
     for replica in replicas:
         if 'rse_id' not in replica:
             if replica['rse'] not in rse_ids:
-                rse_ids[replica['rse']] = get_rse(rse=replica['rse'], session=session).id
+                rse_ids[replica['rse']] = get_rse_id(rse=replica['rse'], session=session)
             replica['rse_id'] = rse_ids[replica['rse']]
 
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
@@ -656,7 +655,7 @@ def touch_replicas(replicas, session=None):
     for replica in replicas:
         if 'rse_id' not in replica:
             if replica['rse'] not in rse_ids:
-                rse_ids[replica['rse']] = get_rse(rse=replica['rse'], session=session).id
+                rse_ids[replica['rse']] = get_rse_id(rse=replica['rse'], session=session)
             replica['rse_id'] = rse_ids[replica['rse']]
         print replica['scope'], replica['name']
         session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\

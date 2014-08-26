@@ -88,7 +88,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 adler32 = None
                 src_spacetoken = None
                 logging.debug(req)
-                dest_rse = rse.get_rse_by_id(req['dest_rse_id'])
+                dest_rse = rse.get_rse(rse=None, rse_id=req['dest_rse_id'])
                 allowed_rses = []
                 if req['request_type'] == RequestType.STAGEIN:
                     rses = rse.list_rses(filters={'staging_buffer': dest_rse['rse']})
