@@ -128,7 +128,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, ds_scope=None, ds_name=None, lifetime=None):
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None):
     """
     This method creates a transfer dictionary and returns it
 
@@ -137,6 +137,9 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, ds_scope=
     :param scope:         The scope of the file.
     :param name:          The name of the file.
     :param rule:          The rule responsible for the transfer.
+    :param bytes:         The filesize of the file in bytes.
+    :param md5:           The md5 checksum of the file.
+    :param adler32:       The adler32 checksum of the file.
     :param ds_scope:      Dataset the file belongs to.
     :param ds_name:       Dataset the file belongs to.
     :param lifetime:      Lifetime in the case of STAGIN requests.
@@ -146,7 +149,10 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, ds_scope=
                   'source_replica_expression': rule.source_replica_expression,
                   'lifetime': lifetime,
                   'ds_scope': ds_scope,
-                  'ds_name': ds_name}
+                  'ds_name': ds_name,
+                  'bytes': bytes,
+                  'md5': md5,
+                  'adler32': adler32}
 
     return {'dest_rse_id': dest_rse_id,
             'scope': scope,
@@ -622,6 +628,9 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                         scope=file['scope'],
                                                         name=file['name'],
                                                         rule=rule,
+                                                        bytes=file['bytes'],
+                                                        md5=file['md5'],
+                                                        adler32=file['adler32'],
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
                                                         lifetime=lifetime))
@@ -673,6 +682,9 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                                 scope=file['scope'],
                                                                 name=file['name'],
                                                                 rule=rule,
+                                                                bytes=file['bytes'],
+                                                                md5=file['md5'],
+                                                                adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
                                                                 ds_name=dataset['name']))
                 return True
@@ -732,6 +744,9 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
                                                                 scope=file['scope'],
                                                                 name=file['name'],
                                                                 rule=rule,
+                                                                bytes=file['bytes'],
+                                                                md5=file['md5'],
+                                                                adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
                                                                 ds_name=dataset['name']))
 
