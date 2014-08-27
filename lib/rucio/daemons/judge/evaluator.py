@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 """
@@ -46,7 +46,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
             dids = get_updated_dids(total_workers=total_processes*threads_per_process-1,
                                     worker_number=process*threads_per_process+thread,
                                     limit=1000)
-            logging.debug('Re-Evaluation index query time %f did-size=%d' % (time.time() - start, len(dids)))
+            logging.debug('Re-Evaluation index query time %f fetch size is %d' % (time.time() - start, len(dids)))
 
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
@@ -82,7 +82,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                         logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
                     except ReplicationRuleCreationTemporaryFailed, e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                        logging.ubfi('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
+                        logging.warning('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
