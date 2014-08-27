@@ -90,6 +90,15 @@ special_accounts = panda, tier0
 [trace]
 tracedir = /var/log/rucio/trace
 
+[tracer-kronos]
+host_and_ports=gridmsg103.cern.ch:6162, gridmsg104.cern.ch:6162
+ssl_cert_file=/data/tmp/usercert.pem
+ssl_key_file=/data/tmp/userkey_nopass.pem
+queue = /queue/Consumer.DB.atlas.ddm.tracer
+prefetch_size = 10
+chunksize = 10
+subscription_id = rucio-tracer-listener
+
 [injector]
 file = /opt/rucio/tools/test.file.1000
 bytes = 1000
