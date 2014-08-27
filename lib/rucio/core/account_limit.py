@@ -11,7 +11,7 @@
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
-from rucio.core.rse import get_rse_by_id
+from rucio.core.rse import get_rse_name
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
 
@@ -121,7 +121,7 @@ def get_account_usage(account, rse_id=None, session=None):
     result_list = []
     for counter in counters:
         if counter.bytes > 0 or counter.files > 0 or rse_id in limits.keys():
-            result_list.append({'rse': get_rse_by_id(rse_id=counter.rse_id, session=session).rse,
+            result_list.append({'rse': get_rse_name(rse_id=counter.rse_id, session=session),
                                 'bytes': counter.bytes, 'files': counter.files,
                                 'bytes_limit': limits.get(counter.rse_id, float("Inf")),
                                 'bytes_remaining': limits.get(counter.rse_id, float("Inf"))})

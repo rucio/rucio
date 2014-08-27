@@ -12,7 +12,6 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import abc
-import random
 import re
 import string
 
@@ -21,7 +20,6 @@ from dogpile.cache.api import NoValue
 
 from rucio.common import schema
 from rucio.common.exception import InvalidRSEExpression
-from rucio.common.utils import my_key_generator
 from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
 
@@ -37,7 +35,12 @@ COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
 PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 
-region = make_region(function_key_generator=my_key_generator).configure(
+def expression_key_generator(namespace, fn, **kwargs):
+    def generate_key(expression, session=None):
+        return expression
+    return generate_key
+
+region = make_region(function_key_generator=expression_key_generator).configure(
     'dogpile.cache.memory',
     expiration_time=3600)
 
@@ -47,9 +50,9 @@ def parse_expression(expression, session):
     """
     Parse a RSE expression and return the list of RSE dictionaries.
 
-    :param expression:  RSE expression, e.g: 'CERN|BNL'
-    :param session:     Database session in use
-    :return:            A list of rse_ids
+    :param expression:  RSE expression, e.g: 'CERN|BNL'.
+    :param session:     Database session in use.
+    :returns:           A list of rse dictionaries.
     :raises:            InvalidRSEExpression, RSENotFound
     """
     result = region.get(expression)
@@ -78,7 +81,6 @@ def parse_expression(expression, session):
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        random.shuffle(result)
         if not result:
             raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
         region.set(expression, result)
