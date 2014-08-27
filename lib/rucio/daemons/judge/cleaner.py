@@ -47,7 +47,7 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
             rules = get_expired_rules(total_workers=total_processes*threads_per_process-1,
                                       worker_number=process*threads_per_process+thread,
                                       limit=1000)
-            logging.debug('rule_cleaner index query time %f rule-size=%d' % (time.time() - start, len(rules)))
+            logging.debug('rule_cleaner index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
             if not rules and not once:
                 logging.info('rule_cleaner[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
