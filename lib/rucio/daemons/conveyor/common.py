@@ -40,7 +40,10 @@ def update_request_state(req, response, session=None):
     :returns commit_or_rollback: Boolean.
     """
 
-    logging.debug('UPDATING REQUEST %s FOR TRANSFER STATE %s' % (str(req['request_id']), str(response['job_state'])))
+    try:
+        logging.debug('UPDATING REQUEST %s FOR TRANSFER STATE %s' % (str(req['request_id']), str(response['job_state'])))
+    except:
+        logging.error('Cannot get request_id and job_state')
 
     request.touch_request(req['request_id'], session=session)
 
