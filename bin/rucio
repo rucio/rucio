@@ -40,7 +40,7 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileReplicaAlreadyExists, FileAlreadyExists, AccessDenied, RessourceTemporaryUnavailable
-from rucio.common.utils import adler32
+from rucio.common.utils import adler32, generate_uuid
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -690,6 +690,7 @@ def upload(args):
 
     files = args.files
     list_files = []
+    files_to_list = []
     lfns = {}
     revert_dict = {}
     logger.debug('Looping over the files')
@@ -697,7 +698,8 @@ def upload(args):
         size = os.stat(name).st_size
         checksum = adler32(name)
         logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, args.scope, os.path.basename(name)))
-        list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C'})
+        files_to_list.append({'scope': args.scope, 'name': os.path.basename(name)})
+        list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
         if not os.path.dirname(name) in lfns:
             lfns[os.path.dirname(name)] = []
         lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope, 'adler32': checksum, 'filesize': size})
@@ -835,7 +837,7 @@ def upload(args):
 
     replicas = []
     replica_dictionary = {}
-    for rep in client.list_replicas(list_files):
+    for rep in client.list_replicas(files_to_list):
         replica_dictionary[rep['scope'], rep['name']] = rep['rses'].keys()
     for file in list_files:
         if (file['scope'], file['name']) not in replica_dictionary:
