@@ -64,6 +64,8 @@ The expression is generally evaluated from left to right. Parantheses can be use
 Examples
 ^^^^^^^^
 
+These examples, off course, depend on the attributes and tags defined in Rucio, but for the sake of this example we assume that the respective tags and attributes are defined. Users can use the ``$ rucio-admin rse get-attribute UKI-LT2-QMUL_DATADISK`` command to get the attributes definied for a RSE.
+
 """""""""
 Example 1
 """""""""
