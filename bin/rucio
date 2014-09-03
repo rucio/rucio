@@ -1226,15 +1226,17 @@ def list_rse_usage(args):
                           ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        usage = rseclient.get_rse_usage(rse=args.rse)
+        usages = rseclient.get_rse_usage(rse=args.rse)
     except Exception, e:
             print 'Failed to get RSE info'
             print e
             return FAILURE
     print 'Usage:'
     print '======'
-    for elem in usage:
-        print '  ' + elem + ': ' + str(usage[elem])
+    for usage in usages:
+        for elem in usage:
+            print '  ' + elem + ': ' + str(usage[elem])
+        print '  ======'
 
     return SUCCESS
 
