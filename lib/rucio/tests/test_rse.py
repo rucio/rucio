@@ -1503,9 +1503,10 @@ class TestRSEClient():
     def test_set_rse_usage(self):
         """ RSE (CLIENTS): Test the update of RSE usage."""
         assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', used=999200L, free=800L), True)
-        usage = self.client.get_rse_usage(rse='MOCK')
-        print usage
-        assert_equal(usage['total'], 1000000)
+        usages = self.client.get_rse_usage(rse='MOCK')
+        for usage in usages:
+            print usage
+            assert_equal(usage['total'], 1000000)
         assert_equal(self.client.set_rse_usage(rse='MOCK', source='srm', used=999920L, free=80L), True)
         for usage in self.client.list_rse_usage_history(rse='MOCK'):
             assert_equal(usage['free'], 80)
