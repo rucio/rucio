@@ -239,6 +239,7 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
             t2 = dict(t)
             t2.pop('_sa_instance_state')
             t2['request_id'] = t2['id']
+            t2['attributes'] = json.loads(str(t2['attributes']))
             result.append(t2)
         return result
 
