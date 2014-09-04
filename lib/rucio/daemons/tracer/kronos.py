@@ -81,20 +81,35 @@ class AMQConsumer(object):
         """
         replicas = []
         for report in self.__reports:
-            # TODO just a dirty hack for the moment and probably not working
-            # must be removed when scope is in traces
-            if 'scope' not in report:
-                dataset = report['dataset']
-                if dataset.startswith('user') or dataset.startswith('group'):
-                    report['scope'] = '.'.join(dataset.split('.')[:2])
+            try:
+                # check if scope in report. if not skip this one.
+                if 'scope' not in report:
+                    record_counter('daemons.tracer.kronos.missing_scope')
+                    continue
                 else:
-                    report['scope'] = dataset.split('.')[1]
-            if not report['eventType'].startswith('get'):
-                continue
+                    record_counter('daemons.tracer.kronos.with_scope')
 
-            if report['clientState'] not in self.__done_states:
+                # for the moment only report with eventType get* are handled.
+                if not report['eventType'].startswith('get'):
+                    continue
+                record_counter('daemons.tracer.kronos.total_get')
+                if report['eventType'] == 'get':
+                    record_counter('daemons.tracer.kronos.dq2clients')
+                elif report['eventType'] == 'get_sm':
+                    record_counter('daemons.tracer.kronos.panda_production')
+                elif report['eventType'] == 'get_sm_a':
+                    record_counter('daemons.tracer.kronos.panda_analysis')
+                else:
+                    record_counter('daemons.tracer.kronos.other_get')
+
+                # check if the report has the right state.
+                if report['clientState'] not in self.__done_states:
+                    continue
+                replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcnow()})
+            except (KeyError, AttributeError):
+                logging.error(format_exc())
+                record_counter('daemons.tracer.kronos.report_error')
                 continue
-            replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcnow()})
 
         logging.info(replicas)
         try:
@@ -139,7 +154,7 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1):
         for conn in conns:
             if not conn.is_connected():
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                record_counter('daemons.tracer.consumer.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
+                record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
                 conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0], conn=conn, chunksize=chunksize, subscription_id=subscription_id))
                 conn.start()
                 conn.connect()
