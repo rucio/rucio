@@ -40,12 +40,12 @@ def update_request_state(req, response, session=None):
     :returns commit_or_rollback: Boolean.
     """
 
-    try:
-        logging.debug('UPDATING REQUEST %s FOR TRANSFER STATE %s' % (str(req['request_id']), str(response['job_state'])))
-    except:
-        logging.error('Cannot get request_id and job_state')
-
     request.touch_request(req['request_id'], session=session)
+
+    if 'job_state' in response:
+        logging.debug('UPDATING REQUEST %s FOR TRANSFER STATE %s' % (str(req['request_id']), str(response['job_state'])))
+    else:
+        return False
 
     if response['new_state']:
 
@@ -118,7 +118,7 @@ def update_request_state(req, response, session=None):
                     duration = -1
 
                 if details:
-                    add_message('transfer-done', {'activity': 'rucio-integration',  # no other support for now
+                    add_message('transfer-done', {'activity': req['attributes']['activity'],
                                                   'request-id': req['request_id'],
                                                   'duration': duration,
                                                   'file-size': did_meta['bytes'],
@@ -151,7 +151,7 @@ def update_request_state(req, response, session=None):
             record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
 
             tss = time.time()
-            add_message('transfer-failed', {'activity': 'rucio-integration',  # no other support for now
+            add_message('transfer-failed', {'activity': req['attributes']['activity'],
                                             'request-id': req['request_id'],
                                             'checksum-adler': did_meta['adler32'],
                                             'checksum-md5': did_meta['md5'],
@@ -206,7 +206,7 @@ def update_request_state(req, response, session=None):
             tss = time.time()
             record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
 
-            add_message('transfer-lost', {'activity': 'rucio-integration',  # no other support for now
+            add_message('transfer-lost', {'activity': req['attributes']['activity'],
                                           'request-id': req['request_id'],
                                           'checksum-adler': did_meta['adler32'],
                                           'checksum-md5': did_meta['md5'],
