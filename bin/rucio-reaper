@@ -27,10 +27,12 @@ if __name__ == "__main__":
     parser.add_argument("--chunk-size", action="store", default=10, type=int, help='Chunk size')
     parser.add_argument("--scheme", action="store", default=None, type=str, help='Force the reaper to use a particular protocol, e.g., mock.')
     parser.add_argument('--greedy', action='store_true', default=True, help='Greedy mode')
-    parser.add_argument('--rses', nargs='+', type=str)
+    parser.add_argument('--exclude-rses', action="store", default=None, type=str, help='RSEs expression to exclude RSEs')
+    parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
 
     args = parser.parse_args()
     try:
-        run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy, once=args.run_once, scheme=args.scheme)
+        run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy,
+            once=args.run_once, scheme=args.scheme, rses=args.rses, exclude_rses=args.exclude_rses)
     except KeyboardInterrupt:
         stop()
