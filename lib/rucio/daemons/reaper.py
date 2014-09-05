@@ -23,6 +23,7 @@ from rucio.core import rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse_counter import get_counter
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import ReplicaState
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
@@ -82,7 +83,7 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False, scheme=None):
+def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False, scheme=None, exclude_rses=None):
     """
     Main loop to select and delete files.
 
@@ -92,6 +93,7 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
     :param greedy: If True, delete right away replicas with tombstone.
     :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
+    :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     """
 
     logging.info('Starting reaper')
@@ -218,7 +220,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], scheme=None):
+def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None):
     """
     Starts up the reaper threads.
 
@@ -228,13 +230,19 @@ def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], sche
     :param greedy: If True, delete right away replicas with tombstone.
     :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
     :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
+    :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     """
     print 'main: starting processes'
 
-    if not rses:
-        rses = rse_core.list_rses()
+    rses_list = rse_core.list_rses()
+    if rses:
+        rses = [rse for rse in rses_list if rse['rse'] in rses]
+    else:
+        rses = rses_list
 
-    # rses = [rse for rse in rses if rse['rse'] == 'NDGF-T1-RUCIOTEST_DATADISK']
+    if exclude_rses:
+        excluded_rses = parse_expression(exclude_rses)
+        rses = [rse for rse in rses if rse not in excluded_rses]
 
     threads = list()
     nb_rses_per_worker = len(rses) / total_workers
