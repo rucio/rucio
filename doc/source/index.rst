@@ -89,6 +89,7 @@ Rucio Client APIs
     :maxdepth: 2
 
     account
+    accountlimit
     scope
     identity
     did
@@ -96,6 +97,7 @@ Rucio Client APIs
     rse
     replica
     rule
+    lock
     subscription
     core_constants
     exception
