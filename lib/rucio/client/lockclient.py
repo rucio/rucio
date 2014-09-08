@@ -25,7 +25,7 @@ class LockClient(BaseClient):
 
     def get_dataset_locks(self, scope, name):
         """
-        Sends the request to get information about a given account.
+        Get a dataset locks of the specified dataset.
 
         :param scope: the scope of the did of the locks to list.
         :param name: the name of the did of the locks to list.
@@ -44,7 +44,7 @@ class LockClient(BaseClient):
 
     def get_dataset_locks_by_rse(self, rse):
         """
-        Sends the request to get information about a given account.
+        Get all dataset locks of the specified rse.
 
         :param rse: the rse of the locks to list.
         """
