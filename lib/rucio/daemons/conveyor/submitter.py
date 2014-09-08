@@ -9,11 +9,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 """
 Conveyor is a daemon to manage file transfers.
 """
 
+import json
 import logging
 import sys
 import threading
@@ -23,10 +25,11 @@ import traceback
 from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation
+from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.utils import construct_surl_DQ2
 from rucio.core import did, replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState
 from rucio.rse import rsemanager as rsemgr
 
@@ -92,6 +95,21 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 if req['request_type'] == RequestType.STAGEIN:
                     rses = rse.list_rses(filters={'staging_buffer': dest_rse['rse']})
                     allowed_rses = [x['rse'] for x in rses]
+                allowed_source_rses = None
+                if req['attributes']:
+                    if type(req['attributes']) is dict:
+                        req_attributes = json.loads(json.dumps(req['attributes']))
+                    else:
+                        req_attributes = json.loads(str(req['attributes']))
+                    source_replica_expression = req_attributes["source_replica_expression"]
+                    if source_replica_expression:
+                        try:
+                            parsed_rses = parse_expression(source_replica_expression, session=None)
+                        except InvalidRSEExpression, e:
+                            logging.warn("Invalid RSE exception(%s) for request(%s)" % (source_replica_expression, req['request_id']))
+                            allowed_source_rses = None
+                        else:
+                            allowed_source_rses = [x['rse'] for x in parsed_rses]
 
                 try:
                     for source in replica.list_replicas(dids=[{'scope': req['scope'],
@@ -111,6 +129,9 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                         # In case of staging request, we only use one source
                                         tmpsrc = [(str(source_rse), str(pfn)), ]
                             else:
+                                if allowed_source_rses and not (source_rse in allowed_source_rses):
+                                    logging.debug("Skip source(%s) in request(%s) because of source_replica_expression(%s)" % (source_rse, req['request_id'], req['attributes']))
+                                    continue
                                 filtered_sources = [x for x in source['rses'][source_rse] if x.startswith('gsiftp')]
                                 if not filtered_sources:
                                     filtered_sources = source['rses'][source_rse]
@@ -203,6 +224,9 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                scheme=scheme)
                     except RSEProtocolNotSupported:
                         logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
+                        request.set_request_state(req['request_id'], RequestState.FAILED)
+                        logging.warn("Request %s set to failed because of not supported protocols" % req['request_id'])
+                        continue
 
                     record_timer('daemons.conveyor.submitter.lfns2pfns', (time.time() - ts) * 1000)
 
@@ -219,6 +243,9 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     protocols = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
                 except RSEProtocolNotSupported:
                     logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
+                    request.set_request_state(req['request_id'], RequestState.FAILED)
+                    logging.warn("Request %s set to failed because of not supported protocols" % req['request_id'])
+                    continue
 
                 # we need to set the spacetoken if we use SRM
                 dest_spacetoken = None
