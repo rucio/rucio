@@ -65,7 +65,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
         with record_timer_block('rule.add_rule.parse_rse_expression'):
-            rses = parse_expression(rse_expression, session=session)
+            rses = parse_expression(rse_expression, filter={'availability_write': True}, session=session)
 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -171,7 +171,7 @@ def add_rules(dids, rules, session=None):
         all_source_rses = []
         with record_timer_block('rule.add_rules.parse_rse_expressions'):
             for rule in rules:
-                restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
+                restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session))
             restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
 
             for rule in rules:
@@ -201,7 +201,7 @@ def add_rules(dids, rules, session=None):
             for rule in rules:
                 with record_timer_block('rule.add_rules.add_rule'):
                     # 4. Resolve the rse_expression into a list of RSE-ids
-                    rses = parse_expression(rule['rse_expression'], session=session)
+                    rses = parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session)
 
                     if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
                         if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -365,7 +365,7 @@ def repair_rule(rule_id, session=None):
 
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
-            rses = parse_expression(rule.rse_expression, session=session)
+            rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
             if rule.source_replica_expression:
                 source_rses = parse_expression(rule.source_replica_expression, session=session)
             else:
@@ -962,7 +962,7 @@ def __evaluate_did_attach(eval_did, session=None):
                     session.begin_nested()
                 try:
                     for rule in rules:
-                        possible_rses.extend(parse_expression(rule.rse_expression, session=session))
+                        possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                     possible_rses = list(set(possible_rses))
                 except:
                     session.rollback()
@@ -982,7 +982,7 @@ def __evaluate_did_attach(eval_did, session=None):
                     if session.bind.dialect.name != 'sqlite':
                         session.begin_nested()
                     try:
-                        rses = parse_expression(rule.rse_expression, session=session)
+                        rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
                         source_rses = []
                         if rule.source_replica_expression:
                             source_rses = parse_expression(rule.source_replica_expression, session=session)
