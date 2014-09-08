@@ -120,6 +120,31 @@ class TestRSEExpressionParserCore():
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 2"""
         assert_equal(sorted([rse['id'] for rse in rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))]), sorted([self.rse1_id, self.rse2_id, self.rse5_id]))
 
+    def test_list_rses_based_on_availability(self):
+        """ RSE_EXPRESSION_PARSER (CORE) List rses based on availability filter"""
+        rseWRITE_name = rse_name_generator()
+        rseNOWRITE_name = rse_name_generator()
+
+        rseWRITE_id = rse.add_rse(rseWRITE_name)
+        rseNOWRITE_id = rse.add_rse(rseNOWRITE_name)
+
+        attribute = attribute_name_generator()
+
+        rse.add_rse_attribute(rseWRITE_name, attribute, "de")
+        rse.add_rse_attribute(rseNOWRITE_name, attribute, "de")
+
+        rse.update_rse(rseWRITE_name, {'availability_write': True})
+        rse.update_rse(rseNOWRITE_name, {'availability_write': False})
+
+        assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute)]),
+                     sorted([rseWRITE_id, rseNOWRITE_id]))
+
+        assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, {'availability_write': True})]),
+                     sorted([rseWRITE_id]))
+
+        assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, {'availability_write': False})]),
+                     sorted([rseNOWRITE_id]))
+
 
 class TestRSEExpressionParserClient():
 
