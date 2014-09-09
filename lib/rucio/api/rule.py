@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
@@ -35,11 +35,13 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     if account is None:
         account = issuer
 
-    kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime, 'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id}
+    kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
+              'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
+              'source_replica_expression': source_replica_expression}
 
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
-    return rule.add_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id)
+    return rule.add_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id, source_replica_expression=source_replica_expression)
 
 
 def get_replication_rule(rule_id):
