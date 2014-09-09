@@ -1096,6 +1096,7 @@ def info_rule(args):
         print "Updated at:                 %s" % rule['updated_at']
         print "Error:                      %s" % rule['error']
         print "Subscription Id:            %s" % rule['subscription_id']
+        print "Source replica expression:  %s" % rule['source_replica_expression']
     except Exception, e:
         print 'Failed to get replication rule'
         print e
