@@ -14,5 +14,8 @@ PFN
 RSE
     Rucio Storage Element.
 UUID
-    Universal Unique Identifier.  
-
+    Universal Unique Identifier.
+DID
+    Data IDentifier.
+REST
+    Representational state transfer.
