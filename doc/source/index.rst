@@ -116,7 +116,7 @@ Using Rucio
     rucio_clients
     client_examples
     replication_rules_examples
-
+    client_tutorial
 
 Appendices
 ==========
