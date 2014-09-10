@@ -18,7 +18,7 @@ from rucio.web.ui.common.utils import check_token
 
 
 urls = (
-    '', 'Index',
+    '/', 'Index',
     '/subscriptions', 'Subscriptions',
     '/infrastructure', 'Infrastructure',
     '/rules', 'Rules'
