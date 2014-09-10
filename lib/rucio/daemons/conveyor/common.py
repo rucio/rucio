@@ -8,13 +8,14 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
-
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 """
 Methods common to different conveyor daemons.
 """
 
 import datetime
+import json
 import logging
 import sys
 import time
@@ -75,6 +76,15 @@ def update_request_state(req, response, session=None):
             if type(details) == list or type(details) == tuple:
                 details = details[0]  # there is always only one file
 
+        # get the activity from req["attributes"] which is a string
+        activity = 'default'
+        if req['attributes']:
+            if type(req['attributes']) is dict:
+                req_attributes = json.loads(json.dumps(req['attributes']))
+            else:
+                req_attributes = json.loads(str(req['attributes']))
+            activity = req_attributes['activity'] if req_attributes['activity'] else 'default'
+
         if response['new_state'] == RequestState.DONE:
 
             tss = time.time()
@@ -118,7 +128,7 @@ def update_request_state(req, response, session=None):
                     duration = -1
 
                 if details:
-                    add_message('transfer-done', {'activity': req['attributes']['activity'],
+                    add_message('transfer-done', {'activity': activity,
                                                   'request-id': req['request_id'],
                                                   'duration': duration,
                                                   'file-size': did_meta['bytes'],
@@ -151,7 +161,7 @@ def update_request_state(req, response, session=None):
             record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
 
             tss = time.time()
-            add_message('transfer-failed', {'activity': req['attributes']['activity'],
+            add_message('transfer-failed', {'activity': activity,
                                             'request-id': req['request_id'],
                                             'checksum-adler': did_meta['adler32'],
                                             'checksum-md5': did_meta['md5'],
@@ -258,3 +268,63 @@ def update_request_state(req, response, session=None):
 def update_requests_states(reqs, session=None):
     for req, response in reqs:
         update_request_state(req=req, response=response, session=session)
+
+
+@transactional_session
+def update_bad_request(req, dest_rse, new_state, detail, session=None):
+    if new_state == RequestState.FAILED:
+        request.set_request_state(req['request_id'], new_state, session=session)
+
+        activity = 'default'
+        if req['attributes']:
+            if type(req['attributes']) is dict:
+                req_attributes = json.loads(json.dumps(req['attributes']))
+            else:
+                req_attributes = json.loads(str(req['attributes']))
+            activity = req_attributes['activity'] if req_attributes['activity'] else 'default'
+
+        tss = time.time()
+        add_message('transfer-failed', {'activity': activity,
+                                        'request-id': req['request_id'],
+                                        'checksum-adler': None,
+                                        'checksum-md5': None,
+                                        'dst-rse': dest_rse,
+                                        'dst-url': None,
+                                        'name': req['name'],
+                                        'guid': None,
+                                        'file-size': None,
+                                        'previous-request-id': req['request_id'],
+                                        'protocol': None,
+                                        'reason': detail,
+                                        'transfer-link': None,
+                                        'scope': req['scope'],
+                                        'src-rse': None,
+                                        'src-url': None,
+                                        'tool-id': 'rucio-conveyor',
+                                        'transfer-endpoint': config_get('conveyor', 'ftshosts'),
+                                        'transfer-id': None},
+                    session=session)
+
+        request.archive_request(req['request_id'], session=session)
+        logging.critical('BAD DID %s:%s REQUEST %s details: %s' % (req['scope'],
+                                                                   req['name'],
+                                                                   req['request_id'],
+                                                                   detail))
+        replica.update_replicas_states([{'rse': dest_rse,
+                                         'scope': req['scope'],
+                                         'name': req['name'],
+                                         'state': ReplicaState.UNAVAILABLE}],
+                                       session=session)
+        tss = time.time()
+        try:
+            lock.failed_transfer(req['scope'],
+                                 req['name'],
+                                 req['dest_rse_id'],
+                                 session=session)
+        except:
+            logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (req['scope'],
+                                                                                         req['name'],
+                                                                                         dest_rse,
+                                                                                         sys.exc_info()[1]))
+            raise
+        record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
