@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 import json
 import logging
@@ -84,7 +85,8 @@ def submit_transfers(transfers, job_metadata, transfer_host):
                                   'destinations': transfer['dest_urls'],
                                   'metadata': {'issuer': 'rucio'},
                                   'filesize': int(transfer['filesize']),
-                                  'checksum': str(transfer['checksum'])}],
+                                  'checksum': str(transfer['checksum']),
+                                  'activity': str(transfer['activity'])}],
                        'params': {'verify_checksum': True if transfer['checksum'] else False,
                                   'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
                                   'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
