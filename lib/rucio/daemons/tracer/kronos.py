@@ -26,6 +26,8 @@ from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import touch_replicas
 
+logging.getLogger("stomp").setLevel(logging.CRITICAL)
+
 logging.basicConfig(stream=stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
