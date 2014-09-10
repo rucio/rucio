@@ -30,6 +30,7 @@ from rucio.common.utils import construct_surl_DQ2
 from rucio.core import did, replica, request, rse
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.daemons.conveyor import common
 from rucio.db.constants import DIDType, RequestType, RequestState
 from rucio.rse import rsemanager as rsemgr
 
@@ -96,11 +97,13 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     rses = rse.list_rses(filters={'staging_buffer': dest_rse['rse']})
                     allowed_rses = [x['rse'] for x in rses]
                 allowed_source_rses = None
+                activity = 'default'
                 if req['attributes']:
                     if type(req['attributes']) is dict:
                         req_attributes = json.loads(json.dumps(req['attributes']))
                     else:
                         req_attributes = json.loads(str(req['attributes']))
+                    activity = req_attributes['activity'] if req_attributes['activity'] else 'default'
                     source_replica_expression = req_attributes["source_replica_expression"]
                     if source_replica_expression:
                         try:
@@ -164,6 +167,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                               schemes=[scheme],
                                                               unavailable=True)):
                         logging.critical('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
+                    common.update_bad_request(req, dest_rse['rse'], RequestState.FAILED, 'No source replicas found')
                     continue
                 else:
                     for tmp in tmpsrc:
@@ -224,7 +228,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                scheme=scheme)
                     except RSEProtocolNotSupported:
                         logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
-                        request.set_request_state(req['request_id'], RequestState.FAILED)
+                        common.update_bad_request(req, dest_rse['rse'], RequestState.FAILED, 'No supported protocols with destination')
                         logging.warn("Request %s set to failed because of not supported protocols" % req['request_id'])
                         continue
 
@@ -243,7 +247,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     protocols = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
                 except RSEProtocolNotSupported:
                     logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
-                    request.set_request_state(req['request_id'], RequestState.FAILED)
+                    common.update_bad_request(req, dest_rse['rse'], RequestState.FAILED, 'No supported protocols with destination')
                     logging.warn("Request %s set to failed because of not supported protocols" % req['request_id'])
                     continue
 
@@ -287,6 +291,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                                           'adler32': adler32,
                                                                           'src_spacetoken': src_spacetoken,
                                                                           'dest_spacetoken': dest_spacetoken,
+                                                                          'activity': activity,
                                                                           'overwrite': overwrite,
                                                                           'bring_online': bring_online,
                                                                           'copy_pin_lifetime': copy_pin_lifetime}, ],
