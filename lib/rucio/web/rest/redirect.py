@@ -74,7 +74,7 @@ class Redirector(RucioController):
                 if r['rses']:
                     replicadict = {}
                     if rse:
-                        if rse in r['rses']:
+                        if rse in r['rses'] and r['rses'][rse]:
                             return found(r['rses'][rse][0])
                         return notfound("Sorry, the replica you were looking for was not found.")
                     else:
