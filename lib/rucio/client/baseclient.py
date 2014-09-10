@@ -324,6 +324,8 @@ class BaseClient(object):
             try:
                 r = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
             except SSLError, e:
+                if 'alert certificate expired' in str(e.message):
+                    raise CannotAuthenticate(str(e))
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
                 retry += 1
