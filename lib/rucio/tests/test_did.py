@@ -183,7 +183,7 @@ class TestDIDClients:
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
         tmp_scope = 'mock'
-        tmp_rse = 'MOCK2'
+        tmp_rse = 'MOCK'
         tmp_dsn = 'dsn_%s' % generate_uuid()
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename

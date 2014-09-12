@@ -302,7 +302,7 @@ class TestReplicaMetalink:
         ml = xmltodict.parse(self.replica_client.list_replicas(self.files,
                                                                metalink=4),
                              xml_attribs=False)
-        assert_equal(3, len(ml['metalink']['files']['file']['url']))
+        assert_equal(3, len(ml['metalink']['file']['url']))
 
     def test_get_did_from_pfns_nondeterministic(self):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for non-deterministic sites"""

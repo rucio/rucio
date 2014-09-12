@@ -16,6 +16,8 @@ from urllib import unquote
 from urlparse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
 
+from geoip2.errors import AddressNotFoundError
+
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, RessourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation
 from rucio.common.replicas_selector import random_order, geoIP_order
@@ -59,7 +61,7 @@ class Replicas(RucioController):
             if 'application/metalink4+xml' in tmp:
                 metalink = 4
 
-        dids, schemes, select = [{'scope': scope, 'name': name}], None, None
+        dids, schemes, select, limit = [{'scope': scope, 'name': name}], None, None, None
         if ctx.query:
             try:
                 params = loads(unquote(ctx.query[1:]))
@@ -69,6 +71,9 @@ class Replicas(RucioController):
                 params = parse_qs(ctx.query[1:])
                 if 'select' in params:
                     select = params['select'][0]
+                if 'limit' in params:
+                    limit = int(params['limit'][0])
+
         try:
             # first, set the appropriate content type, and stream the header
             if metalink is None:
@@ -80,7 +85,7 @@ class Replicas(RucioController):
             elif metalink == 4:
                 header('Content-Type', 'application/metalink4+xml')
                 schemes = ['http', 'https']
-                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n<files>\n'
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes):
@@ -92,7 +97,10 @@ class Replicas(RucioController):
                         replicas.append(replica)
                         dictreplica[replica] = rse
                 if select == 'geoip':
-                    replicas = geoIP_order(dictreplica, client_ip)
+                    try:
+                        replicas = geoIP_order(dictreplica, client_ip)
+                    except AddressNotFoundError:
+                        pass
                 else:
                     replicas = random_order(dictreplica, client_ip)
                 if metalink is None:
@@ -103,6 +111,8 @@ class Replicas(RucioController):
                     for replica in replicas:
                         yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
                         idx += 1
+                        if limit and limit == idx:
+                            break
                     yield '  </resources>\n </file>\n'
                 elif metalink == 4:
                     yield ' <file name="' + rfile['name'] + '">\n'
@@ -114,13 +124,18 @@ class Replicas(RucioController):
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx+1) + '">' + replica + '</url>\n'
                         idx += 1
+                        if limit and limit == idx:
+                            break
                     yield ' </file>\n'
 
             # don't forget to send the metalink footer
-            if metalink is not None:
-                yield '</files>\n</metalink>\n'
+            if metalink:
+                if metalink == 3:
+                    yield '</files>\n</metalink>\n'
+                elif metalink == 4:
+                    yield '</metalink>\n'
 
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
@@ -259,7 +274,7 @@ class ListReplicas(RucioController):
             if 'application/metalink4+xml' in tmp:
                 metalink = 4
 
-        dids, schemes, select, unavailable = [], None, None, False
+        dids, schemes, select, unavailable, limit = [], None, None, False, None
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -276,6 +291,8 @@ class ListReplicas(RucioController):
             params = parse_qs(ctx.query[1:])
             if 'select' in params:
                 select = params['select'][0]
+            if 'limit' in params:
+                limit = params['limit'][0]
 
         try:
             # first, set the appropriate content type, and stream the header
@@ -286,7 +303,7 @@ class ListReplicas(RucioController):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink version="3.0" xmlns="http://www.metalinker.org/">\n<files>\n'
             elif metalink == 4:
                 header('Content-Type', 'application/metalink4+xml')
-                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n<files>\n'
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id')):
@@ -309,6 +326,8 @@ class ListReplicas(RucioController):
                     for replica in replicas:
                         yield '   <url type="http" preference="' + str(idx) + '">' + replica + '</url>\n'
                         idx += 1
+                        if limit and limit == idx:
+                            break
                     yield '  </resources>\n </file>\n'
                 elif metalink == 4:
                     yield ' <file name="' + rfile['name'] + '">\n'
@@ -320,13 +339,18 @@ class ListReplicas(RucioController):
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx+1) + '">' + replica + '</url>\n'
                         idx += 1
+                        if limit and limit == idx:
+                            break
                     yield ' </file>\n'
 
             # don't forget to send the metalink footer
-            if metalink is not None:
-                yield '</files>\n</metalink>\n'
+            if metalink:
+                if metalink == 3:
+                    yield '</files>\n</metalink>\n'
+                elif metalink == 4:
+                    yield '</metalink>\n'
 
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
