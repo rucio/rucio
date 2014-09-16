@@ -113,11 +113,10 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
             logging.info('Running on RSE %s' % (rse_info['rse']))
             try:
-
                 needed_free_space, max_being_deleted_files = None, 10000
                 if not greedy:
                     max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
-                    logging.info('Space usage for RSE %(rse)s: max_being_deleted_files, needed_free_space, used, free' % rse, max_being_deleted_files, needed_free_space, used, free)
+                    logging.info('Space usage for RSE %(rse)s - max_being_deleted_files: %(max_being_deleted_files)s, needed_free_space: %(needed_free_space)s, used: %(used)s, free: %(free)s' % locals())
 
                 s = time.time()
                 with monitor.record_timer_block('reaper.list_unlocked_replicas'):
@@ -245,7 +244,7 @@ def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], sche
         rses = [rse for rse in rses if rse not in excluded_rses]
 
     threads = list()
-    nb_rses_per_worker = len(rses) / total_workers
+    nb_rses_per_worker = len(rses) / total_workers or 1
     r = []
     for i in xrange(0, len(rses), nb_rses_per_worker):
         kwargs = {'worker_number': (i * nb_rses_per_worker) + 1,
