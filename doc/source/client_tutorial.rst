@@ -1,3 +1,10 @@
+..
+      Copyright European Organization for Nuclear Research (CERN)
+
+      Licensed under the Apache License, Version 2.0 (the "License");
+      You may not use this file except in compliance with the License.
+      You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0i
+
 ==================
 Rucio CLI tutorial
 ==================
@@ -8,7 +15,7 @@ Rucio CLI tutorial
 This command connect to server to get the version running on the server. Actually, if there is a configuration problem, this command will fail. In order to everything else in this tutorial works, this command should run smoothly.::
 
     $> rucio ping
-    0.1.32
+    0.1.33
 
 You will probably need to check your etc/rucio.cfg file if the output is more like this::
 
@@ -50,7 +57,7 @@ Whenever you need to locate, upload, download or delete a replica, often you wil
     ZA-WITS-CORE_PRODDISK
     ZA-WITS-CORE_SCRATCHDISK
 
-You can filter the type of the endpoint just greping the output. For example, to the all the available scratch disks, this should work::
+You can filter the type of the endpoint just greping the output. For example, to the see all the available scratch disks, this should work::
 
     $> rucio list-rses | grep SCRATCHDISK
     AGLT2_SCRATCHDISK
@@ -88,6 +95,8 @@ To download a replica, you will need the scope and the name of the replica.::
     File validated
     download operation for user.jbogadog:halpha-spectre.dat done
 
+The downloaded file will be in $RUCIO_HOME/<your_scope>. In the example, **$RUCIO_HOME/user.jbogadog/halpha-spectre.dat**
+
 ``Create a dataset and add files to it``
 ----------------------------------------
 In Rucio, you can create, upload and download Datasets. A Dataset is a container for several files. You can create a Dataset with the following command.::
@@ -95,7 +104,7 @@ In Rucio, you can create, upload and download Datasets. A Dataset is a container
     $> rucio add-dataset user.jbogadog:mydataset
     Added user.jbogadog:mydataset
 
-Note that you always need to refer to the Dataset by scope:name, where 'scope' usually is user.<your_login_name> and 'name' is the name of the scope. The previous command creates an open empty Dataset in the Rucio Catalog. You now can add files to it in the following way::
+Note that you always need to refer to the Dataset by scope:name, where 'scope' usually is user.<your_login_name> and 'name' is the name of the Dataset. The previous command creates an open empty Dataset in the Rucio Catalog. You now can add files to it in the following way::
 
     $> rucio add-files-to-dataset --to user.jbogadog:mydataset user.jbogadog:hbeta-spectre.dat user.jbogadog:na-spectre.dat user.jbogadog:halpha-spectre.dat
 
@@ -146,4 +155,62 @@ Also, you can see the properties of a files using get-metadata command::
     length: None
     prod_step: None
 
+``Adding rules for replication``
+--------------------------------
+In Rucio, you can add rules to automatically replicate files and datasets. In order to create a new rule for a file or dataset, you can try this::
+
+    $> rucio add-rule user.jbogadog:halpha-spectre.dat 2 'spacetoken=ATLASSCRATCHDISK'
+
+This will add a rule that makes 2 copies of the file 'user.jbogadog:halpha-spectre.dat'. The expression between quotes is a boolean one, that returns a list of possible RSEs in which the files or datasets can be copied. Rucio will automatically select the best option that satisfy the criterion. Other possible expressions are *'tier=3'*, *'cloud=DE'*, *'country=Argentina'*, etc. To see what properties can you use to filter an endpoint, you can run::
+
+    $> rucio-admin rse get-attribute 'PRAGUELCG2-RUCIOTEST_SCRATCHDISK'
+    DETIER2S: True
+    ALL: True
+    DETIER2DS: True
+    physgroup: None
+    country: Czech Republic
+    spacetoken: ATLASSCRATCHDISK
+    site: praguelcg2
+    PRAGUELCG2-RUCIOTEST_SCRATCHDISK: True
+    cloud: DE
+    TIER2DS: True
+    tier: 2
+    FZKSITES: True
+    stresstestweight: 1.0
+    istape: False
+
+For more information on rules and how to combine it, you can read the `Replication Rules Syntax`_ section.
+
+.. _`Replication Rules Syntax`: ./replication_rules_examples.html
+
+You can also see all the rules for your files with::
+
+    $> rucio list-rules --account jbogadog
+    ID (account) SCOPE:NAME: STATE [LOCKS_OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES
+    ===================================================================================
+    2d6472897cb4414786f66c80b7b857d5 (jbogadog) user.jbogadog:halpha-spectre.dat: REPLICATING[0/2/0], "tier=3", 2
+    980fcfae20244f3ca147b0d368d800e5 (jbogadog) user.jbogadog:hbeta-spectre.dat: REPLICATING[0/1/0], "PRAGUELCG2-RUCIOTEST_SCRATCHDISK", 1
+    a86be72f7b5c4cfeb9bd700e7a7462cc (jbogadog) user.jbogadog:na-spectre.dat: REPLICATING[0/1/0], "PRAGUELCG2-RUCIOTEST_SCRATCHDISK", 1
+    530e46584b5048b093b97f1d3007fc6b (jbogadog) user.jbogadog:halpha-spectre.dat: REPLICATING[0/1/0], "PRAGUELCG2-RUCIOTEST_SCRATCHDISK", 1
+    c356af4fec964f9582ec2c3d6360eded (jbogadog) user.jbogadog:halpha-spectre.dat: REPLICATING[1/1/0], "spacetoken=ATLASSCRATCHDISK", 2
+
+And you can see information about the rule status with::
+
+    $> rucio rule-info c356af4fec964f9582ec2c3d6360eded
+    Id:                         c356af4fec964f9582ec2c3d6360eded
+    Account:                    jbogadog
+    Scope:                      user.jbogadog
+    Name:                       halpha-spectre.dat
+    RSE Expression:             spacetoken=ATLASSCRATCHDISK
+    Copies:                     2
+    State:                      REPLICATING
+    Locks OK/REPLICATING/STUCK: 1/1/0
+    Grouping:                   DATASET
+    Expires at:                 None
+    Locked:                     False
+    Weight:                     None
+    Created at:                 2014-09-15 11:06:21
+    Updated at:                 2014-09-15 11:06:21
+    Error:                      None
+    Subscription Id:            None
 
