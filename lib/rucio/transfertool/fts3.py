@@ -17,6 +17,8 @@ import sys
 import requests
 
 from rucio.common.config import config_get
+from rucio.db.constants import FTSState
+
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -197,6 +199,75 @@ def query_details(transfer_id, transfer_host):
         return files.json()
 
     return
+
+
+def bulk_query(transfer_ids, transfer_host):
+    """
+    Query the status of a bulk of transfers in FTS3 via JSON.
+
+    :param transfer_ids: FTS transfer identifiers as a list.
+    :param transfer_host: FTS server as a string.
+    :returns: Transfer status information as a dictionary.
+    """
+
+    job = None
+
+    responses = {}
+    if transfer_host.startswith('https://'):
+        fts_session = requests.Session()
+        for transfer_id in transfer_ids:
+            job = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
+                                  verify=__CACERT,
+                                  cert=(__USERCERT, __USERCERT),
+                                  headers={'Content-Type': 'application/json'})
+            if not job:
+                responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
+            elif job.status_code == 200:
+                responses[transfer_id] = job.json()
+
+                if responses[transfer_id]['job_state'] in (str(FTSState.FAILED),
+                                                           str(FTSState.FINISHEDDIRTY),
+                                                           str(FTSState.CANCELED),
+                                                           str(FTSState.FINISHED)):
+                    files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
+                                            verify=__CACERT,
+                                            cert=(__USERCERT, __USERCERT),
+                                            headers={'Content-Type': 'application/json'})
+                    if files and files.status_code == 200:
+                        responses[transfer_id]['files'] = files.json()
+                    else:
+                        responses[transfer_id]['files'] = Exception('Could not retrieve files information: %s', files)
+
+            elif "No job with the id" in job.text:
+                responses[transfer_id] = None
+            else:
+                responses[transfer_id] = Exception('Could not retrieve transfer information: %s', job.content)
+    else:
+        fts_session = requests.Session()
+        for transfer_id in transfer_ids:
+            job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
+                               headers={'Content-Type': 'application/json'})
+            if not job:
+                responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
+            elif job.status_code == 200:
+                responses[transfer_id] = job.json()
+                if responses[transfer_id]['job_state'] in (str(FTSState.FAILED),
+                                                           str(FTSState.FINISHEDDIRTY),
+                                                           str(FTSState.CANCELED),
+                                                           str(FTSState.FINISHED)):
+                    files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
+                                         headers={'Content-Type': 'application/json'})
+                    if files and files.status_code == 200:
+                        responses[transfer_id]['files'] = files.json()
+                    else:
+                        responses[transfer_id]['files'] = Exception('Could not retrieve files information: %s', files)
+
+            elif "No job with the id" in job.text:
+                responses[transfer_id] = None
+            else:
+                responses[transfer_id] = Exception('Could not retrieve transfer information: %s', job.content)
+
+    return responses
 
 
 def cancel(transfer_id, transfer_host):
