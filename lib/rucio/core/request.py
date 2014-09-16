@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 import datetime
 import json
@@ -50,7 +51,10 @@ def requeue_and_archive(request_id, session=None):
         archive_request(request_id, session=session)
         new_req['request_id'] = generate_uuid()
         new_req['previous_attempt_id'] = request_id
-        new_req['retry_count'] += 1
+        if new_req['retry_count'] is None:
+            new_req['retry_count'] = 1
+        else:
+            new_req['retry_count'] += 1
 
         # hardcoded for now - only requeue a couple of times
         if new_req['retry_count'] < 4:
@@ -290,6 +294,62 @@ def query_request(request_id, transfertool='fts3', session=None):
         raise NotImplementedError
 
     return req_status
+
+
+@read_session
+def bulk_query_requests(request_host, request_ids, transfertool='fts3', session=None):
+    """
+    Query the status of a request.
+
+    :param request_host: Name of the external host.
+    :param request_ids: List of (Request-ID as a 32 character hex string, External-ID as a 32 character hex string)
+    :param transfertool: Transfertool name as a string.
+    :param session: Database session to use.
+    :returns: Request status information as a dictionary.
+    """
+
+    record_counter('core.request.query_request')
+
+    transfer_ids = []
+    for request_id, external_id in request_ids:
+        transfer_ids.append(external_id)
+
+    if transfertool == 'fts3':
+        try:
+            ts = time.time()
+            fts_resps = fts3.bulk_query(transfer_ids, request_host)
+            record_timer('core.request.query_bulk_request_fts3', (time.time() - ts) * 1000 / len(transfer_ids))
+        except Exception:
+            raise
+
+        responses = {}
+        for request_id, external_id in request_ids:
+            req_status = {'request_id': request_id,
+                          'transfer_id': external_id,
+                          'job_state': None,
+                          'new_state': None}
+            fts_resp = fts_resps[external_id]
+            req_status['details'] = fts_resp
+            if not fts_resp:
+                req_status['new_state'] = RequestState.LOST
+            elif not isinstance(fts_resp, Exception):
+                if 'job_state' not in fts_resp:
+                    req_status['new_state'] = RequestState.LOST
+                else:
+                    req_status['job_state'] = fts_resp['job_state']
+                    if fts_resp['job_state'] in (str(FTSState.FAILED),
+                                                 str(FTSState.FINISHEDDIRTY),
+                                                 str(FTSState.CANCELED)):
+                        req_status['new_state'] = RequestState.FAILED
+                    elif fts_resp['job_state'] == str(FTSState.FINISHED):
+                        req_status['new_state'] = RequestState.DONE
+
+            responses[request_id] = req_status
+        return responses
+    else:
+        raise NotImplementedError
+
+    return None
 
 
 @read_session
