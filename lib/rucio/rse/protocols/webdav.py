@@ -260,10 +260,7 @@ class Default(protocol.RSEProtocol):
         path = self.path2pfn(target)
         full_name = source_dir + '/' + source if source_dir else source
         directories = path.split('/')
-        for directory_level in reversed(xrange(1, 4)):
-            upper_directory = "/".join(directories[:-directory_level])
-            if not self.exists(upper_directory):
-                self.mkdir(upper_directory)
+        # Try the upload without testing the existence of the destination directory
         try:
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
@@ -274,8 +271,26 @@ class Default(protocol.RSEProtocol):
             if result.status_code in [409, ]:
                 raise exception.FileReplicaAlreadyExists()
             else:
-                # catchall exception
-                raise exception.RucioException(result.status_code, result.text)
+                # Create the directories before issuing the PUT
+                for directory_level in reversed(xrange(1, 4)):
+                    upper_directory = "/".join(directories[:-directory_level])
+                    self.mkdir(upper_directory)
+                try:
+                    if not os.path.exists(full_name):
+                        raise exception.SourceNotFound()
+                    it = uploadInChunks(full_name, 10000000, progressbar)
+                    result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
+                    if result.status_code in [200, 201]:
+                        return
+                    if result.status_code in [409, ]:
+                        raise exception.FileReplicaAlreadyExists()
+                    else:
+                        # catchall exception
+                        raise exception.RucioException(result.status_code, result.text)
+                except requests.exceptions.ConnectionError, e:
+                    raise exception.ServiceUnavailable(e)
+                except IOError, e:
+                    raise exception.SourceNotFound(e)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
         except IOError, e:
@@ -293,18 +308,8 @@ class Default(protocol.RSEProtocol):
         new_path = self.path2pfn(new_pfn)
         directories = new_path.split('/')
 
-        directoriesToCreate = []
-        for directory_level in xrange(1, 6):
-            upper_directory = "/".join(directories[:-directory_level])
-            if not self.exists(upper_directory):
-                directoriesToCreate.append(upper_directory)
-            else:
-                break
-
-        for dir in reversed(directoriesToCreate):
-            self.mkdir(dir)
-
         headers = {'Destination': new_path}
+        # Try the rename without testing the existence of the destination directory
         try:
             result = self.session.request('MOVE', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
             if result.status_code == 201:
@@ -312,8 +317,21 @@ class Default(protocol.RSEProtocol):
             elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
             else:
-                # catchall exception
-                raise exception.RucioException(result.status_code, result.text)
+                # Create the directories before issuing the MOVE
+                for directory_level in reversed(xrange(1, 4)):
+                    upper_directory = "/".join(directories[:-directory_level])
+                    self.mkdir(upper_directory)
+                try:
+                    result = self.session.request('MOVE', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
+                    if result.status_code == 201:
+                        return
+                    elif result.status_code in [404, ]:
+                        raise exception.SourceNotFound()
+                    else:
+                        # catchall exception
+                        raise exception.RucioException(result.status_code, result.text)
+                except requests.exceptions.ConnectionError, e:
+                    raise exception.ServiceUnavailable(e)
         except requests.exceptions.ConnectionError, e:
             raise exception.ServiceUnavailable(e)
 
@@ -347,7 +365,7 @@ class Default(protocol.RSEProtocol):
         path = self.path2pfn(directory)
         try:
             result = self.session.request('MKCOL', path, verify=False, timeout=self.timeout, cert=self.cert)
-            if result.status_code in [201, ]:
+            if result.status_code in [201, 405]:  # Success or directory already exists
                 return
             elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
