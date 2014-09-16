@@ -198,8 +198,8 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                         s = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse=rse['rse'], files=deleted_files)
-                        logging.debug('delete_replicas %s %s %s' % (rse['rse'], len(files), time.time() - s))
-                        monitor.record_counter(counters='reaper.deletion.done',  delta=len(files))
+                        logging.debug('delete_replicas successes %s %s %s' % (rse['rse'], len(deleted_files), time.time() - s))
+                        monitor.record_counter(counters='reaper.deletion.done',  delta=len(deleted_files))
                     except:
                         logging.critical(traceback.format_exc())
             except:
