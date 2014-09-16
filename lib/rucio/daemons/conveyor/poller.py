@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -92,6 +93,66 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     logging.debug('%i:%i - graceful stop done' % (process, thread))
 
 
+def bulk_poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, with_bulk=500):
+    """
+    Main loop to check the status of a transfer primitive with a transfertool.
+    """
+
+    logging.info('bulk_poller starting - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
+
+    logging.info('bulk_poller started - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
+
+    while not graceful_stop.is_set():
+
+        try:
+            ts = time.time()
+            reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                    state=RequestState.SUBMITTED,
+                                    limit=with_bulk,
+                                    older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
+                                    process=process, total_processes=total_processes,
+                                    thread=thread, total_threads=total_threads)
+            record_timer('daemons.conveyor.bulk_poller.000-get_next', (time.time()-ts)*1000)
+
+            if reqs:
+                logging.debug('%i:%i - polling %i requests' % (process, thread, len(reqs)))
+
+            if not reqs or reqs == []:
+                if once:
+                    break
+                time.sleep(1)  # Only sleep if there is nothing to do
+                continue
+
+            req_ids = {}
+            for req in reqs:
+                if not req['external_host'] in req_ids:
+                    req_ids[req['external_host']] = []
+                req_ids[req['external_host']].append((req['request_id'], req['external_id']))
+
+            responses = {}
+            for external_host in req_ids:
+                ts = time.time()
+                resps = request.bulk_query_requests(external_host, req_ids[external_host], 'fts3')
+                record_timer('daemons.conveyor.bulk_poller.001-query_request', (time.time()-ts)*1000/len(req_ids[external_host]))
+                responses = dict(responses.items() + resps.items())
+
+            for req in reqs:
+                response = responses[req['request_id']]
+                common.update_request_state2(req, response)
+
+            record_counter('daemons.conveyor.bulk_poller.query_request')
+
+        except:
+            logging.critical(traceback.format_exc())
+
+        if once:
+            return
+
+    logging.debug('%i:%i - graceful stop requests' % (process, thread))
+
+    logging.debug('%i:%i - graceful stop done' % (process, thread))
+
+
 def stop(signum=None, frame=None):
     """
     Graceful exit.
@@ -100,19 +161,25 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1):
+def run(once=False, process=0, total_processes=1, total_threads=1, with_bulk=None):
     """
     Starts up the conveyer threads.
     """
 
     if once:
         logging.info('executing one poller iteration only')
-        poller(once)
+        if with_bulk:
+            bulk_poller(once=once, with_bulk=with_bulk)
+        else:
+            poller(once)
 
     else:
 
         logging.info('starting poller threads')
-        threads = [threading.Thread(target=poller, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
+        if with_bulk:
+            threads = [threading.Thread(target=bulk_poller, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'with_bulk': with_bulk}) for i in xrange(0, total_threads)]
+        else:
+            threads = [threading.Thread(target=poller, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 
