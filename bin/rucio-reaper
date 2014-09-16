@@ -26,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
     parser.add_argument("--chunk-size", action="store", default=10, type=int, help='Chunk size')
     parser.add_argument("--scheme", action="store", default=None, type=str, help='Force the reaper to use a particular protocol, e.g., mock.')
-    parser.add_argument('--greedy', action='store_true', default=True, help='Greedy mode')
+    parser.add_argument('--greedy', action='store_true', default=False, help='Greedy mode')
     parser.add_argument('--exclude-rses', action="store", default=None, type=str, help='RSEs expression to exclude RSEs')
     parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
 
