@@ -500,7 +500,9 @@ def info_rse(args):
     print 'Usage:'
     print '======'
     for elem in usage:
-        print '  ' + elem + ': ' + str(usage[elem])
+        print '  ' + elem['source']
+        for e in elem:
+            print '    ' + e + ': ' + str(elem[e])
 
     return SUCCESS
 
