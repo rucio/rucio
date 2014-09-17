@@ -170,29 +170,27 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
 
 
 @transactional_session
-def successful_transfer(scope, name, rse_id, session=None):
+def successful_transfer(scope, name, rse_id, nowait, session=None):
     """
     Update the state of all replica locks because of an successful transfer
 
     :param scope:    Scope of the did
     :param name:     Name of the did
     :param rse_id:   RSE id
+    :param nowait:   Nowait parameter for the for_update queries.
+    :param session:  DB Session.
     """
 
-    locks = session.query(models.ReplicaLock).with_for_update(nowait=True).filter_by(scope=scope, name=name, rse_id=rse_id)
+    locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         if lock.state == LockState.OK:
             continue
         lock.state = LockState.OK
 
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_for_update(nowait=True).filter_by(id=lock.rule_id).one()
+        rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
         rule.locks_replicating_cnt -= 1
         rule.locks_ok_cnt += 1
-
-        # rowcount = session.query(models.ReplicationRule).filter_by(id=lock.rule_id).\
-        #    update({'locks_replicating_cnt': models.ReplicationRule.locks_replicating_cnt - 1,
-        #            'locks_ok_cnt':  models.ReplicationRule.locks_ok_cnt + 1})
 
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
@@ -205,7 +203,7 @@ def successful_transfer(scope, name, rse_id, session=None):
             rule.state = RuleState.OK
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
-                dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
+                dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
                     dataset_lock.state = LockState.OK
                     add_message(event_type='DATASETLOCK_OK',
