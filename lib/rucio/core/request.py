@@ -27,7 +27,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name
 from rucio.db import models
-from rucio.db.constants import RequestState, FTSState
+from rucio.db.constants import RequestState, RequestType, FTSState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
 
@@ -482,60 +482,44 @@ def archive_request(request_id, session=None):
                                                                 previous_attempt_id=req['previous_attempt_id'],
                                                                 external_host=req['external_host'])
         hist_request.save(session=session)
-        purge_request(request_id=request_id, session=session)
+        try:
+            session.query(models.Request).filter_by(id=request_id).delete()
+        except IntegrityError, e:
+            raise RucioException(e.args)
 
 
 @transactional_session
-def purge_request(request_id, session=None):
-    """
-    Purge a request.
-
-    :param request_id: Request Identifier as a 32 character hex string.
-    :param session: Database session to use.
-    """
-
-    record_counter('core.request.purge_request')
-
-    try:
-        session.query(models.Request).filter_by(id=request_id).delete()
-    except IntegrityError, e:
-        raise RucioException(e.args)
-
-
-@read_session
-def cancel_request(request_id, transfertool, session=None):
-    """
-    Cancel a request.
-
-    :param request_id: Request Identifier as a 32 character hex string.
-    :param session: Database session to use.
-    """
-
-    record_counter('core.request.cancel_request')
-
-    req = get_request(request_id, session=session)
-
-    if transfertool == 'fts3':
-        ts = time.time()
-        tmp = fts3.cancel(req['transfer_id'], req['external_host'])
-        record_timer('core.request.cancel_request_fts3', (time.time() - ts) * 1000)
-        return tmp
-
-
-def cancel_request_did(scope, name, dest_rse, request_type):
+def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, session=None):
     """
     Cancel a request based on a DID and request type.
 
     :param scope: Data identifier scope as a string.
     :param name: Data identifier name as a string.
-    :param dest_rse: RSE name as a string.
-    :param request_type: Type of the request as a string.
+    :param dest_rse_id: RSE id as a string.
+    :param request_type: Type of the request.
+    :param session: Database session to use.
     """
 
     record_counter('core.request.cancel_request_did')
 
-    # select correct transfertool and external transfer id based on request entry in database
-    transfer_id = 'whatever'
+    reqs = None
+    try:
+        reqs = session.query(models.Request.id,
+                             models.Request.external_id,
+                             models.Request.external_host).filter_by(scope=scope,
+                                                                     name=name,
+                                                                     dest_rse_id=dest_rse_id,
+                                                                     request_type=request_type).all()
+        if not reqs:
+            logging.warn('Tried to cancel non-existant request for DID %s:%s at RSE ID %s' % (scope, name, dest_rse_id))
+    except IntegrityError, e:
+        raise RucioException(e.args)
 
-    return None  # TODO: Temporary
-    return fts3.cancel(transfer_id)  # hardcoded for now
+    for req in reqs:
+        # is there a transfer already in FTS3? if so, try to cancel it
+        if req[1] is not None:
+            try:
+                fts3.cancel(req[1], req[2])
+            except Exception, e:
+                logging.warn('Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(e)))
+        archive_request(request_id=req[0], session=session)
