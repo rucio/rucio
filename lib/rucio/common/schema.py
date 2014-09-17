@@ -190,6 +190,50 @@ subscription_filter = {"type": "object",
                                       "account": {"type": "string", "pattern": "^[a-z0-9-]{1,30}$"},
                                       "grouping": {"type": "string"}}}
 
+add_replica_file = {"description": "add replica file",
+                    "type": "object",
+                    "properties": {"scope": scope,
+                                   "name": name,
+                                   "bytes": bytes,
+                                   "adler32": adler32},
+                    "required": ["scope", "name", "bytes", "adler32"]}
+
+add_replica_files = {"description": "add replica files",
+                     "type": "array",
+                     "items": add_replica_file,
+                     "minItems": 1,
+                     "maxItems": 1000}
+
+cache_add_replicas = {"description": "rucio cache add replicas",
+                      "type": "object",
+                      "properties": {"files": add_replica_files,
+                                     "rse": rse,
+                                     "lifetime": lifetime,
+                                     "operation": {"enum": ["add_replicas"]}},
+                      "required": ['files', 'rse', 'lifetime', 'operation']}
+
+delete_replica_file = {"description": "delete replica file",
+                       "type": "object",
+                       "properties": {"scope": scope,
+                                      "name": name},
+                       "required": ["scope", "name"]}
+
+delete_replica_files = {"description": "delete replica files",
+                        "type": "array",
+                        "items": delete_replica_file,
+                        "minItems": 1,
+                        "maxItems": 1000}
+
+cache_delete_replicas = {"description": "rucio cache delete replicas",
+                         "type": "object",
+                         "properties": {"files": delete_replica_files,
+                                        "rse": rse,
+                                        "operation": {"enum": ["delete_replicas"]}},
+                         "required": ['files', 'rse', 'operation']}
+
+message_operation = {"type": "object",
+                     "properties": {'operation': {"enum": ["add_replicas", "delete_replicas"]}}}
+
 schemas = {'account': account,
            'account_type': account_type,
            'name': name,
@@ -206,7 +250,9 @@ schemas = {'account': account,
            'collections': collections,
            'attachment': attachment,
            'attachments': attachments,
-           'subscription_filter': subscription_filter}
+           'subscription_filter': subscription_filter,
+           'cache_add_replicas': cache_add_replicas,
+           'cache_delete_replicas': cache_delete_replicas}
 
 
 def validate_schema(name, obj):

@@ -1,0 +1,127 @@
+#!/usr/bin/env python
+
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2014
+
+"""
+    Rucio Cache client.
+"""
+
+import argparse
+import json
+import os
+import random
+import stomp
+import sys
+
+from jsonschema import validate
+
+from rucio.client.didclient import DIDClient
+from rucio.client.rseclient import RSEClient
+from rucio.common.config import config_get, config_get_int
+from rucio.common.exception import DataIdentifierNotFound
+from rucio.common.schema import cache_add_replicas, cache_delete_replicas, message_operation
+
+SUCCESS = 0
+FAILURE = 1
+
+
+def validate_files(files):
+    """ validate files metadata"""
+    client = DIDClient()
+    for file in files:
+        try:
+            metadata = client.get_metadata(file["scope"], file["name"])
+        except DataIdentifierNotFound:
+            err = "%s:%s not found in rucio catalog" % (file["scope"], file["name"])
+            raise Exception(err)
+        if int(metadata["bytes"]) != int(file["bytes"]) or metadata["adler32"] != file["adler32"]:
+            err = "%s:%s(bytes:%s, adler32:%s) has different size or checksum with metadata(bytes:%s, adler32:%s)" % (file["scope"], file["name"], file["bytes"], file["adler32"], metadata["bytes"], metadata["adler32"])
+            raise Exception(err)
+
+
+def validate_rse(rse):
+    """ validate rse"""
+    # the rse should be volatile
+    client = RSEClient()
+    try:
+        rse_attributes = client.get_rse(rse)
+    except Exception, e:
+        raise Exception(e)
+
+    if not rse_attributes["volatile"]:
+        err = "%s volatile is not True, Rucio Cache should not update it." % (rse)
+        raise Exception(err)
+
+
+def cache_operation(args):
+    """ cache operation"""
+    payload = json.loads(args.message)
+    validate(payload, message_operation)
+    validate_rse(payload["rse"])
+    if payload["operation"] == "add_replicas":
+        validate(payload, cache_add_replicas)
+        validate_files(payload["files"])
+    else:
+        validate(payload, cache_delete_replicas)
+    conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file)
+
+    conn.start()
+    conn.connect()
+    message = {'id': int(random.random() * 1000), 'payload': payload}
+    conn.send(destination=args.destination, body=json.dumps(message), id='rucio-cache-messaging', ack='auto', headers={'vo': 'atlas'})
+    conn.disconnect()
+
+if __name__ == '__main__':
+    usage = """
+usage: %(prog)s <command> [options] [args]
+
+Commands:
+
+    help <command>  Output help for one of the commands below
+
+"""
+
+    message_help = """
+    Add replicas message:
+        {'files': [{'scope': scope, 'name': name, 'bytes': 1L, 'adler32': ''},
+                  {'scope': scope, 'name': name, 'bytes': 1L, 'adler32': ''}, ...],
+         'rse': rse_cache_name,
+         'lifetime': seconds,
+         'operation': 'add_replicas'
+        }
+
+    Delete replicas message:
+        {'files': [{'scope': scope, 'name': name}, {'scope': scope, 'name': name}, ...],
+         'rse': rse_cache_name,
+         'operation': 'delete_replicas'
+        }
+"""
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
+
+    # Main arguments
+    oparser.add_argument('-b', '--broker', dest='broker', default=config_get('messaging-cache', 'brokers').split(',')[0], help='Message broker name')
+    oparser.add_argument('-p', '--port', dest='port', default=config_get_int('messaging-cache', 'port'), help='Message broker port')
+    oparser.add_argument('-c', '--certificate', dest='ssl_cert_file', default=config_get('messaging-cache', 'ssl_cert_file'), help='Certificate file')
+    oparser.add_argument('-k', '--certificate_key', dest='ssl_key_file', default=config_get('messaging-cache', 'ssl_key_file'), help='Certificate key file')
+    oparser.add_argument('-d', '--destination', dest='destination', default=config_get('messaging-cache', 'destination'), help="Message broker topic")
+    oparser.add_argument('-m', '--message', dest='message', default=None, help=message_help)
+
+    if len(sys.argv) == 1:
+        oparser.print_help()
+        sys.exit(FAILURE)
+
+    args = oparser.parse_args(sys.argv[1:])
+
+    try:
+        result = cache_operation(args)
+        sys.exit(result)
+    except (RuntimeError, NotImplementedError), e:
+        print >> sys.stderr, "ERROR: ", e
+        sys.exit(FAILURE)
