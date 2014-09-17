@@ -9,6 +9,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 """
 Methods common to different conveyor daemons.
@@ -86,31 +87,23 @@ def update_request_state(req, response, session=None):
             activity = req_attributes['activity'] if req_attributes['activity'] else 'default'
 
         if response['new_state'] == RequestState.DONE:
-
-            tss = time.time()
-            try:
-                lock.successful_transfer(req['scope'],
-                                         req['name'],
-                                         req['dest_rse_id'],
-                                         session=session)
-            except:
-                logging.warn('Could not update lock for successful transfer %s:%s at %s (%s)' % (req['scope'],
-                                                                                                 req['name'],
-                                                                                                 rse_name,
-                                                                                                 sys.exc_info()[1]))
-                raise
-
-            record_timer('daemons.conveyor.common.update_request_state.lock-successful_transfer', (time.time()-tss)*1000)
-
             tss = time.time()
             try:
                 logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], rse_name))
-                replica.update_replicas_states([{'rse': rse_name,
-                                                 'scope': req['scope'],
-                                                 'name': req['name'],
-                                                 'state': ReplicaState.AVAILABLE}],
-                                               session=session)
-                record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
+                try:
+                    replica.update_replicas_states([{'rse': rse_name,
+                                                     'scope': req['scope'],
+                                                     'name': req['name'],
+                                                     'state': ReplicaState.AVAILABLE}],
+                                                   nowait=True,
+                                                   session=session)
+                    record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
+                except:
+                    logging.warn('Could not update lock for successful transfer %s:%s at %s (%s)' % (req['scope'],
+                                                                                                     req['name'],
+                                                                                                     rse_name,
+                                                                                                     sys.exc_info()[1]))
+                    raise
 
                 tss = time.time()
 
