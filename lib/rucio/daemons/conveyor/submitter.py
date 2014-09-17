@@ -321,22 +321,22 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                                                                               transfer_host))
                     record_counter('daemons.conveyor.submitter.submit_request')
                 except UnsupportedOperation, e:
-                    # The replica doesn't exist
-                    # Need to cancel the request
+                    # The replica doesn't exist, need to cancel the request
                     logging.warning(e)
                     logging.info('Cancelling transfer request %s' % req['request_id'])
                     try:
-                        request.cancel_request(eid[req['request_id']], transfertool='fts3')
-                        request.purge_request(req['request_id'])
+                        # TODO: for now, there is only ever one destination
+                        request.cancel_request_did(req['scope'], req['name'], destinations[0])
                     except Exception, e:
-                        logging.warning('Cannot cancel FTS job : %s' % str(e))
+                        logging.warning('Cannot cancel request: %s' % str(e))
         except:
             logging.critical(traceback.format_exc())
             logging.info('Cancelling transfer request %s' % req['request_id'])
             try:
-                request.cancel_request(eid[req['request_id']], transfertool='fts3')
+                # TODO: for now, there is only ever one destination
+                request.cancel_request_did(req['scope'], req['name'], destinations[0])
             except Exception, e:
-                logging.warning('Cannot cancel FTS job : %s' % str(e))
+                logging.warning('Cannot cancel request: %s' % str(e))
 
         if once:
             return
