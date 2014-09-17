@@ -115,6 +115,15 @@ adler32 = 52590737
 [alembic]
 cfg = alembic.ini
 
+[messaging-cache]
+port = 61023
+ssl_key_file = /etc/grid-security/hostkey.pem
+ssl_cert_file = /etc/grid-security/hostcert.pem
+destination = /topic/rucio.fax
+brokers = atlas-test-mb.cern.ch
+voname = atlas
+account = cache_mb
+
 [test]
 cacert = /opt/rucio/etc/web/ca.crt
 #cacert = /etc/pki/tls/certs/CERN-bundle.pem
