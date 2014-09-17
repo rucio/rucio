@@ -581,10 +581,14 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     query = query.limit(limit)
 
     rows = list()
-    #  neededSpace = bytes
+    neededSpace = bytes
+    totalbytes = 0
     for (scope, name, bytes) in query.yield_per(1000):
+        if totalbytes >= neededSpace:
+            break
         d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
+        totalbytes += bytes
 
     return rows
 
