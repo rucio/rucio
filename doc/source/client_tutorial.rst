@@ -86,6 +86,8 @@ To upload a replica for a file, you will need the name of the endpoint (RSE name
     2014-09-10 15:40:59,523 INFO [File replicas states successfully updated]
     2014-09-10 15:40:59,523 INFO [Upload successfull]
 
+The scope:name pair is called DID. This is a unique identifier for every file or dataset in Rucio Catalog.
+
 ``Download a replica``
 ----------------------
 To download a replica, you will need the scope and the name of the replica.::
@@ -95,7 +97,7 @@ To download a replica, you will need the scope and the name of the replica.::
     File validated
     download operation for user.jbogadog:halpha-spectre.dat done
 
-The downloaded file will be in $RUCIO_HOME/<your_scope>. In the example, **$RUCIO_HOME/user.jbogadog/halpha-spectre.dat**
+The downloaded file will be in $RUCIO_HOME/<your_scope>. In the example, *$RUCIO_HOME/user.jbogadog/halpha-spectre.dat*
 
 ``Create a dataset and add files to it``
 ----------------------------------------
@@ -109,6 +111,13 @@ Note that you always need to refer to the Dataset by scope:name, where 'scope' u
     $> rucio add-files-to-dataset --to user.jbogadog:mydataset user.jbogadog:hbeta-spectre.dat user.jbogadog:na-spectre.dat user.jbogadog:halpha-spectre.dat
 
 All the files you want to add to a dataset must be previously uploaded to Rucio Catalog.
+
+Now you can see the content of a dataset with the command::
+
+    $> rucio list-dids user.jbogadog:mydataset
+    user.jbogadog:halpha-spectre.dat [FILE]
+    user.jbogadog:hbeta-spectre.dat [FILE]
+    user.jbogadog:na-spectre.dat [FILE]
 
 ``List files belonging to a scope and it's properties``
 -----------------------------------
@@ -214,3 +223,23 @@ And you can see information about the rule status with::
     Error:                      None
     Subscription Id:            None
 
+Whenever you delete a rule, if is the only rule over a file, the file is marked to be deleted and eventually will. However, until the file is effectively deleted, will no longer appear in the list-rules nor in the list-dids outputs.::
+
+    $> rucio delete-rule 980fcfae20244f3ca147b0d368d800e5
+    Removed Rule
+    $> rucio list-rules --account jbogadog
+    ID (account) SCOPE:NAME: STATE [LOCKS_OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES
+    ===================================================================================
+    2d6472897cb4414786f66c80b7b857d5 (jbogadog) user.jbogadog:halpha-spectre.dat: REPLICATING[0/2/0], "tier=3", 2
+    a86be72f7b5c4cfeb9bd700e7a7462cc (jbogadog) user.jbogadog:na-spectre.dat: REPLICATING[0/1/0], "PRAGUELCG2-RUCIOTEST_SCRATCHDISK", 1
+    530e46584b5048b093b97f1d3007fc6b (jbogadog) user.jbogadog:halpha-spectre.dat: REPLICATING[0/1/0], "PRAGUELCG2-RUCIOTEST_SCRATCHDISK", 1
+
+If there are other rules over a file, then only the rule is deleted but not the file itself, as you can see in the following example::
+
+    $> rucio delete-rule 530e46584b5048b093b97f1d3007fc6b
+    Removed Rule
+    $> rucio list-rules --account jbogadog
+    ID (account) SCOPE:NAME: STATE [LOCKS_OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES
+    ===================================================================================
+    2d6472897cb4414786f66c80b7b857d5 (jbogadog) user.jbogadog:halpha-spectre.dat: REPLICATING[0/2/0], "tier=3", 2
+    a86be72f7b5c4cfeb9bd700e7a7462cc (jbogadog) user.jbogadog:na-spectre.dat: REPLICATING[0/1/0], "PRAGUELCG2-RUCIOTEST_SCRATCHDISK", 1
