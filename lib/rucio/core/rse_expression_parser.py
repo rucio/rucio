@@ -17,6 +17,7 @@ import string
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
+from hashlib import sha256
 
 from rucio.common import schema
 from rucio.common.exception import InvalidRSEExpression
@@ -35,7 +36,9 @@ COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
 PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 
-region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
+region = make_region().configure('dogpile.cache.memcached',
+                                 expiration_time=3600,
+                                 arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
 
 
 @transactional_session
@@ -49,7 +52,7 @@ def parse_expression(expression, filter=None, session=None):
     :returns:             A list of rse dictionaries.
     :raises:              InvalidRSEExpression, RSENotFound
     """
-    result = region.get((expression, str(filter)))
+    result = region.get(sha256(expression + str(filter)).hexdigest())
     if type(result) is NoValue:
         # Evaluate the correctness of the parentheses
         parantheses_open_count = 0
@@ -77,7 +80,7 @@ def parse_expression(expression, filter=None, session=None):
             result.append(result_tuple[1][rse])
         if not result:
             raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
-        region.set((expression, str(filter)), result)
+        region.set(sha256(expression + str(filter)).hexdigest(), result)
     return result
 
 
