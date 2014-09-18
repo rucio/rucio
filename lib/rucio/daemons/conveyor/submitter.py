@@ -268,6 +268,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 tmp_metadata = {'request_id': req['request_id'],
                                 'scope': req['scope'],
                                 'name': req['name'],
+                                'activity': activity,
                                 'src_rse': sources[0][0],
                                 'dst_rse': rse_info['rse'],
                                 'dest_rse_id': req['dest_rse_id']}
