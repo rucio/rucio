@@ -67,7 +67,10 @@ class AMQConsumer(object):
         self.__ids.append(id)
         self.__reports.append(report)
 
-        logging.debug('message received: %s %s %s' % (str(report['eventType']), report['filename'], report['remoteSite']))
+        try:
+            logging.debug('message received: %s %s %s' % (str(report['eventType']), report['filename'], report['remoteSite']))
+        except:
+            pass
 
         if len(self.__ids) >= self.__chunksize:
             self.__update_atime()
