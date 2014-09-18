@@ -1412,7 +1412,7 @@ Commands:
     list_parser.add_argument(dest='dids', nargs='*', action='store', default=None, help='List of space separated data identifiers')
 
     # The list-scopes command
-    scope_list_parser = subparsers.add_parser('list-scopes', help='List data identifiers in a scope')
+    scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes')
     scope_list_parser.set_defaults(which='list_scopes')
 
     # The close command
