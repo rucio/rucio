@@ -13,6 +13,7 @@ Reaper is a daemon to manage file deletion.
 '''
 
 import logging
+import math
 import sys
 import threading
 import time
@@ -83,20 +84,21 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, greedy=False, scheme=None, exclude_rses=None):
+def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, exclude_rses=None):
     """
     Main loop to select and delete files.
 
-    :param total_workers: The total number of workers.
+    :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param worker_number: The worker number.
+    :param child_number: The child number.
+    :param total_children: The total number of children created per worker.
     :param chunk_size: the size of chunk for deletion.
     :param once: If True, only runs one iteration of the main loop.
     :param greedy: If True, delete right away replicas with tombstone.
-    :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     """
-
-    logging.info('Starting reaper')
+    logging.info('Starting reaper: worker %(worker_number)s, child %(child_number)s' % locals())
     while not graceful_stop.is_set():
         for rse in rses:
             rse_info = rsemgr.get_rse_info(rse['rse'])
@@ -123,11 +125,11 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
 
                 s = time.time()
                 with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                    replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files)
+                    replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files, worker_number=child_number, total_workers=total_children)
                 logging.debug('list_unlocked_replicas %s %s %s' % (rse['rse'], time.time() - s, len(replicas)))
 
                 if not replicas:
-                    logging.info('Reaper %s: nothing to do for %s' % (worker_number, rse['rse']))
+                    logging.info('Reaper %s-%s: nothing to do for %s' % (worker_number, child_number, rse['rse']))
                     continue
 
                 p = rsemgr.create_protocol(rse_info, 'delete', scheme=None)
@@ -188,12 +190,16 @@ def reaper(rses, worker_number=1, total_workers=1, chunk_size=100, once=False, g
                                                                         'reason': str(e)})
                                     except:
                                         logging.critical(traceback.format_exc())
-
                                         # add_message('deletion-failed', {'scope': replica['scope'],
                                         #                              'name': replica['name'],
                                         #                              'rse': rse_info['rse'],
                                         #                              'reason': str(traceback.format_exc())})
                             except (ServiceUnavailable, RSEAccessDenied) as e:
+                                for replica in files:
+                                    add_message('deletion-failed', {'scope': replica['scope'],
+                                                                    'name': replica['name'],
+                                                                    'rse': rse_info['rse'],
+                                                                    'reason': str(e)})
                                 logging.error(str(e))
                             finally:
                                 p.close()
@@ -222,12 +228,13 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None):
+def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None):
     """
     Starts up the reaper threads.
 
     :param total_workers: The total number of workers.
     :param chunk_size: the size of chunk for deletion.
+    :param threads_per_worker: Total number of threads created by each worker.
     :param once: If True, only runs one iteration of the main loop.
     :param greedy: If True, delete right away replicas with tombstone.
     :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
@@ -246,19 +253,19 @@ def run(total_workers=1, chunk_size=100, once=False, greedy=False, rses=[], sche
         excluded_rses = parse_expression(exclude_rses)
         rses = [rse for rse in rses if rse not in excluded_rses]
 
-    threads = list()
-    nb_rses_per_worker = len(rses) / total_workers or 1
-    r = []
-    for i in xrange(0, len(rses), nb_rses_per_worker):
-        kwargs = {'worker_number': (i * nb_rses_per_worker) + 1,
-                  'total_workers': total_workers,
-                  'once': once,
-                  'chunk_size': chunk_size,
-                  'greedy': greedy,
-                  'rses': rses[i:i + nb_rses_per_worker],
-                  'scheme': scheme}
-        r.extend(rses[i:i + nb_rses_per_worker])
-        threads.append(threading.Thread(target=reaper, kwargs=kwargs))
+    threads = []
+    nb_rses_per_worker = int(math.ceil(len(rses) / float(total_workers))) or 1.0
+    for worker in xrange(total_workers):
+        for child in xrange(threads_per_worker or 1):
+            kwargs = {'worker_number': worker,
+                      'child_number': child + 1,
+                      'total_children': threads_per_worker or 1,
+                      'once': once,
+                      'chunk_size': chunk_size,
+                      'greedy': greedy,
+                      'rses': rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker],
+                      'scheme': scheme}
+            threads.append(threading.Thread(target=reaper, kwargs=kwargs))
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]

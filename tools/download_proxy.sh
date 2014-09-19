@@ -9,6 +9,6 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
-scp ddmusr01@voatlas73:/data/ddmusr01/x509up /opt/rucio/tools/x509up
-chmod 600 /opt/rucio/tools/x509up
-export X509_USER_PROXY=/opt/rucio/tools/x509up
+scp ddmusr01@voatlas73.cern.ch:/data/ddmusr01/x509up x509up
+chmod 600 x509up
+export X509_USER_PROXY=x509up

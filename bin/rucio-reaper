@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
+    parser.add_argument("--threads-per-worker", action="store", default=None, type=int, help='Total number of threads created by each worker')
     parser.add_argument("--chunk-size", action="store", default=10, type=int, help='Chunk size')
     parser.add_argument("--scheme", action="store", default=None, type=str, help='Force the reaper to use a particular protocol, e.g., mock.')
     parser.add_argument('--greedy', action='store_true', default=False, help='Greedy mode')
@@ -33,6 +34,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy,
-            once=args.run_once, scheme=args.scheme, rses=args.rses, exclude_rses=args.exclude_rses)
+            once=args.run_once, scheme=args.scheme, rses=args.rses, threads_per_worker=args.threads_per_worker,
+            exclude_rses=args.exclude_rses)
     except KeyboardInterrupt:
         stop()
