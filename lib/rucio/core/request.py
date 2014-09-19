@@ -217,8 +217,8 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
 
     if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', process), bindparam('total_workers', total_processes-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_workers) = :worker_number', bindparams=bindparams))
+            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+            query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
         elif session.bind.dialect.name == 'postgresql':
@@ -226,8 +226,8 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
 
     if (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', thread), bindparam('total_workers', total_threads-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_workers) = :worker_number', bindparams=bindparams))
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
         elif session.bind.dialect.name == 'postgresql':
