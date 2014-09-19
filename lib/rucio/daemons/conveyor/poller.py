@@ -24,7 +24,7 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.core import request
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import record_timer
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType
 
@@ -40,79 +40,31 @@ graceful_stop = threading.Event()
 datetime.datetime.strptime('', '')
 
 
-def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1):
+def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, bulk=100):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
-    logging.info('poller starting - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
+    logging.info('poller starting - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
+                                                                                 thread, total_threads,
+                                                                                 bulk))
 
-    logging.info('poller started - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
+    logging.info('poller started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
+                                                                                thread, total_threads,
+                                                                                bulk))
 
     while not graceful_stop.is_set():
 
         try:
             ts = time.time()
+
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=1000,
+                                    limit=bulk,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
-
-            if reqs:
-                logging.debug('%i:%i - polling %i requests' % (process, thread, len(reqs)))
-
-            if not reqs or reqs == []:
-                if once:
-                    break
-                time.sleep(1)  # Only sleep if there is nothing to do
-                continue
-
-            for req in reqs:
-                ts = time.time()
-                response = request.query_request(req['request_id'], 'fts3')
-                record_timer('daemons.conveyor.poller.001-query_request', (time.time()-ts)*1000)
-
-                response['job_state'] = response['details']['job_state']
-                response['transfer_id'] = req['external_id']
-
-                common.update_request_state(req, response)
-
-                record_counter('daemons.conveyor.poller.query_request')
-
-        except:
-            logging.critical(traceback.format_exc())
-
-        if once:
-            return
-
-    logging.debug('%i:%i - graceful stop requests' % (process, thread))
-
-    logging.debug('%i:%i - graceful stop done' % (process, thread))
-
-
-def bulk_poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, with_bulk=500):
-    """
-    Main loop to check the status of a transfer primitive with a transfertool.
-    """
-
-    logging.info('bulk_poller starting - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
-
-    logging.info('bulk_poller started - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
-
-    while not graceful_stop.is_set():
-
-        try:
-            ts = time.time()
-            reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                    state=RequestState.SUBMITTED,
-                                    limit=with_bulk,
-                                    older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
-                                    process=process, total_processes=total_processes,
-                                    thread=thread, total_threads=total_threads)
-            record_timer('daemons.conveyor.bulk_poller.000-get_next', (time.time()-ts)*1000)
 
             if reqs:
                 logging.debug('%i:%i - polling %i requests' % (process, thread, len(reqs)))
@@ -133,14 +85,14 @@ def bulk_poller(once=False, process=0, total_processes=1, thread=0, total_thread
             for external_host in req_ids:
                 ts = time.time()
                 resps = request.bulk_query_requests(external_host, req_ids[external_host], 'fts3')
-                record_timer('daemons.conveyor.bulk_poller.001-query_request', (time.time()-ts)*1000/len(req_ids[external_host]))
+                record_timer('daemons.conveyor.poller.001-bulk_query_requests', (time.time()-ts)*1000/len(req_ids[external_host]))
                 responses = dict(responses.items() + resps.items())
 
+            tmp = []
             for req in reqs:
-                response = responses[req['request_id']]
-                common.update_request_state2(req, response)
+                tmp.append([req, responses[req['request_id']]])
 
-            record_counter('daemons.conveyor.bulk_poller.query_request')
+            common.update_requests_states(tmp)
 
         except:
             logging.critical(traceback.format_exc())
@@ -161,25 +113,23 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, with_bulk=None):
+def run(once=False, process=0, total_processes=1, total_threads=1, bulk=None):
     """
     Starts up the conveyer threads.
     """
 
     if once:
         logging.info('executing one poller iteration only')
-        if with_bulk:
-            bulk_poller(once=once, with_bulk=with_bulk)
-        else:
-            poller(once)
+        poller(once=once, bulk=bulk)
 
     else:
 
         logging.info('starting poller threads')
-        if with_bulk:
-            threads = [threading.Thread(target=bulk_poller, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'with_bulk': with_bulk}) for i in xrange(0, total_threads)]
-        else:
-            threads = [threading.Thread(target=poller, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
+        threads = [threading.Thread(target=poller, kwargs={'process': process,
+                                                           'total_processes': total_processes,
+                                                           'thread': i,
+                                                           'total_threads': total_threads,
+                                                           'bulk': bulk}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 

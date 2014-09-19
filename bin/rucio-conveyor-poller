@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
 """
@@ -28,10 +28,10 @@ if __name__ == "__main__":
     parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
     parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
     parser.add_argument("--total-threads", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
-    parser.add_argument("--with-bulk", action="store", default=None, type=int, help='Bulk poller control: number of requests per bulk')
+    parser.add_argument("--bulk", action="store", default=100, type=int, help='Bulk control: number of requests')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, process=args.process, total_processes=args.total_processes, total_threads=args.total_threads, with_bulk=args.with_bulk)
+        run(once=args.run_once, process=args.process, total_processes=args.total_processes, total_threads=args.total_threads, bulk=args.bulk)
     except KeyboardInterrupt:
         stop()
