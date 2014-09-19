@@ -17,6 +17,7 @@ import logging
 import sys
 import threading
 import time
+import traceback
 
 import dns.resolver
 import json
@@ -24,6 +25,7 @@ import stomp
 
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
+from rucio.core.request import get_request
 from rucio.daemons.conveyor.common import update_request_state
 from rucio.db.constants import RequestState, FTSState
 
@@ -56,7 +58,7 @@ class Consumer(object):
            and str(msg['job_metadata']['issuer']) == str('rucio'):
             response = {'new_state': None,
                         'transfer_id': msg['job_id'],
-                        'details': msg}
+                        'details': {'files': msg['job_metadata']}}
 
             record_counter('daemons.conveyor.consumer.message_rucio')
             if str(msg['job_state']) == str(FTSState.FINISHED):
@@ -73,9 +75,24 @@ class Consumer(object):
                                                                         msg['job_metadata']['src_rse'],
                                                                         msg['job_metadata']['dst_rse'],
                                                                         response['new_state']))
-                update_request_state(msg['job_metadata'], response)
+
+                    # mangle messages into the same structure as the corresponding poller calls
+                    for k in msg:
+                        response[k] = msg[k]
+
+                    # messages do not include the attributes - ticket to FTS3 needed
+                    # need to look them up in our own database
+                    db_req = get_request(msg['job_metadata']['request_id'])
+                    if db_req:
+                        msg['job_metadata']['attributes'] = db_req['attributes']
+                        msg['job_metadata']['external_host'] = db_req['external_host']
+                    else:
+                        msg['job_metadata']['attributes'] = {}
+                        logging.warning('Request %s not found - trying to salvage with the information we have' % msg['job_metadata']['request_id'])
+
+                    update_request_state(msg['job_metadata'], response)
             except:
-                pass  # whatever happens, don't invalidate the stomp connection
+                logging.critical(traceback.format_exc())
 
 
 def consumer(once=False, process=0, total_processes=1, thread=0, total_threads=1):
@@ -147,18 +164,16 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1):
+def run():
     """
-    Starts up the consumer threads
+    Starts up the consumer thread
     """
 
-    logging.info('starting consumer threads')
-    threads = [threading.Thread(target=consumer, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
-
-    [t.start() for t in threads]
-
+    logging.info('starting consumer thread')
+    t = threading.Thread(target=consumer)
+    t.start()
     logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
-    while len(threads) > 0:
-        [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+    while t.isAlive():
+        t.join(timeout=3.14)
