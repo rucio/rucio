@@ -565,10 +565,14 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE))).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+        filter(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BEING_DELETED))).\
         order_by(models.RSEFileAssociation.tombstone).\
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
+
+# Improvement for latter:
+#           filter(or_(models.RSEFileAssociation.state.in_(ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE),\
+#               and_(models.RSEFileAssociation.state == ReplicaState.BEEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow()))).\
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
@@ -590,7 +594,6 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
         totalbytes += bytes
-
     return rows
 
 
