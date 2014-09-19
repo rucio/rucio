@@ -39,6 +39,7 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
     chunk_size: The chunk of the size to process.
     once: To run only once
     """
+    sleep_time = 60
     while not graceful_stop.is_set():
         stime = time.time()
         try:
@@ -68,7 +69,11 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
         if once:
             break
         else:
-            continue
+            tottime = time.time() - stime
+            if tottime < sleep_time:
+                logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (worker_number, total_workers, str(sleep_time - tottime)))
+                time.sleep(sleep_time - tottime)
+                continue
 
 
 def run(total_workers=1, chunk_size=100, once=False):
