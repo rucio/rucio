@@ -8,6 +8,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import sys
 
@@ -26,9 +27,11 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException
 
+
 BASE = declarative_base()
 try:
-    BASE.metadata.schema = config_get('database', 'schema')
+    default_schema_name = config_get('database', 'schema')
+    BASE.metadata.schema = default_schema_name
 except NoOptionError:
     pass
 
