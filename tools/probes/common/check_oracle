@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 '''
 Probe to check Oracle.
@@ -24,9 +25,13 @@ UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 
 if __name__ == "__main__":
 
-    sql_connection = config_get('database', 'default')
-    user = 'XXXXX'
-    password = 'XXXXX'
+    try:
+        sql_connection = config_get('database', 'default')
+        user = config_get('database', 'powuseraccount')
+        password = config_get('database', 'powuserpassword')
+    except:
+        print 'Cannot get DB parameters'
+        sys.exit(CRITICAL)
     dsn = sql_connection.split('@')[1]
     connection = cx_Oracle.connect(user, password, dsn)
     cursor = connection.cursor()
