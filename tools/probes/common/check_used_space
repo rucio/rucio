@@ -16,9 +16,11 @@ UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 host = sys.argv[1]
 c = Client()
 dict = c.get_rse_usage(host)
-if datetime.datetime.utcnow() - dict['updated_at'] < datetime.timedelta(1):
-    print 'Used space :', dict['used']
-    sys.exit(OK)
-else:
-    print 'Used space has not been refreshed for more than 1 hour. Last refresh on %s' % str(dict['updated_at'])
-    sys.exit(WARNING)
+for dict in c.get_rse_usage(host):
+    if dict['source'] == 'rucio':
+        if datetime.datetime.utcnow() - dict['updated_at'] < datetime.timedelta(1):
+            print 'Used space :', dict['used']
+            sys.exit(OK)
+        else:
+            print 'Used space has not been refreshed for more than 1 hour. Last refresh on %s' % str(dict['updated_at'])
+            sys.exit(WARNING)

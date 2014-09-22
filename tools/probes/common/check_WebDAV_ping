@@ -14,6 +14,7 @@ Probe to check the queues of the transfer service
 
 import os
 import sys
+from rucio.common.config import config_get
 from rucio.common.exception import ServiceUnavailable
 from rucio.rse import rsemanager
 
@@ -21,8 +22,15 @@ scheme = 'https'
 UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 site = sys.argv[1]
 
+
 try:
-    os.environ['X509_USER_PROXY'] = '/opt/rucio/etc/rucio01.proxy.nagios'
+    proxy = config_get('nagios', 'proxy')
+    os.environ["X509_USER_PROXY"] = proxy
+except Exception as e:
+    print "Failed to get proxy from rucio.cfg"
+    sys.exit(CRITICAL)
+
+try:
     rse_settings = rsemanager.get_rse_info(site)
     dict = rsemanager.select_protocol(rse_settings, operation='write', scheme=scheme)
     basepath = '%s://%s:%s%s' % (dict['scheme'], dict['hostname'], dict['port'], dict['prefix'])
