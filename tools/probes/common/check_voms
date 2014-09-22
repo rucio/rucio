@@ -18,13 +18,11 @@ import types
 
 
 from rucio.client import Client
+from rucio.common.config import config_get
 from rucio.common.exception import Duplicate
 
 from VOMSAdmin.VOMSCommands import VOMSAdminProxy
 
-
-os.environ['X509_USER_PROXY'] = '/opt/rucio/etc/ddmadmin.proxy.nagios'
-cert, key = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -81,7 +79,13 @@ def validate_nickname(nickname, email, dn, debug=False):
     return True
 
 if __name__ == '__main__':
-
+    try:
+        proxy = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = proxy
+        cert, key = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
+    except Exception as e:
+        print "Failed to get proxy from rucio.cfg"
+        sys.exit(CRITICAL)
     status = OK
     nbusers = 0
     nonicknames = []
@@ -89,51 +93,52 @@ if __name__ == '__main__':
     admin = VOMSAdminProxy(vo='atlas', host='voms.cern.ch', port=8443,
                            user_cert=cert, user_key=key)
     res = admin.call_method('list-users')
-    # print cert, key
-    # print res
     if isinstance(res, types.ListType):
         for user in res:
             nbusers += 1
-            try:
-                dn = user._DN
-                ca = user._CA
-                email = user._mail
-                result = admin.call_method('list-user-attributes', dn, ca)
-                nickname = None
-                try:
-                    nickname = result[0]._value
-                except TypeError, e:
-                    print e
-                    pass
-                # print dn, ca, email, nickname
-                # nickname = None
-                if nickname:
-                    if validate_nickname(nickname=nickname, email=email, dn=dn, debug=True):
-                        account = nickname
+            attempts = 0
+            totattemps = 3
+            for attempts in xrange(0, totattemps):
+                if (attempts < totattemps - 1):
+                    try:
+                        dn = user._DN
+                        ca = user._CA
+                        email = user._mail
+                        result = admin.call_method('list-user-attributes', dn, ca)
+                        nickname = None
                         try:
-                            c.add_account(account=account, type='USER')
-                            print 'Account %(account)s added' % locals()
-                        except Duplicate:
-                            # print 'Account %(account)s already added' % locals()
+                            nickname = result[0]._value
+                        except TypeError, e:
+                            print e
                             pass
-                        try:
-                            c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
-                            print 'Identity %(dn)s added' % locals()
-                        except Duplicate:
-                            # print 'Identity %(account)s already added' % locals()
-                            pass
-                        try:
-                            scope = 'user.' + account
-                            c.add_scope(account, scope)
-                            print 'Scope %(scope)s added' % locals()
-                        except Duplicate:
-                            # print 'Scope %(scope)s already added' % locals()
-                            pass
+                        if nickname:
+                            if validate_nickname(nickname=nickname, email=email, dn=dn, debug=True):
+                                account = nickname
+                                try:
+                                    c.add_account(account=account, type='USER')
+                                    print 'Account %(account)s added' % locals()
+                                except Duplicate:
+                                    break
+                                try:
+                                    c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
+                                    print 'Identity %(dn)s added' % locals()
+                                except Duplicate:
+                                    break
+                                try:
+                                    scope = 'user.' + account
+                                    c.add_scope(account, scope)
+                                    print 'Scope %(scope)s added' % locals()
+                                except Duplicate:
+                                    break
+                            else:
+                                break
+                        elif user._DN not in nonicknames:
+                            nonicknames.append(user._DN)
+                    except:
+                        pass
                 else:
-                    nonicknames.append(user._DN)
-            except:
-                print 'ERROR getting info for %s' % (user._DN)
-                status = WARNING
+                    print 'ERROR getting info for %s' % (user._DN)
+                    status = WARNING
     else:
         sys.exit(CRITICAL)
     print '%i users extracted from VOMS' % nbusers
