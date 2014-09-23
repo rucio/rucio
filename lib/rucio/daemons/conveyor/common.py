@@ -112,18 +112,34 @@ def update_request_state(req, response, session=None):
             try:
                 tss = time.time()
                 logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], rse_name))
-                replica.update_replicas_states([{'rse': rse_name,
-                                                 'scope': req['scope'],
-                                                 'name': req['name'],
-                                                 'state': ReplicaState.AVAILABLE}],
-                                               nowait=True,
-                                               session=session)
+
+                # make sure we do not leave the transaction
+                try:
+                    # try quickly
+                    replica.update_replicas_states([{'rse': rse_name,
+                                                     'scope': req['scope'],
+                                                     'name': req['name'],
+                                                     'state': ReplicaState.AVAILABLE}],
+                                                   nowait=True,
+                                                   session=session)
+                except:
+                    try:
+                        # didn't work, do it slowly
+                        replica.update_replicas_states([{'rse': rse_name,
+                                                         'scope': req['scope'],
+                                                         'name': req['name'],
+                                                         'state': ReplicaState.AVAILABLE}],
+                                                       nowait=False,
+                                                       session=session)
+                    except Exception, e:
+                        # could not update successful lock
+                        record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
+                        raise
+
                 record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
 
                 tss = time.time()
-
                 request.archive_request(req['request_id'], session=session)
-
                 record_timer('daemons.conveyor.common.update_request_state.request-archive_request', (time.time()-tss)*1000)
 
                 add_monitor_message(req, response, did_meta, details, activity, session=session)
