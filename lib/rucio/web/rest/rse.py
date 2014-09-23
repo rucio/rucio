@@ -7,13 +7,14 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 
 from json import dumps, loads
 from traceback import format_exc
+from urlparse import parse_qs
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input, loadhook
 
 from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attribute,
@@ -487,8 +488,15 @@ class Usage:
         """
         header('Content-Type', 'application/x-json-stream')
         usage = None
+        source = None
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'source' in params:
+                source = params['source'][0]
+
+        source = 'srm'
         try:
-            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=None)
+            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source)
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:
@@ -550,8 +558,14 @@ class UsageHistory:
         :param rse: the RSE name.
         """
         header('Content-Type', 'application/x-json-stream')
+        source = None
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'source' in params:
+                source = params['source'][0]
+
         try:
-            for usage in list_rse_usage_history(rse=rse, issuer=ctx.env.get('issuer'), source=None):
+            for usage in list_rse_usage_history(rse=rse, issuer=ctx.env.get('issuer'), source=source):
                 yield render_json(**usage) + '\n'
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])

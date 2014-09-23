@@ -10,6 +10,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from rucio.api import permission
 from rucio.common import exception
@@ -228,12 +229,13 @@ def get_rse_usage(rse, issuer, source=None):
 
 def list_rse_usage_history(rse, issuer, source=None):
     """
-     List RSE usage history information.
+    List RSE usage history information.
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
-    :param filters: Dictionary of attributes by which the results should be filtered.
+    :param source: The source of the usage information (srm, rucio).
 
+    :returns: A list of historic RSE usage.
     """
     return rse_module.list_rse_usage_history(rse=rse, source=source)
 

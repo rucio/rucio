@@ -11,6 +11,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from re import match
 from StringIO import StringIO
@@ -376,17 +377,20 @@ def get_rse_limits(rse, name=None, rse_id=None, session=None):
 @stream_session
 def list_rse_usage_history(rse, source=None, session=None):
     """
-    List location usage history information.
+    List RSE usage history information.
 
-    :param location: The location name.
-    :param source: dictionary of attributes by which the results should be filtered.
+    :param RSE: The RSE name.
+    :param source: The source of the usage information (srm, rucio).
     :param session: The database session in use.
 
-    :returns:  list of locations.
+    :returns: A list of historic RSE usage.
     """
     query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=get_rse_id(rse=rse, session=session)).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
+    if source:
+        query = query.filter_by(source=source)
+
     for usage in query.yield_per(5):
-        yield ({'rse': rse, 'source': usage.source, 'used': usage.used, 'total': usage.used + usage.free, 'free': usage.free, 'updated_at': usage.updated_at})
+        yield ({'rse': rse, 'source': usage.source, 'used': usage.used if usage.used else 0, 'total': usage.used if usage.used else 0 + usage.free if usage.free else 0, 'free': usage.free if usage.free else 0, 'updated_at': usage.updated_at})
 
 
 @transactional_session
