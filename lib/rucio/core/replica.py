@@ -360,9 +360,9 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
     for f in files:
         condition.append(and_(models.RSEFileAssociation.scope == f['scope'], models.RSEFileAssociation.name == f['name'], models.RSEFileAssociation.rse_id == rse_id))
 
-    q = session.query(models.RSEFileAssociation.scope,
-                      models.RSEFileAssociation.name,
-                      models.RSEFileAssociation.rse_id).filter(condition)
+    q = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+        with_hint(models.RSEFileAssociation,  text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
+        filter(condition)
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
 
     for file in files:
