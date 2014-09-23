@@ -72,7 +72,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             if not reqs or reqs == []:
                 if once:
                     break
-                time.sleep(1)  # Only sleep if there is nothing to do
+                time.sleep(60)  # Only sleep if there is nothing to do
                 continue
 
             req_ids = {}
