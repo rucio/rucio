@@ -24,7 +24,7 @@ Pygments>=1.6                   # Python Syntax highlighter
 docutils>=0.12                   # Needed for sphinx
 pep8==1.5.7                     # checks for PEP8 code style compliance
 pyflakes==0.8.1                 # Passive checker of Python programs
-flake8==2.2.2                   # Wrapper around PyFlakes&pep8
+flake8==2.2.3                   # Wrapper around PyFlakes&pep8
 pylint==0.25.2                  # static code analysis
 virtualenv==1.11.4              # Virtual Python Environment builder
 tox==1.4.3                      # Automate and standardize testing in Python

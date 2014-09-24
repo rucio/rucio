@@ -16,7 +16,7 @@ from web import application, ctx, Created, loadhook, header
 
 from rucio.api import config
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
 
 
 logger = getLogger("rucio.config")
@@ -33,6 +33,7 @@ urls = ('/(.+)/(.+)/(.*)', 'OptionSet',
 class Config(RucioController):
     """ REST API for full configuration. """
 
+    @exception_wrapper
     def GET(self):
         """
         List full configuration.
@@ -58,6 +59,7 @@ class Config(RucioController):
 class Section(RucioController):
     """ REST API for the sections in the configuration. """
 
+    @exception_wrapper
     def GET(self, section):
         """
         List configuration of a section
@@ -85,6 +87,7 @@ class Section(RucioController):
 class OptionGetDel(RucioController):
     """ REST API for reading or deleting the options in the configuration. """
 
+    @exception_wrapper
     def GET(self, section, option):
         """
         Retrieve the value of an option.
@@ -105,6 +108,7 @@ class OptionGetDel(RucioController):
         except:
             raise generate_http_error(404, 'ConfigNotFound', 'No configuration found for section \'%s\' option \'%s\'' % (section, option))
 
+    @exception_wrapper
     def DELETE(self, section, option):
         """
         Delete an option.
@@ -125,6 +129,7 @@ class OptionGetDel(RucioController):
 class OptionSet(RucioController):
     """ REST API for setting the options in the configuration. """
 
+    @exception_wrapper
     def PUT(self, section, option, value):
         """
         Set the value of an option.
