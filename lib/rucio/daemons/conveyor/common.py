@@ -76,7 +76,7 @@ def update_request_state(req, response, session=None):
             rse_name = rse.get_rse_name(rse_id=req['dest_rse_id'],
                                         session=session)
         except exception.RSENotFound:
-            logging.warning('RSE ID %s not found - Cannot proceed updating the state for this request' % req['dest_rse_id'])
+            logging.error('RSE ID %s not found - Cannot proceed updating the state for this request' % req['dest_rse_id'])
             return False
         record_timer('daemons.conveyor.common.update_request_state.rse-get_rse_by_id', (time.time()-tss)*1000)
 
@@ -165,9 +165,9 @@ def update_request_state(req, response, session=None):
 
             tss = time.time()
             if new_req is None:
-                logging.critical('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'],
-                                                                    req['name'],
-                                                                    req['request_id']))
+                logging.error('EXCEEDED DID %s:%s REQUEST %s' % (req['scope'],
+                                                                 req['name'],
+                                                                 req['request_id']))
                 try:
                     replica.update_replicas_states([{'rse': rse_name,
                                                      'scope': req['scope'],
@@ -207,9 +207,9 @@ def update_request_state(req, response, session=None):
             add_monitor_message(req, response, did_meta, details, activity, session=session)
 
             request.archive_request(req['request_id'], session=session)
-            logging.critical('LOST DID %s:%s REQUEST %s' % (req['scope'],
-                                                            req['name'],
-                                                            req['request_id']))
+            logging.error('LOST DID %s:%s REQUEST %s' % (req['scope'],
+                                                         req['name'],
+                                                         req['request_id']))
 
             try:
                 lock.failed_transfer(req['scope'],
@@ -347,10 +347,10 @@ def update_bad_request(req, dest_rse, new_state, detail, session=None):
                     session=session)
 
         request.archive_request(req['request_id'], session=session)
-        logging.critical('BAD DID %s:%s REQUEST %s details: %s' % (req['scope'],
-                                                                   req['name'],
-                                                                   req['request_id'],
-                                                                   detail))
+        logging.error('BAD DID %s:%s REQUEST %s details: %s' % (req['scope'],
+                                                                req['name'],
+                                                                req['request_id'],
+                                                                detail))
         replica.update_replicas_states([{'rse': dest_rse,
                                          'scope': req['scope'],
                                          'name': req['name'],
