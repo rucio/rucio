@@ -102,7 +102,7 @@ def submit_transfers(transfers, job_metadata, transfer_host):
 
         if transfer_host.startswith('https://'):
             r = requests.post('%s/jobs' % transfer_host,
-                              verify=__CACERT,
+                              verify=False,
                               cert=(__USERCERT, __USERCERT),
                               data=params_str,
                               headers={'Content-Type': 'application/json'})
@@ -164,7 +164,7 @@ def query(transfer_id, transfer_host):
 
     if transfer_host.startswith('https://'):
         job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
-                           verify=__CACERT,
+                           verify=False,
                            cert=(__USERCERT, __USERCERT),
                            headers={'Content-Type': 'application/json'})
     else:
@@ -189,7 +189,7 @@ def query_details(transfer_id, transfer_host):
 
     if transfer_host.startswith('https://'):
         files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
-                             verify=__CACERT,
+                             verify=False,
                              cert=(__USERCERT, __USERCERT),
                              headers={'Content-Type': 'application/json'})
     else:
@@ -217,7 +217,7 @@ def bulk_query(transfer_ids, transfer_host):
         fts_session = requests.Session()
         for transfer_id in transfer_ids:
             job = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
-                                  verify=__CACERT,
+                                  verify=False,
                                   cert=(__USERCERT, __USERCERT),
                                   headers={'Content-Type': 'application/json'})
             if not job:
@@ -230,7 +230,7 @@ def bulk_query(transfer_ids, transfer_host):
                                                            str(FTSState.CANCELED),
                                                            str(FTSState.FINISHED)):
                     files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
-                                            verify=__CACERT,
+                                            verify=False,
                                             cert=(__USERCERT, __USERCERT),
                                             headers={'Content-Type': 'application/json'})
                     if files and files.status_code == 200:
@@ -282,7 +282,7 @@ def cancel(transfer_id, transfer_host):
 
     if transfer_host.startswith('https://'):
         job = requests.delete('%s/jobs/%s' % (transfer_host, transfer_id),
-                              verify=__CACERT,
+                              verify=False,
                               cert=(__USERCERT, __USERCERT),
                               headers={'Content-Type': 'application/json'})
     else:
@@ -307,7 +307,7 @@ def whoami(transfer_host):
 
     if transfer_host.startswith('https://'):
         r = requests.get('%s/whoami' % transfer_host,
-                         verify=__CACERT,
+                         verify=False,
                          cert=(__USERCERT, __USERCERT),
                          headers={'Content-Type': 'application/json'})
     else:
@@ -333,7 +333,7 @@ def version(transfer_host):
 
     if transfer_host.startswith('https://'):
         r = requests.get('%s/' % transfer_host,
-                         verify=__CACERT,
+                         verify=False,
                          cert=(__USERCERT, __USERCERT),
                          headers={'Content-Type': 'application/json'})
     else:

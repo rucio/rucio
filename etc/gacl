@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<gacl>
+ <entry>
+  <any-user/>
+  <allow><read/><list/></allow>
+ </entry>
+</gacl>
