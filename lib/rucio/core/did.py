@@ -168,7 +168,10 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     :param rse: The RSE name for the replicas.
     :param session: The database session in use.
     """
-    replicas = rse and add_replicas(rse=rse, files=files, account=account, session=session)
+    if rse:
+        replicas = add_replicas(rse=rse, files=files, account=account, session=session)
+    else:
+        replicas, files = None, get_files(files=files, session=session)
 
     for file in replicas or files:
         did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
@@ -667,6 +670,34 @@ def get_did(scope, name, session=None):
         return did_r
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@read_session
+def get_files(files, session=None):
+    """
+    Retrieve a list of files.
+
+    :param files: A list of files (dictionaries).
+    :param session: The database session in use.
+    """
+    files_query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.bytes, models.DataIdentifier.adler32, models.DataIdentifier.md5).\
+        filter(models.DataIdentifier.did_type == DIDType.FILE)
+    file_condition = []
+    for file in files:
+        file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
+
+    rows = [row._asdict() for row in files_query.filter(or_(*file_condition))]
+
+    if len(rows) != len(files):
+        for file in files:
+            found = False
+            for row in rows:
+                if row['scope'] == file['scope'] and row['name'] == file['name']:
+                    found = True
+                    break
+            if not found:
+                raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % file)
+    return rows
 
 
 @transactional_session
