@@ -560,7 +560,7 @@ def perm_config(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return issuer == 'root'
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_get_account_usage(issuer, kwargs):
