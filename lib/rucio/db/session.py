@@ -33,7 +33,7 @@ try:
     default_schema_name = config_get('database', 'schema')
     BASE.metadata.schema = default_schema_name
 except NoOptionError:
-    pass
+    default_schema_name = None
 
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
 
