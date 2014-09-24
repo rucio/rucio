@@ -712,8 +712,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
                                          'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
                                 session=session)
 
-    session.query(models.RSEFileAssociation).filter_by(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.AVAILABLE, 'tombstone': datetime.utcnow()})
-    # State set to AVAILABLE to be processed by the reaper. Might be changed later.
+    session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.UNAVAILABLE, 'tombstone': datetime.utcnow()})
     session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
 
 
