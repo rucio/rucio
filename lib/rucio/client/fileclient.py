@@ -44,5 +44,5 @@ class FileClient(BaseClient):
             return rses
         else:
             print r.status_code
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
