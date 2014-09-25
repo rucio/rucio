@@ -6,8 +6,8 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import xmltodict
@@ -24,11 +24,32 @@ from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter,\
-    get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas
+    get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths
 from rucio.rse import rsemanager as rsemgr
 
 
 class TestReplicaCore:
+
+    def test_update_replicas_paths(self):
+        """ REPLICA (CORE): Force update the replica path """
+        tmp_scope = 'mock'
+        nbfiles = 5
+        rse_info = rsemgr.get_rse_info('MOCK')
+        files = [{'scope': tmp_scope,
+                  'name': 'file_%s' % generate_uuid(),
+                  'bytes': 1L,
+                  'adler32': '0cc737eb',
+                  'meta': {'events': 10},
+                  'rse_id': rse_info['id'],
+                  'path': '/does/not/really/matter/where'} for i in xrange(nbfiles)]
+        add_replicas(rse='MOCK', files=files, account='root')
+        update_replicas_paths(files)
+        for replica in list_replicas(dids=[{'scope': f['scope'],
+                                            'name': f['name'],
+                                            'type': DIDType.FILE} for f in files],
+                                     schemes=['srm']):
+            # force the changed string - if we look it up from the DB, then we're not testing anything :-D
+            assert_equal(replica['rses']['MOCK'][0], 'srm://mock.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests//does/not/really/matter/where')
 
     def test_add_list_bad_replicas(self):
         """ REPLICA (CORE): Add bad replicas and list them"""

@@ -816,3 +816,20 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                 replicas[(child_scope, child_name)].append(replica)
 
     return (files.values(), replicas)
+
+
+@transactional_session
+def update_replicas_paths(replicas, session=None):
+    """
+    Update the path for the given replicas.
+    Primarily useful for nondeterministic replicas.
+
+    :param replicas: List of dictionaries {scope, name, rse_id, path}
+    :param session: Database session to use.
+    """
+
+    for replica in replicas:
+        session.query(models.RSEFileAssociation).filter_by(scope=replica['scope'],
+                                                           name=replica['name'],
+                                                           rse_id=replica['rse_id']).update({'path': replica['path']},
+                                                                                            synchronize_session=False)
