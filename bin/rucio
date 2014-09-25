@@ -663,7 +663,7 @@ def delete(args):
 
     Delete data identifier.
     """
-    raise NotImplementedError
+    raise NotImplementedError('operation not implemented (delete).')
 
 
 def upload(args):
