@@ -23,6 +23,7 @@ $def with (token, account, rucio_ui_version, content)
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static//jquery-ui.css">
     <link rel="stylesheet" type="text/css" href="/static/rucio.css">
+    <script src="/static/spinner.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
@@ -32,10 +33,19 @@ $def with (token, account, rucio_ui_version, content)
   </head>
   <body>
     <div class="topbar">
-      <div style="float:left">
-        <a href="rules">Rules</a> |  <a href="subscriptions">Subscriptions</a> |  <a href="accounting">Accounting</a> |  <a href="#">Transfers</a> |  <a href="#">Stage In</a> |  <a href="#">Deletion</a> |  <a href="#">Popularity</a> |  <a href="infrastructure">Infrastructure</a>
+      <div class="topalign" style="float:left">
+        <div id="loaderImage" style="display: inline-block; vertical-align: middle;"></div>
+        <a href="search">Search</a> |
+        <a href="rules">Rules</a> |
+        <a href="subscriptions">Subscriptions</a> |
+        <a href="accounting">Accounting</a> |
+        <a href="#">Transfers</a> |
+        <a href="#">Stage In</a> |
+        <a href="#">Deletion</a> |
+        <a href="#">Popularity</a> |
+        <a href="infrastructure">Infrastructure</a>
       </div>
-      <div class="accountselect" style="float:right">Acting on behalf of
+      <div class="topalign" style="float:right">Acting on behalf of
           <select name="accountselect" id="accountselect"></select>
       <button id="logout">Logout</button>
       </div>
