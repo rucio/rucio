@@ -408,7 +408,7 @@ class DIDClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def list_did_rules(self, scope, name):

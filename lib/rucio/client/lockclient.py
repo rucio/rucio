@@ -39,7 +39,7 @@ class LockClient(BaseClient):
             locks = self._load_json_data(r)
             return locks
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def get_dataset_locks_by_rse(self, rse):
@@ -57,6 +57,6 @@ class LockClient(BaseClient):
             locks = self._load_json_data(r)
             return locks
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
 
             raise exc_cls(exc_msg)

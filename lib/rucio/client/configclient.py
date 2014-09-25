@@ -69,7 +69,7 @@ class ConfigClient(BaseClient):
         if r.status_code != codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def delete_config_option(self, section, option):
@@ -89,5 +89,5 @@ class ConfigClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
