@@ -1271,8 +1271,11 @@ class DQ2Client:
             dids = []
             did = {'scope': scope, 'name': dsn}
             dids.append(did)
-            # Add replication rule
-            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='NONE', account=None, locked=False)
+            # Check if a replication rule for scope:name, location, account already exists
+            for rule in self.client.list_did_rules(scope=scope, name=dsn):
+                if (rule['rse_expression'] == location) and (rule['account'] == self.client.account):
+                    return True
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='NONE', account=self.client.account, locked=False, notify='N')
         else:
             raise UnsupportedOperation('Unknown RSE [%s]' % (location))
         return True
@@ -1331,7 +1334,10 @@ class DQ2Client:
         for rule in self.client.list_did_rules(scope=scope, name=dsn):
             if (rule['rse_expression'] == location) and (rule['account'] == owner):
                 raise Duplicate('A rule for %s:%s at %s already exists' % (scope, dsn, location))
-        self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False)
+        notify = 'N'
+        if callbacks != {}:
+            notify = 'C'
+        self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, notify=notify)
 
     def registerDatasetsInContainer(self, name, datasets, scope=None):
         """
@@ -1534,7 +1540,7 @@ class DQ2Client:
         vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
         duid = vuid
         if rse:
-            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False)
+            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
         return {'duid': duid, 'version': 1, 'vuid': vuid}
 
     def registerNewDataset2(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None,  provenance=None, group=None, hidden=False, ignore=False, scope=None, rse=None):
@@ -1597,7 +1603,7 @@ class DQ2Client:
                     except FileAlreadyExists:
                         statuses[f['name']] = {'status': False, 'error': FileAlreadyExists, 'duid': duid}
         if rse:
-            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False)
+            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
         return {'duid': duid, 'version': 1, 'vuid': vuid}, statuses
 
     def registerNewVersion(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None):
@@ -1771,7 +1777,7 @@ class DQ2Client:
                         errMsg = 'lifetime must be greater than O!' % locals()
                         raise InputValidationError(errMsg)
                     lifetime = lifetime.days * 86400 + lifetime.seconds
-                    self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=lifetime, grouping=rule['grouping'], account=account, locked=False)
+                    self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=lifetime, grouping=rule['grouping'], account=account, locked=False, notify='N')
                     self.client.delete_replication_rule(rule['id'])
                 elif attrname == 'pin_lifetime':
                     if attrvalue is None or attrvalue is '':
@@ -1782,10 +1788,11 @@ class DQ2Client:
                             errMsg = 'pin_lifetime must be greater than O!' % locals()
                             raise InputValidationError(errMsg)
                         pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
-                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=pin_lifetime, grouping=rule['grouping'], account=account, locked=True)
+                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'],
+                                                         lifetime=pin_lifetime, grouping=rule['grouping'], account=account, locked=True, notify='N')
         if not is_at_site:
             raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))
-        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=account, locked=False)
+        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=account, locked=False, notify='N')
         return 0
 
     def verifyFilesInDataset(self, dsn, guids, version=None, scope=None):
