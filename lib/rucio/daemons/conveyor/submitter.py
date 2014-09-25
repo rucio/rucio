@@ -277,7 +277,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                                 'activity': activity,
                                 'src_rse': sources[0][0],
                                 'dst_rse': rse_info['rse'],
-                                'dest_rse_id': req['dest_rse_id']}
+                                'dest_rse_id': req['dest_rse_id'],
+                                'filesize': filesize,
+                                'md5': md5,
+                                'adler32': adler32}
                 if 'previous_attempt_id' in req and req['previous_attempt_id']:
                     tmp_metadata['previous_attempt_id'] = req['previous_attempt_id']
 

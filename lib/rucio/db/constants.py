@@ -140,6 +140,11 @@ class FTSState(DeclEnum):
     FINISHEDDIRTY = 'D', 'FINISHEDDIRTY'
     CANCELED = 'C', 'CANCELED'
 
+
+class FTSCompleteState(DeclEnum):
+    OK = 'O', 'Ok'
+    ERROR = 'E', 'Error'
+
 # Individual constants
 
 OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas.
