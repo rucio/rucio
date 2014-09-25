@@ -686,9 +686,11 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     """
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
+    replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
 
     for lock in locks:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
+        replica.lock_cnt -= 1
         if lock.state == LockState.OK:
             rule.locks_ok_cnt -= 1
         elif lock.state == LockState.REPLICATING:
@@ -711,9 +713,15 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
                                          'name': dataset_lock.name,
                                          'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
                                 session=session)
+        session.delete(lock)
 
-    session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.UNAVAILABLE, 'tombstone': datetime.utcnow()})
-    session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
+    if replica.lock_cnt == 0:
+        replica.tombstone = datetime.utcnow()
+        replica.state = ReplicaState.UNAVAILABLE
+        session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
+    else:
+        # This should never happen
+        raise RucioException('Problem with the locks')
 
 
 @transactional_session
