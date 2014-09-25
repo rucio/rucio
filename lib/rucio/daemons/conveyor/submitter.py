@@ -219,6 +219,12 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                         else:
                             raise
 
+                    # we must set the destination path for nondeterministic replicas explicitly
+                    replica.update_replicas_paths([{'scope': req['scope'],
+                                                    'name': req['name'],
+                                                    'rse_id': req['dest_rse_id'],
+                                                    'path': tmp_path}])
+
                 else:
                     ts = time.time()
                     try:
