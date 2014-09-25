@@ -280,7 +280,7 @@ class BaseClient(object):
             return False
 
         if r.status_code != codes.ok:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
         self.auth_token = r.headers['x-rucio-auth-token']
@@ -339,7 +339,7 @@ class BaseClient(object):
             return False
 
         if r.status_code != codes.ok:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
         self.auth_token = r.headers['x-rucio-auth-token']
@@ -374,7 +374,7 @@ class BaseClient(object):
             return False
 
         if r.status_code != codes.ok:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
         self.auth_token = r.headers['x-rucio-auth-token']

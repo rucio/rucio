@@ -43,7 +43,7 @@ class ScopeClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def list_scopes(self):
@@ -60,7 +60,7 @@ class ScopeClient(BaseClient):
             scopes = loads(r.text)
             return scopes
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def list_scopes_for_account(self, account):
@@ -81,5 +81,5 @@ class ScopeClient(BaseClient):
             scopes = loads(r.text)
             return scopes
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)

@@ -47,7 +47,7 @@ class RSEClient(BaseClient):
             rse = loads(r.text)
             return rse
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def add_rse(self, rse, **kwargs):
@@ -72,7 +72,7 @@ class RSEClient(BaseClient):
         r = self._send_request(url, type='POST', data=dumps(kwargs))
         if r.status_code == codes.created:
             return True
-        exc_cls, exc_msg = self._get_exception(r.headers)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
         raise exc_cls(exc_msg)
 
     def update_rse(self, rse, parameters):
@@ -87,7 +87,7 @@ class RSEClient(BaseClient):
         r = self._send_request(url, type='PUT', data=dumps(parameters))
         if r.status_code == codes.created:
             return True
-        exc_cls, exc_msg = self._get_exception(r.headers)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
         raise exc_cls(exc_msg)
 
     def delete_rse(self, rse):
@@ -145,7 +145,7 @@ class RSEClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def delete_rse_attribute(self, rse, key):
@@ -164,7 +164,7 @@ class RSEClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def list_rse_attributes(self, rse):
@@ -182,7 +182,7 @@ class RSEClient(BaseClient):
             attributes = loads(r.text)
             return attributes
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def add_protocol(self, rse, params):
@@ -224,7 +224,7 @@ class RSEClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def get_protocols(self, rse, protocol_domain='ALL', operation=None, default=False, scheme=None):
@@ -265,7 +265,7 @@ class RSEClient(BaseClient):
             protocols = loads(r.text)
             return protocols
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def delete_protocols(self, rse, scheme, hostname=None, port=None):

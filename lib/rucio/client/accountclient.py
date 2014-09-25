@@ -65,7 +65,7 @@ class AccountClient(BaseClient):
         if r.status_code == codes.ok:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def get_account(self, account):
@@ -85,7 +85,7 @@ class AccountClient(BaseClient):
             acc = self._load_json_data(r)
             return acc.next()
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def list_accounts(self, account_type=None, identity=None):
@@ -112,7 +112,7 @@ class AccountClient(BaseClient):
             accounts = self._load_json_data(r)
             return accounts
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def whoami(self):
@@ -145,7 +145,7 @@ class AccountClient(BaseClient):
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(r.headers)
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
     def list_identities(self, account):

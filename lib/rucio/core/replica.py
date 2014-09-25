@@ -490,7 +490,7 @@ def delete_replicas(rse, files, session=None):
         rowcount += session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)).delete(synchronize_session=False)
 
     if rowcount != len(files):
-        raise exception.ReplicaNotFound(str(files))
+        raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
     # Delete did from the content for the last did
     while parent_condition:
