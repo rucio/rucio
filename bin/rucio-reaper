@@ -29,12 +29,13 @@ if __name__ == "__main__":
     parser.add_argument("--scheme", action="store", default=None, type=str, help='Force the reaper to use a particular protocol, e.g., mock.')
     parser.add_argument('--greedy', action='store_true', default=False, help='Greedy mode')
     parser.add_argument('--exclude-rses', action="store", default=None, type=str, help='RSEs expression to exclude RSEs')
+    parser.add_argument('--include-rses', action="store", default=None, type=str, help='RSEs expression to include RSEs')
     parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
 
     args = parser.parse_args()
     try:
         run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy,
             once=args.run_once, scheme=args.scheme, rses=args.rses, threads_per_worker=args.threads_per_worker,
-            exclude_rses=args.exclude_rses)
+            exclude_rses=args.exclude_rses, include_rses=args.include_rses)
     except KeyboardInterrupt:
         stop()
