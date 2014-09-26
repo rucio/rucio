@@ -228,7 +228,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None):
+def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None, include_rses=None):
     """
     Starts up the reaper threads.
 
@@ -240,6 +240,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
     :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
+    :param include_rses: RSE expression to include RSEs.
     """
     print 'main: starting processes'
 
@@ -252,6 +253,10 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     if exclude_rses:
         excluded_rses = parse_expression(exclude_rses)
         rses = [rse for rse in rses if rse not in excluded_rses]
+
+    if include_rses:
+        included_rses = parse_expression(include_rses)
+        rses = [rse for rse in rses if rse in included_rses]
 
     threads = []
     nb_rses_per_worker = int(math.ceil(len(rses) / float(total_workers))) or 1.0
