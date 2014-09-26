@@ -16,53 +16,121 @@ $def with (token, account, rucio_ui_version, content)
 <!DOCTYPE html>
 <html>
   <head>
+    <script>var ts = (new Date()).getTime(); window.onload = showTime;</script>
     $:token
     $:account
     <title>Rucio UI - $:content.title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/static//jquery-ui.css">
-    <link rel="stylesheet" type="text/css" href="/static/rucio.css">
-    <script src="/static/spinner.js"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/foundation/5.4.4/css/foundation.min.css">
+    <link rel="stylesheet" href="/static/rucio.css">
+    <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script src="//code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.min.js"></script>
+    <script src="//cdn.jsdelivr.net/foundation/5.4.4/js/foundation.min.js"></script>
     <script src="/static/rucio.js"></script>
     <script src="/static/base.js"></script>
     $:content.script
   </head>
+
   <body>
-    <div class="topbar">
-      <div class="topalign" style="float:left">
-        <div id="loaderImage" style="display: inline-block; vertical-align: middle;"></div>
-        <a href="search">Search</a> |
-        <a href="rules">Rules</a> |
-        <a href="subscriptions">Subscriptions</a> |
-        <a href="accounting">Accounting</a> |
-        <a href="#">Transfers</a> |
-        <a href="#">Stage In</a> |
-        <a href="#">Deletion</a> |
-        <a href="#">Popularity</a> |
-        <a href="infrastructure">Infrastructure</a>
+    <nav class="top-bar" data-topbar role="navigation">
+      <section class="top-bar-section">
+
+        <ul class="title-area">
+          <li class="name">
+            <h1><a href="/">ATLAS Rucio UI</a></h1>
+          </li>
+        </ul>
+
+        <ul class="left">
+
+          <li class="has-dropdown">
+            <a href="#">Accounting</a>
+            <ul class="dropdown">
+              <li><a href="/accounting/">Summary</a></li>
+              <li><a href="/accounting/rse/">Rucio Storage Elements (RSE)</a></li>
+              <li><a href="/accounting/account/">Rucio Accounts</a></li>
+            </ul>
+          </li>
+
+          <li class="has-dropdown">
+            <a href="#">Data Management</a>
+            <ul class="dropdown">
+              <li><a href="/mgmt/rules">Rules</a></li>
+              <li><a href="/mgmt/rules">Subscriptions</a></li>
+            </ul>
+          </li>
+
+          <li class="has-form">
+            <div class="row collapse">
+              <div class="large-8 small-9 columns">
+                <input type="text" placeholder="scope:name" style="height: 1.8rem; font-size: 0.75rem;">
+              </div>
+              <div class="large-4 small-3 columns">
+                <a href="#" class="button expand">Quick Search </a>
+              </div>
+            </div>
+          </li>
+        </ul>
+
+        <ul class="right hide-for-small">
+          <li class="has-dropdown">
+            <a href="#">Acting on behalf of root</a>
+            <ul class="dropdown">
+              <li><a href="#">root</a>
+              <li><a href="#">pilot</a>
+              <li><a href="#">mlassnig</a>
+            </ul>
+          </li>
+
+          <li class="has-dropdown">
+            <a href="#">Other Monitoring</a>
+            <ul class="dropdown">
+              <li><a href="http://dashb-atlas-data.cern.ch/ddm2/">DDM Dashboard</a>
+              <li><a href="http://dashb-fts-transfers.cern.ch/">FTS Dashboard</a>
+              <li><a href="https://fts3-pilot.cern.ch:8449/fts3/ftsmon/#/">FTS Monitor CERN</a>
+              <li><a href="https://www-ftsmon-test.gridpp.rl.ac.uk:8449/fts3/ftsmon/#/">FTS Monitor RAL</a>
+              <li><a href="http://bigpanda.cern.ch/">PanDA Monitor</a>
+              <li><a href="http://adc-monitoring.cern.ch/">ADC Monitoring</a>
+            </ul>
+          </li>
+
+          <li class="has-dropdown">
+            <a href="#"><span class="help" style="color:#b2d546">Help</span></a>
+            <ul class="dropdown">
+              <li><a href="mailto:atlas-adc-ddm-support@cern.ch">ADC DDM Support Mailing List</a>
+              <li><a href="mailto:rucio-support@cern.ch">Rucio Support Mailing List</a>
+              <li><a href="mailto:rucio-dev@cern.ch">Rucio Development Mailing List</a>
+              <li><a href="https://rucio.cern.ch/">Rucio Development</a>
+            </ul>
+          </li>
+        </ul>
+
+      </section>
+    </nav>
+
+    <div class="top-subbar">
+      <div class="left" id="div-subtitle" style="padding-left: 1em;">
+        You are here: $:content.title
       </div>
-      <div class="topalign" style="float:right">Acting on behalf of
-          <select name="accountselect" id="accountselect"></select>
-      <button id="logout">Logout</button>
+      <div class="right" id="div-subtitle" style="padding-right: 1em;">
+        Rucio Version: <span id="rucio_server_version">loading</span>
       </div>
     </div>
-    <div class="content">
+
+    <div style="margin: 1em;">
       $:content
     </div>
-    <div class="bottombar">
-      <div style="float:left">
-        <div style="padding-left: 0px">Rucio UI Version: <span>$:rucio_ui_version</span></div>
-        <div style="padding-left: 0px">Rucio Server Version: <span id="rucio_server_version">loading</span></div>
-        <div style="padding-left: 0px">&copy; 2012-2014 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
-      </div>
-      <div style="float:right; text-align:right;">
-        <div><a href="mailto:rucio-support@cern.ch">rucio-support@cern.ch</a></div>
-        <div><a href="http://rucio.cern.ch/">http://rucio.cern.ch/</a></div>
-      </div>
-    </div>
+
+    <footer>
+      <div class="left" style="padding-left: 1em;">&copy; 2012-2014 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
+      <div class="right" style="padding-right: 1em;"><script>document.write(new Date());</script></div>
+    </footer>
+
+    <script>jQuery(document).foundation();</script>
   </body>
 </html>

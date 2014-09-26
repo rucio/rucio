@@ -10,25 +10,14 @@
  * - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
  */
 
-/* solarized palette: http://ethanschoonover.com/solarized */
+div.top-subbar {
+    background-color: #dddddd;
+    font-size: small;
+    overflow:hidden;
+}
 
-html { height: 99%; width: 100%; overflow-x: hidden; overflow-y: auto; background-color: #002b36; }
-body { height: 99%; width: 100%; font-family: sans-serif; margin-left: 0px; margin-top: 0px;}
-
-a { color: #b58900; }
-a.active { color: #cb4b16; }
-
-div { padding-left: 5px; padding-right: 5px; padding-top: 1px; padding-bottom: 1px; }
-div.topbar { background-color: #002b36; color: #93a1a1; width: 100%; overflow: hidden; vertical-align:middle; height: 2.2em; }
-div.bottombar { background-color: #002b36; color: #93a1a1; width: 100%; height: 4em; }
-div.content { background-color: #fdf6e3; color: #586e75; width: 100%; height: calc(99% - 6.2em) }
-div.h1 { font-size: xx-large; font-weight: bold; color: #cb4b16; }
-div.h2 { font-size: x-large; font-weight: bold; color: #cb4b16; }
-div.h3 { font-size: large; font-weight: bold; color: #cb4b16; }
-div.topalign { height: 30px; vertical-align:middle; line-height: 30px; }
-div.center { margin: 0 auto; align: center; }
-select { width: 120px; }
-
-.ui-button { width: 70px; vertical-align: middle; height: 30px; color: #b58900; }
-.ui-menu-item { color: #b58900;}
-.ui-selectmenu-button { vertical-align: middle; height: 25x; color: #b58900; }
+footer {
+    background-color: #dddddd;
+    font-size: small;
+    overflow:hidden;
+}
