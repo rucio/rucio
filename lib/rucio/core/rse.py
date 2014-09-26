@@ -112,11 +112,12 @@ def get_rse(rse, rse_id=None, session=None):
     :raises RSENotFound: If referred RSE was not found in the database.
     """
 
+    false_value = False  # To make pep8 checker happy ...
     try:
         if rse:
-            tmp = session.query(models.RSE).filter_by(rse=rse).one()
+            tmp = session.query(models.RSE).filter(sqlalchemy.and_(models.RSE.deleted == false_value, models.RSE.rse == rse)).one()
         else:
-            tmp = session.query(models.RSE).filter_by(id=rse_id).one()
+            tmp = session.query(models.RSE).filter(sqlalchemy.and_(models.RSE.deleted == false_value, models.RSE.id == rse_id)).one()
         tmp['type'] = tmp.rse_type
         return tmp
     except sqlalchemy.orm.exc.NoResultFound:
