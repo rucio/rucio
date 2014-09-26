@@ -18,13 +18,19 @@ from rucio.web.ui.common.utils import check_token
 
 
 urls = (
-    '/', 'Search',
+    '/', 'Index',
     '/search', 'Search',
     '/accounting', 'Accounting',
     '/subscriptions', 'Subscriptions',
     '/infrastructure', 'Infrastructure',
     '/rules', 'Rules'
     )
+
+
+class Index():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.index())
 
 
 class Search():
