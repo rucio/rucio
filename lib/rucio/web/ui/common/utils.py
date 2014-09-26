@@ -18,7 +18,7 @@ from rucio.common.exception import IdentityError
 
 def __to_js(var, value):
     """
-    Encapsulates django variable into a javascript var.
+    Encapsulates python variable into a javascript var.
 
     :param var: The name of the javascript var.
     :param value: The value to set.

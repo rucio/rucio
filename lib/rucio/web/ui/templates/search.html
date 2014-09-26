@@ -1,21 +1,6 @@
-<!--
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
--->
-
-$var title: Data Identifier Search
+$var title: Data Identifier
 $var script: <script src="/static/search.js"></script>
 
-<div class="center" style="text-align: center">
-  <div class="h2">Rucio Data Identifier Search</div><br />
-  <input style="text-align: center" type="text" id="did" name="did" size="64" placeholder="scope:name"/><br /><br />
-  <input type="submit" value="Search" id="submit">
-</div>
-<div id="result"></div>
+<div id="result">[loading]</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
