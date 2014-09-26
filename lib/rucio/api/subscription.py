@@ -10,6 +10,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps
 
@@ -120,6 +121,17 @@ def list_subscriptions(name=None, account=None, state=None):
     if account == '*':
         account = None
     return subscription.list_subscriptions(name, account, state)
+
+
+def list_subscription_rule_states(name=None, account=None):
+    """Returns a list of with the number of rules per state for a subscription.
+
+    :param name: Name of the subscription
+    :param account: Account identifier
+    :param session: The database session in use.
+    :returns: List with tuple (account, name, state, count)
+    """
+    return subscription.list_subscription_rule_states(name, account)
 
 
 def delete_subscription(subscription_id):

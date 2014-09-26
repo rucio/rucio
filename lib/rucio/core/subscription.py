@@ -10,11 +10,14 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import datetime
 import re
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
 from rucio.db import models
@@ -181,6 +184,34 @@ def delete_subscription(subscription_id):
     """
 
     raise NotImplementedError
+
+
+@stream_session
+def list_subscription_rule_states(name=None, account=None, session=None):
+    """Returns a list of with the number of rules per state for a subscription.
+
+    :param name: Name of the subscription
+    :param account: Account identifier
+    :param session: The database session in use.
+    :returns: List with tuple (account, name, state, count)
+    """
+    s = aliased(models.Subscription)
+    r = aliased(models.ReplicationRule)
+    query = session.query(s.account, s.name, r.state, func.count()).join(r, s.id == r.subscription_id)
+
+    try:
+        if name:
+            query = query.filter(s.name == name)
+        if account:
+            query = query.filter(s.account == account)
+    except IntegrityError, e:
+        print e
+        raise
+
+    query = query.group_by(s.account, s.name, r.state)
+
+    for row in query:
+        yield row
 
 
 class SubscriptionPolicy():
