@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
@@ -14,10 +15,10 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.rule import list_replication_rules
-from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
+from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
-from rucio.web.rest.common import rucio_loadhook
+from rucio.web.rest.common import rucio_loadhook, RucioController
 
 logger = getLogger("rucio.subscription")
 sh = StreamHandler()
@@ -25,6 +26,7 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
+    '/(.*)/(.*)/Rules/States', 'States',
     '/(.*)/(.*)/Rules', 'Rules',
     '/(.*)/(.*)', 'Subscription',
     '/(.*)', 'Subscription',
@@ -178,10 +180,10 @@ class Rules:
                     yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except SubscriptionNotFound, e:
             raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             raise InternalError(e)
 
@@ -193,6 +195,31 @@ class Rules:
 
     def POST(self):
         raise BadRequest()
+
+
+class States(RucioController):
+
+    def GET(self, account, name):
+        """
+        Return a summarary of the states of all rules of a given subscription id.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for row in list_subscription_rule_states(name, account):
+                yield dumps(row, cls=APIEncoder) + '\n'
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
+
 
 """----------------------
    Web service startup
