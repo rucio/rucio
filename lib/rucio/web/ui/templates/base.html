@@ -16,7 +16,6 @@ $def with (token, account, rucio_ui_version, content)
 <!DOCTYPE html>
 <html>
   <head>
-    <script>var ts = (new Date()).getTime(); window.onload = showTime;</script>
     $:token
     $:account
     <title>Rucio UI - $:content.title</title>
@@ -49,7 +48,7 @@ $def with (token, account, rucio_ui_version, content)
         <ul class="left">
 
           <li class="has-dropdown">
-            <a href="#">Accounting</a>
+            <a>Accounting</a>
             <ul class="dropdown">
               <li><a href="/accounting/">Summary</a></li>
               <li><a href="/accounting/rse/">Rucio Storage Elements (RSE)</a></li>
@@ -58,7 +57,7 @@ $def with (token, account, rucio_ui_version, content)
           </li>
 
           <li class="has-dropdown">
-            <a href="#">Data Management</a>
+            <a>Data Management</a>
             <ul class="dropdown">
               <li><a href="/mgmt/rules">Rules</a></li>
               <li><a href="/mgmt/rules">Subscriptions</a></li>
@@ -68,10 +67,10 @@ $def with (token, account, rucio_ui_version, content)
           <li class="has-form">
             <div class="row collapse">
               <div class="large-8 small-9 columns">
-                <input type="text" placeholder="scope:name" style="height: 1.8rem; font-size: 0.75rem;">
+                <input id="searchbox" type="text" placeholder="scope:name" style="height: 1.8rem; font-size: 0.75rem;">
               </div>
               <div class="large-4 small-3 columns">
-                <a href="#" class="button expand">Quick Search </a>
+                <a class="button expand" onClick="did_search(document.getElementById('searchbox').value)">Search</a>
               </div>
             </div>
           </li>
@@ -79,16 +78,13 @@ $def with (token, account, rucio_ui_version, content)
 
         <ul class="right hide-for-small">
           <li class="has-dropdown">
-            <a href="#">Acting on behalf of root</a>
-            <ul class="dropdown">
-              <li><a href="#">root</a>
-              <li><a href="#">pilot</a>
-              <li><a href="#">mlassnig</a>
+            <a>Using account: <span id="current_account">[loading]</span></a>
+            <ul id="accountselecter" class="dropdown">
             </ul>
           </li>
 
           <li class="has-dropdown">
-            <a href="#">Other Monitoring</a>
+            <a>Other Monitoring</a>
             <ul class="dropdown">
               <li><a href="http://dashb-atlas-data.cern.ch/ddm2/">DDM Dashboard</a>
               <li><a href="http://dashb-fts-transfers.cern.ch/">FTS Dashboard</a>
@@ -100,7 +96,7 @@ $def with (token, account, rucio_ui_version, content)
           </li>
 
           <li class="has-dropdown">
-            <a href="#"><span class="help" style="color:#b2d546">Help</span></a>
+            <a><span class="help" style="color:#b2d546">Help</span></a>
             <ul class="dropdown">
               <li><a href="mailto:atlas-adc-ddm-support@cern.ch">ADC DDM Support Mailing List</a>
               <li><a href="mailto:rucio-support@cern.ch">Rucio Support Mailing List</a>
@@ -118,7 +114,7 @@ $def with (token, account, rucio_ui_version, content)
         You are here: $:content.title
       </div>
       <div class="right" id="div-subtitle" style="padding-right: 1em;">
-        Rucio Version: <span id="rucio_server_version">loading</span>
+        Rucio Version: <span id="rucio_server_version">[loading]</span>
       </div>
     </div>
 
