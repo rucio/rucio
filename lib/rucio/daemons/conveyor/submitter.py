@@ -223,7 +223,7 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                     replica.update_replicas_paths([{'scope': req['scope'],
                                                     'name': req['name'],
                                                     'rse_id': req['dest_rse_id'],
-                                                    'path': tmp_path}])
+                                                    'path': path}])
 
                 else:
                     ts = time.time()
