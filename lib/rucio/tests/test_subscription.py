@@ -7,16 +7,21 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
 
 from nose.tools import assert_equal, assert_true, raises, assert_raises
 from paste.fixture import TestApp
 
-from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription
+from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.utils import generate_uuid as uuid
+from rucio.core.did import add_did
+from rucio.core.rse import add_rse
+from rucio.core.rule import add_rule
+from rucio.db.constants import DIDType
 from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.subscription import app as subs_app
 
@@ -71,6 +76,36 @@ class TestSubscriptionCoreApi():
         """ SUBSCRIPTION (API): Test the update of a non-existing subscription """
         subscription_name = uuid()
         update_subscription(name=subscription_name, account='root', filter={'project': ['toto', ]})
+
+    def test_list_rules_states(self):
+        """ SUBSCRIPTION (API): Test listing of rule states for subscription """
+        site_a = 'RSE%s' % uuid().upper()
+        site_b = 'RSE%s' % uuid().upper()
+
+        add_rse(site_a)
+        add_rse(site_b)
+
+        # add a new dataset
+        dsn = 'dataset-%s' % uuid()
+        add_did(scope='mock', name=dsn,
+                type=DIDType.DATASET, account='root')
+
+        subscription_name = uuid()
+        id = add_subscription(name=subscription_name, account='root', filter={'account': 'root'},
+                              replication_rules=[(1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
+
+        subscriptions = list_subscriptions(name=subscription_name, account='root')
+        # workaround until add_subscription returns the id
+        id = None
+        for s in subscriptions:
+            id = s['id']
+
+        # Add two rules
+        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+
+        for r in list_subscription_rule_states(account='root', name=subscription_name):
+            assert_equal(r[3], 2)
 
 
 class TestSubscriptionRestApi():
@@ -152,6 +187,46 @@ class TestSubscriptionRestApi():
         r2 = TestApp(subs_app.wsgifunc(*mw)).put('/subscriptions' + subscription_name, headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.header('ExceptionClass'), 'SubscriptionNotFound')
         assert_equal(r2.status, 404)
+
+    def test_list_rules_states(self):
+        """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
+        mw = []
+        site_a = 'RSE%s' % uuid().upper()
+        site_b = 'RSE%s' % uuid().upper()
+
+        add_rse(site_a)
+        add_rse(site_b)
+
+        # add a new dataset
+        dsn = 'dataset-%s' % uuid()
+        add_did(scope='mock', name=dsn,
+                type=DIDType.DATASET, account='root')
+
+        subscription_name = uuid()
+        id = add_subscription(name=subscription_name, account='root', filter={'account': 'root'},
+                              replication_rules=[(1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
+
+        subscriptions = list_subscriptions(name=subscription_name, account='root')
+        # workaround until add_subscription returns the id
+        id = None
+        for s in subscriptions:
+            id = s['id']
+
+        # Add two rules
+        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(r1.status, 200)
+        token = str(r1.header('X-Rucio-Auth-Token'))
+
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        r = TestApp(subs_app.wsgifunc(*mw)).get('/%s/%s/Rules/States' % ('root', subscription_name), headers=headers2, expect_errors=True)
+
+        r = loads(r.body)
+        assert_equal(r[3], 2)
 
 
 class TestSubscriptionClient():
