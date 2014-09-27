@@ -1,0 +1,42 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+-->
+
+$var title: Data Identifier
+$var script: <script src="/static/did.js"></script><link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css"><script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+
+<div id="result" class="row" data-equalizer>
+
+  <div id="metadata" class="columns panel">
+    <h4>Metadata</h4>
+    <table id="t_metadata" style="word-wrap: break-word;">
+    </table>
+  </div>
+
+  <div id="subscriptions" class="large-6 columns panel" data-equalizer-watch>
+    <h4>Subscriptions</h4>
+    <table id="t_subscriptions" class="compact stripe order-column">
+      <thead><th>subscription_id</th></thead>
+      <tfoot><th>subscription_id</th></tfoot>
+    </table>
+  </div>
+
+  <div id="rules" class="large-6 columns panel" data-equalizer-watch>
+    <h4>Rules</h4>
+    <table id="t_rules" class="compact stripe order-column">
+      <thead><th>rule_id</th></thead>
+      <tfoot><th>rule_id</th></tfoot>
+    </table>
+  </div>
+
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>

@@ -19,24 +19,13 @@ from rucio.web.ui.common.utils import check_token
 
 urls = (
     '/', 'Index',
-    '/search', 'Search',
     '/accounting', 'Accounting',
-    '/subscriptions', 'Subscriptions',
+    '/did', 'DID',
     '/infrastructure', 'Infrastructure',
-    '/rules', 'Rules'
-    )
-
-
-class Index():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.index())
-
-
-class Search():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.search())
+    '/rules', 'Rules',
+    '/search', 'Search',
+    '/subscriptions', 'Subscriptions',
+)
 
 
 class Accounting():
@@ -45,10 +34,16 @@ class Accounting():
         return check_token(render.accounting())
 
 
-class Subscriptions():
+class DID():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.subscriptions())
+        return check_token(render.did())
+
+
+class Index():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.index())
 
 
 class Infrastructure():
@@ -61,6 +56,18 @@ class Rules():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rules())
+
+
+class Search():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.search())
+
+
+class Subscriptions():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.subscriptions())
 
 
 """----------------------
