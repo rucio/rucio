@@ -67,7 +67,7 @@ $def with (token, account, rucio_ui_version, content)
           <li class="has-form">
             <div class="row collapse">
               <div class="large-8 small-9 columns">
-                <input id="searchbox" type="text" placeholder="scope:name" style="height: 1.8rem; font-size: 0.75rem;">
+                <input id="searchbox" type="text" placeholder="scope OR scope:name" style="height: 1.8rem; font-size: 0.75rem;">
               </div>
               <div class="large-4 small-3 columns">
                 <a class="button expand" onClick="did_search(document.getElementById('searchbox').value)">Search</a>
@@ -111,14 +111,14 @@ $def with (token, account, rucio_ui_version, content)
 
     <div class="top-subbar">
       <div class="left" id="div-subtitle" style="padding-left: 1em;">
-        You are here: $:content.title
+        You are here: $:content.title <span id="subbar-details"></span>
       </div>
       <div class="right" id="div-subtitle" style="padding-right: 1em;">
         Rucio Version: <span id="rucio_server_version">[loading]</span>
       </div>
     </div>
 
-    <div style="margin: 1em;">
+    <div id="content" style="margin: 1em;">
       $:content
     </div>
 
