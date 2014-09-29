@@ -10,12 +10,14 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
+from urlparse import parse_qs
 from logging import getLogger, StreamHandler, DEBUG
 
 from web import application, ctx, data, header, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states
+from rucio.db.constants import RuleState
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
 from rucio.common.utils import generate_http_error, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
@@ -173,10 +175,21 @@ class Rules:
         :param scope: The scope name.
         """
         header('Content-Type', 'application/x-json-stream')
+        state = None
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'state' in params:
+                state = params['state'][0]
         try:
             subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account)]
             if len(subscriptions) > 0:
-                for rule in list_replication_rules({'subscription_id': subscriptions[0]}):
+                if state == 'OK':
+                    state = RuleState.OK
+                if state == 'Replicating':
+                    state = RuleState.REPLICATING
+                if state == 'Stuck':
+                    state = RuleState.STUCK
+                for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}):
                     yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
@@ -213,7 +226,7 @@ class States(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for row in list_subscription_rule_states(name, account):
+            for row in list_subscription_rule_states(account=account):
                 yield dumps(row, cls=APIEncoder) + '\n'
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
