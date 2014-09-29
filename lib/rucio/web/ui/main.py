@@ -22,8 +22,10 @@ urls = (
     '/accounting', 'Accounting',
     '/did', 'DID',
     '/infrastructure', 'Infrastructure',
+    '/rule', 'Rule',
     '/rules', 'Rules',
     '/search', 'Search',
+    '/subscriptions/rules', 'SubscriptionRules',
     '/subscriptions', 'Subscriptions',
 )
 
@@ -38,6 +40,18 @@ class DID():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.did())
+
+
+class Rule():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.rule())
+
+
+class SubscriptionRules():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.subscriptionrules())
 
 
 class Index():
