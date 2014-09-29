@@ -8,10 +8,21 @@
 
  Authors:
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 -->
 
 $var title: Rules for Subscription
-$var script: <script src="/static/subscriptionrules.js"></script>
+$var script: <script src="/static/subscriptionrules.js"></script><link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css"><script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
 
-<div id="results"></div>
+<div id="results">
+
+  <div id="t_data" class="columns panel">
+    <h4>Rules</h4>
+    <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Name</th><th>Scope</th><th>RSE Expression</th></tr></thead>
+      <tfoot><tr><th>Name</th><th>Scope</th><th>RSE Expression</th></tr></tfoot>
+    </table>
+  </div>
+
+</div>
 <div id="problem"></div>
