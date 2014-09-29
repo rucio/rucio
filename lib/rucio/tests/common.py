@@ -8,6 +8,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
 
 from paste.fixture import TestApp
 from random import choice
@@ -97,3 +98,13 @@ def rse_name_generator(size=10):
     :returns: A random RSE name
     """
     return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in xrange(size))
+
+
+def file_generator(size=2, namelen=10):
+    """ Create a bogus file and returns it's name.
+    :param size: size in bytes
+    :returns: The name of the generated file.
+    """
+    fn = '/tmp/file_' + ''.join(choice(ascii_uppercase) for x in xrange(namelen))
+    execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fn, size))
+    return fn
