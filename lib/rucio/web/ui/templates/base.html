@@ -24,12 +24,14 @@ $def with (token, account, rucio_ui_version, content)
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css">
     <link rel="stylesheet" href="//cdn.jsdelivr.net/foundation/5.4.4/css/foundation.min.css">
+    <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.css">
     <link rel="stylesheet" href="/static/rucio.css">
     <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="//code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.min.js"></script>
     <script src="//cdn.jsdelivr.net/foundation/5.4.4/js/foundation.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.js"></script>
     <script src="/static/rucio.js"></script>
     <script src="/static/base.js"></script>
     $:content.script
@@ -57,10 +59,9 @@ $def with (token, account, rucio_ui_version, content)
           </li>
 
           <li class="has-dropdown">
-            <a>Data Management</a>
+            <a>Monitoring</a>
             <ul class="dropdown">
-              <li><a href="/mgmt/rules">Rules</a></li>
-              <li><a href="/mgmt/rules">Subscriptions</a></li>
+              <li><a href="/subscriptions">Subscriptions</a></li>
             </ul>
           </li>
 
