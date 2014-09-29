@@ -259,6 +259,8 @@ def add_monitor_message(req, response, did_meta, details, activity, session=None
             src_rse = req['src_rse']
         elif 'src_rse' in response:
             src_rse = response['src_rse']
+        elif 'details' in response and 'job_metadata' in response['details'] and 'src_rse' in response['details']['job_metadata']:
+            src_rse = response['details']['job_metadata']['src_rse']
 
         # propagate the correct destination and protocol
         if 'dest_surl' not in details:
@@ -270,6 +272,8 @@ def add_monitor_message(req, response, did_meta, details, activity, session=None
             dst_rse = req['dst_rse']
         elif 'dst_rse' in response:
             dst_rse = response['dst_rse']
+        elif 'details' in response and 'job_metadata' in response['details'] and 'dst_rse' in response['details']['job_metadata']:
+            dst_rse = response['details']['job_metadata']['dst_rse']
 
         # propagate the correct error message
         if 'reason' not in details and 'reason' in response:
