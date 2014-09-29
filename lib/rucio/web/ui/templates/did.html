@@ -21,19 +21,11 @@ $var script: <script src="/static/did.js"></script><link rel="stylesheet" href="
     </table>
   </div>
 
-  <div id="subscriptions" class="large-6 columns panel" data-equalizer-watch>
-    <h4>Subscriptions</h4>
-    <table id="t_subscriptions" class="compact stripe order-column">
-      <thead><th>subscription_id</th></thead>
-      <tfoot><th>subscription_id</th></tfoot>
-    </table>
-  </div>
-
-  <div id="rules" class="large-6 columns panel" data-equalizer-watch>
-    <h4>Rules</h4>
-    <table id="t_rules" class="compact stripe order-column">
-      <thead><th>rule_id</th></thead>
-      <tfoot><th>rule_id</th></tfoot>
+  <div id="t_data" class="columns panel">
+    <h4>Replication</h4>
+    <table id="dt_data" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><th>Rule</th><th>Subscription</th><th>Last modified</th></thead>
+      <tfoot><th>Rule</th><th>Subscription</th><th>Last modified</th></tfoot>
     </table>
   </div>
 
