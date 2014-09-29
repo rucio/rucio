@@ -478,11 +478,12 @@ def add_protocol(rse, parameter, session=None):
 
 
 @read_session
-def get_rse_protocols(rse, session=None):
+def get_rse_protocols(rse, schemes=None, session=None):
     """
     Returns protocol information. Parameter combinations are: (operation OR default) XOR scheme.
 
     :param rse: The name of the rse.
+    :param schemes: a list of schemes to filter by.
     :param session: The database session.
 
     :returns: A dict with RSE information and supported protocols
@@ -517,7 +518,19 @@ def get_rse_protocols(rse, session=None):
     query = None
     terms = [models.RSEProtocols.rse_id == _rse.id]
 
-    query = session.query(models.RSEProtocols).filter(*terms)
+    query = session.query(models.RSEProtocols.hostname,
+                          models.RSEProtocols.scheme,
+                          models.RSEProtocols.port,
+                          models.RSEProtocols.prefix,
+                          models.RSEProtocols.impl,
+                          models.RSEProtocols.read_lan,
+                          models.RSEProtocols.write_lan,
+                          models.RSEProtocols.delete_lan,
+                          models.RSEProtocols.read_wan,
+                          models.RSEProtocols.write_wan,
+                          models.RSEProtocols.delete_wan,
+                          models.RSEProtocols.extended_attributes).filter(*terms)
+
     for row in query:
         p = {'hostname': row.hostname,
              'scheme': row.scheme,
