@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
 
 from os import remove
 
@@ -17,7 +18,7 @@ import re
 
 from rucio import version
 from rucio.common.config import config_get
-from rucio.tests.common import execute, account_name_generator, rse_name_generator
+from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator
 
 
 class TestBinRucio():
@@ -31,6 +32,8 @@ class TestBinRucio():
         self.marker = '$> '
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
+        self.user = 'mock'
+        self.def_rse = 'MOCK4'
 
     def test_rucio_version(self):
         """CLI: Get Version"""
@@ -120,3 +123,18 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out,
+
+    def test_upload_file(self):
+        """UPLOAD (CLI): File"""
+        tmp_file1 = file_generator()
+        tmp_file2 = file_generator()
+        tmp_file3 = file_generator()
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        remove(tmp_file1)
+        remove(tmp_file2)
+        remove(tmp_file3)
+        nose.tools.assert_not_equal(re.search('Upload successfull', err), None)
