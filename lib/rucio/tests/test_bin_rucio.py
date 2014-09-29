@@ -58,8 +58,8 @@ class TestBinRucio():
         cmd = 'rucio whoami'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
-        print out,
-        nose.tools.assert_regexp_matches(out, re.compile('.*account.*'))
+        print out
+        nose.tools.assert_not_equal(re.search('.*account.*', out), None)
 
     def test_add_identity(self):
         """ACCOUNT (CLI): Test add identity"""
@@ -101,8 +101,9 @@ class TestBinRucio():
         cmd = 'rucio-admin rse list'
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
-        print out,
-        nose.tools.assert_regexp_matches(out, re.compile('.*%s.*' % tmp_val))
+        print out
+        print tmp_val
+        nose.tools.assert_not_equal(re.search(tmp_val, out), None)
 
     def test_upload(self):
         """RSE (CLI): Upload"""
