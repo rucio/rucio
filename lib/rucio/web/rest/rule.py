@@ -123,7 +123,7 @@ class Rule:
             if 'activity' in params:
                 activity = params['activity']
             if 'notify' in params:
-                notify = params['notify']  # noqa
+                notify = params['notify']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -139,7 +139,7 @@ class Rule:
                                             subscription_id=subscription_id,
                                             source_replica_expression=source_replica_expression,
                                             activity=activity,
-                                            # notify=notify,
+                                            notify=notify,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:

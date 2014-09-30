@@ -12,10 +12,13 @@
 
 from sqlalchemy.sql.expression import and_, or_
 
+import rucio.core.did
+
+from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.message import add_message
 from rucio.core.rse import get_rse_name
 from rucio.db import models
-from rucio.db.constants import LockState, RuleState, RuleGrouping
+from rucio.db.constants import LockState, RuleState, RuleGrouping, RuleNotification
 from rucio.db.session import read_session, transactional_session
 
 
@@ -206,11 +209,23 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                 dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
                     dataset_lock.state = LockState.OK
-                    add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset_lock.scope,
-                                         'name': dataset_lock.name,
-                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
-                                session=session)
+                    if rule.notification == RuleNotification.YES:
+                        add_message(event_type='DATASETLOCK_OK',
+                                    payload={'scope': dataset_lock.scope,
+                                             'name': dataset_lock.name,
+                                             'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                    session=session)
+                    elif rule.notification == RuleNotification.CLOSE:
+                        try:
+                            did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
+                            if not did['open']:
+                                add_message(event_type='DATASETLOCK_OK',
+                                            payload={'scope': dataset_lock.scope,
+                                                     'name': dataset_lock.name,
+                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                            session=session)
+                        except DataIdentifierNotFound:
+                            pass
 
 
 @transactional_session

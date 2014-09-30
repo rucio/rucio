@@ -7,6 +7,8 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+
 
 """
 Constants.
@@ -129,6 +131,12 @@ class RequestState(DeclEnum):
     FAILED = 'F', 'FAILED'
     DONE = 'D', 'DONE'
     LOST = 'L', 'LOST'
+
+
+class RuleNotification(DeclEnum):
+    YES = 'Y', 'YES'
+    NO = 'N', 'NO'
+    CLOSE = 'C', 'CLOSE'
 
 
 class FTSState(DeclEnum):

@@ -18,13 +18,13 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_, bindparam, text
 
 import rucio.core.did
+import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.core import account_counter, rse_counter
-from rucio.core.lock import get_replica_locks, get_files_and_replica_locks_of_dataset
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name
@@ -34,12 +34,12 @@ from rucio.core.request import queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db import models
-from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType
+from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification
 from rucio.db.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, notify=None, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -56,6 +56,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param subscription_id:            The subscription_id, if the rule is created by a subscription.
     :param source_replica_expression:  Only use replicas as source from this RSEs.
     :param activity:                   Activity to be passed on to the conveyor.
+    :param notify:                     Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
@@ -81,6 +82,13 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, session=session)
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
+
+        if notify == 'Y':
+            notify = RuleNotification.YES
+        elif notify == 'C':
+            notify = RuleNotification.CLOSE
+        else:
+            notify = RuleNotification.NO
 
         for elem in dids:
             # 3. Get the did
@@ -111,7 +119,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   weight=weight,
                                                   source_replica_expression=source_replica_expression,
                                                   activity=activity,
-                                                  subscription_id=subscription_id)
+                                                  subscription_id=subscription_id,
+                                                  notification=notify)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -225,6 +234,14 @@ def add_rules(dids, rules, session=None):
                         else:
                             grouping = RuleGrouping.DATASET
                         expires_at = datetime.utcnow() + timedelta(seconds=rule.get('lifetime')) if rule.get('lifetime') is not None else None
+                        notify = rule.get('notify')
+                        if notify == 'Y':
+                            notify = RuleNotification.YES
+                        elif notify == 'C':
+                            notify = RuleNotification.CLOSE
+                        else:
+                            notify = RuleNotification.NO
+
                         new_rule = models.ReplicationRule(account=rule['account'],
                                                           name=did.name,
                                                           scope=did.scope,
@@ -236,7 +253,8 @@ def add_rules(dids, rules, session=None):
                                                           weight=rule.get('weight'),
                                                           source_replica_expression=rule.get('source_replica_expression'),
                                                           activity=rule.get('activity'),
-                                                          subscription_id=rule.get('subscription_id'))
+                                                          subscription_id=rule.get('subscription_id'),
+                                                          notification=notify)
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
@@ -474,11 +492,24 @@ def repair_rule(rule_id, session=None):
             dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
             for dataset_lock in dataset_locks:
                 dataset_lock.state = LockState.OK
-                add_message(event_type='DATASETLOCK_OK',
-                            payload={'scope': dataset_lock.scope,
-                                     'name': dataset_lock.name,
-                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
-                            session=session)
+                if rule.notification == RuleNotification.YES:
+                    add_message(event_type='DATASETLOCK_OK',
+                                payload={'scope': dataset_lock.scope,
+                                         'name': dataset_lock.name,
+                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                session=session)
+                elif rule.notification == RuleNotification.CLOSE:
+                    try:
+                        did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
+                        if not did['open']:
+                            add_message(event_type='DATASETLOCK_OK',
+                                        payload={'scope': dataset_lock.scope,
+                                                 'name': dataset_lock.name,
+                                                 'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                        session=session)
+                    except DataIdentifierNotFound:
+                        pass
+
         return
 
     except NoResultFound:
@@ -708,11 +739,23 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
                 dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
                     dataset_lock.state = LockState.OK
-                    add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset_lock.scope,
-                                         'name': dataset_lock.name,
-                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
-                                session=session)
+                    if rule.notification == RuleNotification.YES:
+                        add_message(event_type='DATASETLOCK_OK',
+                                    payload={'scope': dataset_lock.scope,
+                                             'name': dataset_lock.name,
+                                             'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                    session=session)
+                    elif rule.notification == RuleNotification.CLOSE:
+                        try:
+                            did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
+                            if not did['open']:
+                                add_message(event_type='DATASETLOCK_OK',
+                                            payload={'scope': dataset_lock.scope,
+                                                     'name': dataset_lock.name,
+                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                            session=session)
+                        except DataIdentifierNotFound:
+                            pass
         session.delete(lock)
 
     if replica.lock_cnt == 0:
@@ -910,11 +953,23 @@ def __evaluate_did_detach(eval_did, session=None):
                     dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
                     for dataset_lock in dataset_locks:
                         dataset_lock.state = LockState.OK
-                        add_message(event_type='DATASETLOCK_OK',
-                                    payload={'scope': dataset_lock.scope,
-                                             'name': dataset_lock.name,
-                                             'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
-                                    session=session)
+                        if rule.notification == RuleNotification.YES:
+                            add_message(event_type='DATASETLOCK_OK',
+                                        payload={'scope': dataset_lock.scope,
+                                                 'name': dataset_lock.name,
+                                                 'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                        session=session)
+                        elif rule.notification == RuleNotification.CLOSE:
+                            try:
+                                did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
+                                if not did['open']:
+                                    add_message(event_type='DATASETLOCK_OK',
+                                                payload={'scope': dataset_lock.scope,
+                                                         'name': dataset_lock.name,
+                                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                                session=session)
+                            except DataIdentifierNotFound:
+                                pass
 
         session.flush()
 
@@ -1031,10 +1086,10 @@ def __evaluate_did_attach(eval_did, session=None):
                             models.DataIdentifierAssociation.rule_evaluation == False).first()   # noqa
                         if brother_did is not None:
                             # There are other files in the dataset
-                            locks = get_replica_locks(scope=brother_did.child_scope,
-                                                      name=brother_did.child_name,
-                                                      rule_id=rule.id,
-                                                      session=session)
+                            locks = rucio.core.lock.get_replica_locks(scope=brother_did.child_scope,
+                                                                      name=brother_did.child_name,
+                                                                      rule_id=rule.id,
+                                                                      session=session)
                             preferred_rse_ids = [lock['rse_id'] for lock in locks]
                     locks_stuck_before = rule.locks_stuck_cnt
                     try:
@@ -1077,11 +1132,23 @@ def __evaluate_did_attach(eval_did, session=None):
                             dataset_locks = session.query(models.DatasetLock).with_for_update(nowait=True).filter_by(rule_id=rule.id).all()
                             for dataset_lock in dataset_locks:
                                 dataset_lock.state = LockState.OK
-                                add_message(event_type='DATASETLOCK_OK',
-                                            payload={'scope': dataset_lock.scope,
-                                                     'name': dataset_lock.name,
-                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
-                                            session=session)
+                                if rule.notification == RuleNotification.YES:
+                                    add_message(event_type='DATASETLOCK_OK',
+                                                payload={'scope': dataset_lock.scope,
+                                                         'name': dataset_lock.name,
+                                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                                session=session)
+                                elif rule.notification == RuleNotification.CLOSE:
+                                    try:
+                                        did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
+                                        if not did['open']:
+                                            add_message(event_type='DATASETLOCK_OK',
+                                                        payload={'scope': dataset_lock.scope,
+                                                                 'name': dataset_lock.name,
+                                                                 'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                                        session=session)
+                                    except DataIdentifierNotFound:
+                                        pass
 
                     if session.bind.dialect.name != 'sqlite':
                         session.commit()
@@ -1119,7 +1186,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
                                     'bytes': did.bytes,
                                     'md5': did.md5,
                                     'adler32': did.adler32}]}]
-        locks[(did.scope, did.name)] = get_replica_locks(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+        locks[(did.scope, did.name)] = rucio.core.lock.get_replica_locks(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
         replicas[(did.scope, did.name)] = get_and_lock_file_replicas(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
 
     elif did.did_type == DIDType.DATASET:
@@ -1127,13 +1194,13 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         datasetfiles = [{'scope': did.scope,
                          'name': did.name,
                          'files': files}]
-        locks = get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+        locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
 
     elif did.did_type == DIDType.CONTAINER:
 
         for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
             files, tmp_replicas = get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
-            tmp_locks = get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
+            tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             datasetfiles.append({'scope': did.scope,
                                  'name': did.name,
                                  'files': files})
