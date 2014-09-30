@@ -21,6 +21,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.core.did import add_did
 from rucio.core.rse import add_rse
 from rucio.core.rule import add_rule
+from rucio.core.scope import add_scope
 from rucio.db.constants import DIDType
 from rucio.web.rest.authentication import app as auth_app
 from rucio.web.rest.subscription import app as subs_app
@@ -79,6 +80,8 @@ class TestSubscriptionCoreApi():
 
     def test_list_rules_states(self):
         """ SUBSCRIPTION (API): Test listing of rule states for subscription """
+        tmp_scope = 'mock_' + uuid()[:8]
+        add_scope(tmp_scope, 'root')
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
 
@@ -87,7 +90,7 @@ class TestSubscriptionCoreApi():
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
-        add_did(scope='mock', name=dsn,
+        add_did(scope=tmp_scope, name=dsn,
                 type=DIDType.DATASET, account='root')
 
         subscription_name = uuid()
@@ -101,8 +104,8 @@ class TestSubscriptionCoreApi():
             id = s['id']
 
         # Add two rules
-        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
-        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
 
         for r in list_subscription_rule_states(account='root', name=subscription_name):
             assert_equal(r[3], 2)
@@ -190,6 +193,8 @@ class TestSubscriptionRestApi():
 
     def test_list_rules_states(self):
         """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
+        tmp_scope = 'mock_' + uuid()[:8]
+        add_scope(tmp_scope, 'root')
         mw = []
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
@@ -199,7 +204,7 @@ class TestSubscriptionRestApi():
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
-        add_did(scope='mock', name=dsn,
+        add_did(scope=tmp_scope, name=dsn,
                 type=DIDType.DATASET, account='root')
 
         subscription_name = uuid()
@@ -207,14 +212,15 @@ class TestSubscriptionRestApi():
                               replication_rules=[(1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, subscription_policy='tier0')
 
         subscriptions = list_subscriptions(name=subscription_name, account='root')
+
         # workaround until add_subscription returns the id
         id = None
         for s in subscriptions:
             id = s['id']
 
         # Add two rules
-        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
-        add_rule(dids=[{'scope': 'mock', 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=id)
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
@@ -223,10 +229,14 @@ class TestSubscriptionRestApi():
         token = str(r1.header('X-Rucio-Auth-Token'))
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
-        r = TestApp(subs_app.wsgifunc(*mw)).get('/%s/%s/Rules/States' % ('root', subscription_name), headers=headers2, expect_errors=True)
+        r2 = TestApp(subs_app.wsgifunc(*mw)).get('/%s/%s/Rules/States' % ('root', subscription_name), headers=headers2, expect_errors=True)
 
-        r = loads(r.body)
-        assert_equal(r[3], 2)
+        for line in r2.body.split('\n'):
+            print line
+            rs = loads(line)
+            if rs[1] == subscription_name:
+                break
+        assert_equal(rs[3], 2)
 
 
 class TestSubscriptionClient():
