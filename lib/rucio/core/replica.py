@@ -20,9 +20,10 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import case, bindparam, select, text
 
+import rucio.core.lock
+
 from rucio.common import exception
 from rucio.common.utils import chunks
-from rucio.core.lock import successful_transfer
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
@@ -639,7 +640,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
             query = query.filter_by(lock_cnt=0)
 
         if replica['state'] == ReplicaState.AVAILABLE:
-            successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
+            rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
 
         if 'path' in replica and replica['path']:
             rowcount = query.update({'state': replica['state'], 'path': replica['path']}, synchronize_session=False)
