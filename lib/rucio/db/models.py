@@ -31,7 +31,7 @@ from rucio.common import utils
 from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                 KeyType, IdentityType, LockState, RuleGrouping,
                                 RuleState, ReplicaState, RequestState, RequestType, RSEType,
-                                ScopeStatus, SubscriptionState)
+                                ScopeStatus, SubscriptionState, RuleNotification)
 from rucio.db.history import Versioned
 from rucio.db.session import BASE
 from rucio.db.types import GUID, BooleanString
@@ -567,6 +567,7 @@ class ReplicationRule(BASE, ModelBase):
     source_replica_expression = Column(String(255))
     activity = Column(String(50))
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
+    notification = Column(RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'), default=RuleNotification.NO)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),

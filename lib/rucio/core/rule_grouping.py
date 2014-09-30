@@ -13,10 +13,13 @@ from datetime import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
 
+import rucio.core.did
+
+from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.message import add_message
 from rucio.core.rse import get_rse_name
 from rucio.db import models
-from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType
+from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType, RuleNotification
 from rucio.db.session import transactional_session
 
 
@@ -293,11 +296,23 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                        account=rule.account).save(flush=False, session=session)
                 if not dataset_is_replicating:
                     # Send DATASETLOCk_OK message
-                    add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset['scope'],
-                                         'name': dataset['name'],
-                                         'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
-                                session=session)
+                    if rule.notification == RuleNotification.YES:
+                        add_message(event_type='DATASETLOCK_OK',
+                                    payload={'scope': dataset['scope'],
+                                             'name': dataset['name'],
+                                             'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
+                                    session=session)
+                    elif rule.notification == RuleNotification.CLOSE:
+                        try:
+                            did = rucio.core.did.get_did(scope=dataset['scope'], name=dataset['name'], session=session)
+                            if not did['open']:
+                                add_message(event_type='DATASETLOCK_OK',
+                                            payload={'scope': dataset['scope'],
+                                                     'name': dataset['name'],
+                                                     'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
+                                            session=session)
+                        except DataIdentifierNotFound:
+                            pass
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
@@ -381,11 +396,23 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                                        account=rule.account).save(flush=False, session=session)
                 if not dataset_is_replicating:
                     # Send DATASETLOCk_OK message
-                    add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset['scope'],
-                                         'name': dataset['name'],
-                                         'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
-                                session=session)
+                    if rule.notification == RuleNotification.YES:
+                        add_message(event_type='DATASETLOCK_OK',
+                                    payload={'scope': dataset['scope'],
+                                             'name': dataset['name'],
+                                             'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
+                                    session=session)
+                    elif rule.notification == RuleNotification.CLOSE:
+                        try:
+                            did = rucio.core.did.get_did(scope=dataset['scope'], name=dataset['name'], session=session)
+                            if not did['open']:
+                                add_message(event_type='DATASETLOCK_OK',
+                                            payload={'scope': dataset['scope'],
+                                                     'name': dataset['name'],
+                                                     'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
+                                            session=session)
+                        except DataIdentifierNotFound:
+                            pass
 
     return replicas_to_create, locks_to_create, transfers_to_create
 

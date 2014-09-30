@@ -39,6 +39,8 @@ class RuleClient(BaseClient):
         :param account:                    The account owning the rule.
         :param locked:                     If the rule is locked, it cannot be deleted.
         :param source_replica_expression:  RSE Expression for RSEs to be considered for source replicas.
+        :param activity:                   Transfer Activity to be passed to FTS.
+        :param notify:                     Notification setting for the rule (Y, N, C).
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)

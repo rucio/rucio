@@ -27,10 +27,12 @@ import rucio.core.rule
 
 from rucio.common import exception
 from rucio.common.utils import chunks
+from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.replica import add_replicas
+from rucio.core.rse import get_rse_name
 from rucio.db import models
-from rucio.db.constants import DIDType, DIDReEvaluation
+from rucio.db.constants import DIDType, DIDReEvaluation, LockState, RuleNotification
 from rucio.db.enum import EnumSymbol
 from rucio.db.session import read_session, transactional_session, stream_session
 
@@ -787,6 +789,20 @@ def set_status(scope, name, session=None, **kwargs):
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
         raise exception.UnsupportedOperation("The status of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
+    else:
+        # Check if DATASETLOCK_OK callbacks have to be generated
+        if not values['is_open']:
+            dataset_locks = session.query(models.DatasetLock).filter_by(scope=scope, name=name).all()
+            for dataset_lock in dataset_locks:
+                if dataset_lock.state == LockState.OK:
+                    # Get the associated rule and check if a notification is required
+                    rule = session.query(models.ReplicationRule).filter_by(id=dataset_lock.rule_id).one()
+                    if rule.notification == RuleNotification.CLOSE:
+                        add_message(event_type='DATASETLOCK_OK',
+                                    payload={'scope': scope,
+                                             'name': name,
+                                             'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
+                                    session=session)
 
 
 @stream_session
