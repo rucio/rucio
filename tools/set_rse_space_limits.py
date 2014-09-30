@@ -9,14 +9,14 @@
 # - David Cameron, <david.cameron@cern.ch>, 2014
 #
 
-# Sets the minimum free space on RSEs according to the policy. The smaller of
-# ratio and absolute is the threshold below which to clean.
+# Sets the minimum free space on RSEs according to the policy, which is set in
+# the configuration table of Rucio server. A relative and absolute limit are
+# set for the relevant endpoints, for example:
 #  Spacetoken  Free ratio  Free absolute
 #  PRODDISK      25%         10.0 TB
-#  SCRATCHDISK   50%         100.0 TB
-#  DATADISK      10%         500.0 TB
 #
-# Other tokens (tape, groupdisk, localgroupdisk) are not cleaned automatically.
+# The smaller of ratio and absolute is the threshold below which to clean.
+# Some tokens (tape, groupdisk, localgroupdisk) are not cleaned automatically.
 #
 # The capacity of each RSE is SRM used - Rucio used of other RSEs sharing the
 # token. This allows RSEs to use space pledged but not used by other RSEs. The
@@ -36,10 +36,13 @@ from urlparse import urlparse
 server = False
 try:
     from rucio.api import rse as c
+    from rucio.api import config
     server = True
 except:
     from rucio.client import Client
+    from rucio.client.configclient import ConfigClient
     c = Client()
+    config = ConfigClient()
 
 UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
 
@@ -73,16 +76,40 @@ except Exception, e:
     print "Failed to get RSEs from Rucio: %s" % str(e)
     sys.exit(CRITICAL)
 
+# Get policy defined in config. Each section is called limitstoken
+# {token: (relative limit in %, absolute limit in TB)}
+policy = {}
+try:
+    if server:
+        sections = config.sections('root')
+        for section in [s for s in sections if s.startswith('limits')]:
+            policy[section[6:].upper()] = (config.get(section, 'rellimit', 'root'), config.get(section, 'abslimit', 'root'))
+    else:
+        sections = config.get_config()
+        for section in [s for s in sections if s.startswith('limits')]:
+            policy[section[6:].upper()] = (sections[section]['rellimit'], sections[section]['abslimit'])
+
+except Exception, e:
+    print "Failed to get configuration information from Rucio: %s" % str(e)
+    sys.exit(CRITICAL)
+
 for rse in rses:
 
-    if not rse.endswith('PRODDISK') and not rse.endswith('DATADISK') and not rse.endswith('SCRATCHDISK'):
+    tokens = [token for token in policy if rse.endswith(token)]
+    if not tokens:
         continue
+
+    if len(tokens) != 1:
+        print "RSE %s has multiple limits defined" % rse
+        continue
+
+    token = tokens[0]
 
     if not [r for r in data if r['name'] == rse]:
         print "RSE %s not defined in AGIS" % rse
         continue
     try:
-        token = c.list_rse_attributes(rse)['spacetoken']
+        spacetoken = c.list_rse_attributes(rse)['spacetoken']
     except:
         print "No space token info for %s" % rse
         continue
@@ -90,12 +117,18 @@ for rse in rses:
     # Client and server API are different for get_rse_usage
     try:
         if server:
-            capacity = c.get_rse_usage(rse, None, source='srm')[0]['total']
+            capacity = c.get_rse_usage(rse, None, source='srm')
         else:
-            capacity = c.get_rse_usage(rse, filters={'source': 'srm'})['total']
-    except:
+            capacity = c.get_rse_usage(rse, filters={'source': 'srm'})
+    except Exception, e:
+        print "Could not get SRM information for %s: %s" % (rse, str(e))
+        continue
+
+    capacity = [source['total'] for source in capacity if source['source'] == 'srm']
+    if not capacity:
         print 'No SRM information available for %s' % rse
         continue
+    capacity = capacity[0]
 
     print "RSE %s: total capacity %sTB" % (rse, TB(capacity))
 
@@ -103,25 +136,28 @@ for rse in rses:
     # to calculate the limit
     used_others = 0
     for endpoint in data:
-        if endpoint['name'] != rse and (rse_host[endpoint['name']] == rse_host[rse] and token == endpoint['token']):
+        if endpoint['name'] != rse and (rse_host[endpoint['name']] == rse_host[rse] and spacetoken == endpoint['token']):
             try:
                 if server:
-                    used = c.get_rse_usage(endpoint['name'], None, source='rucio')[0]['used']
+                    used = c.get_rse_usage(endpoint['name'], None, source='rucio')
                 else:
-                    used = c.get_rse_usage(endpoint['name'], filters={'source': 'rucio'})['used']
+                    used = c.get_rse_usage(endpoint['name'], filters={'source': 'rucio'})
             except Exception, e:
-                print "No data for %s in Rucio: %s" % (endpoint['name'], str(e))
+                print "Could not get used Rucio space for %s: %s" % (endpoint['name'], str(e))
+                continue
+
+            used = [source['used'] for source in used if source['source'] == 'rucio']
+            if not used:
+                print "No Rucio used space information for %s" % rse
+                continue
+            used = used[0]
+
             print "Removing %fTB used space in %s" % (TB(used), endpoint['name'])
             used_others += used
 
     capacity -= used_others
     print "Remaining capacity for %s: %sTB" % (rse, TB(capacity))
-    if rse.endswith('PRODDISK'):
-        minfree = min(capacity * 0.25, 10*(1000**4))
-    elif rse.endswith('DATADISK'):
-        minfree = min(capacity * 0.1, 500*(1000**4))
-    elif rse.endswith('SCRATCHDISK'):
-        minfree = min(capacity * 0.5, 100*(1000**4))
+    minfree = min(capacity * policy[token][0]/100.0, policy[token][1]*(1000**4))
     print "RSE %s: calculated minimum free space %sTB" % (rse, TB(minfree))
 
     # Now add the space used in other tokens to the limit
