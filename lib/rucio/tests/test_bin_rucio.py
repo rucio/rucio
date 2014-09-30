@@ -138,3 +138,85 @@ class TestBinRucio():
         remove(tmp_file2)
         remove(tmp_file3)
         nose.tools.assert_not_equal(re.search('Upload successfull', err), None)
+
+    def test_create_dataset(self):
+        """DATASET (CLI): creation"""
+        tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        cmd = 'rucio add-dataset ' + tmp_name
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_not_equal(re.search('Added ' + tmp_name, out), None)
+
+    def test_add_files_to_dataset(self):
+        """DATASET (CLI): add files"""
+        tmp_file1 = file_generator()
+        tmp_file2 = file_generator()
+        tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_file2)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # create dataset
+        cmd = 'rucio add-dataset ' + tmp_dataset
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add files to dataset
+        cmd = 'rucio add-files-to-dataset --to {0} mock:{1} mock:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:])  # triming '/tmp/' from filename
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # find the added files
+        cmd = 'rucio list-files ' + tmp_dataset
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
+
+    def test_download_file(self):
+        """DATASET (CLI): download files"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # download files
+        cmd = 'rucio download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_not_equal(re.search('DID {0}:{1}'.format(self.user, tmp_file1[5:]), out), None)
+
+    def test_download_dataset(self):
+        """DATASET (CLI): download dataset"""
+        tmp_file1 = file_generator()
+        tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # create dataset
+        cmd = 'rucio add-dataset ' + tmp_dataset
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add files to dataset
+        cmd = 'rucio add-files-to-dataset --to {0} {1}:{2}'.format(tmp_dataset, self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # download dataset
+        cmd = 'rucio download --dir /tmp {0}'.format(tmp_dataset)  # triming '/tmp/' from filename
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        search = 'Getting file {0}:{1}'.format(self.user, tmp_file1[5:])
+        nose.tools.assert_not_equal(re.search(search, err), None)
+        search = 'File validated'
+        nose.tools.assert_not_equal(re.search(search, out), None)
+        search = 'DID ' + tmp_dataset
+        nose.tools.assert_not_equal(re.search(search, out), None)
