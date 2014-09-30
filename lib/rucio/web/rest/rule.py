@@ -102,7 +102,7 @@ class Rule:
         """
         json_data = data()
         try:
-            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, notify = 'DATASET', None, None, False, None, None, None
+            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify = 'DATASET', None, None, False, None, None, None, None
             params = loads(json_data)
             dids = params['dids']
             account = params['account']
@@ -120,6 +120,8 @@ class Rule:
                 subscription_id = params['subscription_id']
             if 'source_replica_expression' in params:
                 source_replica_expression = params['source_replica_expression']
+            if 'activity' in params:
+                activity = params['activity']
             if 'notify' in params:
                 notify = params['notify']  # noqa
         except ValueError:
@@ -136,6 +138,7 @@ class Rule:
                                             locked=locked,
                                             subscription_id=subscription_id,
                                             source_replica_expression=source_replica_expression,
+                                            activity=activity,
                                             # notify=notify,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here

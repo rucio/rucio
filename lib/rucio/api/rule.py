@@ -7,13 +7,14 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.core import rule
 
 
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, issuer):
+def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, issuer):
     """
     Adds a replication rule.
 
@@ -27,9 +28,10 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                                        NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
     :param account:                    The account owning the rule.
     :param locked:                     If the rule is locked, it cannot be deleted.
-    :param issuer:                     The issuing account of this operation.
     :param subscription_id:            The subscription_id, if the rule is created by a subscription.
     :param source_replica_expression:  Only use replicas from this RSE as sources.
+    :param activity:                   Activity to be passed on to the conveyor.
+    :param issuer:                     The issuing account of this operation.
     :returns:                          List of created replication rules.
     """
     if account is None:
@@ -41,7 +43,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
-    return rule.add_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id, source_replica_expression=source_replica_expression)
+    return rule.add_rule(account=account, dids=dids, copies=copies, rse_expression=rse_expression, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription_id,
+                         source_replica_expression=source_replica_expression, activity=activity)
 
 
 def get_replication_rule(rule_id):

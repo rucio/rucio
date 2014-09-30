@@ -26,7 +26,7 @@ class RuleClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
         super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
 
-    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False, source_replica_expression=None, notify='N'):
+    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False, source_replica_expression=None, activity=None, notify='N'):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
@@ -45,7 +45,7 @@ class RuleClient(BaseClient):
         # TODO remove the subscription_id from the client; It will only be used by the core;
         data = dumps({'dids': dids, 'copies': copies, 'rse_expression': rse_expression,
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
-                      'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression, 'notify': notify})
+                      'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression, 'activity': activity, 'notify': notify})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)
