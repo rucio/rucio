@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+#
+
+import os
+import sys
+import requests
+from urlparse import urlparse
+
+from rucio.common.config import config_get
+from rucio.core import monitor
+
+UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+
+
+if __name__ == "__main__":
+
+    try:
+        vo = sys.argv[1]
+    except IndexError, e:
+        vo = 'atlas'
+    retvalue = OK
+    try:
+        proxy = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = proxy
+    except Exception as e:
+        print "Failed to get proxy from rucio.cfg"
+        retvalue = WARNING
+
+    try:
+        ftshosts = config_get('conveyor', 'ftshosts')
+    except Exception as e:
+        print "Failed to get ftshosts"
+        retvalue = WARNING
+    for ftshost in ftshosts.split(','):
+        fts = ftshost.replace('8446', '8449')
+        url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (fts, vo)
+        try:
+            r = requests.get(url, verify=False)
+            summary = r.json()['summary']
+            h = urlparse(url)
+            hostname = h.hostname.replace('.', '_')
+            monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=summary['submitted'])
+        except Exception, e:
+            print 'Error when trying to get info from %s' % fts
+            retvalue = CRITICAL
+    sys.exit(retvalue)
