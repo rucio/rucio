@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+
+'''
+Probe to check the backlog of stuck rules.
+'''
+import sys
+import traceback
+
+from rucio.core import monitor
+from rucio.db.session import get_session
+
+# Exit statuses
+UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+
+if __name__ == "__main__":
+    try:
+        session = get_session()
+
+        result = session.execute('SELECT COUNT(1) FROM ATLAS_RUCIO.RULES where state=\'S\';').fetchone()[0]
+        monitor.record_gauge(stat='judge.stuck_rules', value=result)
+
+        result = session.execute('SELECT COUNT(1) FROM ATLAS_RUCIO.RULES where state=\'S\' and source_replica_expression is not NULL;').fetchone()[0]
+        monitor.record_gauge(stat='judge.stuck_rules_with_source_expression', value=result)
+    except:
+        print traceback.format_exc()
+        sys.exit(UNKNOWN)
+    sys.exit(OK)
