@@ -1302,9 +1302,9 @@ class DQ2Client:
         @sshare: not used yet.
         @group: not used.
         @owner: not used yet.
-        @activity: not used.
+        @activity: is the activity.
         @acl_alias: not used.
-        @replica_lifetime: not used.
+        @replica_lifetime: is the replica lifetime.
         @check_destination: not used.
         @parentId: not used.
         @pin_lifetime: not used.
@@ -1337,7 +1337,7 @@ class DQ2Client:
         notify = 'N'
         if callbacks != {}:
             notify = 'C'
-        self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, notify=notify)
+        self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, activity=activity, notify=notify)
 
     def registerDatasetsInContainer(self, name, datasets, scope=None):
         """
