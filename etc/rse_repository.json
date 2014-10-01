@@ -162,7 +162,7 @@
       "supported": {
         "mock": {
           "prefix": "/tmp/rucio_rse/",
-          "impl": "rucio.rse.protocols.mock.Default",
+          "impl": "rucio.rse.protocols.posix.Default",
           "scheme": "mock",
           "domains": {
             "lan": {

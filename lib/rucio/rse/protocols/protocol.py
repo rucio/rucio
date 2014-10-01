@@ -40,6 +40,8 @@ class RSEProtocol(object):
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
             if rsemanager.SERVER_MODE:
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
+        else:
+            self.attributes['determinism_type'] = 'default'
 
     def lfns2pfns(self, lfns):
         """
@@ -61,9 +63,23 @@ class RSEProtocol(object):
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, lfn['path']])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
+                                                         '://',
+                                                         self.attributes['hostname'],
+                                                         ':',
+                                                         str(self.attributes['port']),
+                                                         prefix,
+                                                         lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]
+                                                         ])
             else:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self._get_path(scope=scope, name=name)])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
+                                                         '://',
+                                                         self.attributes['hostname'],
+                                                         ':',
+                                                         str(self.attributes['port']),
+                                                         prefix,
+                                                         self._get_path(scope=scope, name=name)
+                                                         ])
         return pfns
 
     def __lfns2pfns_client(self, lfns):

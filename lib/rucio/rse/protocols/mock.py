@@ -22,6 +22,7 @@ class Default(protocol.RSEProtocol):
             :param props Properties derived from the RSE Repository
         """
         super(Default, self).__init__(protocol_attr, rse_settings)
+        self.attributes.pop('determinism_type', None)
         self.files = []
 
     def path2pfn(self, path):
