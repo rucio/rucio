@@ -24,12 +24,12 @@ from sqlalchemy.sql import not_
 from sqlalchemy.sql.expression import bindparam, text
 
 import rucio.core.rule
+import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
 from rucio.common.utils import chunks
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
-from rucio.core.replica import add_replicas
 from rucio.core.rse import get_rse_name
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation, LockState, RuleNotification
@@ -171,7 +171,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     :param session: The database session in use.
     """
     if rse:
-        replicas = add_replicas(rse=rse, files=files, account=account, session=session)
+        replicas = rucio.core.replica.add_replicas(rse=rse, files=files, account=account, session=session)
     else:
         replicas, files = None, get_files(files=files, session=session)
 
