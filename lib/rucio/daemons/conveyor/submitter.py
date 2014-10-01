@@ -288,7 +288,10 @@ def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=
                 copy_pin_lifetime, overwrite, bring_online = -1, True, None
                 if req['request_type'] == RequestType.STAGEIN:
                     if req['attributes']:
-                        attr = eval(req['attributes'])
+                        if type(req['attributes']) is dict:
+                            attr = json.loads(json.dumps(req['attributes']))
+                        else:
+                            attr = json.loads(str(req['attributes']))
                         copy_pin_lifetime = attr.get('lifetime')
                     overwrite = False
                     bring_online = 3600
