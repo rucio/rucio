@@ -377,6 +377,7 @@ def repair_rule(rule_id, session=None):
     # start_time = time.time()
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
+        rule.updated_at = datetime.utcnow()
 
         if session.bind.dialect.name != 'sqlite':
             session.begin_nested()

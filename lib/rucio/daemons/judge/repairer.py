@@ -55,7 +55,7 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
                 record_gauge('rule.judge.repairer.threads.%d' % (process*threads_per_process+thread), 1)
                 for rule_id in rules:
                     rule_id = rule_id[0]
-                    logging.info(logging.debug('rule_repairer[%s/%s]: Repairing rule %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id)))
+                    logging.info('rule_repairer[%s/%s]: Repairing rule %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
                     if graceful_stop.is_set():
                         break
                     try:
