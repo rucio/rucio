@@ -24,7 +24,12 @@ from rucio.rse.protocols import protocol
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the S3 protocol."""
 
-    def __get_path(self, scope, name):
+    def __init__(self, protocol_attr, rse_settings):
+        super(Default, self).__init__(protocol_attr, rse_settings)
+        if 'determinism_type' in self.attributes:
+            self.attributes['determinism_type'] = 's3'
+
+    def _get_path(self, scope, name):
         """ Transforms the physical file name into the local URI in the referred RSE.
             Suitable for sites implementoing the RUCIO naming convention.
 
@@ -52,7 +57,7 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.__get_path(scope=scope, name=name)])
+            pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self._get_path(scope=scope, name=name)])
         return pfns
 
     def exists(self, pfn):
@@ -66,7 +71,6 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         try:
-            print '===================== PFN ========', pfn
             self.__s3.object_info(S3Uri(pfn))
             return True
         except S3Error as e:

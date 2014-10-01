@@ -10,6 +10,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 
 from datetime import datetime
 from re import match
@@ -96,7 +97,7 @@ def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, sessi
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
+            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
@@ -223,7 +224,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, sessio
                                         models.RSE.rse),
                                whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, or_(*replica_condition)),
                                order_by=(models.RSEFileAssociation.scope, models.RSEFileAssociation.name)).\
-            with_hint(models.RSEFileAssociation.scope,  text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
+            with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
             compile()
         for scope, name, bytes, md5, adler32, path, rse in session.execute(replica_query.statement, replica_query.params).fetchall():
             if not key:
@@ -262,7 +263,14 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, sessio
                 tmp_protocols[rse] = protocols
 
             # get pfns
+            pfns_cache = dict()
             for protocol in tmp_protocols[rse]:
+                if 'determinism_type' in protocol.attributes:  # PFN is cachable
+                    try:
+                        path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)]
+                    except KeyError:  # No cache entry scope:name found for this protocol
+                        path = protocol._get_path(scope, name)
+                        pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
                 if not schemes or protocol.attributes['scheme'] in schemes:
                     try:
                         replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0])
@@ -362,7 +370,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
         condition.append(and_(models.RSEFileAssociation.scope == f['scope'], models.RSEFileAssociation.name == f['name'], models.RSEFileAssociation.rse_id == rse_id))
 
     q = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
-        with_hint(models.RSEFileAssociation,  text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
+        with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
         filter(condition)
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
 
@@ -577,7 +585,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
+            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
             query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
             query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
