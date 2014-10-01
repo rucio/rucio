@@ -19,6 +19,7 @@ from sqlalchemy.sql.expression import and_, or_, bindparam, text
 
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
+import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound,
@@ -29,7 +30,6 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.replica import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.core.request import queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
@@ -1187,10 +1187,10 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
                                     'md5': did.md5,
                                     'adler32': did.adler32}]}]
         locks[(did.scope, did.name)] = rucio.core.lock.get_replica_locks(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
-        replicas[(did.scope, did.name)] = get_and_lock_file_replicas(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+        replicas[(did.scope, did.name)] = rucio.core.replica.get_and_lock_file_replicas(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
 
     elif did.did_type == DIDType.DATASET:
-        files, replicas = get_and_lock_file_replicas_for_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
+        files, replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
         datasetfiles = [{'scope': did.scope,
                          'name': did.name,
                          'files': files}]
@@ -1199,7 +1199,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
     elif did.did_type == DIDType.CONTAINER:
 
         for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
-            files, tmp_replicas = get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
+            files, tmp_replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             datasetfiles.append({'scope': did.scope,
                                  'name': did.name,
