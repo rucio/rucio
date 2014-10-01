@@ -18,7 +18,6 @@ Methods common to different conveyor daemons.
 import datetime
 import json
 import logging
-import sys
 import time
 import traceback
 
@@ -113,48 +112,39 @@ def update_request_state(req, response, session=None):
                 tss = time.time()
                 logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (req['scope'], req['name'], rse_name))
 
-                # make sure we do not leave the transaction
+                # for now, wait for the transaction.
                 try:
-                    # try quickly
                     replica.update_replicas_states([{'rse': rse_name,
                                                      'scope': req['scope'],
                                                      'name': req['name'],
                                                      'state': ReplicaState.AVAILABLE}],
-                                                   nowait=True,
+                                                   nowait=False,
                                                    session=session)
                 except:
-                    try:
-                        # didn't work, do it slowly
-                        replica.update_replicas_states([{'rse': rse_name,
-                                                         'scope': req['scope'],
-                                                         'name': req['name'],
-                                                         'state': ReplicaState.AVAILABLE}],
-                                                       nowait=False,
-                                                       session=session)
-                    except Exception, e:
-                        # could not update successful lock
-                        record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
-                        raise
+                    # could not update successful lock
+                    record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
+                    logging.warn("Could not update replica state for successful transfer %s:%s at %s (%s)" % (req['scope'],
+                                                                                                              req['name'],
+                                                                                                              rse_name,
+                                                                                                              traceback.format_exc()))
+                    raise
 
                 record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
 
                 tss = time.time()
                 request.archive_request(req['request_id'], session=session)
                 record_timer('daemons.conveyor.common.update_request_state.request-archive_request', (time.time()-tss)*1000)
-
                 add_monitor_message(req, response, did_meta, details, activity, session=session)
             except exception.UnsupportedOperation, e:
                 # The replica doesn't exist
                 request.archive_request(req['request_id'], session=session)
                 logging.warning(str(e).replace('\n', ''))
-                return True
-            except Exception, e:
-                # could not update successful lock
-                logging.critical("Could not update replica state for succesful transfer %s:%s at %s (%s)" % (req['scope'],
-                                                                                                             req['name'],
-                                                                                                             rse_name,
-                                                                                                             traceback.format_exc()))
-                return True
+            except:
+                logging.critical("Something unexpected happened when updating replica state for successful transfer %s:%s at %s (%s)" % (req['scope'],
+                                                                                                                                         req['name'],
+                                                                                                                                         rse_name,
+                                                                                                                                         traceback.format_exc()))
+                raise
 
         elif response['new_state'] == RequestState.FAILED:
             tss = time.time()
@@ -173,13 +163,14 @@ def update_request_state(req, response, session=None):
                                                      'scope': req['scope'],
                                                      'name': req['name'],
                                                      'state': ReplicaState.UNAVAILABLE}],
-                                                   nowait=True,
                                                    session=session)
-                except Exception, e:
+                except:
                     logging.critical("Could not update replica state for failed transfer %s:%s at %s (%s)" % (req['scope'],
                                                                                                               req['name'],
                                                                                                               rse_name,
                                                                                                               traceback.format_exc()))
+                    raise
+
                 tss = time.time()
                 try:
                     lock.failed_transfer(req['scope'],
@@ -190,8 +181,8 @@ def update_request_state(req, response, session=None):
                     logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (req['scope'],
                                                                                                  req['name'],
                                                                                                  rse_name,
-                                                                                                 sys.exc_info()[1]))
-                    return
+                                                                                                 traceback.format_exc()))
+                    raise
                 record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
             else:
                 logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
@@ -220,8 +211,8 @@ def update_request_state(req, response, session=None):
                 logging.warn('Could not update lock for lost transfer %s:%s at %s (%s)' % (req['scope'],
                                                                                            req['name'],
                                                                                            rse_name,
-                                                                                           sys.exc_info()[1]))
-                return
+                                                                                           traceback.format_exc()))
+                raise
 
         logging.info('UPDATED REQUEST %s DID %s:%s AT %s TO %s' % (req['request_id'],
                                                                    req['scope'],
@@ -355,11 +346,19 @@ def update_bad_request(req, dest_rse, new_state, detail, session=None):
                                                                 req['name'],
                                                                 req['request_id'],
                                                                 detail))
-        replica.update_replicas_states([{'rse': dest_rse,
-                                         'scope': req['scope'],
-                                         'name': req['name'],
-                                         'state': ReplicaState.UNAVAILABLE}],
-                                       session=session)
+        try:
+            replica.update_replicas_states([{'rse': dest_rse,
+                                             'scope': req['scope'],
+                                             'name': req['name'],
+                                             'state': ReplicaState.UNAVAILABLE}],
+                                           session=session)
+        except:
+            logging.critical("Could not update replica state for failed transfer %s:%s at %s (%s)" % (req['scope'],
+                                                                                                      req['name'],
+                                                                                                      dest_rse,
+                                                                                                      traceback.format_exc()))
+            raise
+
         tss = time.time()
         try:
             lock.failed_transfer(req['scope'],
@@ -370,6 +369,6 @@ def update_bad_request(req, dest_rse, new_state, detail, session=None):
             logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (req['scope'],
                                                                                          req['name'],
                                                                                          dest_rse,
-                                                                                         sys.exc_info()[1]))
-            return
+                                                                                         traceback.format_exc()))
+            raise
         record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
