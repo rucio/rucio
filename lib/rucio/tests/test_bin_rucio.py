@@ -220,3 +220,57 @@ class TestBinRucio():
         nose.tools.assert_not_equal(re.search(search, out), None)
         search = 'DID ' + tmp_dataset
         nose.tools.assert_not_equal(re.search(search, out), None)
+
+    def test_create_rule(self):
+        """DATASET (CLI): rule creation"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rules
+        cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        rule = out[:-1]  # triming new line character
+        # check if rule exist for the file
+        cmd = "rucio list-rules --did {0}:{1}".format(self.user, tmp_file1[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_not_equal(re.search(rule, out), None)
