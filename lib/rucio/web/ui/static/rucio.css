@@ -21,3 +21,8 @@ footer {
     font-size: small;
     overflow:hidden;
 }
+
+.row {
+    min-width: 100%;
+    height: 100%;
+}

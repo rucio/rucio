@@ -1,0 +1,23 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+-->
+
+$var title: RSE Usage
+$var script: <script src="/static/rse_usage.js"></script><script src="https://code.highcharts.com/highcharts.js"></script><script src="https://code.highcharts.com/modules/exporting.js"></script>
+
+<div class="row full-height" data-equalizer>
+  <div class="large-2 columns panel" data-equalizer-watch>
+  <a class="button expand" onClick="read_data()">Update</a>
+  <select name="test" id="rseselect" multiple="yes">
+  </select>
+  </div>
+<div id="rseplot" class="large-10 columns panel" data-equalizer-watch></div>
+</div>
