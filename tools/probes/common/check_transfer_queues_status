@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 '''
 Probe to check the queues of the transfer service
@@ -64,10 +65,12 @@ metrics = {'requests.queued': 0,
 if __name__ == "__main__":
     try:
         session = get_session()
-        result = session.execute(history_queue).fetchall()
-        for r in result:
-            print 'queues.%s' % r[0], r[1],
-            monitor.record_gauge(stat='queues.%s' % r[0], value=r[1])
+        # Check on history requests disabled for now because of high load on the DB
+        if False:
+            result = session.execute(history_queue).fetchall()
+            for r in result:
+                print 'queues.%s' % r[0], r[1],
+                monitor.record_gauge(stat='queues.%s' % r[0], value=r[1])
         result = session.execute(active_queue).fetchall()
         for r in result:
             metrics[r[0]] = r[1]

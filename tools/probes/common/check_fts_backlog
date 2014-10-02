@@ -8,7 +8,6 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 #
-
 import os
 import sys
 import requests
@@ -35,20 +34,20 @@ if __name__ == "__main__":
         retvalue = WARNING
 
     try:
-        ftshosts = config_get('conveyor', 'ftshosts')
+        ftshosts = config_get('conveyor', 'ftsmonhosts')
     except Exception as e:
-        print "Failed to get ftshosts"
+        print "Failed to get ftsmonhosts"
         retvalue = WARNING
     for ftshost in ftshosts.split(','):
-        fts = ftshost.replace('8446', '8449')
-        url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (fts, vo)
+        url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (ftshost, vo)
         try:
-            r = requests.get(url, verify=False)
+            r  = requests.get(url, verify=False)
             summary = r.json()['summary']
             h = urlparse(url)
-            hostname = h.hostname.replace('.', '_')
+            hostname = h.hostname.replace('.','_')
+            print '%s : %s' % (hostname, summary['submitted'])
             monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=summary['submitted'])
         except Exception, e:
-            print 'Error when trying to get info from %s' % fts
             retvalue = CRITICAL
+            print 'Error when trying to get info from %s' % fts
     sys.exit(retvalue)
