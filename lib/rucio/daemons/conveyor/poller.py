@@ -23,9 +23,10 @@ import time
 import traceback
 
 from rucio.common.config import config_get
+from rucio.common.utils import chunks
 from rucio.core import request
-from rucio.core.monitor import record_timer
-from rucio.daemons.conveyor import common
+from rucio.core.monitor import record_timer, record_counter
+from rucio.daemons.conveyor import common2
 from rucio.db.constants import RequestState, RequestType
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -40,7 +41,7 @@ graceful_stop = threading.Event()
 datetime.datetime.strptime('', '')
 
 
-def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, bulk=100):
+def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, bulk=1000):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
@@ -60,7 +61,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
 
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=bulk,
+                                    limit=10000,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
@@ -75,24 +76,35 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
                 time.sleep(60)  # Only sleep if there is nothing to do
                 continue
 
-            req_ids = {}
-            for req in reqs:
-                if not req['external_host'] in req_ids:
-                    req_ids[req['external_host']] = []
-                req_ids[req['external_host']].append((req['request_id'], req['external_id']))
+            for xfers in chunks(reqs, bulk):
+                try:
+                    req_ids = {}
+                    for req in xfers:
+                        record_counter('daemons.conveyor.poller.query_request')
+                        if not req['external_host'] in req_ids:
+                            req_ids[req['external_host']] = []
+                        req_ids[req['external_host']].append((req['request_id'], req['external_id']))
 
-            responses = {}
-            for external_host in req_ids:
-                ts = time.time()
-                resps = request.bulk_query_requests(external_host, req_ids[external_host], 'fts3')
-                record_timer('daemons.conveyor.poller.001-bulk_query_requests', (time.time()-ts)*1000/len(req_ids[external_host]))
-                responses = dict(responses.items() + resps.items())
+                    responses = {}
+                    for external_host in req_ids:
+                        ts = time.time()
+                        resps = request.bulk_query_requests(external_host, req_ids[external_host], 'fts3')
+                        record_timer('daemons.conveyor.poller.001-bulk_query_requests', (time.time()-ts)*1000/len(req_ids[external_host]))
+                        responses = dict(responses.items() + resps.items())
 
-            tmp = []
-            for req in reqs:
-                tmp.append([req, responses[req['request_id']]])
-
-            common.update_requests_states(tmp)
+                    for request_id in responses:
+                        response = responses[request_id]
+                        if isinstance(response, Exception):
+                            logging.critical("Failed to poll request(%s): %s" % (request_id, responses[request_id]))
+                            record_counter('daemons.conveyor.poller.query_request_exception')
+                        else:
+                            if response['new_state']:
+                                common2.update_request_state(response)
+                                record_counter('daemons.conveyor.poller.update_request_state')
+                                if response['new_state'] == RequestState.LOST:
+                                    record_counter('daemons.conveyor.poller.request_lost')
+                except:
+                    logging.critical(traceback.format_exc())
 
         except:
             logging.critical(traceback.format_exc())
