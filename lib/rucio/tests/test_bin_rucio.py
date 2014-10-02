@@ -274,3 +274,51 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         nose.tools.assert_not_equal(re.search(rule, out), None)
+
+    def test_add_file_twice(self):
+        """DATASET (CLI): Add file twice"""
+        tmp_file1 = file_generator()
+        # add file twice
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('File {0}:{1} already exists'.format(self.user, tmp_file1[5:]), out), None)
+
+    def test_add_delete_add_file(self):
+        """DATASET (CLI): Add/Delete/Add"""
+        tmp_file1 = file_generator()
+        # add file
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # get the rule for the file
+        cmd = "rucio list-rules --did {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        rule = out
+        # delete the file from the catalog
+        cmd = "rucio delete-rule {0}".format(rule)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # delete the fisical file
+        cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # modify the file to avoid same checksum
+        cmd = "echo 'delta' >> {0}".format(tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add the same file
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_equal(re.search('Upload successfull', out), None)
