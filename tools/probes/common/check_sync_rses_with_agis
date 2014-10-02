@@ -9,6 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import json
 import os.path
@@ -19,6 +20,8 @@ import urlparse
 
 
 from rucio.client import Client
+from rucio.common.exception import Duplicate, RSEProtocolPriorityError
+
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -30,6 +33,7 @@ if __name__ == '__main__':
     url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
     resp = requests.get(url=url)
     data = json.loads(resp.content)
+    retvalue = OK
 
     c = Client()
     for rse in data:
@@ -41,7 +45,10 @@ if __name__ == '__main__':
             deterministic = not rse['is_tape']
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
+        except Duplicate, e:
+            pass
         except:
+            retvalue = CRITICAL
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
             print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
@@ -49,46 +56,26 @@ if __name__ == '__main__':
         prefix = rse['endpoint']
         space_token = rse['token']
 
-        # Add mock protocol for testing
-        params = {'hostname': 'mock.ndgf.org',
-                  'scheme': 'mock',
-                  'port': None,
-                  'prefix': '',
-                  'impl': 'rucio.rse.protocols.mock.Default',
-                  'extended_attributes': None,
-                  'domains': {"lan": {"read": 2,
-                                      "write": 2,
-                                      "delete": 1},
-                              "wan": {"read": 2,
-                                      "write": 2,
-                                      "delete": 1}}}
-
-        # c.add_protocol(rse=rse['name'], params=params)
         for protocol in rse['protocols']:
             try:
                 o = urlparse.urlparse(protocol)
-
                 if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'xrootd'):
                     continue
 
+                priority = rse['protocols'][protocol][0][1]
                 extended_attributes = None
                 if o.scheme == 'srm':
                     extended_attributes = {"web_service_path": o.path + '?SFN=', "space_token": space_token}
                     impl = 'rucio.rse.protocols.srm.Default'
-                    priority = 1
                 elif o.scheme == 'https' or o.scheme == 'http':
                     extended_attributes = None
                     impl = 'rucio.rse.protocols.webdav.Default'
-                    priority = 2
-                    continue
                 elif o.scheme == 'gsiftp':
                     extended_attributes = None
                     impl = 'rucio.rse.protocols.gsiftp.Default'
-                    priority = 3
                 elif o.scheme == 'xrootd':
                     extended_attributes = None
                     impl = 'rucio.rse.protocols.xrootd.Default'
-                    priority = 4
                 else:
                     continue
 
@@ -96,7 +83,7 @@ if __name__ == '__main__':
                 if o.port and str(o.port) in o.netloc:
                     netloc = o.netloc[:-len(':' + str(o.port))]
 
-                # For disk end-points nto for tape
+                # For disk end-points not for tape
                 prefix = rse['protocols'][protocol][0][2]
                 if not rse['is_tape'] and not prefix.endswith('/rucio') and not prefix.endswith('/rucio/'):
                     prefix = os.path.join(prefix, 'rucio/')
@@ -114,11 +101,17 @@ if __name__ == '__main__':
                                               "write": priority,
                                               "delete": priority}}}
 
-                print 'Add protocol', rse['name'], params
                 c.add_protocol(rse=rse['name'], params=params)
+            except Duplicate, e:
+                pass
+            except RSEProtocolPriorityError, e:
+                print 'RSE %s protocol %s: %s' % (rse['name'], o.scheme, e)
+                if retvalue != CRITICAL:
+                    retvalue = WARNING
             except:
+                retvalue = CRITICAL
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
-                print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+                print 'RSE %s protocol %s : Interrupted processing with %s %s %s.' % (rse['name'], o.scheme, errno, errstr, trcbck)
 
-    sys.exit(OK)
+    sys.exit(retvalue)
