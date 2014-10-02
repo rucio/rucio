@@ -275,6 +275,52 @@ class TestBinRucio():
         print out, err
         nose.tools.assert_not_equal(re.search(rule, out), None)
 
+    def test_delete_rule(self):
+        """DATASET (CLI): rule deletion"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # add rules
+        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        # get the rules for the file
+        cmd = "rucio list-rules --did {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        (rule1, rule2) = out.split()
+        # delete the rules for the file
+        cmd = "rucio delete-rule {0}".format(rule1)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        cmd = "rucio delete-rule {0}".format(rule2)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        # search for the file
+        cmd = "rucio list-dids {0}:{1}".format(self.user, tmp_file1[5:])
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_equal('', out)
+
     def test_add_file_twice(self):
         """DATASET (CLI): Add file twice"""
         tmp_file1 = file_generator()
