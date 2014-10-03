@@ -15,10 +15,18 @@ $var title: RSE Usage
 $var script: <script src="/static/rse_usage.js"></script><script src="https://code.highcharts.com/highcharts.js"></script><script src="https://code.highcharts.com/modules/exporting.js"></script><script src="/static/jquery.multiple.select.js"></script><link rel="stylesheet" href="/static/multiple-select.css">
 
 <div class="row">
-  <div class="large-3 columns panel">
-    <select id="rseselect" multiple="multiple"></select>
+  <div class="large-4 columns">
+    <center>
+      <ul class="button-group round">
+        <li><a id="clear_selection" class="button small">Clear selection</a></li>
+        <li><a id="redraw_chart" class="button small">Redraw chart</a></li>
+      </ul>
+    </center>
+    <div>
+      <select id="rseselect" multiple="multiple"></select>
+    </div>
   </div>
-  <div class="large-9 columns panel">
+  <div class="large-8 columns panel">
     <div id="rseplot"></div>
   </div>
 </div>
