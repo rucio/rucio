@@ -29,7 +29,7 @@ from rucio.core.account_limit import set_account_limit, delete_account_limit
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rse_counter import get_counter as get_rse_counter
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_lock_state
+from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.constants import DIDType
@@ -388,7 +388,7 @@ class TestReplicationRuleCore():
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
         assert_raises(AccessDenied, delete_rule, rule_id_1)
-        update_lock_state(rule_id=rule_id_1, lock_state=False)
+        update_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
     def test_account_counter_rule_create(self):
@@ -585,7 +585,7 @@ class TestReplicationRuleClient():
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
         assert_raises(AccessDenied, delete_rule, rule_id_1)
-        self.rule_client.update_lock_state(rule_id=rule_id_1, lock_state=False)
+        self.rule_client.update_replication_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
     def test_dataset_lock(self):
@@ -600,3 +600,21 @@ class TestReplicationRuleClient():
 
         rule_ids = [lock['rule_id'] for lock in self.lock_client.get_dataset_locks(scope=scope, name=dataset)]
         assert_in(rule_id_1, rule_ids)
+
+    def test_change_rule_lifetime(self):
+        """ REPLICATION RULE (CLIENT): Change rule lifetime"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=150, locked=True, subscription_id=None)[0]
+
+        get = self.rule_client.get_replication_rule(rule_id_1)
+
+        self.rule_client.update_replication_rule(rule_id_1, options={'lifetime': 10000})
+
+        get2 = self.rule_client.get_replication_rule(rule_id_1)
+
+        assert(get['expires_at'] != get2['expires_at'])

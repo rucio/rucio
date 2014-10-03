@@ -90,16 +90,16 @@ def delete_replication_rule(rule_id, issuer):
     rule.delete_rule(rule_id)
 
 
-def update_lock_state(rule_id, lock_state, issuer):
+def update_replication_rule(rule_id, options, issuer):
     """
     Update lock state of a replication rule.
 
     :param rule_id:     The rule_id to lock.
-    :param lock_state:  Boolean lock state.
+    :param options:     Options dictionary.
     :param issuer:      The issuing account of this operation
     :raises:            RuleNotFound if no Rule can be found.
     """
-    kwargs = {'rule_id': rule_id}
-    if not has_permission(issuer=issuer, action='lock_rule', kwargs=kwargs):
-        raise AccessDenied('Account %s can not lock/unlock this replication rule.' % (issuer))
-    rule.update_lock_state(rule_id=rule_id, lock_state=lock_state)
+    kwargs = {'rule_id': rule_id, 'options': options}
+    if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
+        raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
+    rule.update_rule(rule_id=rule_id, options=options)

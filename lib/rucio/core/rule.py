@@ -22,7 +22,7 @@ import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
-                                    DataIdentifierNotFound, RuleNotFound,
+                                    DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.core import account_counter, rse_counter
@@ -538,19 +538,30 @@ def get_rule(rule_id, session=None):
 
 
 @transactional_session
-def update_lock_state(rule_id, lock_state, session=None):
+def update_rule(rule_id, options, session=None):
     """
-    Update lock state of a replication rule.
+    Update a rules options.
 
     :param rule_id:     The rule_id to lock.
-    :param lock_state:  Boolean lock state.
+    :param options:     Dictionary of options
     :param session:     The database session in use.
-    :raises:            RuleNotFound if no Rule can be found.
+    :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used.
     """
+
+    valid_options = ['locked', 'lifetime']
+
+    for key in options:
+        if key not in valid_options:
+            raise InputValidationError('%s is not a valid option to set.' % key)
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
-        rule.locked = lock_state
+        for key in options:
+            if key == 'lifetime':
+                rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
+            else:
+                setattr(rule, key, options[key])
+
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
