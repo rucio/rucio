@@ -1463,16 +1463,13 @@ class DQ2Client:
             vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
             result[vuid] = None
             # get file information
-            lfns = []
-            guids = []
-            sizes = []
-            checksums = []
-            pfns = []
+            lfns, guids, sizes, checksums, pfns = [], [], [], [], []
             for file in datasets[dataset]:
                 guids.append(file['guid'])
                 sizes.append(file['size'])
                 checksums.append(file['checksum'])
-                pfns.append(file['surl'])
+                if 'surl' in file:
+                    pfns.append(file['surl'])
                 if 'scope' not in file:
                     if file['lfn'].find(':') > -1:
                         lfns.append(file['lfn'])
