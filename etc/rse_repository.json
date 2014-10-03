@@ -409,9 +409,9 @@
       "default": "xroot",
       "supported": {
         "xroot": {
-          "prefix": "/tmp/rucio_rse",
+          "prefix": "/tmp/rucio_rse/",
           "impl": "rucio.rse.protocols.xrootd.Default",
-          "hostname": "wj-xrootd.cern.ch",
+          "hostname": "chenghsi-eos00.cern.ch",
           "port": 1094,
           "domains": {
             "lan": {
