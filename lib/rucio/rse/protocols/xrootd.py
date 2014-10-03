@@ -13,7 +13,6 @@ import os
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
-from urlparse import urlparse
 from rucio.common.utils import execute
 
 
@@ -30,17 +29,6 @@ class Default(protocol.RSEProtocol):
         self.hostname = self.attributes['hostname']
         self.port = str(self.attributes['port'])
 
-    def get_path(self, lfn, scope):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-            Suitable for sites implementoing the RUCIO naming convention.
-
-            :param lfn: filename
-            :param scope: scope
-
-            :returns: RSE specific URI of the physical file
-        """
-        return '%s/%s/%s' % (self.rse['prefix'], scope, lfn)
-
     def path2pfn(self, path):
         """
             Returns a fully qualified PFN for the file referred by path.
@@ -51,7 +39,10 @@ class Default(protocol.RSEProtocol):
 
         """
         if not path.startswith('xroot'):
-            return '%s://%s:%s/%s' % (self.scheme, self.hostname, self.port, path)
+            if path.startswith('/'):
+                return '%s://%s:%s/%s' % (self.scheme, self.hostname, self.port, path)
+            else:
+                return '%s://%s:%s//%s' % (self.scheme, self.hostname, self.port, path)
         else:
             return path
 
@@ -65,7 +56,8 @@ class Default(protocol.RSEProtocol):
             :raise  ServiceUnavailable
         """
         try:
-            cmd = 'xrdfs %s:%s stat %s' % (self.hostname, self.port, pfn)
+            path = self.pfn2path(pfn)
+            cmd = 'xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
             status, out, err = execute(cmd)
             if not status == 0:
                 return False
@@ -74,7 +66,37 @@ class Default(protocol.RSEProtocol):
 
         return True
 
-    def connect(self, credentials):
+    def pfn2path(self, pfn):
+        parse_pfns = self.parse_pfns(pfn)[pfn]
+        path = parse_pfns['prefix'] + parse_pfns['path'] + parse_pfns['name']
+        return path
+
+    def lfns2pfns(self, lfns):
+        """
+        Returns a fully qualified PFN for the file referred by path.
+
+        :param path: The path to the file.
+
+        :returns: Fully qualified PFN.
+        """
+        pfns = {}
+        prefix = self.attributes['prefix']
+
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        lfns = [lfns] if type(lfns) == dict else lfns
+        for lfn in lfns:
+            scope, name = lfn['scope'], lfn['name']
+            if 'path' in lfn and lfn['path'] is not None:
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), '/', prefix, lfn['path']])
+            else:
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), '/', prefix, self._get_path(scope=scope, name=name)])
+        return pfns
+
+    def connect(self):
         """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provides information to establish a connection
@@ -104,12 +126,10 @@ class Default(protocol.RSEProtocol):
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
         """
-        path = self.path2pfn(pfn)
-
         if not self.exists(pfn):
             raise exception.SourceNotFound()
         try:
-            cmd = 'xrdcp -f %s %s' % (path, dest)
+            cmd = 'xrdcp -f %s %s' % (pfn, dest)
             status, out, err = execute(cmd)
             if not status == 0:
                 raise exception.RucioException(err)
@@ -141,18 +161,19 @@ class Default(protocol.RSEProtocol):
         except Exception as e:
             raise exception.ServiceUnavailable(e)
 
-    def delete(self, path):
+    def delete(self, pfn):
         """
             Deletes a file from the connected RSE.
 
-            :param path: path to the to be deleted file
+            :param pfn Physical file name
 
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        if not self.exists(path):
+        if not self.exists(pfn):
             raise exception.SourceNotFound()
         try:
+            path = self.pfn2path(pfn)
             cmd = 'xrdfs %s:%s rm %s' % (self.hostname, self.port, path)
             status, out, err = execute(cmd)
             if not status == 0:
@@ -160,62 +181,26 @@ class Default(protocol.RSEProtocol):
         except Exception as e:
             raise exception.ServiceUnavailable(e)
 
-    def rename(self, path, new_path):
+    def rename(self, pfn, new_pfn):
         """ Allows to rename a file stored inside the connected RSE.
 
-            :param path: path to the current file on the storage
-            :param new_path: path to the new file on the storage
-
+            :param pfn      Current physical file name
+            :param new_pfn  New physical file name
             :raises DestinationNotAccessible: if the destination storage was not accessible.
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        if not self.exists(path):
+        if not self.exists(pfn):
             raise exception.SourceNotFound()
         try:
+            path = self.pfn2path(pfn)
+            new_path = self.pfn2path(new_pfn)
+            new_dir = new_path[:new_path.rindex('/') + 1]
+            cmd = 'xrdfs %s:%s mkdir -p %s' % (self.hostname, self.port, new_dir)
+            status, out, err = execute(cmd)
             cmd = 'xrdfs %s:%s mv %s %s' % (self.hostname, self.port, path, new_path)
             status, out, err = execute(cmd)
             if not status == 0:
                 raise exception.RucioException(err)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
-
-    def split_pfn(self, pfn):
-        """
-            Splits the given PFN into the parts known by the protocol. During parsing the PFN is also checked for
-            validity on the given RSE with the given protocol.
-
-            :param pfn: a fully qualified PFN
-
-            :returns: a dict containing all known parts of the PFN for the protocol e.g. scheme, hostname, port, prefix, path, filename
-
-            :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
-        """
-        parsed = urlparse(pfn)
-        ret = dict()
-        ret['scheme'] = parsed.scheme
-        ret['hostname'] = parsed.netloc.partition(':')[0]
-        ret['port'] = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
-        ret['path'] = parsed.path
-
-        # Protect against 'lazy' defined prefixes for RSEs in the repository
-        self.rse['prefix'] = '' if self.rse['prefix'] is None else self.rse['prefix']
-        if not self.rse['prefix'].startswith('/'):
-            self.rse['prefix'] = '/' + self.rse['prefix']
-        if not self.rse['prefix'].endswith('/'):
-            self.rse['prefix'] += '/'
-
-        if self.rse['hostname'] != ret['hostname']:
-            raise exception.RSEFileNameNotSupported('Invalid hostname: provided \'%s\', expected \'%s\'' % (ret['hostname'], self.rse['hostname']))
-        if self.rse['port'] != ret['port']:
-            raise exception.RSEFileNameNotSupported('Invalid port: provided \'%s\', expected \'%s\'' % (ret['port'], self.rse['port']))
-        if not ret['path'].startswith('/' + self.rse['prefix']):
-            raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(ret['path'].split('/')[0:len(self.rse['prefix'].split('/')) - 1]),
-                                                                                                          self.rse['prefix']))  # len(...)-1 due to the leading '/
-
-        # Spliting parsed.path into prefix, path, filename
-        ret['prefix'] = self.rse['prefix']
-        ret['path'] = ret['path'].partition(self.rse['prefix'])[2]
-        ret['name'] = ret['path'].split('/')[-1]
-        ret['path'] = ret['path'].partition(ret['name'])[0]
-        return ret
