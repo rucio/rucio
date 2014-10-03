@@ -13,13 +13,8 @@ from datetime import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
 
-import rucio.core.did
-
-from rucio.common.exception import DataIdentifierNotFound
-from rucio.core.message import add_message
-from rucio.core.rse import get_rse_name
 from rucio.db import models
-from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType, RuleNotification
+from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType
 from rucio.db.session import transactional_session
 
 
@@ -262,57 +257,34 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                             blacklist=list(blacklist))
     for rse_tuple in rse_tuples:
         for dataset in datasetfiles:
-            dataset_is_replicating = False
             for file in dataset['files']:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
                     continue
-                if __create_lock_and_replica(file=file,
-                                             dataset=dataset,
-                                             rule=rule,
-                                             rse_id=rse_tuple[0],
-                                             staging_area=rse_tuple[1],
-                                             locks_to_create=locks_to_create,
-                                             locks=locks,
-                                             source_rses=source_rses,
-                                             replicas_to_create=replicas_to_create,
-                                             replicas=replicas,
-                                             transfers_to_create=transfers_to_create):
-                    dataset_is_replicating = True
+                __create_lock_and_replica(file=file,
+                                          dataset=dataset,
+                                          rule=rule,
+                                          rse_id=rse_tuple[0],
+                                          staging_area=rse_tuple[1],
+                                          locks_to_create=locks_to_create,
+                                          locks=locks,
+                                          source_rses=source_rses,
+                                          replicas_to_create=replicas_to_create,
+                                          replicas=replicas,
+                                          transfers_to_create=transfers_to_create)
             # Add a DatasetLock to the DB
             if dataset['scope'] is not None:
                 try:
-                    dslock = session.query(models.DatasetLock).filter(models.DatasetLock.scope == dataset['scope'],
-                                                                      models.DatasetLock.name == dataset['name'],
-                                                                      models.DatasetLock.rule_id == rule.id,
-                                                                      models.DatasetLock.rse_id == rse_tuple[0]).one()
-                    if dataset_is_replicating:
-                        dslock.state = LockState.REPLICATING
+                    session.query(models.DatasetLock).filter(models.DatasetLock.scope == dataset['scope'],
+                                                             models.DatasetLock.name == dataset['name'],
+                                                             models.DatasetLock.rule_id == rule.id,
+                                                             models.DatasetLock.rse_id == rse_tuple[0]).one()
                 except NoResultFound:
                     models.DatasetLock(scope=dataset['scope'],
                                        name=dataset['name'],
                                        rule_id=rule.id,
                                        rse_id=rse_tuple[0],
-                                       state=LockState.REPLICATING if dataset_is_replicating else LockState.OK,
+                                       state=LockState.REPLICATING,
                                        account=rule.account).save(flush=False, session=session)
-                if not dataset_is_replicating:
-                    # Send DATASETLOCk_OK message
-                    if rule.notification == RuleNotification.YES:
-                        add_message(event_type='DATASETLOCK_OK',
-                                    payload={'scope': dataset['scope'],
-                                             'name': dataset['name'],
-                                             'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
-                                    session=session)
-                    elif rule.notification == RuleNotification.CLOSE:
-                        try:
-                            did = rucio.core.did.get_did(scope=dataset['scope'], name=dataset['name'], session=session)
-                            if not did['open']:
-                                add_message(event_type='DATASETLOCK_OK',
-                                            payload={'scope': dataset['scope'],
-                                                     'name': dataset['name'],
-                                                     'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
-                                            session=session)
-                        except DataIdentifierNotFound:
-                            pass
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
@@ -362,57 +334,34 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                                                 preferred_rse_ids=preferred_rse_ids,
                                                 blacklist=list(blacklist))
         for rse_tuple in rse_tuples:
-            dataset_is_replicating = False
             for file in dataset['files']:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
                     continue
-                if __create_lock_and_replica(file=file,
-                                             dataset=dataset,
-                                             rule=rule,
-                                             rse_id=rse_tuple[0],
-                                             staging_area=rse_tuple[1],
-                                             locks_to_create=locks_to_create,
-                                             locks=locks,
-                                             source_rses=source_rses,
-                                             replicas_to_create=replicas_to_create,
-                                             replicas=replicas,
-                                             transfers_to_create=transfers_to_create):
-                    dataset_is_replicating = True
+                __create_lock_and_replica(file=file,
+                                          dataset=dataset,
+                                          rule=rule,
+                                          rse_id=rse_tuple[0],
+                                          staging_area=rse_tuple[1],
+                                          locks_to_create=locks_to_create,
+                                          locks=locks,
+                                          source_rses=source_rses,
+                                          replicas_to_create=replicas_to_create,
+                                          replicas=replicas,
+                                          transfers_to_create=transfers_to_create)
             # Add a DatasetLock to the DB
             if dataset['scope'] is not None:
                 try:
-                    dslock = session.query(models.DatasetLock).filter(models.DatasetLock.scope == dataset['scope'],
-                                                                      models.DatasetLock.name == dataset['name'],
-                                                                      models.DatasetLock.rule_id == rule.id,
-                                                                      models.DatasetLock.rse_id == rse_tuple[0]).one()
-                    if dataset_is_replicating:
-                        dslock.state = LockState.REPLICATING
+                    session.query(models.DatasetLock).filter(models.DatasetLock.scope == dataset['scope'],
+                                                             models.DatasetLock.name == dataset['name'],
+                                                             models.DatasetLock.rule_id == rule.id,
+                                                             models.DatasetLock.rse_id == rse_tuple[0]).one()
                 except NoResultFound:
                     models.DatasetLock(scope=dataset['scope'],
                                        name=dataset['name'],
                                        rule_id=rule.id,
                                        rse_id=rse_tuple[0],
-                                       state=LockState.REPLICATING if dataset_is_replicating else LockState.OK,
+                                       state=LockState.REPLICATING,
                                        account=rule.account).save(flush=False, session=session)
-                if not dataset_is_replicating:
-                    # Send DATASETLOCk_OK message
-                    if rule.notification == RuleNotification.YES:
-                        add_message(event_type='DATASETLOCK_OK',
-                                    payload={'scope': dataset['scope'],
-                                             'name': dataset['name'],
-                                             'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
-                                    session=session)
-                    elif rule.notification == RuleNotification.CLOSE:
-                        try:
-                            did = rucio.core.did.get_did(scope=dataset['scope'], name=dataset['name'], session=session)
-                            if not did['open']:
-                                add_message(event_type='DATASETLOCK_OK',
-                                            payload={'scope': dataset['scope'],
-                                                     'name': dataset['name'],
-                                                     'rse': get_rse_name(rse_id=rse_tuple[0], session=session)},
-                                            session=session)
-                        except DataIdentifierNotFound:
-                            pass
 
     return replicas_to_create, locks_to_create, transfers_to_create
 

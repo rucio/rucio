@@ -28,11 +28,9 @@ import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
 from rucio.common.utils import chunks
-from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
-from rucio.core.rse import get_rse_name
 from rucio.db import models
-from rucio.db.constants import DIDType, DIDReEvaluation, LockState, RuleNotification
+from rucio.db.constants import DIDType, DIDReEvaluation
 from rucio.db.enum import EnumSymbol
 from rucio.db.session import read_session, transactional_session, stream_session
 
@@ -790,19 +788,11 @@ def set_status(scope, name, session=None, **kwargs):
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
         raise exception.UnsupportedOperation("The status of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
     else:
-        # Check if DATASETLOCK_OK callbacks have to be generated
+        # Generate callbacks
         if not values['is_open']:
-            dataset_locks = session.query(models.DatasetLock).filter_by(scope=scope, name=name).all()
-            for dataset_lock in dataset_locks:
-                if dataset_lock.state == LockState.OK:
-                    # Get the associated rule and check if a notification is required
-                    rule = session.query(models.ReplicationRule).filter_by(id=dataset_lock.rule_id).one()
-                    if rule.notification == RuleNotification.CLOSE:
-                        add_message(event_type='DATASETLOCK_OK',
-                                    payload={'scope': scope,
-                                             'name': name,
-                                             'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session)},
-                                    session=session)
+            rules_on_ds = session.query(models.ReplicationRule).filter_by(scope=scope, name=name).all()
+            for rule in rules_on_ds:
+                rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
 
 
 @stream_session
