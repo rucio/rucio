@@ -8,16 +8,17 @@
 
  Authors:
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 -->
 
 $var title: RSE Usage
-$var script: <script src="/static/rse_usage.js"></script><script src="https://code.highcharts.com/highcharts.js"></script><script src="https://code.highcharts.com/modules/exporting.js"></script>
+$var script: <script src="/static/rse_usage.js"></script><script src="https://code.highcharts.com/highcharts.js"></script><script src="https://code.highcharts.com/modules/exporting.js"></script><script src="/static/jquery.multiple.select.js"></script><link rel="stylesheet" href="/static/multiple-select.css">
 
-<div class="row full-height" data-equalizer>
-  <div class="large-2 columns panel" data-equalizer-watch>
-  <a class="button expand" onClick="read_data()">Update</a>
-  <select name="test" id="rseselect" multiple="yes">
-  </select>
+<div class="row">
+  <div class="large-3 columns panel">
+    <select id="rseselect" multiple="multiple"></select>
   </div>
-<div id="rseplot" class="large-10 columns panel" data-equalizer-watch></div>
+  <div class="large-9 columns panel">
+    <div id="rseplot"></div>
+  </div>
 </div>
