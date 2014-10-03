@@ -55,8 +55,11 @@ def update_request_state(req, response, session=None):
     :param session: The database session to use.
     :returns commit_or_rollback: Boolean.
     """
-
-    request.touch_request(req['request_id'], session=session)
+    try:
+        request.touch_request(response['request_id'], session=session)
+    except exception.UnsupportedOperation, e:
+        logging.warning("Request %s doesn't exist anymore, should not be updated again. Error: %s" % (response['request_id'], str(e).replace('\n', '')))
+        return False
 
     if not response['new_state'] and isinstance(response['details'], Exception):
         logging.warning('REQUEST %s STATE IS UNKNOWN %s' % (str(req['request_id']), str(response['details'])))

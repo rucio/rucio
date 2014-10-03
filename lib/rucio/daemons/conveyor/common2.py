@@ -23,7 +23,7 @@ import traceback
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.core import lock, replica, request
+from rucio.core import lock, replica, request, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import RequestState, ReplicaState
@@ -55,10 +55,14 @@ def update_request_state(response, session=None):
     :returns commit_or_rollback: Boolean.
     """
 
-    request.touch_request(response['request_id'], session=session)
+    try:
+        request.touch_request(response['request_id'], session=session)
+    except exception.UnsupportedOperation, e:
+        logging.warning("Request %s doesn't exist anymore, should not be updated again. Error: %s" % (response['request_id'], str(e).replace('\n', '')))
+        return False
 
-    if not response['new_state'] and isinstance(response['reason'], Exception):
-        logging.warning('REQUEST %s STATE IS UNKNOWN %s' % (str(response['request_id']), str(response['reason'])))
+    if not response['new_state']:
+        return False
     elif response['new_state'] == RequestState.LOST:
         logging.debug('UPDATING REQUEST %s FOR STATE %s' % (str(response['request_id']), str(response['new_state'])))
     elif response['new_state'] and 'job_state' in response and response['job_state']:
@@ -68,12 +72,12 @@ def update_request_state(response, session=None):
 
     if response['new_state']:
 
-        rse_name = response['dst_rse']
         request.set_request_state(response['request_id'],
                                   response['new_state'],
                                   session=session)
 
         if response['new_state'] == RequestState.DONE:
+            rse_name = response['dst_rse']
             try:
                 tss = time.time()
                 logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (response['scope'], response['name'], rse_name))
@@ -116,6 +120,7 @@ def update_request_state(response, session=None):
                 raise
 
         elif response['new_state'] == RequestState.FAILED:
+            rse_name = response['dst_rse']
             tss = time.time()
             new_req = request.requeue_and_archive(response['request_id'], session=session)
             record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
@@ -163,7 +168,12 @@ def update_request_state(response, session=None):
 
         elif response['new_state'] == RequestState.LOST:
             tss = time.time()
-            record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
+            req = request.get_request(response['request_id'])
+            rse_name = rse_core.get_rse_name(rse_id=req['dest_rse_id'], session=session)
+            response['scope'] = req['scope']
+            response['name'] = req['name']
+            response['dest_rse_id'] = req['dest_rse_id']
+            response['dst_rse'] = rse_name
 
             add_monitor_message(response, session=session)
 
@@ -182,7 +192,7 @@ def update_request_state(response, session=None):
                                                                                            response['name'],
                                                                                            rse_name,
                                                                                            sys.exc_info()[1]))
-                return
+                raise
 
         logging.info('UPDATED REQUEST %s DID %s:%s AT %s TO %s' % (response['request_id'],
                                                                    response['scope'],

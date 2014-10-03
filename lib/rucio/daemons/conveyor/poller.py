@@ -62,7 +62,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
                                     limit=10000,
-                                    older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=3600),
+                                    older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=60),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
@@ -92,17 +92,17 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
                         record_timer('daemons.conveyor.poller.001-bulk_query_requests', (time.time()-ts)*1000/len(req_ids[external_host]))
                         responses = dict(responses.items() + resps.items())
 
-                    for request_id in responses:
-                        response = responses[request_id]
-                        if isinstance(response, Exception):
-                            logging.critical("Failed to poll request(%s): %s" % (request_id, responses[request_id]))
-                            record_counter('daemons.conveyor.poller.query_request_exception')
-                        else:
-                            if response['new_state']:
-                                common2.update_request_state(response)
-                                record_counter('daemons.conveyor.poller.update_request_state')
-                                if response['new_state'] == RequestState.LOST:
-                                    record_counter('daemons.conveyor.poller.request_lost')
+                    for external_host in req_ids:
+                        for request_id, external_id in req_ids[external_host]:
+                            response = responses[request_id]
+                            if isinstance(response, Exception):
+                                logging.critical("Failed to poll request(%s) with FTS(%s) job (%s): %s" % (request_id, external_host, external_id, responses[request_id]))
+                                record_counter('daemons.conveyor.poller.query_request_exception')
+                                response = {'new_state': None, 'request_id': request_id, 'transfer_id': external_id, 'job_state': None}
+                            common2.update_request_state(response)
+                            record_counter('daemons.conveyor.poller.update_request_state')
+                            if response['new_state'] == RequestState.LOST:
+                                record_counter('daemons.conveyor.poller.request_lost')
                 except:
                     logging.critical(traceback.format_exc())
 
