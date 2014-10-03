@@ -804,6 +804,8 @@ def upload(args):
                 except FileReplicaAlreadyExists, e:
                     add_files_individually = True
                     logger.warning(e)
+                except FileAlreadyExists, e:
+                    logger.warning(e)
         except Duplicate, e:
             add_files_individually = True
             logger.warning(e)
