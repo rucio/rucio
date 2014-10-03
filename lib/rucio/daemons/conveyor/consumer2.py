@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -99,6 +100,7 @@ class Consumer(object):
                                                                         response['new_state']))
 
                     update_request_state(response)
+                    record_counter('daemons.conveyor.consumer2.update_request_state')
             except:
                 logging.critical(traceback.format_exc())
 
