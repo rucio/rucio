@@ -7,6 +7,7 @@
 #
 # Authors:
 # - WeiJen Chang, <wchang@cern.ch>, 2013
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 import json
 import os
@@ -40,7 +41,9 @@ class TestRseXROOTD():
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        storage = rsemanager.RSEMgr()
+        protocol = rsemanager.create_protocol(rsemanager.get_rse_info('WJ-XROOTD'), 'write')
+        protocol.connect()
+
         with open('etc/rse_repository.json') as f:
             data = json.load(f)
         prefix = data['WJ-XROOTD']['protocols']['supported']['xroot']['prefix']
@@ -58,8 +61,7 @@ class TestRseXROOTD():
         execute(cmd)
 
         for f in MgrTestCases.files_remote:
-            tmp = storage.parse_pfn('WJ-XROOTD', storage.lfn2pfn('WJ-XROOTD', {'name': f, 'scope': 'user.%s' % cls.user}))
-            path = 'xroot://%s:%d/%s%s%s' % (tmp['hostname'], tmp['port'], tmp['prefix'], tmp['path'], tmp['name'])
+            path = protocol.path2pfn(prefix + protocol._get_path('user.%s' % cls.user, f))
             cmd = 'xrdcp %s/data.raw %s' % (prefix, path)
             execute(cmd)
 

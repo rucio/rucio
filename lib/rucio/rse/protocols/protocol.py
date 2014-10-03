@@ -9,6 +9,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 import hashlib
 
@@ -149,6 +150,8 @@ class RSEProtocol(object):
             scheme = parsed.scheme
             hostname = parsed.netloc.partition(':')[0]
             port = int(parsed.netloc.partition(':')[2]) if parsed.netloc.partition(':')[2] != '' else 0
+            while '//' in parsed.path:
+                parsed = parsed._replace(path=parsed.path.replace('//', '/'))
             path = parsed.path
 
             # Protect against 'lazy' defined prefixes for RSEs in the repository
