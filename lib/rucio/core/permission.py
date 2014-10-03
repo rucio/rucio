@@ -64,7 +64,7 @@ def has_permission(issuer, action, kwargs):
             'del_rse_attribute': perm_del_rse_attribute,
             'del_rse': perm_del_rse,
             'del_rule': perm_del_rule,
-            'lock_rule': perm_lock_rule,
+            'update_rule': perm_update_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
@@ -325,9 +325,9 @@ def perm_del_rule(issuer, kwargs):
     return True
 
 
-def perm_lock_rule(issuer, kwargs):
+def perm_update_rule(issuer, kwargs):
     """
-    Checks if an issuer can lock a replication rule.
+    Checks if an issuer can update a replication rule.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

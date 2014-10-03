@@ -1068,6 +1068,38 @@ def delete_rule(args):
     return SUCCESS
 
 
+def update_rule(args):
+    """
+    %(prog)s update-rule [options] <ruleid>
+
+    Update a rule.
+    """
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
+                        account=args.account, auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        options = {}
+        if args.lifetime:
+            options['lifetime'] = None if args.lifetime == "None" else int(args.lifetime)
+        if args.locked:
+            if args.locked == "True":
+                options['locked'] = True
+            elif args.locked == "False":
+                options['locked'] = False
+        print options
+        client.update_replication_rule(rule_id=args.rule_id, options=options)
+        print 'Updated Rule'
+    except Exception, e:
+        print 'Failed to update replication rule'
+        print e
+        return FAILURE
+    return SUCCESS
+
+
 def info_rule(args):
     """
     %(prog)s rule-info [options] <ruleid>
@@ -1526,6 +1558,13 @@ Commands:
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
     list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
 
+    # The update_rule command
+    update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule')
+    update_rule_parser.set_defaults(which='update_rule')
+    update_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
+    update_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
+    update_rule_parser.add_argument('--locked', dest='locked', action='store', help='Locked (True/False).')
+
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='List RSEs')
     list_rses_parser.set_defaults(which='list_rses')
@@ -1567,7 +1606,8 @@ Commands:
                 'list_rses': list_rses,
                 'list_rse_usage': list_rse_usage,
                 'list_account_limits': list_account_limits,
-                'list_account_usage': list_account_usage}
+                'list_account_usage': list_account_usage,
+                'update_rule': update_rule}
 
     try:
         start_time = time.time()
