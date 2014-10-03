@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
 from rucio.common.config import config_get
-from rucio.common.exception import RucioException
+from rucio.common.exception import RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name
@@ -182,7 +182,7 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, filesize, md5
 
 
 @read_session
-def get_next(request_type, state, limit=100, older_than=None, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+def get_next(request_type, state, limit=100, older_than=None, rse=None, process=None, total_processes=None, thread=None, total_threads=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -214,6 +214,9 @@ def get_next(request_type, state, limit=100, older_than=None, process=None, tota
 
     if isinstance(older_than, datetime.datetime):
         query = query.filter(models.Request.updated_at < older_than)
+
+    if rse:
+        query = query.filter(models.Request.dest_rse_id == rse)
 
     if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
@@ -312,7 +315,8 @@ def bulk_query_requests(request_host, request_ids, transfertool='fts3', session=
 
     transfer_ids = []
     for request_id, external_id in request_ids:
-        transfer_ids.append(external_id)
+        if external_id not in transfer_ids:
+            transfer_ids.append(external_id)
 
     if transfertool == 'fts3':
         try:
@@ -324,25 +328,24 @@ def bulk_query_requests(request_host, request_ids, transfertool='fts3', session=
 
         responses = {}
         for request_id, external_id in request_ids:
-            req_status = {'request_id': request_id,
-                          'transfer_id': external_id,
-                          'job_state': None,
-                          'new_state': None}
             fts_resp = fts_resps[external_id]
-            req_status['details'] = fts_resp
             if not fts_resp:
+                req_status = {}
                 req_status['new_state'] = RequestState.LOST
-            elif not isinstance(fts_resp, Exception):
-                if 'job_state' not in fts_resp:
-                    req_status['new_state'] = RequestState.LOST
-                else:
-                    req_status['job_state'] = fts_resp['job_state']
-                    if fts_resp['job_state'] in (str(FTSState.FAILED),
-                                                 str(FTSState.FINISHEDDIRTY),
-                                                 str(FTSState.CANCELED)):
-                        req_status['new_state'] = RequestState.FAILED
-                    elif fts_resp['job_state'] == str(FTSState.FINISHED):
-                        req_status['new_state'] = RequestState.DONE
+                req_status['request_id'] = request_id
+            elif isinstance(fts_resp, Exception):
+                req_status = fts_resp
+            else:
+                req_status = fts_resp
+                # needed for unfinished jobs
+                req_status['request_id'] = request_id
+
+                if req_status['job_state'] in (str(FTSState.FAILED),
+                                               str(FTSState.FINISHEDDIRTY),
+                                               str(FTSState.CANCELED)):
+                    req_status['new_state'] = RequestState.FAILED
+                elif req_status['job_state'] == str(FTSState.FINISHED):
+                    req_status['new_state'] = RequestState.DONE
 
             responses[request_id] = req_status
         return responses
@@ -428,9 +431,11 @@ def touch_request(request_id, session=None):
     record_counter('core.request.touch_request')
 
     try:
-        session.query(models.Request).filter_by(id=request_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        rowcount = session.query(models.Request).filter_by(id=request_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
+    if not rowcount:
+        raise UnsupportedOperation("Request %s cannot be touched." % request_id)
 
 
 @read_session

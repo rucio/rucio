@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
+import datetime
 import json
 import logging
 import sys
@@ -201,6 +202,38 @@ def query_details(transfer_id, transfer_host):
     return
 
 
+def format_response(transfer_host, fts_job_response, fts_files_response):
+    """
+    Format the response format of FTS3 query.
+
+    :param fts_job_response: FTSs job query response.
+    :param fts_files_response: FTS3 files query response.
+    :returns: formatted response.
+    """
+    response = {'new_state': None,
+                'transfer_id': fts_job_response.get('job_id'),
+                'job_state': fts_job_response.get('job_state', None),
+                'src_url': fts_files_response[0].get('source_surl', None),
+                'dst_url': fts_files_response[0].get('dest_surl', None),
+                'duration': (datetime.datetime.strptime(fts_files_response[0]['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                             datetime.datetime.strptime(fts_files_response[0]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds,
+                'reason': fts_files_response[0].get('reason', None),
+                'scope': fts_job_response['job_metadata'].get('scope', None),
+                'name': fts_job_response['job_metadata'].get('name', None),
+                'src_rse': fts_job_response['job_metadata'].get('src_rse', None),
+                'dst_rse': fts_job_response['job_metadata'].get('dst_rse', None),
+                'request_id': fts_job_response['job_metadata'].get('request_id', None),
+                'activity': fts_job_response['job_metadata'].get('activity', None),
+                'dest_rse_id': fts_job_response['job_metadata'].get('dest_rse_id', None),
+                'previous_attempt_id': fts_job_response['job_metadata'].get('previous_attempt_id', None),
+                'adler32': fts_job_response['job_metadata'].get('adler32', None),
+                'md5': fts_job_response['job_metadata'].get('md5', None),
+                'filesize': fts_job_response['job_metadata'].get('filesize', None),
+                'external_host': transfer_host.split("//")[1].split(":")[0],
+                'details': {'files': fts_job_response['job_metadata']}}
+    return response
+
+
 def bulk_query(transfer_ids, transfer_host):
     """
     Query the status of a bulk of transfers in FTS3 via JSON.
@@ -223,20 +256,24 @@ def bulk_query(transfer_ids, transfer_host):
             if not job:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
             elif job.status_code == 200:
-                responses[transfer_id] = job.json()
-
-                if responses[transfer_id]['job_state'] in (str(FTSState.FAILED),
-                                                           str(FTSState.FINISHEDDIRTY),
-                                                           str(FTSState.CANCELED),
-                                                           str(FTSState.FINISHED)):
+                job_response = job.json()
+                if not job_response['job_state'] in (str(FTSState.FAILED),
+                                                     str(FTSState.FINISHEDDIRTY),
+                                                     str(FTSState.CANCELED),
+                                                     str(FTSState.FINISHED)):
+                    responses[transfer_id] = {}
+                    responses[transfer_id]['job_state'] = job_response['job_state']
+                    responses[transfer_id]['new_state'] = None
+                    responses[transfer_id]['transfer_id'] = transfer_id
+                else:
                     files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                                             verify=False,
                                             cert=(__USERCERT, __USERCERT),
                                             headers={'Content-Type': 'application/json'})
                     if files and files.status_code == 200:
-                        responses[transfer_id]['files'] = files.json()
+                        responses[transfer_id] = format_response(transfer_host, job_response, files.json())
                     else:
-                        responses[transfer_id]['files'] = Exception('Could not retrieve files information: %s', files)
+                        responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
 
             elif "No job with the id" in job.text:
                 responses[transfer_id] = None
@@ -250,17 +287,22 @@ def bulk_query(transfer_ids, transfer_host):
             if not job:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
             elif job.status_code == 200:
-                responses[transfer_id] = job.json()
-                if responses[transfer_id]['job_state'] in (str(FTSState.FAILED),
-                                                           str(FTSState.FINISHEDDIRTY),
-                                                           str(FTSState.CANCELED),
-                                                           str(FTSState.FINISHED)):
+                job_response = job.json()
+                if not job_response['job_state'] in (str(FTSState.FAILED),
+                                                     str(FTSState.FINISHEDDIRTY),
+                                                     str(FTSState.CANCELED),
+                                                     str(FTSState.FINISHED)):
+                    responses[transfer_id] = {}
+                    responses[transfer_id]['job_state'] = job_response['job_state']
+                    responses[transfer_id]['new_state'] = None
+                    responses[transfer_id]['transfer_id'] = transfer_id
+                else:
                     files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                                          headers={'Content-Type': 'application/json'})
                     if files and files.status_code == 200:
-                        responses[transfer_id]['files'] = files.json()
+                        responses[transfer_id] = format_response(transfer_host, job_response, files.json())
                     else:
-                        responses[transfer_id]['files'] = Exception('Could not retrieve files information: %s', files)
+                        responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
 
             elif "No job with the id" in job.text:
                 responses[transfer_id] = None
