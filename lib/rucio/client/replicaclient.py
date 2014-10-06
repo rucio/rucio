@@ -115,36 +115,38 @@ class ReplicaClient(BaseClient):
             dict['pfn'] = pfn
         return self.add_replicas(rse=rse, files=[dict])
 
-    def add_replicas(self, rse, files):
+    def add_replicas(self, rse, files, ignore_availability=True):
         """
         Bulk add file replicas to a RSE.
 
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
         [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+        :param ignore_availability: Ignore the RSE blacklisting.
 
         :return: True if files were created successfully.
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
-        data = {'rse': rse, 'files': files}
+        data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
         r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
         raise exc_cls(exc_msg)
 
-    def delete_replicas(self, rse, files):
+    def delete_replicas(self, rse, files, ignore_availability=True):
         """
         Bulk delete file replicas from a RSE.
 
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
         [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
+        :param ignore_availability: Ignore the RSE blacklisting.
 
         :return: True if files have been deleted successfully.
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
-        data = {'rse': rse, 'files': files}
+        data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
         r = self._send_request(url, type='DEL', data=render_json(**data))
         if r.status_code == codes.ok:
             return True

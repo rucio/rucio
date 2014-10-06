@@ -178,10 +178,10 @@ class TestRSEClient():
 
         files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         with assert_raises(RessourceTemporaryUnavailable):
-            replica_client.add_replicas(rse=renamed_rse, files=files2)
+            replica_client.add_replicas(rse=renamed_rse, files=files2, ignore_availability=False)
 
         with assert_raises(RessourceTemporaryUnavailable):
-            replica_client.delete_replicas(rse=renamed_rse, files=files1)
+            replica_client.delete_replicas(rse=renamed_rse, files=files1, ignore_availability=False)
 
     def test_list_rses(self):
         """ RSE (CLIENTS): try to list rses."""
