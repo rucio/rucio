@@ -59,6 +59,7 @@ def has_permission(issuer, action, kwargs):
             'declare_bad_file_replicas': perm_declare_bad_file_replicas,
             'add_replicas': perm_add_replicas,
             'delete_replicas': perm_delete_replicas,
+            'skip_availability_check': perm_skip_availability_check,
             'update_replicas_states': perm_update_replicas_states,
             'add_rse_attribute': perm_add_rse_attribute,
             'del_rse_attribute': perm_del_rse_attribute,
@@ -418,6 +419,17 @@ def perm_add_replicas(issuer, kwargs):
         or str(kwargs.get('rse', '')).endswith('USERDISK')\
         or issuer == 'root'\
         or issuer in get_special_accounts()
+
+
+def perm_skip_availability_check(issuer, kwargs):
+    """
+    Checks if an account can skip the availabity check to add/delete file replicas.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_delete_replicas(issuer, kwargs):

@@ -164,7 +164,7 @@ class Replicas(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'))
+            add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'), ignore_availability=parameters['ignore_availability'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:
@@ -231,7 +231,7 @@ class Replicas(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            delete_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'))
+            delete_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'), ignore_availability=parameters['ignore_availability'])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RSENotFound, e:
@@ -277,6 +277,7 @@ class ListReplicas(RucioController):
                 metalink = 4
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
+        ignore_availability = False
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -286,6 +287,7 @@ class ListReplicas(RucioController):
                 schemes = params['schemes']
             if 'unavailable' in params:
                 unavailable = params['unavailable']
+                ignore_availability = True
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -308,7 +310,7 @@ class ListReplicas(RucioController):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
-            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id')):
+            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id'), ignore_availability=ignore_availability):
                 client_ip = ctx.get('ip')
                 replicas = []
                 dictreplica = {}

@@ -152,7 +152,7 @@ def get_did_from_pfns(pfns, rse, session=None):
 
 
 @stream_session
-def list_replicas(dids, schemes=None, unavailable=False, request_id=None, session=None):
+def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore_availability=True, session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -160,6 +160,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, sessio
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
     :param unavailable: Also include unavailable replicas in the list.
     :param request_id: ID associated with the request for debugging.
+    :param ignore_availability: Ignore the RSE blacklisting.
     :param session: The database session in use.
     """
     # Get the list of files
@@ -213,6 +214,10 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, sessio
     is_false = False
     tmp_protocols = {}
     key = None
+    if ignore_availability:
+        availability_op = '|'
+    else:
+        availability_op = '&'
     for replica_condition in chunks(replica_conditions, 50):
 
         replica_query = select(columns=(models.RSEFileAssociation.scope,
@@ -222,7 +227,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, sessio
                                         models.RSEFileAssociation.adler32,
                                         models.RSEFileAssociation.path,
                                         models.RSE.rse),
-                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, or_(*replica_condition)),
+                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, models.RSE.availability.op(availability_op)(0x100) != 0, or_(*replica_condition)),
                                order_by=(models.RSEFileAssociation.scope, models.RSEFileAssociation.name)).\
             with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
             compile()
@@ -403,7 +408,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
 
 
 @transactional_session
-def add_replicas(rse, files, account, rse_id=None, session=None):
+def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, session=None):
     """
     Bulk add file replicas.
 
@@ -411,6 +416,7 @@ def add_replicas(rse, files, account, rse_id=None, session=None):
     :param files:   The list of files.
     :param account: The account owner.
     :param rse_id:  The RSE id. To be used if rse parameter is None.
+    :param ignore_availability: Ignore the RSE blacklisting.
     :param session: The database session in use.
 
     :returns: True is successful.
@@ -420,7 +426,7 @@ def add_replicas(rse, files, account, rse_id=None, session=None):
     else:
         replica_rse = get_rse(rse=None, rse_id=rse_id, session=session)
 
-    if not (replica_rse.availability & 2):
+    if (not (replica_rse.availability & 2)) and not ignore_availability:
         raise exception.RessourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
 
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
@@ -469,17 +475,18 @@ def add_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=No
 
 
 @transactional_session
-def delete_replicas(rse, files, session=None):
+def delete_replicas(rse, files, ignore_availability=True, session=None):
     """
     Delete file replicas.
 
     :param rse: the rse name.
     :param files: the list of files to delete.
+    :param ignore_availability: Ignore the RSE blacklisting.
     :param session: The database session in use.
     """
     replica_rse = get_rse(rse=rse, session=session)
 
-    if not (replica_rse.availability & 1):
+    if (not (replica_rse.availability & 1)) and not ignore_availability:
         raise exception.RessourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
 
     replica_condition, parent_condition, did_condition = list(), list(), list()

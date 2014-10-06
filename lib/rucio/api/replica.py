@@ -40,7 +40,7 @@ def get_did_from_pfns(pfns, rse):
     return replica.get_did_from_pfns(pfns=pfns, rse=rse)
 
 
-def list_replicas(dids, schemes=None, unavailable=False, request_id=None):
+def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore_availability=True):
     """
     List file replicas for a list of data identifiers.
 
@@ -50,16 +50,17 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None):
     :param request_id: ID associated with the request for debugging.
     """
     validate_schema(name='r_dids', obj=dids)
-    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=request_id)
+    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=request_id, ignore_availability=ignore_availability)
 
 
-def add_replicas(rse, files, issuer):
+def add_replicas(rse, files, issuer, ignore_availability=False):
     """
     Bulk add file replicas.
 
     :param rse: The RSE name.
     :param files: The list of files.
     :param issuer: The issuer account.
+    :param ignore_availability: Ignore the RSE blacklisting.
 
     :returns: True is successful, False otherwise
     """
@@ -68,16 +69,19 @@ def add_replicas(rse, files, issuer):
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add file replicas on %s' % (issuer, rse))
-    replica.add_replicas(rse=rse, files=files, account=issuer)
+    if not permission.has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs):
+        ignore_availability = False
+    replica.add_replicas(rse=rse, files=files, account=issuer, ignore_availability=ignore_availability)
 
 
-def delete_replicas(rse, files, issuer):
+def delete_replicas(rse, files, issuer, ignore_availability=False):
     """
     Bulk delete file replicas.
 
     :param rse: The RSE name.
     :param files: The list of files.
     :param issuer: The issuer account.
+    :param ignore_availability: Ignore the RSE blacklisting.
 
     :returns: True is successful, False otherwise
     """
@@ -86,7 +90,9 @@ def delete_replicas(rse, files, issuer):
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, action='delete_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete file replicas on %s' % (issuer, rse))
-    replica.delete_replicas(rse=rse, files=files)
+    if not permission.has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs):
+        ignore_availability = False
+    replica.delete_replicas(rse=rse, files=files, ignore_availability=ignore_availability)
 
 
 def update_replicas_states(rse, files, issuer):
