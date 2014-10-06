@@ -811,15 +811,19 @@ def add_subscription(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
+    if args.subs_account:
+        account = args.subs_account
+    else:
+        account = args.issuer
     client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
                                 account=args.issuer,
                                 auth_type=args.auth_strategy, creds=creds,
                                 ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        client.add_subscription(args.name, json.loads(args.filter), json.loads(args.replication_rules),
-                                'tier0', args.lifetime, False, False)
-        print 'Subscription added'
+        subscription_id = client.add_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
+                                                  comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
+        print 'Subscription added %s' % (subscription_id)
     except Exception, e:
         print 'Failed to add subscription'
         print e
@@ -851,7 +855,7 @@ def list_subscriptions(args):
                 print '\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items())
                 print
             else:
-                print "%s: %s %s\n  filter: %s\n  rules: %s" % (sub['account'], sub['name'], sub['state'], sub['filter'], sub['replication_rules'])
+                print "%s: %s %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['filter'], sub['replication_rules'], sub.get('comments', ''))
     except Exception, e:
         print 'Failed to list subscription'
         print e
@@ -872,14 +876,19 @@ def update_subscription(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
+    if args.subs_account:
+        account = args.subs_account
+    else:
+        account = args.issuer
+
     client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
                                 account=args.issuer,
                                 auth_type=args.auth_strategy, creds=creds,
                                 ca_cert=args.ca_certificate, timeout=args.timeout)
 
     try:
-        client.update_subscription(args.name, json.loads(args.filter), json.loads(args.replication_rules),
-                                   'tier0', args.lifetime, False, False)
+        client.update_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
+                                   comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
         print 'Subscription updated'
     except Exception, e:
         print 'Failed to update subscription'
@@ -1092,8 +1101,10 @@ Commands:
     add_sub_parser.add_argument(dest='name', action='store', help='Subscription name')
     add_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
     add_sub_parser.add_argument(dest='replication_rules', action='store', help='Replication rules (eg \'[{"copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')')
+    add_sub_parser.add_argument(dest='comments', action='store', help='Subscription name')
     add_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
-    # subscription policy, retroactive and dry_run hard-coded for now
+    add_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
+    # retroactive and dry_run hard-coded for now
 
     # The list-subscriptions command
     list_sub_parser = subs_subparser.add_parser('list', help='List subscriptions')
@@ -1109,6 +1120,7 @@ Commands:
     update_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
     update_sub_parser.add_argument(dest='replication_rules', action='store', help='Replication rules (eg \'[{"copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')')
     update_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
+    update_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
     # subscription policy, retroactive and dry_run hard-coded for now
 
     commands = {'add_account': add_account,
