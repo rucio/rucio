@@ -695,8 +695,8 @@ class Subscription(BASE, ModelBase, Versioned):
     state = Column(SubscriptionState.db_type(name='SUBSCRIPTIONS_STATE_CHK', default=SubscriptionState.ACTIVE))
     last_processed = Column(DateTime, default=datetime.datetime.utcnow())
     account = Column(String(25))
-    # issuer = Column(String(255))
-    lifetime = Column(DateTime, default=datetime.datetime(4772, 10, 13))  # default lifetime is till the End of the Maya Long Count Calendar
+    lifetime = Column(DateTime)
+    comments = Column(String(4000))
     retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
     expired_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', name='SUBSCRIPTIONS_PK'),

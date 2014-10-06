@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014.
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
@@ -29,16 +29,18 @@ logger.addHandler(sh)
 
 urls = (
     '/(.*)/(.*)/Rules/States', 'States',
+    '/(.*)/Rules/States', 'States',
     '/(.*)/(.*)/Rules', 'Rules',
     '/(.*)/(.*)', 'Subscription',
     '/(.*)', 'Subscription',
+    '/', 'Subscription',
 )
 
 
 class Subscription:
     """ REST APIs for subscriptions. """
 
-    def GET(self, account, name):
+    def GET(self, account=None, name=None):
         """
         Retrieve a subscription.
 
@@ -62,7 +64,7 @@ class Subscription:
         except Exception, e:
             raise InternalError(e)
 
-    def PUT(self, name):
+    def PUT(self, account, name):
         """
         Update an existing subscription.
 
@@ -90,9 +92,9 @@ class Subscription:
         except KeyError:
             replication_rules = None
         try:
-            subscription_policy = params['subscription_policy']
+            comments = params['comments']
         except KeyError:
-            subscription_policy = None
+            comments = None
         try:
             lifetime = params['lifetime']
         except KeyError:
@@ -107,7 +109,7 @@ class Subscription:
             dry_run = None
 
         try:
-            update_subscription(name=name, account=ctx.env.get('issuer'), filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+            update_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionNotFound, e:
             raise generate_http_error(404, 'SubscriptionNotFound', e[0][0])
         except InvalidObject, e:
@@ -116,7 +118,7 @@ class Subscription:
             raise InternalError(e)
         raise Created()
 
-    def POST(self, name):
+    def POST(self, account, name):
         """
         Create a new subscription.
 
@@ -135,7 +137,7 @@ class Subscription:
             params = loads(json_data)
             filter = params['filter']
             replication_rules = params['replication_rules']
-            subscription_policy = params['subscription_policy']
+            comments = params['comments']
             lifetime = params['lifetime']
             retroactive = params['retroactive']
             dry_run = params['dry_run']
@@ -143,7 +145,7 @@ class Subscription:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_subscription(name=name, account=ctx.env.get('issuer'), filter=filter, replication_rules=replication_rules, subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+            subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
         except SubscriptionDuplicate as e:
             raise generate_http_error(409, 'SubscriptionDuplicate', e.args[0][0])
         except RucioException, e:
@@ -153,7 +155,7 @@ class Subscription:
         except Exception, e:
             raise InternalError(e)
 
-        raise Created()
+        raise Created(subscription_id)
 
     def DELETE(self):
         raise BadRequest()
@@ -212,9 +214,9 @@ class Rules:
 
 class States(RucioController):
 
-    def GET(self, account, name):
+    def GET(self, account, name=None):
         """
-        Return a summarary of the states of all rules of a given subscription id.
+        Return a summary of the states of all rules of a given subscription id.
 
         HTTP Success:
             200 OK

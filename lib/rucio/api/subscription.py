@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps
@@ -19,7 +19,7 @@ from rucio.common.schema import validate_schema
 from rucio.core import subscription
 
 
-def add_subscription(name, account, filter, replication_rules, subscription_policy, lifetime, retroactive, dry_run):
+def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -32,9 +32,8 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :type filter:  Dict
     :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
     :type replication_rules:  Dict
-    :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
-                                **Example**: ``'data_export'``
-    :type subscription_policy:  String
+    :param comments: Comments for the subscription
+    :type comments:  String
     :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
@@ -59,10 +58,10 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     except ValueError, e:
         raise TypeError(e)
 
-    return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+    return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
 
-def update_subscription(name, account, filter=None, replication_rules=None, subscription_policy=None, lifetime=None, retroactive=None, dry_run=None):
+def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None):
     """
     Updates a subscription
 
@@ -75,9 +74,8 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :type filter:  Dict
     :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
     :type replication_rules:  Dict
-    :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
-                                **Example**: ``'data_export'``
-    :type subscription_policy:  String
+    :param comments: Comments for the subscription
+    :type comments:  String
     :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
     :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
@@ -100,7 +98,7 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
             raise TypeError('replication_rules should be a list')
     except ValueError, e:
         raise TypeError(e)
-    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), subscription_policy=subscription_policy, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
+    return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
 
 
 def list_subscriptions(name=None, account=None, state=None):
@@ -116,10 +114,6 @@ def list_subscriptions(name=None, account=None, state=None):
     :rtype:   Dict
     :raises: exception.NotFound if subscription is not found
     """
-    if name == '*':
-        name = None
-    if account == '*':
-        account = None
     return subscription.list_subscriptions(name, account, state)
 
 
