@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import datetime
@@ -26,7 +26,7 @@ from rucio.db.session import transactional_session, stream_session
 
 
 @transactional_session
-def add_subscription(name, account, filter, replication_rules, subscription_policy, lifetime, retroactive, dry_run, session=None):
+def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, session=None):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -39,34 +39,29 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
     :type filter:  Dict
     :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
     :type replication_rules:  Dict
-    :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
-                                **Example**: ``'data_export'``
-    :type subscription_policy:  String
-    :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
-    :type lifetime:  Integer or False
+    :param comments: Comments for the subscription
+    :type comments:  String
+    :param lifetime: Subscription's lifetime (days)
+    :type lifetime:  Integer or None
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
     :type dry_run:  Boolean
     :param session: The database session in use.
+
+    :returns: The subscriptionid
     """
 
     retroactive = bool(retroactive)  # Force boolean type, necessary for strict SQL
-
-    policyid_dict = {'tier0': 0}
-    policyid = None
-    try:
-        policyid = policyid_dict[subscription_policy]
-    except KeyError, e:
-        print 'Unknown subscription policy : %s' % (e)
-        raise
+    policyid = None  # This is not used anymore
     state = SubscriptionState.ACTIVE
+    lifetime = None
     if retroactive:
         state = SubscriptionState.NEW
     if lifetime:
         lifetime = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
     new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=lifetime,
-                                           retroactive=retroactive, policyid=policyid)
+                                           retroactive=retroactive, policyid=policyid, comments=comments)
     try:
         new_subscription.save(session=session)
     except IntegrityError, e:
@@ -77,10 +72,11 @@ def add_subscription(name, account, filter, replication_rules, subscription_poli
            or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         raise RucioException(e.args)
+    return new_subscription.id
 
 
 @transactional_session
-def update_subscription(name, account, filter=None, replication_rules=None, subscription_policy=None, lifetime=None, retroactive=None, dry_run=None, session=None):
+def update_subscription(name, account, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, session=None):
     """
     Updates a subscription
 
@@ -96,11 +92,10 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :param transfer_requests: Transfer requests to be issued. List of tuples holding count, RSE-tag, group; If the group flag is set to ``true``, this transfer_request will resolve to the same RSE for all files in the same dataset
                               **Example**: ``[(1, 'T1-DATADISKS', True), (2, 'T2-DATADISKS', False)]``
     :type transfer_requests:  List
-    :param subscription_policy: Name of an advanced subscription policy, which allows more advanced operations
-                                **Example**: ``'data_export'``
-    :type subscription_policy:  String
-    :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
-    :type lifetime:  Integer or False
+    :param comments: Comments for the subscription
+    :type comments:  String
+    :param lifetime: Subscription's lifetime (days)
+    :type lifetime:  Integer or None
     :param retroactive: Flag to know if the subscription should be applied on previous data
     :type retroactive:  Boolean
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
@@ -108,25 +103,19 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
     :param session: The database session in use.
     :raises: exception.NotFound if subscription is not found
     """
-    policyid_dict = {'tier0': 0}
     values = {'state': SubscriptionState.UPDATED}
     if filter:
         values['filter'] = filter
     if replication_rules:
         values['replication_rules'] = replication_rules
-    if subscription_policy:
-        try:
-            policyid = policyid_dict[subscription_policy]
-            values['policyid'] = policyid
-        except KeyError, e:
-            print 'Unknown subscription policy : %s' % (e)
-            raise
     if lifetime:
         values['lifetime'] = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
     if retroactive:
         values['retroactive'] = retroactive
     if dry_run:
         values['dry_run'] = dry_run
+    if comments:
+        values['comments'] = comments
 
     try:
         rowcount = session.query(models.Subscription).filter_by(account=account, name=name).update(values)
@@ -134,9 +123,6 @@ def update_subscription(name, account, filter=None, replication_rules=None, subs
             raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
     except IntegrityError, e:
         raise RucioException(e.args)
-    # except IntegrityError, e:
-    #    print e
-    #    raise
 
 
 @stream_session

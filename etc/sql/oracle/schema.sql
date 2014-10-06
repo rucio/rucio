@@ -333,6 +333,7 @@ CREATE TABLE subscriptions (
     retroactive NUMBER(1),
     filter VARCHAR2(2048 CHAR),
     replication_rules VARCHAR2(1024 CHAR),
+    comments VARCHAR2(4000 CHAR),
     expired_at DATE,
     updated_at DATE,
     created_at DATE,
