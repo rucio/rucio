@@ -434,6 +434,8 @@ def add_protocol(rse, parameter, session=None):
                 no = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
                                                                                getattr(models.RSEProtocols, op_name) > 0,
                                                                                )).count()
+                if parameter['domains'][s][op] > (no + 1):
+                    parameter['domains'][s][op] = (no + 1)
                 if not(0 <= parameter['domains'][s][op] <= (no + 1)):
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
