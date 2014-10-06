@@ -27,6 +27,7 @@ urls = (
     '/rules', 'Rules',
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
+    '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
 )
 
@@ -47,6 +48,12 @@ class Rule():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rule())
+
+
+class Subscription():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.subscription())
 
 
 class SubscriptionRules():

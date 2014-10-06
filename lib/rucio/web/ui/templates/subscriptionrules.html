@@ -14,15 +14,17 @@
 $var title: Rules for Subscription
 $var script: <script src="/static/subscriptionrules.js"></script><link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css"><script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
 
-<div id="results">
+<div id="results" class="row">
 
   <div id="t_data" class="columns panel">
     <h4>Rules</h4>
+    <div id="loader"></div>
     <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
-      <thead><tr><th>Name</th><th>Scope</th><th>RSE Expression</th></tr></thead>
-      <tfoot><tr><th>Name</th><th>Scope</th><th>RSE Expression</th></tr></tfoot>
+      <thead><tr><th>Name</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></thead>
+      <tfoot><tr><th>Name</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></tfoot>
     </table>
   </div>
 
 </div>
+
 <div id="problem"></div>
