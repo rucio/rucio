@@ -11,6 +11,9 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
+import logging
+import sys
+
 from datetime import datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -21,6 +24,7 @@ import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 
+from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
@@ -36,6 +40,10 @@ from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and
 from rucio.db import models
 from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification
 from rucio.db.session import read_session, transactional_session, stream_session
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @transactional_session
@@ -393,6 +401,14 @@ def repair_rule(rule_id, session=None):
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
         rule.updated_at = datetime.utcnow()
 
+        # Check if rule is longer than 2 weeks in STUCK
+        if rule.stuck_at is None:
+            rule.stuck_at = datetime.utcnow()
+        if rule.stuck_at < (datetime.utcnow() - timedelta(days=14)):
+            rule.state = RuleState.SUSPENDED
+            logging.info('Replication rule %s has been SUSPENDED' % (rule_id))
+            return
+
         if session.bind.dialect.name != 'sqlite':
             session.begin_nested()
 
@@ -411,6 +427,7 @@ def repair_rule(rule_id, session=None):
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+            logging.debug('InvalidRSEExpression while repairing rule %s' % (rule_id))
             return
 
         # Create the RSESelector
@@ -428,6 +445,7 @@ def repair_rule(rule_id, session=None):
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+            logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
             return
 
         # Get the did
@@ -458,6 +476,7 @@ def repair_rule(rule_id, session=None):
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
                 return
 
         session.flush()
@@ -479,6 +498,7 @@ def repair_rule(rule_id, session=None):
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+            logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
             return
 
         if session.bind.dialect.name != 'sqlite':
@@ -491,6 +511,8 @@ def repair_rule(rule_id, session=None):
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
             # TODO: Increase some kind of Stuck Counter here, The rule should at some point be SUSPENDED
             return
+
+        rule.stuck_at = None
 
         if rule.locks_replicating_cnt > 0:
             rule.state = RuleState.REPLICATING
