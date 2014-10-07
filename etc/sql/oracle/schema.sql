@@ -528,6 +528,7 @@ CREATE TABLE rules (
     locks_replicating_cnt NUMBER(10) DEFAULT 0,
     locks_stuck_cnt NUMBER(10) DEFAULT 0,
     notification CHAR(1 CHAR),
+    stuck_at DATE,
     CONSTRAINT "RULES_PK" PRIMARY KEY (id),   -- id, scope, name
     CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
     CONSTRAINT "RULES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
