@@ -18,7 +18,7 @@ from rucio.core import monitor
 from rucio.db.session import get_session
 
 # Exit statuses
-UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 if __name__ == "__main__":
     try:

@@ -12,7 +12,7 @@ import datetime
 import sys
 from rucio.client import Client
 
-UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 host = sys.argv[1]
 c = Client()
 dict = c.get_rse_usage(host)
