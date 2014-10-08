@@ -9,6 +9,6 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import sys
-UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 sys.exit(OK)

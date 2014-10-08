@@ -21,7 +21,7 @@ from rucio.common.config import config_get
 from rucio.core import monitor
 
 # Exit statuses
-UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 if __name__ == "__main__":
 

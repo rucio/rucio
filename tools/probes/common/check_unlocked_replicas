@@ -18,7 +18,7 @@ from rucio.core import monitor
 from rucio.db.session import get_session
 
 # Exit statuses
-UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 # select (select rse from "ATLAS_RUCIO".rses where id = rse_id),
 #       n

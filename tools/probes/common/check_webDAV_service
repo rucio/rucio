@@ -21,7 +21,7 @@ scheme = 'https'
 print sys.argv
 site = sys.argv[1]
 # Exit statuses recognized by Nagios
-UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
 rse_settings = rsemanager.get_rse_info(site)
 dict = rsemanager.select_protocol(rse_settings, operation='write', scheme=scheme)
