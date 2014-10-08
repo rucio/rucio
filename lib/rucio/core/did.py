@@ -20,7 +20,7 @@ from re import match
 from sqlalchemy import and_, or_, case
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql import not_
+from sqlalchemy.sql import not_, func
 from sqlalchemy.sql.expression import bindparam, text
 
 import rucio.core.rule
@@ -666,7 +666,8 @@ def get_did(scope, name, session=None):
             did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type, 'account': r.account}
         else:
             did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type,
-                     'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at}
+                     'account': r.account, 'open': r.is_open, 'monotonic': r.monotonic, 'expired_at': r.expired_at,
+                     'length': r.length, 'bytes': r.bytes}
         return did_r
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
@@ -777,6 +778,8 @@ def set_status(scope, name, session=None, **kwargs):
         if k == 'open':
             query = query.filter_by(is_open=True).filter(models.DataIdentifier.did_type != DIDType.FILE)
             values['is_open'] = False
+            values['length'], values['bytes'] = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                              func.sum(models.DataIdentifierAssociation.bytes)).filter_by(scope=scope, name=name).one()
 
     rowcount = query.update(values, synchronize_session='fetch')
 

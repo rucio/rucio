@@ -849,13 +849,16 @@ def generate_message_for_dataset_ok_callback(rule, session=None):
             for dataset_lock in dataset_locks:
                 try:
                     did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
-                    if not did['open']:
-                        add_message(event_type='DATASETLOCK_OK',
-                                    payload={'scope': dataset_lock.scope,
-                                             'name': dataset_lock.name,
-                                             'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                             'rule_id': rule.id},
-                                    session=session)
+                    if not did['open'] and did['length'] * rule.copies == rule.locks_ok_cnt:
+                        if did['length'] is None:
+                            return
+                        if did['length'] * rule.copies == rule.locks_ok_cnt:
+                            add_message(event_type='DATASETLOCK_OK',
+                                        payload={'scope': dataset_lock.scope,
+                                                 'name': dataset_lock.name,
+                                                 'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                                 'rule_id': rule.id},
+                                        session=session)
                 except DataIdentifierNotFound:
                     pass
 
@@ -982,7 +985,7 @@ def __evaluate_did_detach(eval_did, session=None):
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
         for rule in rules:
-            rule_state_before = rule.state
+            rule_locks_ok_cnt_before = rule.locks_ok_cnt
             query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id)
             for lock in query:
                 if (lock.scope, lock.name) not in files:
@@ -1006,7 +1009,7 @@ def __evaluate_did_detach(eval_did, session=None):
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                     session.flush()
-                    if rule_state_before != RuleState.OK:
+                    if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
                         generate_message_for_dataset_ok_callback(rule=rule, session=session)
 
         session.flush()
@@ -1078,7 +1081,7 @@ def __evaluate_did_attach(eval_did, session=None):
             # Evaluate the replication rules
             with record_timer_block('rule.evaluate_did_attach.evaluate_rules'):
                 for rule in rules:
-                    rule_state_before = rule.state
+                    rule_locks_ok_cnt_before = rule.locks_ok_cnt
 
                     # 1. Resolve the rse_expression into a list of RSE-ids
                     if session.bind.dialect.name != 'sqlite':
@@ -1171,7 +1174,7 @@ def __evaluate_did_attach(eval_did, session=None):
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                             session.flush()
-                            if rule_state_before != RuleState.OK:
+                            if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
                                 generate_message_for_dataset_ok_callback(rule=rule, session=session)
 
                     if session.bind.dialect.name != 'sqlite':
