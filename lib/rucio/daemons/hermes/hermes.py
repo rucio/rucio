@@ -44,29 +44,14 @@ class Deliver(object):
         self.__session = get_session()
 
 
-def deliver_messages(once=False):
+def deliver_messages(once=False, brokers_resolved=None, process=0, total_processes=1, thread=0, total_threads=1, bulk=1000):
     """
     Main loop to deliver messages to a broker.
     """
 
-    logging.info('hermes starting')
-
-    brokers_alias = []
-    brokers_resolved = []
-    try:
-        brokers_alias = [b.strip() for b in config_get('messaging-hermes', 'brokers').split(',')]
-    except:
-        raise Exception('Could not load brokers from configuration')
-
-    logging.info('resolving broker dns alias: %s' % brokers_alias)
-
-    brokers_resolved = []
-    for broker in brokers_alias:
-        brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
-    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
-
-    logging.debug('brokers resolved to %s', brokers_resolved)
-
+    logging.info('hermes starting - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
+                                                                                 thread, total_threads,
+                                                                                 bulk))
     conns = []
     for broker in brokers_resolved:
         conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
@@ -74,7 +59,9 @@ def deliver_messages(once=False):
                                       ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
                                       ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file')))
 
-    logging.info('hermes started')
+    logging.info('hermes started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
+                                                                                thread, total_threads,
+                                                                                bulk))
 
     while not graceful_stop.is_set():
 
@@ -87,7 +74,11 @@ def deliver_messages(once=False):
                 conn.start()
                 conn.connect()
 
-        tmp = retrieve_messages()
+        tmp = retrieve_messages(bulk=bulk,
+                                process=process,
+                                total_processes=total_processes,
+                                thread=thread,
+                                total_threads=total_threads)
         if tmp == []:
             time.sleep(1)
         else:
@@ -108,8 +99,8 @@ def deliver_messages(once=False):
                 to_delete.append(t['id'])
 
             delete_messages(to_delete)
-            logging.debug('submitted %i messages' % len(to_delete))
-    logging.info('graceful stop requested')
+            logging.debug('%i:%i - submitted %i requests' % (process, thread, len(to_delete)))
+    logging.debug('%i:%i - graceful stop requests' % (process, thread))
 
     for conn in conns:
         try:
@@ -117,7 +108,7 @@ def deliver_messages(once=False):
         except:
             pass
 
-    logging.info('graceful stop done')
+    logging.debug('%i:%i - graceful stop done' % (process, thread))
 
 
 def stop(signum=None, frame=None):
@@ -128,22 +119,47 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, src=None, dst=None):
+def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000):
     """
     Starts up the hermes threads.
     """
 
     if once:
-        logging.info('executing one hermes deliver iteration only')
-        deliver_messages(once=True)
+        logging.info('executing one hermes iteration only')
+        deliver_messages(once=once, bulk=bulk)
 
     else:
 
-        logging.info('starting hermes deliver thread')
-        t = threading.Thread(target=deliver_messages)
-        t.start()
+        logging.info('resolving brokers')
+
+        brokers_alias = []
+        brokers_resolved = []
+        try:
+            brokers_alias = [b.strip() for b in config_get('messaging-hermes', 'brokers').split(',')]
+        except:
+            raise Exception('Could not load brokers from configuration')
+
+        logging.info('resolving broker dns alias: %s' % brokers_alias)
+
+        brokers_resolved = []
+        for broker in brokers_alias:
+            brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
+        brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+
+        logging.debug('brokers resolved to %s', brokers_resolved)
+
+        logging.info('starting hermes threads')
+        threads = [threading.Thread(target=deliver_messages, kwargs={'brokers_resolved': brokers_resolved,
+                                                                     'process': process,
+                                                                     'total_processes': total_processes,
+                                                                     'thread': i,
+                                                                     'total_threads': total_threads,
+                                                                     'bulk': bulk}) for i in xrange(0, total_threads)]
+
+        [t.start() for t in threads]
+
         logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
-        while t.isAlive():
-            t.join(timeout=3.14)
+        while len(threads) > 0:
+            [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
