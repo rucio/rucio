@@ -51,12 +51,12 @@ def retrieve_messages(limit=100, session=None):
     messages = []
 
     try:
-        tmp = session.query(Message).limit(limit).all()
-        for t in tmp:
-            messages.append({'id': t['id'],
-                             'created_at': t['created_at'],
-                             'event_type': t['event_type'],
-                             'payload': json.loads(str(t['payload']))})
+        query = session.query(Message.id, Message.created_at, Message.event_type, Message.payload).order_by(Message.created_at).limit(limit)
+        for id, created_at, event_type, payload in query:
+            messages.append({'id': id,
+                             'created_at': created_at,
+                             'event_type': event_type,
+                             'payload': json.loads(str(payload))})
         return messages
 
     except IntegrityError, e:
