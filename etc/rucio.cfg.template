@@ -98,6 +98,9 @@ queue = /queue/Consumer.DB.atlas.ddm.tracer
 prefetch_size = 10
 chunksize = 10
 subscription_id = rucio-tracer-listener
+use_ssl = True
+username = _________
+password = _________
 
 [injector]
 file = /opt/rucio/tools/test.file.1000

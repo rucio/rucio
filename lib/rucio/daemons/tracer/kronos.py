@@ -22,7 +22,7 @@ from traceback import format_exc
 from pickle import loads
 from stomp import Connection
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import touch_replicas
 
@@ -149,9 +149,22 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     chunksize = config_get_int('tracer-kronos', 'chunksize')
     prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
     subscription_id = config_get('tracer-kronos', 'subscription_id')
+    use_ssl = True
+    try:
+        use_ssl = config_get_bool('tracer-kronos', 'use_ssl')
+    except:
+        pass
+
+    if not use_ssl:
+        username = config_get('tracer-kronos', 'username')
+        password = config_get('tracer-kronos', 'password')
+
     conns = []
     for hap in host_and_ports:
-        conns.append(Connection(host_and_ports=[hap], use_ssl=True, ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'), ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file')))
+        if not use_ssl:
+            conns.append(Connection(host_and_ports=[hap], use_ssl=False))
+        else:
+            conns.append(Connection(host_and_ports=[hap], use_ssl=True, ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'), ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file')))
 
     logging.info('tracer consumer started')
 
@@ -162,7 +175,10 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1):
                 record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
                 conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0], conn=conn, chunksize=chunksize, subscription_id=subscription_id))
                 conn.start()
-                conn.connect()
+                if not use_ssl:
+                    conn.connect(username, password)
+                else:
+                    conn.connect()
                 conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
         sleep(1)
 
