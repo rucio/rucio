@@ -137,7 +137,7 @@ class TestBinRucio():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_not_equal(re.search('Upload successfull', err), None)
+        nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
 
     def test_create_dataset(self):
         """DATASET (CLI): creation"""
@@ -331,7 +331,7 @@ class TestBinRucio():
         cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
-        nose.tools.assert_not_equal(re.search('File {0}:{1} already exists'.format(self.user, tmp_file1[5:]), out), None)
+        nose.tools.assert_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
 
     def test_add_delete_add_file(self):
         """DATASET (CLI): Add/Delete/Add"""
@@ -367,4 +367,4 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        nose.tools.assert_equal(re.search('Upload successfull', out), None)
+        nose.tools.assert_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
