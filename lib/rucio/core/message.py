@@ -61,7 +61,7 @@ def retrieve_messages(bulk=1000, process=None, total_processes=None, thread=None
                               Message.event_type,
                               Message.payload).order_by(Message.created_at)
 
-        if (total_processes-1) > 0:
+        if total_processes and (total_processes-1) > 0:
             if session.bind.dialect.name == 'oracle':
                 bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
                 query = query.filter(text('ORA_HASH(id, :total_processes) = :process_number', bindparams=bindparams))
@@ -70,7 +70,7 @@ def retrieve_messages(bulk=1000, process=None, total_processes=None, thread=None
             elif session.bind.dialect.name == 'postgresql':
                 query = query.filter('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
 
-        if (total_threads-1) > 0:
+        if total_threads and (total_threads-1) > 0:
             if session.bind.dialect.name == 'oracle':
                 bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
                 query = query.filter(text('ORA_HASH(id, :total_threads) = :thread_number', bindparams=bindparams))
