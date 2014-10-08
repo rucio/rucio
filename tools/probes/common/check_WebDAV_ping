@@ -19,7 +19,7 @@ from rucio.common.exception import ServiceUnavailable
 from rucio.rse import rsemanager
 
 scheme = 'https'
-UNKNOWN, OK, WARNING, CRITICAL = -1, 0, 1, 2
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 site = sys.argv[1]
 
 
