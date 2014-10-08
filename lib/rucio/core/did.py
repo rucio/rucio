@@ -576,7 +576,7 @@ def list_files(scope, name, long=False, session=None):
         did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
         if did.did_type == DIDType.FILE:
             if long:
-                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32, 'guid': did.guid}
+                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32, 'guid': did.guid and did.guid.upper()}
             else:
                 yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
         else:
@@ -589,7 +589,7 @@ def list_files(scope, name, long=False, session=None):
                         if long:
                             child_did = session.query(models.DataIdentifier).filter_by(scope=tmp_did.child_scope, name=tmp_did.child_name).one()
                             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'guid': child_did.guid}
+                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'guid': child_did.guid and child_did.guid.upper()}
                         else:
                             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
                                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
