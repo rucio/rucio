@@ -12,6 +12,7 @@
 
 import string
 import random
+import json
 
 from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises
 
@@ -23,8 +24,9 @@ from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit
 from rucio.core.account_counter import get_counter as get_account_counter
-from rucio.core.did import add_did, attach_dids
-from rucio.core.lock import get_replica_locks, get_dataset_locks
+from rucio.daemons.judge.evaluator import re_evaluator
+from rucio.core.did import add_did, attach_dids, set_status
+from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.account_limit import set_account_limit, delete_account_limit
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute, get_rse
@@ -33,6 +35,8 @@ from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_r
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.constants import DIDType
+from rucio.db import models
+from rucio.db.session import transactional_session
 
 
 def create_files(nrfiles, scope, rse, bytes=1):
@@ -55,6 +59,17 @@ def create_files(nrfiles, scope, rse, bytes=1):
 
 def tag_generator(size=8, chars=string.ascii_uppercase):
     return ''.join(random.choice(chars) for x in range(size))
+
+
+@transactional_session
+def check_dataset_ok_callback(scope, name, rse, rule_id, session=None):
+    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps({'scope': scope,
+                                                                                              'name': name,
+                                                                                              'rse': rse,
+                                                                                              'rule_id': rule_id})).all()
+    if len(callbacks) > 0:
+        return True
+    return False
 
 
 class TestReplicationRuleCore():
@@ -467,6 +482,89 @@ class TestReplicationRuleCore():
         assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         delete_account_limit(account='jdoe', rse_id=self.rse1_id)
+
+    def test_dataset_callback(self):
+        """ REPLICATION RULE (CORE): Test dataset callback"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        set_status(scope=scope, name=dataset, open=False)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
+
+        # Check if rule exists
+        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+
+    def test_dataset_callback_no(self):
+        """ REPLICATION RULE (CORE): Test dataset callback should not be sent"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        set_status(scope=scope, name=dataset, open=False)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
+
+        # Check if rule exists
+        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+
+    def test_dataset_callback_close_late(self):
+        """ REPLICATION RULE (CORE): Test dataset callback with late close"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
+
+        # Check if rule exists
+        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+        set_status(scope=scope, name=dataset, open=False)
+        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+
+    def test_dataset_callback_with_evaluator(self):
+        """ REPLICATION RULE (CORE): Test dataset callback with judge evaluator"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
+
+        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+
+        attach_dids(scope, dataset, files, 'jdoe')
+        set_status(scope=scope, name=dataset, open=False)
+        assert(False == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
+
+        re_evaluator(once=True)
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
+
+        assert(True == check_dataset_ok_callback(scope, dataset, self.rse3, rule_id))
 
 
 class TestReplicationRuleClient():
