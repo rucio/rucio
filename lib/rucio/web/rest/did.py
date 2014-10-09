@@ -21,7 +21,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids)
-from rucio.api.rule import list_replication_rules
+from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
                                     AccessDenied, KeyNotFound, DatabaseException,
@@ -41,6 +41,7 @@ urls = (
     '/(.*)/(.*)/meta', 'Meta',
     '/(.*)/(.*)/status', 'DIDs',
     '/(.*)/(.*)/rules', 'Rules',
+    '/(.*)/(.*)/associated_rules', 'AssociatedRules',
     '/(.*)/(.*)', 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
@@ -539,6 +540,31 @@ class Rules(RucioController):
                 yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
+
+
+class AssociatedRules(RucioController):
+
+    def GET(self, scope, name):
+        """
+        Return all associated rules of a file.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for rule in list_associated_replication_rules_for_file(scope=scope, name=name):
+                yield dumps(rule, cls=APIEncoder) + '\n'
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:

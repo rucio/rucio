@@ -336,6 +336,31 @@ def list_rules(filters={}, session=None):
         raise RucioException('Badly formatted input (IDs?)')
 
 
+@stream_session
+def list_associated_rules_for_file(scope, name, session=None):
+    """
+    List replication rules a file is affected from.
+
+    :param scope:   Scope of the file.
+    :param name:    Name of the file.
+    :param session: The database session in use.
+    :raises:        RucioException
+    """
+
+    query = session.query(models.ReplicationRule).\
+        with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
+        join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id).\
+        filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name)
+    try:
+        for rule in query.yield_per(5):
+            d = {}
+            for column in rule.__table__.columns:
+                d[column.name] = getattr(rule, column.name)
+            yield d
+    except StatementError:
+        raise RucioException('Badly formatted input (IDs?)')
+
+
 @transactional_session
 def delete_rule(rule_id, nowait=False, session=None):
     """
