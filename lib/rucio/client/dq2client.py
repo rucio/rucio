@@ -1325,19 +1325,27 @@ class DQ2Client:
                 raise InputValidationError(errMsg)
             pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
         if not owner:
-            owner = 'root'
+            owner = self.client.account
         else:
             l = [i for i in self.client.list_accounts('user', owner)]
             if l != []:
                 owner = l[0]['account']
         dids = [{'scope': scope, 'name': dsn}]
-        for rule in self.client.list_did_rules(scope=scope, name=dsn):
-            if (rule['rse_expression'] == location) and (rule['account'] == owner):
-                raise Duplicate('A rule for %s:%s at %s already exists' % (scope, dsn, location))
+
         notify = 'N'
         if callbacks != {}:
             notify = 'C'
-        self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, activity=activity, notify=notify)
+
+        list_sources = sources.keys()
+        if len(list_sources) == 1 and list_sources[0] == location and location.find('TAPE') > -1:
+            # This is a staging request
+            attr = self.client.list_rse_attributes(location)
+            self.client.add_replication_rule(dids, copies=1, rse_expression=attr['staging_buffer'], weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, activity=activity, notify=notify)
+        else:
+            for rule in self.client.list_did_rules(scope=scope, name=dsn):
+                if (rule['rse_expression'] == location) and (rule['account'] == owner):
+                    raise Duplicate('A rule for %s:%s at %s already exists' % (scope, dsn, location))
+            self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, activity=activity, notify=notify)
 
     def registerDatasetsInContainer(self, name, datasets, scope=None):
         """
