@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -34,6 +35,13 @@ if __name__ == "__main__":
                         help='Concurrency control: total number of threads per process')
     parser.add_argument("--mock", action="store_true", default=False,
                         help='Fake source replicas for requests')
+    parser.add_argument('--exclude-rses', action="store", default=None, type=str,
+                        help='RSEs expression to exclude RSEs')
+    parser.add_argument('--include-rses', action="store", default=None, type=str,
+                        help='RSEs expression to include RSEs')
+    parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
+    parser.add_argument("--requests-bulk", action="store", default=100, type=int,
+                        help='Requests to handle every round')
     args = parser.parse_args()
 
     try:
@@ -41,6 +49,10 @@ if __name__ == "__main__":
             process=args.process,
             total_processes=args.total_processes,
             total_threads=args.total_threads,
-            mock=args.mock)
+            mock=args.mock,
+            rses=args.rses,
+            include_rses=args.include_rses,
+            exclude_rses=args.exclude_rses,
+            requests_bulk=args.requests_bulk)
     except KeyboardInterrupt:
         stop()
