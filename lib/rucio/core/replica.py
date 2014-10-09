@@ -214,10 +214,6 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
     is_false = False
     tmp_protocols = {}
     key = None
-    if ignore_availability:
-        availability_op = '|'
-    else:
-        availability_op = '&'
     for replica_condition in chunks(replica_conditions, 50):
 
         replica_query = select(columns=(models.RSEFileAssociation.scope,
@@ -227,10 +223,11 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
                                         models.RSEFileAssociation.adler32,
                                         models.RSEFileAssociation.path,
                                         models.RSE.rse),
-                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, models.RSE.availability.op(availability_op)(0x100) != 0, or_(*replica_condition)),
+                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, or_(*replica_condition)),
                                order_by=(models.RSEFileAssociation.scope, models.RSEFileAssociation.name)).\
             with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
             compile()
+        # models.RSE.availability.op(avail_op)(0x100) != 0
         for scope, name, bytes, md5, adler32, path, rse in session.execute(replica_query.statement, replica_query.params).fetchall():
             if not key:
                 key = '%s:%s' % (scope, name)
