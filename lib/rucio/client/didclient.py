@@ -427,3 +427,20 @@ class DIDClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def list_associated_rules_for_file(self, scope, name):
+        """
+        List the associated rules a file is affected from..
+
+        :param scope: The scope name.
+        :param name:  The file name.
+        """
+
+        path = '/'.join([self.DIDS_BASEURL, scope, name, 'associated_rules'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)

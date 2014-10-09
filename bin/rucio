@@ -1111,6 +1111,21 @@ def list_rules(args):
             print 'Failed to list rules'
             print e
             return FAILURE
+    elif args.file:
+        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.account,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+        try:
+            scope, name = args.file.split(':')
+            rules = client.list_associated_rules_for_file(scope=scope, name=name)
+        except ValueError, e:
+            print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+            return FAILURE
+        except Exception, e:
+            print 'Failed to list rules'
+            print e
+            return FAILURE
     elif args.did:
         client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
                            account=args.account,
@@ -1506,6 +1521,7 @@ Commands:
     list_rules_parser.set_defaults(which='list_rules')
     list_rules_parser.add_argument('--rule', dest='rule_id', action='store', help='List by rule id')
     list_rules_parser.add_argument('--did', dest='did', action='store', help='List by did')
+    list_rules_parser.add_argument('--file', dest='file', action='store', help='List associated rules of an affected file')
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
     list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
 
