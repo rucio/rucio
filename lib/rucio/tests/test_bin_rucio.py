@@ -139,6 +139,29 @@ class TestBinRucio():
         remove(tmp_file3)
         nose.tools.assert_not_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
 
+    def test_upload_file_dataset(self):
+        """UPLOAD (CLI): File to Dataset"""
+        tmp_file1 = file_generator()
+        tmp_file2 = file_generator()
+        tmp_file3 = file_generator()
+        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # Adding files to a new dataset
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} --did {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        remove(tmp_file1)
+        remove(tmp_file2)
+        remove(tmp_file3)
+        # searching for the file in the new dataset
+        cmd = 'rucio list-files {0}'.format(tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
+
     def test_create_dataset(self):
         """DATASET (CLI): creation"""
         tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
