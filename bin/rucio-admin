@@ -390,6 +390,7 @@ def identity_delete(args):
             return FAILURE
     return SUCCESS
 
+
 def add_rse(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>

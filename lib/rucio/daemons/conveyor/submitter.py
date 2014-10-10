@@ -320,8 +320,25 @@ def get_transfer(rse, req, scheme, mock):
         overwrite = False
         bring_online = 3600
 
+    # exclude destination replica from source
+
+    source_surls = [s[1] for s in sources]
+    if source_surls == destinations and copy_pin_lifetime:
+        logging.debug('STAGING REQUEST %s - Will not try to ignore equivalent sources' % req['request_id'])
+    else:
+        new_sources = source_surls
+        for source_surl in source_surls:
+            if source_surl in destinations:
+                logging.info('EXCLUDING SOURCE %s FOR REQUEST %s' % (source_surl, req['request_id']))
+                new_sources.remove(source_surl)
+        source_surls = new_sources
+
+    if not source_surls:
+        logging.warn('ALL SOURCES EXCLUDED - SKIP REQUEST %s' % req['request_id'])
+        return
+
     transfer = {'request_id': req['request_id'],
-                'src_urls': [s[1] for s in sources],
+                'src_urls': source_surls,
                 'dest_urls': destinations,
                 'filesize': filesize,
                 'md5': md5,
