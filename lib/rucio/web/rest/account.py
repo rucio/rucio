@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 from datetime import datetime
 from json import dumps, loads
@@ -19,11 +20,11 @@ from urlparse import parse_qsl
 from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK, loadhook
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
-from rucio.api.identity import add_account_identity
+from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError
 from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
@@ -363,8 +364,46 @@ class Identities(RucioController):
         """ update the limits for an account """
         raise BadRequest()
 
-    def DELETE(self):
-        raise BadRequest()
+    def DELETE(self, account):
+
+        """ Delete an account's identity mapping.
+
+        HTTP Success:
+            200 Created
+
+        HTTP Error:
+            400 Bad Reqeust
+            401 Unauthorized
+            404 Not Found
+            500 Internal Error
+        :param account: Account identifier.
+        """
+        json_data = data()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+        try:
+            identity = parameter['identity']
+            authtype = parameter['authtype']
+        except KeyError, e:
+            if e.args[0] == 'authtype' or e.args[0] == 'identity':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
+        except TypeError:
+                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+        try:
+            del_account_identity(identity, authtype, account)
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except IdentityError, e:
+            raise generate_http_error(404, 'IdentityError', e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+        raise OK()
 
 
 class Rules(RucioController):

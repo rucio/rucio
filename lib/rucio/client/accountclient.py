@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 from json import dumps
 from requests.status_codes import codes
@@ -143,6 +144,29 @@ class AccountClient(BaseClient):
         r = self._send_request(url, type='POST', data=data)
 
         if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+            raise exc_cls(exc_msg)
+
+    def del_identity(self, account, identity, authtype, default=False):
+        """
+        Delete an identity's membership association with an account.
+
+        :param account: The account name.
+        :param identity: The identity key name. For example x509 DN, or a username.
+        :param authtype: The type of the authentication (x509, gss, userpass).
+        :param default: If True, the account should be used by default with the provided identity.
+        """
+
+        data = dumps({'identity': identity, 'authtype': authtype, 'default': default})
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
+
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, type='DEL', data=data)
+
+        if r.status_code == codes.ok:
             return True
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)

@@ -14,6 +14,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - David Cameron, <david.cameron@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 """
 Rucio Administration Utility
@@ -370,8 +371,24 @@ def identity_delete(args):
     Revoke an identity's access to an account.
 
     """
-    pass
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                                  account=args.issuer,
+                                  auth_type=args.auth_strategy, creds=creds,
+                                  ca_cert=args.ca_certificate, timeout=args.timeout)
 
+    try:
+        print 'Deleted identity: %s' % args.identity
+        accountClient.del_identity(args.account, args.identity, authtype=args.authtype)
+
+    except Exception, e:
+            print 'Failed to disable identity %s' % args.identity
+            print e
+            return FAILURE
+    return SUCCESS
 
 def add_rse(args):
     """
