@@ -10,6 +10,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
+# - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 from os import remove
 
@@ -18,7 +19,7 @@ import re
 
 from rucio import version
 from rucio.common.config import config_get
-from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator
+from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 
 
 class TestBinRucio():
@@ -76,16 +77,41 @@ class TestBinRucio():
         print out,
         nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val, out)
 
-    def test_add_scope(self):
-        """ACCOUNT (CLI): Test add identity"""
-        tmp_val = account_name_generator()
-        cmd = 'rucio-admin account add %s' % tmp_val
+    def test_del_identity(self):
+        """ACCOUNT (CLI): Test del identity"""
+        tmp_acc = account_name_generator()
+
+        # create account
+        cmd = 'rucio-admin account add %s' % tmp_acc
         exitcode, out, err = execute(cmd)
-        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_val
+        # add identity to account
+        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_acc
+        exitcode, out, err = execute(cmd)
+        # delete identity from account
+        cmd = 'rucio-admin identity delete --account %s --type GSS --id jdoe@CERN.CH' % tmp_acc
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
-        print out,
-        nose.tools.assert_equal('Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val, out)
+        print out, err
+        nose.tools.assert_equal('Deleted identity: jdoe@CERN.CH\n', out)
+        # list identities for account
+        cmd = 'rucio-admin account list-identities %s' % (tmp_acc)
+        print self.marker + cmd
+        print cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_equal('', out)
+
+    def test_add_scope(self):
+        """ACCOUNT (CLI): Test add scope"""
+        tmp_scp = scope_name_generator()
+        tmp_acc = account_name_generator()
+        cmd = 'rucio-admin account add %s' % tmp_acc
+        exitcode, out, err = execute(cmd)
+        cmd = 'rucio-admin scope add --account %s --scope %s' % (tmp_acc, tmp_scp)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out, err
+        nose.tools.assert_equal('Added new scope to account: %s-%s\n' % (tmp_scp, tmp_acc), out)
 
     def test_add_rse(self):
         """RSE (CLI): Add RSE"""
