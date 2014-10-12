@@ -9,13 +9,21 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
+import logging
+import sys
+
 from datetime import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
 
+from rucio.common.config import config_get
 from rucio.db import models
 from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType
 from rucio.db.session import transactional_session
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @transactional_session
@@ -756,15 +764,18 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_ok_cnt += 1
+        logging.debug('Creating OK Lock %s:%s for rule %s' % (scope, name, str(rule.id)))
     elif state == LockState.REPLICATING:
         existing_replica.state = ReplicaState.COPYING
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_replicating_cnt += 1
+        logging.debug('Creating REPLICATING Lock %s:%s for rule %s' % (scope, name, str(rule.id)))
     elif state == LockState.STUCK:
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_stuck_cnt += 1
+        logging.debug('Creating STUCK Lock %s:%s for rule %s' % (scope, name, str(rule.id)))
     return new_lock
 
 
@@ -805,6 +816,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, source_rses, 
     :attention:                  This method modifies the contents of the transfers_to_create input parameters.
     """
 
+    logging.debug('Updating Lock %s:%s for rule %s' % (lock.scope, lock.name, str(rule.id)))
     lock.state = LockState.REPLICATING
     rule.locks_stuck_cnt -= 1
     rule.locks_replicating_cnt += 1
