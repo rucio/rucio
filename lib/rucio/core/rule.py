@@ -171,6 +171,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if new_rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.REPLICATING})
 
+            logging.debug("Created rule %s [%d/%d/%d]" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt))
+
     return rule_ids
 
 
@@ -303,6 +305,8 @@ def add_rules(dids, rules, session=None):
                         new_rule.state = RuleState.REPLICATING
                         if new_rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.REPLICATING})
+
+                    logging.debug("Created rule %s [%d/%d/%d]" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt))
 
     return rule_ids
 
@@ -849,7 +853,7 @@ def generate_message_for_dataset_ok_callback(rule, session=None):
             for dataset_lock in dataset_locks:
                 try:
                     did = rucio.core.did.get_did(scope=dataset_lock.scope, name=dataset_lock.name, session=session)
-                    if not did['open'] and did['length'] * rule.copies == rule.locks_ok_cnt:
+                    if not did['open']:
                         if did['length'] is None:
                             return
                         if did['length'] * rule.copies == rule.locks_ok_cnt:
@@ -879,6 +883,8 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
+    logging.debug("Finding missing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
     mod_datasetfiles = []    # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
     # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
 
@@ -901,6 +907,8 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
                                               source_rses=source_rses,
                                               session=session)
 
+    logging.debug("Finished finding missing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
 
 @transactional_session
 def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
@@ -917,6 +925,8 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselecto
     :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
+
+    logging.debug("Finding and repairing stuck locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
     replicas_to_create, locks_to_create, transfers_to_create,\
         locks_to_delete = repair_stuck_locks_and_apply_rule_grouping(datasetfiles=datasetfiles,
@@ -954,6 +964,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselecto
         # Add the transfers
         queue_requests(requests=transfers_to_create, session=session)
         session.flush()
+        logging.debug("Finished finding and repairing stuck locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
     except (IntegrityError), e:
         raise ReplicationRuleCreationTemporaryFailed(e.args[0])
 
@@ -966,6 +977,8 @@ def __evaluate_did_detach(eval_did, session=None):
     :param eval_did:  The did object in use.
     :param session:   The database session in use.
     """
+
+    logging.debug("Re-Evaluating did %s:%s for DETACH" % (eval_did.scope, eval_did.name))
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's
@@ -985,6 +998,7 @@ def __evaluate_did_detach(eval_did, session=None):
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
         for rule in rules:
+            logging.debug("Removing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             rule_locks_ok_cnt_before = rule.locks_ok_cnt
             query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id)
             for lock in query:
@@ -1000,6 +1014,7 @@ def __evaluate_did_detach(eval_did, session=None):
                         rule.locks_replicating_cnt -= 1
                     elif lock.state == LockState.STUCK:
                         rule.locks_stuck_cnt -= 1
+            logging.debug("Finished removing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             if rule.state == RuleState.SUSPENDED:
                 continue
             elif rule.state == RuleState.STUCK:
@@ -1031,6 +1046,8 @@ def __evaluate_did_attach(eval_did, session=None):
     :param session:   The database session in use.
     :raises:          ReplicationRuleCreationTemporaryFailed
     """
+
+    logging.debug("Re-Evaluating did %s:%s for ATTACH" % (eval_did.scope, eval_did.name))
 
     with record_timer_block('rule.evaluate_did_attach'):
         # Get all parent DID's
@@ -1349,6 +1366,8 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
+    logging.debug("Creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
     replicas_to_create, locks_to_create, transfers_to_create = apply_rule_grouping(datasetfiles=datasetfiles,
                                                                                    locks=locks,
                                                                                    replicas=replicas,
@@ -1377,6 +1396,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
         # Add the transfers
         queue_requests(requests=transfers_to_create, session=session)
         session.flush()
+        logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
     except (IntegrityError), e:
         raise ReplicationRuleCreationTemporaryFailed(e.args[0])
 
@@ -1391,6 +1411,9 @@ def __delete_lock_and_update_replica(lock, nowait=False, session=None):
     :param session:  The database session in use.
     :returns:        True, if the lock was replicating and the associated transfer should be canceled; False otherwise.
     """
+
+    logging.debug("Deleting lock %s:%s for rule %s" % (lock.scope, lock.name, str(lock.rule_id)))
+    lock.delete(session=session, flush=False)
     try:
         replica = session.query(models.RSEFileAssociation).filter(
             models.RSEFileAssociation.scope == lock.scope,
@@ -1399,10 +1422,9 @@ def __delete_lock_and_update_replica(lock, nowait=False, session=None):
         replica.lock_cnt -= 1
         if replica.lock_cnt == 0:
             replica.tombstone = datetime.utcnow()
-        lock.delete(session=session)
         if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
             replica.state = ReplicaState.UNAVAILABLE
             return True
     except NoResultFound:
-        pass
+        logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found" % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session)))
     return False

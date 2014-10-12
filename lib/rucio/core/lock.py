@@ -10,13 +10,21 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 
+import logging
+import sys
+
 from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.rule
 
+from rucio.common.config import config_get
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping
 from rucio.db.session import read_session, transactional_session
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @read_session
@@ -185,12 +193,15 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
     for lock in locks:
         if lock.state == LockState.OK:
             continue
+        logging.debug('Marking lock %s:%s for rule %s on rse %s as OK' % (lock.scope, lock.name, str(lock.rule_id), str(lock.rse_id)))
         lock.state = LockState.OK
 
         # Update the rule counters
         rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
+        logging.debug('Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
         rule.locks_replicating_cnt -= 1
         rule.locks_ok_cnt += 1
+        logging.debug('Finished updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
@@ -223,12 +234,15 @@ def failed_transfer(scope, name, rse_id, session=None):
     for lock in locks:
         if lock.state == LockState.STUCK:
             continue
+        logging.debug('Marking lock %s:%s for rule %s on rse %s as STUCK' % (lock.scope, lock.name, str(lock.rule_id), str(lock.rse_id)))
         lock.state = LockState.STUCK
 
         # Update the rule counters
         rule = session.query(models.ReplicationRule).with_for_update(nowait=True).filter_by(id=lock.rule_id).one()
+        logging.debug('Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
         rule.locks_replicating_cnt -= 1
         rule.locks_stuck_cnt += 1
+        logging.debug('Finished updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         # Update the rule state
         if rule.state == RuleState.SUSPENDED:
