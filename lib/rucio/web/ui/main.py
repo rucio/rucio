@@ -23,6 +23,7 @@ urls = (
     '/did', 'DID',
     '/infrastructure', 'Infrastructure',
     '/rse_usage', 'RSEUsage',
+    '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
     '/rules', 'Rules',
     '/search', 'Search',
@@ -84,6 +85,12 @@ class RSEUsage():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rse_usage())
+
+
+class RSELocks():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.rse_locks())
 
 
 class Search():
