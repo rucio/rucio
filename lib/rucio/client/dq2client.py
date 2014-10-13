@@ -640,7 +640,7 @@ class DQ2Client:
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 duid = vuid
                 if dsn not in result:
-                    result[dsn] = {'duid': duid, 'vuids': [vuid]}
+                    result['%s:%s' % (scope, dsn)] = {'duid': duid, 'vuids': [vuid]}
             return result
         else:
             raise InputValidationError
@@ -706,10 +706,10 @@ class DQ2Client:
                     for did in self.client.list_files(scope=scope, name=name):
                         meta['totalSize'] += did['bytes']
                         meta['totalFiles'] += 1
-                    result[name] = meta
+                    result['%s:%s' % (scope, name)] = meta
             else:
                 for name in self.client.list_dids(scope, filters, type):
-                    result[name] = {}
+                    result['%s:%s' % (scope, name)] = {}
             return result
         else:
             return result
