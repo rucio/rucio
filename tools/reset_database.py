@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 
 from argparse import ArgumentParser
@@ -17,7 +17,6 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('-d', '--drop-everything', action="store_true", default=False, help='Drop all tables and constraints')
-    parser.add_argument('-t', '--include-test', action="store_true", default=False, help='Include all mock and testing tables')
     args = parser.parse_args()
 
     if args.drop_everything:
@@ -25,5 +24,5 @@ if __name__ == '__main__':
     else:
         destroy_database()
 
-    build_database(tests=args.include_test)
+    build_database()
     create_root_account()

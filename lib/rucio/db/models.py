@@ -663,6 +663,7 @@ class Request(BASE, ModelBase, Versioned):
     request_type = Column(RequestType.db_type(name='REQUESTS_TYPE_CHK'), default=RequestType.TRANSFER)
     scope = Column(String(25))
     name = Column(String(255))
+    did_type = Column(DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'), default=DIDType.FILE)
     dest_rse_id = Column(GUID())
     attributes = Column(String(4000))
     state = Column(RequestState.db_type(name='REQUESTS_STATE_CHK'), default=RequestState.QUEUED)
@@ -677,11 +678,11 @@ class Request(BASE, ModelBase, Versioned):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     dest_url = Column(String(2048))
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'dest_rse_id', name='REQUESTS_PK'),
+    _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
                    CheckConstraint('dest_rse_id IS NOT NULL', name='REQUESTS_RSE_ID_NN'),
-                   Index('REQUESTS_ID_IDX', 'id'),
+                   UniqueConstraint('scope', 'name', 'dest_rse_id', 'request_type', name='REQUESTS_SC_NA_RS_TY_UQ_IDX'),
                    Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'updated_at')
                    )
 

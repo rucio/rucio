@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from traceback import format_exc
@@ -19,7 +19,7 @@ from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, 
 
 from rucio.common.config import config_get
 from rucio.core.account_counter import create_counters_for_new_account
-from rucio.db import session, models, test_models
+from rucio.db import session, models
 from rucio.db.constants import AccountStatus, AccountType, IdentityType
 
 
@@ -27,8 +27,6 @@ def build_database(echo=True, tests=False):
     """ Applies the schema to the database. Run this command once to build the database. """
     engine = session.get_engine(echo=echo)
     models.register_models(engine)
-    if tests:
-        test_models.register_models(engine)
 
     # Put the database under version control
     alembic_cfg = Config(config_get('alembic', 'cfg'))

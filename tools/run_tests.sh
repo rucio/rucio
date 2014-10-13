@@ -7,15 +7,14 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
-testopts="-t"
 noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic"
 dq2opts=""
 
 function usage {
-  echo 'Usage: $0 [OPTION]...'
+  echo "Usage: $0 [OPTION]..."
   echo 'Run Rucio test suite'
   echo ''
   echo '  -h    Show usage.'
@@ -39,13 +38,12 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrctid1kqau opt
+while getopts hrcid1kqau opt
 do
   case "$opt" in
     h) usage;;
     r) noseopts="";;
     c) noseopts="$OPTARG";;
-    t) testopts="";;
     i) init_only="true";;
     d) delete_sqlite="true";;
     k) keep_db="true";;
@@ -72,8 +70,8 @@ echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/
 
 if test ${delete_sqlite+defined}; then
-    echo 'Removing old databases'
-    rm -f /tmp/rucio.db /tmp/mock-fts.db
+    echo 'Removing old sqlite databases'
+    rm -f /tmp/rucio.db
 fi
 
 if test ${keep_db}; then
@@ -81,7 +79,7 @@ if test ${keep_db}; then
 else
     echo 'Resetting database tables'
 
-    tools/reset_database.py $testopts
+    tools/reset_database.py
 
     if [ $? != 0 ]; then
         echo 'Failed to reset the database!'
@@ -90,13 +88,8 @@ else
 fi
 
 if [ -f /tmp/rucio.db ]; then
-    echo 'Disable database access restriction'
+    echo 'Disable sqlite database access restriction'
     chmod 777 /tmp/rucio.db
-fi
-
-if [ -f /tmp/mock-fts.db ]; then
-    echo 'Disable mock FTS database access restriction'
-    chmod 777 /tmp/mock-fts.db
 fi
 
 echo 'Sync rse_repository'
