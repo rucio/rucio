@@ -76,9 +76,11 @@ class SubscriptionClient(BaseClient):
         """
         path = self.SUB_BASEURL
         if account:
-            path += + '/' + account
+            path += '/%s' % (account)
             if name:
-                path += '/' + name
+                path += '/%s' % (name)
+        else:
+            path += '/'
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
