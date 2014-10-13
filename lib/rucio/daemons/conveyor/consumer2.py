@@ -60,49 +60,51 @@ class Consumer(object):
            and 'issuer' in msg['job_metadata'].keys() \
            and str(msg['job_metadata']['issuer']) == str('rucio'):
 
-            request_id = msg['job_metadata']['request_id']
-            if not int(hashlib.md5(request_id).hexdigest(), 16) % self.__total_threads == self.__id:
-                return
+            if 'job_m_replica' in msg.keys() and 'job_state' in msg.keys() \
+               and (str(msg['job_m_replica']) == str('false') or (str(msg['job_m_replica']) == str('true') and str(msg['job_state']) != str('ACTIVE'))):
+                request_id = msg['job_metadata']['request_id']
+                if not int(hashlib.md5(request_id).hexdigest(), 16) % self.__total_threads == self.__id:
+                    return
 
-            response = {'new_state': None,
-                        'transfer_id': msg.get('tr_id').split("__")[-1],
-                        'job_state': msg.get('t_final_transfer_state', None),
-                        'src_url': msg.get('src_url', None),
-                        'dst_url': msg.get('dst_url', None),
-                        'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0)))/1000,
-                        'reason': msg.get('t__error_message', None),
-                        'scope': msg['job_metadata'].get('scope', None),
-                        'name': msg['job_metadata'].get('name', None),
-                        'src_rse': msg['job_metadata'].get('src_rse', None),
-                        'dst_rse': msg['job_metadata'].get('dst_rse', None),
-                        'request_id': msg['job_metadata'].get('request_id', None),
-                        'activity': msg['job_metadata'].get('activity', None),
-                        'dest_rse_id': msg['job_metadata'].get('dest_rse_id', None),
-                        'previous_attempt_id': msg['job_metadata'].get('previous_attempt_id', None),
-                        'adler32': msg['job_metadata'].get('adler32', None),
-                        'md5': msg['job_metadata'].get('md5', None),
-                        'filesize': msg['job_metadata'].get('filesize', None),
-                        'external_host': msg.get('endpnt', None),
-                        'details': {'files': msg['job_metadata']}}
+                response = {'new_state': None,
+                            'transfer_id': msg.get('tr_id').split("__")[-1],
+                            'job_state': msg.get('t_final_transfer_state', None),
+                            'src_url': msg.get('src_url', None),
+                            'dst_url': msg.get('dst_url', None),
+                            'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0)))/1000,
+                            'reason': msg.get('t__error_message', None),
+                            'scope': msg['job_metadata'].get('scope', None),
+                            'name': msg['job_metadata'].get('name', None),
+                            'src_rse': msg['job_metadata'].get('src_rse', None),
+                            'dst_rse': msg['job_metadata'].get('dst_rse', None),
+                            'request_id': msg['job_metadata'].get('request_id', None),
+                            'activity': msg['job_metadata'].get('activity', None),
+                            'dest_rse_id': msg['job_metadata'].get('dest_rse_id', None),
+                            'previous_attempt_id': msg['job_metadata'].get('previous_attempt_id', None),
+                            'adler32': msg['job_metadata'].get('adler32', None),
+                            'md5': msg['job_metadata'].get('md5', None),
+                            'filesize': msg['job_metadata'].get('filesize', None),
+                            'external_host': msg.get('endpnt', None),
+                            'details': {'files': msg['job_metadata']}}
 
-            record_counter('daemons.conveyor.consumer2.message_rucio')
-            if str(msg['t_final_transfer_state']) == str(FTSCompleteState.OK):
-                response['new_state'] = RequestState.DONE
-            elif str(msg['t_final_transfer_state']) == str(FTSCompleteState.ERROR):
-                response['new_state'] = RequestState.FAILED
+                record_counter('daemons.conveyor.consumer2.message_rucio')
+                if str(msg['t_final_transfer_state']) == str(FTSCompleteState.OK):
+                    response['new_state'] = RequestState.DONE
+                elif str(msg['t_final_transfer_state']) == str(FTSCompleteState.ERROR):
+                    response['new_state'] = RequestState.FAILED
 
-            try:
-                if response['new_state']:
-                    logging.debug('DID %s:%s FROM %s TO %s STATE %s' % (msg['job_metadata']['scope'],
-                                                                        msg['job_metadata']['name'],
-                                                                        msg['job_metadata']['src_rse'],
-                                                                        msg['job_metadata']['dst_rse'],
-                                                                        response['new_state']))
+                try:
+                    if response['new_state']:
+                        logging.debug('DID %s:%s FROM %s TO %s STATE %s' % (msg['job_metadata']['scope'],
+                                                                            msg['job_metadata']['name'],
+                                                                            msg['job_metadata']['src_rse'],
+                                                                            msg['job_metadata']['dst_rse'],
+                                                                            response['new_state']))
 
-                    update_request_state(response)
-                    record_counter('daemons.conveyor.consumer2.update_request_state')
-            except:
-                logging.critical(traceback.format_exc())
+                        update_request_state(response)
+                        record_counter('daemons.conveyor.consumer2.update_request_state')
+                except:
+                    logging.critical(traceback.format_exc())
 
 
 def consumer(id, total_threads=1):
