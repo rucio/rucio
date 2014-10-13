@@ -39,7 +39,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileReplicaAlreadyExists, FileAlreadyExists, AccessDenied, RessourceTemporaryUnavailable, DataIdentifierNotFound
+from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, RessourceTemporaryUnavailable, DataIdentifierNotFound
 from rucio.common.utils import adler32, generate_uuid
 from rucio.rse import rsemanager as rsemgr
 
@@ -736,7 +736,7 @@ def upload(args):
             meta = client.get_metadata(scope=dsscope, name=dsname)
             # Dataset already exist
         except ValueError, e:
-            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, e))
+            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e))
             return FAILURE
         except DataIdentifierNotFound:
             # Dataset non existent. Must be created.
@@ -781,7 +781,7 @@ def upload(args):
                 return FAILURE
         except DataIdentifierAlreadyExists, e:
             logger.error(e)
-        if dsname != None:
+        if dsname:
             # A dataset is provided. Must add the files to the dataset.
             for f in list_files:
                 try:
