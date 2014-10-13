@@ -53,7 +53,7 @@ def get_rses(rses=None, include_rses=None, exclude_rses=None):
         try:
             parsed_rses = parse_expression(include_rses, session=None)
         except InvalidRSEExpression, e:
-            logging.critical("Invalid RSE exception(%s) to include RSEs" % (include_rses))
+            logging.error("Invalid RSE exception %s to include RSEs" % (include_rses))
         else:
             for rse in parsed_rses:
                 if rse not in working_rses:
@@ -66,7 +66,7 @@ def get_rses(rses=None, include_rses=None, exclude_rses=None):
         try:
             parsed_rses = parse_expression(exclude_rses, session=None)
         except InvalidRSEExpression, e:
-            logging.critical("Invalid RSE exception(%s) to include RSEs: %s" % (exclude_rses, e))
+            logging.error("Invalid RSE exception %s to exclude RSEs: %s" % (exclude_rses, e))
         else:
             working_rses = [rse for rse in working_rses if rse not in parsed_rses]
 
@@ -74,13 +74,13 @@ def get_rses(rses=None, include_rses=None, exclude_rses=None):
     return working_rses
 
 
-def get_requests(rse_id=None, process=0, total_processes=1, thread=0, total_threads=1, mock=False, requests_bulk=100):
+def get_requests(rse_id=None, process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100):
     ts = time.time()
     reqs = request.get_next(request_type=[RequestType.TRANSFER,
                                           RequestType.STAGEIN,
                                           RequestType.STAGEOUT],
                             state=RequestState.QUEUED,
-                            limit=requests_bulk,
+                            limit=bulk,
                             rse=rse_id,
                             process=process,
                             total_processes=total_processes,
@@ -107,7 +107,9 @@ def get_sources(dest_rse, scheme, req):
             try:
                 parsed_rses = parse_expression(source_replica_expression, session=None)
             except InvalidRSEExpression, e:
-                logging.warn("Invalid RSE exception(%s) for request(%s): %s" % (source_replica_expression, req['request_id'], e))
+                logging.error("Invalid RSE exception %s for request %s: %s" % (source_replica_expression,
+                                                                               req['request_id'],
+                                                                               e))
                 allowed_source_rses = None
             else:
                 allowed_source_rses = [x['rse'] for x in parsed_rses]
@@ -137,7 +139,9 @@ def get_sources(dest_rse, scheme, req):
                             tmpsrc = [(str(source_rse), str(pfn)), ]
                 else:
                     if allowed_source_rses and not (source_rse in allowed_source_rses):
-                        logging.debug("Skip source(%s) in request(%s) because of source_replica_expression(%s)" % (source_rse, req['request_id'], req['attributes']))
+                        logging.debug("Skip source %s for request %s because of source_replica_expression %s" % (source_rse,
+                                                                                                                 req['request_id'],
+                                                                                                                 req['attributes']))
                         continue
                     filtered_sources = [x for x in source['rses'][source_rse] if x.startswith('gsiftp')]
                     if not filtered_sources:
@@ -272,9 +276,12 @@ def get_transfer(rse, req, scheme, mock):
     ts = time.time()
     sources, metadata = get_sources(rse, scheme, req)
     record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
-    logging.debug('Get sources for request(%s): %s' % (req['request_id'], sources))
+    logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
     if sources is None:
-        logging.warn("Request %s(%s:%s) to %s failed to get sources." % (req['request_id'], req['scope'], req['name'], rse['rse']))
+        logging.warn("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
+                                                                            req['scope'],
+                                                                            req['name'],
+                                                                            rse['rse']))
         return None
     filesize = metadata['filesize']
     md5 = metadata['md5']
@@ -283,9 +290,12 @@ def get_transfer(rse, req, scheme, mock):
     ts = time.time()
     destinations, dest_spacetoken = get_destinations(rse, scheme, req, sources)
     record_timer('daemons.conveyor.submitter.get_destinations', (time.time() - ts) * 1000)
-    logging.debug('Get destinations for request(%s): %s' % (req['request_id'], destinations))
+    logging.debug('Destinations for request %s: %s' % (req['request_id'], destinations))
     if destinations is None:
-        logging.warn("Request %s(%s:%s) to %s failed to get destinations." % (req['request_id'], req['scope'], req['name'], rse['rse']))
+        logging.warn("Request %s DID %s:%s RSE %s failed to get destinations" % (req['request_id'],
+                                                                                 req['scope'],
+                                                                                 req['name'],
+                                                                                 rse['rse']))
         return None
 
     # Come up with mock sources if necessary
@@ -329,12 +339,13 @@ def get_transfer(rse, req, scheme, mock):
         new_sources = source_surls
         for source_surl in source_surls:
             if source_surl in destinations:
-                logging.info('EXCLUDING SOURCE %s FOR REQUEST %s' % (source_surl, req['request_id']))
+                logging.info('Excluding source %s for request %s' % (source_surl,
+                                                                     req['request_id']))
                 new_sources.remove(source_surl)
         source_surls = new_sources
 
     if not source_surls:
-        logging.warn('ALL SOURCES EXCLUDED - SKIP REQUEST %s' % req['request_id'])
+        logging.warn('All sources excluded - SKIP REQUEST %s' % req['request_id'])
         return
 
     transfer = {'request_id': req['request_id'],
@@ -353,19 +364,25 @@ def get_transfer(rse, req, scheme, mock):
     return transfer
 
 
-def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total_threads=1, mock=False, requests_bulk=100):
+def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
 
-    logging.info('submitter starting - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
+    logging.info('submitter starting - process (%i/%i) thread (%i/%i)' % (process,
+                                                                          total_processes,
+                                                                          thread,
+                                                                          total_threads))
 
     try:
         scheme = config_get('conveyor', 'scheme')
     except NoOptionError:
         scheme = 'srm'
 
-    logging.info('submitter started - process (%i/%i) thread (%i/%i)' % (process, total_processes, thread, total_threads))
+    logging.info('submitter started - process (%i/%i) thread (%i/%i)' % (process,
+                                                                         total_processes,
+                                                                         thread,
+                                                                         total_threads))
 
     while not graceful_stop.is_set():
 
@@ -380,13 +397,24 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
                     rse_info = rsemgr.get_rse_info(rse['rse'])
                     logging.info("Working on RSE: %s" % rse['rse'])
                     ts = time.time()
-                    reqs = get_requests(rse_id=rse['id'], process=process, total_processes=total_processes, thread=thread, total_threads=total_threads, mock=mock, requests_bulk=requests_bulk)
+                    reqs = get_requests(rse_id=rse['id'],
+                                        process=process,
+                                        total_processes=total_processes,
+                                        thread=thread,
+                                        total_threads=total_threads,
+                                        mock=mock,
+                                        bulk=bulk)
                     record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
                 else:
                     # no rse list, run FIFO mode
                     rse_info = None
                     ts = time.time()
-                    reqs = get_requests(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads, mock=mock, requests_bulk=requests_bulk)
+                    reqs = get_requests(process=process,
+                                        total_processes=total_processes,
+                                        thread=thread,
+                                        total_threads=total_threads,
+                                        mock=mock,
+                                        bulk=bulk)
                     record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
 
                 if reqs:
@@ -405,10 +433,13 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
                         ts = time.time()
                         transfer = get_transfer(rse_info, req, scheme, mock)
                         record_timer('daemons.conveyor.submitter.get_transfer', (time.time() - ts) * 1000)
-                        logging.debug('Get transfer for request(%s): %s' % (req['request_id'], transfer))
+                        logging.debug('Transfer for request %s: %s' % (req['request_id'], transfer))
 
                         if transfer is None:
-                            logging.warn("Request %s(%s:%s) to %s failed to get transfer." % (req['request_id'], req['scope'], req['name'], rse_info['rse']))
+                            logging.warn("Request %s DID %s:%s RSE %s failed to get transfer" % (req['request_id'],
+                                                                                                 req['scope'],
+                                                                                                 req['name'],
+                                                                                                 rse_info['rse']))
                             # TODO: Merge these two calls
                             request.set_request_state(req['request_id'],
                                                       RequestState.LOST)  # if the DID does not exist anymore
@@ -417,7 +448,9 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
 
                         ts = time.time()
                         tmp_metadata = transfer['file_metadata']
-                        eid, transfer_host = request.submit_transfers(transfers=[transfer, ], transfertool='fts3', job_metadata=tmp_metadata)
+                        eid, transfer_host = request.submit_transfers(transfers=[transfer, ],
+                                                                      transfertool='fts3',
+                                                                      job_metadata=tmp_metadata)
 
                         record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
@@ -467,22 +500,23 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, rses=[], include_rses=None, exclude_rses=None, requests_bulk=100):
+def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100):
     """
     Starts up the conveyer threads.
     """
 
-    logging.info("submitter will work on special RSES mode(rses: %s, include_rses: %s, exclude_rses: %s)" % (rses, include_rses, exclude_rses))
     working_rses = None
     if rses or include_rses or exclude_rses:
         working_rses = get_rses(rses, include_rses, exclude_rses)
-        logging.info("RSE list is specified, Run in RSE order mode")
+        logging.info("RSE selection mode (RSEs: %s, Include: %s, Exclude: %s)" % (rses,
+                                                                                  include_rses,
+                                                                                  exclude_rses))
     else:
-        logging.info("RSE is not specified, Run in FIFO mode")
+        logging.info("RSE auto mode")
 
     if once:
         logging.info('executing one submitter iteration only')
-        submitter(once, rses=working_rses, mock=mock, requests_bulk=requests_bulk)
+        submitter(once, rses=working_rses, mock=mock, bulk=bulk)
 
     else:
         logging.info('starting submitter threads')
@@ -491,7 +525,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, r
                                                               'thread': i,
                                                               'total_threads': total_threads,
                                                               'rses': working_rses,
-                                                              'requests_bulk': requests_bulk,
+                                                              'bulk': bulk,
                                                               'mock': mock}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
