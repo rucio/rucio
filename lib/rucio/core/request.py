@@ -101,9 +101,10 @@ def queue_requests(requests, session=None):
            or re.match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
            or re.match('.*IntegrityError.*ORA-00001: unique constraint.*REQUESTS_PK.*violated.*', e.args[0]) \
            or re.match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
-            logging.warn('Transfer request for DID %s:%s at RSE %s exists - ignoring' % (req['scope'],
-                                                                                         req['name'],
-                                                                                         get_rse_name(req['dest_rse_id'])))
+            logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (req['request_type'],
+                                                                                        req['scope'],
+                                                                                        req['name'],
+                                                                                        get_rse_name(req['dest_rse_id'])))
         else:
             raise RucioException(e.args)
 
