@@ -492,3 +492,114 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         nose.tools.assert_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
+
+    def test_attach_files_dataset(self):
+        """CLIENT(USER): Rucio attach files to dataset"""
+        # Attach files to a dataset using the attach method
+        tmp_file1 = file_generator()
+        tmp_file2 = file_generator()
+        tmp_file3 = file_generator()
+        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # Adding files to a new dataset
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} --did {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        # upload the files
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3}'.format(self.def_rse, self.user, tmp_file2, tmp_file3)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        remove(tmp_file1)
+        remove(tmp_file2)
+        remove(tmp_file3)
+        # attach the files to the dataset
+        cmd = 'rucio attach --to {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        # searching for the file in the new dataset
+        cmd = 'rucio list-files {0}'.format(tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        # tmp_file2 must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file2[5:]), out), None)
+        # tmp_file3 must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file3[5:]), out), None)
+
+    def test_detach_files_dataset(self):
+        """CLIENT(USER): Rucio detach files to dataset"""
+        # Attach files to a dataset using the attach method
+        tmp_file1 = file_generator()
+        tmp_file2 = file_generator()
+        tmp_file3 = file_generator()
+        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # Adding files to a new dataset
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} --did {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        remove(tmp_file1)
+        remove(tmp_file2)
+        remove(tmp_file3)
+        # detach the files to the dataset
+        cmd = 'rucio detach --from {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        # searching for the file in the new dataset
+        cmd = 'rucio list-files {0}'.format(tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        # tmp_file1 must be in the dataset
+        nose.tools.assert_not_equal(re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out), None)
+        # tmp_file3 must be in the dataset
+        nose.tools.assert_equal(re.search("{0}:{1}".format(self.user, tmp_file3[5:]), out), None)
+
+    def test_attach_file_twice(self):
+        """CLIENT(USER): Rucio attach a file twice"""
+        # Attach files to a dataset using the attach method
+        tmp_file1 = file_generator()
+        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # Adding files to a new dataset
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} --did {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        remove(tmp_file1)
+        # attach the files to the dataset
+        cmd = 'rucio attach --to {0} {1}:{2}'.format(tmp_dsn, self.user, tmp_file1[5:])  # triming '/tmp/' from filenames
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_not_equal(re.search("Failed to attach data identifier", err), None)
+
+    def test_detach_non_existing_file(self):
+        """CLIENT(USER): Rucio detach a non existing file"""
+        tmp_file1 = file_generator()
+        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
+        # Adding files to a new dataset
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} --did {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        remove(tmp_file1)
+        # attach the files to the dataset
+        cmd = 'rucio detach --from {0} {1}:{2}'.format(tmp_dsn, self.user, 'file_ghost')  # triming '/tmp/' from filenames
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_not_equal(re.search("Failed to detach data identifier", err), None)
