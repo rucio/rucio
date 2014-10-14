@@ -138,6 +138,11 @@ def get_sources(dest_rse, scheme, req):
                             # In case of staging request, we only use one source
                             tmpsrc = [(str(source_rse), str(pfn)), ]
                 else:
+                    if source_rse == dest_rse['rse']:
+                        logging.debug("Skip source %s for request %s because it's destination" % (source_rse,
+                                                                                                  req['request_id']))
+                        continue
+
                     if allowed_source_rses and not (source_rse in allowed_source_rses):
                         logging.debug("Skip source %s for request %s because of source_replica_expression %s" % (source_rse,
                                                                                                                  req['request_id'],
