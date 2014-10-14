@@ -1083,16 +1083,18 @@ def __evaluate_did_attach(eval_did, session=None):
                 try:
                     for rule in rules:
                         possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                    possible_rses = list(set(possible_rses))
-                except:
+                    possible_rses = list(set([rse['id'] for rse in possible_rses]))
+                except Exception, e:
+                    logging.warning('Could not parse RSE expression for possible RSEs for rule %s' % (str(rule.id)))
                     session.rollback()
                     possible_rses = []
+                    session.begin_nested()
                 if session.bind.dialect.name != 'sqlite':
                     session.commit()
 
                 datasetfiles, locks, replicas = __resolve_dids_to_locks_and_replicas(dids=new_child_dids,
                                                                                      nowait=True,
-                                                                                     restrict_rses=[rse['id'] for rse in possible_rses],
+                                                                                     restrict_rses=possible_rses,
                                                                                      session=session)
 
             # Evaluate the replication rules
