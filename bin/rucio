@@ -302,16 +302,15 @@ def attach(args):
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
         scope, name = args.todid.split(':')
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        logger.error('ERROR cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
         return FAILURE
     except Exception, e:
-        print e
+        logger.warning('Unknown exception occurred : {0}'.format(e))
 
     try:
         client.attach_dids(scope=scope, name=name, dids=dids)
     except Exception, e:
-        print 'Failed to attach data identifier'
-        print e
+        logger.error('Failed to attach data identifier\n{0}'.format(e))
         return FAILURE
     return SUCCESS
 
@@ -335,16 +334,15 @@ def detach(args):
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
         scope, name = args.fromdid.split(':')
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.fromdid, e)
+        logger.error('ERROR cannot extract the scope and name from {0} : [{1}]'.format(args.fromdid, e))
         return FAILURE
     except Exception, e:
-        print e
+        logger.warning('Unknown exception occurred : {0}'.format(e))
 
     try:
         client.detach_dids(scope=scope, name=name, dids=dids)
     except Exception, e:
-        print 'Failed to detach data identifier'
-        print e
+        logger.error('Failed to detach data identifier\n{0}'.format(e))
         return FAILURE
     return SUCCESS
 
