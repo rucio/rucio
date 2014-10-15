@@ -284,8 +284,8 @@ def bulk_query(transfer_ids, transfer_host):
     else:
         fts_session = requests.Session()
         for transfer_id in transfer_ids:
-            job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
-                               headers={'Content-Type': 'application/json'})
+            job = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
+                                  headers={'Content-Type': 'application/json'})
             if not job:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
             elif job.status_code == 200:
@@ -299,8 +299,8 @@ def bulk_query(transfer_ids, transfer_host):
                     responses[transfer_id]['new_state'] = None
                     responses[transfer_id]['transfer_id'] = transfer_id
                 else:
-                    files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
-                                         headers={'Content-Type': 'application/json'})
+                    files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
+                                            headers={'Content-Type': 'application/json'})
                     if files and files.status_code == 200:
                         responses[transfer_id] = format_response(transfer_host, job_response, files.json())
                     else:
@@ -310,6 +310,88 @@ def bulk_query(transfer_ids, transfer_host):
                 responses[transfer_id] = None
             else:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s', job.content)
+
+    return responses
+
+
+def get_jobs_response(transfer_host, fts_session, jobs_response):
+    """
+    Parse FTS bulk query response and query details for finished jobs.
+
+    :param transfer_host: FTS server as a string.
+    :fts_session: query request as a session.
+    :jobs_response: FTS bulk query response as a dict.
+    :returns: Transfer status information as a dictionary.
+    """
+
+    responses = {}
+    for job_response in jobs_response:
+        transfer_id = job_response['job_id']
+        if job_response['http_status'] == "404 Not Found":
+            responses[transfer_id] = None
+        elif job_response['http_status'] == "200 Ok":
+            if not job_response['job_state'] in (str(FTSState.FAILED),
+                                                 str(FTSState.FINISHEDDIRTY),
+                                                 str(FTSState.CANCELED),
+                                                 str(FTSState.FINISHED)):
+                responses[transfer_id] = {}
+                responses[transfer_id]['job_state'] = job_response['job_state']
+                responses[transfer_id]['new_state'] = None
+                responses[transfer_id]['transfer_id'] = transfer_id
+            else:
+                if transfer_host.startswith("https"):
+                    files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
+                                            verify=False,
+                                            cert=(__USERCERT, __USERCERT),
+                                            headers={'Content-Type': 'application/json'})
+                else:
+                    files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
+                                            headers={'Content-Type': 'application/json'})
+                if files and files.status_code == 200:
+                    responses[transfer_id] = format_response(transfer_host, job_response, files.json())
+                else:
+                    responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
+    return responses
+
+
+def new_bulk_query(transfer_ids, transfer_host):
+    """
+    Query the status of a bulk of transfers in FTS3 via JSON.
+
+    :param transfer_ids: FTS transfer identifiers as a list.
+    :param transfer_host: FTS server as a string.
+    :returns: Transfer status information as a dictionary.
+    """
+
+    responses = {}
+    if transfer_host.startswith('https://'):
+        fts_session = requests.Session()
+        jobs = fts_session.get('%s/jobs/%s' % (transfer_host, ','.join(transfer_ids)),
+                               verify=False,
+                               cert=(__USERCERT, __USERCERT),
+                               headers={'Content-Type': 'application/json'})
+        if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
+            jobs_response = jobs.json()
+            responses = get_jobs_response(transfer_host, fts_session, jobs_response)
+            for transfer_id in transfer_ids:
+                if transfer_id not in responses.keys():
+                    responses[transfer_id] = None
+        else:
+            for transfer_id in transfer_ids:
+                responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
+    else:
+        fts_session = requests.Session()
+        jobs = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
+                               headers={'Content-Type': 'application/json'})
+        if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
+            jobs_response = jobs.json()
+            responses = get_jobs_response(transfer_host, fts_session, jobs_response)
+            for transfer_id in transfer_ids:
+                if transfer_id not in responses.keys():
+                    responses[transfer_id] = None
+        else:
+            for transfer_id in transfer_ids:
+                responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
 
     return responses
 
