@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 '''
 Class to handle enum type with sqlachelmy.
@@ -33,7 +33,6 @@ class EnumSymbol(object):
     def __reduce__(self):
         """Allow unpickling to return the symbol
         linked to the DeclEnum class."""
-        print '__reduce__'
         return getattr, (self.cls_, self.name)
 
     def __iter__(self):
