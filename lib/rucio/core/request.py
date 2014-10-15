@@ -177,7 +177,7 @@ def submit_transfer(request_id, src_urls, dest_urls, transfertool, filesize, md5
 
 
 @read_session
-def get_next(request_type, state, limit=100, older_than=None, rse=None, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None, process=None, total_processes=None, thread=None, total_threads=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -212,6 +212,9 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, process=
 
     if rse:
         query = query.filter(models.Request.dest_rse_id == rse)
+
+    if activity:
+        query = query.filter(models.Request.activity == activity)
 
     if (total_processes-1) > 0:
         if session.bind.dialect.name == 'oracle':
