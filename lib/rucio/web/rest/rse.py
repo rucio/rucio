@@ -494,7 +494,6 @@ class Usage:
             if 'source' in params:
                 source = params['source'][0]
 
-        source = 'srm'
         try:
             usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source)
         except RSENotFound, e:
