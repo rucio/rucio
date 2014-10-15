@@ -74,7 +74,7 @@ def get_rses(rses=None, include_rses=None, exclude_rses=None):
     return working_rses
 
 
-def get_requests(rse_id=None, process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100):
+def get_requests(rse_id=None, process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100, activity=None):
     ts = time.time()
     reqs = request.get_next(request_type=[RequestType.TRANSFER,
                                           RequestType.STAGEIN,
@@ -82,6 +82,7 @@ def get_requests(rse_id=None, process=0, total_processes=1, thread=0, total_thre
                             state=RequestState.QUEUED,
                             limit=bulk,
                             rse=rse_id,
+                            activity=activity,
                             process=process,
                             total_processes=total_processes,
                             thread=thread,
@@ -369,7 +370,7 @@ def get_transfer(rse, req, scheme, mock):
     return transfer
 
 
-def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100):
+def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100, activities=None):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -393,99 +394,104 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
 
         try:
 
-            if rses is None:
-                rses = [None]
+            if activities is None:
+                activities = [None]
+            for activity in activities:
+                if rses is None:
+                    rses = [None]
 
-            for rse in rses:
-                if rse:
-                    # run in rse list mode
-                    rse_info = rsemgr.get_rse_info(rse['rse'])
-                    logging.info("Working on RSE: %s" % rse['rse'])
-                    ts = time.time()
-                    reqs = get_requests(rse_id=rse['id'],
-                                        process=process,
-                                        total_processes=total_processes,
-                                        thread=thread,
-                                        total_threads=total_threads,
-                                        mock=mock,
-                                        bulk=bulk)
-                    record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
-                else:
-                    # no rse list, run FIFO mode
-                    rse_info = None
-                    ts = time.time()
-                    reqs = get_requests(process=process,
-                                        total_processes=total_processes,
-                                        thread=thread,
-                                        total_threads=total_threads,
-                                        mock=mock,
-                                        bulk=bulk)
-                    record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
-
-                if reqs:
-                    logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
-
-                if not reqs or reqs == []:
-                    continue
-
-                for req in reqs:
-                    try:
-                        if not rse:
-                            # no rse list, in FIFO mode
-                            dest_rse = rse_core.get_rse(rse=None, rse_id=req['dest_rse_id'])
-                            rse_info = rsemgr.get_rse_info(dest_rse['rse'])
-
+                for rse in rses:
+                    if rse:
+                        # run in rse list mode
+                        rse_info = rsemgr.get_rse_info(rse['rse'])
+                        logging.info("Working on RSE: %s" % rse['rse'])
                         ts = time.time()
-                        transfer = get_transfer(rse_info, req, scheme, mock)
-                        record_timer('daemons.conveyor.submitter.get_transfer', (time.time() - ts) * 1000)
-                        logging.debug('Transfer for request %s: %s' % (req['request_id'], transfer))
-
-                        if transfer is None:
-                            logging.warn("Request %s DID %s:%s RSE %s failed to get transfer" % (req['request_id'],
-                                                                                                 req['scope'],
-                                                                                                 req['name'],
-                                                                                                 rse_info['rse']))
-                            # TODO: Merge these two calls
-                            request.set_request_state(req['request_id'],
-                                                      RequestState.LOST)  # if the DID does not exist anymore
-                            request.archive_request(req['request_id'])
-                            continue
-
+                        reqs = get_requests(rse_id=rse['id'],
+                                            process=process,
+                                            total_processes=total_processes,
+                                            thread=thread,
+                                            total_threads=total_threads,
+                                            mock=mock,
+                                            bulk=bulk,
+                                            activity=activity)
+                        record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
+                    else:
+                        # no rse list, run FIFO mode
+                        rse_info = None
                         ts = time.time()
-                        tmp_metadata = transfer['file_metadata']
-                        eid, transfer_host = request.submit_transfers(transfers=[transfer, ],
-                                                                      transfertool='fts3',
-                                                                      job_metadata=tmp_metadata)
+                        reqs = get_requests(process=process,
+                                            total_processes=total_processes,
+                                            thread=thread,
+                                            total_threads=total_threads,
+                                            mock=mock,
+                                            bulk=bulk,
+                                            activity=activity)
+                        record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
 
-                        record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
+                    if reqs:
+                        logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
 
-                        ts = time.time()
-                        if req['previous_attempt_id']:
-                            logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s' % (req['retry_count'],
-                                                                                                                       eid,
-                                                                                                                       req['previous_attempt_id'],
-                                                                                                                       req['scope'],
-                                                                                                                       req['name'],
-                                                                                                                       transfer['src_urls'],
-                                                                                                                       transfer['dest_urls'],
-                                                                                                                       transfer_host))
-                        else:
-                            logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s' % (eid,
-                                                                                                  req['scope'],
-                                                                                                  req['name'],
-                                                                                                  transfer['src_urls'],
-                                                                                                  transfer['dest_urls'],
-                                                                                                  transfer_host))
-                        record_counter('daemons.conveyor.submitter.submit_request')
-                    except UnsupportedOperation, e:
-                        # The replica doesn't exist, need to cancel the request
-                        logging.warning(e)
-                        logging.info('Cancelling transfer request %s' % req['request_id'])
+                    if not reqs or reqs == []:
+                        continue
+
+                    for req in reqs:
                         try:
-                            # TODO: for now, there is only ever one destination
-                            request.cancel_request_did(req['scope'], req['name'], transfer['dest_urls'][0])
-                        except Exception, e:
-                            logging.warning('Cannot cancel request: %s' % str(e))
+                            if not rse:
+                                # no rse list, in FIFO mode
+                                dest_rse = rse_core.get_rse(rse=None, rse_id=req['dest_rse_id'])
+                                rse_info = rsemgr.get_rse_info(dest_rse['rse'])
+
+                            ts = time.time()
+                            transfer = get_transfer(rse_info, req, scheme, mock)
+                            record_timer('daemons.conveyor.submitter.get_transfer', (time.time() - ts) * 1000)
+                            logging.debug('Transfer for request %s: %s' % (req['request_id'], transfer))
+
+                            if transfer is None:
+                                logging.warn("Request %s DID %s:%s RSE %s failed to get transfer" % (req['request_id'],
+                                                                                                     req['scope'],
+                                                                                                     req['name'],
+                                                                                                     rse_info['rse']))
+                                # TODO: Merge these two calls
+                                request.set_request_state(req['request_id'],
+                                                          RequestState.LOST)  # if the DID does not exist anymore
+                                request.archive_request(req['request_id'])
+                                continue
+
+                            ts = time.time()
+                            tmp_metadata = transfer['file_metadata']
+                            eid, transfer_host = request.submit_transfers(transfers=[transfer, ],
+                                                                          transfertool='fts3',
+                                                                          job_metadata=tmp_metadata)
+
+                            record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
+
+                            ts = time.time()
+                            if req['previous_attempt_id']:
+                                logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s' % (req['retry_count'],
+                                                                                                                           eid,
+                                                                                                                           req['previous_attempt_id'],
+                                                                                                                           req['scope'],
+                                                                                                                           req['name'],
+                                                                                                                           transfer['src_urls'],
+                                                                                                                           transfer['dest_urls'],
+                                                                                                                           transfer_host))
+                            else:
+                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s' % (eid,
+                                                                                                      req['scope'],
+                                                                                                      req['name'],
+                                                                                                      transfer['src_urls'],
+                                                                                                      transfer['dest_urls'],
+                                                                                                      transfer_host))
+                            record_counter('daemons.conveyor.submitter.submit_request')
+                        except UnsupportedOperation, e:
+                            # The replica doesn't exist, need to cancel the request
+                            logging.warning(e)
+                            logging.info('Cancelling transfer request %s' % req['request_id'])
+                            try:
+                                # TODO: for now, there is only ever one destination
+                                request.cancel_request_did(req['scope'], req['name'], transfer['dest_urls'][0])
+                            except Exception, e:
+                                logging.warning('Cannot cancel request: %s' % str(e))
         except:
             logging.critical(traceback.format_exc())
 
@@ -505,7 +511,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100):
+def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, activities=[]):
     """
     Starts up the conveyer threads.
     """
@@ -521,7 +527,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, r
 
     if once:
         logging.info('executing one submitter iteration only')
-        submitter(once, rses=working_rses, mock=mock, bulk=bulk)
+        submitter(once, rses=working_rses, mock=mock, bulk=bulk, activities=activities)
 
     else:
         logging.info('starting submitter threads')
@@ -531,6 +537,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, r
                                                               'total_threads': total_threads,
                                                               'rses': working_rses,
                                                               'bulk': bulk,
+                                                              'activities': activities,
                                                               'mock': mock}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]

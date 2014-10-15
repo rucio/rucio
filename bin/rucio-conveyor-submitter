@@ -43,6 +43,8 @@ if __name__ == "__main__":
                         help='RSE expression to include')
     parser.add_argument('--rses', nargs='+', type=str,
                         help='Explicit list of RSEs to include')
+    parser.add_argument('--activities', nargs='+', type=str,
+                        help='Explicit list of activities to include')
     args = parser.parse_args()
 
     try:
@@ -54,6 +56,7 @@ if __name__ == "__main__":
             mock=args.mock,
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
-            rses=args.rses)
+            rses=args.rses,
+            activities=args.activities)
     except KeyboardInterrupt:
         stop()
