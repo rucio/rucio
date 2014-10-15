@@ -125,6 +125,10 @@ def get_sources(dest_rse, scheme, req):
                                              schemes=[scheme, 'gsiftp'])
         record_timer('daemons.conveyor.submitter.list_replicas', (time.time() - ts) * 1000)
 
+        # return gracefully if there are no replicas for a DID
+        if not replications:
+            return None, None
+
         for source in replications:
 
             metadata['filesize'] = long(source['bytes'])
@@ -271,13 +275,6 @@ def get_destinations(rse_info, scheme, req, sources):
 
 def get_transfer(rse, req, scheme, mock):
     src_spacetoken = None
-    activity = 'default'
-    if req['attributes']:
-        if type(req['attributes']) is dict:
-            req_attributes = json.loads(json.dumps(req['attributes']))
-        else:
-            req_attributes = json.loads(str(req['attributes']))
-        activity = req_attributes['activity'] if req_attributes['activity'] else 'default'
 
     ts = time.time()
     sources, metadata = get_sources(rse, scheme, req)
@@ -314,7 +311,7 @@ def get_transfer(rse, req, scheme, mock):
     tmp_metadata = {'request_id': req['request_id'],
                     'scope': req['scope'],
                     'name': req['name'],
-                    'activity': activity,
+                    'activity': req['activity'],
                     'src_rse': sources[0][0],
                     'dst_rse': rse['rse'],
                     'dest_rse_id': req['dest_rse_id'],
@@ -362,7 +359,7 @@ def get_transfer(rse, req, scheme, mock):
                 'adler32': adler32,
                 'src_spacetoken': src_spacetoken,
                 'dest_spacetoken': dest_spacetoken,
-                'activity': activity,
+                'activity': req['activity'],
                 'overwrite': overwrite,
                 'bring_online': bring_online,
                 'copy_pin_lifetime': copy_pin_lifetime,

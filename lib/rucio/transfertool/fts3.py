@@ -60,6 +60,7 @@ def submit_transfers(transfers, job_metadata, transfer_host):
                 new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
             else:
                 new_dst_urls.append(url)
+
     transfer['src_urls'] = new_src_urls
     transfer['dest_urls'] = new_dst_urls
 
@@ -113,7 +114,8 @@ def submit_transfers(transfers, job_metadata, transfer_host):
                               headers={'Content-Type': 'application/json'})
 
         if r and r.status_code == 200:
-            transfer_ids[transfer['request_id']] = str(r.json()['job_id'])
+            transfer_ids[transfer['request_id']] = {'external_id': str(r.json()['job_id']),
+                                                    'dest_urls': transfer['dest_urls']}
         else:
             raise Exception('Could not submit transfer: %s', r.content)
 
@@ -128,8 +130,8 @@ def submit(request_id, src_urls, dest_urls,
     Submit a transfer to FTS3 via JSON.
 
     :param request_id: Request ID of the request as a string.
-    :param src_urls: Source URL acceptable to transfertool as a list of strings.
-    :param dest_urls: Destination URL acceptable to transfertool as a list of strings.
+    :param src_urls: Source URLs acceptable to transfertool as a list of strings.
+    :param dest_urls: Destination URLs acceptable to transfertool as a list of strings.
     :param src_spacetoken: Source spacetoken as a string - ignored for non-spacetoken-aware protocols.
     :param dest_spacetoken: Destination spacetoken as a string - ignored for non-spacetoken-aware protocols.
     :param filesize: Filesize in bytes.
