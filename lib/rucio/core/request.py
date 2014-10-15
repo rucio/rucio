@@ -66,9 +66,9 @@ def queue_requests(requests, session=None):
     """
     Submit transfer or deletion requests on destination RSEs for data identifiers.
 
-    :param requests: List of dictionaries containing 'scope', 'name', 'dest_rse_id', 'request_type', 'attributes'
+    :param requests: List of dictionaries containing request metadata.
     :param session: Database session to use.
-    :returns: List of Request-IDs as 32 character hex strings
+    :returns: List of Request-IDs as 32 character hex strings.
     """
 
     record_counter('core.request.queue_requests')
@@ -81,18 +81,26 @@ def queue_requests(requests, session=None):
                                          dest_rse_id=req['dest_rse_id'],
                                          attributes=json.dumps(req['attributes']),
                                          state=RequestState.QUEUED,
-                                         rule_id=req['rule_id'])
+                                         rule_id=req['rule_id'],
+                                         activity=req['attributes']['activity'],
+                                         bytes=req['attributes']['bytes'],
+                                         md5=req['attributes']['md5'],
+                                         adler32=req['attributes']['adler32'])
             if 'previous_attempt_id' in req and 'retry_count' in req:
                 new_request = models.Request(id=req['request_id'],
                                              request_type=req['request_type'],
                                              scope=req['scope'],
                                              name=req['name'],
                                              dest_rse_id=req['dest_rse_id'],
-                                             attributes=req['attributes'],
+                                             attributes=json.dumps(req['attributes']),
                                              state=RequestState.QUEUED,
                                              previous_attempt_id=req['previous_attempt_id'],
                                              retry_count=req['retry_count'],
-                                             rule_id=req['rule_id'])
+                                             rule_id=req['rule_id'],
+                                             activity=req['attributes']['activity'],
+                                             bytes=req['attributes']['bytes'],
+                                             md5=req['attributes']['md5'],
+                                             adler32=req['attributes']['adler32'])
             new_request.save(session=session, flush=False)
         session.flush()
     except IntegrityError:
@@ -121,7 +129,7 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
     """
     Submit transfer request to a transfertool.
 
-    :param transfers: Dictionary containing 'request_id', 'src_urls', 'dest_urls', 'bytes', 'md5', 'adler32'
+    :param transfers: Dictionary containing request metadata.
     :param transfertool: Transfertool as a string.
     :param job_metadata: Metadata key/value pairs for all files as a dictionary.
     :param session: Database session to use.
@@ -142,8 +150,9 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
         session.query(models.Request)\
                .filter_by(id=transfer_id)\
                .update({'state': RequestState.SUBMITTED,
-                        'external_id': transfer_ids[transfer_id],
-                        'external_host': external_host},
+                        'external_id': transfer_ids[transfer_id]['external_id'],
+                        'external_host': external_host,
+                        'dest_url': transfer_ids[transfer_id]['dest_urls'][0]},
                        synchronize_session=False)
 
     return (transfer_ids, external_host)
@@ -483,7 +492,13 @@ def archive_request(request_id, session=None):
                                                                 retry_count=req['retry_count'],
                                                                 err_msg=req['err_msg'],
                                                                 previous_attempt_id=req['previous_attempt_id'],
-                                                                external_host=req['external_host'])
+                                                                external_host=req['external_host'],
+                                                                rule_id=req['rule_id'],
+                                                                activity=req['activity'],
+                                                                bytes=req['bytes'],
+                                                                md5=req['md5'],
+                                                                adler32=req['adler32'],
+                                                                dest_url=req['dest_url'])
         hist_request.save(session=session)
         try:
             session.query(models.Request).filter_by(id=request_id).delete()

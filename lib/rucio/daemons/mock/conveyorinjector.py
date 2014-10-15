@@ -151,6 +151,7 @@ def request_transfer(once=False, src=None, dst=None):
                           lifetime=None,
                           locked=False,
                           subscription_id=None,
+                          activity='mock-injector',
                           session=session)
 
             logging.info('added rule for %s for DID mock:%s' % (site_b, tmp_name))
