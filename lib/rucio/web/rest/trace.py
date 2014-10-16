@@ -21,7 +21,7 @@ from rucio.core.trace import trace
 from rucio.web.rest.common import RucioController
 
 urls = (
-    '/trace', 'Trace',
+    '/', 'Trace',
 )
 
 
