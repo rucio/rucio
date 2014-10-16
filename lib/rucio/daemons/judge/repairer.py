@@ -16,6 +16,8 @@ import threading
 import time
 import traceback
 
+from re import match
+
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
@@ -63,8 +65,13 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
                         repair_rule(rule_id=rule_id)
                         logging.debug('rule_repairer[%s/%s]: repairing of %s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError), e:
-                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                        logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
+                        if match('.*ORA-00054.*', str(e.args[0])):
+                                logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
+                                record_counter('rule.judge.exceptions.LocksDetected')
+                        else:
+                            logging.error(traceback.format_exc())
+                            record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+
                 record_gauge('rule.judge.repairer.threads.%d' % (process*threads_per_process+thread), 0)
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)

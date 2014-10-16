@@ -15,7 +15,6 @@ import datetime
 import json
 import logging
 import random
-import re
 import time
 
 from sqlalchemy.exc import IntegrityError
@@ -96,17 +95,12 @@ def queue_requests(requests, session=None):
                                              rule_id=req['rule_id'])
             new_request.save(session=session, flush=False)
         session.flush()
-    except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
-           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
-           or re.match('.*IntegrityError.*ORA-00001: unique constraint.*REQUESTS_PK.*violated.*', e.args[0]) \
-           or re.match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
-            logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (req['request_type'],
-                                                                                        req['scope'],
-                                                                                        req['name'],
-                                                                                        get_rse_name(req['dest_rse_id'])))
-        else:
-            raise RucioException(e.args)
+    except IntegrityError:
+        logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (req['request_type'],
+                                                                                    req['scope'],
+                                                                                    req['name'],
+                                                                                    get_rse_name(req['dest_rse_id'])))
+        raise
 
 
 @transactional_session
