@@ -401,6 +401,16 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
             for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
+                # Check if there are actually already enough locks
+                if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
+                    # Remove the lock
+                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock' % (file['scope'], file['name'], str(rule.id)))
+                    if lock.rse_id in locks_to_delete:
+                        locks_to_delete[lock.rse_id].append(lock)
+                    else:
+                        locks_to_delete[lock.rse_id] = [lock]
+                    rule.locks_stuck_cnt -= 1
+                    continue
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
@@ -412,7 +422,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                                                                   source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
-                    blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
+                    blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
                     rse_tuples = rseselector.select_rse(size=file['bytes'],
                                                         preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
                                                         copies=1,
@@ -466,6 +476,16 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
             for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
+                # Check if there are actually already enough locks
+                if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
+                    # Remove the lock
+                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock' % (file['scope'], file['name'], str(rule.id)))
+                    if lock.rse_id in locks_to_delete:
+                        locks_to_delete[lock.rse_id].append(lock)
+                    else:
+                        locks_to_delete[lock.rse_id] = [lock]
+                    rule.locks_stuck_cnt -= 1
+                    continue
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
@@ -477,7 +497,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                                                                   source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
-                    blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
+                    blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
                     if not alternative_rses:
                         rse_tuples = rseselector.select_rse(size=file['bytes'],
                                                             preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
@@ -539,6 +559,16 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
         for file in dataset['files']:
             # Iterate and try to repair STUCK locks
             for lock in [lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.state == LockState.STUCK]:
+                # Check if there are actually already enough locks
+                if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
+                    # Remove the lock
+                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock' % (file['scope'], file['name'], str(rule.id)))
+                    if lock.rse_id in locks_to_delete:
+                        locks_to_delete[lock.rse_id].append(lock)
+                    else:
+                        locks_to_delete[lock.rse_id] = [lock]
+                    rule.locks_stuck_cnt -= 1
+                    continue
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
@@ -550,7 +580,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                                                                   source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
-                    blacklist_rses = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
+                    blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
                     if not alternative_rses:
                         rse_tuples = rseselector.select_rse(size=file['bytes'],
                                                             preferred_rse_ids=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE or replica.state == ReplicaState.COPYING],
