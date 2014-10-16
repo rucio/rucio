@@ -146,14 +146,17 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             # 6. Apply the replication rule to create locks, replicas and transfers
             with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
-                __create_locks_replicas_transfers(datasetfiles=datasetfiles,
-                                                  locks=locks,
-                                                  replicas=replicas,
-                                                  rseselector=rseselector,
-                                                  rule=new_rule,
-                                                  preferred_rse_ids=[],
-                                                  source_rses=[rse['id'] for rse in source_rses],
-                                                  session=session)
+                try:
+                    __create_locks_replicas_transfers(datasetfiles=datasetfiles,
+                                                      locks=locks,
+                                                      replicas=replicas,
+                                                      rseselector=rseselector,
+                                                      rule=new_rule,
+                                                      preferred_rse_ids=[],
+                                                      source_rses=[rse['id'] for rse in source_rses],
+                                                      session=session)
+                except IntegrityError, e:
+                    raise ReplicationRuleCreationTemporaryFailed(e.args[0])
 
             if new_rule.locks_stuck_cnt > 0:
                 new_rule.state = RuleState.STUCK
@@ -281,14 +284,17 @@ def add_rules(dids, rules, session=None):
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
                     with record_timer_block('rule.add_rules.create_locks_replicas_transfers'):
-                        __create_locks_replicas_transfers(datasetfiles=datasetfiles,
-                                                          locks=locks,
-                                                          replicas=replicas,
-                                                          rseselector=rseselector,
-                                                          rule=new_rule,
-                                                          preferred_rse_ids=[],
-                                                          source_rses=[rse['id'] for rse in source_rses],
-                                                          session=session)
+                        try:
+                            __create_locks_replicas_transfers(datasetfiles=datasetfiles,
+                                                              locks=locks,
+                                                              replicas=replicas,
+                                                              rseselector=rseselector,
+                                                              rule=new_rule,
+                                                              preferred_rse_ids=[],
+                                                              source_rses=[rse['id'] for rse in source_rses],
+                                                              session=session)
+                        except IntegrityError, e:
+                            raise ReplicationRuleCreationTemporaryFailed(e.args[0])
 
                     if new_rule.locks_stuck_cnt > 0:
                         new_rule.state = RuleState.STUCK
@@ -451,7 +457,7 @@ def repair_rule(rule_id, session=None):
         except (InvalidRSEExpression) as e:
             session.rollback()
             rule.state = RuleState.STUCK
-            rule.error = str(e)
+            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
@@ -469,7 +475,7 @@ def repair_rule(rule_id, session=None):
         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
             session.rollback()
             rule.state = RuleState.STUCK
-            rule.error = str(e)
+            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
@@ -483,9 +489,20 @@ def repair_rule(rule_id, session=None):
 
         # Resolve the did to its contents
         datasetfiles, locks, replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                            nowait=False,
-                                                                            restrict_rses=[rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
+                                                                            nowait=True,
+                                                                            restrict_rses=[],  # [rse['id'] for rse in rses] + [rse['id'] for rse in source_rses],
                                                                             session=session)
+
+        if session.bind.dialect.name != 'sqlite':
+            session.commit()
+            session.begin_nested()
+
+        # Reset the counters
+        logging.debug("Resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+        rule.locks_ok_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.OK and lock.rule_id == rule.id])
+        rule.locks_replicating_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.REPLICATING and lock.rule_id == rule.id])
+        rule.locks_stuck_cnt = len([lock for sublist in locks.values() for lock in sublist if lock.state == LockState.STUCK and lock.rule_id == rule.id])
+        logging.debug("Finished resetting counters for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         # 1. Try to find missing locks and create them based on grouping
         if did.did_type != DIDType.FILE:
@@ -497,10 +514,11 @@ def repair_rule(rule_id, session=None):
                                                      rule=rule,
                                                      source_rses=[rse['id'] for rse in source_rses],
                                                      session=session)
-            except (InsufficientAccountLimit, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed) as e:
-                session.rollback()
+            except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
+                if isinstance(e, IntegrityError):
+                    session.rollback()
                 rule.state = RuleState.STUCK
-                rule.error = str(e)
+                rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                 rule.save(session=session)
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
@@ -519,10 +537,11 @@ def repair_rule(rule_id, session=None):
                                                rule=rule,
                                                source_rses=[rse['id'] for rse in source_rses],
                                                session=session)
-        except (InsufficientAccountLimit, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed) as e:
-            session.rollback()
+        except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
+            if isinstance(e, IntegrityError):
+                session.rollback()
             rule.state = RuleState.STUCK
-            rule.error = str(e)
+            rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
@@ -534,6 +553,7 @@ def repair_rule(rule_id, session=None):
             session.commit()
 
         if rule.locks_stuck_cnt != 0:
+            logging.info('Rule %s [%d/%d/%d] state=STUCK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             rule.state = RuleState.STUCK
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
@@ -544,6 +564,7 @@ def repair_rule(rule_id, session=None):
         rule.stuck_at = None
 
         if rule.locks_replicating_cnt > 0:
+            logging.info('Rule %s [%d/%d/%d] state=REPLICATING' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             rule.state = RuleState.REPLICATING
             rule.error = None
             # Try to update the DatasetLocks
@@ -553,6 +574,8 @@ def repair_rule(rule_id, session=None):
 
         rule.state = RuleState.OK
         rule.error = None
+        logging.info('Rule %s [%d/%d/%d] state=OK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
         if rule.grouping != RuleGrouping.NONE:
             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
             session.flush()
@@ -628,7 +651,7 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
     :param name:                    The name of the did to be re-evaluated.
     :param rule_evaluation_action:  The Rule evaluation action.
     :param session:                 The database session in use.
-    :raises:                        DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
+    :raises:                        DataIdentifierNotFound
     """
 
     try:
@@ -904,7 +927,7 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
     :param rule:               The rule.
     :param source_rses:        RSE ids for eglible source RSEs.
     :param session:            Session of the db.
-    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
@@ -922,6 +945,7 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
             else:
                 preferred_rse_ids = [lock.rse_id for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]
         if len(mod_files) > 0:
+            logging.debug('Found missing locks for rule %s, creating them now' % str(rule.id))
             mod_datasetfiles.append({'scope': dataset['scope'], 'name': dataset['name'], 'files': mod_files})
             __create_locks_replicas_transfers(datasetfiles=mod_datasetfiles,
                                               locks=locks,
@@ -947,7 +971,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselecto
     :param rule:               The rule.
     :param source_rses:        RSE ids of eglible source RSEs.
     :param session:            Session of the db.
-    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
@@ -961,37 +985,34 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, rseselecto
                                                                      rule=rule,
                                                                      source_rses=source_rses,
                                                                      session=session)
-    try:
-        # Add the replicas
-        session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
-        session.flush()
+    # Add the replicas
+    session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
+    session.flush()
 
-        # Add the locks
-        session.add_all([item for sublist in locks_to_create.values() for item in sublist])
-        session.flush()
+    # Add the locks
+    session.add_all([item for sublist in locks_to_create.values() for item in sublist])
+    session.flush()
 
-        # Increase rse_counters
-        for rse_id in replicas_to_create.keys():
-            rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
+    # Increase rse_counters
+    for rse_id in replicas_to_create.keys():
+        rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
 
-        # Increase account_counters
-        for rse_id in locks_to_create.keys():
-            account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
+    # Increase account_counters
+    for rse_id in locks_to_create.keys():
+        account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
 
-        # Decrease account_counters
-        for rse_id in locks_to_delete:
-            account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(locks_to_delete[rse_id]), bytes=sum([lock.bytes for lock in locks_to_delete[rse_id]]), session=session)
+    # Decrease account_counters
+    for rse_id in locks_to_delete:
+        account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(locks_to_delete[rse_id]), bytes=sum([lock.bytes for lock in locks_to_delete[rse_id]]), session=session)
 
-        # Delete the locks:
-        for lock in [item for sublist in locks_to_delete.values() for item in sublist]:
-            session.delete(lock)
+    # Delete the locks:
+    for lock in [item for sublist in locks_to_delete.values() for item in sublist]:
+        session.delete(lock)
 
-        # Add the transfers
-        queue_requests(requests=transfers_to_create, session=session)
-        session.flush()
-        logging.debug("Finished finding and repairing stuck locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
-    except (IntegrityError), e:
-        raise ReplicationRuleCreationTemporaryFailed(e.args[0])
+    # Add the transfers
+    queue_requests(requests=transfers_to_create, session=session)
+    session.flush()
+    logging.debug("Finished finding and repairing stuck locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
 
 @transactional_session
@@ -1138,7 +1159,7 @@ def __evaluate_did_attach(eval_did, session=None):
                     except (InvalidRSEExpression) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
-                        rule.error = str(e)
+                        rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                         rule.save(session=session)
                         # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
@@ -1155,7 +1176,7 @@ def __evaluate_did_attach(eval_did, session=None):
                     except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
-                        rule.error = str(e)
+                        rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                         rule.save(session=session)
                         # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
@@ -1188,18 +1209,16 @@ def __evaluate_did_attach(eval_did, session=None):
                                                           preferred_rse_ids=preferred_rse_ids,
                                                           source_rses=[rse['id'] for rse in source_rses],
                                                           session=session)
-                    except (InsufficientAccountLimit, InsufficientTargetRSEs) as e:
-                        session.rollback()
+                    except (InsufficientAccountLimit, InsufficientTargetRSEs, IntegrityError) as e:
+                        if isinstance(e, IntegrityError):
+                            session.rollback()
                         rule.state = RuleState.STUCK
-                        rule.error = str(e)
+                        rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                         rule.save(session=session)
                         # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                         continue
-                    except ReplicationRuleCreationTemporaryFailed, e:
-                        session.rollback()
-                        raise e
 
                     # 4. Update the Rule State
                     if rule.state == RuleState.STUCK:
@@ -1389,7 +1408,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
     :param preferred_rse_ids:  Preferred RSE's to select.
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
-    :raises:                   InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
@@ -1403,29 +1422,26 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
                                                                                    preferred_rse_ids=preferred_rse_ids,
                                                                                    source_rses=source_rses,
                                                                                    session=session)
-    try:
-        # Add the replicas
-        session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
-        session.flush()
+    # Add the replicas
+    session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
+    session.flush()
 
-        # Add the locks
-        session.add_all([item for sublist in locks_to_create.values() for item in sublist])
-        session.flush()
+    # Add the locks
+    session.add_all([item for sublist in locks_to_create.values() for item in sublist])
+    session.flush()
 
-        # Increase rse_counters
-        for rse_id in replicas_to_create.keys():
-            rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
+    # Increase rse_counters
+    for rse_id in replicas_to_create.keys():
+        rse_counter.increase(rse_id=rse_id, files=len(replicas_to_create[rse_id]), bytes=sum([replica.bytes for replica in replicas_to_create[rse_id]]), session=session)
 
-        # Increase account_counters
-        for rse_id in locks_to_create.keys():
-            account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
+    # Increase account_counters
+    for rse_id in locks_to_create.keys():
+        account_counter.increase(rse_id=rse_id, account=rule.account, files=len(locks_to_create[rse_id]), bytes=sum([lock.bytes for lock in locks_to_create[rse_id]]), session=session)
 
-        # Add the transfers
-        queue_requests(requests=transfers_to_create, session=session)
-        session.flush()
-        logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
-    except (IntegrityError), e:
-        raise ReplicationRuleCreationTemporaryFailed(e.args[0])
+    # Add the transfers
+    queue_requests(requests=transfers_to_create, session=session)
+    session.flush()
+    logging.debug("Finished creating locks and replicas for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
 
 @transactional_session
