@@ -36,5 +36,5 @@ class TestTrace():
                               'datetime_str': str(datetime.datetime.utcnow()),  # not JSON serialisable
                               'boolean': True})
 
-        r = TestApp(trace_app.wsgifunc(*mw)).post('/trace', params=payload, headers={'Content-Type': 'application/octet-stream'})
+        r = TestApp(trace_app.wsgifunc(*mw)).post('/', params=payload, headers={'Content-Type': 'application/octet-stream'})
         assert_equal(r.status, 201)
