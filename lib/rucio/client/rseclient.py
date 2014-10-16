@@ -367,7 +367,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET', data=filters and dumps(filters))
+        r = self._send_request(url, type='GET', params=filters)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -386,7 +386,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'usage', 'history']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET', data=filters and dumps(filters))
+        r = self._send_request(url, type='GET', params=filters)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
