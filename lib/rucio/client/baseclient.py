@@ -15,13 +15,11 @@ Client class for callers of the Rucio system
 """
 
 import random
-import re
 
 from getpass import getuser
 from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs
 from shutil import move
-from socket import gethostbyname_ex, gethostbyaddr
 from tempfile import mkstemp
 from urlparse import urlparse
 
@@ -143,7 +141,7 @@ class BaseClient(object):
             except (NoOptionError, NoSectionError), e:
                 raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
 
-        self.list_hosts = map(lambda x: re.sub(urlparse(self.host).hostname, gethostbyaddr(x)[0], self.host), gethostbyname_ex(urlparse(self.host).hostname)[2])
+        self.list_hosts = [self.host]
 
         if account is None:
             LOG.debug('no account passed. Trying to get it from the config file.')
