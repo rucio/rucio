@@ -15,6 +15,7 @@
 Methods common to different conveyor daemons.
 """
 
+import datetime
 import json
 import logging
 import sys
@@ -23,7 +24,8 @@ import traceback
 
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.core import lock, replica, request, rse as rse_core
+from rucio.common.exception import UnsupportedOperation
+from rucio.core import did, lock, replica, request, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import RequestState, ReplicaState
@@ -91,13 +93,46 @@ def update_request_state(response, session=None):
                                                      'state': ReplicaState.AVAILABLE}],
                                                    nowait=False,
                                                    session=session)
+                except UnsupportedOperation:
+                    # replica not found, but it has been transferred because cancel came too late.
+                    # so we need to register the replica and schedule it for deletion again
+                    record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
+                    logging.warn('DID %s:%s AT RSE %s NOT FOUND - Registering replica and scheduling for immediate deletion' % (response['scope'],
+                                                                                                                                response['name'],
+                                                                                                                                rse_name))
+                    did_meta = None
+                    try:
+                        did_meta = did.get_metadata(response['scope'],
+                                                    response['name'],
+                                                    session=session)
+                    except:
+                        logging.critical('DID %s:%s NOT FOUND - Cannot re-register replica - potential dark data' % (response['scope'],
+                                                                                                                     response['name']))
+                        raise
+
+                    if did_meta:
+                        try:
+                            replica.add_replica(rse_name,
+                                                response['scope'],
+                                                response['name'],
+                                                did_meta['bytes'],
+                                                did_meta['account'],
+                                                adler32=did_meta['adler32'],
+                                                tombstone=datetime.datetime.utcnow(),
+                                                session=session)
+                        except:
+                            logging.critical('Cannot register replica for DID %s:%s at RSE %s - potential dark data' % (response['scope'],
+                                                                                                                        response['name'],
+                                                                                                                        rse_name))
+                            raise
+
                 except:
                     # could not update successful lock
                     record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
-                    logging.warn("Could not update replica state for successful transfer %s:%s at %s (%s)" % (response['scope'],
-                                                                                                              response['name'],
-                                                                                                              rse_name,
-                                                                                                              traceback.format_exc()))
+                    logging.warn("Could not update replica state for successful transfer %s:%s at %s: %s" % (response['scope'],
+                                                                                                             response['name'],
+                                                                                                             rse_name,
+                                                                                                             traceback.format_exc()))
                     raise
 
                 record_timer('daemons.conveyor.common.update_request_state.replica-update_replicas_states', (time.time()-tss)*1000)
