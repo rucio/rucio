@@ -24,11 +24,23 @@ from alembic import context, op
 
 def upgrade():
     if context.get_context().dialect.name != 'sqlite':
+        # mysql has to remove FK constraint to drop IDX
+        op.drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
+        op.drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
         op.drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
+        op.create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])
+        op.create_foreign_key('REQUESTS_DID_FK', 'requests', 'dids', ['scope', 'name'], ['scope', 'name'])
+
     op.create_unique_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])
 
 
 def downgrade():
     if context.get_context().dialect.name != 'sqlite':
+        # mysql has to remove FK constraint to drop IDX
+        op.drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
+        op.drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
         op.drop_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', type_='unique')
+        op.create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])
+        op.create_foreign_key('REQUESTS_DID_FK', 'requests', 'dids', ['scope', 'name'], ['scope', 'name'])
+
     op.create_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])
