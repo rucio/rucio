@@ -28,6 +28,7 @@ import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
 from rucio.common.utils import chunks
+from rucio.common.constants import reserved_keys
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation
@@ -713,6 +714,10 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     :paran did: The data identifier info.
     :param session: The database session in use.
     """
+
+    if key in reserved_keys:
+        raise exception.InvalidValueForKey("%s is a reserved key and cannot be used." % key)
+
     if key == 'lifetime':
         try:
             expired_at = datetime.utcnow() + timedelta(seconds=value)
