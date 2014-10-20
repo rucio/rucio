@@ -14,10 +14,12 @@ import datetime
 import json
 import logging
 import sys
+import urlparse
 
 import requests
 
 from rucio.common.config import config_get
+from rucio.core.monitor import record_counter
 from rucio.db.constants import FTSState
 
 
@@ -29,6 +31,11 @@ logging.basicConfig(stream=sys.stdout,
 
 __CACERT = config_get('conveyor', 'cacert')
 __USERCERT = config_get('conveyor', 'usercert')
+
+
+def __extract_host(transfer_host):
+    # graphite does not like the dots in the FQDN
+    return urlparse.urlparse(transfer_host).hostname.replace('.', '_')
 
 
 def submit_transfers(transfers, job_metadata, transfer_host):
@@ -114,9 +121,11 @@ def submit_transfers(transfers, job_metadata, transfer_host):
                               headers={'Content-Type': 'application/json'})
 
         if r and r.status_code == 200:
+            record_counter('transfertool.fts3.%s.submission.success' % __extract_host(transfer_host))
             transfer_ids[transfer['request_id']] = {'external_id': str(r.json()['job_id']),
                                                     'dest_urls': transfer['dest_urls']}
         else:
+            record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(transfer_host))
             raise Exception('Could not submit transfer: %s', r.content)
 
     return transfer_ids
@@ -174,8 +183,10 @@ def query(transfer_id, transfer_host):
         job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
                            headers={'Content-Type': 'application/json'})
     if job and job.status_code == 200:
+        record_counter('transfertool.fts3.%s.query.success' % __extract_host(transfer_host))
         return job.json()
 
+    record_counter('transfertool.fts3.%s.query.failure' % __extract_host(transfer_host))
     raise Exception('Could not retrieve transfer information: %s', job.content)
 
 
@@ -199,8 +210,10 @@ def query_details(transfer_id, transfer_host):
         files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                              headers={'Content-Type': 'application/json'})
     if files and files.status_code == 200:
+        record_counter('transfertool.fts3.%s.query_details.success' % __extract_host(transfer_host))
         return files.json()
 
+    record_counter('transfertool.fts3.%s.query_details.failure' % __extract_host(transfer_host))
     return
 
 
@@ -256,8 +269,10 @@ def bulk_query(transfer_ids, transfer_host):
                                   cert=(__USERCERT, __USERCERT),
                                   headers={'Content-Type': 'application/json'})
             if not job:
+                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
             elif job.status_code == 200:
+                record_counter('transfertool.fts3.%s.bulk_establish.success' % __extract_host(transfer_host))
                 job_response = job.json()
                 if not job_response['job_state'] in (str(FTSState.FAILED),
                                                      str(FTSState.FINISHEDDIRTY),
@@ -273,8 +288,10 @@ def bulk_query(transfer_ids, transfer_host):
                                             cert=(__USERCERT, __USERCERT),
                                             headers={'Content-Type': 'application/json'})
                     if files and files.status_code == 200:
+                        record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
                         responses[transfer_id] = format_response(transfer_host, job_response, files.json())
                     else:
+                        record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
                         responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
 
             elif "No job with the id" in job.text:
@@ -287,8 +304,10 @@ def bulk_query(transfer_ids, transfer_host):
             job = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
                                   headers={'Content-Type': 'application/json'})
             if not job:
+                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
             elif job.status_code == 200:
+                record_counter('transfertool.fts3.%s.bulk_establish.success' % __extract_host(transfer_host))
                 job_response = job.json()
                 if not job_response['job_state'] in (str(FTSState.FAILED),
                                                      str(FTSState.FINISHEDDIRTY),
@@ -302,13 +321,17 @@ def bulk_query(transfer_ids, transfer_host):
                     files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                                             headers={'Content-Type': 'application/json'})
                     if files and files.status_code == 200:
+                        record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
                         responses[transfer_id] = format_response(transfer_host, job_response, files.json())
                     else:
+                        record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
                         responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
 
             elif "No job with the id" in job.text:
+                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
                 responses[transfer_id] = None
             else:
+                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s', job.content)
 
     return responses
@@ -348,8 +371,10 @@ def get_jobs_response(transfer_host, fts_session, jobs_response):
                     files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                                             headers={'Content-Type': 'application/json'})
                 if files and files.status_code == 200:
+                    record_counter('transfertool.fts3.%s.jobs_response.success' % __extract_host(transfer_host))
                     responses[transfer_id] = format_response(transfer_host, job_response, files.json())
                 else:
+                    record_counter('transfertool.fts3.%s.jobs_response.failure' % __extract_host(transfer_host))
                     responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
     return responses
 
@@ -371,12 +396,14 @@ def new_bulk_query(transfer_ids, transfer_host):
                                cert=(__USERCERT, __USERCERT),
                                headers={'Content-Type': 'application/json'})
         if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
+            record_counter('transfertool.fts3.%s.new_bulk.success' % __extract_host(transfer_host))
             jobs_response = jobs.json()
             responses = get_jobs_response(transfer_host, fts_session, jobs_response)
             for transfer_id in transfer_ids:
                 if transfer_id not in responses.keys():
                     responses[transfer_id] = None
         else:
+            record_counter('transfertool.fts3.%s.new_bulk.failure' % __extract_host(transfer_host))
             for transfer_id in transfer_ids:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
     else:
@@ -384,12 +411,14 @@ def new_bulk_query(transfer_ids, transfer_host):
         jobs = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
                                headers={'Content-Type': 'application/json'})
         if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
+            record_counter('transfertool.fts3.%s.new_bulk.success' % __extract_host(transfer_host))
             jobs_response = jobs.json()
             responses = get_jobs_response(transfer_host, fts_session, jobs_response)
             for transfer_id in transfer_ids:
                 if transfer_id not in responses.keys():
                     responses[transfer_id] = None
         else:
+            record_counter('transfertool.fts3.%s.new_bulk.failure' % __extract_host(transfer_host))
             for transfer_id in transfer_ids:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
 
@@ -415,8 +444,10 @@ def cancel(transfer_id, transfer_host):
         job = requests.delete('%s/jobs/%s' % (transfer_host, transfer_id),
                               headers={'Content-Type': 'application/json'})
     if job and job.status_code == 200:
+        record_counter('transfertool.fts3.%s.cancel.success' % __extract_host(transfer_host))
         return job.json()
 
+    record_counter('transfertool.fts3.%s.cancel.failure' % __extract_host(transfer_host))
     raise Exception('Could not cancel transfer: %s', job.content)
 
 
@@ -441,8 +472,10 @@ def whoami(transfer_host):
                          headers={'Content-Type': 'application/json'})
 
     if r and r.status_code == 200:
+        record_counter('transfertool.fts3.%s.whoami.success' % __extract_host(transfer_host))
         return r.json()
 
+    record_counter('transfertool.fts3.%s.whoami.failure' % __extract_host(transfer_host))
     raise Exception('Could not retrieve credentials: %s', r.content)
 
 
@@ -467,6 +500,8 @@ def version(transfer_host):
                          headers={'Content-Type': 'application/json'})
 
     if r and r.status_code == 200:
+        record_counter('transfertool.fts3.%s.version.success' % __extract_host(transfer_host))
         return r.json()
 
+    record_counter('transfertool.fts3.%s.version.failure' % __extract_host(transfer_host))
     raise Exception('Could not retrieve version: %s', r.content)
