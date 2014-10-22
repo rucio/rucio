@@ -30,7 +30,7 @@ from rucio.common.utils import construct_surl_DQ2
 from rucio.core import did, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.constants import DIDType, RequestType, RequestState
+from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
 from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -136,23 +136,44 @@ def get_sources(dest_rse, scheme, req):
             metadata['adler32'] = source['adler32']
             # TODO: Source protection
 
+            # we need to know upfront if we are mixed DISK/TAPE source
+            mixed_source = []
+            for source_rse in source['rses']:
+                mixed_source.append(rse_core.get_rse(source_rse).rse_type)
+            mixed_source = True if len(set(mixed_source)) > 1 else False
+
             for source_rse in source['rses']:
                 if req['request_type'] == RequestType.STAGEIN:
                     if source_rse in allowed_rses:
                         for pfn in source['rses'][source_rse]:
                             # In case of staging request, we only use one source
                             tmpsrc = [(str(source_rse), str(pfn)), ]
-                else:
+
+                elif req['request_type'] == RequestType.TRANSFER:
+
                     if source_rse == dest_rse['rse']:
-                        logging.debug("Skip source %s for request %s because it's destination" % (source_rse,
-                                                                                                  req['request_id']))
+                        logging.debug('Skip source %s for request %s because it is the destination' % (source_rse,
+                                                                                                       req['request_id']))
                         continue
 
                     if allowed_source_rses and not (source_rse in allowed_source_rses):
-                        logging.debug("Skip source %s for request %s because of source_replica_expression %s" % (source_rse,
+                        logging.debug('Skip source %s for request %s because of source_replica_expression %s' % (source_rse,
                                                                                                                  req['request_id'],
                                                                                                                  req['attributes']))
                         continue
+
+                    # do not allow mixed source jobs, either all DISK or all TAPE
+                    # do not use TAPE on the first try
+                    if mixed_source:
+                        if not req['previous_attempt_id'] and rse_core.get_rse(source_rse).rse_type == RSEType.TAPE:
+                            logging.debug('Skip tape source %s for request %s' % (source_rse,
+                                                                                  req['request_id']))
+                            continue
+                        elif req['previous_attempt_id'] and rse_core.get_rse(source_rse).rse_type == RSEType.DISK:
+                            logging.debug('Skip disk source %s for retrial request %s' % (source_rse,
+                                                                                          req['request_id']))
+                            continue
+
                     filtered_sources = [x for x in source['rses'][source_rse] if x.startswith('gsiftp')]
                     if not filtered_sources:
                         filtered_sources = source['rses'][source_rse]
