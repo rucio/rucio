@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
 from traceback import format_exc
@@ -23,7 +24,7 @@ from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, Da
 from rucio.common.replicas_selector import random_order, geoIP_order
 
 
-from rucio.common.utils import generate_http_error, parse_response
+from rucio.common.utils import generate_http_error, parse_response, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
 
 urls = ('/list/?$', 'ListReplicas',
@@ -124,7 +125,7 @@ class Replicas(RucioController):
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx+1) + '">' + replica + '</url>\n'
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break
@@ -278,6 +279,7 @@ class ListReplicas(RucioController):
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability = False
+        all_states = False
         json_data = data()
         try:
             params = parse_response(json_data)
@@ -288,6 +290,8 @@ class ListReplicas(RucioController):
             if 'unavailable' in params:
                 unavailable = params['unavailable']
                 ignore_availability = True
+            if 'all_states' in params:
+                all_states = params['all_states']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -310,7 +314,7 @@ class ListReplicas(RucioController):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
-            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id'), ignore_availability=ignore_availability):
+            for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id'), ignore_availability=ignore_availability, all_states=all_states):
                 client_ip = ctx.get('ip')
                 replicas = []
                 dictreplica = {}
@@ -323,7 +327,7 @@ class ListReplicas(RucioController):
                 else:
                     replicas = random_order(dictreplica, client_ip)
                 if metalink is None:
-                    yield dumps(rfile) + '\n'
+                    yield dumps(rfile, cls=APIEncoder) + '\n'
                 elif metalink == 3:
                     idx = 0
                     yield ' <file name="' + rfile['name'] + '">\n  <resources>\n'
@@ -343,7 +347,7 @@ class ListReplicas(RucioController):
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx+1) + '">' + replica + '</url>\n'
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break

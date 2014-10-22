@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from rucio.api import permission
 from rucio.core import replica
@@ -40,7 +41,7 @@ def get_did_from_pfns(pfns, rse):
     return replica.get_did_from_pfns(pfns=pfns, rse=rse)
 
 
-def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore_availability=True):
+def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=False):
     """
     List file replicas for a list of data identifiers.
 
@@ -48,9 +49,10 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
     :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
     :param unavailable: Also include unavailable replicas in the list.
     :param request_id: ID associated with the request for debugging.
+    :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     """
     validate_schema(name='r_dids', obj=dids)
-    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=request_id, ignore_availability=ignore_availability)
+    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=request_id, ignore_availability=ignore_availability, all_states=all_states)
 
 
 def add_replicas(rse, files, issuer, ignore_availability=False):

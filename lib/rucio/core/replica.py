@@ -11,6 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from datetime import datetime
 from re import match
@@ -152,7 +153,7 @@ def get_did_from_pfns(pfns, rse, session=None):
 
 
 @stream_session
-def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore_availability=True, session=None):
+def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=False, session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -161,6 +162,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
     :param unavailable: Also include unavailable replicas in the list.
     :param request_id: ID associated with the request for debugging.
     :param ignore_availability: Ignore the RSE blacklisting.
+    :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
     :param session: The database session in use.
     """
     # Get the list of files
@@ -169,11 +171,15 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
     # remove duplicate did from the list
     for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
         if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):
-            if not unavailable:
-                condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+            if all_states:
+                condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'])
             else:
-                condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
-            replicas['%s:%s' % (did['scope'], did['name'])] = {'scope': did['scope'], 'name': did['name'], 'rses': {}, 'replicas': []}
+                if not unavailable:
+                    condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                else:
+                    condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'],
+                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+            replicas['%s:%s' % (did['scope'], did['name'])] = {'scope': did['scope'], 'name': did['name'], 'rses': {}}
             replica_conditions.append(condition)
         else:
             did_conditions.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
@@ -182,13 +188,16 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
         # Get files
         for scope, name, did_type in session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter(or_(*did_conditions)):
             if did_type == DIDType.FILE:
-                replicas['%s:%s' % (scope, name)] = {'scope': scope, 'name': name, 'rses': {}, 'replicas': []}
-                if not unavailable:
-                    condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
-                                     models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                replicas['%s:%s' % (scope, name)] = {'scope': scope, 'name': name, 'rses': {}}
+                if all_states:
+                    condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name)
                 else:
-                    condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
-                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+                    if not unavailable:
+                        condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                         models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                    else:
+                        condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                                         or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
                 replica_conditions.append(condition)
             else:
                 # for dataset/container
@@ -198,14 +207,17 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
                     s, n = child_dids.pop()
                     for tmp_did in content_query.filter_by(scope=s, name=n):
                         if tmp_did.child_type == DIDType.FILE:
-                            replicas['%s:%s' % (tmp_did.child_scope, tmp_did.child_name)] = {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'rses': {}, 'replicas': []}
-                            if not unavailable:
-                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
-                                                 models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                            replicas['%s:%s' % (tmp_did.child_scope, tmp_did.child_name)] = {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'rses': {}}
+                            if all_states:
+                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name)
                             else:
-                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
-                                                 or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                     models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+                                if not unavailable:
+                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
+                                                     models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                                else:
+                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
+                                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                                         models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
                             replica_conditions.append(condition)
                         else:
                             child_dids.append((tmp_did.child_scope, tmp_did.child_name))
@@ -222,13 +234,14 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
                                         models.RSEFileAssociation.md5,
                                         models.RSEFileAssociation.adler32,
                                         models.RSEFileAssociation.path,
+                                        models.RSEFileAssociation.state,
                                         models.RSE.rse),
                                whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, or_(*replica_condition)),
                                order_by=(models.RSEFileAssociation.scope, models.RSEFileAssociation.name)).\
             with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
             compile()
         # models.RSE.availability.op(avail_op)(0x100) != 0
-        for scope, name, bytes, md5, adler32, path, rse in session.execute(replica_query.statement, replica_query.params).fetchall():
+        for scope, name, bytes, md5, adler32, path, state, rse in session.execute(replica_query.statement, replica_query.params).fetchall():
             if not key:
                 key = '%s:%s' % (scope, name)
             elif key != '%s:%s' % (scope, name):
@@ -244,6 +257,10 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
             if rse not in replicas[key]['rses']:
                 replicas[key]['rses'][rse] = []
 
+            if all_states:
+                if 'states' not in replicas[key]:
+                    replicas[key]['states'] = {}
+                replicas[key]['states'][rse] = state
             # get protocols
             if rse not in tmp_protocols:
                 protocols = list()
