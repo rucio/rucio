@@ -9,13 +9,14 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import xmltodict
 
 from datetime import datetime
 from nose.tools import assert_equal, assert_in, assert_raises
 
-from rucio.db.constants import DIDType
+from rucio.db.constants import DIDType, ReplicaState
 from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
@@ -24,7 +25,7 @@ from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter,\
-    get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths
+    get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths, update_replica_state
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -188,6 +189,27 @@ class TestReplicaCore:
         touch_replicas(replicas=[{'scope': f['scope'], 'name': f['name'], 'rse': 'MOCK'} for f in files])
         now = datetime.utcnow()
         touch_replicas(replicas=[{'scope': f['scope'], 'name': f['name'], 'rse': 'MOCK', 'acessed_at': now} for f in files])
+
+    def test_list_replicas_all_states(self):
+        """ REPLICA (CORE): list file replicas with all_states"""
+        tmp_scope = 'mock'
+        nbfiles = 13
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        rses = ['MOCK', 'MOCK3']
+        for rse in rses:
+            add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
+
+        for file in files:
+            update_replica_state('MOCK', tmp_scope, file['name'], ReplicaState.COPYING)
+
+        replica_cpt = 0
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
+            assert_in('states', replica)
+            assert_equal(replica['states']['MOCK'], ReplicaState.COPYING)
+            assert_equal(replica['states']['MOCK3'], ReplicaState.AVAILABLE)
+            replica_cpt += 1
+
+        assert_equal(nbfiles, replica_cpt)
 
 
 class TestReplicaClients:
