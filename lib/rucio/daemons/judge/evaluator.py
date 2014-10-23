@@ -21,6 +21,7 @@ import traceback
 from re import match
 
 from sqlalchemy.exc import DatabaseError
+from sqlalchemy.orm.exc import FlushError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
@@ -81,7 +82,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                         delete_updated_did(id=did.id)
                     except DataIdentifierNotFound, e:
                         delete_updated_did(id=did.id)
-                    except (DatabaseException, DatabaseError). e:
+                    except (DatabaseException, DatabaseError), e:
                         if isinstance(e.args[0], tuple):
                             if match('.*ORA-00054.*', e.args[0][0]):
                                 logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
@@ -95,6 +96,10 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                     except ReplicationRuleCreationTemporaryFailed, e:
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
                         logging.warning('re_evaluator[%s/%s]: Replica Creation temporary failed, retrying later for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
+                    except FlushError, e:
+                        record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                        logging.critical('re_evaluator[%s/%s]: Flush error for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
+                        logging.critical(traceback.format_exc())
                 record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
