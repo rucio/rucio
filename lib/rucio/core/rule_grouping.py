@@ -419,7 +419,6 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
-                                                                  source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
@@ -494,7 +493,6 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
-                                                                  source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
@@ -577,7 +575,6 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
                                                                   rule=rule,
-                                                                  source_rses=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id in source_rses],
                                                                   transfers_to_create=transfers_to_create)
                 else:
                     blacklist_rses = [bl_lock.rse_id for bl_lock in locks[(file['scope'], file['name'])] if bl_lock.rule_id == rule.id]
@@ -834,14 +831,13 @@ def __create_replica(rse_id, scope, name, bytes, state, md5, adler32):
     return new_replica
 
 
-def __update_lock_replica_and_create_transfer(lock, replica, rule, source_rses, transfers_to_create):
+def __update_lock_replica_and_create_transfer(lock, replica, rule, transfers_to_create):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
     :param lock:                 The lock to update.
     :param replica:              The replica to update.
     :param rule:                 Rule to update.
-    :param source_rses:          RSE ids of eglible source replicas.
     :param transfers_to_create:  List of transfers to create.
     :attention:                  This method modifies the contents of the transfers_to_create input parameters.
     """
