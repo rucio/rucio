@@ -26,7 +26,7 @@ from rucio.common.config import config_get
 from rucio.common.utils import chunks
 from rucio.core import request
 from rucio.core.monitor import record_timer, record_counter
-from rucio.daemons.conveyor import common2
+from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -99,7 +99,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
                                 logging.critical("Failed to poll request(%s) with FTS(%s) job (%s): %s" % (request_id, external_host, external_id, responses[request_id]))
                                 record_counter('daemons.conveyor.poller.query_request_exception')
                                 response = {'new_state': None, 'request_id': request_id, 'transfer_id': external_id, 'job_state': None}
-                            common2.update_request_state(response)
+                            common.update_request_state(response)
                             record_counter('daemons.conveyor.poller.update_request_state')
                             if response['new_state'] == RequestState.LOST:
                                 record_counter('daemons.conveyor.poller.request_lost')
