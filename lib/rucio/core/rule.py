@@ -1194,11 +1194,11 @@ def __evaluate_did_attach(eval_did, session=None):
                             models.DataIdentifierAssociation.rule_evaluation == False).first()   # noqa
                         if brother_did is not None:
                             # There are other files in the dataset
-                            locks = rucio.core.lock.get_replica_locks(scope=brother_did.child_scope,
-                                                                      name=brother_did.child_name,
-                                                                      rule_id=rule.id,
-                                                                      session=session)
-                            preferred_rse_ids = [lock['rse_id'] for lock in locks]
+                            brother_locks = rucio.core.lock.get_replica_locks(scope=brother_did.child_scope,
+                                                                              name=brother_did.child_name,
+                                                                              rule_id=rule.id,
+                                                                              session=session)
+                            preferred_rse_ids = [lock['rse_id'] for lock in brother_locks if lock['rse_id'] in [rse['id'] for rse in rses]]
                     locks_stuck_before = rule.locks_stuck_cnt
                     try:
                         __create_locks_replicas_transfers(datasetfiles=datasetfiles,
