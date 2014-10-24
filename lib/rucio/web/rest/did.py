@@ -9,7 +9,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 
 from json import dumps, loads
@@ -459,6 +459,7 @@ class Meta(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            404 DataIdentifierNotFound
             500 InternalError
 
         :param scope: The scope name.
@@ -470,6 +471,8 @@ class Meta(RucioController):
         try:
             meta = get_metadata(scope=scope, name=name)
             return render_json(**meta)
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
