@@ -18,6 +18,7 @@ from sqlalchemy.sql.expression import and_, or_
 import rucio.core.rule
 
 from rucio.common.config import config_get
+from rucio.core.rse import get_rse_name
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping
 from rucio.db.session import read_session, transactional_session
@@ -100,12 +101,11 @@ def get_replica_locks(scope, name, nowait=False, restrict_rses=None, session=Non
 
 
 @read_session
-def get_replica_locks_for_rule(rule_id, lockmode, session=None):
+def get_replica_locks_for_rule_id(rule_id, session=None):
     """
-    Get the active replica locks for a file
+    Get the active replica locks for a rule_id
 
     :param rule_id:        Filter on rule_id.
-    :param lockmode:       The lockmode to be used by the session.
     :param session:        The db session.
     :return:               List of dicts {'scope':, 'name':, 'rse': ..., 'state': ...}
     :raises:               NoResultFound
@@ -114,10 +114,13 @@ def get_replica_locks_for_rule(rule_id, lockmode, session=None):
     locks = []
 
     query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
-    if lockmode is not None:
-        query = query.with_lockmode(lockmode)
     for row in query:
-        locks.append({'scope': row.scope, 'name': row.name, 'rse_id': row.rse_id, 'state': row.state, 'rule_id': row.rule_id})
+        locks.append({'scope': row.scope,
+                      'name': row.name,
+                      'rse_id': row.rse_id,
+                      'rse': get_rse_name(rse_id=row.rse_id, session=session),
+                      'state': row.state,
+                      'rule_id': row.rule_id})
 
     return locks
 
