@@ -15,11 +15,12 @@ from traceback import format_exc
 
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
+from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
-from rucio.common.utils import generate_http_error, render_json
+from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
 logger = getLogger("rucio.rule")
@@ -27,7 +28,8 @@ sh = StreamHandler()
 sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
-urls = ('/', 'Rule',
+urls = ('/(.+)/locks', 'ReplicaLocks',
+        '/', 'Rule',
         '/(.+)', 'Rule',)
 
 
@@ -189,6 +191,32 @@ class Rule:
             raise InternalError(e)
         raise OK()
 
+
+class ReplicaLocks:
+    """ REST APIs for replica locks. """
+
+    def GET(self, rule_id):
+        """ get locks for a given rule_id.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+
+        :returns: JSON dict containing informations about the requested user.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            locks = get_replica_locks_for_rule_id(rule_id)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
+
+        for lock in locks:
+            yield dumps(locks, cls=APIEncoder) + '\n'
 
 """----------------------
    Web service startup
