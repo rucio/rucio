@@ -216,7 +216,7 @@ class ReplicaLocks:
             raise InternalError(e)
 
         for lock in locks:
-            yield dumps(locks, cls=APIEncoder) + '\n'
+            yield dumps(lock, cls=APIEncoder) + '\n'
 
 """----------------------
    Web service startup
