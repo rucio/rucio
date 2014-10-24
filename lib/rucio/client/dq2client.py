@@ -47,8 +47,13 @@ def validate_time_formats(time_string):
 
 def extract_scope(dsn):
     # Try to extract the scope from the DSN
+    client = Client()
     if dsn.find(':') > -1:
-        return dsn.split(':')[0], dsn.split(':')[1]
+        scope = dsn.split(':')[0]
+        if scope in client.list_scopes():
+            return scope, dsn.split(':')[1]
+        else:
+            raise ScopeNotFound('%s is not a valid scope' % scope)
     else:
         scope = dsn.split('.')[0]
         if dsn.startswith('user') or dsn.startswith('group'):
@@ -56,9 +61,8 @@ def extract_scope(dsn):
         if scope.find('*') > -1:
             if scope.endswith('*'):
                 scope = scope.rstrip('*')
-            client = Client()
-            if scope not in client.list_scopes():
-                raise ScopeNotFound('%s is not a valid scope' % scope)
+        if scope not in client.list_scopes():
+            raise ScopeNotFound('%s is not a valid scope' % scope)
         return scope, dsn
 
 
@@ -370,7 +374,8 @@ class DQ2Client:
         """
         result = {}
         metadata = self.client.get_metadata(scope=scope, name=dsn)
-        metadata_mapping = {'owner': 'account', 'creationdate': 'created_at', 'deleteddate': 'deleted_at', 'lifetime': 'expired_at', 'hidden': 'hidden', 'versioncreationdate': 'created_at'}
+        metadata_mapping = {'owner': 'account', 'creationdate': 'created_at', 'deleteddate': 'deleted_at', 'lifetime': 'expired_at', 'hidden': 'hidden', 'versioncreationdate': 'created_at',
+                            'events': 'events', 'lumiblocknr': 'lumiblocknr'}
         metadata_static = {'latestversion': 1, 'lastoperationdn': None, 'lastoperationip': None, 'closeddate': None, 'frozendate': None, 'freezingdate': None, 'group': None, 'provenance': None,
                            'version': 1, 'origin': None, 'physicsgroup': None, 'temperature': None, 'tier0state': None, 'tier0type': None}
         for key in attributes:
@@ -635,12 +640,13 @@ class DQ2Client:
         if not match:
             filters = {'name': dsn}
             result = {}
-            for dsn in self.client.list_dids(scope, filters, type='dataset'):
-                vuid = hashlib.md5(scope+':'+dsn).hexdigest()
+            scope, dataset = extract_scope(dsn)
+            for name in self.client.list_dids(scope, filters, type='dataset'):
+                vuid = hashlib.md5(scope+':'+name).hexdigest()
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 duid = vuid
-                if dsn not in result:
-                    result['%s:%s' % (scope, dsn)] = {'duid': duid, 'vuids': [vuid]}
+                if name not in result:
+                    result['%s:%s' % (scope, name)] = {'duid': duid, 'vuids': [vuid]}
             return result
         else:
             raise InputValidationError
@@ -678,17 +684,14 @@ class DQ2Client:
         result = {}
         filters = {}
         if (scope is None) and 'name' in metaDataAttributes:
-            try:
-                scope, dsn = extract_scope(metaDataAttributes['name'])
-            except ScopeNotFound:
-                return result
+            scope, dsn = extract_scope(metaDataAttributes['name'])
             type = 'collection'
             metadata = ['state', 'type', 'name']
             for key in metaDataAttributes:
                 if key not in metadata:
                     raise InvalidMetadata
                 if key == 'name':
-                    filters['name'] = metaDataAttributes[key]
+                    filters['name'] = dsn
                 elif key == 'state':
                     if metaDataAttributes[key] == 0:
                         filters['is_open'] = 1
@@ -1382,7 +1385,7 @@ class DQ2Client:
             dsns.append(dsn)
         self.client.add_datasets_to_container(scope=scope, name=name, dsns=dsns)
 
-    def registerFilesInDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None, rse=None, pfns=[]):
+    def registerFilesInDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None, rse=None, pfns=[], events=[], lumiblocknrs=[]):
         """
         ToDo-->KuoHao
 
@@ -1397,6 +1400,9 @@ class DQ2Client:
         @param ignore: is a boolean to ignore errors.
         @param scope: is the dataset scope.
         @param rse: is the rse.
+        @param pfns: is a list of PFN.
+        @param events: is a list of number of events.
+        @param lumiblocknrs: is a list of lumiblocks.
 
         """
         result = {}
@@ -1408,6 +1414,10 @@ class DQ2Client:
         # merge lfn, guid, size, checksum into rucio file format
         files = []
         index = 0
+        if (events != [] and len(events) != len(lfns)):
+            raise Exception('events must be provided for every files')
+        if (lumiblocknrs != [] and len(lumiblocknrs) != len(lumiblocknrs)):
+            raise Exception('lumiblocknrs must be provided for every files')
         for lfn, guid, size, checksum in zip(lfns, guids, sizes, checksums):
             if lfn.find(':') > -1:
                 s, lfn = lfn.split(':')[0], lfn.split(':')[1]
@@ -1418,6 +1428,10 @@ class DQ2Client:
                 file = {'scope': s, 'name': lfn, 'bytes': size, 'meta': {'guid': guid}, 'pfn': pfn}
             except IndexError:
                 file = {'scope': s, 'name': lfn, 'bytes': size, 'meta': {'guid': guid}}
+            if events != []:
+                file['meta']['events'] = events[index]
+            if lumiblocknrs != []:
+                file['meta']['lumiblocknrs'] = lumiblocknrs[index]
             if checksum.startswith('md5:'):
                 file['md5'] = checksum[4:]
             elif checksum.startswith('ad:'):
@@ -1471,7 +1485,7 @@ class DQ2Client:
             vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
             result[vuid] = None
             # get file information
-            lfns, guids, sizes, checksums, pfns = [], [], [], [], []
+            lfns, guids, sizes, checksums, pfns, events, lumiblocknrs = [], [], [], [], [], [], []
             for file in datasets[dataset]:
                 guids.append(file['guid'])
                 sizes.append(file['size'])
@@ -1485,10 +1499,14 @@ class DQ2Client:
                         lfns.append('%s:%s' % (scope, file['lfn']))
                 else:
                     lfns.append('%s:%s' % (file['scope'], file['lfn']))
+                if 'events' in file:
+                    events.append(file['events'])
+                if 'lumiblocknrs' in file:
+                    events.append(file['lumiblocknrs'])
 
-            self.registerFilesInDataset(dsn, lfns=lfns, guids=guids, sizes=sizes, checksums=checksums, ignore=False, scope=scope, rse=rse, pfns=pfns)
+            self.registerFilesInDataset(dsn, lfns=lfns, guids=guids, sizes=sizes, checksums=checksums, ignore=False, scope=scope, rse=rse, pfns=pfns, events=events, lumiblocknrs=lumiblocknrs)
 
-    def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, scope=None, rse=None):
+    def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, scope=None, rse=None, pfns=[], events=[], lumiblocknrs=[]):
         """
         Register a brand new dataset and associated files (lists of lfns and guids).
         @since: 0.2.0
@@ -1508,6 +1526,9 @@ class DQ2Client:
         @param hidden: hidden dataset.
         @param scope: is the dataset scope.
         @param rse: is the location of the files if lfns is not empty.
+        @param pfns: is a list of PFN.
+        @param events: is a list of number of events.
+        @param lumiblocknrs: is a list of lumiblocks.
 
 
         B{Exceptions:}
@@ -1521,6 +1542,7 @@ class DQ2Client:
         """
         self.client.add_dataset(scope=scope, name=dsn)
         if lfns:
+            index = 0
             files = []
             for lfn, guid, size, checksum in zip(lfns, guids, sizes, checksums):
                 if lfn.find(':') > -1:
@@ -1532,6 +1554,13 @@ class DQ2Client:
                     file['md5'] = checksum[4:]
                 elif checksum.startswith('ad:'):
                     file['adler32'] = checksum[3:]
+                if pfns != []:
+                    file['pfn'] = pfns[index]
+                if events != []:
+                    file['meta']['events'] = events[index]
+                if lumiblocknrs != []:
+                    file['meta']['lumiblocknrs'] = lumiblocknrs[index]
+                index += 1
                 files.append(file)
             try:
                 self.client.add_files_to_dataset(scope=scope, name=dsn, files=files, rse=rse)
@@ -1734,9 +1763,9 @@ class DQ2Client:
                 in case there is no dataset with the given name.
 
         """
-        metadata_mapping = {'owner': 'account', 'lifetime': 'expired_at', 'hidden': 'hidden'}
+        metadata_mapping = {'owner': 'account', 'lifetime': 'expired_at', 'hidden': 'hidden', 'events': 'events', 'lumiblocknr': 'lumiblocknr'}
         if attrname in metadata_mapping:
-            self.client.set_metadata(scope=scope, name=dsn, key=attrname, value=attrvalue)
+            return self.client.set_metadata(scope=scope, name=dsn, key=attrname, value=attrvalue)
         raise InvalidMetadata('%s is not a valid DQ2 metadata' % (attrname))
 
     def setReplicaMetaDataAttribute(self, dsn, location, attrname, attrvalue, scope=None):
