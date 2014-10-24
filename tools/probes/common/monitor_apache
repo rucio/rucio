@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2014
+
+import datetime
+import logging
+import requests
+import sys
+
+from sys import stdout
+
+
+HAP_UNIX_SOCKET = '/var/run/haproxy_admin.sock'
+
+logging.basicConfig(stream=stdout,
+                    level=logging.DEBUG,
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        logging.error('No server URI given, e.g. http://rucio-server-prod-01.cern.ch.')
+        sys.exit(1)
+
+    fqdn = sys.argv[1]
+    logging.info('Requesting status from Apache running on %s' % fqdn)
+
+    response = requests.get(fqdn+'/server-status?auto')
+    if response.status_code != 200:
+        logging.error('Invalid HTTP status code')
+        logging.error(response)
+
+    text = response.text.split('\n')
+    # Total Accesses: 2975146
+    # Total kBytes: 14555116
+    # CPULoad: .601986
+    # Uptime: 111858
+    # ReqPerSec: 26.5975
+    # BytesPerSec: 133244
+    # BytesPerReq: 5009.65
+    # BusyWorkers: 23
+    # IdleWorkers: 7
+
+    stat = dict()
+    for i in range(9):
+        tmp = text[i].split(': ')
+        stat[tmp[0].replace(' ', '_')] = tmp[1]
+    fqdn = fqdn.split('//')[1].split('.')[0]
+    xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
+    xml_str += '<id>%s.httpd</id>' % fqdn
+    avail = 100 / (int(stat['BusyWorkers']) + int(stat['IdleWorkers'])) * int(stat['IdleWorkers'])
+    xml_str += '<availability>%s</availability>' % avail
+    xml_str += '<availabilityinfo>%s of %s worker processes idel.</availabilityinfo>' % ((int(stat['BusyWorkers']) + int(stat['IdleWorkers'])), int(stat['IdleWorkers']))
+    xml_str += '<timestamp>%s</timestamp>' % (datetime.datetime.now().isoformat().split('.')[0])
+    xml_str += '<data>'
+    xml_str += '<grp name="%s.httpd">' % fqdn
+    for s in stat:
+        xml_str += '<numericvalue name="%s.httpd.%s" desc="#">%s</numericvalue>' % (fqdn, s,  stat[s])
+    xml_str += '</grp>'
+    xml_str += '</data>'
+    xml_str += '</serviceupdate>'
+    logging.debug(xml_str)
+    r = requests.post('http://xsls.cern.ch', files={'file': xml_str})
+    sys.exit(not(r.status_code == 200))
