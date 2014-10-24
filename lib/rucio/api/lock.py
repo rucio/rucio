@@ -33,3 +33,14 @@ def get_dataset_locks_by_rse(rse):
 
     rse_id = get_rse_id(rse=rse)
     return lock.get_dataset_locks_by_rse_id(rse_id=rse_id)
+
+
+def get_replica_locks_for_rule_id(rule_id):
+    """
+    Get the replica locks for a rule_id.
+
+    :param rule_id:     Rule ID.
+    :return:            List of dicts.
+    """
+
+    return lock.get_replica_locks_for_rule_id(rule_id=rule_id)
