@@ -75,6 +75,7 @@ def has_permission(issuer, action, kwargs):
             'attach_dids': perm_attach_dids,
             'detach_dids': perm_detach_dids,
             'attach_dids_to_dids': perm_attach_dids_to_dids,
+            'set_metadata': perm_set_metadata,
             'set_status': perm_set_status,
             'queue_requests': perm_queue_requests,
             'submit_deletion': perm_submit_transfer,
@@ -350,6 +351,17 @@ def perm_detach_dids(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return perm_attach_dids(issuer, kwargs)
+
+
+def perm_set_metadata(issuer, kwargs):
+    """
+    Checks if an account can set a metadata on a data identifier.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
 def perm_set_status(issuer, kwargs):
