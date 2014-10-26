@@ -85,6 +85,7 @@ class Consumer(object):
                             'md5': msg['job_metadata'].get('md5', None),
                             'filesize': msg['job_metadata'].get('filesize', None),
                             'external_host': msg.get('endpnt', None),
+                            'job_m_replica': msg.get('job_m_replica', None),
                             'details': {'files': msg['job_metadata']}}
 
                 record_counter('daemons.conveyor.consumer.message_rucio')
