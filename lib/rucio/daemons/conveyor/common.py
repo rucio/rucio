@@ -28,7 +28,7 @@ from rucio.common.exception import UnsupportedOperation
 from rucio.core import did, lock, replica, request, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
-from rucio.db.constants import RequestState, ReplicaState
+from rucio.db.constants import DIDType, RequestState, ReplicaState
 from rucio.db.session import transactional_session
 
 
@@ -238,6 +238,23 @@ def update_request_state(response, session=None):
     return True
 
 
+def get_source_rse(scope, name, src_url):
+    try:
+        scheme = src_url.split(":")[0]
+        replications = replica.list_replicas([{'scope': scope, 'name': name, 'type': DIDType.FILE}], schemes=[scheme], unavailable=True)
+        for source in replications:
+            for source_rse in source['rses']:
+                for pfn in source['rses'][source_rse]:
+                    if pfn == src_url:
+                        return source_rse
+        # cannot find matched surl
+        logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
+        return None
+    except:
+        logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
+        return None
+
+
 @transactional_session
 def add_monitor_message(response, session=None):
     if response['new_state'] == RequestState.DONE:
@@ -258,6 +275,18 @@ def add_monitor_message(response, session=None):
     filesize = response.get('filesize', None)
     md5 = response.get('md5', None)
     adler32 = response.get('adler32', None)
+    scope = response.get('scope', None)
+    name = response.get('name', None)
+    job_m_replica = response.get('job_m_replica', None)
+    if job_m_replica and str(job_m_replica) == str('true'):
+        try:
+            rse_name = get_source_rse(scope, name, src_url)
+        except:
+            logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
+            rse_name = None
+        if rse_name and rse_name != src_rse:
+            src_rse = rse_name
+            logging.info('find RSE: %s for source surl: %s' % (src_rse, src_url))
 
     add_message(transfer_status, {'activity': activity,
                                   'request-id': response['request_id'],
