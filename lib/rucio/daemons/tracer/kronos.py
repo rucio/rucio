@@ -14,6 +14,7 @@ This daemon consumes tracer messages from ActiveMQ and updates the atime for rep
 
 from datetime import datetime
 import logging
+from ssl import PROTOCOL_TLSv1
 from sys import stdout
 from threading import Event, Thread
 from time import sleep, time
@@ -164,7 +165,7 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1):
         if not use_ssl:
             conns.append(Connection(host_and_ports=[hap], use_ssl=False))
         else:
-            conns.append(Connection(host_and_ports=[hap], use_ssl=True, ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'), ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file')))
+            conns.append(Connection(host_and_ports=[hap], use_ssl=True, ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'), ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'), ssl_version=PROTOCOL_TLSv1))
 
     logging.info('tracer consumer started')
 
