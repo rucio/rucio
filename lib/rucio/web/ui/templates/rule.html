@@ -12,7 +12,7 @@
 -->
 
 $var title: Rule
-$var script: <script src="/static/rule.js"></script>
+$var script: <script src="/static/rule.js"></script><script src="https://code.highcharts.com/highcharts.js"></script><script src="https://code.highcharts.com/modules/exporting.js"></script>
 
 <div id="result" class="row" data-equalizer>
 
@@ -22,6 +22,14 @@ $var script: <script src="/static/rule.js"></script>
     </table>
   </div>
 
+  <div id="locks" class="columns panel">
+    <h4>Locks Overview per RSE</h4>
+    <div id="show_locks">Please click to show locks</div>
+    <div id="rseplot"></div>
+    <div id="locks_details">
+
+    </div>
+  </div>
 </div>
 
 <div id="problem_details" style="margin: 2em;"></div>
