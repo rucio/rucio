@@ -75,6 +75,11 @@ def queue_requests(requests, session=None):
 
     try:
         for req in requests:
+            if isinstance(req['attributes'], (str, unicode)):
+                req['attributes'] = json.loads(req['attributes'])
+                if isinstance(req['attributes'], (str, unicode)):
+                    req['attributes'] = json.loads(req['attributes'])
+
             new_request = models.Request(request_type=req['request_type'],
                                          scope=req['scope'],
                                          name=req['name'],
