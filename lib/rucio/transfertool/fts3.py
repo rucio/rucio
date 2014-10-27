@@ -225,14 +225,25 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
     :param fts_files_response: FTS3 files query response.
     :returns: formatted response.
     """
+    last_src_file = 0
+    for i in range(len(fts_files_response)):
+        if fts_files_response[i]['file_state'] != 'NOT_USED':
+            last_src_file = i
+
+    # for multiple sources, if not only the first source is used, we need to mark job_m_replica,
+    # then conveyor.common.add_monitor_message will correct the src_rse
+    job_m_replica = 'false'
+    if last_src_file > 0:
+        job_m_replica = 'true'
+
     response = {'new_state': None,
                 'transfer_id': fts_job_response.get('job_id'),
                 'job_state': fts_job_response.get('job_state', None),
-                'src_url': fts_files_response[0].get('source_surl', None),
-                'dst_url': fts_files_response[0].get('dest_surl', None),
-                'duration': (datetime.datetime.strptime(fts_files_response[0]['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                             datetime.datetime.strptime(fts_files_response[0]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds,
-                'reason': fts_files_response[0].get('reason', None),
+                'src_url': fts_files_response[last_src_file].get('source_surl', None),
+                'dst_url': fts_files_response[last_src_file].get('dest_surl', None),
+                'duration': (datetime.datetime.strptime(fts_files_response[last_src_file]['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                             datetime.datetime.strptime(fts_files_response[last_src_file]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds,
+                'reason': fts_files_response[last_src_file].get('reason', None),
                 'scope': fts_job_response['job_metadata'].get('scope', None),
                 'name': fts_job_response['job_metadata'].get('name', None),
                 'src_rse': fts_job_response['job_metadata'].get('src_rse', None),
@@ -245,6 +256,7 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
                 'md5': fts_job_response['job_metadata'].get('md5', None),
                 'filesize': fts_job_response['job_metadata'].get('filesize', None),
                 'external_host': transfer_host.split("//")[1].split(":")[0],
+                'job_m_replica': job_m_replica,
                 'details': {'files': fts_job_response['job_metadata']}}
     return response
 
