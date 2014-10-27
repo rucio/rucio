@@ -409,6 +409,7 @@ CREATE TABLE dids (
     campaign VARCHAR2(50 CHAR),
     updated_at DATE,
     created_at DATE,
+    lumiblocknr NUMBER(10,0),
     CONSTRAINT "DIDS_PK" PRIMARY KEY (scope, name) USING INDEX COMPRESS 1,
     CONSTRAINT "DIDS_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT "DIDS_SCOPE_FK" FOREIGN KEY(scope) REFERENCES scopes (scope),
