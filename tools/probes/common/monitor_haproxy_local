@@ -21,66 +21,66 @@ from sys import stdout
 
 HAP_UNIX_SOCKET = '/var/run/haproxy_admin.sock'
 
-descriptions = {'qcur': 'current queued requests. For the backend this reports thevnumber queued without a server assigned.',
-                'qmax': 'max value of qcur',
-                'scur': 'current sessions',
-                'smax': 'max sessions',
-                'slim': 'configured session limit',
-                'stot': 'cumulative number of connections',
-                'bin': 'bytes in',
-                'bout': 'bytes out',
-                'dreq': 'requests denied because of security concerns.',
-                'dresp': 'responses denied because of security concerns.',
-                'ereq': 'request errors. Some of the possible causes are:',
-                'econ': 'number of requests that encountered an error trying to connect to a backend server. The backend stat is the sum of the stat for all servers of that backend, plus any connection errors not associated with a particular server',
-                'eresp': 'response errors. srv_abrt will be counted here also.',
-                'wretr': 'number of times a connection to a server was retried.',
-                'wredis': 'number of times a request was redispatched to another server. The server value counts the number of times that server was switched away from.',
-                'status': 'status (UP/DOWN/NOLB/MAINT/MAINT(via)...)',
-                'weight': 'server weight (server), total weight (backend)',
-                'act': 'server is active (server), number of active servers (backend)',
-                'bck': 'server is backup (server), number of backup servers (backend)',
-                'chkfail': 'number of failed checks. (Only counts checks failed when the server is up.)',
-                'chkdown': 'number of UP->DOWN transitions. The backend counter counts transitions to the whole backend being down, rather than the sum of the counters for each server.',
-                'lastchg': 'number of seconds since the last UP/DOWN transition',
-                'downtime': 'total downtime (in seconds). The value for the backend is the downtime for the whole backend, not the sum of the server downtime.',
-                'qlimit': 'configured maxqueue for the server, or nothing in the value is 0 (default, meaning no limit)',
-                'pid': 'process id (0 for first instance, 1 for second, ...)',
-                'iid': 'unique proxy id',
-                'sid': 'server id (unique inside a proxy)',
-                'throttle': 'current throttle percentage for the server, when slowstart is active, or no value if not in slowstart.',
-                'lbtot': 'total number of times a server was selected, either for new sessions, or when re-dispatching. The server counter is the number of times that server was selected.',
-                'tracked': 'id of proxy/server if tracking is enabled.',
-                'type': '(0=frontend, 1=backend, 2=server, 3=socket/listener)',
-                'rate': 'number of sessions per second over last elapsed second',
-                'rate_lim': 'configured limit on new sessions per second',
-                'rate_max': 'max number of new sessions per second',
-                'check_status': 'status of last health check, one of:',
-                'check_code': 'layer5-7 code, if available',
-                'check_duration': 'time in ms took to finish last health check',
-                'hrsp_1xx': 'http responses with 1xx code',
-                'hrsp_2xx': 'http responses with 2xx code',
-                'hrsp_3xx': 'http responses with 3xx code',
-                'hrsp_4xx': 'http responses with 4xx code',
-                'hrsp_5xx': 'http responses with 5xx code',
-                'hrsp_other': 'http responses with other codes (protocol error)',
-                'hanafail': 'failed health checks details',
-                'req_rate': 'HTTP requests per second over last elapsed second',
-                'req_rate_max': 'max number of HTTP requests per second observed',
-                'req_tot': 'total number of HTTP requests received',
-                'cli_abrt': 'number of data transfers aborted by the client',
-                'srv_abrt': 'number of data transfers aborted by the server (inc. in eresp)',
-                'comp_in': 'number of HTTP response bytes fed to the compressor',
-                'comp_out': 'number of HTTP response bytes emitted by the compressor',
-                'comp_byp': 'number of bytes that bypassed the HTTP compressor (CPU/BW limit)',
-                'comp_rsp': 'number of HTTP responses that were compressed',
-                'lastsess': 'number of seconds since last session assigned to server/backend',
-                'last_chk': 'last health check contents or textual error',
-                'last_agt': 'last agent check contents or textual error',
-                'qtime': 'the average queue time in ms over the 1024 last requests',
-                'ctime': 'the average connect time in ms over the 1024 last requests',
-                'rtime': 'the average response time in ms over the 1024 last requests (0 for TCP)',
-                'ttime': 'the average total session time in ms over the 1024 last requests'
+descriptions = {'qcur':             ('current queued requests. For the backend this reports thevnumber queued without a server assigned.', True),
+                'qmax':             ('max value of qcur', True),
+                'scur':             ('current sessions', True),
+                'smax':             ('max sessions', True),
+                'slim':             ('configured session limit', True),
+                'stot':             ('cumulative number of connections', True),
+                'bin':              ('bytes in', True),
+                'bout':             ('bytes out', True),
+                'dreq':             ('requests denied because of security concerns.', True),
+                'dresp':            ('responses denied because of security concerns.', True),
+                'ereq':             ('request errors. Some of the possible causes are:', True),
+                'econ':             ('number of requests that encountered an error trying to connect to a backend server. The backend stat is the sum of the stat for all servers of that backend, plus any connection errors not associated with a particular server', True),
+                'eresp':            ('response errors. srv_abrt will be counted here also.', True),
+                'wretr':            ('number of times a connection to a server was retried.', True),
+                'wredis':           ('number of times a request was redispatched to another server. The server value counts the number of times that server was switched away from.', True),
+                'status':           ('status (UP/DOWN/NOLB/MAINT/MAINT(via)...)', True),
+                'weight':           ('server weight (server), total weight (backend)', True),
+                'act':              ('server is active (server), number of active servers (backend)', True),
+                'bck':              ('server is backup (server), number of backup servers (backend)', True),
+                'chkfail':          ('number of failed checks. (Only counts checks failed when the server is up.)', True),
+                'chkdown':          ('number of UP->DOWN transitions. The backend counter counts transitions to the whole backend being down, rather than the sum of the counters for each server.', True),
+                'lastchg':          ('number of seconds since the last UP/DOWN transition', True),
+                'downtime':         ('total downtime (in seconds). The value for the backend is the downtime for the whole backend, not the sum of the server downtime.', True),
+                'qlimit':           ('configured maxqueue for the server, or nothing in the value is 0 (default, meaning no limit)', True),
+                'pid':              ('process id (0 for first instance, 1 for second, ...)', True),
+                'iid':              ('unique proxy id', True),
+                'sid':              ('server id (unique inside a proxy)', True),
+                'throttle':         ('current throttle percentage for the server, when slowstart is active, or no value if not in slowstart.', True),
+                'lbtot':            ('total number of times a server was selected, either for new sessions, or when re-dispatching. The server counter is the number of times that server was selected.', True),
+                'tracked':          ('id of proxy/server if tracking is enabled.', True),
+                'type':             ('(0=frontend, 1=backend, 2=server, 3=socket/listener)', True),
+                'rate':             ('number of sessions per second over last elapsed second', True),
+                'rate_lim':         ('configured limit on new sessions per second', True),
+                'rate_max':         ('max number of new sessions per second', True),
+                'check_status':     ('status of last health check, one of:', True),
+                'check_code':       ('layer5-7 code, if available', True),
+                'check_duration':   ('time in ms took to finish last health check', True),
+                'hrsp_1xx':         ('http responses with 1xx code', True),
+                'hrsp_2xx':         ('http responses with 2xx code', True),
+                'hrsp_3xx':         ('http responses with 3xx code', True),
+                'hrsp_4xx':         ('http responses with 4xx code', True),
+                'hrsp_5xx':         ('http responses with 5xx code', True),
+                'hrsp_other':       ('http responses with other codes (protocol error)', True),
+                'hanafail':         ('failed health checks details', True),
+                'req_rate':         ('HTTP requests per second over last elapsed second', True),
+                'req_rate_max':     ('max number of HTTP requests per second observed', True),
+                'req_tot':          ('total number of HTTP requests received', True),
+                'cli_abrt':         ('number of data transfers aborted by the client', True),
+                'srv_abrt':         ('number of data transfers aborted by the server (inc. in eresp)', True),
+                'comp_in':          ('number of HTTP response bytes fed to the compressor', True),
+                'comp_out':         ('number of HTTP response bytes emitted by the compressor', True),
+                'comp_byp':         ('number of bytes that bypassed the HTTP compressor (CPU/BW limit)', True),
+                'comp_rsp':         ('number of HTTP responses that were compressed', True),
+                'lastsess':         ('number of seconds since last session assigned to server/backend', True),
+                'last_chk':         ('last health check contents or textual error', True),
+                'last_agt':         ('last agent check contents or textual error', True),
+                'qtime':            ('the average queue time in ms over the 1024 last requests', True),
+                'ctime':            ('the average connect time in ms over the 1024 last requests', True),
+                'rtime':            ('the average response time in ms over the 1024 last requests (0 for TCP)', True),
+                'ttime':            ('the average total session time in ms over the 1024 last requests', True)
                 }
 
 logging.basicConfig(stream=stdout,
@@ -156,18 +156,19 @@ if __name__ == "__main__":
     stat = get_stats()  # Get information from 'show stat'
     fqdn = socket.getfqdn().split('.')[0]
     xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
-    xml_str += '<id>%s.haproxy</id>' % fqdn
+    xml_str += '<id>rucio.%s.haproxy</id>' % fqdn
     xml_str += '<availability>%s</availability>' % info['info.Idle_pct']
     xml_str += '<availabilityinfo>Process idles %s  pct. of the time.</availabilityinfo>' % info['info.Idle_pct']
     xml_str += '<timestamp>%s</timestamp>' % (datetime.datetime.now().isoformat().split('.')[0])
     xml_str += '<data>'
-    xml_str += '<grp name="info">' % fqdn
+    xml_str += '<grp name="info">'
     for i in info:
         xml_str += '<numericvalue name="%s.haproxy.%s" desc="#">%s</numericvalue>' % (fqdn, i, info[i])
     xml_str += '</grp>'
-    xml_str += '<grp name="stats">' % fqdn
+    xml_str += '<grp name="stats">'
     for s in stat:
-        xml_str += '<numericvalue name="%s.haproxy.%s" desc="%s">%s</numericvalue>' % (fqdn, s, descriptions[s.split('.')[-1]], stat[s])
+        if descriptions[s.split('.')[-1]][1]:
+            xml_str += '<numericvalue name="%s.haproxy.%s" desc="%s">%s</numericvalue>' % (fqdn, s, descriptions[s.split('.')[-1]][0], stat[s])
     xml_str += '</grp>'
     xml_str += '</data>'
     xml_str += '</serviceupdate>'
