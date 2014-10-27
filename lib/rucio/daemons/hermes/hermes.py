@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 """
 Hermes is a daemon to deliver messages to an asynchronous broker.
@@ -15,6 +16,7 @@ Hermes is a daemon to deliver messages to an asynchronous broker.
 import json
 import logging
 import random
+import ssl
 import sys
 import threading
 import time
@@ -57,7 +59,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
         conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
                                       use_ssl=True,
                                       ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
-                                      ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file')))
+                                      ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
+                                      ssl_version=ssl.PROTOCOL_TLSv1))
 
     logging.info('hermes started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
                                                                                 thread, total_threads,
