@@ -316,6 +316,7 @@ class DataIdentifier(BASE, ModelBase):
     campaign = Column(String(50))
     task_id = Column(Integer())
     panda_id = Column(Integer())
+    lumiblocknr = Column(Integer())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
