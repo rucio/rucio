@@ -62,7 +62,8 @@ if __name__ == '__main__':
         rses_total -= 1
         for p_id in repo_data[rse]['protocols']['supported']:
             try:
-                c.add_protocol(rse, repo_data[rse]['protocols']['supported'][p_id].update({'scheme': p_id}))
+                repo_data[rse]['protocols']['supported'][p_id].update({'scheme': p_id})
+                c.add_protocol(rse, repo_data[rse]['protocols']['supported'][p_id])
             except Duplicate:
                 pass
             except Exception:
