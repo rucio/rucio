@@ -355,9 +355,8 @@ def get_transfer(rse, req, scheme, mock):
         bring_online = 3600
 
     # exclude destination replica from source
-
     source_surls = [s[1] for s in sources]
-    if source_surls == destinations and copy_pin_lifetime:
+    if req['request_type'] == RequestType.STAGEIN and source_surls.sort() == destinations.sort():
         logging.debug('STAGING REQUEST %s - Will not try to ignore equivalent sources' % req['request_id'])
     else:
         new_sources = source_surls
@@ -367,6 +366,24 @@ def get_transfer(rse, req, scheme, mock):
                                                                      req['request_id']))
                 new_sources.remove(source_surl)
         source_surls = new_sources
+
+    # retrial transfers to tape need a new filename - add timestamp
+    if req['request_type'] == RequestType.TRANSFER\
+       and 'previous_attempt_id' in req\
+       and req['previous_attempt_id']\
+       and rse_core.get_rse(rse['rse']).rse_type == RSEType.TAPE:
+        destinations = ['%s_%i' % (dest, int(time.time())) for dest in destinations]
+
+        for dest in destinations:
+            replica.update_replicas_states([{'rse': rse['rse'],
+                                             'scope': req['scope'],
+                                             'name': req['name'],
+                                             'path': dest}])
+            logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
+                                                                                              req['scope'],
+                                                                                              req['name'],
+                                                                                              rse['rse'],
+                                                                                              dest))
 
     if not source_surls:
         logging.warn('All sources excluded - SKIP REQUEST %s' % req['request_id'])
