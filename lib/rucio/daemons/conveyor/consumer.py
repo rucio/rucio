@@ -137,7 +137,7 @@ def consumer(id, total_threads=1):
         conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-fts3', 'port'))],
                                       use_ssl=True,
                                       ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
-                                      ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file').
+                                      ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
                                       ssl_version=ssl.PROTOCOL_TLSv1))
 
     logging.info('consumer started')
