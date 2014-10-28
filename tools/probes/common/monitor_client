@@ -57,7 +57,7 @@ def test_quering_replicas_chuncked(file_list):
     return (time.time() - tick)/10
 
 def main():
-    f = open('/file/filelist')
+    f = open('/etc/filelist')
     for line in f:
         fl.append({'scope':line.split(':')[0], 'name':(line.split(':')[1])[:-1]})
 
