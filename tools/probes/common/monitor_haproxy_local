@@ -163,12 +163,12 @@ if __name__ == "__main__":
     xml_str += '<data>'
     xml_str += '<grp name="info">'
     for i in info:
-        xml_str += '<numericvalue name="%s.haproxy.%s" desc="#">%s</numericvalue>' % (fqdn, i, info[i])
+        xml_str += '<numericvalue name="rucio.%s.haproxy.%s" desc="#">%s</numericvalue>' % (fqdn, i, info[i])
     xml_str += '</grp>'
     xml_str += '<grp name="stats">'
     for s in stat:
         if descriptions[s.split('.')[-1]][1]:
-            xml_str += '<numericvalue name="%s.haproxy.%s" desc="%s">%s</numericvalue>' % (fqdn, s, descriptions[s.split('.')[-1]][0], stat[s])
+            xml_str += '<numericvalue name="rucio.%s.haproxy.%s" desc="%s">%s</numericvalue>' % (fqdn, s, descriptions[s.split('.')[-1]][0], stat[s])
     xml_str += '</grp>'
     xml_str += '</data>'
     xml_str += '</serviceupdate>'
