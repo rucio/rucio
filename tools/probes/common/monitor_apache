@@ -19,18 +19,15 @@ from sys import stdout
 HAP_UNIX_SOCKET = '/var/run/haproxy_admin.sock'
 
 logging.basicConfig(stream=stdout,
-                    level=logging.DEBUG,
+                    level=logging.ERROR,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        logging.error('No server URI given, e.g. http://rucio-server-prod-01.cern.ch.')
-        sys.exit(1)
 
-    fqdn = sys.argv[1]
+def monitor_apache(uri):
+    fqdn = uri
     logging.info('Requesting status from Apache running on %s' % fqdn)
 
-    response = requests.get(fqdn+'/server-status?auto')
+    response = requests.get(fqdn+'/server-status?auto', verify='/etc/pki/tls/certs/CERN-bundle.pem')
     if response.status_code != 200:
         logging.error('Invalid HTTP status code')
         logging.error(response)
@@ -52,18 +49,29 @@ if __name__ == "__main__":
         stat[tmp[0].replace(' ', '_')] = tmp[1]
     fqdn = fqdn.split('//')[1].split('.')[0]
     xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
-    xml_str += '<id>%s.httpd</id>' % fqdn
+    xml_str += '<id>rucio.%s.httpd</id>' % fqdn
     avail = 100 / (int(stat['BusyWorkers']) + int(stat['IdleWorkers'])) * int(stat['IdleWorkers'])
     xml_str += '<availability>%s</availability>' % avail
     xml_str += '<availabilityinfo>%s of %s worker processes idel.</availabilityinfo>' % ((int(stat['BusyWorkers']) + int(stat['IdleWorkers'])), int(stat['IdleWorkers']))
     xml_str += '<timestamp>%s</timestamp>' % (datetime.datetime.now().isoformat().split('.')[0])
     xml_str += '<data>'
-    xml_str += '<grp name="%s.httpd">' % fqdn
     for s in stat:
-        xml_str += '<numericvalue name="%s.httpd.%s" desc="#">%s</numericvalue>' % (fqdn, s,  stat[s])
-    xml_str += '</grp>'
+        xml_str += '<numericvalue name="rucio.%s.httpd.%s" desc="#">%s</numericvalue>' % (fqdn, s,  stat[s])
     xml_str += '</data>'
     xml_str += '</serviceupdate>'
     logging.debug(xml_str)
     r = requests.post('http://xsls.cern.ch', files={'file': xml_str})
-    sys.exit(not(r.status_code == 200))
+    return r.status_code
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        logging.error('No server URI(s) given, e.g. http://rucio-server-prod-01.cern.ch http://rucio-server-prod-02.cern.ch')
+        sys.exit(1)
+
+    success = True
+    for uri in sys.argv[1:]:
+        sc = monitor_apache(uri)
+        if sc != 200:
+            success = False
+
+    sys.exit(success)
