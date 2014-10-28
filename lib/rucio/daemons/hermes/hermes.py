@@ -96,7 +96,7 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                     logging.warn('Cannot serialize payload to JSON: %s' % str(t['payload']))
                     continue
                 except Exception, e:
-                    logging.warn('Could not deliver message: ' % str(e))
+                    logging.warn('Could not deliver message: %s' % str(e))
                     continue
 
                 to_delete.append(t['id'])
