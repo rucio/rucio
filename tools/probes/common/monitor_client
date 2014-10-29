@@ -67,18 +67,17 @@ def main():
     readtime = test_read_big_dataset()
     querytime = test_quering_replicas_chuncked(fl)
 
-    xmlmetric = """<!-- FILE: /path/to/file.xml -->
-    <?xml version="1.0" encoding="UTF-8"?>
-    <serviceupdate>
-      <id>rucio.{4}.client_benchmark</id>
-      <timestamp>{0}</timestamp>
-      <availability>100</availability>
-      <data>
-        <numericvalue name="create_dataset" desc="Time to create a dataset with 100 files in seconds">{2}</numericvalue>
-        <numericvalue name="read_big_dataset" desc="Time to read dataset with 1000 files in seconds">{1}</numericvalue>
-        <numericvalue name="quering_replicas_chuncked" desc="Avg time to query the replicas of 100 files in seconds">{3}</numericvalue>
-      </data>
-	</serviceupdate>""".format(timestamp, readtime, createtime, querytime, socket.getfqdn()[:-8])
+    xmlmetric = """<?xml version="1.0" encoding="UTF-8"?>
+<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">
+<id>rucio.{4}.client_benchmark</id>
+<timestamp>{0}</timestamp>
+<availability>100</availability>
+<data>
+<numericvalue name="rucio.{4}.client_benchmark.create_dataset" desc="Time to create a dataset with 100 files in seconds">{2}</numericvalue>
+<numericvalue name="rucio.{4}.client_benchmark.read_big_dataset" desc="Time to read dataset with 1000 files in seconds">{1}</numericvalue>
+<numericvalue name="rucio.{4}.client_benchmark.quering_replicas_chuncked" desc="Avg time to query the replicas of 100 files in seconds">{3}</numericvalue>
+</data>
+</serviceupdate>""".format(timestamp, readtime, createtime, querytime, socket.getfqdn()[:-8])
     r = requests.post('http://xsls.cern.ch', files={'file': xmlmetric})
     sys.exit(not(r.status_code == 200))
 
