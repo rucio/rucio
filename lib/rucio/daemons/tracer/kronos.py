@@ -13,6 +13,7 @@ This daemon consumes tracer messages from ActiveMQ and updates the atime for rep
 """
 
 from datetime import datetime
+from dns import resolver
 import logging
 from ssl import PROTOCOL_TLSv1
 from sys import stdout
@@ -129,23 +130,12 @@ class AMQConsumer(object):
         logging.info('updated %d replicas' % len(replicas))
 
 
-def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1):
+def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, brokers_resolved=None):
     """
     Main loop to consume tracer reports.
     """
 
     logging.info('tracer consumer starting')
-
-    try:
-        haps = config_get('tracer-kronos', 'host_and_ports').strip().split(',')
-
-        host_and_ports = []
-        for hap in haps:
-            host, port = hap.strip().split(':')
-            port = int(port)
-            host_and_ports.append((host, port))
-    except:
-        raise Exception('Could not load brokers from configuration')
 
     chunksize = config_get_int('tracer-kronos', 'chunksize')
     prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
@@ -161,11 +151,15 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1):
         password = config_get('tracer-kronos', 'password')
 
     conns = []
-    for hap in host_and_ports:
+    for broker in brokers_resolved:
         if not use_ssl:
-            conns.append(Connection(host_and_ports=[hap], use_ssl=False))
+            conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))], use_ssl=False))
         else:
-            conns.append(Connection(host_and_ports=[hap], use_ssl=True, ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'), ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'), ssl_version=PROTOCOL_TLSv1))
+            conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
+                                    use_ssl=True,
+                                    ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'),
+                                    ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'),
+                                    ssl_version=PROTOCOL_TLSv1))
 
     logging.info('tracer consumer started')
 
@@ -205,9 +199,26 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
     """
     Starts up the consumer threads
     """
+    logging.info('resolving brokers')
+
+    brokers_alias = []
+    brokers_resolved = []
+    try:
+        brokers_alias = [b.strip() for b in config_get('tracer-kronos', 'brokers').split(',')]
+    except:
+        raise Exception('Could not load brokers from configuration')
+
+    logging.info('resolving broker dns alias: %s' % brokers_alias)
+
+    brokers_resolved = []
+    for broker in brokers_alias:
+        brokers_resolved.append([str(tmp_broker) for tmp_broker in resolver.query(broker, 'A')])
+    brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
+
+    logging.debug('brokers resolved to %s', brokers_resolved)
 
     logging.info('starting tracer consumer threads')
-    threads = [Thread(target=kronos, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
+    threads = [Thread(target=kronos, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'brokers_resolved': brokers_resolved}) for i in xrange(0, total_threads)]
 
     [t.start() for t in threads]
 
