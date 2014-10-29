@@ -375,10 +375,10 @@ def get_transfer(rse, req, scheme, mock):
         destinations = ['%s_%i' % (dest, int(time.time())) for dest in destinations]
 
         for dest in destinations:
-            replica.update_replicas_states([{'rse': rse['rse'],
-                                             'scope': req['scope'],
-                                             'name': req['name'],
-                                             'path': dest}])
+            replica.update_replicas_paths([{'rse_id': req['dest_rse_id'],
+                                            'scope': req['scope'],
+                                            'name': req['name'],
+                                            'path': dest}])
             logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
                                                                                               req['scope'],
                                                                                               req['name'],
