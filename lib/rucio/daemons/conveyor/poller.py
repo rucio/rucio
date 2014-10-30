@@ -61,7 +61,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
 
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=10000,
+                                    limit=bulk,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=60),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
