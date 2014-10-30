@@ -14,7 +14,6 @@
 Conveyor is a daemon to manage file transfers.
 """
 
-import hashlib
 import logging
 import ssl
 import sys
@@ -55,6 +54,9 @@ class Consumer(object):
     def on_message(self, headers, message):
         record_counter('daemons.conveyor.consumer.message_all')
 
+        if 'vo' not in headers or headers['vo'] != 'atlas':
+            return
+
         msg = json.loads(message[:-1])  # message always ends with an unparseable EOT character
         if 'job_metadata' in msg.keys() \
            and isinstance(msg['job_metadata'], dict) \
@@ -63,9 +65,6 @@ class Consumer(object):
 
             if 'job_m_replica' in msg.keys() and 'job_state' in msg.keys() \
                and (str(msg['job_m_replica']) == str('false') or (str(msg['job_m_replica']) == str('true') and str(msg['job_state']) != str('ACTIVE'))):
-                request_id = msg['job_metadata']['request_id']
-                if not int(hashlib.md5(request_id).hexdigest(), 16) % self.__total_threads == self.__id:
-                    return
 
                 response = {'new_state': None,
                             'transfer_id': msg.get('tr_id').split("__")[-1],
@@ -155,8 +154,7 @@ def consumer(id, total_threads=1):
                 conn.connect()
                 conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
                                id='rucio-messaging-fts3',
-                               ack='auto',
-                               headers={'selector': 'vo = \'%s\'' % config_get('messaging-fts3', 'voname')})
+                               ack='auto')
 
         time.sleep(1)
 
