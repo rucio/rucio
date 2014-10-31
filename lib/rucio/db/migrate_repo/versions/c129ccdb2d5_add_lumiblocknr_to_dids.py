@@ -26,5 +26,6 @@ import sqlalchemy as sa
 def upgrade():
     op.add_column('dids', sa.Column('lumiblocknr', sa.Integer()))
 
+
 def downgrade():
     op.drop_column('dids', 'lumiblocknr')
