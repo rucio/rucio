@@ -24,7 +24,8 @@ import string
 
 from datetime import datetime, timedelta
 from rucio.client.client import Client
-from rucio.common.exception import DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError, InputValidationError, UnsupportedOperation, ScopeNotFound, ReplicaNotFound, RuleNotFound, FileAlreadyExists, FileConsistencyMismatch
+from rucio.common.exception import (AccountNotFound, DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError,
+                                    InputValidationError, UnsupportedOperation, ScopeNotFound, ReplicaNotFound, RuleNotFound, FileAlreadyExists, FileConsistencyMismatch)
 
 
 def validate_time_formats(time_string):
@@ -77,23 +78,37 @@ class DQ2Client:
         :return: A dictionary with the name nickname, email, dn.
 
         B{Exceptions:}
-            - AccountNotFound is raised in case the dataset name doesn't exist.
+            - AccountNotFound is raised in case the account doesn't exist.
         """
         result = {}
         account = userId
+        nickname = userId
         if not userId:
             ret = self.client.whoami()
-            account = ret['account']
-        result['nickname'] = account
+            nickname = ret['account']
         result['email'] = None
         result['dn'] = None
-        for id in self.client.list_identities(account):
-            if id['type'] == 'GSS':
-                result['email'] = id['identity']
-            elif id['type'] == 'X509':
-                if not result['dn']:
-                    result['dn'] = []
-                result['dn'].append(id['identity'])
+        if len(account) < 30:
+            result['nickname'] = nickname
+            for id in self.client.list_identities(account):
+                if id['type'] == 'GSS':
+                    result['email'] = id['identity']
+                elif id['type'] == 'X509':
+                    if not result['dn']:
+                        result['dn'] = []
+                    result['dn'].append(id['identity'])
+        else:
+            result['dn'] = userId
+            nicknames, emails = [], []
+            for ac in self.client.list_accounts('USER', account):
+                nicknames.append(ac['account'])
+                emails.append(ac['email'])
+            if nicknames == []:
+                raise AccountNotFound
+            elif len(nicknames) > 1:
+                raise Exception('This DN is mapped to more than one account')
+            result['nickname'] = nicknames[0]
+            result['email'] = emails[0]
         return result
 
     def bulkDeleteDatasetReplicas(self):
@@ -1416,7 +1431,7 @@ class DQ2Client:
         index = 0
         if (events != [] and len(events) != len(lfns)):
             raise Exception('events must be provided for every files')
-        if (lumiblocknrs != [] and len(lumiblocknrs) != len(lumiblocknrs)):
+        if (lumiblocknrs != [] and len(lumiblocknrs) != len(lfns)):
             raise Exception('lumiblocknrs must be provided for every files')
         for lfn, guid, size, checksum in zip(lfns, guids, sizes, checksums):
             if lfn.find(':') > -1:
@@ -1431,7 +1446,7 @@ class DQ2Client:
             if events != []:
                 file['meta']['events'] = events[index]
             if lumiblocknrs != []:
-                file['meta']['lumiblocknrs'] = lumiblocknrs[index]
+                file['meta']['lumiblocknr'] = lumiblocknrs[index]
             if checksum.startswith('md5:'):
                 file['md5'] = checksum[4:]
             elif checksum.startswith('ad:'):
@@ -1501,8 +1516,8 @@ class DQ2Client:
                     lfns.append('%s:%s' % (file['scope'], file['lfn']))
                 if 'events' in file:
                     events.append(file['events'])
-                if 'lumiblocknrs' in file:
-                    events.append(file['lumiblocknrs'])
+                if 'lumiblocknr' in file:
+                    lumiblocknrs.append(file['lumiblocknr'])
 
             self.registerFilesInDataset(dsn, lfns=lfns, guids=guids, sizes=sizes, checksums=checksums, ignore=False, scope=scope, rse=rse, pfns=pfns, events=events, lumiblocknrs=lumiblocknrs)
 
@@ -1559,7 +1574,7 @@ class DQ2Client:
                 if events != []:
                     file['meta']['events'] = events[index]
                 if lumiblocknrs != []:
-                    file['meta']['lumiblocknrs'] = lumiblocknrs[index]
+                    file['meta']['lumiblocknr'] = lumiblocknrs[index]
                 index += 1
                 files.append(file)
             try:
@@ -1763,6 +1778,7 @@ class DQ2Client:
                 in case there is no dataset with the given name.
 
         """
+        self.client.get_did(scope, dsn)
         metadata_mapping = {'owner': 'account', 'lifetime': 'expired_at', 'hidden': 'hidden', 'events': 'events', 'lumiblocknr': 'lumiblocknr'}
         if attrname in metadata_mapping:
             return self.client.set_metadata(scope=scope, name=dsn, key=attrname, value=attrvalue)
