@@ -367,6 +367,11 @@ def get_transfer(rse, req, scheme, mock):
                 new_sources.remove(source_surl)
         source_surls = new_sources
 
+    # if the source for transfer is a tape rse, set bring_online
+    if req['request_type'] == RequestType.TRANSFER\
+       and rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
+        bring_online = 3600
+
     # retrial transfers to tape need a new filename - add timestamp
     if req['request_type'] == RequestType.TRANSFER\
        and 'previous_attempt_id' in req\
