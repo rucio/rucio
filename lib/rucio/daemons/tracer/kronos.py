@@ -153,13 +153,16 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
     conns = []
     for broker in brokers_resolved:
         if not use_ssl:
-            conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))], use_ssl=False))
+            conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
+                                    use_ssl=False,
+                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
         else:
             conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
                                     use_ssl=True,
                                     ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'),
                                     ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'),
-                                    ssl_version=PROTOCOL_TLSv1))
+                                    ssl_version=PROTOCOL_TLSv1,
+                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
 
     logging.info('tracer consumer started')
 
