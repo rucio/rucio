@@ -24,7 +24,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db import models
 from rucio.db.constants import RequestState, RequestType, FTSState
 from rucio.db.session import read_session, transactional_session
@@ -463,6 +463,33 @@ def get_request(request_id, session=None):
     try:
         tmp = session.query(models.Request).filter_by(id=request_id).first()
 
+        if not tmp:
+            return
+        else:
+            tmp = dict(tmp)
+            tmp.pop('_sa_instance_state')
+            return tmp
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@read_session
+def get_request_by_did(scope, name, rse, session=None):
+    """
+    Retrieve a request by its DID for a destination RSE.
+
+    :param scope: The scope of the data identifier.
+    :param name: The name of the data identifier.
+    :param rse: The destination RSE of the request.
+    :param session: Database session to use.
+    :returns: Request as a dictionary.
+    """
+
+    record_counter('core.request.get_request_by_did')
+    try:
+        tmp = session.query(models.Request).filter_by(scope=scope,
+                                                      name=name,
+                                                      dest_rse_id=get_rse_id(rse)).first()
         if not tmp:
             return
         else:

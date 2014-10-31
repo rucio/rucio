@@ -135,3 +135,21 @@ def get_next(request_type, state, issuer, account):
         raise exception.AccessDenied('%(account)s cannot get the next request of type %(request_type)s in state %(state)s' % locals())
 
     return request.get_next(request_type, state)
+
+
+def get_request_by_did(scope, name, rse, issuer):
+    """
+    Retrieve a request by its DID for a destination RSE.
+
+    :param scope: The scope of the data identifier as a string.
+    :param name: The name of the data identifier as a string.
+    :param rse: The destination RSE of the request as a string.
+    :param issuer: Issuing account as a string.
+    :returns: Request as a dictionary.
+    """
+
+    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'issuer': issuer}
+    if not permission.has_permission(issuer=issuer, action='get_request_by_did', kwargs=kwargs):
+        raise exception.AccessDenied('%(issuer)s cannot retrieve the request DID %(scope)s:%(name)s to RSE %(rse)s' % locals())
+
+    return request.get_request_by_did(scope, name, rse)
