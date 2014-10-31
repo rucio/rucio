@@ -83,6 +83,7 @@ def has_permission(issuer, action, kwargs):
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
             'query_request': perm_query_request,
+            'get_request_by_did': perm_get_request_by_did,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
             'set_account_limit': perm_set_account_limit,
@@ -508,6 +509,17 @@ def perm_query_request(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
+
+
+def perm_get_request_by_did(issuer, kwargs):
+    """
+    Checks if an account can get a request by DID.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or issuer in get_special_accounts()
 
 
 def perm_cancel_request(issuer, kwargs):
