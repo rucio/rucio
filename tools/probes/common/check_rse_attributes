@@ -15,8 +15,8 @@ import json
 import requests
 import sys
 
-from rucio.client import Client
 from rucio.common.exception import RucioException, RSENotFound
+from rucio.api import rse as r
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -27,39 +27,41 @@ OK = 0
 if __name__ == '__main__':
 
     url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
-    resp = requests.get(url=url)
-    data = json.loads(resp.content)
+    try:
+        resp = requests.get(url=url)
+        data = json.loads(resp.content)
+    except Exception, e:
+        print "Failed to load info from AGIS: %s" % str(e)
+        sys.exit(WARNING)
 
-    c = Client()
     for rse in data:
 
         # Only use active endpoints in AGIS
         if rse['state'] != 'ACTIVE':
             continue
 
-        # TODO: remove when Conveyor is fixed for nondeterministic endpoints
-        if rse['is_tape']:
-            continue
-
         # Check if RSE exists
         try:
-            c.get_rse(rse['name'])
+            r.get_rse(rse['name'])
         except RSENotFound:
             continue
 
         print rse['name']
 
         try:
-            c.add_rse_attribute(rse['name'], 'tier', str(rse['tier_level']))
-            c.add_rse_attribute(rse['name'], 'istape', str(rse['is_tape']))
-            c.add_rse_attribute(rse['name'], 'cloud', str(rse['cloud']))
-            c.add_rse_attribute(rse['name'], 'spacetoken', str(rse['token']))
-            c.add_rse_attribute(rse['name'], 'country', str(rse['country']))
-            c.add_rse_attribute(rse['name'], 'site', str(rse['site']))
+            r.add_rse_attribute(rse['name'], 'ALL', '1', 'root')
+            r.add_rse_attribute(rse['name'], 'tier', str(rse['tier_level']), 'root')
+            r.add_rse_attribute(rse['name'], 'istape', str(rse['is_tape']), 'root')
+            r.add_rse_attribute(rse['name'], 'cloud', str(rse['cloud']), 'root')
+            r.add_rse_attribute(rse['name'], 'spacetoken', str(rse['token']), 'root')
+            r.add_rse_attribute(rse['name'], 'country', str(rse['country']), 'root')
+            r.add_rse_attribute(rse['name'], 'site', str(rse['site']), 'root')
             for group in rse['ddmgroups']:
-                c.add_rse_attribute(rse['name'], str(group), True)
+                r.add_rse_attribute(rse['name'], str(group), True, 'root')
         except RucioException as e:
             print str(e)
             sys.exit(CRITICAL)
+
+        # TODO: set weights for data distribution here or in other collector
 
     sys.exit(OK)
