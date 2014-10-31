@@ -100,6 +100,7 @@ prefetch_size = 10
 chunksize = 10
 subscription_id = rucio-tracer-listener
 use_ssl = True
+reconnect_attempts = 100
 username = _________
 password = _________
 
