@@ -1501,7 +1501,7 @@ Commands:
     add_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Rule lifetime (in seconds)')
     add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['DATASET', 'ALL', 'NONE'], help='Rule grouping')
     add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
-    add_rule_parser.add_argument('--source-replice-expression', dest='source_replica_expression', action='store', help='Source Replica Expression')
+    add_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Source Replica Expression')
     add_rule_parser.add_argument('--notify', dest='notify', action='store', help='Notification strategy : Y (Yes), N (No), C (Close)')
 
     # Delete replication rule subparser
