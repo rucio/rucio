@@ -352,7 +352,7 @@ def get_transfer(rse, req, scheme, mock):
                 attr = json.loads(str(req['attributes']))
             copy_pin_lifetime = attr.get('lifetime')
         overwrite = False
-        bring_online = 3600
+        bring_online = 21000
 
     # exclude destination replica from source
     source_surls = [s[1] for s in sources]
@@ -370,7 +370,7 @@ def get_transfer(rse, req, scheme, mock):
     # if the source for transfer is a tape rse, set bring_online
     if req['request_type'] == RequestType.TRANSFER\
        and rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
-        bring_online = 3600
+        bring_online = 21000
 
     # retrial transfers to tape need a new filename - add timestamp
     if req['request_type'] == RequestType.TRANSFER\
