@@ -358,6 +358,9 @@ def get_transfer(rse, req, scheme, mock):
     source_surls = [s[1] for s in sources]
     if req['request_type'] == RequestType.STAGEIN and source_surls.sort() == destinations.sort():
         logging.debug('STAGING REQUEST %s - Will not try to ignore equivalent sources' % req['request_id'])
+    elif req['request_type'] == RequestType.STAGEIN:
+        logging.debug('STAGING REQUEST %s - Forcing destination to source' % req['request_id'])
+        destinations = source_surls
     else:
         new_sources = source_surls
         for source_surl in source_surls:
