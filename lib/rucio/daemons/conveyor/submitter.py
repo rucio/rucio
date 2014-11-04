@@ -165,11 +165,11 @@ def get_sources(dest_rse, scheme, req):
                     # do not allow mixed source jobs, either all DISK or all TAPE
                     # do not use TAPE on the first try
                     if mixed_source:
-                        if not req['previous_attempt_id'] and rse_core.get_rse(source_rse).rse_type == RSEType.TAPE:
+                        if not req['previous_attempt_id'] and rse_core.get_rse(source_rse).rse_type == RSEType.TAPE and source_rse not in allowed_source_rses:
                             logging.debug('Skip tape source %s for request %s' % (source_rse,
                                                                                   req['request_id']))
                             continue
-                        elif req['previous_attempt_id'] and rse_core.get_rse(source_rse).rse_type == RSEType.DISK:
+                        elif req['previous_attempt_id'] and rse_core.get_rse(source_rse).rse_type == RSEType.DISK and source_rse not in allowed_source_rses:
                             logging.debug('Skip disk source %s for retrial request %s' % (source_rse,
                                                                                           req['request_id']))
                             continue
