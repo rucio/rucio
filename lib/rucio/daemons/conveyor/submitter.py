@@ -252,6 +252,18 @@ def get_destinations(rse_info, scheme, req, sources):
                 # TODO: need to check
                 return None, None
 
+        # retrial transfers to tape need a new filename - add timestamp
+        if req['request_type'] == RequestType.TRANSFER\
+           and 'previous_attempt_id' in req\
+           and req['previous_attempt_id']\
+           and rse_info['rse_type'] == 'TAPE':  # TODO: RUCIO-809 - rsemanager: get_rse_info -> rse_type is string instead of RSEType
+            path = '%s_%i' % (path, int(time.time()))
+            logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
+                                                                                              req['scope'],
+                                                                                              req['name'],
+                                                                                              rse_info['rse'],
+                                                                                              path))
+
         # we must set the destination path for nondeterministic replicas explicitly
         replica.update_replicas_paths([{'scope': req['scope'],
                                         'name': req['name'],
@@ -374,24 +386,6 @@ def get_transfer(rse, req, scheme, mock):
     if req['request_type'] == RequestType.TRANSFER\
        and rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
         bring_online = 21000
-
-    # retrial transfers to tape need a new filename - add timestamp
-    if req['request_type'] == RequestType.TRANSFER\
-       and 'previous_attempt_id' in req\
-       and req['previous_attempt_id']\
-       and rse_core.get_rse(rse['rse']).rse_type == RSEType.TAPE:
-        destinations = ['%s_%i' % (dest, int(time.time())) for dest in destinations]
-
-        for dest in destinations:
-            replica.update_replicas_paths([{'rse_id': req['dest_rse_id'],
-                                            'scope': req['scope'],
-                                            'name': req['name'],
-                                            'path': dest}])
-            logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
-                                                                                              req['scope'],
-                                                                                              req['name'],
-                                                                                              rse['rse'],
-                                                                                              dest))
 
     if not source_surls:
         logging.warn('All sources excluded - SKIP REQUEST %s' % req['request_id'])
