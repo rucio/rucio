@@ -633,7 +633,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, locks_t
     # If it is a Staging Area, the pin has to be extended
     if staging_area:
         lifetime = rule.expires_at - datetime.utcnow()
-        lifetime = lifetime.seconds
+        lifetime = lifetime.seconds + lifetime.days * 24 * 3600
         transfers_to_create.append(create_transfer_dict(dest_rse_id=rse_id,
                                                         request_type=RequestType.STAGEIN,
                                                         scope=file['scope'],
