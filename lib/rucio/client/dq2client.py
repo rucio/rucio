@@ -510,7 +510,7 @@ class DQ2Client:
 
         @Rucio
         @pdn: always be ''
-        @archived: should be always 'primary' for replicas without lifetime and 'secondary' for replicas with lifetime.
+        @archived: should be 'primary' or 'custodial' for replicas without lifetime and 'secondary' for replicas with lifetime.
         @version: always be 0
         @transferState: If one the files is replicating, transferState=1, otherwise 0
         @chekState: always be 6
@@ -520,8 +520,10 @@ class DQ2Client:
 
         """
         result = {}
+        dict_rses = {}
         files = []
-        dq2attrs = {'pdn': '', 'archived': 'primary', 'version': 1, 'checkstate': 6, 'transferState': 0, 'found': 0, 'total': 0, 'immutable': 0}
+        locked = False
+        dq2attrs = {'pdn': '', 'archived': 'secondary', 'version': 1, 'checkstate': 6, 'transferState': 0, 'found': 0, 'total': 0, 'immutable': 0}
         metadata = self.client.get_metadata(scope, name=dsn)
         # @immutable
         if not metadata['is_open']:
@@ -534,9 +536,19 @@ class DQ2Client:
         replicating_rses = []
         if not old:
             for rule in self.client.list_did_rules(scope, dsn):
-                if rule['state'] == 'REPLICATING':
-                    for item in self.client.list_rses(rule['rse_expression']):
+                if rule['locked']:
+                    locked = True
+                for item in self.client.list_rses(rule['rse_expression']):
+                    if rule['state'] == 'REPLICATING':
                         replicating_rses.append(item['rse'])
+                    if not item['rse'] in dict_rses:
+                        dict_rses[item['rse']] = 'secondary'
+                    if rule['expires_at'] is None:
+                        if locked:
+                            dict_rses[item['rse']] = 'custodial'
+                        else:
+                            dict_rses[item['rse']] = 'primary'
+
         else:
             pass
             # will call self.client.get_dataset_locks() for LockState if old=True
@@ -550,6 +562,10 @@ class DQ2Client:
                     if rse not in result:
                         result[rse] = [copy.deepcopy(dq2attrs)]
                         result[rse][-1]['found'] = 0
+                        try:
+                            result[rse][-1]['archived'] = dict_rses[rse]
+                        except KeyError:
+                            result[rse][-1]['archived'] = 'secondary'
                     result[rse][-1]['found'] += 1
         for rse in result:
             result[rse][-1]['total'] = len(files)
@@ -1033,6 +1049,7 @@ class DQ2Client:
         if metadata['is_open']:
             immutable = 0
         exists = False
+        locked = False
         for rule in self.client.list_did_rules(scope, dsn):
             if rule['rse_expression'] == location or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]:
                 exists = True
@@ -1040,8 +1057,13 @@ class DQ2Client:
                     creationdate = rule['created_at']
                     transferdate = rule['updated_at']
                     owner = rule['account']
+                    if rule['locked']:
+                        locked = True
                     if rule['expires_at'] is None:
-                        archived = 'primary'
+                        if locked:
+                            archived = 'custodial'
+                        else:
+                            archived = 'primary'
                     else:
                         expirationdate = rule['expires_at']
         if not exists:
@@ -1076,7 +1098,13 @@ class DQ2Client:
                     creationdate = rule['created_at']
                     modifieddate = rule['updated_at']
                     callbacks = {}
-                    archived = 'primary'
+                    if rule['expires_at']:
+                        if rule['locked']:
+                            archived = 'custodial'
+                        else:
+                            archived = 'primary'
+                    else:
+                        archived = 'secondary'
                     sources_policy = 1
                     wait_for_sources = 0
                     sources = {}
@@ -1312,7 +1340,7 @@ class DQ2Client:
         @param dsn: is the dataset name.
         @param location: is the location where the dataset should be subscribed.
         @param version: not used.
-        @param archive: not used.
+        @param archived: to define rule type.
         @param callbacks: is a dictionary which specifies, per subscription callback.
         @sources: not used.
         @destination: not used.
@@ -1354,16 +1382,23 @@ class DQ2Client:
         if callbacks != {}:
             notify = 'C'
 
+        locked = False
+        if archived == 'secondary':
+            if not replica_lifetime:
+                replica_lifetime = 14 * 86400
+        elif archived == 'custodial':
+            locked = True
+
         list_sources = sources.keys()
         if len(list_sources) == 1 and list_sources[0] == location and location.find('TAPE') > -1:
             # This is a staging request
             attr = self.client.list_rse_attributes(location)
-            self.client.add_replication_rule(dids, copies=1, rse_expression=attr['staging_buffer'], weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, activity=activity, notify=notify)
+            self.client.add_replication_rule(dids, copies=1, rse_expression=attr['staging_buffer'], weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify)
         else:
             for rule in self.client.list_did_rules(scope=scope, name=dsn):
                 if (rule['rse_expression'] == location) and (rule['account'] == owner):
                     raise Duplicate('A rule for %s:%s at %s already exists' % (scope, dsn, location))
-            self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=False, activity=activity, notify=notify)
+            self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify)
 
     def registerDatasetsInContainer(self, name, datasets, scope=None):
         """
@@ -1819,8 +1854,12 @@ class DQ2Client:
                     if rule['account'] == attrvalue:
                         return 0
                 elif attrname == 'archived':
-                    # Does nothing
-                    pass
+                    if attrvalue == 'custodial':
+                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=None, grouping=rule['grouping'], account=account, locked=True, notify='N')
+                        self.client.delete_replication_rule(rule['id'])
+                    if attrvalue == 'secondary':
+                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=14 * 86400, grouping=rule['grouping'], account=account, locked=False, notify='N')
+                        self.client.delete_replication_rule(rule['id'])
                 elif attrname == 'lifetime':
                     lifetime = validate_time_formats(attrvalue)
                     if lifetime == timedelta(days=0, seconds=0, microseconds=0):
