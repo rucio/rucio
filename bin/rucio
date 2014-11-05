@@ -1308,6 +1308,16 @@ def list_account_usage(args):
 
     return SUCCESS
 
+def test_server(args):
+    """"
+    %(prog)s test-server [options] <field1=value1 field2=value2 ...>
+    Test the client against a server.
+    """
+    import nose
+    config = nose.config.Config()
+    config.verbosity=2
+    nose.run(argv=sys.argv[1:],defaultTest='rucio.tests.test_rucio_server', config=config)
+    return SUCCESS
 
 if __name__ == '__main__':
     usage = """
@@ -1535,6 +1545,10 @@ Commands:
     list_rses_parser.set_defaults(which='list_rses')
     list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='RSE Expression')
 
+    # The test-server command
+    test_server_parser = subparsers.add_parser('test-server', help='Test Server')
+    test_server_parser.set_defaults(which='test_server')
+
     argcomplete.autocomplete(oparser)
 
     if len(sys.argv) == 1:
@@ -1572,7 +1586,8 @@ Commands:
                 'list_rse_usage': list_rse_usage,
                 'list_account_limits': list_account_limits,
                 'list_account_usage': list_account_usage,
-                'update_rule': update_rule}
+                'update_rule': update_rule,
+                'test_server': test_server}
 
     try:
         start_time = time.time()
