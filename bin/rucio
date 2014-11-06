@@ -1308,6 +1308,7 @@ def list_account_usage(args):
 
     return SUCCESS
 
+
 def test_server(args):
     """"
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
@@ -1315,8 +1316,8 @@ def test_server(args):
     """
     import nose
     config = nose.config.Config()
-    config.verbosity=2
-    nose.run(argv=sys.argv[1:],defaultTest='rucio.tests.test_rucio_server', config=config)
+    config.verbosity = 2
+    nose.run(argv=sys.argv[1:], defaultTest='rucio.tests.test_rucio_server', config=config)
     return SUCCESS
 
 if __name__ == '__main__':

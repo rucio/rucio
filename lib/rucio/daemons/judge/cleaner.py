@@ -23,7 +23,7 @@ from re import match
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import DatabaseException, AccessDenied
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.core.monitor import record_gauge, record_counter
 
@@ -58,17 +58,17 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                 record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 1)
                 for rule_id in rules:
                     rule_id = rule_id[0]
-                    logging.info(logging.debug('rule_cleaner[%s/%s]: Deleting rule %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id)))
+                    logging.info('rule_cleaner[%s/%s]: Deleting rule %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
                     if graceful_stop.is_set():
                         break
                     try:
                         start = time.time()
                         delete_rule(rule_id=rule_id, nowait=True)
                         logging.debug('rule_cleaner[%s/%s]: deletion of %s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id, time.time() - start))
-                    except (DatabaseException, DatabaseError), e:
+                    except (DatabaseException, DatabaseError, AccessDenied), e:
                         if isinstance(e.args[0], tuple):
                             if match('.*ORA-00054.*', e.args[0][0]):
-                                record_counter('rule.judge.exceptions.LocksDetected' % e.__class__.__name__)
+                                record_counter('rule.judge.exceptions.LocksDetected')
                                 logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
                             else:
                                 logging.error(traceback.format_exc())
