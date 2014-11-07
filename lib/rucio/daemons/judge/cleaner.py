@@ -18,7 +18,9 @@ import threading
 import time
 import traceback
 
+from datetime import datetime, timedelta
 from re import match
+from random import randint
 
 from sqlalchemy.exc import DatabaseError
 
@@ -43,6 +45,8 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
 
     logging.info('rule_cleaner: started')
 
+    paused_rules = {}  # {rule_id: datetime}
+
     while not graceful_stop.is_set():
         try:
             start = time.time()
@@ -50,6 +54,14 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                                       worker_number=process*threads_per_process+thread,
                                       limit=1000)
             logging.debug('rule_cleaner index query time %f fetch size is %d' % (time.time() - start, len(rules)))
+
+            # Refresh paused rules
+            for key in paused_rules:
+                if datetime.utcnow() > paused_rules[key]:
+                    del paused_rules[key]
+
+            # Remove paused rules from result set
+            rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
                 logging.info('rule_cleaner[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
@@ -68,6 +80,7 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                     except (DatabaseException, DatabaseError, AccessDenied), e:
                         if isinstance(e.args[0], tuple):
                             if match('.*ORA-00054.*', e.args[0][0]):
+                                paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                                 record_counter('rule.judge.exceptions.LocksDetected')
                                 logging.warning('rule_cleaner[%s/%s]: Locks detected for %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
                             else:
