@@ -524,6 +524,8 @@ def repair_rule(rule_id, session=None):
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
                 logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
+                if not isinstance(e, IntegrityError):
+                    session.commit()
                 return
 
         session.flush()
@@ -547,6 +549,8 @@ def repair_rule(rule_id, session=None):
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
             logging.debug('%s while repairing rule %s' % (type(e).__name__, rule_id))
+            if not isinstance(e, IntegrityError):
+                session.commit()
             return
 
         if session.bind.dialect.name != 'sqlite':
