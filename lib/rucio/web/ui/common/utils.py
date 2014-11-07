@@ -37,8 +37,12 @@ def check_token(rendered_tpl):
     accounts = None
     cookie_accounts = None
     rucio_ui_version = version.version_string()
-    dn = ctx.env.get('SSL_CLIENT_S_DN')
+
     render = template.render(join(dirname(__file__), '../templates'))
+    if ctx.env.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+        return render.problem("No certificate provided. Please authenticate with a cerficate registered in Rucio.")
+
+    dn = ctx.env.get('SSL_CLIENT_S_DN')
 
     # try to get and check the rucio session token from cookie
     session_token = cookies().get('x-rucio-auth-token')
@@ -62,7 +66,7 @@ def check_token(rendered_tpl):
                                                        'webui',
                                                        ctx.env.get('REMOTE_ADDR'))
         except:
-            return render.problem(ctx.env)
+            return render.problem("Your certificate (%s) is not registered in Rucio. Please contact <a href=\"mailto:rucio-support@cern.ch\">Rucio Support</a>" % dn)
 
         # write the token and account to javascript variables, that will be used in the HTML templates.
         js_token = __to_js('token', token)
