@@ -16,6 +16,7 @@ import threading
 import time
 import traceback
 
+from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
 from random import randint
@@ -55,7 +56,8 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
             logging.debug('rule_repairer index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
             # Refresh paused rules
-            for key in paused_rules:
+            iter_paused_rules = deepcopy(paused_rules)
+            for key in iter_paused_rules:
                 if datetime.utcnow() > paused_rules[key]:
                     del paused_rules[key]
 
