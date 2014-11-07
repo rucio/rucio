@@ -18,7 +18,9 @@ import threading
 import time
 import traceback
 
+from datetime import datetime, timedelta
 from re import match
+from random import randint
 
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
@@ -44,6 +46,8 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
 
     logging.info('re_evaluator: started')
 
+    paused_dids = {}  # {(scope, name): datetime}
+
     while not graceful_stop.is_set():
         try:
             # Select a bunch of dids for re evaluation for this worker
@@ -52,6 +56,14 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                                     worker_number=process*threads_per_process+thread,
                                     limit=1000)
             logging.debug('Re-Evaluation index query time %f fetch size is %d' % (time.time() - start, len(dids)))
+
+            # Refresh paused dids
+            for key in paused_dids:
+                if datetime.utcnow() > paused_dids[key]:
+                    del paused_dids[key]
+
+            # Remove paused dids from result set
+            dids = [did for did in dids if (did.scope, did.name) not in paused_dids]
 
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
@@ -64,6 +76,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                 for did in dids:
                     if graceful_stop.is_set():
                         break
+
                     # Try to delete all duplicate dids
                     delete_duplicate_updated_dids(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, id=did.id)
 
@@ -85,6 +98,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                     except (DatabaseException, DatabaseError), e:
                         if isinstance(e.args[0], tuple):
                             if match('.*ORA-00054.*', e.args[0][0]):
+                                paused_dids[(did.scope, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                                 logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, did.scope, did.name))
                                 record_counter('rule.judge.exceptions.LocksDetected')
                             else:

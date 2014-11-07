@@ -16,7 +16,9 @@ import threading
 import time
 import traceback
 
+from datetime import datetime, timedelta
 from re import match
+from random import randint
 
 from sqlalchemy.exc import DatabaseError
 
@@ -41,6 +43,8 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
 
     logging.info('rule_repairer: started')
 
+    paused_rules = {}  # {rule_id: datetime}
+
     while not graceful_stop.is_set():
         try:
             # Select a bunch of rules for this worker to repair
@@ -49,6 +53,14 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
                                     worker_number=process*threads_per_process+thread,
                                     delta=-1 if once else 600)
             logging.debug('rule_repairer index query time %f fetch size is %d' % (time.time() - start, len(rules)))
+
+            # Refresh paused rules
+            for key in paused_rules:
+                if datetime.utcnow() > paused_rules[key]:
+                    del paused_rules[key]
+
+            # Remove paused rules from result set
+            rules = [rule for rule in rules if rule[0] not in paused_rules]
 
             if not rules and not once:
                 logging.info('rule_repairer[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
@@ -66,8 +78,9 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
                         logging.debug('rule_repairer[%s/%s]: repairing of %s took %f' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id, time.time() - start))
                     except (DatabaseException, DatabaseError), e:
                         if match('.*ORA-00054.*', str(e.args[0])):
-                                logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
-                                record_counter('rule.judge.exceptions.LocksDetected')
+                            paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                            logging.warning('rule_repairer[%s/%s]: Locks detected for %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
+                            record_counter('rule.judge.exceptions.LocksDetected')
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
