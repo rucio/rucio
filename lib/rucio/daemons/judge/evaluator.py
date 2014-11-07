@@ -18,6 +18,7 @@ import threading
 import time
 import traceback
 
+from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
 from random import randint
@@ -58,7 +59,8 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
             logging.debug('Re-Evaluation index query time %f fetch size is %d' % (time.time() - start, len(dids)))
 
             # Refresh paused dids
-            for key in paused_dids:
+            iter_paused_dids = deepcopy(paused_dids)
+            for key in iter_paused_dids:
                 if datetime.utcnow() > paused_dids[key]:
                     del paused_dids[key]
 
