@@ -13,6 +13,7 @@ Fax consumer is a daemon to retrieve rucio cache operation information to synchr
 """
 
 import logging
+import ssl
 import sys
 import threading
 import time
@@ -186,7 +187,8 @@ def consumer(id, num_thread=1):
         conn = stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-cache', 'port'))],
                                 use_ssl=True,
                                 ssl_key_file=config_get('messaging-cache', 'ssl_key_file'),
-                                ssl_cert_file=config_get('messaging-cache', 'ssl_cert_file'))
+                                ssl_cert_file=config_get('messaging-cache', 'ssl_cert_file'),
+                                ssl_version=ssl.PROTOCOL_TLSv1)
         conns[conn] = Consumer(conn.transport._Transport__host_and_ports[0], account=config_get('messaging-cache', 'account'), id=id, num_thread=num_thread)
 
     logging.info('consumer started')

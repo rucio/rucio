@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import random
+import ssl
 import stomp
 import sys
 
@@ -70,7 +71,7 @@ def cache_operation(args):
         validate_files(payload["files"])
     else:
         validate(payload, cache_delete_replicas)
-    conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file)
+    conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
     conn.start()
     conn.connect()
