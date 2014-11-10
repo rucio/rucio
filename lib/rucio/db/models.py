@@ -379,6 +379,8 @@ class DataIdentifierAssociation(BASE, ModelBase):
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
+    guid = Column(GUID())
+    events = Column(BigInteger)
     rule_evaluation = Column(Boolean(name='CONTENTS_RULE_EVALUATION_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),

@@ -828,6 +828,8 @@ CREATE TABLE contents (
         bytes NUMBER(22),
         adler32 VARCHAR2(8 CHAR),
         md5 VARCHAR2(32 CHAR),
+        guid RAW(16),
+        events NUMBER(19),
         rule_evaluation NUMBER(1),
         updated_at DATE,
         created_at DATE,
@@ -842,7 +844,7 @@ CREATE TABLE contents (
         CONSTRAINT "CONTENTS_CHILD_IS_TYPE_CHK" CHECK (child_type IN ('C', 'D', 'F')),
         CONSTRAINT "CONTENTS_RULE_EVAL_CHK" CHECK (rule_evaluation IN (0, 1))
 )
-ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01
+ORGANIZATION INDEX COMPRESS 2 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01
 PARTITION BY LIST (SCOPE)
 (
     PARTITION INITIAL_PARTITION VALUES ('Initial_partition')
