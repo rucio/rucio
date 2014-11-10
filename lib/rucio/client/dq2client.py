@@ -1321,7 +1321,7 @@ class DQ2Client:
             for rule in self.client.list_did_rules(scope=scope, name=dsn):
                 if (rule['rse_expression'] == location) and (rule['account'] == self.client.account):
                     return True
-            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='NONE', account=self.client.account, locked=False, notify='N')
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
         else:
             raise UnsupportedOperation('Unknown RSE [%s]' % (location))
         return True
