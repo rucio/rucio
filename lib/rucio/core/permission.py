@@ -277,6 +277,12 @@ def perm_add_did(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
+    # Check the accounts of the issued rules
+    if issuer != 'root' and issuer not in get_special_accounts():
+        for rule in kwargs.get('rules', []):
+            if rule['account'] != issuer:
+                return False
+
     return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
@@ -288,6 +294,13 @@ def perm_add_dids(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
+    # Check the accounts of the issued rules
+    if issuer != 'root' and issuer not in get_special_accounts():
+        for did in kwargs['dids']:
+            for rule in did.get('rules', []):
+                if rule['account'] != issuer:
+                    return False
+
     return issuer == 'root' or issuer in get_special_accounts()
 
 
