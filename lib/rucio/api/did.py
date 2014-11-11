@@ -58,7 +58,7 @@ def add_dids(dids, issuer):
     :param dids: A list of dids.
     :param issuer: The issuer account.
     """
-    kwargs = {'issuer': issuer}
+    kwargs = {'issuer': issuer, 'dids': dids}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_dids', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
