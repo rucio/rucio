@@ -87,7 +87,7 @@ class RSESelector():
         if blacklist:
             rses = [rse for rse in self.rses if rse['rse_id'] not in blacklist]
         if len(rses) < count:
-            raise InsufficientTargetRSEs('There are not enough target RSEs (due to blacklisting) to fulfil the request at this time.')
+            raise InsufficientTargetRSEs('There are not enough target RSEs to fulfil the request at this time.')
         # Remove rses which do not have enough quota
         rses = [rse for rse in rses if rse['quota_left'] > size]
         if len(rses) < count:
