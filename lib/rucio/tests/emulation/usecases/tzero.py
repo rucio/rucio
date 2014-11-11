@@ -49,17 +49,17 @@ class UseCaseDefinition(UCEmulator):
     def setup(self, ctx):
         d = date.today()
         ctx.runnumber = long('%02d%02d%02d00' % (d.year - 2000, d.month, d.day))
-        used_runnnumbers = Client(account='tier0').list_values('run_number')
+        used_runnnumbers = Client(account='tzero').list_values('run_number')
         while unicode(ctx.runnumber) in used_runnnumbers:
             ctx.runnumber += 1
         print '== TZero: starts with runnumber offset: %s' % ctx.runnumber
 
     @UCEmulator.UseCase
     def EMULATION_RUN(self, interval, filescale, dataXX, runnumber, runspertag, calibfraction, timespan):
-        tz_account = 'tier0'
-        tz_group = 'tier0'
+        tz_account = 'tzero'
+        tz_group = 'tzero'
         tz_provenance = 'T0'
-        tz_rse = 'MOCK3'
+        tz_rse = 'CERN-PROD_TZERO'
         tz_filesize = 2000000000     # 2GB
 
         runnumber = random.randrange(400000, 500000)
@@ -297,7 +297,7 @@ class UseCaseDefinition(UCEmulator):
                         # filename = datasetname + '._' + str(i).zfill(6)
                         # TODO: fix when meta-data is working properly
                         filename = datasetname + '._' + uuid()
-                        onefile = {'name': filename, 'scope': scope, 'bytes': tz_filesize}
+                        onefile = {'name': filename, 'scope': scope, 'bytes': tz_filesize, 'pfn': 'mock://srm-atlas.cern.ch:8443/castor/cern.ch/grid/atlas/tzero/this/is/from/the/emulation/%s' % filename}
                         no_files += 1
                         newfiles.append(onefile)
                     d[3] = target
