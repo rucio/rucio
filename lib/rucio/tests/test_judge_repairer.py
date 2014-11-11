@@ -12,6 +12,7 @@
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
+from rucio.core.request import cancel_request_did
 from rucio.core.rse import add_rse_attribute, get_rse
 from rucio.core.rule import get_rule, add_rule
 from rucio.daemons.judge.repairer import rule_repairer
@@ -188,3 +189,28 @@ class TestJudgeRepairer():
 
         assert(RuleState.OK == get_rule(rule_id1)['state'])
         assert(RuleState.REPLICATING == get_rule(rule_id2)['state'])
+
+    def test_to_repair_a_rule_with_only_1_rse_whose_transfers_failed(self):
+        """ JUDGE REPAIRER: Test to repair a rule with only 1 rse whose transfers failed (lock)"""
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = 'mock'
+        files = create_files(4, scope, self.rse4, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[2]['name'])[0].rse_id, nowait=False)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=get_replica_locks(scope=files[1]['scope'], name=files[2]['name'])[0].rse_id, nowait=False)
+        failed_transfer(scope=scope, name=files[2]['name'], rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
+        failed_transfer(scope=scope, name=files[3]['name'], rse_id=get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
+        cancel_request_did(scope=scope, name=files[2]['name'], dest_rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
+        cancel_request_did(scope=scope, name=files[3]['name'], dest_rse_id=get_replica_locks(scope=files[3]['scope'], name=files[2]['name'])[0].rse_id)
+
+        assert(rule_id == get_rule(rule_id)['id'].replace('-', '').lower())
+        assert(RuleState.STUCK == get_rule(rule_id)['state'])
+        rule_repairer(once=True)
+        assert(RuleState.REPLICATING == get_rule(rule_id)['state'])
+        assert(get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id == get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
