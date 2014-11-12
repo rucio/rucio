@@ -586,6 +586,7 @@ class ReplicationRule(BASE, ModelBase):
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     notification = Column(RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'), default=RuleNotification.NO)
     stuck_at = Column(DateTime)
+    purge_replicas = Column(Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
@@ -601,6 +602,7 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('LOCKS_REPLICATING_CNT IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('LOCKS_STUCK_CNT IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
                    UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='RULES_SC_NA_AC_RS_CO_UQ_IDX'),
+                   CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='RULES_PURGE_REPLICAS_NN'),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'),
                    Index('RULES_STUCKSTATE_IDX', 'state'))  # This Index is only needed for the STUCK state
