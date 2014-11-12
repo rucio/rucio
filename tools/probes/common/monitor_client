@@ -9,25 +9,19 @@
 # Authors:
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
 
-import os
-import random
 import sys
 import time
 import datetime
 import requests
 import socket
-import argcomplete
-import argparse
-from subprocess import call
 from rucio.client import Client
-from random import choice
-from string import ascii_uppercase
 from rucio.common.utils import uuid
 
 c = Client()
 scp = ''
-fl=[]
-dsname = 'RUCIO_CLIENT_TEST_BM_' + uuid().urn.split(':')[2]
+fl = []
+dsname = 'tests.rucio_client_test_bm_' + uuid().urn.split(':')[2]
+
 
 def test_create_dataset(file_list, dsn=dsname):
     c.add_dataset(scp, dsn)
@@ -39,10 +33,12 @@ def test_create_dataset(file_list, dsn=dsname):
     c.add_files_to_dataset(scp, dsn, file_list[900:1200])
     return tick
 
+
 def test_read_big_dataset():
     tick = time.time()
     c.list_files(scp, dsname)
     return time.time() - tick
+
 
 def test_quering_replicas_chuncked(file_list):
     tick = time.time()
@@ -58,16 +54,32 @@ def test_quering_replicas_chuncked(file_list):
     c.list_replicas(file_list[900:1000])
     return (time.time() - tick)/10
 
+
 def test_create_rule():
     tick = time.time()
-    c.add_replication_rule([{'scope': scp, 'name': dsname}], 1, 'MOCK', lifetime=336)   # lifetime = 14 days. Should not trigger replications because all the files are in MOCK rse
+    c.add_replication_rule([{'scope': scp, 'name': dsname}], 1, 'MOCK', lifetime=3)   # lifetime = 14 days. Should not trigger replications because all the files are in MOCK rse
     return time.time() - tick
 
+
 def get_filelist():
+    # get the offset for the subset of files.
+    try:
+        f = open('/tmp/.slice')
+        s = int(f.read())
+        f.close()
+    except IOError:
+        s = 0
+    f = open('/tmp/.slice', 'w')
+    f.write(str((s+1) % 20))   # the offset is a number between 0 and 19
+    f.close()
+    files = ('rucio_test_mock_file_{0:05}'.format(x) for x in xrange(20000))
+    f = []
+    f.extend(files)
     fl = []
-    for i in (({'scope':'mock', 'name':'mock_' + str(x)}) for x in xrange(1,1000)):
+    for i in (({'scope': 'mock', 'name': x}) for x in f[(s*1000): (s*1000)+1000]):
         fl.append(i)
     return fl
+
 
 def main():
     global scp
@@ -91,7 +103,7 @@ def main():
 
     xmlmetric = """<?xml version="1.0" encoding="UTF-8"?>
 <serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">
-<id>rucio.{4}.client_benchmark</id>
+<id>rucio.{5}.client_benchmark</id>
 <timestamp>{0}</timestamp>
 <availability>100</availability>
 <data>
@@ -103,7 +115,7 @@ def main():
 </serviceupdate>""".format(timestamp, readtime, createtime, querytime, ruletime, socket.getfqdn()[:-8])
     if not args.quiet:
         print xmlmetric
-    if args.report == True:
+    if args.report is True:
         if not args.quiet:
             print "Reporting to http://xsls.cern.ch"
         r = requests.post('http://xsls.cern.ch', files={'file': xmlmetric})
