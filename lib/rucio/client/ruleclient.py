@@ -27,13 +27,13 @@ class RuleClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, dq2_wrapper=False):
         super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, dq2_wrapper)
 
-    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False, source_replica_expression=None, activity=None, notify='N'):
+    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
         :param rse_expression:             Boolean string expression to give the list of RSEs.
         :param weight:                     If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
-        :param lifetime:                   The lifetime of the replication rules (in hours).
+        :param lifetime:                   The lifetime of the replication rules (in seconds).
         :param grouping:                   ALL -  All files will be replicated to the same RSE.
                                            DATASET - All files in the same dataset will be replicated to the same RSE.
                                            NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
@@ -42,13 +42,15 @@ class RuleClient(BaseClient):
         :param source_replica_expression:  RSE Expression for RSEs to be considered for source replicas.
         :param activity:                   Transfer Activity to be passed to FTS.
         :param notify:                     Notification setting for the rule (Y, N, C).
+        :param purge_replicas:             When the rule gets deleted purge the associated replicas immediately.
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
         # TODO remove the subscription_id from the client; It will only be used by the core;
         data = dumps({'dids': dids, 'copies': copies, 'rse_expression': rse_expression,
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
-                      'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression, 'activity': activity, 'notify': notify})
+                      'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression,
+                      'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)

@@ -15,7 +15,7 @@ from rucio.common.schema import validate_schema
 from rucio.core import rule
 
 
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, issuer):
+def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, issuer):
     """
     Adds a replication rule.
 
@@ -33,6 +33,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param source_replica_expression:  Only use replicas from this RSE as sources.
     :param activity:                   Activity to be passed on to the conveyor.
     :param notify:                     Notification setting of the rule.
+    :purge purge_replicas:             The purge setting to delete replicas immediately after rule deletion.
     :param issuer:                     The issuing account of this operation.
     :returns:                          List of created replication rules.
     """
@@ -41,7 +42,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
-              'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity}
+              'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity, 'purge_replicas': purge_replicas}
 
     validate_schema(name='activity', obj=kwargs['activity'])
 
@@ -58,7 +59,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          subscription_id=subscription_id,
                          source_replica_expression=source_replica_expression,
                          activity=activity,
-                         notify=notify)
+                         notify=notify,
+                         purge_replicas=purge_replicas)
 
 
 def get_replication_rule(rule_id):
