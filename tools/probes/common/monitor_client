@@ -57,7 +57,7 @@ def test_quering_replicas_chuncked(file_list):
 
 def test_create_rule():
     tick = time.time()
-    c.add_replication_rule([{'scope': scp, 'name': dsname}], 1, 'MOCK', lifetime=3)   # lifetime = 14 days. Should not trigger replications because all the files are in MOCK rse
+    c.add_replication_rule([{'scope': scp, 'name': dsname}], 1, 'MOCK', lifetime=3600)   # lifetime = 1 hour. Should not trigger replications because all the files are in MOCK rse
     return time.time() - tick
 
 
