@@ -1,0 +1,82 @@
+#!/usr/bin/python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#              http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+
+
+import gearman
+import json
+import logging
+import sys
+import threading
+
+from time import sleep
+
+from rucio.common.config import config_get
+
+
+logging.getLogger("stomp").setLevel(logging.INFO)
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
+
+def exec_uc(gearman_worker, gearman_job):
+    return ''
+
+
+def start_worker(worker):
+    logging.debug('Starting worker thread')
+    try:
+        worker.work(1)
+    except:
+        logging.debug('Stopped worker thread')
+        return
+
+
+def observe_queue(uri):
+    logging.debug('Starting queue observer thread')
+    logging.debug(uri)
+    still_work = True
+    while still_work:
+        stats = gearman.GearmanAdminClient(uri).get_status()[0]
+        logging.info('Queue status: %s' % stats)
+        sleep(2)
+        still_work = (stats['queued'] > 0)
+        if still_work:
+            logging.debug('Still work to be done. Sleeping for 5 seconds before next check.')
+            sleep(5)
+        else:
+            logging.debug('All done. Quiting thread now.')
+
+
+with open('/opt/rucio/etc/emulation.cfg') as f:
+    cfg = json.load(f)
+
+observer = threading.Thread(target=observe_queue, args=[cfg['global']['gearman']])
+observer.start()
+
+logging.info('Starting Gearman worker')
+try:
+    gm_worker = gearman.GearmanWorker(cfg['global']['gearman'])
+    gm_worker.register_task('execute_uc', exec_uc)
+    w = threading.Thread(target=start_worker, args=[gm_worker])
+    w.start()
+except Exception, e:
+    print 'Unable to connect to gearman server: %s' % cfg['gearman']['server']
+    print e
+    exit(1)
+
+observer.join()
+gm_worker.shutdown()
+logging.debug('Waiting for worker to shutdown')
+w.join()
+logging.info('Successfuly cleard Gearman queue')
+sys.exit(0)

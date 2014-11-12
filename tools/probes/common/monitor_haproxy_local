@@ -18,8 +18,16 @@ import sys
 
 from sys import stdout
 
+# In multi-process settings each process reports its stats via a separate socket
+HAP_UNIX_SOCKETS = ['/var/run/haproxy_admin_process_no_1.sock',
+                    '/var/run/haproxy_admin_process_no_2.sock',
+                    '/var/run/haproxy_admin_process_no_3.sock',
+                    '/var/run/haproxy_admin_process_no_4.sock']
 
-HAP_UNIX_SOCKET = '/var/run/haproxy_admin.sock'
+
+# Which metric should be reported and if they shoudl be aggreagwted
+METRICS = {
+          }
 
 descriptions = {'qcur':             ('current queued requests. For the backend this reports thevnumber queued without a server assigned.', True),
                 'qmax':             ('max value of qcur', True),
