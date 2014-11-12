@@ -39,7 +39,7 @@ from rucio.core.request import queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db import models
-from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification
+from rucio.db.constants import LockState, ReplicaState, RuleState, RuleGrouping, DIDAvailability, DIDReEvaluation, DIDType, RequestType, RuleNotification, OBSOLETE
 from rucio.db.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
@@ -48,7 +48,7 @@ logging.basicConfig(stream=sys.stdout,
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, notify=None, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, notify=None, purge_replicas=False, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -66,6 +66,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param source_replica_expression:  Only use replicas as source from this RSEs.
     :param activity:                   Activity to be passed on to the conveyor.
     :param notify:                     Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
+    :param purge_replicas:             Purge setting if a replica should be directly deleted after the rule is deleted.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule
@@ -130,7 +131,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   source_replica_expression=source_replica_expression,
                                                   activity=activity,
                                                   subscription_id=subscription_id,
-                                                  notification=notify)
+                                                  notification=notify,
+                                                  purge_replicas=purge_replicas)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -190,7 +192,7 @@ def add_rules(dids, rules, session=None):
 
     :params dids:    List of data identifiers.
     :param rules:    List of dictionaries defining replication rules.
-                     {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id}
+                     {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notifiy, purge_replicas}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
     :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule
@@ -279,7 +281,8 @@ def add_rules(dids, rules, session=None):
                                                           source_replica_expression=rule.get('source_replica_expression'),
                                                           activity=rule.get('activity'),
                                                           subscription_id=rule.get('subscription_id'),
-                                                          notification=notify)
+                                                          notification=notify,
+                                                          purge_replicas=rule.get('purge_replicas', False))
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
@@ -407,7 +410,7 @@ def delete_rule(rule_id, nowait=False, session=None):
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
 
         for lock in locks:
-            if __delete_lock_and_update_replica(lock=lock, nowait=nowait, session=session):
+            if __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=nowait, session=session):
                 transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
             if lock.rse_id not in account_counter_decreases:
                 account_counter_decreases[lock.rse_id] = []
@@ -1091,7 +1094,7 @@ def __evaluate_did_detach(eval_did, session=None):
             query = session.query(models.ReplicaLock).filter_by(rule_id=rule.id)
             for lock in query:
                 if (lock.scope, lock.name) not in files:
-                    if __delete_lock_and_update_replica(lock=lock, nowait=True, session=session):
+                    if __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=True, session=session):
                         transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
                     if lock.rse_id not in account_counter_decreases:
                         account_counter_decreases[lock.rse_id] = []
@@ -1495,14 +1498,15 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, rseselector
 
 
 @transactional_session
-def __delete_lock_and_update_replica(lock, nowait=False, session=None):
+def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, session=None):
     """
     Delete a lock and update the associated replica.
 
-    :param lock:     SQLAlchemy lock object.
-    :param nowait:   The nowait option of the FOR UPDATE statement.
-    :param session:  The database session in use.
-    :returns:        True, if the lock was replicating and the associated transfer should be canceled; False otherwise.
+    :param lock:            SQLAlchemy lock object.
+    :param purge_replicas:  Purge setting of the rule.
+    :param nowait:          The nowait option of the FOR UPDATE statement.
+    :param session:         The database session in use.
+    :returns:               True, if the lock was replicating and the associated transfer should be canceled; False otherwise.
     """
 
     logging.debug("Deleting lock %s:%s for rule %s" % (lock.scope, lock.name, str(lock.rule_id)))
@@ -1514,7 +1518,10 @@ def __delete_lock_and_update_replica(lock, nowait=False, session=None):
             models.RSEFileAssociation.rse_id == lock.rse_id).with_for_update(nowait=nowait).one()
         replica.lock_cnt -= 1
         if replica.lock_cnt == 0:
-            replica.tombstone = datetime.utcnow()
+            if purge_replicas:
+                replica.tombstone = OBSOLETE
+            else:
+                replica.tombstone = datetime.utcnow()
         if lock.state == LockState.REPLICATING and replica.lock_cnt == 0:
             replica.state = ReplicaState.UNAVAILABLE
             return True
