@@ -170,13 +170,13 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     :param session: The database session in use.
     """
     if rse:
-        replicas = rucio.core.replica.add_replicas(rse=rse, files=files, account=account, session=session)
-    else:
-        replicas, files = None, get_files(files=files, session=session)
+        rucio.core.replica.add_replicas(rse=rse, files=files, account=account, session=session)
 
-    for file in replicas or files:
+    files = get_files(files=files, session=session)
+    for file in files:
         did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
                                                     bytes=file['bytes'], adler32=file.get('adler32'),
+                                                    guid=file['guid'], events=file['events'],
                                                     md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE, rule_evaluation=True)
         did_asso.save(session=session, flush=False)
     try:
@@ -682,7 +682,10 @@ def get_files(files, session=None):
     :param files: A list of files (dictionaries).
     :param session: The database session in use.
     """
-    files_query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.bytes, models.DataIdentifier.adler32, models.DataIdentifier.md5).\
+    files_query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name,
+                                models.DataIdentifier.bytes, models.DataIdentifier.guid,
+                                models.DataIdentifier.events,
+                                models.DataIdentifier.adler32, models.DataIdentifier.md5).\
         filter(models.DataIdentifier.did_type == DIDType.FILE)
     file_condition = []
     for file in files:
