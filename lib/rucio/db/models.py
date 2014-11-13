@@ -317,6 +317,7 @@ class DataIdentifier(BASE, ModelBase):
     task_id = Column(Integer())
     panda_id = Column(Integer())
     lumiblocknr = Column(Integer())
+    accessed_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='DIDS_SCOPE_FK'),
@@ -620,6 +621,9 @@ class DatasetLock(BASE, ModelBase):
     rse_id = Column(GUID())
     account = Column(String(25))
     state = Column(LockState.db_type(name='DATASET_LOCKS_STATE_CHK'), default=LockState.REPLICATING)
+    length = Column(BigInteger)
+    bytes = Column(BigInteger)
+    accessed_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rule_id', 'rse_id', name='DATASET_LOCKS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DATASET_LOCKS_DID_FK'),
                    ForeignKeyConstraint(['rule_id'], ['rules.id'], name='DATASET_LOCKS_RULE_ID_FK'),
