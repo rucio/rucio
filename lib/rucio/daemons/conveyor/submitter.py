@@ -97,7 +97,7 @@ def get_sources(dest_rse, scheme, req):
         rses = rse_core.list_rses(filters={'staging_buffer': dest_rse['rse']})
         allowed_rses = [x['rse'] for x in rses]
 
-    allowed_source_rses = None
+    allowed_source_rses = []
     if req['attributes']:
         if type(req['attributes']) is dict:
             req_attributes = json.loads(json.dumps(req['attributes']))
@@ -111,7 +111,7 @@ def get_sources(dest_rse, scheme, req):
                 logging.error("Invalid RSE exception %s for request %s: %s" % (source_replica_expression,
                                                                                req['request_id'],
                                                                                e))
-                allowed_source_rses = None
+                allowed_source_rses = []
             else:
                 allowed_source_rses = [x['rse'] for x in parsed_rses]
 
