@@ -574,28 +574,30 @@ def list_files(scope, name, long=False, session=None):
     :param session:    The database session in use.
     """
     try:
-        did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
-        if did.did_type == DIDType.FILE:
+        did = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.bytes, models.DataIdentifier.adler32, models.DataIdentifier.guid,
+                            models.DataIdentifier.events, models.DataIdentifier.lumiblocknr, models.DataIdentifier.did_type).filter_by(scope=scope, name=name).one()
+        if did[7] == DIDType.FILE:
             if long:
-                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32, 'guid': did.guid and did.guid.upper()}
+                yield {'scope': did[0], 'name': did[1], 'bytes': did[2], 'adler32': did[3], 'guid': did[4] and did[4].upper(), 'events': did[5], 'lumiblocknr': did[6]}
             else:
-                yield {'scope': did.scope, 'name': did.name, 'bytes': did.bytes, 'adler32': did.adler32}
+                yield {'scope': did[0], 'name': did[1], 'bytes': did[2], 'adler32': did[3], 'guid': did[4] and did[4].upper(), 'events': did[5]}
         else:
-            query = session.query(models.DataIdentifierAssociation)
+            query = session.query(models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type, models.DataIdentifierAssociation.bytes,
+                                  models.DataIdentifierAssociation.adler32, models.DataIdentifierAssociation.guid, models.DataIdentifierAssociation.events)
             dids = [(scope, name), ]
             while dids:
                 s, n = dids.pop()
-                for tmp_did in query.filter_by(scope=s, name=n).yield_per(5):
-                    if tmp_did.child_type == DIDType.FILE:
+                for child_scope, child_name, child_type, bytes, adler32, guid, events in query.filter_by(scope=s, name=n).yield_per(5):
+                    if child_type == DIDType.FILE:
                         if long:
-                            child_did = session.query(models.DataIdentifier).filter_by(scope=tmp_did.child_scope, name=tmp_did.child_name).one()
-                            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'guid': child_did.guid and child_did.guid.upper()}
+                            child_did_query = session.query(models.DataIdentifier).filter_by(scope=child_scope, name=child_name).one()
+                            yield {'scope': child_scope, 'name': child_name,
+                                   'bytes': bytes, 'adler32': adler32, 'guid': guid and guid.upper(), 'events': events, 'lumiblocknr': child_did_query.lumiblocknr}
                         else:
-                            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32}
+                            yield {'scope': child_scope, 'name': child_name,
+                                   'bytes': bytes, 'adler32': adler32, 'guid': guid and guid.upper(), 'events': events}
                     else:
-                        dids.append((tmp_did.child_scope, tmp_did.child_name))
+                        dids.append((child_scope, child_name))
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
