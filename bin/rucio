@@ -13,6 +13,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2014
+# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
 
 """
     Rucio CLI.
