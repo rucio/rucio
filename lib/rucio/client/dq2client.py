@@ -677,7 +677,7 @@ class DQ2Client:
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 duid = vuid
                 if name not in result:
-                    result[str('%s:%s' % (scope, name))] = {'duid': duid, 'vuids': [vuid]}
+                    result['%s:%s' % (scope, name)] = {'duid': duid, 'vuids': [vuid]}
             return result
         else:
             raise InputValidationError
@@ -827,12 +827,12 @@ class DQ2Client:
                 match = True
             if complete == 1:
                 if state == 'OK' and match:
-                    result.append(str(dsn))
+                    result.append('%s:%s' % (scope, dsn))
             elif complete == 0:
                 if state != 'OK' and match:
-                    result.append(str(dsn))
+                    result.append('%s:%s' % (scope, dsn))
             elif match:
-                result.append(str(dsn))
+                result.append('%s:%s' % (scope, dsn))
         return tuple(result)
 
     def listDatasetsInContainer(self, cn, scope):
@@ -925,7 +925,7 @@ class DQ2Client:
         if self.client.get_metadata(scope, dsn)['is_open']:
             immutable = 1
         for x in self.client.list_files(scope, dsn, long=True):
-            guid = str('%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32]))
+            guid = '%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32])
             lfn_to_guid[(scope, x['name'])] = guid
             total += 1
         for replica in self.client.list_replicas([{'scope': scope, 'name': dsn}], schemes=['srm']):
@@ -933,7 +933,7 @@ class DQ2Client:
                 length += replica['bytes']
                 found += 1
                 guids.append(lfn_to_guid[(replica['scope'], replica['name'])])
-        return [{'content': guids, 'transferState': 1, 'length': length, 'checkstate': 6, 'found': found, 'total': total, 'immutable': immutable}]
+        return {'content': guids, 'transferState': 1, 'length': length, 'checkstate': 6, 'found': found, 'total': total, 'immutable': immutable}
 
     def listFileReplicasBySites(self, dsn, version=0, locations=[], threshold=None, timeout=None, scope=None):
         """
@@ -1018,7 +1018,7 @@ class DQ2Client:
             dq2attrs['filesize'] = x['bytes']
             dq2attrs['scope'] = str(x['scope'])
             dq2attrs['lfn'] = str(x['name'])
-            guid = str('%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32]))
+            guid = '%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32])
             return_dict[guid] = dq2attrs
         return (return_dict, lastdate)
 
@@ -1068,8 +1068,8 @@ class DQ2Client:
                         expirationdate = rule['expires_at']
         if not exists:
             raise ReplicaNotFound
-        result = {'transferdate': str(transferdate), 'owner': owner, 'atime': str(atime), 'archived': archived, 'group': ' None', 'transferState': transferState,
-                  'checkdate': str(checkdate), 'version': 1, 'checkState': 6, 'pin_expirationdate': 'None', 'creationdate': str(creationdate), 'immutable': immutable, 'expirationdate': str(expirationdate)}
+        result = {'transferdate': transferdate, 'owner': owner, 'atime': atime, 'archived': archived, 'group': ' None', 'transferState': transferState,
+                  'checkdate': checkdate, 'version': 1, 'checkState': 6, 'pin_expirationdate': 'None', 'creationdate': creationdate, 'immutable': immutable, 'expirationdate': expirationdate}
         return result
 
     def listSubscriptionInfo(self, dsn, location, version, scope=None):
