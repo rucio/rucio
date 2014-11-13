@@ -994,7 +994,7 @@ class DQ2Client:
             if rse_dict[rse]['content']:
                 yield (rse, rse_dict[rse])
 
-    def listFilesInDataset(self, dsn, version=None, scope=None):
+    def listFilesInDataset(self, dsn, version=None, scope=None, long=False):
         """
         Given a dataset name, and optional version, the guids
         and lfns of the files in the dataset are returned.
@@ -1013,12 +1013,15 @@ class DQ2Client:
         return_dict = {}
         metadata = self.client.get_metadata(scope=scope, name=dsn)
         lastdate = str(metadata['updated_at'])
-        for x in self.client.list_files(scope, dsn, long=True):
+        for x in self.client.list_files(scope, dsn, long=long):
             dq2attrs = {}
             dq2attrs['checksum'] = "ad:" + str(x['adler32'])
             dq2attrs['filesize'] = x['bytes']
             dq2attrs['scope'] = str(x['scope'])
             dq2attrs['lfn'] = str(x['name'])
+            dq2attrs['events'] = str(x['events'])
+            if long:
+                dq2attrs['lumiblocknr'] = str(x['lumiblocknr'])
             guid = str('%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32]))
             return_dict[guid] = dq2attrs
         return (return_dict, lastdate)
@@ -1384,10 +1387,10 @@ class DQ2Client:
             notify = 'C'
 
         locked = False
-        if archived == 'secondary':
+        if acl_alias == 'secondary':
             if not replica_lifetime:
                 replica_lifetime = 14 * 86400
-        elif archived == 'custodial':
+        elif acl_alias == 'custodial':
             locked = True
 
         list_sources = sources.keys()
