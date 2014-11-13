@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
-noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic"
+noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_server"
 dq2opts=""
 
 function usage {
