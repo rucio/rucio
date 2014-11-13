@@ -366,6 +366,11 @@ def get_transfer(rse, req, scheme, mock):
         overwrite = False
         bring_online = 21000
 
+    # never overwrite on tape destinations
+    if req['request_type'] == RequestType.TRANSFER\
+       and rse_core.get_rse(None, rse_id=req['dest_rse_id']).rse_type == RSEType.TAPE:
+        overwrite = False
+
     # exclude destination replica from source
     source_surls = [s[1] for s in sources]
     if req['request_type'] == RequestType.STAGEIN and source_surls.sort() == destinations.sort():
