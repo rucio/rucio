@@ -16,13 +16,14 @@ import datetime
 import re
 
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import aliased
+from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
 from rucio.db import models
 from rucio.db.constants import SubscriptionState
-from rucio.db.session import transactional_session, stream_session
+from rucio.db.session import transactional_session, stream_session, read_session
 
 
 @transactional_session
@@ -221,3 +222,26 @@ class SubscriptionPolicy():
         """
 
         raise NotImplementedError
+
+
+@read_session
+def get_subscription_by_id(subscription_id, session=None):
+    """
+    Get a specific subscription by id.
+
+    :param subscription_id: The subscription_id to select.
+    :param session: The database session in use.
+    :raises: SubscriptionNotFound if no Subscription can be found.
+    """
+
+    try:
+        subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
+        d = {}
+        for column in subscription.__table__.columns:
+            d[column.name] = getattr(subscription, column.name)
+        return d
+
+    except NoResultFound:
+        raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
+    except StatementError:
+        raise RucioException('Badly formatted subscription id (%s)' % (subscription_id))

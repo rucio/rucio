@@ -139,6 +139,17 @@ def delete_subscription(subscription_id):
     raise NotImplementedError
 
 
+def get_subscription_by_id(subscription_id):
+    """
+    Get a specific subscription by id.
+
+    :param subscription_id: The subscription_id to select.
+    :param session: The database session in use.
+    :raises: SubscriptionNotFound if no Subscription can be found.
+    """
+    return subscription.get_subscription_by_id(subscription_id)
+
+
 class SubscriptionPolicy():
     """
     Abstract class for advanced subscription policies; Each time a subscription with a set subscription policy is called the specifically designed process function is called to return the replication_rules and transfer_requests for the input dataset/file

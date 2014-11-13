@@ -14,7 +14,7 @@ from json import dumps, loads
 from nose.tools import assert_equal, assert_true, raises, assert_raises
 from paste.fixture import TestApp
 
-from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states
+from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.utils import generate_uuid as uuid
@@ -56,6 +56,16 @@ class TestSubscriptionCoreApi():
             sub.append(r)
         assert_equal(len(sub), 1)
         assert_equal(loads(sub[0]['filter'])['project'][0], 'toto')
+
+    def test_create_list_subscription_by_id(self):
+        """ SUBSCRIPTION (API): Test the creation of a new subscription and list it by id """
+        subscription_name = uuid()
+        subscription_id = add_subscription(name=subscription_name, account='root', filter={'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
+                                                                                           '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                                                                                           \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                                           replication_rules=[(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment')
+        subscription_info = get_subscription_by_id(subscription_id)
+        assert_equal(loads(subscription_info['filter'])['project'], ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'])
 
     @raises(SubscriptionDuplicate)
     def test_create_existing_subscription(self):
@@ -147,6 +157,30 @@ class TestSubscriptionRestApi():
         print type(loads(r4.body))
         assert_equal(r4.status, 200)
         assert_equal(loads(loads(r4.body)['filter'])['project'][0], 'toto')
+
+    def test_create_and_list_subscription_by_id(self):
+        """ SUBSCRIPTION (REST): Test the creation of a new subscription and get by subscription id """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(r1.status, 200)
+        token = str(r1.header('X-Rucio-Auth-Token'))
+
+        subscription_name = uuid()
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'name': subscription_name, 'filter': {'project': ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV'], 'datatype': ['AOD', ], 'excluded_pattern':
+                     '(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                     \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)', 'account': 'tier0'},
+                      'replication_rules': [(2, 'T1_DATATAPE', True, True), (1, 'T1_DATADISK', False, True)], 'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'})
+        r2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 201)
+
+        subscription_id = r2.body
+        r3 = TestApp(subs_app.wsgifunc(*mw)).get('/Id/%s' % (subscription_id), headers=headers2, expect_errors=True)
+        assert_equal(r3.status, 200)
+        assert_equal(loads(loads(r3.body)['filter'])['project'][0], 'data12_900GeV')
 
     def test_create_existing_subscription(self):
         """ SUBSCRIPTION (REST): Test the creation of a existing subscription """
