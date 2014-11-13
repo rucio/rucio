@@ -16,10 +16,10 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, data, header, BadRequest, Created, InternalError, loadhook
 
 from rucio.api.rule import list_replication_rules
-from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states
+from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.db.constants import RuleState
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound
-from rucio.common.utils import generate_http_error, APIEncoder
+from rucio.common.utils import generate_http_error, APIEncoder, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 logger = getLogger("rucio.subscription")
@@ -28,6 +28,7 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
+    '/Id/(.*)', 'SubscriptionId',
     '/(.*)/(.*)/Rules/States', 'States',
     '/(.*)/Rules/States', 'States',
     '/(.*)/(.*)/Rules', 'Rules',
@@ -234,6 +235,33 @@ class States(RucioController):
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             raise InternalError(e)
+
+
+class SubscriptionId:
+
+    def GET(self, subscription_id):
+        """
+        Retrieve a subscription matching the given subscription id
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        """
+        header('Content-Type', 'application/json')
+        try:
+            subscription = get_subscription_by_id(subscription_id)
+        except SubscriptionNotFound, e:
+            raise generate_http_error(404, 'SubscriptionNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
+
+        return render_json(**subscription)
 
 
 """----------------------
