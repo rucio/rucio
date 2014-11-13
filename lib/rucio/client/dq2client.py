@@ -523,7 +523,7 @@ class DQ2Client:
         dict_rses = {}
         files = []
         locked = False
-        dq2attrs = {'pdn': '', 'archived': 'secondary', 'version': 1, 'checkstate': 6, 'transferState': 0, 'found': 0, 'total': 0, 'immutable': 0}
+        dq2attrs = {'pdn': '', 'archived': 'secondary', 'version': 1, 'checkstate': 6, 'transferState': 1, 'found': 0, 'total': 0, 'immutable': 0}
         metadata = self.client.get_metadata(scope, name=dsn)
         # @immutable
         if not metadata['is_open']:
@@ -536,6 +536,7 @@ class DQ2Client:
         replicating_rses = []
         if not old:
             for rule in self.client.list_did_rules(scope, dsn):
+                locked = False
                 if rule['locked']:
                     locked = True
                 for item in self.client.list_rses(rule['rse_expression']):
@@ -570,7 +571,7 @@ class DQ2Client:
         for rse in result:
             result[rse][-1]['total'] = len(files)
             if rse in replicating_rses:
-                result[rse][-1]['transferState'] = 1
+                result[rse][-1]['transferState'] = 0
 
         if old:
             replicas = {0: [], 1: []}
