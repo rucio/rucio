@@ -17,7 +17,7 @@ from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 from urlparse import parse_qsl
-from web import application, ctx, data, header, seeother, BadRequest, Created, InternalError, OK, loadhook
+from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, loadhook, redirect
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
 from rucio.api.identity import add_account_identity, del_account_identity
@@ -136,7 +136,7 @@ class AccountParameter(RucioController):
         header('Content-Type', 'application/json')
         if account == 'whoami':
             # Redirect to the account uri
-            raise seeother(ctx.env.get('issuer'))
+            raise redirect("https://rucio-lb-prod.cern.ch/accounts/%s" % (ctx.env.get('issuer')))
 
         acc = None
         try:
