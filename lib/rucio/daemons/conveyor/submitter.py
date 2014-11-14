@@ -366,6 +366,11 @@ def get_transfer(rse, req, scheme, mock):
         overwrite = False
         bring_online = 21000
 
+    # if the source for transfer is a tape rse, set bring_online
+    if req['request_type'] == RequestType.TRANSFER\
+       and rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
+        bring_online = 21000
+
     # never overwrite on tape destinations
     if req['request_type'] == RequestType.TRANSFER\
        and rse_core.get_rse(None, rse_id=req['dest_rse_id']).rse_type == RSEType.TAPE:
@@ -385,12 +390,12 @@ def get_transfer(rse, req, scheme, mock):
                 logging.info('Excluding source %s for request %s' % (source_surl,
                                                                      req['request_id']))
                 new_sources.remove(source_surl)
-        source_surls = new_sources
 
-    # if the source for transfer is a tape rse, set bring_online
-    if req['request_type'] == RequestType.TRANSFER\
-       and rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
-        bring_online = 21000
+        # make sure we only use one source when bring_online is needed
+        if bring_online and len(new_sources) > 1:
+            source_surls = [new_sources[0]]
+            logging.info('Only using first source %s for request %s with bring_online set' % (source_surls,
+                                                                                              req['request_id']))
 
     if not source_surls:
         logging.warn('All sources excluded - SKIP REQUEST %s' % req['request_id'])
