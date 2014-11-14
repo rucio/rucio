@@ -853,8 +853,8 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 
-        if k == 'name':
-            query = query.with_hint(models.DataIdentifier, "NO_INDEX(dids(SCOPE,NAME))", 'oracle')
+    if 'name' in filters and '*' in filters['name']:
+        query = query.with_hint(models.DataIdentifier, "NO_INDEX(dids(SCOPE,NAME))", 'oracle')
 
     if limit:
         query = query.limit(limit)
