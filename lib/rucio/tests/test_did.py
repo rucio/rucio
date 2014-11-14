@@ -536,7 +536,7 @@ class TestDIDClients:
         content = self.did_client.list_files(scope, files1[i]['name'])
         assert_true(content is not None)
         for d in content:
-            assert_true(d == files1[i])
+            assert_true(d['name'] == files1[i]['name'])
 
         # List container content
         for d in [{'name': x['name'], 'scope': x['scope'], 'bytes': x['bytes'], 'adler32': x['adler32']} for x in self.did_client.list_files(scope, container)]:
