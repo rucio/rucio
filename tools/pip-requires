@@ -3,7 +3,7 @@
 #cx_Oracle==5.1.2           # Oracle connector
 # MySQL-python==1.2.5      # MySQL connector
 # psycopg2==2.5.2          # PostgreSQL
-SQLAlchemy==0.9.7          # db backend
+SQLAlchemy==0.9.8          # db backend
 alembic==0.6.7             # Lightweight database migration tool for SQLAlchemy
 Mako==1.0.0                # Templating language
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
