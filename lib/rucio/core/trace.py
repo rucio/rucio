@@ -14,6 +14,7 @@ import logging
 import logging.handlers
 
 from rucio.common.config import config_get
+from rucio.core.monitor import record_counter
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger()
@@ -42,4 +43,5 @@ def trace(payload):
     # TODO: This should probably split the payload into proper columns.
     # But then again, that requires some kind of schema. Which is bad as well.
     # Therefore: needs much more thought...
+    record_counter('trace.trace')
     logging.info(json.dumps(payload, default=date_handler))
