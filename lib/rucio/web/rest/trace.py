@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import datetime
 import json
@@ -39,16 +40,16 @@ class Trace(RucioController):
             payload = json.loads(data())
 
             # generate entry timestamp
-            payload['__timeentry'] = datetime.datetime.utcnow()
-            payload['__timeentry_unix'] = time.mktime(payload['__timeentry'].timetuple()) + payload['__timeentry'].microsecond/1e6
+            payload['traceTimeentry'] = datetime.datetime.utcnow()
+            payload['traceTimeentryUnix'] = time.mktime(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond/1e6
 
             # guess client IP
-            payload['__ip'] = ctx.env.get('HTTP_X_FORWARDED_FOR')
-            if payload['__ip'] is None:
-                payload['__ip'] = ctx.ip  # quand meme, cela peut etre None aussi
+            payload['traceIp'] = ctx.env.get('HTTP_X_FORWARDED_FOR')
+            if payload['traceIp'] is None:
+                payload['traceIp'] = ctx.ip  # quand meme, cela peut etre None aussi
 
             # generate unique ID
-            payload['__id'] = str(uuid.uuid4()).replace('-', '').lower()
+            payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()
 
             trace(payload=payload)
 
