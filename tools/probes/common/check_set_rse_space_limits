@@ -32,7 +32,7 @@ import requests
 from urlparse import urlparse
 
 # Try to use server environment (direct database access). If that fails use
-# client. Client cannot be used until RUCIO-539 is fixed.
+# client.
 server = False
 try:
     from rucio.api import rse as c
