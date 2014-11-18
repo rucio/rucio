@@ -283,7 +283,10 @@ def perm_add_did(issuer, kwargs):
             if rule['account'] != issuer:
                 return False
 
-    return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    return issuer == 'root'\
+        or issuer in get_special_accounts()\
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
+        or kwargs['scope'] == u'mock'
 
 
 def perm_add_dids(issuer, kwargs):
@@ -443,6 +446,7 @@ def perm_add_replicas(issuer, kwargs):
     """
     return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
         or str(kwargs.get('rse', '')).endswith('USERDISK')\
+        or str(kwargs.get('rse', '')).endswith('MOCK')\
         or issuer == 'root'\
         or issuer in get_special_accounts()
 
