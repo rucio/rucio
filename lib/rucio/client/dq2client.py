@@ -86,6 +86,7 @@ class DQ2Client:
         if not userId:
             ret = self.client.whoami()
             nickname = ret['account']
+            account = nickname
         result['email'] = None
         result['dn'] = None
         if len(account) < 30:
@@ -615,10 +616,11 @@ class DQ2Client:
             if i['type'] == 'DATASET' and i['name'] not in result:
                 vuid = hashlib.md5(scope+':'+i['name']).hexdigest()
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
-                result[i['name']] = {vuid: replicas}
+                result['%s:%s' % (i['scope'], i['name'])] = {vuid: replicas}
 
         for dsn in result.keys():
-            replicas = self.listDatasetReplicas(scope=scope, dsn=dsn, old=True)
+            dscope, name = dsn.split(':')
+            replicas = self.listDatasetReplicas(scope=dscope, dsn=name, old=True)
             result[dsn] = replicas
 
         return result
@@ -743,8 +745,17 @@ class DQ2Client:
                         meta['totalFiles'] += 1
                     result['%s:%s' % (scope, name)] = meta
             else:
-                for name in self.client.list_dids(scope, filters, type):
-                    result['%s:%s' % (scope, name)] = {}
+                if type == 'collection':
+                    for name in self.client.list_dids(scope, filters, 'dataset'):
+                        result['%s:%s' % (scope, name)] = {}
+                    for name in self.client.list_dids(scope, filters, 'container'):
+                        result['%s:%s/' % (scope, name)] = {}
+                else:
+                    for name in self.client.list_dids(scope, filters, type):
+                        if type == 'container':
+                            result['%s:%s/' % (scope, name)] = {}
+                        elif type == 'datasets':
+                            result['%s:%s' % (scope, name)] = {}
             return result
         else:
             return result
@@ -1435,7 +1446,11 @@ class DQ2Client:
         dsns = []
         # create rucio parameter
         for ds in datasets:
-            dsn = {'scope': scope, 'name': ds}
+            ds_scope, ds_name = extract_scope(ds)
+            if ds_scope:
+                dsn = {'scope': ds_scope, 'name': ds_name}
+            else:
+                dsn = {'scope': scope, 'name': ds}
             dsns.append(dsn)
         self.client.add_datasets_to_container(scope=scope, name=name, dsns=dsns)
 
@@ -1820,7 +1835,7 @@ class DQ2Client:
         self.client.get_did(scope, dsn)
         metadata_mapping = {'owner': 'account', 'lifetime': 'expired_at', 'hidden': 'hidden', 'events': 'events', 'lumiblocknr': 'lumiblocknr'}
         if attrname in metadata_mapping:
-            return self.client.set_metadata(scope=scope, name=dsn, key=attrname, value=attrvalue)
+            return self.client.set_metadata(scope=scope, name=dsn, key=metadata_mapping[attrname], value=attrvalue)
         raise InvalidMetadata('%s is not a valid DQ2 metadata' % (attrname))
 
     def setReplicaMetaDataAttribute(self, dsn, location, attrname, attrvalue, scope=None):
