@@ -709,9 +709,9 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     :param session:            Database session in use.
     """
 
-    query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.expires_at < datetime.utcnow()).\
+    query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.expires_at < datetime.utcnow(), models.ReplicationRule.locked == False).\
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
-        order_by(models.ReplicationRule.expires_at)
+        order_by(models.ReplicationRule.expires_at)  # NOQA
 
     if session.bind.dialect.name == 'oracle':
         bindparams = [bindparam('worker_number', worker_number),
