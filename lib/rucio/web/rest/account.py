@@ -136,9 +136,9 @@ class AccountParameter(RucioController):
         header('Content-Type', 'application/json')
         if account == 'whoami':
             # Redirect to the account uri
-            frontend = ctx.env.get('X-REQUESTED-HOST')
+            frontend = ctx.env.get('HTTP_X_REQUESTED_HOST')
             if frontend:
-                raise redirect(frontend + "/%s" % (ctx.env.get('issuer')))
+                raise redirect(frontend + "/accounts/%s" % (ctx.env.get('issuer')))
             raise seeother(ctx.env.get('issuer'))
 
         acc = None
