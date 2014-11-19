@@ -185,6 +185,9 @@ class DIDClient(BaseClient):
         Add dids to dids.
 
         :param attachments: The attachments.
+            attachments is: [attachment, attachment, ...]
+            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+            dids is: [{'scope': scope, 'name': name}, ...]
         """
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -200,6 +203,9 @@ class DIDClient(BaseClient):
         Add files to datasets.
 
         :param attachments: The attachments.
+            attachments is: [attachment, attachment, ...]
+            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+            dids is: [{'scope': scope, 'name': name}, ...]
         """
         return self.attach_dids_to_dids(attachments=attachments)
 
@@ -208,6 +214,9 @@ class DIDClient(BaseClient):
         Add datasets_to_containers.
 
         :param attachments: The attachments.
+            attachments is: [attachment, attachment, ...]
+            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+            dids is: [{'scope': scope, 'name': name}, ...]
         """
         return self.attach_dids_to_dids(attachments=attachments)
 
@@ -216,6 +225,9 @@ class DIDClient(BaseClient):
         Add containers_to_containers.
 
         :param attachments: The attachments.
+            attachments is: [attachment, attachment, ...]
+            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+            dids is: [{'scope': scope, 'name': name}, ...]
         """
         return self.attach_dids_to_dids(attachments=attachments)
 
