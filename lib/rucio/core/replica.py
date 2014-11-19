@@ -686,7 +686,8 @@ def update_replicas_states(replicas, nowait=False, session=None):
 @transactional_session
 def touch_replicas(replicas, session=None):
     """
-    Update file replica accessed time.
+    Update the accessed_at timestamp of the given file replicas, the file dids,
+    the containing datasets and dataset locks.
 
     :param replicas: the list of replicas.
     :param session: The database session in use.
@@ -699,9 +700,20 @@ def touch_replicas(replicas, session=None):
             if replica['rse'] not in rse_ids:
                 rse_ids[replica['rse']] = get_rse_id(rse=replica['rse'], session=session)
             replica['rse_id'] = rse_ids[replica['rse']]
-        print replica['scope'], replica['name']
+
         session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
             update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+
+        session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
+            update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+
+        resolve_datasets = session.query(models.DataIdentifierAssociation).filter_by(child_scope=replica['scope'], child_name=replica['name'], did_type=DIDType.DATASET)
+        for dataset in resolve_datasets:
+            session.query(models.DataIdentifier).filter_by(scope=dataset['scope'], name=dataset['name'], did_type=DIDType.DATASET).\
+                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+            session.query(models.DatasetLock).filter_by(scope=dataset['scope'], name=dataset['name'], rse_id=replica['rse_id']).\
+                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+
     return True
 
 
@@ -865,3 +877,19 @@ def update_replicas_paths(replicas, session=None):
                                                            name=replica['name'],
                                                            rse_id=replica['rse_id']).update({'path': replica['path']},
                                                                                             synchronize_session=False)
+
+
+@read_session
+def get_replica_atime(replica, session=None):
+    """
+    Get the accessed_at timestamp for a replica. Just for testing.
+    :param replicas: List of dictionaries {scope, name, rse_id, path}
+    :param session: Database session to use.
+
+    :returns: A datetime timestamp with the last access time.
+    """
+    if 'rse_id' not in replica:
+        replica['rse_id'] = get_rse_id(rse=replica['rse'], session=session)
+
+    return session.query(models.RSEFileAssociation.accessed_at).filter_by(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id']).\
+        with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').one()[0]

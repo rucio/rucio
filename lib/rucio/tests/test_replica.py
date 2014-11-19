@@ -13,7 +13,7 @@
 
 import xmltodict
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from nose.tools import assert_equal, assert_in, assert_raises
 
 from rucio.db.constants import DIDType, ReplicaState
@@ -23,9 +23,9 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.utils import generate_uuid
-from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
+from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter,\
-    get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths, update_replica_state
+    get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths, update_replica_state, get_replica_atime
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -180,15 +180,45 @@ class TestReplicaCore:
             assert_equal(lock_counter, replica['lock_cnt'])
 
     def test_touch_replicas(self):
-        """ REPLICA (CORE): Touch replicas accessed_at timestamp"""
+        """ REPLICA (CORE): Touch replicas/dids accessed_at timestamp"""
         tmp_scope = 'mock'
         nbfiles = 5
-        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
-        add_replicas(rse='MOCK', files=files, account='root', ignore_availability=True)
+        files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        files2.append(files1[0])
+        add_replicas(rse='MOCK', files=files1, account='root', ignore_availability=True)
+        add_replicas(rse='MOCK', files=files2, account='root', ignore_availability=True)
 
-        touch_replicas(replicas=[{'scope': f['scope'], 'name': f['name'], 'rse': 'MOCK'} for f in files])
+        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+
+        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
+        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account='root')
+
+        attach_dids(scope=tmp_scope, name=tmp_dsn1, rse='MOCK', dids=files1, account='root')
+        attach_dids(scope=tmp_scope, name=tmp_dsn2, rse='MOCK', dids=files2, account='root')
+
         now = datetime.utcnow()
-        touch_replicas(replicas=[{'scope': f['scope'], 'name': f['name'], 'rse': 'MOCK', 'acessed_at': now} for f in files])
+
+        now -= timedelta(microseconds=now.microsecond)
+
+        assert_equal(None, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
+        assert_equal(None, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
+        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
+        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
+
+        touch_replicas(replicas=[{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK', 'accessed_at': now}])
+
+        assert_equal(now, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
+        assert_equal(now, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
+        assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
+        assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
+
+        for i in range(1, nbfiles):
+            assert_equal(None, get_replica_atime({'scope': files1[i]['scope'], 'name': files1[i]['name'], 'rse': 'MOCK'}))
+
+        for i in range(0, nbfiles - 1):
+            assert_equal(None, get_replica_atime({'scope': files2[i]['scope'], 'name': files2[i]['name'], 'rse': 'MOCK'}))
 
     def test_list_replicas_all_states(self):
         """ REPLICA (CORE): list file replicas with all_states"""
