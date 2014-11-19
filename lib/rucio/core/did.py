@@ -12,6 +12,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from datetime import datetime, timedelta
 from hashlib import md5
@@ -870,3 +871,16 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
 
     for name in query.yield_per(5):
         yield name
+
+
+@read_session
+def get_did_atime(scope, name, session=None):
+    """
+    Get the accessed_at timestamp for a replica. Just for testing.
+    :param scope: the scope name.
+    :param name: The data identifier name.
+    :param session: Database session to use.
+
+    :returns: A datetime timestamp with the last access time.
+    """
+    return session.query(models.DataIdentifier.accessed_at).filter_by(scope=scope, name=name).one()[0]
