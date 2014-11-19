@@ -202,6 +202,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
             else:
                 # for dataset/container
                 content_query = session.query(models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type)
+                content_query = content_query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
                 child_dids = [(scope, name)]
                 while child_dids:
                     s, n = child_dids.pop()
@@ -507,9 +508,9 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     for file in files:
         replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))
         parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'], models.DataIdentifierAssociation.child_name == file['name'],
-                                     ~exists([1]).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
+                                     ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
         did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'],
-                                  ~exists([1]).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
+                                  ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
     delta, bytes, rowcount = 0, 0, 0
     for c in chunks(replica_condition, 10):
@@ -535,7 +536,8 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                 child_did_condition.append(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name,
                                                 models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
                 tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
-                                                 ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))
+                                                 ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
+                                                                                                                                                     models.DataIdentifierAssociation.name == parent_name))))
                 did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False,
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
@@ -792,7 +794,6 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
-
     query = session.query(models.DataIdentifierAssociation.child_scope,
                           models.DataIdentifierAssociation.child_name,
                           models.DataIdentifierAssociation.bytes,
@@ -801,9 +802,8 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                           models.RSEFileAssociation)\
         .outerjoin(models.RSEFileAssociation,
                    and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name))\
-        .filter(models.DataIdentifierAssociation.scope == scope,
-                models.DataIdentifierAssociation.name == name)
+                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).\
+        filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
 
     if restrict_rses is not None:
         if len(restrict_rses) < 10:

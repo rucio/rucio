@@ -139,10 +139,11 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
                            and as value: {'bytes':, 'locks: [{'rse_id':, 'state':}]}
     :raises:               NoResultFound
     """
+    # with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
     query = session.query(models.DataIdentifierAssociation.child_scope,
                           models.DataIdentifierAssociation.child_name,
                           models.ReplicaLock).\
-        with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
+        with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
         outerjoin(models.ReplicaLock,
                   and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
                        models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
@@ -156,7 +157,7 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
             query = session.query(models.DataIdentifierAssociation.child_scope,
                                   models.DataIdentifierAssociation.child_name,
                                   models.ReplicaLock).\
-                with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
+                with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
                 outerjoin(models.ReplicaLock,
                           and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
                                models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
