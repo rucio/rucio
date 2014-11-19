@@ -38,15 +38,17 @@ graceful_stop = Event()
 
 
 class AMQConsumer(object):
-    def __init__(self, broker, conn, chunksize, subscription_id):
+    def __init__(self, broker, conn, chunksize, subscription_id, excluded_usrdns):
         self.__broker = broker
         self.__conn = conn
         self.__reports = []
         self.__ids = []
         self.__chunksize = chunksize
         self.__subscription_id = subscription_id
-        # has to be extended to include all possible states
-        self.__done_states = ['DONE']
+        # excluded states empty for the moment, maybe that should be recosidered in the future
+        self.__excluded_states = set([])
+        # exclude specific usrdns like GangaRBT
+        self.__excluded_usrdns = excluded_usrdns
 
     def on_error(self, headers, message):
         record_counter('daemons.tracers.kronos.error')
@@ -110,7 +112,10 @@ class AMQConsumer(object):
                     record_counter('daemons.tracer.kronos.other_get')
 
                 # check if the report has the right state.
-                if report['clientState'] not in self.__done_states:
+                if report['clientState'] in self.__excluded_states:
+                    continue
+
+                if report['usrdn'] in self.__excluded_usrdns:
                     continue
                 replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcnow()})
             except (KeyError, AttributeError):
@@ -140,6 +145,7 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
     chunksize = config_get_int('tracer-kronos', 'chunksize')
     prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
     subscription_id = config_get('tracer-kronos', 'subscription_id')
+
     use_ssl = True
     try:
         use_ssl = config_get_bool('tracer-kronos', 'use_ssl')
@@ -150,19 +156,23 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
         username = config_get('tracer-kronos', 'username')
         password = config_get('tracer-kronos', 'password')
 
+    excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
+
     conns = []
     for broker in brokers_resolved:
         if not use_ssl:
             conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
                                     use_ssl=False,
-                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
+                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts'),
+                                    excluded_usrdns=excluded_usrdns))
         else:
             conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
                                     use_ssl=True,
                                     ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'),
                                     ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'),
                                     ssl_version=PROTOCOL_TLSv1,
-                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
+                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts'),
+                                    excluded_usrdns=excluded_usrdns))
 
     logging.info('tracer consumer started')
 
