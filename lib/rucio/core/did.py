@@ -511,7 +511,9 @@ def list_content(scope, name, session=None):
     :param session: The database session in use.
     """
     try:
-        query = session.query(models.DataIdentifierAssociation).filter_by(scope=scope, name=name)
+        query = session.query(models.DataIdentifierAssociation).\
+            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
+            filter_by(scope=scope, name=name)
         for tmp_did in query.yield_per(5):
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
@@ -556,6 +558,7 @@ def list_child_datasets(scope, name, session=None):
                           models.DataIdentifierAssociation.child_type).filter(models.DataIdentifierAssociation.scope == scope,
                                                                               models.DataIdentifierAssociation.name == name,
                                                                               models.DataIdentifierAssociation.child_type != DIDType.FILE)
+    query = query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
     for child_scope, child_name, child_type in query.yield_per(5):
         if child_type == DIDType.CONTAINER:
             list_child_datasets(scope=child_scope, name=child_name, session=session)
@@ -575,7 +578,8 @@ def list_files(scope, name, long=False, session=None):
     """
     try:
         did = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.bytes, models.DataIdentifier.adler32, models.DataIdentifier.guid,
-                            models.DataIdentifier.events, models.DataIdentifier.lumiblocknr, models.DataIdentifier.did_type).filter_by(scope=scope, name=name).one()
+                            models.DataIdentifier.events, models.DataIdentifier.lumiblocknr, models.DataIdentifier.did_type).filter_by(scope=scope, name=name).\
+            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
         if did[7] == DIDType.FILE:
             if long:
                 yield {'scope': did[0], 'name': did[1], 'bytes': did[2], 'adler32': did[3], 'guid': did[4] and did[4].upper(), 'events': did[5], 'lumiblocknr': did[6]}
@@ -583,7 +587,8 @@ def list_files(scope, name, long=False, session=None):
                 yield {'scope': did[0], 'name': did[1], 'bytes': did[2], 'adler32': did[3], 'guid': did[4] and did[4].upper(), 'events': did[5]}
         else:
             query = session.query(models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type, models.DataIdentifierAssociation.bytes,
-                                  models.DataIdentifierAssociation.adler32, models.DataIdentifierAssociation.guid, models.DataIdentifierAssociation.events)
+                                  models.DataIdentifierAssociation.adler32, models.DataIdentifierAssociation.guid, models.DataIdentifierAssociation.events).\
+                with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
             dids = [(scope, name), ]
             while dids:
                 s, n = dids.pop()
@@ -664,7 +669,8 @@ def get_did(scope, name, session=None):
     :param session: The database session in use.
     """
     try:
-        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        r = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
         if r.did_type == DIDType.FILE:
             did_r = {'scope': r.scope, 'name': r.name, 'type': r.did_type, 'account': r.account}
         else:
@@ -688,7 +694,8 @@ def get_files(files, session=None):
                                 models.DataIdentifier.bytes, models.DataIdentifier.guid,
                                 models.DataIdentifier.events,
                                 models.DataIdentifier.adler32, models.DataIdentifier.md5).\
-        filter(models.DataIdentifier.did_type == DIDType.FILE)
+        filter(models.DataIdentifier.did_type == DIDType.FILE).\
+        with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
     file_condition = []
     for file in files:
         file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
@@ -746,7 +753,8 @@ def get_metadata(scope, name, session=None):
     :param session: The database session in use.
     """
     try:
-        row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
+        row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').one()
         d = {}
         for column in row.__table__.columns:
             d[column.name] = getattr(row, column.name)
@@ -780,6 +788,7 @@ def set_status(scope, name, session=None, **kwargs):
     statuses = ['open', ]
 
     query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+        with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     values = {}
     for k in kwargs:
