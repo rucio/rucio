@@ -33,10 +33,8 @@ class DIDClient(BaseClient):
         List all data identifiers in a scope which match a given pattern.
 
         :param scope: The scope name.
-        :param pattern: The wildcard pattern.
-        :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
-        :param ignore_case: Ignore case distinctions.
-        :param session: The database session in use.
+        :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
+        :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         """
 
         path = '/'.join([self.DIDS_BASEURL, scope, 'dids', 'search'])
@@ -88,7 +86,7 @@ class DIDClient(BaseClient):
 
     def add_dids(self, dids):
         """
-        Buld add datasets/containers.
+        Bulk add datasets/containers.
         """
         path = '/'.join([self.DIDS_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
