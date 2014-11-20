@@ -315,7 +315,10 @@ def perm_attach_dids(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
+    return issuer == 'root'\
+        or issuer in get_special_accounts()\
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
+        or kwargs['scope'] == 'mock'
 
 
 def perm_attach_dids_to_dids(issuer, kwargs):
