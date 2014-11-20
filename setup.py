@@ -8,19 +8,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 
+import glob
 import os
 import re
-import shutil
 import subprocess
 import sys
 
 from distutils.command.sdist import sdist as _sdist
-
-try:
-    from setuptools import setup
-except ImportError:
-    from ez_setup import use_setuptools
-    use_setuptools()
 
 if sys.version_info < (2, 4):
     print('ERROR: Rucio requires at least Python 2.5 to run.')
@@ -30,27 +24,29 @@ sys.path.insert(0, os.path.abspath('lib/'))
 
 from rucio import version
 
+try:
+    from setuptools import setup, find_packages
+#    from setuptools.command.sdist import sdist
+except ImportError:
+    from ez_setup import use_setuptools
+    use_setuptools()
 
-# Arguments to the setup script to build Basic/Lite distributions
-copy_args = sys.argv[1:]
-name = 'rucio-clients'
+name = 'rucio'
+packages = find_packages('lib/')
+description = "Rucio Package"
 IsRelease = False
-packages = ['rucio', 'rucio.client', 'rucio.client.cli', 'rucio.common',
-            'rucio.rse.protocols', 'rucio.rse', 'rucio.tests',
-            'rucio.tests.emulation', 'rucio.tests.emulation.usecases']
-requirements_files = ['tools/pip-requires-client']
-description = "Rucio Client Lite Package"
-data_files = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template']),
-              ('tools/', ['tools/pip-requires-client', ]), ]
+requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
+data_files = [('rucio/etc/', glob.glob('etc/*.template')),
+              ('rucio/etc/web', glob.glob('etc/web/*.template')),
+              ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
+              ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
+                                'tools/bootstrap.py', 'tools/reset_database.py']),
+              ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*'))]
 
-scripts = ['bin/rucio', 'bin/rucio-admin']
-if os.path.exists('build/'):
-    shutil.rmtree('build/')
-if os.path.exists('lib/rucio_clients.egg-info/'):
-    shutil.rmtree('lib/rucio_clients.egg-info/')
-if os.path.exists('lib/rucio.egg-info/'):
-    shutil.rmtree('lib/rucio.egg-info/')
+scripts = glob.glob('bin/rucio*')
 
+# Arguments to the setup script to build stable release
+copy_args = sys.argv[1:]
 if '--release' in copy_args:
     IsRelease = True
     copy_args.remove('--release')
