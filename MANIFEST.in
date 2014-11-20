@@ -9,9 +9,15 @@ include lib/rucio/db/migrate_repo/script.py.mako
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.atlas.client.template
 include etc/rucio.cfg.template
+include tools/pip-requires
+include tools/pip-requires-test
+include tools/pip-requires-client
+include tools/bootstrap.py
+include tools/reset_database.py
 recursive-include lib/rucio/db/migrate_repo/versions *.py
 recursive-include tools/probes *
 recursive-include lib/rucio/web/ui *
+recursive-include  etc/schemas *.json
 graft doc
 prune dist
 prune examples
