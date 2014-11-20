@@ -58,6 +58,16 @@ if __name__ == '__main__':
             r.add_rse_attribute(rse['name'], 'site', str(rse['site']), 'root')
             for group in rse['ddmgroups']:
                 r.add_rse_attribute(rse['name'], str(group), True, 'root')
+
+            if isinstance(rse['servedrestfts']['MASTER'], list):
+                r.add_rse_attribute(rse['name'], 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
+            else:
+                r.add_rse_attribute(rse['name'], 'fts', str(rse['servedrestfts']['MASTER']), 'root')
+            if isinstance(rse['servedrestfts']['TESTING'], list):
+                r.add_rse_attribute(rse['name'], 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
+            else:
+                r.add_rse_attribute(rse['name'], 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
+
         except RucioException as e:
             print str(e)
             sys.exit(CRITICAL)
