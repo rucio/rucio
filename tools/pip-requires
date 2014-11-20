@@ -38,7 +38,6 @@ dnspython==1.11.1          # To resolve ActiveMQ broker alias
 pystatsd==0.1.10           # Needed to log into graphite with more than 1 Hz
 pygeoip==0.3.0             # GeoIP API
 geoip2==0.5.0              # GeoIP2 API (for IPv6 support)
-python-ldap==2.4.15        # needed for LDAP integration
 maxminddb==0.3.1           # extension for reading the MaxMind DB format
+# python-ldap==2.4.15        # needed for LDAP integration
 
-boto==2.34.0                # needed for S3 boto protocol
