@@ -1072,7 +1072,7 @@ class UseCaseDefinition(UCEmulator):
         ctx.task_print = 0
         try:
             print '== PanDA [%s]: Loading context file' % (time.strftime('%D %H:%M:%S', time.localtime()))
-            with open('/data/emulator/panda.ctx', 'r') as f:
+            with open('/tmp/panda.ctx', 'r') as f:
                 stuff = pickle.load(f)
             delta = (time.time() - stuff[0]) + 135  # safety
             print '== PanDA [%s]: Start importing previous context (written at: %s / delta: %.2f min)' % (time.strftime('%D %H:%M:%S', time.localtime()),
@@ -1134,7 +1134,7 @@ class UseCaseDefinition(UCEmulator):
             ctx.task_distribution = task_distribution
 
     def select_input_ds(self, task_type, ctx):
-        dist_prefix = '/data/mounted_hdfs/user/serfon/listdatasets2/'
+        dist_prefix = '/tmp/listdatasets2/'
 
         success = False
         retry = 0
@@ -1194,6 +1194,6 @@ class UseCaseDefinition(UCEmulator):
         with ctx.job_queue_mutex:
             with ctx.sub_queue_mutex:
                 with ctx.task_queue_mutex:
-                    with open('/data/emulator/panda.ctx', 'w') as f:
+                    with open('/tmp/panda.ctx', 'w') as f:
                         pickle.dump([time.time(), ctx.job_queue, ctx.sub_queue, ctx.task_queue], f, pickle.HIGHEST_PROTOCOL)
         print '== PanDA [%s]: Persisted context file.' % (time.strftime('%D %H:%M:%S', time.localtime()))
