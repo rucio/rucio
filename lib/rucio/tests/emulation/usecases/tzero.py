@@ -303,12 +303,14 @@ class UseCaseDefinition(UCEmulator):
                     d[3] = target
                     # with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
                     #   client.attach_dids_to_dids(attachments=inserts)
-                    with monitor.record_timer_block(['tzero.add_files_to_dataset', ('tzero.add_files_to_dataset.normalized', len(newfiles))]):
-                        try:
-                            client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles, rse=tz_rse)
-                        except Exception, e:
-                            print traceback.format_exc()
                     monitor.record_counter('tzero.files', len(newfiles))
+                    while len(newfiles):
+                        with monitor.record_timer_block(['tzero.add_files_to_dataset', ('tzero.add_files_to_dataset.normalized', len(newfiles))]):
+                            try:
+                                client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles[:500], rse=tz_rse)
+                                del newfiles[:500]
+                            except Exception, e:
+                                print traceback.format_exc()
             delta = time.time() - now
             print '== TZero: Appending %s files to %s datasets took %s seconds' % (no_files, len(ds), delta)
             monitor.record_timer('tzero.registering_all_replicas', delta * 1000)
