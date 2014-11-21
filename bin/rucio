@@ -732,8 +732,11 @@ def upload(args):
     if args.did:
         try:
             dsscope, dsname = args.did.split(':')
-            meta = client.get_metadata(scope=dsscope, name=dsname)
-            # Dataset already exist
+            if files_to_list.count({'scope': dsscope, 'name': dsname}) > 0:
+                # There is a file with the name of the destination dataset.
+                logger.error('ERROR: scope:name for the files must be different from scope:name for the destination dataset. {0}'.format(args.did))
+                return FAILURE
+            meta = client.get_metadata(scope=dsscope, name=dsname)    # Dataset already exist
         except ValueError, e:
             logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e))
             return FAILURE
