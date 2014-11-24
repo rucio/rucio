@@ -22,7 +22,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit
+from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
@@ -134,6 +134,20 @@ class TestReplicationRuleCore():
             rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
             assert_not_in(self.rse4_id, rse_locks)
+
+    def test_add_rule_duplicate(self):
+        """ REPLICATION RULE (CORE): Add a replication rule duplicate"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        # Add a first rule to the DS
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        # Add a second rule and check if the right locks are created
+        assert_raises(DuplicateRule, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     def test_add_rules_datasets_none(self):
         """ REPLUCATION RULE (CORE): Add replication rules to multiple datasets, NONE Grouping"""

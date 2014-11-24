@@ -19,7 +19,8 @@ from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
-                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
+                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
+                                    DuplicateRule)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -146,6 +147,8 @@ class Rule:
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:
             raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
+        except DuplicateRule, e:
+            raise generate_http_error(409, 'DuplicateRule', e.args[0][0])
         except InsufficientTargetRSEs, e:
             raise generate_http_error(409, 'InsufficientTargetRSEs', e.args[0][0])
         except InsufficientAccountLimit, e:

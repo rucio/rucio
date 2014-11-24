@@ -174,6 +174,12 @@ class DuplicateContent(RucioException):
         self._message = "Data identifier already added to the destination content."
 
 
+class DuplicateRule(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(DuplicateRule, self).__init__(args, kwargs)
+        self._message = "A duplicate rule for this account, did, rse_expression, copies already exists."
+
+
 class ErrorLoadingCredentials(RucioException):
     def __init__(self, *args, **kwargs):
         super(ErrorLoadingCredentials, self).__init__(args, kwargs)
