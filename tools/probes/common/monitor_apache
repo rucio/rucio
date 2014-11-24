@@ -8,19 +8,22 @@
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
 
+import argparse
 import datetime
 import logging
 import requests
 import sys
 
+from pystatsd import Client
 from sys import stdout
 
-
-HAP_UNIX_SOCKET = '/var/run/haproxy_admin.sock'
-
 logging.basicConfig(stream=stdout,
-                    level=logging.ERROR,
+                    level=logging.DEBUG,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
+
+def monitor_nginx(uri):
+    raise NotImplemented
 
 
 def monitor_apache(uri):
@@ -43,35 +46,123 @@ def monitor_apache(uri):
     # BusyWorkers: 23
     # IdleWorkers: 7
 
-    stat = dict()
+    stats = dict()
+    IGNORE = ['BytesPerSec', 'BytesPerReq', 'Uptime', 'Total_kBytes', 'Total_Accesses']
+
+    server_name = get_server_name(uri)
+    stats['server_name'] = server_name
     for i in range(9):
         tmp = text[i].split(': ')
-        stat[tmp[0].replace(' ', '_')] = tmp[1]
-    fqdn = fqdn.split('//')[1].split('.')[0]
+        key = tmp[0].replace(' ', '_')
+        if key not in IGNORE:
+            stats[key] = tmp[1]
+    stats['availability'] = 100 / (int(stats['BusyWorkers']) + int(stats['IdleWorkers'])) * int(stats['IdleWorkers'])
+    return stats
+
+
+def backend_graphite(url, stats, prefix):
+    server, port = url.split(':')
+    try:
+        pystatsd_client = Client(host=server, port=port, prefix='%s.%s' % (prefix, stats['server_name']))
+    except Exception, e:
+        logging.error('Unable to connect to Graphite backend %s: %s' % (url, e))
+        raise
+    for s in stats:
+        if s in ['server_name']:
+            continue
+        try:
+            logging.debug('%s.%s.%s => %s' % (prefix, stats['server_name'], s, float(stats[s])))
+            pystatsd_client.gauge(s, float(stats[s]))
+        except Exception as e:
+            logging.error('Failed reporting %s (%s): %s' % (s, stats[s], e))
+
+
+def get_server_name(fqdn):
+    return fqdn.split('//')[1].split('.')[0]
+
+
+def backend_xsls(fqdn, stats):
     xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
-    xml_str += '<id>rucio.%s.httpd</id>' % fqdn
-    avail = 100 / (int(stat['BusyWorkers']) + int(stat['IdleWorkers'])) * int(stat['IdleWorkers'])
-    xml_str += '<availability>%s</availability>' % avail
-    xml_str += '<availabilityinfo>%s of %s worker processes idel.</availabilityinfo>' % ((int(stat['BusyWorkers']) + int(stat['IdleWorkers'])), int(stat['IdleWorkers']))
+    xml_str += '<id>rucio.%s.httpd</id>' % stats['server_name']
+    xml_str += '<availability>%s</availability>' % stats['availability']
+    xml_str += '<availabilityinfo>%s of %s worker processes idel.</availabilityinfo>' % ((int(stats['BusyWorkers']) + int(stats['IdleWorkers'])), int(stats['IdleWorkers']))
     xml_str += '<timestamp>%s</timestamp>' % (datetime.datetime.now().isoformat().split('.')[0])
     xml_str += '<data>'
-    for s in stat:
-        xml_str += '<numericvalue name="rucio.%s.httpd.%s" desc="#">%s</numericvalue>' % (fqdn, s,  stat[s])
+    for s in stats:
+        if s in ['server_name']:
+            continue
+        xml_str += '<numericvalue name="rucio.%s.httpd.%s" desc="#">%s</numericvalue>' % (stats['server_name'], s,  stats[s])
     xml_str += '</data>'
     xml_str += '</serviceupdate>'
     logging.debug(xml_str)
-    r = requests.post('http://xsls.cern.ch', files={'file': xml_str})
+    r = requests.post(fqdn, files={'file': xml_str})
     return r.status_code
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        logging.error('No server URI(s) given, e.g. http://rucio-server-prod-01.cern.ch http://rucio-server-prod-02.cern.ch')
+    parser = argparse.ArgumentParser(description='Takes backend classes and Apaches URLs')
+    parser.add_argument('--backend', metavar='B', type=str, nargs='+',  help='a list of type::URL[:port][::scope] sets to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
+    parser.add_argument('--server', metavar='S', type=str, nargs='+',  help='a list of type::FQDN tuples. Type is either apache or nginx. E.g. --sever apache::www.example.com nginx::www.example2.net')
+    args = vars(parser.parse_args())
+
+    servers = []
+    for server in args['server']:
+        try:
+            t, fqdn = server.split('::')
+            logging.debug('Monitoring server => Type: %s\tFQDN: %s' % (t, fqdn))
+            servers.append((t, fqdn))
+        except ValueError:
+            logging.critical('Can not unpack server information: %s' % server)
+            sys.exit(1)
+    if not len(server):
+        logging.critical("No server to monitor provided. Exiting.")
         sys.exit(1)
 
-    success = True
-    for uri in sys.argv[1:]:
-        sc = monitor_apache(uri)
-        if sc != 200:
-            success = False
+    backends = []
+    for backend in args['backend']:
+        try:
+            tmp = backend.split('::')
+            if len(tmp) < 2 or len(tmp) > 3:
+                raise ValueError
+            t, url, prefix = tmp if len(tmp) == 3 else [tmp[0], tmp[1], None]
+            logging.debug('Reporting to backend => Type: %s\tURL: %s\tPrefix: %s' % (t, url, prefix))
+            backends.append((t, url, prefix))
+        except ValueError:
+            logging.critical('Can not unpack backend information: %s' % backend)
+            sys.exit(1)
+    if not len(backends):
+        logging.critical("No backend provided. Exiting.")
+        sys.exit(1)
 
-    sys.exit(success)
+    for server in servers:
+        t, fqdn = server
+        stats = {}
+        if t == 'apache':
+            stats = monitor_apache(fqdn)
+        elif t == 'nginx':
+            stats = monitor_nginx(fqdn)
+        else:
+            logging.critical('Can not monitor server of type %s: Not supported' % type)
+            sys.exit(1)
+        logging.info('Stats gathering from %s OK.' % fqdn)
+
+        for backend in backends:
+            t, url, prefix = backend
+            if t == 'graphite':
+                if not prefix:
+                    logging.critical('Can not report to graphite without prefix')
+                    sys.exit(1)
+                try:
+                    backend_graphite(url, stats, prefix)
+                    logging.info('Reporting to %s OK.' % url)
+                except Exception as e:
+                    logging.error('Unable to report to Graphite backend: %s' % e)
+            elif t == 'xsls':
+                sc =  backend_xsls(url, stats)
+                if sc != 200:
+                    logging.error('Unable to report to XSLS backend. Statuscode: %s' % sc)
+                else:
+                    logging.info('Reporting to %s OK.' % url)
+            else:
+                logging.critical('Can not report to backend of type %s: Not supported' % type)
+                sys.exit(1)
+    sys.exit(0)
