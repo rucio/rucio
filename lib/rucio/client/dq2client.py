@@ -48,13 +48,8 @@ def validate_time_formats(time_string):
 
 def extract_scope(dsn):
     # Try to extract the scope from the DSN
-    client = Client()
     if dsn.find(':') > -1:
-        scope = dsn.split(':')[0]
-        if scope in client.list_scopes():
-            return scope, dsn.split(':')[1]
-        else:
-            raise ScopeNotFound('%s is not a valid scope' % scope)
+        return dsn.split(':')[0], dsn.split(':')[1]
     else:
         scope = dsn.split('.')[0]
         if dsn.startswith('user') or dsn.startswith('group'):
@@ -62,8 +57,9 @@ def extract_scope(dsn):
         if scope.find('*') > -1:
             if scope.endswith('*'):
                 scope = scope.rstrip('*')
-        if scope not in client.list_scopes():
-            raise ScopeNotFound('%s is not a valid scope' % scope)
+            client = Client()
+            if scope not in client.list_scopes():
+                raise ScopeNotFound('%s is not a valid scope' % scope)
         return scope, dsn
 
 
@@ -1336,7 +1332,10 @@ class DQ2Client:
             for rule in self.client.list_did_rules(scope=scope, name=dsn):
                 if (rule['rse_expression'] == location) and (rule['account'] == self.client.account):
                     return True
-            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+            try:
+                self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+            except Duplicate:
+                return True
         else:
             raise UnsupportedOperation('Unknown RSE [%s]' % (location))
         return True
@@ -1643,7 +1642,10 @@ class DQ2Client:
         vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
         duid = vuid
         if rse:
-            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+            try:
+                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+            except Duplicate:
+                pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}
 
     def registerNewDataset2(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None,  provenance=None, group=None, hidden=False, ignore=False, scope=None, rse=None):
@@ -1706,7 +1708,10 @@ class DQ2Client:
                     except FileAlreadyExists:
                         statuses[f['name']] = {'status': False, 'error': FileAlreadyExists, 'duid': duid}
         if rse:
-            self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+            try:
+                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+            except Duplicate:
+                pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}, statuses
 
     def registerNewVersion(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None):
@@ -1874,33 +1879,33 @@ class DQ2Client:
                         return 0
                 elif attrname == 'archived':
                     if attrvalue == 'custodial':
-                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=None, grouping=rule['grouping'], account=account, locked=True, notify='N')
-                        self.client.delete_replication_rule(rule['id'])
+                        self.client.update_replication_rule(rule['id'], {'locked': True})
                     if attrvalue == 'secondary':
-                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=14 * 86400, grouping=rule['grouping'], account=account, locked=False, notify='N')
-                        self.client.delete_replication_rule(rule['id'])
+                        self.client.update_replication_rule(rule['id'], {'locked': False, 'lifetime': 14 * 86400})
                 elif attrname == 'lifetime':
-                    lifetime = validate_time_formats(attrvalue)
+                    if attrvalue == '':
+                        lifetime = None
+                    else:
+                        lifetime = validate_time_formats(attrvalue)
                     if lifetime == timedelta(days=0, seconds=0, microseconds=0):
                         errMsg = 'lifetime must be greater than O!' % locals()
                         raise InputValidationError(errMsg)
-                    lifetime = lifetime.days * 86400 + lifetime.seconds
-                    self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'], lifetime=lifetime, grouping=rule['grouping'], account=account, locked=False, notify='N')
-                    self.client.delete_replication_rule(rule['id'])
+                    elif lifetime:
+                        lifetime = lifetime.days * 86400 + lifetime.seconds
+                    self.client.update_replication_rule(rule['id'], {'lifetime': lifetime})
                 elif attrname == 'pin_lifetime':
                     if attrvalue is None or attrvalue is '':
-                        self.client.update_lock_state(rule['id'], lock_state=False)
+                        self.client.update_replication_rule(rule['id'], {'locked': False})
                     else:
                         pin_lifetime = validate_time_formats(attrvalue)
                         if pin_lifetime == timedelta(days=0, seconds=0, microseconds=0):
                             errMsg = 'pin_lifetime must be greater than O!' % locals()
                             raise InputValidationError(errMsg)
                         pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
-                        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=rule['copies'], rse_expression=location, weight=rule['weight'],
-                                                         lifetime=pin_lifetime, grouping=rule['grouping'], account=account, locked=True, notify='N')
+                        if ((rule['expires_at']-datetime.now()) < timedelta(seconds=pin_lifetime)):
+                            self.client.update_replication_rule(rule['id'], {'lifetime': pin_lifetime})
         if not is_at_site:
             raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))
-        self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=account, locked=False, notify='N')
         return 0
 
     def verifyFilesInDataset(self, dsn, guids, version=None, scope=None):
