@@ -259,9 +259,9 @@ class UseCaseDefinition(UCEmulator):
                                     'statuses': {'monotonic': True}, 'meta': meta,
                                     'rules': [{'account': tz_account, 'copies': 1,
                                                'rse_expression': tz_rse, 'grouping': 'DATASET'}]})  # The missing lifetime attribute indicated an infinite lifetime
-                with monitor.record_timer_block(['tzero.add_datasets', ('tzero.add_datasets.normalized', len(open_ds))]):
+                with monitor.record_timer_block(['emulator.tzero.client.add_datasets', ('emulator.tzero.client.add_datasets.normalized', len(open_ds))]):
                     client.add_datasets(open_ds)
-                monitor.record_counter('tzero.datasets', len(open_ds))
+                monitor.record_counter('emulator.tzero.client.datasets', len(open_ds))
                 # dids = [{'scope': d['scope'], 'name': d['name']} for d in open_ds]
                 # with monitor.record_timer_block(['tzero.add_replication_rule', ('tzero.add_replication_rule.normalized', len(open_ds))]):
                 #    client.add_replication_rule(dids, copies=1, rse_expression=tz_rse,
@@ -303,9 +303,9 @@ class UseCaseDefinition(UCEmulator):
                     d[3] = target
                     # with monitor.record_timer_block(['panda.attach_dids_to_dids', ('panda.attach_dids_to_dids.normalized_datasets', len(inserts)), ('panda.attach_dids_to_dids.normalized_files', no_files)]):
                     #   client.attach_dids_to_dids(attachments=inserts)
-                    monitor.record_counter('tzero.files', len(newfiles))
+                    monitor.record_counter('emulator.tzero.client.files', len(newfiles))
                     while len(newfiles):
-                        with monitor.record_timer_block(['tzero.add_files_to_dataset', ('tzero.add_files_to_dataset.normalized', len(newfiles))]):
+                        with monitor.record_timer_block(['emulator.tzero.client.add_files_to_dataset', ('emulator.tzero.client.add_files_to_dataset.normalized', len(newfiles))]):
                             try:
                                 client.add_files_to_dataset(scope=scope, name=datasetname, files=newfiles[:500], rse=tz_rse)
                                 del newfiles[:500]
@@ -313,13 +313,13 @@ class UseCaseDefinition(UCEmulator):
                                 print traceback.format_exc()
             delta = time.time() - now
             print '== TZero: Appending %s files to %s datasets took %s seconds' % (no_files, len(ds), delta)
-            monitor.record_timer('tzero.registering_all_replicas', delta * 1000)
-            monitor.record_timer('tzero.registering_all_replicas.normalized', (delta * 1000) / no_files)
+            monitor.record_timer('emulator.tzero.registering_all_replicas', delta * 1000)
+            monitor.record_timer('emulator.tzero.registering_all_replicas.normalized', (delta * 1000) / no_files)
 
         # close all datasets
         for scope, datasetname, s, c in ds:
             print '== TZero: Close dataset %s:%s' % (scope, datasetname)
-            with monitor.record_timer_block('tzero.close'):
+            with monitor.record_timer_block('emulator.tzero.client.close'):
                 try:
                     client.close(scope=scope, name=datasetname)
                 except Exception, e:
