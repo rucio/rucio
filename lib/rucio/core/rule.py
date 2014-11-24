@@ -15,6 +15,7 @@ import logging
 import sys
 
 from datetime import datetime, timedelta
+from re import match
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
@@ -28,7 +29,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
-                                    AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
+                                    AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule)
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
@@ -67,7 +68,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param notify:                     Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
-    :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
+    :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule
     """
     rule_ids = []
 
@@ -132,6 +133,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
+                    if match('.*ORA-00001.*', str(e.args[0])):
+                        raise DuplicateRule()
                     raise InvalidReplicationRule(e.args[0])
 
                 rule_ids.append(new_rule.id)
@@ -189,7 +192,7 @@ def add_rules(dids, rules, session=None):
                      {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
-    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime
+    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule
     """
 
     with record_timer_block('rule.add_rules'):
@@ -278,6 +281,8 @@ def add_rules(dids, rules, session=None):
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
+                            if match('.*ORA-00001.*', str(e.args[0])):
+                                raise DuplicateRule()
                             raise InvalidReplicationRule(e.args[0])
 
                         rule_ids[(did.scope, did.name)].append(new_rule.id)
