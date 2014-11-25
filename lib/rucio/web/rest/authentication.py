@@ -48,6 +48,7 @@ class UserPass(RucioController):
         header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
     def GET(self):
@@ -64,6 +65,12 @@ class UserPass(RucioController):
         :param Rucio-AppID: Application identifier as a string.
         :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
 
         header('Content-Type', 'application/octet-stream')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
@@ -114,6 +121,7 @@ class GSS(RucioController):
         header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
     def GET(self):
@@ -129,6 +137,12 @@ class GSS(RucioController):
         :param SavedCredentials: Apache mod_auth_kerb SavedCredentials.
         :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
 
         header('Content-Type', 'application/octet-stream')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
@@ -175,6 +189,7 @@ class x509(RucioController):
         header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
     def GET(self):
@@ -190,6 +205,12 @@ class x509(RucioController):
         :param SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
         :returns: "Rucio-Auth-Token" as a variable-length string header.
         """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
 
         header('Content-Type', 'application/octet-stream')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
@@ -259,6 +280,7 @@ class Validate(RucioController):
         header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         raise OK
 
     def GET(self):
@@ -272,6 +294,12 @@ class Validate(RucioController):
         :param Rucio-Auth-Token: as a variable-length string.
         :returns: Tuple(account name, token lifetime).
         """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
 
         header('Content-Type', 'application/octet-stream')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
