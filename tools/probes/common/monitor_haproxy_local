@@ -9,176 +9,130 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
 
 
+import argparse
 import socket
 import traceback
-import datetime
 import logging
-import requests
 import sys
 
+from pystatsd import Client
 from sys import stdout
 
-# In multi-process settings each process reports its stats via a separate socket
-HAP_UNIX_SOCKETS = ['/var/run/haproxy_admin_process_no_1.sock',
-                    '/var/run/haproxy_admin_process_no_2.sock',
-                    '/var/run/haproxy_admin_process_no_3.sock',
-                    '/var/run/haproxy_admin_process_no_4.sock']
-
-
-# Which metric should be reported and if they shoudl be aggreagwted
-METRICS = {
-          }
-
-descriptions = {'qcur':             ('current queued requests. For the backend this reports thevnumber queued without a server assigned.', True),
-                'qmax':             ('max value of qcur', True),
-                'scur':             ('current sessions', True),
-                'smax':             ('max sessions', True),
-                'slim':             ('configured session limit', True),
-                'stot':             ('cumulative number of connections', True),
-                'bin':              ('bytes in', True),
-                'bout':             ('bytes out', True),
-                'dreq':             ('requests denied because of security concerns.', True),
-                'dresp':            ('responses denied because of security concerns.', True),
-                'ereq':             ('request errors. Some of the possible causes are:', True),
-                'econ':             ('number of requests that encountered an error trying to connect to a backend server. The backend stat is the sum of the stat for all servers of that backend, plus any connection errors not associated with a particular server', True),
-                'eresp':            ('response errors. srv_abrt will be counted here also.', True),
-                'wretr':            ('number of times a connection to a server was retried.', True),
-                'wredis':           ('number of times a request was redispatched to another server. The server value counts the number of times that server was switched away from.', True),
-                'status':           ('status (UP/DOWN/NOLB/MAINT/MAINT(via)...)', True),
-                'weight':           ('server weight (server), total weight (backend)', True),
-                'act':              ('server is active (server), number of active servers (backend)', True),
-                'bck':              ('server is backup (server), number of backup servers (backend)', True),
-                'chkfail':          ('number of failed checks. (Only counts checks failed when the server is up.)', True),
-                'chkdown':          ('number of UP->DOWN transitions. The backend counter counts transitions to the whole backend being down, rather than the sum of the counters for each server.', True),
-                'lastchg':          ('number of seconds since the last UP/DOWN transition', True),
-                'downtime':         ('total downtime (in seconds). The value for the backend is the downtime for the whole backend, not the sum of the server downtime.', True),
-                'qlimit':           ('configured maxqueue for the server, or nothing in the value is 0 (default, meaning no limit)', True),
-                'pid':              ('process id (0 for first instance, 1 for second, ...)', True),
-                'iid':              ('unique proxy id', True),
-                'sid':              ('server id (unique inside a proxy)', True),
-                'throttle':         ('current throttle percentage for the server, when slowstart is active, or no value if not in slowstart.', True),
-                'lbtot':            ('total number of times a server was selected, either for new sessions, or when re-dispatching. The server counter is the number of times that server was selected.', True),
-                'tracked':          ('id of proxy/server if tracking is enabled.', True),
-                'type':             ('(0=frontend, 1=backend, 2=server, 3=socket/listener)', True),
-                'rate':             ('number of sessions per second over last elapsed second', True),
-                'rate_lim':         ('configured limit on new sessions per second', True),
-                'rate_max':         ('max number of new sessions per second', True),
-                'check_status':     ('status of last health check, one of:', True),
-                'check_code':       ('layer5-7 code, if available', True),
-                'check_duration':   ('time in ms took to finish last health check', True),
-                'hrsp_1xx':         ('http responses with 1xx code', True),
-                'hrsp_2xx':         ('http responses with 2xx code', True),
-                'hrsp_3xx':         ('http responses with 3xx code', True),
-                'hrsp_4xx':         ('http responses with 4xx code', True),
-                'hrsp_5xx':         ('http responses with 5xx code', True),
-                'hrsp_other':       ('http responses with other codes (protocol error)', True),
-                'hanafail':         ('failed health checks details', True),
-                'req_rate':         ('HTTP requests per second over last elapsed second', True),
-                'req_rate_max':     ('max number of HTTP requests per second observed', True),
-                'req_tot':          ('total number of HTTP requests received', True),
-                'cli_abrt':         ('number of data transfers aborted by the client', True),
-                'srv_abrt':         ('number of data transfers aborted by the server (inc. in eresp)', True),
-                'comp_in':          ('number of HTTP response bytes fed to the compressor', True),
-                'comp_out':         ('number of HTTP response bytes emitted by the compressor', True),
-                'comp_byp':         ('number of bytes that bypassed the HTTP compressor (CPU/BW limit)', True),
-                'comp_rsp':         ('number of HTTP responses that were compressed', True),
-                'lastsess':         ('number of seconds since last session assigned to server/backend', True),
-                'last_chk':         ('last health check contents or textual error', True),
-                'last_agt':         ('last agent check contents or textual error', True),
-                'qtime':            ('the average queue time in ms over the 1024 last requests', True),
-                'ctime':            ('the average connect time in ms over the 1024 last requests', True),
-                'rtime':            ('the average response time in ms over the 1024 last requests (0 for TCP)', True),
-                'ttime':            ('the average total session time in ms over the 1024 last requests', True)
-                }
-
+# Define logger
 logging.basicConfig(stream=stdout,
-                    level=logging.DEBUG,
+                    level=logging.ERROR,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
+logger = logging.getLogger(__name__)
 
-def get_info():
-    info = dict()
-    logging.debug('Connecting to socket')
+
+def monitor_haproxy(socket_name):
+    data = {}
+    INCLUDE_INFO = ['Process_num', 'Idle_pct']
+    INCLUDE_STAT = ['scur', 'qcur', 'chkfail', 'status', 'hrsp_1xx', 'hrsp_2xx', 'hrsp_3xx', 'hrsp_4xx', 'hrsp_5xx', 'req_rate', 'qtime', 'ctime', 'rtime', 'ttime']
+
+    # Request data from socket
+    logger.debug('Connecting to socket: %s' % socket_name)
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.connect(HAP_UNIX_SOCKET)
+        s.connect(socket_name)
+        logger.debug('Requesting info')
         s.send('show info\n')
-        response = s.recv(4096)
+        raw_info = s.recv(4096)
+        s.close()  # Note: socket is not reusable
+        logger.debug('Requesting stat')
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.connect(socket_name)
+        s.send('show stat\n')
+        raw_stat = s.recv(8192)
         s.close()
     except Exception as e:
-        logging.error('Failed requesting info from socket %s with execption %s' % (HAP_UNIX_SOCKET, e))
-        logging.debug(traceback.format_exc(e))
+        logger.error('Failed requesting data from socket %s with execption %s' % (socket_name, e))
+        logger.debug(traceback.format_exc(e))
         return None
-    logging.debug('Successfully requested data from socket.')
+    logger.debug('Successfully requested data from socket.')
 
-    # Transforming test response into dictonary
-    for entry in response.split('\n'):
+    # Transforming info response into dictonary
+    logger.debug('Parsing info response')
+    for entry in raw_info.split('\n'):
         tmp = entry.split(': ')
         try:
-            info['info.%s' % (tmp[0])] = float(tmp[1])
+            if tmp[0] in INCLUDE_INFO:
+                data[tmp[0]] = float(tmp[1])
         except Exception as e:
-            logging.error('Entry: %s failed with exception: %s' % (tmp, e))
-            logging.debug(traceback.format_exc(e))
-    logging.debug('Done parsing info response.')
-    logging.debug(info)
-    return info
+            logger.error('Entry: %s failed with exception: %s' % (tmp, e))
+            logger.debug(traceback.format_exc(e))
+    logger.debug('Done parsing info response.')
 
-
-def get_stats():
-    stats = dict()
-    logging.debug('Connecting to socket')
-    try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.connect(HAP_UNIX_SOCKET)
-        s.send('show stat\n')
-        response = s.recv(4096)
-        s.close()
-    except Exception as e:
-        logging.error('Failed requesting stats from socket %s with execption %s' % (HAP_UNIX_SOCKET, e))
-        logging.debug(traceback.format_exc(e))
-        return None
-    logging.debug('Successfully requested data from socket.')
-
-    response = response.split('\n')
-    headers = response.pop(0).split(',')[2:-1]  # Get the column headers and remove pxname and svname
-    for stat in response:
+    # Transforming stat response into dictonary
+    logger.debug('Parsing stat response')
+    raw_stat = raw_stat.split('\n')
+    headers = raw_stat.pop(0).split(',')[2:-1]  # Get the column headers and remove pxname and svname
+    for stat in raw_stat:
         stat = stat.split(',')
         if len(stat) == 1:
-            logging.debug('Ignored line: %s' % stat[0])
+            logger.debug('Ignored line: %s' % stat[0])
             continue  # Line is something else than stats
         prefix = '%s.%s' % (stat.pop(0), stat.pop(0))  # Build metric prefix using pxname and svname
         for column in range(len(headers)):
             try:
-                stats[prefix+'.'+headers[column]] = float(stat[column])
+                if headers[column] in INCLUDE_STAT:
+                    if (headers[column] == 'status') and (stat[column] in ['UP', 'DOWN', 'MAINT']) and (data['Process_num'] == 1.0):
+                        for s in ['UP', 'DOWN', 'MAINT']:
+                            data[prefix+'.'+headers[column]+'.'+s] = 0  # set all status to zero to support gauge values
+                        data[prefix+'.'+headers[column]+'.'+stat[column]] = 1
+                    else:
+                        data[prefix+'.'+headers[column]] = float(stat[column])
             except Exception as e:
-                stats[prefix+'.'+headers[column]] = 0.0
-    logging.debug('Done parsing stat response.')
-    logging.debug(stats)
-    return stats
+                logger.warning('Igonring data: %s -> %s' % (headers[column], stat[column]))
+    logger.debug('Done parsing stat response.')
+    return data
 
+
+def backend_graphite(url, stats, prefix):
+    process_num = stats['Process_num']
+    del(stats['Process_num'])
+    server_name = socket.getfqdn().split('.')[0]
+    prefix = '%s.%s.%s' % (prefix, server_name, int(process_num))
+    logger.debug('Reporting to prefix: %s' % prefix)
+    server, port = url.split(':')
+    try:
+        pystatsd_client = Client(host=server, port=port, prefix=prefix)
+    except Exception, e:
+        logger.error('Unable to connect to Graphite backend %s: %s' % (url, e))
+        raise
+
+    for s in stats:
+        try:
+            pystatsd_client.gauge(s, float(stats[s]))
+            logger.debug('%s.%s => %s' % (prefix, s, float(stats[s])))
+        except Exception as e:
+            logger.error('Failed reporting %s (%s): %s' % (s, stats[s], e))
 
 if __name__ == "__main__":
-    logging.debug('Using Unix-socket: %s' % socket)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--backend', metavar='B', type=str, nargs=1,  help=' Graphite server URL[:port][::scope] to which the script will report to. E.g. --backend rucio-graphite-int.cern.ch:8025/listen/now::rucio.loadbalancer')
+    parser.add_argument('--sockets', metavar='S', type=str, nargs='+',  help='a list of socket files e.g. /var/run/haproxy_admin_process_no_1.sock')
+    parser.add_argument('--verbose', help='makes it chatty', action="store_true")
 
-    info = get_info()  # Get information from 'show info'
-    stat = get_stats()  # Get information from 'show stat'
-    fqdn = socket.getfqdn().split('.')[0]
-    xml_str = '<serviceupdate xmlns="http://sls.cern.ch/SLS/XML/update">'
-    xml_str += '<id>rucio.%s.haproxy</id>' % fqdn
-    xml_str += '<availability>%s</availability>' % info['info.Idle_pct']
-    xml_str += '<availabilityinfo>Process idles %s  pct. of the time.</availabilityinfo>' % info['info.Idle_pct']
-    xml_str += '<timestamp>%s</timestamp>' % (datetime.datetime.now().isoformat().split('.')[0])
-    xml_str += '<data>'
-    xml_str += '<grp name="info">'
-    for i in info:
-        xml_str += '<numericvalue name="rucio.%s.haproxy.%s" desc="#">%s</numericvalue>' % (fqdn, i, info[i])
-    xml_str += '</grp>'
-    xml_str += '<grp name="stats">'
-    for s in stat:
-        if descriptions[s.split('.')[-1]][1]:
-            xml_str += '<numericvalue name="rucio.%s.haproxy.%s" desc="%s">%s</numericvalue>' % (fqdn, s, descriptions[s.split('.')[-1]][0], stat[s])
-    xml_str += '</grp>'
-    xml_str += '</data>'
-    xml_str += '</serviceupdate>'
-    r = requests.post('http://xsls.cern.ch', files={'file': xml_str})
-    sys.exit(not(r.status_code == 200))
+    args = parser.parse_args()
+
+    if args.verbose:
+        logger.setLevel(level=logging.DEBUG)
+    args = vars(args)
+
+    try:
+        url, prefix = args['backend'][0].split('::')
+        logger.debug('Reporting to backend => URL: %s\tPrefix: %s' % (url, prefix))
+    except ValueError:
+        logger.critical('Can not unpack backend information: %s' % args['backend'][0])
+        sys.exit(1)
+
+    for socket_name in args['sockets']:
+        try:
+            data = monitor_haproxy(socket_name)
+            backend_graphite(url, data, prefix)
+        except Exception as e:
+            logger.error(e)
+            sys.exit(1)
+    sys.exit(0)
