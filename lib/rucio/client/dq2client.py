@@ -744,6 +744,8 @@ class DQ2Client:
                 if type == 'collection':
                     for name in self.client.list_dids(scope, filters, 'dataset'):
                         result['%s:%s' % (scope, name)] = {}
+                    if filters['name'].endswith('/'):
+                        filters['name'] = filters['name'].rstrip('/')
                     for name in self.client.list_dids(scope, filters, 'container'):
                         result['%s:%s/' % (scope, name)] = {}
                 else:
@@ -1513,6 +1515,7 @@ class DQ2Client:
                 result[lfn] = {'status': True}
         except (FileAlreadyExists, Duplicate, UnsupportedOperation):
             for did in files:
+                lfn = did['name']
                 try:
                     self.client.add_files_to_dataset(scope=scope, name=dsn, files=[did], rse=rse)
                     result[lfn] = {'status': True}
@@ -1526,6 +1529,8 @@ class DQ2Client:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('adler32 mismatch DDM %s vs user %s' % (meta['adler32'], did['adler32']))}
                     elif meta['bytes'] != did['bytes']:
                         result[lfn] = {'status': False, 'error': FileConsistencyMismatch('filesize mismatch DDM %s vs user %s' % (meta['bytes'], did['bytes']))}
+                    else:
+                        result[lfn] = {'status': False, 'error': FileAlreadyExists('File %s:%s already exists' % (did['scope'], did['name']))}
                 except UnsupportedOperation, e:
                     result[lfn] = {'status': False, 'error': e}
         return result
@@ -1572,7 +1577,21 @@ class DQ2Client:
                 if 'lumiblocknr' in file:
                     lumiblocknrs.append(file['lumiblocknr'])
 
-            self.registerFilesInDataset(dsn, lfns=lfns, guids=guids, sizes=sizes, checksums=checksums, ignore=False, scope=scope, rse=rse, pfns=pfns, events=events, lumiblocknrs=lumiblocknrs)
+            result[vuid] = self.registerFilesInDataset(dsn, lfns=lfns, guids=guids, sizes=sizes, checksums=checksums, ignore=False, scope=scope, rse=rse, pfns=pfns, events=events, lumiblocknrs=lumiblocknrs)
+        errorlist = []
+        for vuid in result:
+            for lfn in result[vuid]:
+                if 'error' in result[vuid][lfn]:
+                    if type(result[vuid][lfn]['error']) not in errorlist:
+                        errorlist.append(type(result[vuid][lfn]['error']))
+        if FileConsistencyMismatch in errorlist:
+            raise FileConsistencyMismatch
+        elif UnsupportedOperation in errorlist:
+            raise UnsupportedOperation
+        elif FileAlreadyExists in errorlist:
+            raise FileAlreadyExists
+        else:
+            raise Exception
 
     def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, scope=None, rse=None, pfns=[], events=[], lumiblocknrs=[]):
         """
