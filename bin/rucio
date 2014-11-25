@@ -112,7 +112,7 @@ def ping(args):
     if server_info:
         print server_info['version']
         return SUCCESS
-    print 'Ping failed'
+    logger.error('Ping failed')
     return FAILURE
 
 
@@ -203,7 +203,7 @@ def list_replicas(args):
             try:
                 scope, name = did.split(':')
             except ValueError, e:
-                print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+                logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
                 return FAILURE
             dids.append({'scope': scope, 'name': name})
         replicas = client.list_replicas(dids, schemes=protocols)
@@ -239,7 +239,7 @@ def add_dataset(args):
     try:
         scope, name = args.did.split(':')
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
         return FAILURE
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
@@ -249,8 +249,7 @@ def add_dataset(args):
         client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
         print 'Added %s:%s' % (scope, name)
     except Exception, e:
-        print 'Failed to add data identifier'
-        print e
+        logger.error('Failed to add data identifier due to a unknow exception : {0}'.format(e))
         return FAILURE
     return SUCCESS
 
@@ -268,7 +267,7 @@ def add_container(args):
     try:
         scope, name = args.did.split(':')
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
         return FAILURE
 
     client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
@@ -278,8 +277,7 @@ def add_container(args):
         client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
         print 'Added %s:%s' % (scope, name)
     except Exception, e:
-        print 'Failed to add data identifier'
-        print e
+        logger.error('Failed to add data identifier due to a unknow exception : {0}'.format(e))
         return FAILURE
     return SUCCESS
 
@@ -335,7 +333,7 @@ def detach(args):
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
         scope, name = args.fromdid.split(':')
     except ValueError, e:
-        logger.error('ERROR cannot extract the scope and name from {0} : [{1}]'.format(args.fromdid, e))
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.fromdid, e))
         return FAILURE
     except Exception, e:
         logger.warning('Unknown exception occurred : {0}'.format(e))
@@ -367,7 +365,7 @@ def add_files_to_dataset(args):
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.files]
         scope, name = args.todid.split(':')
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
         return FAILURE
     except Exception, e:
         print e
@@ -375,8 +373,8 @@ def add_files_to_dataset(args):
     try:
         client.add_files_to_dataset(scope=scope, name=name, files=dids)
     except Exception, e:
-        print 'Failed to attach files to the dataset'
-        print e
+        logger.error('Failed to attach files to the dataset due to a unknow exception : {0}'.format(e))
+        logger.error('Probably, one of the files is not a file or the dataset is not a dataset. You can try \'rucio attach\' instead.')
         return FAILURE
     return SUCCESS
 
@@ -400,7 +398,7 @@ def add_datasets_to_container(args):
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.datasets]
         scope, name = args.todid.split(':')
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
         return FAILURE
     except Exception, e:
         print e
@@ -408,8 +406,8 @@ def add_datasets_to_container(args):
     try:
         client.add_datasets_to_container(scope=scope, name=name, dsns=dids)
     except Exception, e:
-        print 'Failed to attach datasets to the container'
-        print e
+        logger.error('Failed to attach datasets to the container due to a unknow exception : {0}'.format(e))
+        logger.error('Probably, one of the datasets is not a dataset or the container is not a container. You can try \'rucio attach\' instead.')
         return FAILURE
     return SUCCESS
 
@@ -433,7 +431,7 @@ def add_containers_to_container(args):
         dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.containers]
         scope, name = args.todid.split(':')
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.todid, e)
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
         return FAILURE
     except Exception, e:
         print e
@@ -441,8 +439,8 @@ def add_containers_to_container(args):
     try:
         client.add_containers_to_container(scope=scope, name=name, cnts=dids)
     except Exception, e:
-        print 'Failed to attach containers to the container'
-        print e
+        logger.error('Failed to attach containers to the container due to a unknow exception : {0}'.format(e))
+        logger.error('Probably, one of the containers is not a container. You can try \'rucio attach\' instead.')
         return FAILURE
     return SUCCESS
 
@@ -510,7 +508,7 @@ def list_dids(args):
                     else:
                         print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
             except ValueError, e:
-                print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+                logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
                 return FAILURE
             except Exception, e:
                 print e
@@ -593,7 +591,7 @@ def list_files(args):
             for file in client.list_files(scope=scope, name=name):
                 print '%(scope)s:%(name)s' % file  # %(size)s\t%(checksum)s
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
             return FAILURE
         except Exception, e:
             print e
@@ -620,7 +618,7 @@ def close(args):
             client.set_status(scope=scope, name=name, open=False)
             print '%(scope)s:%(name)s has been closed.' % locals()
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
             return FAILURE
         except Exception, e:
             print e
@@ -648,7 +646,7 @@ def stat(args):
             for k, v in info.iteritems():
                 print '%(k)s: %(v)s' % locals()
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
             return FAILURE
         except Exception, e:
             print e
@@ -908,7 +906,7 @@ def get_metadata(args):
             for k in meta:
                 print '%s: %s' % (k, meta[k])
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
             return FAILURE
         except Exception, e:
             print 'Failed to get metadata for %(scope)s:%(name)s' % locals()
@@ -933,7 +931,7 @@ def set_metadata(args):
     try:
         client.set_metadata(scope=args.did.split(':')[0], name=args.did.split(':')[1], key=args.key, value=args.value)
     except ValueError, e:
-        print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
         return FAILURE
     except Exception, e:
         print 'Failed to set metadata'
@@ -973,7 +971,7 @@ def add_rule(args):
         try:
             scope, name = did.split(':')
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (did, e)
+            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
             return FAILURE
         dids.append({'scope': scope, 'name': name})
 
@@ -1123,7 +1121,7 @@ def list_rules(args):
             scope, name = args.file.split(':')
             rules = client.list_associated_rules_for_file(scope=scope, name=name)
         except ValueError, e:
-            print 'ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e)
+            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
             return FAILURE
         except Exception, e:
             print 'Failed to list rules'
