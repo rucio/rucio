@@ -528,6 +528,8 @@ class DQ2Client:
         # @archived
         if metadata['expired_at'] is not None:
             dq2attrs['archived'] = 'secondary'
+            if abs(metadata['expired_at'] - datetime.now()) < timedelta(days=1):
+                dq2attrs['archived'] = 'tobedeleted'
 
         # @transferState
         replicating_rses = []
@@ -541,6 +543,8 @@ class DQ2Client:
                         replicating_rses.append(item['rse'])
                     if not item['rse'] in dict_rses:
                         dict_rses[item['rse']] = 'secondary'
+                        if rule['expires_at'] and abs(rule['expires_at'] - datetime.now()) < timedelta(days=1):
+                            dict_rses[item['rse']] = 'tobedeleted'
                     if rule['expires_at'] is None:
                         if locked:
                             dict_rses[item['rse']] = 'custodial'
@@ -608,6 +612,9 @@ class DQ2Client:
         result = {}
         replicas = {0: [], 1: []}
         self.client.get_metadata(scope=scope, name=cn)
+        if self.client.get_metadata(scope=scope, name=cn)['did_type'] != 'CONTAINER':
+            raise NameTypeError("Container name must end with a '/'.")
+
         for i in self.client.list_content(scope, cn):
             if i['type'] == 'DATASET' and i['name'] not in result:
                 vuid = hashlib.md5(scope+':'+i['name']).hexdigest()
@@ -865,7 +872,7 @@ class DQ2Client:
                         ret.append('%s:%s' % (i['scope'], i['name']))
                 return ret
             else:
-                raise NameTypeError
+                raise NameTypeError("Container name must end with a '/'.")
         except DataIdentifierNotFound:
             if cn.endswith('/'):
                 cn = cn.rstrip('/')
@@ -875,7 +882,7 @@ class DQ2Client:
                             ret.append('%s:%s' % (i['scope'], i['name']))
                     return ret
                 else:
-                    raise NameTypeError
+                    raise NameTypeError("Container name must end with a '/'.")
         raise DataIdentifierNotFound
 
     def listDatasetsInSite(self, site, complete=None, page=1, rpp=100):
@@ -1335,6 +1342,11 @@ class DQ2Client:
                 if (rule['rse_expression'] == location) and (rule['account'] == self.client.account):
                     return True
             try:
+                if location.find('SCRATCHDISK') > -1:
+                    if lifetime:
+                        lifetime = min(lifetime, 14 * 86400)
+                    else:
+                        lifetime = 14 * 86400
                 self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
             except Duplicate:
                 return True
@@ -1414,6 +1426,11 @@ class DQ2Client:
             for rule in self.client.list_did_rules(scope=scope, name=dsn):
                 if (rule['rse_expression'] == location) and (rule['account'] == owner):
                     raise Duplicate('A rule for %s:%s at %s already exists' % (scope, dsn, location))
+            if location.find('SCRATCHDISK') > -1:
+                if replica_lifetime:
+                    replica_lifetime = min(replica_lifetime, 14 * 86400)
+                else:
+                    replica_lifetime = 14 * 86400
             self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify)
 
     def registerDatasetsInContainer(self, name, datasets, scope=None):
@@ -1590,7 +1607,7 @@ class DQ2Client:
             raise UnsupportedOperation
         elif FileAlreadyExists in errorlist:
             raise FileAlreadyExists
-        else:
+        elif errorlist != []:
             raise Exception
 
     def registerNewDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], cooldown=None, provenance=None, group=None, hidden=False, scope=None, rse=None, pfns=[], events=[], lumiblocknrs=[]):
@@ -1662,7 +1679,13 @@ class DQ2Client:
         duid = vuid
         if rse:
             try:
-                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+                lifetime = None
+                if rse.find('SCRATCHDISK') > -1:
+                    if lifetime:
+                        lifetime = min(lifetime, 14 * 86400)
+                    else:
+                        lifetime = 14 * 86400
+                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
             except Duplicate:
                 pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}
@@ -1728,7 +1751,13 @@ class DQ2Client:
                         statuses[f['name']] = {'status': False, 'error': FileAlreadyExists, 'duid': duid}
         if rse:
             try:
-                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=None, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+                lifetime = None
+                if rse.find('SCRATCHDISK') > -1:
+                    if lifetime:
+                        lifetime = min(lifetime, 14 * 86400)
+                    else:
+                        lifetime = 14 * 86400
+                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
             except Duplicate:
                 pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}, statuses
