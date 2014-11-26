@@ -826,7 +826,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
         elif rule.state == RuleState.STUCK:
             continue
         elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
-            rule.state == RuleState.OK
+            rule.state = RuleState.OK
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
@@ -878,7 +878,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         elif rule.state == RuleState.STUCK:
             continue
         else:
-            rule.state == RuleState.REPLICATING
+            rule.state = RuleState.REPLICATING
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
     session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
@@ -1075,7 +1075,7 @@ def __evaluate_did_detach(eval_did, session=None):
             elif rule.state == RuleState.STUCK:
                 continue
             elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
-                rule.state == RuleState.OK
+                rule.state = RuleState.OK
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                     session.flush()
