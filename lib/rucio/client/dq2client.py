@@ -675,10 +675,15 @@ class DQ2Client:
         """
         match = re.match(r'^\*', dsn)
         if not match:
+            collection = 'dataset'
             filters = {'name': dsn}
             result = {}
             scope, dataset = extract_scope(dsn)
-            for name in self.client.list_dids(scope, filters, type='dataset'):
+            if dataset.endswith('/'):
+                dataset = dataset[:-1]
+                collection = 'container'
+            filters = {'name': dataset}
+            for name in self.client.list_dids(scope, filters, type=collection):
                 vuid = hashlib.md5(scope+':'+name).hexdigest()
                 vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
                 duid = vuid
