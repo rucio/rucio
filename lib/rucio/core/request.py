@@ -14,7 +14,6 @@
 import datetime
 import json
 import logging
-import random
 import time
 
 from sqlalchemy.exc import IntegrityError
@@ -144,11 +143,10 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
     record_counter('core.request.submit_transfer')
 
     transfer_id = None
-    external_host = random.sample(__HOSTS, 1)[0]
 
     if transfertool == 'fts3':
         ts = time.time()
-        transfer_ids = fts3.submit_transfers(transfers, job_metadata, external_host)
+        transfer_ids = fts3.submit_transfers(transfers, job_metadata)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000)
 
     for transfer_id in transfer_ids:
@@ -156,38 +154,11 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
                .filter_by(id=transfer_id)\
                .update({'state': RequestState.SUBMITTED,
                         'external_id': transfer_ids[transfer_id]['external_id'],
-                        'external_host': external_host,
+                        'external_host': transfer_ids[transfer_id]['external_host'],
                         'dest_url': transfer_ids[transfer_id]['dest_urls'][0]},
                        synchronize_session=False)
 
-    return (transfer_ids, external_host)
-
-
-@transactional_session
-def submit_transfer(request_id, src_urls, dest_urls, transfertool, filesize, md5=None, adler32=None, metadata={}, session=None):
-    """
-    Submit a transfer request to a transfertool.
-
-    :param request_id: Associated request identifier as a string.
-    :param src_urls: Source URLs acceptable to transfertool as a list of strings.
-    :param dest_urls: Destination URLs acceptable to transfertool as a list of strings.
-    :param transfertool: Transfertool as a string.
-    :param metadata: Metadata key/value pairs as a dictionary.
-    :param session: Database session to use.
-    :returns: Transfertool external ID.
-    """
-
-    record_counter('core.request.submit_transfer')
-
-    return submit_transfers(transfers=[{'request_id': request_id,
-                                        'src_urls': src_urls,
-                                        'dest_urls': dest_urls,
-                                        'filesize': filesize,
-                                        'md5': md5,
-                                        'adler32': adler32,
-                                        'metadata': metadata}],
-                            transfertool=transfertool,
-                            session=session)
+    return transfer_ids
 
 
 @read_session
