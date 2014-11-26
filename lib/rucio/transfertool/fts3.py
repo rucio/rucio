@@ -38,7 +38,7 @@ def __extract_host(transfer_host):
     return urlparse.urlparse(transfer_host).hostname.replace('.', '_')
 
 
-def submit_transfers(transfers, job_metadata, transfer_host):
+def submit_transfers(transfers, job_metadata):
     """
     Submit a transfer to FTS3 via JSON.
 
@@ -109,6 +109,7 @@ def submit_transfers(transfers, job_metadata, transfer_host):
         r = None
         params_str = json.dumps(params_dict)
 
+        transfer_host = transfer['external_host']
         if transfer_host.startswith('https://'):
             r = requests.post('%s/jobs' % transfer_host,
                               verify=False,
@@ -123,44 +124,13 @@ def submit_transfers(transfers, job_metadata, transfer_host):
         if r and r.status_code == 200:
             record_counter('transfertool.fts3.%s.submission.success' % __extract_host(transfer_host))
             transfer_ids[transfer['request_id']] = {'external_id': str(r.json()['job_id']),
-                                                    'dest_urls': transfer['dest_urls']}
+                                                    'dest_urls': transfer['dest_urls'],
+                                                    'external_host': transfer_host}
         else:
             record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(transfer_host))
             raise Exception('Could not submit transfer: %s', r.content)
 
     return transfer_ids
-
-
-def submit(request_id, src_urls, dest_urls,
-           src_spacetoken=None, dest_spacetoken=None,
-           filesize=None, md5=None, adler32=None,
-           overwrite=True, job_metadata={}):
-    """
-    Submit a transfer to FTS3 via JSON.
-
-    :param request_id: Request ID of the request as a string.
-    :param src_urls: Source URLs acceptable to transfertool as a list of strings.
-    :param dest_urls: Destination URLs acceptable to transfertool as a list of strings.
-    :param src_spacetoken: Source spacetoken as a string - ignored for non-spacetoken-aware protocols.
-    :param dest_spacetoken: Destination spacetoken as a string - ignored for non-spacetoken-aware protocols.
-    :param filesize: Filesize in bytes.
-    :param md5: MD5 checksum as a string.
-    :param adler32: ADLER32 checksum as a string.
-    :param overwrite: Overwrite potentially existing destination, True or False.
-    :param job_metadata: Optional job metadata as a dictionary.
-    :returns: FTS transfer identifier as string.
-    """
-
-    return submit_transfers(transfers={'request_id': request_id,
-                                       'src_urls': src_urls,
-                                       'dest_urls': dest_urls,
-                                       'filesize': filesize,
-                                       'md5': md5,
-                                       'adler32': adler32,
-                                       'overwrite': overwrite,
-                                       'src_spacetoken': src_spacetoken,
-                                       'dest_spacetoken': dest_spacetoken},
-                            job_metadata=job_metadata)[0]
 
 
 def query(transfer_id, transfer_host):

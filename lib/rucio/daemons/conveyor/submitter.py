@@ -27,7 +27,7 @@ from ConfigParser import NoOptionError
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.utils import construct_surl_DQ2
-from rucio.core import did, replica, request, rse as rse_core
+from rucio.core import did, replica, request, rse as rse_core, rule as rule_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
@@ -217,11 +217,17 @@ def get_destinations(rse_info, scheme, req, sources):
     if not rse_info['deterministic']:
         ts = time.time()
 
-        # select a containing dataset
-        for parent in did.list_parent_dids(req['scope'], req['name']):
-            if parent['type'] == DIDType.DATASET:
-                dsn = parent['name']
-                break
+        # get rule scope and name
+        rule = rule_core.get_rule(req['rule_id'])
+        rule_did = did.get_did(rule['scope'], rule['name'])
+        if rule_did['type'] == DIDType.DATASET:
+            dsn = rule['name']
+        else:
+            # select a containing dataset
+            for parent in did.list_parent_dids(req['scope'], req['name']):
+                if parent['type'] == DIDType.DATASET:
+                    dsn = parent['name']
+                    break
         record_timer('daemons.conveyor.submitter.list_parent_dids', (time.time() - ts) * 1000)
 
         # always use SRM
@@ -401,6 +407,19 @@ def get_transfer(rse, req, scheme, mock):
         logging.warn('All sources excluded - SKIP REQUEST %s' % req['request_id'])
         return
 
+    # get external host
+    rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
+    fts_hosts = rse_attr.get('fts', None)
+    retry_count = req['retry_count']
+    if retry_count is None:
+        retry_count = 0
+    if fts_hosts is None:
+        logging.warn('Destionation RSE %s fts attribute is not defined - SKIP REQUEST %s' % (rse['rse'], req['request_id']))
+        return
+
+    fts_list = fts_hosts.split(",")
+    external_host = fts_list[retry_count/len(fts_list)]
+
     transfer = {'request_id': req['request_id'],
                 'src_urls': source_surls,
                 'dest_urls': destinations,
@@ -413,6 +432,7 @@ def get_transfer(rse, req, scheme, mock):
                 'overwrite': overwrite,
                 'bring_online': bring_online,
                 'copy_pin_lifetime': copy_pin_lifetime,
+                'external_host': external_host,
                 'file_metadata': tmp_metadata}
     return transfer
 
@@ -507,29 +527,29 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
 
                             ts = time.time()
                             tmp_metadata = transfer['file_metadata']
-                            eid, transfer_host = request.submit_transfers(transfers=[transfer, ],
-                                                                          transfertool='fts3',
-                                                                          job_metadata=tmp_metadata)
+                            eids = request.submit_transfers(transfers=[transfer, ],
+                                                            transfertool='fts3',
+                                                            job_metadata=tmp_metadata)
 
                             record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                             ts = time.time()
                             if req['previous_attempt_id']:
                                 logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s' % (req['retry_count'],
-                                                                                                                           eid,
+                                                                                                                           eids[req['request_id']]['external_id'],
                                                                                                                            req['previous_attempt_id'],
                                                                                                                            req['scope'],
                                                                                                                            req['name'],
                                                                                                                            transfer['src_urls'],
                                                                                                                            transfer['dest_urls'],
-                                                                                                                           transfer_host))
+                                                                                                                           eids[req['request_id']]['external_host']))
                             else:
-                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s' % (eid,
+                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s' % (eids[req['request_id']]['external_id'],
                                                                                                       req['scope'],
                                                                                                       req['name'],
                                                                                                       transfer['src_urls'],
                                                                                                       transfer['dest_urls'],
-                                                                                                      transfer_host))
+                                                                                                      eids[req['request_id']]['external_host']))
                             record_counter('daemons.conveyor.submitter.submit_request')
                         except UnsupportedOperation, e:
                             # The replica doesn't exist, need to cancel the request
