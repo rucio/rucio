@@ -9,6 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 '''
 Automatix is a Data Generator daemon to generate fake data and upload it on a RSE.
@@ -173,8 +174,8 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                 metadata['version'] = str(random.randint(0, 1000))
                 metadata['run_number'] = str(random.randint(0, 100000))
                 uuid = generate_uuid()
-                metadata['stream_name'] = uuid[:8]
-                metadata['campaign'] = uuid[8:12]
+                metadata['stream_name'] = 'automatix_stream'
+                metadata['campaign'] = 'automatix_campaign'
                 try:
                     nbfiles = d['nbfiles']
                 except KeyError:
