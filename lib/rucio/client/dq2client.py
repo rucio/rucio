@@ -1955,7 +1955,7 @@ class DQ2Client:
                             errMsg = 'pin_lifetime must be greater than O!' % locals()
                             raise InputValidationError(errMsg)
                         pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
-                        if ((rule['expires_at']-datetime.now()) < timedelta(seconds=pin_lifetime)):
+                        if rule['expires_at'] and ((rule['expires_at']-datetime.now()) < timedelta(seconds=pin_lifetime)):
                             self.client.update_replication_rule(rule['id'], {'lifetime': pin_lifetime})
         if not is_at_site:
             raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))
