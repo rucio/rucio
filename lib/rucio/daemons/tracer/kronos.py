@@ -117,6 +117,8 @@ class AMQConsumer(object):
 
                 if report['usrdn'] in self.__excluded_usrdns:
                     continue
+                if not report['remoteSite']:
+                    continue
                 replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcnow()})
             except (KeyError, AttributeError):
                 logging.error(format_exc())
@@ -163,16 +165,14 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
         if not use_ssl:
             conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
                                     use_ssl=False,
-                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts'),
-                                    excluded_usrdns=excluded_usrdns))
+                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
         else:
             conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
                                     use_ssl=True,
                                     ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'),
                                     ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'),
                                     ssl_version=PROTOCOL_TLSv1,
-                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts'),
-                                    excluded_usrdns=excluded_usrdns))
+                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
 
     logging.info('tracer consumer started')
 
@@ -181,7 +181,7 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             if not conn.is_connected():
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
-                conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0], conn=conn, chunksize=chunksize, subscription_id=subscription_id))
+                conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0], conn=conn, chunksize=chunksize, subscription_id=subscription_id, excluded_usrdns=excluded_usrdns))
                 conn.start()
                 if not use_ssl:
                     conn.connect(username, password)
