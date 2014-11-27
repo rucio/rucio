@@ -110,7 +110,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
             # Temporary hack to force gfal for deletion
             for protocol in rse_info['protocols']:
-                if protocol['impl'] == 'rucio.rse.protocols.srm.Default':
+                if protocol['impl'] == 'rucio.rse.protocols.srm.Default' or protocol['impl'] == 'rucio.rse.protocols.gsiftp.Default':
                     protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
 
             logging.info('Running on RSE %s' % (rse_info['rse']))
