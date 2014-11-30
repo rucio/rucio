@@ -242,7 +242,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     :param include_rses: RSE expression to include RSEs.
     """
-    print 'main: starting processes'
+    logging.info('main: starting processes')
 
     rses_list = rse_core.list_rses()
     if rses:
@@ -257,6 +257,8 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     if include_rses:
         included_rses = parse_expression(include_rses)
         rses = [rse for rse in rses if rse in included_rses]
+
+    logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
 
     threads = []
     nb_rses_per_worker = int(math.ceil(len(rses) / float(total_workers))) or 1.0
