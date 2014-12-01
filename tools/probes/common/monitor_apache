@@ -110,7 +110,6 @@ if __name__ == "__main__":
         logger.setLevel(level=logging.DEBUG)
     args = vars(args)
 
-
     servers = []
     for server in args['server']:
         try:
@@ -141,16 +140,22 @@ if __name__ == "__main__":
         sys.exit(1)
 
     for server in servers:
-        t, fqdn = server
-        stats = {}
-        if t == 'apache':
-            stats = monitor_apache(fqdn)
-        elif t == 'nginx':
-            stats = monitor_nginx(fqdn)
-        else:
-            logger.critical('Can not monitor server of type %s: Not supported' % type)
-            sys.exit(1)
-        logger.info('Stats gathering from %s OK.' % fqdn)
+        try:
+            t, fqdn = server
+            stats = {}
+            if t == 'apache':
+                stats = monitor_apache(fqdn)
+            elif t == 'nginx':
+                stats = monitor_nginx(fqdn)
+            else:
+                logger.critical('Can not monitor server of type %s: Not supported' % type)
+                sys.exit(1)
+            logger.info('Stats gathering from %s OK.' % fqdn)
+        except Exception as e:
+            logger.error('Failed requesting data from %s server: %s' % (t, fqdn))
+            logger.error(e)
+            stats = {'server_name': get_server_name(fqdn),
+                     'availability': 0}  # Resetting Gauge values in Graphite
 
         for backend in backends:
             t, url, prefix = backend
