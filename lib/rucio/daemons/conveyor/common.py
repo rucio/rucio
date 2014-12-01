@@ -164,9 +164,9 @@ def update_request_state(response, session=None):
 
             tss = time.time()
             if new_req is None:
-                logging.error('EXCEEDED DID %s:%s REQUEST %s' % (response['scope'],
-                                                                 response['name'],
-                                                                 response['request_id']))
+                logging.warn('EXCEEDED DID %s:%s REQUEST %s' % (response['scope'],
+                                                                response['name'],
+                                                                response['request_id']))
                 try:
                     replica.update_replicas_states([{'rse': rse_name,
                                                      'scope': response['scope'],
