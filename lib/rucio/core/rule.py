@@ -133,8 +133,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
-                    if match('.*ORA-00001.*', str(e.args[0])):
-                        raise DuplicateRule('A duplicate rule already exists')
+                    if match('.*ORA-00001.*', str(e.args[0])) or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0])):
+                        raise DuplicateRule()
                     raise InvalidReplicationRule(e.args[0])
 
                 rule_ids.append(new_rule.id)
