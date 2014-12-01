@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 
 import string
@@ -150,7 +150,7 @@ class TestReplicationRuleCore():
         assert_raises(DuplicateRule, add_rule, dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     def test_add_rules_datasets_none(self):
-        """ REPLUCATION RULE (CORE): Add replication rules to multiple datasets, NONE Grouping"""
+        """ REPLICATION RULE (CORE): Add replication rules to multiple datasets, NONE Grouping"""
         scope = 'mock'
         files1 = create_files(3, scope, self.rse4)
         dataset1 = 'dataset_' + str(uuid())
