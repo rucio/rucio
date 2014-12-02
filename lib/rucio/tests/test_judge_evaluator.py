@@ -58,8 +58,12 @@ class TestJudgeEvaluator():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
 
         # Add a first rule to the DS
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
+        attach_dids(scope, dataset, files, 'jdoe')
+        re_evaluator(once=True)
+
+        files = create_files(3, scope, self.rse1)
         attach_dids(scope, dataset, files, 'jdoe')
 
         # Fake judge
