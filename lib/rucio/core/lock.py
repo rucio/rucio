@@ -63,7 +63,8 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    query = session.query(models.DatasetLock).filter_by(rse_id=rse_id)
+    query = session.query(models.DatasetLock).filter_by(rse_id=rse_id).\
+        with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
 
     locks = []
     for row in query:
