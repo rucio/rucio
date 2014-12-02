@@ -553,37 +553,40 @@ class DQ2Client:
 
         else:
             pass
-            # will call self.client.get_dataset_locks() for LockState if old=True
-
-        # list_replicas()
-        for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}], schemes=['srm']):
-            rses = f['rses'].keys()
-            if not f['name'] in files:
-                files.append(f['name'])
-                for rse in rses:
-                    if rse not in result:
-                        result[rse] = [copy.deepcopy(dq2attrs)]
-                        result[rse][-1]['found'] = 0
-                        try:
-                            result[rse][-1]['archived'] = dict_rses[rse]
-                        except KeyError:
-                            result[rse][-1]['archived'] = 'secondary'
-                    result[rse][-1]['found'] += 1
-        for rse in result:
-            result[rse][-1]['total'] = len(files)
-            if rse in replicating_rses:
-                result[rse][-1]['transferState'] = 0
 
         if old:
             replicas = {0: [], 1: []}
-            for rse in result:
-                if result[rse][0]['found'] == result[rse][0]['total']:
-                    replicas[1].append(rse)
-                else:
-                    replicas[0].append(rse)
+            incomplete = []
+            for lock in self.client.get_dataset_locks(scope, dsn):
+                if lock['state'] == 'OK':
+                    if lock['rse'] not in replicas[1]:
+                        replicas[1].append(lock['rse'])
+                elif lock['rse'] not in incomplete:
+                    incomplete.append(lock['rse'])
+            for lock in incomplete:
+                if lock not in replicas[1]:
+                    replicas[0].append(lock)
             vuid = hashlib.md5(scope+':'+dsn).hexdigest()
             vuid = '%s-%s-%s-%s-%s' % (vuid[0:8], vuid[8:12], vuid[12:16], vuid[16:20], vuid[20:32])
             return {vuid: replicas}
+        else:
+            for f in self.client.list_replicas(dids=[{'scope': scope, 'name': dsn}], schemes=['srm']):
+                rses = f['rses'].keys()
+                if not f['name'] in files:
+                    files.append(f['name'])
+                    for rse in rses:
+                        if rse not in result:
+                            result[rse] = [copy.deepcopy(dq2attrs)]
+                            result[rse][-1]['found'] = 0
+                            try:
+                                result[rse][-1]['archived'] = dict_rses[rse]
+                            except KeyError:
+                                result[rse][-1]['archived'] = 'secondary'
+                        result[rse][-1]['found'] += 1
+            for rse in result:
+                result[rse][-1]['total'] = len(files)
+                if rse in replicating_rses:
+                    result[rse][-1]['transferState'] = 0
 
         return result
 
