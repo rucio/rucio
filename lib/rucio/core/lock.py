@@ -44,6 +44,7 @@ def get_dataset_locks(scope, name, session=None):
     locks = []
     for row in query:
         locks.append({'rse_id': row.rse_id,
+                      'rse': get_rse_name(row.rse_id, session=session),
                       'scope': row.scope,
                       'name': row.name,
                       'rule_id': row.rule_id,
@@ -67,6 +68,7 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
     locks = []
     for row in query:
         locks.append({'rse_id': row.rse_id,
+                      'rse': get_rse_name(row.rse_id, session=session),
                       'scope': row.scope,
                       'name': row.name,
                       'rule_id': row.rule_id,
