@@ -51,7 +51,7 @@ class AMQConsumer(object):
         self.__excluded_usrdns = excluded_usrdns
 
     def on_error(self, headers, message):
-        record_counter('daemons.tracers.kronos.error')
+        record_counter('daemons.tracer.kronos.error')
         logging.error('[%s] %s' % (self.__broker, message))
 
     def on_message(self, headers, message):
