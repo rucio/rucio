@@ -34,6 +34,8 @@ if __name__ == "__main__":
                         help='Concurrency control: total number of threads per process')
     parser.add_argument("--bulk", action="store", default=100, type=int,
                         help='Bulk control: number of requests')
+    parser.add_argument("--older-than", action="store", default=60, type=int,
+                        help='Poll control: older request more than this value to poll')
     args = parser.parse_args()
 
     try:
@@ -41,6 +43,7 @@ if __name__ == "__main__":
             process=args.process,
             total_processes=args.total_processes,
             total_threads=args.total_threads,
-            bulk=args.bulk)
+            bulk=args.bulk,
+            older_than=args.older_than)
     except KeyboardInterrupt:
         stop()
