@@ -41,7 +41,7 @@ graceful_stop = threading.Event()
 datetime.datetime.strptime('', '')
 
 
-def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, bulk=1000):
+def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, bulk=1000, older_than=60):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
@@ -59,10 +59,11 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
         try:
             ts = time.time()
 
+            logging.debug('%i:%i - start to poll requests older than %i seconds' % (process, thread, older_than))
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
                                     limit=bulk,
-                                    older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=60),
+                                    older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
@@ -73,6 +74,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             if not reqs or reqs == []:
                 if once:
                     break
+                logging.debug("no requests found. will sleep 60 seconds")
                 time.sleep(60)  # Only sleep if there is nothing to do
                 continue
 
@@ -125,14 +127,14 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, bulk=None):
+def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000, older_than=60):
     """
     Starts up the conveyer threads.
     """
 
     if once:
         logging.info('executing one poller iteration only')
-        poller(once=once, bulk=bulk)
+        poller(once=once, bulk=bulk, older_than=older_than)
 
     else:
 
@@ -141,6 +143,7 @@ def run(once=False, process=0, total_processes=1, total_threads=1, bulk=None):
                                                            'total_processes': total_processes,
                                                            'thread': i,
                                                            'total_threads': total_threads,
+                                                           'older_than': older_than,
                                                            'bulk': bulk}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]

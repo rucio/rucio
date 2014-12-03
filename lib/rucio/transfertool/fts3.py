@@ -206,6 +206,9 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
     if last_src_file > 0:
         job_m_replica = 'true'
 
+    if fts_files_response[last_src_file]['start_time'] is None:
+        fts_files_response[last_src_file]['start_time'] = fts_files_response[last_src_file]['finish_time']
+
     response = {'new_state': None,
                 'transfer_id': fts_job_response.get('job_id'),
                 'job_state': fts_job_response.get('job_state', None),
