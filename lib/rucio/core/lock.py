@@ -9,6 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import logging
 import sys
@@ -39,17 +40,20 @@ def get_dataset_locks(scope, name, session=None):
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    query = session.query(models.DatasetLock).filter_by(scope=scope, name=name)
+    query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(scope=scope, name=name)
 
     locks = []
-    for row in query:
-        locks.append({'rse_id': row.rse_id,
-                      'rse': get_rse_name(row.rse_id, session=session),
-                      'scope': row.scope,
-                      'name': row.name,
-                      'rule_id': row.rule_id,
-                      'account': row.account,
-                      'state': row.state})
+    dict = {}
+    for rse_id, scope, name, rule_id, account, state in query:
+        if rse_id not in dict:
+            dict[rse_id] = get_rse_name(rse_id, session=session)
+        locks.append({'rse_id': rse_id,
+                      'rse': dict[rse_id],
+                      'scope': scope,
+                      'name': name,
+                      'rule_id': rule_id,
+                      'account': account,
+                      'state': state})
     return locks
 
 
@@ -62,19 +66,21 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
     :param session:        The db session.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
-
-    query = session.query(models.DatasetLock).filter_by(rse_id=rse_id).\
+    query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(rse_id=rse_id).\
         with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
 
     locks = []
-    for row in query:
-        locks.append({'rse_id': row.rse_id,
-                      'rse': get_rse_name(row.rse_id, session=session),
-                      'scope': row.scope,
-                      'name': row.name,
-                      'rule_id': row.rule_id,
-                      'account': row.account,
-                      'state': row.state})
+    dict = {}
+    for rse_id, scope, name, rule_id, account, state in query:
+        if rse_id not in dict:
+            dict[rse_id] = get_rse_name(rse_id, session=session)
+        locks.append({'rse_id': rse_id,
+                      'rse': dict[rse_id],
+                      'scope': scope,
+                      'name': name,
+                      'rule_id': rule_id,
+                      'account': account,
+                      'state': state})
     return locks
 
 
