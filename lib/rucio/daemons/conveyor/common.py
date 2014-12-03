@@ -251,7 +251,7 @@ def get_source_rse(scope, name, src_url):
         logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
         return None
     except:
-        logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
+        logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
         return None
 
 
