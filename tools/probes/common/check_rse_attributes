@@ -14,6 +14,7 @@
 import json
 import requests
 import sys
+import traceback
 
 from rucio.common.exception import RucioException, RSENotFound
 from rucio.api import rse as r
@@ -22,6 +23,8 @@ UNKNOWN = 3
 CRITICAL = 2
 WARNING = 1
 OK = 0
+
+result = OK
 
 # Takes DDM endpoint information from AGIS and adds selected attributes to RSEs
 if __name__ == '__main__':
@@ -56,9 +59,8 @@ if __name__ == '__main__':
             r.add_rse_attribute(rse['name'], 'spacetoken', str(rse['token']), 'root')
             r.add_rse_attribute(rse['name'], 'country', str(rse['country']), 'root')
             r.add_rse_attribute(rse['name'], 'site', str(rse['site']), 'root')
-            for group in rse['ddmgroups']:
-                r.add_rse_attribute(rse['name'], str(group), True, 'root')
-
+            if rse['phys_groups']:
+                r.add_rse_attribute(rse['name'], 'physgroup', str(rse['phys_groups'][0]), 'root')
             if isinstance(rse['servedrestfts']['MASTER'], list):
                 r.add_rse_attribute(rse['name'], 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
             else:
@@ -71,7 +73,10 @@ if __name__ == '__main__':
         except RucioException as e:
             print str(e)
             sys.exit(CRITICAL)
+        except:
+            print traceback.format_exc()
+            result = WARNING
 
         # TODO: set weights for data distribution here or in other collector
 
-    sys.exit(OK)
+    sys.exit(result)
