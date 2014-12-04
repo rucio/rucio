@@ -24,7 +24,7 @@ import string
 
 from datetime import datetime, timedelta
 from rucio.client.client import Client
-from rucio.common.exception import (AccountNotFound, DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError,
+from rucio.common.exception import (AccountNotFound, DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError, InvalidRSEExpression,
                                     InputValidationError, UnsupportedOperation, ScopeNotFound, ReplicaNotFound, RuleNotFound, FileAlreadyExists, FileConsistencyMismatch)
 
 
@@ -125,7 +125,6 @@ class DQ2Client:
         B{Exceptions:}
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
-        self.client.get_metadata(scope=scope, name=dsn)
         result = {}
         for location in locations:
             if location not in result:
@@ -139,7 +138,6 @@ class DQ2Client:
         B{Exceptions:}
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
-        self.client.get_metadata(scope=scope, name=dsn)
         return True
 
     def closeDataset(self, scope, dsn):
@@ -185,13 +183,9 @@ class DQ2Client:
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
             - AccessDenied in case the account cannot delete the rule.
         """
-        self.client.get_metadata(scope=scope, name=dsn)
-        # account = self.client.account
         result = {}
         for rule in self.client.list_did_rules(scope, dsn):
             if rule['rse_expression'] in locations:  # or [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]:
-                # if rule['account'] == account:
-                # print 'Will delete %s:%s from %s ruleid %s' % (scope, dsn, rule['rse_expression'], rule['id'])
                 self.client.delete_replication_rule(rule['id'])
                 result[rule['rse_expression']] = {'status': True}
         for location in locations:
@@ -211,7 +205,6 @@ class DQ2Client:
         B{Exceptions}
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
-        self.client.get_metadata(scope=scope, name=dsn)
         return
 
     def deleteDatasetSubscriptions(self, dsn, scope=None):
@@ -224,7 +217,6 @@ class DQ2Client:
         B{Exceptions}
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
-        self.client.get_metadata(scope=scope, name=dsn)
         return
 
     def deleteDatasetVersionSubscriptions(self, dsn, version, scope=None):
@@ -238,7 +230,6 @@ class DQ2Client:
         B{Exceptions:}
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
-        self.client.get_metadata(scope=scope, name=dsn)
         return
 
     def deleteDatasetsFromContainer(self, name, datasets, scope):
@@ -359,7 +350,6 @@ class DQ2Client:
         B{Exceptions:}
             - DataIdentifierNotFound is raised in case the dataset name doesn't exist.
         """
-        self.client.get_metadata(scope=scope, name=dsn)
         oldest_rule = datetime.now()
         rse = None
         for rule in self.client.list_did_rules(scope=scope, name=dsn):
@@ -538,18 +528,25 @@ class DQ2Client:
                 locked = False
                 if rule['locked']:
                     locked = True
-                for item in self.client.list_rses(rule['rse_expression']):
+                rses = []
+                if rule['rse_expression'].find('\\') > -1 or rule['rse_expression'].find('|') > -1 or rule['rse_expression'].find('&') > -1 or rule['rse_expression'].find('=') > -1:
+                    for item in self.client.list_rses(rule['rse_expression']):
+                        rses.append(item['rse'])
+                else:
+                    rses.append(rule['rse_expression'])
+
+                for rse in rses:
                     if rule['state'] == 'REPLICATING':
-                        replicating_rses.append(item['rse'])
-                    if not item['rse'] in dict_rses:
-                        dict_rses[item['rse']] = 'secondary'
+                        replicating_rses.append(rse)
+                    if rse not in dict_rses:
+                        dict_rses[rse] = 'secondary'
                         if rule['expires_at'] and abs(rule['expires_at'] - datetime.now()) < timedelta(days=1):
-                            dict_rses[item['rse']] = 'tobedeleted'
+                            dict_rses[rse] = 'tobedeleted'
                     if rule['expires_at'] is None:
                         if locked:
-                            dict_rses[item['rse']] = 'custodial'
+                            dict_rses[rse] = 'custodial'
                         else:
-                            dict_rses[item['rse']] = 'primary'
+                            dict_rses[rse] = 'primary'
 
         else:
             pass
@@ -614,8 +611,8 @@ class DQ2Client:
             cn = cn[:-1]
         result = {}
         replicas = {0: [], 1: []}
-        self.client.get_metadata(scope=scope, name=cn)
-        if self.client.get_metadata(scope=scope, name=cn)['did_type'] != 'CONTAINER':
+        rse = self.client.get_metadata(scope=scope, name=cn)
+        if rse['did_type'] != 'CONTAINER':
             raise NameTypeError("Container name must end with a '/'.")
 
         for i in self.client.list_content(scope, cn):
@@ -1079,7 +1076,7 @@ class DQ2Client:
         exists = False
         locked = False
         for rule in self.client.list_did_rules(scope, dsn):
-            if rule['rse_expression'] == location or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]:
+            if rule['rse_expression'] == location:  # or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]:
                 exists = True
                 if rule['created_at'] < creationdate:
                     creationdate = rule['created_at']
@@ -1112,11 +1109,10 @@ class DQ2Client:
         @return: tuple containing the dataset subscription information is returned.::
             (uid, owner, location, destination, creationdate, modifieddate, callbacks, archived, sources_policy, wait_for_sources, sources, query_more_sources, share)
         """
-        self.client.get_metadata(scope=scope, name=dsn)
         result = ()
         creationdate = datetime.now()
         for rule in self.client.list_did_rules(scope, dsn):
-            if rule['state'] != 'OK' and (location == rule['rse_expression'] or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]):
+            if rule['state'] != 'OK' and (location == rule['rse_expression']):  # or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]):
                 print rule
                 if rule['created_at'] < creationdate:
                     id = rule['id']
@@ -1145,7 +1141,7 @@ class DQ2Client:
                     requestId = hashlib.md5('%s:%s:%s' % (scope, dsn, location)).hexdigest()
                     requestId = '%s-%s-%s-%s-%s' % (requestId[0:8], requestId[8:12], requestId[12:16], requestId[16:20], requestId[20:32])
                     result = (id, owner, location, destination, creationdate, modifieddate, callbacks, archived, sources_policy, wait_for_sources, sources, query_more_sources, share, group, replica_lifetime, activity, parentId, requestId)
-            elif rule['state'] == 'OK' and (location == rule['rse_expression'] or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]):
+            elif rule['state'] == 'OK' and (location == rule['rse_expression']):  # or location in [i['rse'] for i in self.client.list_rses(rule['rse_expression'])]):
                 return ()
         return result
 
@@ -1163,7 +1159,6 @@ class DQ2Client:
 
         @return: List containing the sites that subscribed, at least, a version of the dataset.
         """
-        self.client.get_did(scope, dsn)
         rse_expressions = []
         list_rses = []
         result = []
@@ -1341,25 +1336,24 @@ class DQ2Client:
                 raise InputValidationError(errMsg)
             pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
 
-        if location in [loc['rse'] for loc in self.client.list_rses()]:
-            dids = []
-            did = {'scope': scope, 'name': dsn}
-            dids.append(did)
-            # Check if a replication rule for scope:name, location, account already exists
-            for rule in self.client.list_did_rules(scope=scope, name=dsn):
-                if (rule['rse_expression'] == location) and (rule['account'] == self.client.account):
-                    return True
-            try:
-                if location.find('SCRATCHDISK') > -1:
-                    if lifetime:
-                        lifetime = min(lifetime, 14 * 86400)
-                    else:
-                        lifetime = 14 * 86400
-                self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
-            except Duplicate:
+        dids = []
+        did = {'scope': scope, 'name': dsn}
+        dids.append(did)
+        # Check if a replication rule for scope:name, location, account already exists
+        for rule in self.client.list_did_rules(scope=scope, name=dsn):
+            if (rule['rse_expression'] == location) and (rule['account'] == self.client.account):
                 return True
-        else:
+        try:
+            if location.find('SCRATCHDISK') > -1:
+                if lifetime:
+                    lifetime = min(lifetime, 14 * 86400)
+                else:
+                    lifetime = 14 * 86400
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+        except InvalidRSEExpression:
             raise UnsupportedOperation('Unknown RSE [%s]' % (location))
+        except Duplicate:
+            return True
         return True
 
     def registerDatasetSubscription(self, dsn, location, version=0, archived=None,
@@ -1392,7 +1386,6 @@ class DQ2Client:
         @pin_lifetime: not used.
         @param scope: is the dataset scope.
         """
-        self.client.get_did(scope, dsn)
         if replica_lifetime:
             replica_lifetime = validate_time_formats(replica_lifetime)
             if replica_lifetime == timedelta(days=0, seconds=0, microseconds=0):
@@ -1794,7 +1787,6 @@ class DQ2Client:
             - UnsupportedOperation otherwise.
         """
         # If DID not in Rucio, raise execption
-        self.client.get_metadata(scope=scope, name=dsn)
         raise UnsupportedOperation('New version of a dataset cannot be created in Rucio')
 
     def registerNewVersion2(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None):
@@ -1821,7 +1813,6 @@ class DQ2Client:
             - UnsupportedOperation otherwise.
         """
         # If DID not in Rucio, raise execption
-        self.client.get_metadata(scope=scope, name=dsn)
         raise UnsupportedOperation('New version of a dataset cannot be created in Rucio')
 
     def resetSubscription(self, dsn, location, version=0, scope=None):
@@ -1836,7 +1827,7 @@ class DQ2Client:
         @param scope: is the dataset scope.
 
         """
-        self.client.get_metadata(scope=scope, name=dsn)
+        return
 
     def resetSubscriptionsInSite(self, site):
         """
@@ -1893,7 +1884,6 @@ class DQ2Client:
                 in case there is no dataset with the given name.
 
         """
-        self.client.get_did(scope, dsn)
         metadata_mapping = {'owner': 'account', 'lifetime': 'expired_at', 'hidden': 'hidden', 'events': 'events', 'lumiblocknr': 'lumiblocknr'}
         if attrname in metadata_mapping:
             return self.client.set_metadata(scope=scope, name=dsn, key=metadata_mapping[attrname], value=attrvalue)
@@ -1919,7 +1909,6 @@ class DQ2Client:
         attributes = ['group', 'owner', 'archived', 'pin_lifetime', 'lifetime']
         if attrname not in attributes:
             raise InvalidMetadata('%s is not a valid DQ2 replica metadata' % (attrname))
-        self.client.get_metadata(scope=scope, name=dsn)
         is_at_site = False
         account = self.client.account
         if attrname == 'owner':
