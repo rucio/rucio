@@ -21,7 +21,8 @@ from threading import Event, Thread
 from time import sleep, time
 from traceback import format_exc
 
-from pickle import loads
+from json import loads as jloads
+from pickle import loads as ploads
 from stomp import Connection
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
@@ -57,14 +58,21 @@ class AMQConsumer(object):
     def on_message(self, headers, message):
         record_counter('daemons.tracer.kronos.reports')
 
+        appversion = 'dq2'
         id = headers['message-id']
+        if 'appversion' in headers:
+            appversion = headers['appversion']
+
         try:
-            report = loads(message)
+            if appversion == 'dq2':
+                report = ploads(message)
+            else:
+                report = jloads(message)
         except:
             # message is corrupt, not much to do here
             # send count to graphite, send ack to broker and return
             record_counter('daemons.tracer.kronos.pickle_error')
-            logging.error('pickle error')
+            logging.error('json/pickle error')
             self.__conn.ack(id, self.__subscription_id)
             return
 
