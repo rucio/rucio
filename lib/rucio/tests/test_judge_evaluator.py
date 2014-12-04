@@ -94,7 +94,7 @@ class TestJudgeEvaluator():
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
 
         # Check if the DatasetLocks are created properly
-        dataset_locks = get_dataset_locks(scope=scope, name=dataset)
+        dataset_locks = [lock for lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(dataset_locks) == 2)
 
     def test_account_counter_judge_evaluate_attach(self):
