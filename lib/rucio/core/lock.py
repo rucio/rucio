@@ -22,14 +22,14 @@ from rucio.common.config import config_get
 from rucio.core.rse import get_rse_name
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping
-from rucio.db.session import read_session, transactional_session
+from rucio.db.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-@read_session
+@stream_session
 def get_dataset_locks(scope, name, session=None):
     """
     Get the dataset locks of a dataset
@@ -42,22 +42,20 @@ def get_dataset_locks(scope, name, session=None):
 
     query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(scope=scope, name=name)
 
-    locks = []
     dict = {}
-    for rse_id, scope, name, rule_id, account, state in query:
+    for rse_id, scope, name, rule_id, account, state in query.yield_per(500):
         if rse_id not in dict:
             dict[rse_id] = get_rse_name(rse_id, session=session)
-        locks.append({'rse_id': rse_id,
-                      'rse': dict[rse_id],
-                      'scope': scope,
-                      'name': name,
-                      'rule_id': rule_id,
-                      'account': account,
-                      'state': state})
-    return locks
+        yield {'rse_id': rse_id,
+               'rse': dict[rse_id],
+               'scope': scope,
+               'name': name,
+               'rule_id': rule_id,
+               'account': account,
+               'state': state}
 
 
-@read_session
+@stream_session
 def get_dataset_locks_by_rse_id(rse_id, session=None):
     """
     Get the dataset locks of an RSE.
@@ -69,19 +67,17 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
     query = session.query(models.DatasetLock.rse_id, models.DatasetLock.scope, models.DatasetLock.name, models.DatasetLock.rule_id, models.DatasetLock.account, models.DatasetLock.state).filter_by(rse_id=rse_id).\
         with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
 
-    locks = []
     dict = {}
-    for rse_id, scope, name, rule_id, account, state in query:
+    for rse_id, scope, name, rule_id, account, state in query.yield_per(500):
         if rse_id not in dict:
             dict[rse_id] = get_rse_name(rse_id, session=session)
-        locks.append({'rse_id': rse_id,
-                      'rse': dict[rse_id],
-                      'scope': scope,
-                      'name': name,
-                      'rule_id': rule_id,
-                      'account': account,
-                      'state': state})
-    return locks
+        yield {'rse_id': rse_id,
+               'rse': dict[rse_id],
+               'scope': scope,
+               'name': name,
+               'rule_id': rule_id,
+               'account': account,
+               'state': state}
 
 
 @read_session
