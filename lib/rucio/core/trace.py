@@ -71,7 +71,7 @@ def trace(payload):
     try:
         conn.start()
         conn.connect(username, password)
-        conn.send(body=report, destination=topic, headers={'persistent': 'true'})
+        conn.send(body=report, destination=topic, headers={'persistent': 'true', 'appversion': 'rucio'})
     except Exception, e:
         errlog.error(e)
     finally:
