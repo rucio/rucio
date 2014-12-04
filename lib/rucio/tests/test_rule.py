@@ -231,7 +231,7 @@ class TestReplicationRuleCore():
             assert(len(first_locks.intersection(rse_locks)) == 2)
 
         # Check if the DatasetLocks are created properly
-        dataset_locks = get_dataset_locks(scope=scope, name=dataset)
+        dataset_locks = [lock for lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(t1.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
         assert(len(first_locks.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
 
@@ -281,7 +281,7 @@ class TestReplicationRuleCore():
             assert(len(first_locks.intersection(rse_locks)) == 2)
 
         # Check if the DatasetLocks are created properly
-        dataset_locks = get_dataset_locks(scope=scope, name=dataset)
+        dataset_locks = [lock for lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(t1.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
         assert(len(first_locks.intersection(set([lock['rse_id'] for lock in dataset_locks]))) == 2)
 

@@ -10,13 +10,12 @@
 
 
 from logging import getLogger, StreamHandler, DEBUG
-from json import dumps
 from urlparse import parse_qs
 from web import application, ctx, header, InternalError, loadhook
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error, APIEncoder
+from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook
 
 logger = getLogger("rucio.lock")
@@ -49,19 +48,16 @@ class LockByRSE:
             params = parse_qs(ctx.query[1:])
             if 'did_type' in params:
                 did_type = params['did_type'][0]
-
         try:
             if did_type == 'dataset':
-                locks = get_dataset_locks_by_rse(rse)
+                for lock in get_dataset_locks_by_rse(rse):
+                    yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             raise InternalError(e)
-
-        for lock in locks:
-            yield dumps(lock, cls=APIEncoder) + '\n'
 
 
 class LockByScopeName:
@@ -85,19 +81,16 @@ class LockByScopeName:
             params = parse_qs(ctx.query[1:])
             if 'did_type' in params:
                 did_type = params['did_type'][0]
-
         try:
             if did_type == 'dataset':
-                locks = get_dataset_locks(scope, name)
+                for lock in get_dataset_locks(scope, name):
+                    yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             raise InternalError(e)
-
-        for lock in locks:
-            yield dumps(lock, cls=APIEncoder) + '\n'
 
 
 """----------------------
