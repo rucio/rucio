@@ -52,7 +52,7 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
-    rse_info = rse_region.get(str(rse), ignore_expiration=True)   # NOQA
+    rse_info = rse_region.get(str(rse))   # NOQA
     if not rse_info:  # no cached entry found
         rse_info = __request_rse_info(str(rse), session=session)  # NOQA
         rse_region.set(str(rse), rse_info)  # NOQA
