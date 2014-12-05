@@ -123,6 +123,16 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                                                                                                                               t['payload']['rse'],
                                                                                                                               t['payload']['rule_id'],
                                                                                                                               str(t['created_at'])))
+                    elif str(t['event_type']).lower().startswith("deletion"):
+                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)' % (process,
+                                                                                                                          thread,
+                                                                                                                          str(t['event_type']).lower(),
+                                                                                                                          t['payload']['scope'],
+                                                                                                                          t['payload']['name'],
+                                                                                                                          t['payload']['rse'],
+                                                                                                                          t['payload']['url'],
+                                                                                                                          str(t['created_at'])))
+
                     else:
                         logging.debug('%i:%i -other message: %s' % (process, thread, t))
 
