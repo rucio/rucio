@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -101,7 +102,10 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     """
     logging.info('Starting reaper: worker %(worker_number)s, child %(child_number)s' % locals())
     while not graceful_stop.is_set():
+        max_deleting_rate = 0
+
         for rse in rses:
+            deleting_rate = 0
             rse_info = rsemgr.get_rse_info(rse['rse'])
             rse_protocol = rse_core.get_rse_protocols(rse['rse'])
 
@@ -206,14 +210,20 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             delete_replicas(rse=rse['rse'], files=deleted_files)
                         logging.debug('delete_replicas successes %s %s %s' % (rse['rse'], len(deleted_files), time.time() - s))
                         monitor.record_counter(counters='reaper.deletion.done',  delta=len(deleted_files))
+                        deleting_rate += len(deleted_files)
                     except:
                         logging.critical(traceback.format_exc())
+                deleting_rate = deleting_rate * 1.0 / max_being_deleted_files
+                if deleting_rate > max_deleting_rate:
+                    max_deleting_rate = deleting_rate
             except:
                 logging.critical(traceback.format_exc())
 
         if once:
             break
-        time.sleep(60)
+
+        sleep_time = int((1 - max_deleting_rate) * 60 + 1)
+        time.sleep(sleep_time)
 
     logging.info('Graceful stop requested')
     logging.info('Graceful stop done')
