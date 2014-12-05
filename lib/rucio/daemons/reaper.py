@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -156,7 +157,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                 p.connect()
                                 for replica in files:
                                     try:
-                                        logging.debug('Deletion of %s on %s' % (replica['pfn'], rse['rse']))
+                                        logging.info('Deletion ATTEMPT of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse']))
                                         s = time.time()
                                         p.delete(replica['pfn'])
                                         monitor.record_timer('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']), (time.time()-s)*1000)
@@ -170,8 +171,9 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                       'file-size': replica['bytes'],
                                                                       'url': replica['pfn'],
                                                                       'duration': duration})
+                                        logging.info('Deletion SUCCESS of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse']))
                                     except SourceNotFound:
-                                        err_msg = 'File %s on %s not found (already deleted ?).' % (replica['pfn'], rse['rse'])
+                                        err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                         logging.warning(err_msg)
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                                         add_message('deletion-failed', {'scope': replica['scope'],
@@ -181,7 +183,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'url': replica['pfn'],
                                                                         'reason': err_msg})
                                     except (ServiceUnavailable, RSEAccessDenied) as e:
-                                        logging.error(str(e))
+                                        logging.warning('Deletion NOACCESS of %s:%s as %s on %s: %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
                                         add_message('deletion-failed', {'scope': replica['scope'],
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
@@ -190,17 +192,13 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'reason': str(e)})
                                     except:
                                         logging.critical(traceback.format_exc())
-                                        # add_message('deletion-failed', {'scope': replica['scope'],
-                                        #                              'name': replica['name'],
-                                        #                              'rse': rse_info['rse'],
-                                        #                              'reason': str(traceback.format_exc())})
                             except (ServiceUnavailable, RSEAccessDenied) as e:
                                 for replica in files:
+                                    logging.warning('Deletion NOACCESS of %s:%s as %s on %s: %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
                                     add_message('deletion-failed', {'scope': replica['scope'],
                                                                     'name': replica['name'],
                                                                     'rse': rse_info['rse'],
                                                                     'reason': str(e)})
-                                logging.error(str(e))
                             finally:
                                 p.close()
                         s = time.time()
