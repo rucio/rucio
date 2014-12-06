@@ -8,6 +8,7 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
 
 import os
 import sys
@@ -58,6 +59,36 @@ if __name__ == '__main__':
                         try:
                             c.add_identity(account=account_map[account], identity=dn, authtype='X509', email=email, default=True)
                             print 'Identity %(dn)s added' % locals()
+                        except Duplicate:
+                            pass
+                        except Exception, e:
+                            print e
+                    except:
+                        print 'ERROR getting info for %s' % (user._DN)
+                        status = WARNING
+                break
+            else:
+                sys.exit(CRITICAL)
+        print '%i users extracted from VOMS with %s' % (nbusers, account)
+
+    account_list = ['phys-top','phys-higgs']
+    for account in account_list:
+        nbusers = 0
+        attempts = 0
+        totattemps = 3
+        for attempts in xrange(0, totattemps):
+            res = admin.call_method('list-members', '/atlas/{0}'.format(account))
+            if isinstance(res, types.ListType) and (attempts < totattemps - 1):
+                for user in res:
+                    nbusers += 1
+                    try:
+                        dn = user._DN
+                        ca = user._CA
+                        email = user._mail
+                        print account, dn, ca, email
+                        try:
+                            c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
+                            print 'Identity {0} added to {1}'.format(dn, account)
                         except Duplicate:
                             pass
                         except Exception, e:
