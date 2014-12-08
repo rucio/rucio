@@ -12,6 +12,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014
 
 
 """Exceptions used with Rucio.
@@ -226,6 +227,12 @@ class ReplicaNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(ReplicaNotFound, self).__init__(args, kwargs)
         self._message = "Replica not found"
+
+
+class ReplicaUnAvailable(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(ReplicaUnAvailable, self).__init__(args, kwargs)
+        self._message = "Replica unavailable"
 
 
 class ForbiddenSearch(RucioException):
