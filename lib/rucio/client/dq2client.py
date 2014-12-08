@@ -1916,41 +1916,80 @@ class DQ2Client:
         elif attrname == 'group':
             account = attrvalue
         lifetime = None
+        is_updated = False
         for rule in self.client.list_did_rules(scope=scope, name=dsn):
             if rule['rse_expression'] == location:
                 is_at_site = True
-                if attrname == 'owner' or attrname == 'group':
-                    if rule['account'] == attrvalue:
-                        return 0
-                elif attrname == 'archived':
-                    if attrvalue == 'custodial':
-                        self.client.update_replication_rule(rule['id'], {'locked': True})
-                    if attrvalue == 'secondary':
-                        self.client.update_replication_rule(rule['id'], {'locked': False, 'lifetime': 14 * 86400})
-                elif attrname == 'lifetime':
-                    if attrvalue == '':
-                        lifetime = None
-                    else:
-                        lifetime = validate_time_formats(attrvalue)
+                if rule['account'] == account:
+                    is_updated = True
+                    if attrname == 'owner' or attrname == 'group':
+                        if rule['account'] == attrvalue:
+                            return 0
+                    elif attrname == 'archived':
+                        if attrvalue == 'custodial':
+                            self.client.update_replication_rule(rule['id'], {'locked': True, 'lifetime': None})
+                        elif attrvalue == 'secondary':
+                            self.client.update_replication_rule(rule['id'], {'locked': False, 'lifetime': 14 * 86400})
+                        elif attrvalue == 'primary':
+                            self.client.update_replication_rule(rule['id'], {'locked': False, 'lifetime': None})
+                    elif attrname == 'lifetime':
+                        if attrvalue == '':
+                            lifetime = None
+                        else:
+                            lifetime = validate_time_formats(attrvalue)
+                        if lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                            errMsg = 'lifetime must be greater than O!' % locals()
+                            raise InputValidationError(errMsg)
+                        elif lifetime:
+                            lifetime = lifetime.days * 86400 + lifetime.seconds
+                        self.client.update_replication_rule(rule['id'], {'lifetime': lifetime})
+                    elif attrname == 'pin_lifetime':
+                        if attrvalue is None or attrvalue is '':
+                            self.client.update_replication_rule(rule['id'], {'locked': False})
+                        else:
+                            pin_lifetime = validate_time_formats(attrvalue)
+                            if pin_lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                                errMsg = 'pin_lifetime must be greater than O!' % locals()
+                                raise InputValidationError(errMsg)
+                            pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
+                            if rule['expires_at'] and ((rule['expires_at']-datetime.now()) < timedelta(seconds=pin_lifetime)):
+                                self.client.update_replication_rule(rule['id'], {'lifetime': pin_lifetime})
+        if not is_at_site:
+            raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))
+        if not is_updated:
+            owner = self.client.account
+            lifetime = None
+            locked = False
+            if attrname == 'owner' or attrname == 'group':
+                owner = attrvalue
+            elif attrname == 'archived':
+                if attrvalue == 'custodial':
+                    locked = True
+                elif attrvalue == 'secondary':
+                    lifetime = 14 * 86400
+                elif attrvalue == 'primary':
+                    lifetime = None
+            elif attrname == 'lifetime':
+                if attrvalue == '':
+                    lifetime = None
+                else:
+                    lifetime = validate_time_formats(attrvalue)
                     if lifetime == timedelta(days=0, seconds=0, microseconds=0):
                         errMsg = 'lifetime must be greater than O!' % locals()
                         raise InputValidationError(errMsg)
                     elif lifetime:
                         lifetime = lifetime.days * 86400 + lifetime.seconds
-                    self.client.update_replication_rule(rule['id'], {'lifetime': lifetime})
-                elif attrname == 'pin_lifetime':
-                    if attrvalue is None or attrvalue is '':
-                        self.client.update_replication_rule(rule['id'], {'locked': False})
-                    else:
-                        pin_lifetime = validate_time_formats(attrvalue)
-                        if pin_lifetime == timedelta(days=0, seconds=0, microseconds=0):
-                            errMsg = 'pin_lifetime must be greater than O!' % locals()
-                            raise InputValidationError(errMsg)
-                        pin_lifetime = pin_lifetime.days * 86400 + pin_lifetime.seconds
-                        if rule['expires_at'] and ((rule['expires_at']-datetime.now()) < timedelta(seconds=pin_lifetime)):
-                            self.client.update_replication_rule(rule['id'], {'lifetime': pin_lifetime})
-        if not is_at_site:
-            raise UnsupportedOperation('Replicas for %s:%s at %s does not exist' % (scope, dsn, location))
+            elif attrname == 'pin_lifetime':
+                if attrvalue is None or attrvalue is '':
+                    locked = False
+                else:
+                    lifetime = validate_time_formats(attrvalue)
+                    if lifetime == timedelta(days=0, seconds=0, microseconds=0):
+                        errMsg = 'pin_lifetime must be greater than O!' % locals()
+                        raise InputValidationError(errMsg)
+                    lifetime = lifetime.days * 86400 + lifetime.seconds
+            dids = [{'scope': scope, 'name': dsn}, ]
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=account, locked=locked, notify='N')
         return 0
 
     def verifyFilesInDataset(self, dsn, guids, version=None, scope=None):
