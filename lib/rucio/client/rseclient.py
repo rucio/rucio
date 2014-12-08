@@ -8,7 +8,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -62,6 +62,7 @@ class RSEClient(BaseClient):
         :param country_name: The country.
         :param continent: The continent.
         :param time_zone: Timezone.
+        :param staging_area: Staging area.
         :param ISP: Internet service provider.
 
         :return: True if location was created successfully else False.

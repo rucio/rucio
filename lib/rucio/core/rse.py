@@ -33,7 +33,7 @@ from rucio.db.session import read_session, transactional_session, stream_session
 
 
 @transactional_session
-def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, session=None):
+def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, staging_area=False, session=None):
     """
     Add a rse with the given location name.
 
@@ -46,11 +46,12 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     :param continent: The continent.
     :param time_zone: Timezone.
     :param ISP: Internet service provider.
+    :param staging_area: Staging area.
     :param session: The database session in use.
     """
     new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
-                         continent=continent, time_zone=time_zone, ISP=ISP, availability=7)
+                         continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability=7)
     try:
         new_rse.save(session=session)
     except IntegrityError:
