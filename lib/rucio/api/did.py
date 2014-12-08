@@ -109,7 +109,7 @@ def detach_dids(scope, name, dids, issuer):
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='detach_dids', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
-    return did.detach_dids(scope=scope, name=name, dids=dids, issuer=issuer)
+    return did.detach_dids(scope=scope, name=name, dids=dids)
 
 
 def list_new_dids(type=None, worker_number=None, total_workers=None, chunk_size=1000):

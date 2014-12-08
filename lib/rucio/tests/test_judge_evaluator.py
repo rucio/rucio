@@ -139,7 +139,7 @@ class TestJudgeEvaluator():
 
         account_counter_before = get_counter(self.rse1_id, 'jdoe')
 
-        detach_dids(scope, dataset, [files[0]], 'jdoe')
+        detach_dids(scope, dataset, [files[0]])
 
         # Fake judge
         re_evaluator(once=True)

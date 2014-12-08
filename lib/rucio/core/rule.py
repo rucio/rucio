@@ -1037,7 +1037,7 @@ def __evaluate_did_detach(eval_did, session=None):
 
     with record_timer_block('rule.evaluate_did_detach'):
         # Get all parent DID's
-        parent_dids = rucio.core.did.list_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
+        parent_dids = rucio.core.did.list_all_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
         # Get all RR from parents and eval_did
         rules = session.query(models.ReplicationRule).filter_by(scope=eval_did.scope, name=eval_did.name).with_for_update(nowait=True).all()
@@ -1107,7 +1107,7 @@ def __evaluate_did_attach(eval_did, session=None):
     with record_timer_block('rule.evaluate_did_attach'):
         # Get all parent DID's
         with record_timer_block('rule.evaluate_did_attach.list_parent_dids'):
-            parent_dids = rucio.core.did.list_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
+            parent_dids = rucio.core.did.list_all_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
         # Get immediate new child DID's
         with record_timer_block('rule.evaluate_did_attach.list_new_child_dids'):
