@@ -30,7 +30,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import ReplicaState
 from rucio.rse import rsemanager as rsemgr
 from rucio.common.config import config_get
-from rucio.common.exception import SourceNotFound, ServiceUnavailable, RSEAccessDenied
+from rucio.common.exception import SourceNotFound, ServiceUnavailable, RSEAccessDenied, ReplicaUnAvailable
 from rucio.common.utils import chunks
 
 
@@ -145,7 +145,13 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
 
                         for replica in files:
-                            replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ], operation='delete').values()[0])
+                            try:
+                                replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ], operation='delete').values()[0])
+                            except ReplicaUnAvailable as e:
+                                err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(e))
+                                logging.warning(err_msg)
+                                replica['pfn'] = None
+
                             add_message('deletion-planned', {'scope': replica['scope'],
                                                              'name': replica['name'],
                                                              'file-size': replica['bytes'],
@@ -163,7 +169,10 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                     try:
                                         logging.info('Deletion ATTEMPT of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse']))
                                         s = time.time()
-                                        p.delete(replica['pfn'])
+                                        if replica['pfn']:
+                                            p.delete(replica['pfn'])
+                                        else:
+                                            logging.warning('Deletion UNAVAILABLE of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse']))
                                         monitor.record_timer('daemons.reaper.delete.%s.%s' % (p.attributes['scheme'], rse['rse']), (time.time()-s)*1000)
                                         duration = time.time() - s
 

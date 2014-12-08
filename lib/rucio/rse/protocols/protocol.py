@@ -124,6 +124,8 @@ class RSEProtocol(object):
         r = replica.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id'])
         if 'path' in r and r['path'] is not None:
             path = r['path']
+        elif 'state' in r and (r['state'] is None or r['state'] == 'UNAVAILABLE'):
+            raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on none-determinstic storage named %s' % (scope, name, self.rse['rse']))
         else:
             raise exception.ReplicaNotFound('Missing path information for replica %s:%s on none-determinstic storage named %s' % (scope, name, self.rse['rse']))
         if path.startswith('/'):
