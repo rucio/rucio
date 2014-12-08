@@ -14,11 +14,14 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
+import logging
+import sys
+
 from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
 
-from sqlalchemy import and_, or_, case
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
@@ -28,13 +31,17 @@ import rucio.core.rule
 import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
-from rucio.common.utils import chunks
+from rucio.common.config import config_get
 from rucio.common.constants import reserved_keys
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation
 from rucio.db.enum import EnumSymbol
 from rucio.db.session import read_session, transactional_session, stream_session
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging, config_get('common', 'loglevel').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @read_session
@@ -310,107 +317,60 @@ def delete_dids(dids, account, session=None):
     :param account: The account.
     :param session: The database session in use.
     """
-    content_clause, parent_content_clause = [], []
-    did_clause, rule_id_clause = [], []
+
+    rule_id_clause = []
+    content_clause = []
+    parent_content_clause = []
+    did_clause = []
     for did in dids:
-        parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
+        logging.info('Removing did %s:%s' % (did['scope'], did['name']))
         did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
-        content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
+        parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
+        content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
 
-    rule_clause, lock_clause, dataset_lock_clause = [], [], []
-    for (rule_id, ) in session.query(models.ReplicationRule.id).filter(or_(*rule_id_clause)):
-        rule_clause.append(models.ReplicationRule.id == rule_id)
-        lock_clause.append(models.ReplicaLock.rule_id == rule_id)
-        dataset_lock_clause.append(models.DatasetLock.rule_id == rule_id)
-
-    replica_clauses, lock_clauses = [], []
-    if lock_clause:
-        for (rse_id, scope, name, rule_id) in session.query(models.ReplicaLock.rse_id, models.ReplicaLock.scope, models.ReplicaLock.name, models.ReplicaLock.rule_id).filter(or_(*lock_clause)):
-            replica_clauses.append(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id))
-            lock_clauses.append(and_(models.ReplicaLock.rse_id == rse_id, models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rule_id == rule_id))
-
-    # Remove the locks
-    # s = time()
-    with record_timer_block('undertaker.locks'):
-        for lock_clause in chunks(lock_clauses, 50):
-            rowcount = session.query(models.ReplicaLock).with_hint(models.ReplicaLock, "+ INDEX(LOCKS LOCKS_PK)", 'oracle').filter(or_(*lock_clause)).delete(synchronize_session=False)
-            record_counter(counters='undertaker.locks.rowcount',  delta=rowcount)
-    # print 'delete locks', time() - s
-
-    # Remove the dataset locks
-    if dataset_lock_clause:
-        rowcount = session.query(models.DatasetLock).filter(or_(*dataset_lock_clause)).delete(synchronize_session=False)
-
-    # Remove the rules
-    # s = time()
-    if rule_clause:
+    # Delete rules on did
+    if rule_id_clause:
         with record_timer_block('undertaker.rules'):
-            rowcount = session.query(models.ReplicationRule).filter(or_(*rule_clause)).delete(synchronize_session=False)
-            record_counter(counters='undertaker.rules.rowcount',  delta=rowcount)
+            for (rule_id, scope, name, rse_expression, ) in session.query(models.ReplicationRule.id,
+                                                                          models.ReplicationRule.scope,
+                                                                          models.ReplicationRule.name,
+                                                                          models.ReplicationRule.rse_expression).filter(or_(*rule_id_clause)):
+                logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
+                rucio.core.rule.delete_rule(rule_id=rule_id, nowait=True, session=session)
 
-    # print 'delete rules', time() - s
-    # filter(exists([1]).where(or_(*lock_clause))).delete(synchronize_session=False)
-
-    # s = time()
-    # remove from parent content
+    # Detach from parent dids:
     if parent_content_clause:
         with record_timer_block('undertaker.parent_content'):
-            rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)).\
-                delete(synchronize_session=False)
-    # print 'delete parent content', time() - s
+            for parent_did in session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)):
+                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_Scope, 'name': parent_did.child_name}], sesson=session)
 
-    # s = time()
-    # remove content
+    # Remove content
     if content_clause:
         with record_timer_block('undertaker.content'):
             rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*content_clause)).\
                 delete(synchronize_session=False)
         record_counter(counters='undertaker.content.rowcount',  delta=rowcount)
-    # print 'delete content', rowcount, time() - s
 
-    # s = time()
     # remove data identifier
     with record_timer_block('undertaker.dids'):
         rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
             filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
             delete(synchronize_session=False)
-    # print 'delete dids', time() - s
-
-    # Update the replica's tombstones
-    # s = time()
-    replicas_count = 0
-    with record_timer_block('undertaker.tombstones'):
-        for replica_clause in chunks(replica_clauses, 50):
-            replicas_count += session.\
-                query(models.RSEFileAssociation).\
-                filter(or_(*replica_clause)).\
-                with_for_update(nowait=True, of=[models.RSEFileAssociation.lock_cnt,
-                                                 models.RSEFileAssociation.tombstone]).\
-                update({'lock_cnt': models.RSEFileAssociation.lock_cnt - 1,
-                        'tombstone': case([(models.RSEFileAssociation.lock_cnt - 1 == 0,
-                                            datetime.utcnow()), ],
-                                          else_=None)},
-                       synchronize_session=False)
-    record_counter(counters='undertaker.tombstones.rowcount',  delta=replicas_count)
-
-    if not rowcount and len(dids) != rowcount:
-        raise exception.DataIdentifierNotFound("Datasets or containers not found")
 
 
 @transactional_session
-def detach_dids(scope, name, dids, issuer, session=None):
+def detach_dids(scope, name, dids, session=None):
     """
     Detach data identifier
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param dids: The content.
-    :param issuer: The issuer account.
     :param session: The database session in use.
     """
     # Row Lock the parent did
-    query = session.query(models.DataIdentifier).with_for_update().filter_by(scope=scope, name=name).\
+    query = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
         filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET))
     try:
         did = query.one()
@@ -525,7 +485,7 @@ def list_content(scope, name, session=None):
 @stream_session
 def list_parent_dids(scope, name, session=None):
     """
-    List all parent datasets and containers of a did.
+    List parent datasets and containers of a did.
 
     :param scope:     The scope.
     :param name:      The name.
@@ -539,7 +499,26 @@ def list_parent_dids(scope, name, session=None):
                           models.DataIdentifierAssociation.did_type).filter_by(child_scope=scope, child_name=name)
     for did in query.yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
-        list_parent_dids(scope=did.scope, name=did.name, session=session)
+
+
+@stream_session
+def list_all_parent_dids(scope, name, session=None):
+    """
+    List all parent datasets and containers of a did, no matter on what level
+
+    :param scope:     The scope.
+    :param name:      The name.
+    :param session:   The database session.
+    :returns:         List of dids.
+    :rtype:           Generator.
+    """
+
+    query = session.query(models.DataIdentifierAssociation.scope,
+                          models.DataIdentifierAssociation.name,
+                          models.DataIdentifierAssociation.did_type).filter_by(child_scope=scope, child_name=name)
+    for did in query.yield_per(5):
+        yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
+        list_all_parent_dids(scope=did.scope, name=did.name, session=session)
 
 
 @stream_session
