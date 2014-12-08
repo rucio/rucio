@@ -118,18 +118,18 @@ if __name__ == '__main__':
                                     c.add_account(account=account, type='USER')
                                     print 'Account %(account)s added' % locals()
                                 except Duplicate:
-                                    break
+                                    pass
                                 try:
                                     c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
                                     print 'Identity %(dn)s added' % locals()
                                 except Duplicate:
-                                    break
+                                    pass
                                 try:
                                     scope = 'user.' + account
                                     c.add_scope(account, scope)
                                     print 'Scope %(scope)s added' % locals()
                                 except Duplicate:
-                                    break
+                                    pass
                             else:
                                 break
                         elif user._DN not in nonicknames:
