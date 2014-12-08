@@ -142,6 +142,7 @@
     "backend_type": "MOCK",
     "city": "Upton",
     "country_name": "United States",
+    "staging_area": false,
     "continent": "NA",
     "ISP": "Brookhaven National Laboratory",
     "protocols": {
@@ -214,6 +215,7 @@
     "country_name": "Switzerland",
     "continent": "EU",
     "time_zone": "Europe/Zurich",
+    "staging_area": true,
     "ISP": "CERN- LHC",
     "protocols": {
       "default": "mock",

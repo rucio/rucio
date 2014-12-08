@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2014
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 
@@ -95,7 +95,7 @@ class RSE(RucioController):
         """
         json_data = data()
         kwargs = {'deterministic': True,
-                  'volatile': False, 'city': None,
+                  'volatile': False, 'city': None, 'staging_area': False,
                   'region_code': None, 'country_name': None,
                   'continent': None, 'time_zone': None, 'ISP': None}
         try:

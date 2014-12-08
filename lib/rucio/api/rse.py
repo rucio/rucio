@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -19,7 +19,7 @@ from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
 
 
-def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None):
+def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, staging_area=False):
     """
     Creates a new Rucio Storage Element(RSE).
 
@@ -32,6 +32,7 @@ def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_c
     :param country_name: The country.
     :param continent: The continent.
     :param time_zone: Timezone.
+    :param staging_area: staging area.
     :param ISP: Internet service provider.
     """
     validate_schema(name='rse', obj=rse)
@@ -40,7 +41,7 @@ def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_c
         raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
 
     return rse_module.add_rse(rse, deterministic=deterministic, volatile=volatile, city=city,
-                              region_code=region_code, country_name=country_name,
+                              region_code=region_code, country_name=country_name, staging_area=staging_area,
                               continent=continent, time_zone=time_zone, ISP=ISP)
 
 

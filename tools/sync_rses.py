@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 
 import json
 import sys
@@ -38,11 +38,12 @@ if __name__ == '__main__':
             volatile = repo_data[rse].get('volatile', False)
             region_code = repo_data[rse].get('region_code')
             country_name = repo_data[rse].get('country_name')
+            staging_area = repo_data[rse].get('staging_area')
             continent = repo_data[rse].get('continent')
             time_zone = repo_data[rse].get('time_zone')
             ISP = repo_data[rse].get('ISP')
             c.add_rse(rse, deterministic=deterministic, volatile=volatile,
-                      region_code=region_code, country_name=country_name,
+                      region_code=region_code, country_name=country_name, staging_area=staging_area,
                       continent=continent, time_zone=time_zone, ISP=ISP)
         except Duplicate:
             print '%(rse)s already added' % locals()
