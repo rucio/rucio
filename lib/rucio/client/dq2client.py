@@ -777,11 +777,26 @@ class DQ2Client:
         """
         raise NotImplementedError
 
-    def listDatasetsByGUIDs(self):
+    def listDatasetsByGUIDs(self, guids):
         """
-        ToDo
+        Returns a dictionary mapping guid to dataset names.
+        @since: 0.3.1
+
+        @param guids: a list of guids
+
+        B{Exceptions:}
+            - RucioException is raised in case of exception.
+
+        @return: Returns the guid->dataset names mapping.::
+            {'guid': [dsnX, dsnY]}
+            or
+            {}
         """
-        raise NotImplementedError
+        result = {}
+        for guid in guids:
+            datasets = [str('%s:%s' % (i['scope'], i['name'])) for i in self.client.get_dataset_by_guid(guid)]
+            result[guid] = datasets
+        return result
 
     def listDatasetsByMetaData(self, filter):
         """

@@ -11,6 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from json import dumps, loads
 from traceback import format_exc
@@ -20,7 +21,7 @@ from web import application, ctx, data, Created, header, InternalError, OK, load
 from rucio.api.did import (add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
-                           attach_dids_to_dids)
+                           attach_dids_to_dids, get_dataset_by_guid)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -34,6 +35,7 @@ from rucio.web.rest.common import rucio_loadhook, RucioController
 
 urls = (
     '/(.*)/', 'Scope',
+    '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
     '/(.*)/(.*)/files', 'Files',
     '/(.*)/(.*)/dids', 'Attachment',
@@ -568,6 +570,33 @@ class AssociatedRules(RucioController):
         try:
             for rule in list_associated_replication_rules_for_file(scope=scope, name=name):
                 yield dumps(rule, cls=APIEncoder) + '\n'
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
+
+
+class GUIDLookup(RucioController):
+
+    def GET(self, guid):
+        """
+        Return the file associated to a GUID.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+
+        :param scope: The scope name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for dataset in get_dataset_by_guid(guid):
+                yield dumps(dataset, cls=APIEncoder) + '\n'
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
