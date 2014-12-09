@@ -454,3 +454,19 @@ class DIDClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def get_dataset_by_guid(self, guid):
+        """
+        Get the parent datasets for a given GUID.
+       :param guid: The GUID.
+
+        :returns: A did
+        """
+        path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)

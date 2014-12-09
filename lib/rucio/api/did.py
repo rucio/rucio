@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 import rucio.api.permission
 
@@ -218,3 +218,13 @@ def set_status(scope, name, issuer, **kwargs):
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}):
         raise rucio.common.exception.AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
     return did.set_status(scope=scope, name=name, **kwargs)
+
+
+def get_dataset_by_guid(guid):
+    """
+    Get the parent datasets for a given GUID.
+    :param guid: The GUID.
+
+    :returns: A did
+    """
+    return did.get_dataset_by_guid(guid=guid)

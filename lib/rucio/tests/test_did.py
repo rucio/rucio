@@ -243,6 +243,8 @@ class TestDIDClients:
         nb_datasets = 5
         nb_files = 5
         attachments, dsns = list(), list()
+        guid_to_query = None
+        dsn = {}
         for i in xrange(nb_datasets):
             attachment = {}
             attachment['scope'] = tmp_scope
@@ -254,11 +256,16 @@ class TestDIDClients:
                               'bytes': 724963570L, 'adler32': '0cc737eb',
                               'meta': {'guid': str(generate_uuid()), 'events': 100}})
             attachment['dids'] = files
-            dsns.append({'scope': tmp_scope, 'name': attachment['name']})
+            guid_to_query = files[0]['meta']['guid']
+            dsn = {'scope': tmp_scope, 'name': attachment['name']}
+            dsns.append(dsn)
             attachments.append(attachment)
 
         self.did_client.add_datasets(dsns=dsns)
         self.did_client.attach_dids_to_dids(attachments=attachments)
+        l = [i for i in self.did_client.get_dataset_by_guid(guid_to_query)]
+
+        assert_equal([dsn], l)
 
         cnt_name = 'cnt_%s' % generate_uuid()
         self.did_client.add_container(scope='mock', name=cnt_name)
