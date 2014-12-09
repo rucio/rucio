@@ -775,12 +775,18 @@ def set_status(scope, name, session=None, **kwargs):
         if k not in statuses:
             raise exception.UnsupportedStatus("The status %(k)s is not a valid data identifier status." % locals())
         if k == 'open':
-            query = query.filter_by(is_open=True).filter(models.DataIdentifier.did_type != DIDType.FILE)
-            values['is_open'] = False
-            values['length'], values['bytes'] = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                              func.sum(models.DataIdentifierAssociation.bytes)).filter_by(scope=scope, name=name).one()
-            # Update datasetlocks as well
-            session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
+            if not kwargs[k]:
+                query = query.filter_by(is_open=True).filter(models.DataIdentifier.did_type != DIDType.FILE)
+                values['is_open'] = False
+                values['length'], values['bytes'], values['events'] = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                                                    func.sum(models.DataIdentifierAssociation.bytes),
+                                                                                    func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=scope, name=name).one()
+                # Update datasetlocks as well
+                session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
+            else:
+                # Set status to open only for privileged accounts
+                query = query.filter_by(is_open=False).filter(models.DataIdentifier.did_type != DIDType.FILE)
+                values['is_open'] = True
 
     rowcount = query.update(values, synchronize_session='fetch')
 
