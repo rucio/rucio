@@ -800,6 +800,8 @@ def set_status(scope, name, session=None, **kwargs):
             values['is_open'] = False
             values['length'], values['bytes'] = session.query(func.count(models.DataIdentifierAssociation.scope),
                                                               func.sum(models.DataIdentifierAssociation.bytes)).filter_by(scope=scope, name=name).one()
+            # Update datasetlocks as well
+            session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
 
     rowcount = query.update(values, synchronize_session='fetch')
 
