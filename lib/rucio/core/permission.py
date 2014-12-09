@@ -392,6 +392,10 @@ def perm_set_status(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
+    if kwargs.get('open', False):
+        if issuer != 'root' and issuer not in get_special_accounts():
+            return False
+
     return issuer == 'root' or issuer in get_special_accounts() or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 

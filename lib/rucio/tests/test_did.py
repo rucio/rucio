@@ -620,3 +620,39 @@ class TestDIDClients:
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1L, 'adler32': '0cc737eb'}, ]
         self.did_client.attach_dids(scope=tmp_scope, name=tmp_dataset, dids=files)
+
+    @raises
+    def test_open(self):
+        """ DATA IDENTIFIERS (CLIENT): test to re-open data identifiers for priv account"""
+
+        tmp_rse = 'MOCK'
+        tmp_scope = 'mock'
+
+        # Add dataset
+        tmp_dataset = 'dsn_%s' % generate_uuid()
+
+        # Add file replica
+        tmp_file = 'file_%s' % generate_uuid()
+        self.replica_client.add_replica(rse=tmp_rse, scope=tmp_scope, name=tmp_file, bytes=1L, adler32='0cc737eb')
+
+        # Add dataset
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
+
+        # Add files to dataset
+        files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1L, 'adler32': '0cc737eb'}, ]
+        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
+
+        # Add a second file replica
+        tmp_file = 'file_%s' % generate_uuid()
+        self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1L, '0cc737eb')
+        # Add files to dataset
+        files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1L, 'adler32': '0cc737eb'}, ]
+        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
+
+        # Close dataset
+        with assert_raises(UnsupportedStatus):
+            self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, close=False)
+        self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=False)
+
+        # Add a third file replica
+        self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=True)
