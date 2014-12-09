@@ -244,6 +244,18 @@ def get_destinations(rse_info, scheme, req, sources):
         # DQ2 path always starts with /, but prefix might not end with /
         path = construct_surl_DQ2(dsn, req['name'])
 
+        # retrial transfers to tape need a new filename - add timestamp
+        if req['request_type'] == RequestType.TRANSFER\
+           and 'previous_attempt_id' in req\
+           and req['previous_attempt_id']\
+           and rse_info['rse_type'] == 'TAPE':  # TODO: RUCIO-809 - rsemanager: get_rse_info -> rse_type is string instead of RSEType
+            path = '%s_%i' % (path, int(time.time()))
+            logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
+                                                                                              req['scope'],
+                                                                                              req['name'],
+                                                                                              rse_info['rse'],
+                                                                                              path))
+
         tmp_path = '%s%s' % (prefix[:-1], path)
         if prefix[-1] != '/':
             tmp_path = '%s%s' % (prefix, path)
@@ -257,18 +269,6 @@ def get_destinations(rse_info, scheme, req, sources):
             else:
                 # TODO: need to check
                 return None, None
-
-        # retrial transfers to tape need a new filename - add timestamp
-        if req['request_type'] == RequestType.TRANSFER\
-           and 'previous_attempt_id' in req\
-           and req['previous_attempt_id']\
-           and rse_info['rse_type'] == 'TAPE':  # TODO: RUCIO-809 - rsemanager: get_rse_info -> rse_type is string instead of RSEType
-            path = '%s_%i' % (path, int(time.time()))
-            logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
-                                                                                              req['scope'],
-                                                                                              req['name'],
-                                                                                              rse_info['rse'],
-                                                                                              path))
 
         # we must set the destination path for nondeterministic replicas explicitly
         replica.update_replicas_paths([{'scope': req['scope'],
