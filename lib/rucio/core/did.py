@@ -865,3 +865,23 @@ def get_did_atime(scope, name, session=None):
     :returns: A datetime timestamp with the last access time.
     """
     return session.query(models.DataIdentifier.accessed_at).filter_by(scope=scope, name=name).one()[0]
+
+
+@stream_session
+def get_dataset_by_guid(guid, session=None):
+    """
+    Get the parent datasets for a given GUID.
+    :param guid: The GUID.
+    :param session: Database session to use.
+
+    :returns: A did.
+    """
+    query = session.query(models.DataIdentifier).filter_by(guid=guid, did_type=DIDType.FILE).with_hint(models.ReplicaLock, "INDEX(DIDS_GUIDS_IDX)", 'oracle')
+    try:
+        r = query.one()
+        datasets = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=r.scope, child_name=r.name).\
+            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS_CHILD_SCOPE_NAME_IDX)", 'oracle')
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("No file associated to GUID : %s" % guid)
+    for tmp_did in datasets.yield_per(5):
+        yield {'scope': tmp_did.scope, 'name': tmp_did.name}
