@@ -289,12 +289,23 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                                              models.DatasetLock.rule_id == rule.id,
                                                              models.DatasetLock.rse_id == rse_tuple[0]).one()
                 except NoResultFound:
+                    # Get dataset Information
+                    is_open, bytes, length = True, None, None
+                    try:
+                        is_open, bytes, length = session.query(models.DataIdentifier.is_open,
+                                                               models.DataIdentifier.bytes,
+                                                               models.DataIdentifier.length).filter_by(scope=dataset['scope'], name=dataset['name']).one()
+                    except NoResultFound:
+                        pass
+
                     models.DatasetLock(scope=dataset['scope'],
                                        name=dataset['name'],
                                        rule_id=rule.id,
                                        rse_id=rse_tuple[0],
                                        state=LockState.REPLICATING,
-                                       account=rule.account).save(flush=False, session=session)
+                                       account=rule.account,
+                                       length=length if not is_open else None,
+                                       bytes=bytes if not is_open else None).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
@@ -366,12 +377,23 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                                                              models.DatasetLock.rule_id == rule.id,
                                                              models.DatasetLock.rse_id == rse_tuple[0]).one()
                 except NoResultFound:
+                    # Get dataset Information
+                    is_open, bytes, length = True, None, None
+                    try:
+                        is_open, bytes, length = session.query(models.DataIdentifier.is_open,
+                                                               models.DataIdentifier.bytes,
+                                                               models.DataIdentifier.length).filter_by(scope=dataset['scope'], name=dataset['name']).one()
+                    except NoResultFound:
+                        pass
+
                     models.DatasetLock(scope=dataset['scope'],
                                        name=dataset['name'],
                                        rule_id=rule.id,
                                        rse_id=rse_tuple[0],
                                        state=LockState.REPLICATING,
-                                       account=rule.account).save(flush=False, session=session)
+                                       account=rule.account,
+                                       length=length if not is_open else None,
+                                       bytes=bytes if not is_open else None).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
