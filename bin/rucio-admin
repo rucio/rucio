@@ -15,6 +15,7 @@
 # - David Cameron, <david.cameron@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
 
 """
 Rucio Administration Utility
@@ -1001,7 +1002,7 @@ Commands:
     identity_add_parser = identity_subparser.add_parser('add', help='Grant an identity access to an account')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_add_parser.add_argument('--type', dest='authtype', action='store', help='Authentivation type(e.g. X509, gss)', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS'], help='Authentication type [X509|GSS|USERPASS]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
 
