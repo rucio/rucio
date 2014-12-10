@@ -13,6 +13,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
 
 import logging
 import sys
@@ -33,11 +34,13 @@ import rucio.core.replica  # import add_replicas
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.constants import reserved_keys
+from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation
 from rucio.db.enum import EnumSymbol
 from rucio.db.session import read_session, transactional_session, stream_session
+
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -139,6 +142,18 @@ def add_dids(dids, account, session=None):
 
                 if did.get('rules', None):
                     rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
+
+                event_type = None
+                if did['type'] == DIDType.CONTAINER:
+                    event_type = 'REGISTER_CNT'
+                if did['type'] == DIDType.DATASET:
+                    event_type = 'REGISTER_DTS'
+                if not event_type:
+                    add_message(event_type, {'account': account,
+                                             'scope': did['scope'],
+                                             'name': did['name'],
+                                             'expires': expired_at},
+                                session=session)
 
             except KeyError, e:
                 # ToDo
@@ -328,6 +343,18 @@ def delete_dids(dids, account, session=None):
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
         content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
+
+        # Send message for AMI
+        event_type = None
+        if did['type'] == DIDType.CONTAINER:
+            event_type = 'ERASE_CNT'
+        if did['type'] == DIDType.DATASET:
+            event_type = 'ERASE_DTS'
+        if not event_type:
+            add_message(event_type, {'account': account,
+                                     'scope': did['scope'],
+                                     'name': did['name']},
+                        session=session)
 
     # Delete rules on did
     if rule_id_clause:
