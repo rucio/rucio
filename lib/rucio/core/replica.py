@@ -172,53 +172,75 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
     for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
         if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):
             if all_states:
-                condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'])
+                condition = and_(models.RSEFileAssociation.scope == did['scope'],
+                                 models.RSEFileAssociation.name == did['name'])
             else:
                 if not unavailable:
-                    condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'], models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+                    condition = and_(models.RSEFileAssociation.scope == did['scope'],
+                                     models.RSEFileAssociation.name == did['name'],
+                                     models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
                 else:
-                    condition = and_(models.RSEFileAssociation.scope == did['scope'], models.RSEFileAssociation.name == did['name'],
-                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+                    condition = and_(models.RSEFileAssociation.scope == did['scope'],
+                                     models.RSEFileAssociation.name == did['name'],
+                                     or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                         models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
+                                         models.RSEFileAssociation.state == ReplicaState.COPYING))
             replicas['%s:%s' % (did['scope'], did['name'])] = {'scope': did['scope'], 'name': did['name'], 'rses': {}}
             replica_conditions.append(condition)
         else:
-            did_conditions.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
+            did_conditions.append(and_(models.DataIdentifier.scope == did['scope'],
+                                       models.DataIdentifier.name == did['name']))
 
     if did_conditions:
         # Get files
-        for scope, name, did_type in session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).filter(or_(*did_conditions)):
+        for scope, name, did_type in session.query(models.DataIdentifier.scope,
+                                                   models.DataIdentifier.name,
+                                                   models.DataIdentifier.did_type).filter(or_(*did_conditions)):
             if did_type == DIDType.FILE:
                 replicas['%s:%s' % (scope, name)] = {'scope': scope, 'name': name, 'rses': {}}
                 if all_states:
-                    condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name)
+                    condition = and_(models.RSEFileAssociation.scope == scope,
+                                     models.RSEFileAssociation.name == name)
                 else:
                     if not unavailable:
-                        condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
+                        condition = and_(models.RSEFileAssociation.scope == scope,
+                                         models.RSEFileAssociation.name == name,
                                          models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
                     else:
-                        condition = and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name,
-                                         or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+                        condition = and_(models.RSEFileAssociation.scope == scope,
+                                         models.RSEFileAssociation.name == name,
+                                         or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                             models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
+                                             models.RSEFileAssociation.state == ReplicaState.COPYING))
                 replica_conditions.append(condition)
             else:
                 # for dataset/container
-                content_query = session.query(models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_type)
+                content_query = session.query(models.DataIdentifierAssociation.child_scope,
+                                              models.DataIdentifierAssociation.child_name,
+                                              models.DataIdentifierAssociation.child_type)
                 content_query = content_query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
                 child_dids = [(scope, name)]
                 while child_dids:
                     s, n = child_dids.pop()
                     for tmp_did in content_query.filter_by(scope=s, name=n):
                         if tmp_did.child_type == DIDType.FILE:
-                            replicas['%s:%s' % (tmp_did.child_scope, tmp_did.child_name)] = {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'rses': {}}
+                            replicas['%s:%s' % (tmp_did.child_scope, tmp_did.child_name)] = {'scope': tmp_did.child_scope,
+                                                                                             'name': tmp_did.child_name,
+                                                                                             'rses': {}}
                             if all_states:
-                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name)
+                                condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
+                                                 models.RSEFileAssociation.name == tmp_did.child_name)
                             else:
                                 if not unavailable:
-                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
+                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
+                                                     models.RSEFileAssociation.name == tmp_did.child_name,
                                                      models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
                                 else:
-                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope, models.RSEFileAssociation.name == tmp_did.child_name,
+                                    condition = and_(models.RSEFileAssociation.scope == tmp_did.child_scope,
+                                                     models.RSEFileAssociation.name == tmp_did.child_name,
                                                      or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                         models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE))
+                                                         models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
+                                                         models.RSEFileAssociation.state == ReplicaState.COPYING))
                             replica_conditions.append(condition)
                         else:
                             child_dids.append((tmp_did.child_scope, tmp_did.child_name))
@@ -237,8 +259,11 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
                                         models.RSEFileAssociation.path,
                                         models.RSEFileAssociation.state,
                                         models.RSE.rse),
-                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id, models.RSE.deleted == is_false, or_(*replica_condition)),
-                               order_by=(models.RSEFileAssociation.scope, models.RSEFileAssociation.name)).\
+                               whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id,
+                                                models.RSE.deleted == is_false,
+                                                or_(*replica_condition)),
+                               order_by=(models.RSEFileAssociation.scope,
+                                         models.RSEFileAssociation.name)).\
             with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
             compile()
         # models.RSE.availability.op(avail_op)(0x100) != 0
