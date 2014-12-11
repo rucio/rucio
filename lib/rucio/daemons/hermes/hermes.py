@@ -124,6 +124,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                                                                                                                               t['payload']['rule_id'],
                                                                                                                               str(t['created_at'])))
                     elif str(t['event_type']).lower().startswith("deletion"):
+                        if 'url' not in t['payload']:
+                            t['payload']['url'] = 'unknown'
                         logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)' % (process,
                                                                                                                           thread,
                                                                                                                           str(t['event_type']).lower(),
