@@ -370,7 +370,7 @@ def delete_dids(dids, account, session=None):
     if parent_content_clause:
         with record_timer_block('undertaker.parent_content'):
             for parent_did in session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)):
-                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_Scope, 'name': parent_did.child_name}], sesson=session)
+                detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
 
     # Remove content
     if content_clause:
