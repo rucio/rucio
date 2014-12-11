@@ -345,16 +345,10 @@ def delete_dids(dids, account, session=None):
         content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
 
         # Send message for AMI
-        event_type = None
-        if did['did_type'] == DIDType.CONTAINER:
-            event_type = 'ERASE_CNT'
-        if did['did_type'] == DIDType.DATASET:
-            event_type = 'ERASE_DTS'
-        if not event_type:
-            add_message(event_type, {'account': account,
-                                     'scope': did['scope'],
-                                     'name': did['name']},
-                        session=session)
+        add_message('ERASE', {'account': account,
+                              'scope': did['scope'],
+                              'name': did['name']},
+                    session=session)
 
     # Delete rules on did
     if rule_id_clause:
