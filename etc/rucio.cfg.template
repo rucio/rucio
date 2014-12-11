@@ -89,6 +89,11 @@ special_accounts = panda, tier0
 
 [trace]
 tracedir = /var/log/rucio/trace
+brokers=atlas-test-mb.cern.ch
+port=61013
+username = _________
+password = _________
+topic = /topic/rucio.tracer
 
 [tracer-kronos]
 brokers=atlas-test-mb.cern.ch

@@ -51,6 +51,11 @@ for broker in brokers_alias:
     brokers_resolved.append([str(tmp_broker) for tmp_broker in dns.resolver.query(broker, 'A')])
     brokers_resolved = [item for sublist in brokers_resolved for item in sublist]
 
+conns = []
+
+for broker in brokers_resolved:
+    conns.append(stomp.Connection(host_and_ports=[(broker, port)], reconnect_attempts_max=3))
+
 
 def date_handler(obj):
     return obj.isoformat() if hasattr(obj, 'isoformat') else obj
@@ -66,16 +71,13 @@ def trace(payload):
     record_counter('trace.trace')
     report = json.dumps(payload, default=date_handler)
     logger.info(report)
-    conn = stomp.Connection(host_and_ports=[(random.sample(brokers_resolved, 1)[0], port)], reconnect_attempts_max=3)
 
     try:
-        conn.start()
-        conn.connect(username, password)
+        conn = random.sample(conns, 1)[0]
+        if not conn.is_connected():
+            logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
+            conn.start()
+            conn.connect(username, password)
         conn.send(body=report, destination=topic, headers={'persistent': 'true', 'appversion': 'rucio'})
     except Exception, e:
         errlog.error(e)
-    finally:
-        try:
-            conn.disconnect()
-        except:
-            pass
