@@ -1434,10 +1434,11 @@ class DQ2Client:
             locked = True
 
         list_sources = sources.keys()
-        if len(list_sources) == 1 and list_sources[0] == location and location.find('TAPE') > -1:
+        if len(list_sources) == 1 and list_sources[0] == location:
             # This is a staging request
             attr = self.client.list_rse_attributes(location)
-            self.client.add_replication_rule(dids, copies=1, rse_expression=attr['staging_buffer'], weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify)
+            if 'istape' in attr and attr['istape']:
+                self.client.add_replication_rule(dids, copies=1, rse_expression=attr['staging_buffer'], weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify)
         else:
             for rule in self.client.list_did_rules(scope=scope, name=dsn):
                 if (rule['rse_expression'] == location) and (rule['account'] == owner):
