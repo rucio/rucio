@@ -13,7 +13,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from re import match
 from traceback import format_exc
 
@@ -579,7 +579,7 @@ def get_replica(rse, scope, name, rse_id=None, session=None):
 
 
 @read_session
-def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=None, total_workers=None, session=None):
+def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=None, total_workers=None, delay_seconds=0, session=None):
     """
     List RSE File replicas with no locks.
 
@@ -598,13 +598,10 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
-        filter(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BEING_DELETED))).\
+        filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE)),
+                   and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
         order_by(models.RSEFileAssociation.tombstone).\
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
-
-# Improvement for latter:
-#           filter(or_(models.RSEFileAssociation.state.in_(ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE),\
-#               and_(models.RSEFileAssociation.state == ReplicaState.BEEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow()))).\
 
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
