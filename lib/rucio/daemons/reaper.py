@@ -86,7 +86,7 @@ def __check_rse_usage(rse, rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, exclude_rses=None):
+def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100, once=False, greedy=False, scheme=None, exclude_rses=None, delay_seconds=0):
     """
     Main loop to select and delete files.
 
@@ -131,7 +131,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                     s = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                        replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files, worker_number=child_number, total_workers=total_children)
+                        replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files, worker_number=child_number, total_workers=total_children, delay_seconds=delay_seconds)
                     logging.debug('Reaper %s-%s: list_unlocked_replicas %s %s %s' % (worker_number, child_number, rse['rse'], time.time() - s, len(replicas)))
 
                     if not replicas:
@@ -260,7 +260,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None, include_rses=None):
+def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None, include_rses=None, delay_seconds=0):
     """
     Starts up the reaper threads.
 
@@ -303,6 +303,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
                       'chunk_size': chunk_size,
                       'greedy': greedy,
                       'rses': rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker],
+                      'delay_seconds': delay_seconds,
                       'scheme': scheme}
             threads.append(threading.Thread(target=reaper, kwargs=kwargs))
     [t.start() for t in threads]
