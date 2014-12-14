@@ -213,7 +213,13 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                             'url': replica['pfn'],
                                                                             'reason': str(e)})
                                         except:
-                                            logging.critical(traceback.format_exc())
+                                            logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc())))
+                                            add_message('deletion-failed', {'scope': replica['scope'],
+                                                                            'name': replica['name'],
+                                                                            'rse': rse_info['rse'],
+                                                                            'file-size': replica['bytes'],
+                                                                            'url': replica['pfn'],
+                                                                            'reason': str(traceback.format_exc())[:1000] + '......'})
                                 except (ServiceUnavailable, RSEAccessDenied) as e:
                                     for replica in files:
                                         logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
