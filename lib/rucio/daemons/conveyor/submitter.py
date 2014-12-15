@@ -27,7 +27,7 @@ from ConfigParser import NoOptionError
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.utils import construct_surl_DQ2
-from rucio.core import did, replica, request, rse as rse_core, rule as rule_core
+from rucio.core import did, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
@@ -218,11 +218,14 @@ def get_destinations(rse_info, scheme, req, sources):
         ts = time.time()
 
         # get rule scope and name
-        rule = rule_core.get_rule(req['rule_id'])
-        rule_did = did.get_did(rule['scope'], rule['name'])
-        if rule_did['type'] == DIDType.DATASET:
-            dsn = rule['name']
-        else:
+        if req['attributes']:
+            if type(req['attributes']) is dict:
+                req_attributes = json.loads(json.dumps(req['attributes']))
+            else:
+                req_attributes = json.loads(str(req['attributes']))
+            if 'ds_name' in req_attributes:
+                dsn = req_attributes["ds_name"]
+        if dsn == 'other':
             # select a containing dataset
             for parent in did.list_parent_dids(req['scope'], req['name']):
                 if parent['type'] == DIDType.DATASET:
