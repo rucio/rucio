@@ -323,10 +323,10 @@ def get_transfer(rse, req, scheme, mock):
     record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
     logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
     if sources is None:
-        logging.warn("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
-                                                                            req['scope'],
-                                                                            req['name'],
-                                                                            rse['rse']))
+        logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
+                                                                             req['scope'],
+                                                                             req['name'],
+                                                                             rse['rse']))
         return None
     filesize = metadata['filesize']
     md5 = metadata['md5']
@@ -337,10 +337,10 @@ def get_transfer(rse, req, scheme, mock):
     record_timer('daemons.conveyor.submitter.get_destinations', (time.time() - ts) * 1000)
     logging.debug('Destinations for request %s: %s' % (req['request_id'], destinations))
     if destinations is None:
-        logging.warn("Request %s DID %s:%s RSE %s failed to get destinations" % (req['request_id'],
-                                                                                 req['scope'],
-                                                                                 req['name'],
-                                                                                 rse['rse']))
+        logging.error("Request %s DID %s:%s RSE %s failed to get destinations" % (req['request_id'],
+                                                                                  req['scope'],
+                                                                                  req['name'],
+                                                                                  rse['rse']))
         return None
 
     # Come up with mock sources if necessary
@@ -407,17 +407,20 @@ def get_transfer(rse, req, scheme, mock):
                                                                                               req['request_id']))
 
     if not source_surls:
-        logging.warn('All sources excluded - SKIP REQUEST %s' % req['request_id'])
+        logging.error('All sources excluded - SKIP REQUEST %s' % req['request_id'])
         return
 
     # get external host
-    rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
+    if rse_core.get_rse(rse['rse'])['staging_area'] or rse['rse'].endswith("STAGING"):
+        rse_attr = rse_core.list_rse_attributes(sources[0][0])
+    else:
+        rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
     fts_hosts = rse_attr.get('fts', None)
     retry_count = req['retry_count']
     if retry_count is None:
         retry_count = 0
     if fts_hosts is None:
-        logging.warn('Destionation RSE %s fts attribute is not defined - SKIP REQUEST %s' % (rse['rse'], req['request_id']))
+        logging.error('Destionation RSE %s fts attribute is not defined - SKIP REQUEST %s' % (rse['rse'], req['request_id']))
         return
 
     fts_list = fts_hosts.split(",")
@@ -538,21 +541,23 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
 
                             ts = time.time()
                             if req['previous_attempt_id']:
-                                logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s' % (req['retry_count'],
-                                                                                                                           eids[req['request_id']]['external_id'],
-                                                                                                                           req['previous_attempt_id'],
-                                                                                                                           req['scope'],
-                                                                                                                           req['name'],
-                                                                                                                           transfer['src_urls'],
-                                                                                                                           transfer['dest_urls'],
-                                                                                                                           eids[req['request_id']]['external_host']))
+                                logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s with eid: %s' % (req['retry_count'],
+                                                                                                                                        req['request_id'],
+                                                                                                                                        req['previous_attempt_id'],
+                                                                                                                                        req['scope'],
+                                                                                                                                        req['name'],
+                                                                                                                                        transfer['src_urls'],
+                                                                                                                                        transfer['dest_urls'],
+                                                                                                                                        eids[req['request_id']]['external_host'],
+                                                                                                                                        eids[req['request_id']]['external_id']))
                             else:
-                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s' % (eids[req['request_id']]['external_id'],
-                                                                                                      req['scope'],
-                                                                                                      req['name'],
-                                                                                                      transfer['src_urls'],
-                                                                                                      transfer['dest_urls'],
-                                                                                                      eids[req['request_id']]['external_host']))
+                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s with eid: %s' % (req['request_id'],
+                                                                                                                   req['scope'],
+                                                                                                                   req['name'],
+                                                                                                                   transfer['src_urls'],
+                                                                                                                   transfer['dest_urls'],
+                                                                                                                   eids[req['request_id']]['external_host'],
+                                                                                                                   eids[req['request_id']]['external_id']))
                             record_counter('daemons.conveyor.submitter.submit_request')
                         except UnsupportedOperation, e:
                             # The replica doesn't exist, need to cancel the request
