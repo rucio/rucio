@@ -67,10 +67,10 @@ def declare_bad_file_replicas(pfns, rse, session=None):
         parsed_pfn = p.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            path_clause.append(or_(models.RSEFileAssociation.path == path))
+            path_clause.append(models.RSEFileAssociation.path == path)
         query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
-            filter(models.RSEFileAssociation.rse_id == rse_id)
+            filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
         query.update({'state': ReplicaState.BAD})
 
 
