@@ -43,7 +43,7 @@ class TestDIDCore:
     def test_delete_dids(self):
         """ DATA IDENTIFIERS (CORE): Delete dids """
         tmp_scope = 'mock'
-        dsns = [{'name': 'dsn_%s' % generate_uuid(), 'scope': tmp_scope} for i in xrange(5)]
+        dsns = [{'name': 'dsn_%s' % generate_uuid(), 'scope': tmp_scope, 'did_type': DIDType.DATASET} for i in xrange(5)]
         for dsn in dsns:
             add_did(scope=tmp_scope, name=dsn['name'], type='DATASET', account='root')
         delete_dids(dids=dsns, account='root')

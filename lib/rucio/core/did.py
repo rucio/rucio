@@ -55,7 +55,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     :param limit: limit number.
     :param session: The database session in use.
     """
-    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name).\
+    query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).\
         filter(models.DataIdentifier.expired_at < datetime.utcnow()).\
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
@@ -71,9 +71,9 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         elif session.bind.dialect.name == 'sqlite':
             row_count = 0
             dids = list()
-            for scope, name in query.yield_per(10):
+            for scope, name, did_type in query.yield_per(10):
                 if int(md5(name).hexdigest(), 16) % total_workers == worker_number-1:
-                    dids.append({'scope': scope, 'name': name})
+                    dids.append({'scope': scope, 'name': name, 'did_type': did_type})
                     row_count += 1
                 if limit and row_count >= limit:
                     return dids
@@ -82,7 +82,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     if limit:
         query = query.limit(limit)
 
-    return [{'scope': scope, 'name': name} for scope, name in query]
+    return [{'scope': scope, 'name': name, 'did_type': did_type} for scope, name, did_type in query]
 
 
 @transactional_session
@@ -346,9 +346,9 @@ def delete_dids(dids, account, session=None):
 
         # Send message for AMI
         event_type = None
-        if did['type'] == DIDType.CONTAINER:
+        if did['did_type'] == DIDType.CONTAINER:
             event_type = 'ERASE_CNT'
-        if did['type'] == DIDType.DATASET:
+        if did['did_type'] == DIDType.DATASET:
             event_type = 'ERASE_DTS'
         if not event_type:
             add_message(event_type, {'account': account,
