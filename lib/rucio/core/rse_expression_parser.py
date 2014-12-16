@@ -52,7 +52,7 @@ def parse_expression(expression, filter=None, session=None):
     :returns:             A list of rse dictionaries.
     :raises:              InvalidRSEExpression, RSENotFound
     """
-    result = region.get(sha256(expression + str(filter)).hexdigest())
+    result = region.get(sha256(expression).hexdigest())
     if type(result) is NoValue:
         # Evaluate the correctness of the parentheses
         parantheses_open_count = 0
@@ -74,22 +74,35 @@ def parse_expression(expression, filter=None, session=None):
         else:
             if match.group() != expression:
                 raise InvalidRSEExpression('Expression does not comply to RSE Expression syntax')
-        result_tuple = __resolve_term_expression(expression, filter)[0].resolve_elements(session=session)
+        result_tuple = __resolve_term_expression(expression)[0].resolve_elements(session=session)
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        if not result:
-            raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
-        region.set(sha256(expression + str(filter)).hexdigest(), result)
-    return result
+        region.set(sha256(expression).hexdigest(), result)
+
+    if not result:
+        raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
+
+    # Filter
+    final_result = []
+    if filter:
+        for rse in result:
+            if filter.get('availability_write', False):
+                if rse.get('availability') in (7, 3, 2):
+                    final_result.append(rse)
+        if not final_result:
+            raise InvalidRSEExpression('RSE excluded due to write blacklisting.')
+    else:
+        final_result = result
+
+    return final_result
 
 
-def __resolve_term_expression(expression, filter):
+def __resolve_term_expression(expression):
     """
     Resolves a Term Expression and returns an object of type BaseExpressionElement
 
     :param subexpression:  String of the term expression.
-    :param filter:         Availability filter used for the RSEs.
     :returns:              Tuple of BaseExpressionElement, term Expression string
     """
 
@@ -102,11 +115,11 @@ def __resolve_term_expression(expression, filter):
             return (left_term, original_expression)
         elif expression[0] == "(":
             if (left_term is None):
-                left_term, termexpression = __resolve_term_expression(__extract_term(expression), filter)
+                left_term, termexpression = __resolve_term_expression(__extract_term(expression))
                 expression = expression[len(termexpression)+2:]
                 continue
             else:
-                right_term, termexpression = __resolve_term_expression(__extract_term(expression), filter)
+                right_term, termexpression = __resolve_term_expression(__extract_term(expression))
                 expression = expression[len(termexpression)+2:]
                 operator.set_left_term(left_term)
                 operator.set_right_term(right_term)
@@ -127,11 +140,11 @@ def __resolve_term_expression(expression, filter):
             continue
         else:
             if (left_term is None):
-                left_term, primitiveexpression = __resolve_primitive_expression(expression, filter)
+                left_term, primitiveexpression = __resolve_primitive_expression(expression)
                 expression = expression[len(primitiveexpression):]
                 continue
             else:
-                right_term, primitiveexpression = __resolve_primitive_expression(expression, filter)
+                right_term, primitiveexpression = __resolve_primitive_expression(expression)
                 expression = expression[len(primitiveexpression):]
                 operator.set_left_term(left_term)
                 operator.set_right_term(right_term)
@@ -140,20 +153,19 @@ def __resolve_term_expression(expression, filter):
                 continue
 
 
-def __resolve_primitive_expression(expression, filter=None):
+def __resolve_primitive_expression(expression):
     """
     Resolve a primitive expression and return a RSEAttribute object
 
     :param expression:    String of the expresssion
-    :param filter:        Availability filter used for the RSEs.
     :returns:             Tuple of RSEAttribute, primitive expression
     """
     primitiveexpression = re.match(PRIMITIVE, expression).group()
     keyvalue = string.split(primitiveexpression, "=")
     if len(keyvalue) == 2:
-        return (RSEAttribute(keyvalue[0], keyvalue[1], filter), primitiveexpression)
+        return (RSEAttribute(keyvalue[0], keyvalue[1]), primitiveexpression)
     else:
-        return (RSEAttribute(key=keyvalue[0], filter=filter), primitiveexpression)
+        return (RSEAttribute(key=keyvalue[0]), primitiveexpression)
 
 
 def __extract_term(expression):
@@ -196,26 +208,21 @@ class RSEAttribute(BaseExpressionElement):
     Representation of an RSE Attribute
     """
 
-    def __init__(self, key, value=True, filter=None):
+    def __init__(self, key, value=True):
         """
         Creates an RSEAttribute representation
 
         :param key:           Key of the RSE Attribute.
         :param value:         Value of the RSE Attribute.
-        :param filter:        Availability filter used for the RSEs.
         """
         self.key = key
         self.value = value
-        self.filter = filter
 
     def resolve_elements(self, session):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        if self.filter:
-            output = list_rses(dict({self.key: self.value}.items() + self.filter.items()), session=session)
-        else:
-            output = list_rses({self.key: self.value}, session=session)
+        output = list_rses({self.key: self.value}, session=session)
         if not output:
             return (set(), {})
         rse_dict = {}
