@@ -546,7 +546,7 @@ def perm_get_request_by_did(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or issuer in get_special_accounts()
+    return True
 
 
 def perm_cancel_request(issuer, kwargs):
