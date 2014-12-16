@@ -1,0 +1,28 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+-->
+
+$var title: Rules
+$var script: <script src="/static/list_rules.js"></script>
+
+<div id="results" class="row">
+
+  <div id="t_data" class="columns panel">
+    <h4>Rules</h4>
+    <div id="loader"></div>
+    <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Name</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></thead>
+      <tfoot><tr><th>Name</th><th>RSE Expression</th><th>Creation Date</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></tfoot>
+    </table>
+  </div>
+
+</div>
+<div id="problem"></div>

@@ -22,6 +22,7 @@ urls = (
     '/accounting', 'Accounting',
     '/did', 'DID',
     '/infrastructure', 'Infrastructure',
+    '/list_rules', 'ListRules',
     '/rse_usage', 'RSEUsage',
     '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
@@ -43,6 +44,12 @@ class DID():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.did())
+
+
+class ListRules():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.list_rules())
 
 
 class Rule():
