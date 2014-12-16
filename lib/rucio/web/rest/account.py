@@ -425,8 +425,13 @@ class Rules(RucioController):
         :param scope: The scope name.
         """
         header('Content-Type', 'application/x-json-stream')
+        filters = {'account': account}
+        if ctx.query:
+            params = dict(parse_qsl(ctx.query[1:]))
+            filters.update(params)
+
         try:
-            for rule in list_replication_rules({'account': account}):
+            for rule in list_replication_rules(filters=filters):
                 yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
