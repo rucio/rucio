@@ -403,12 +403,16 @@ def get_transfer(rse, req, scheme, mock):
         # make sure we only use one source when bring_online is needed
         if bring_online and len(new_sources) > 1:
             source_surls = [new_sources[0]]
-            logging.info('Only using first source %s for request %s with bring_online set' % (source_surls,
-                                                                                              req['request_id']))
+            logging.info('Only using first source %s for bring_online request %s' % (source_surls,
+                                                                                     req['request_id']))
 
     if not source_surls:
         logging.error('All sources excluded - SKIP REQUEST %s' % req['request_id'])
         return
+
+    # Sources are properly set, so now we can finally force the source RSE to the destination RSE for STAGEIN
+    if req['request_type'] == RequestType.STAGEIN:
+        tmp_metadata['dst_rse'] = sources[0][0]
 
     # get external host
     if rse_core.get_rse(rse['rse'])['staging_area'] or rse['rse'].endswith("STAGING"):
@@ -417,10 +421,10 @@ def get_transfer(rse, req, scheme, mock):
         rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
     fts_hosts = rse_attr.get('fts', None)
     retry_count = req['retry_count']
-    if retry_count is None:
+    if not retry_count:
         retry_count = 0
-    if fts_hosts is None:
-        logging.error('Destionation RSE %s fts attribute is not defined - SKIP REQUEST %s' % (rse['rse'], req['request_id']))
+    if not fts_hosts:
+        logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse['rse'], req['request_id']))
         return
 
     fts_list = fts_hosts.split(",")
