@@ -353,7 +353,9 @@ def identity_add(args):
                                   account=args.issuer,
                                   auth_type=args.auth_strategy, creds=creds,
                                   ca_cert=args.ca_certificate, timeout=args.timeout)
-
+    if args.email == "":
+        print 'Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account'
+        return FAILURE
     try:
         accountClient.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email)
         print 'Added new identity to account: %s-%s' % (args.identity, args.account)
