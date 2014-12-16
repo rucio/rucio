@@ -11,7 +11,7 @@
 from random import choice
 from string import ascii_uppercase, digits, ascii_lowercase
 
-from nose.tools import assert_equal, raises
+from nose.tools import assert_equal, raises, assert_raises
 
 from rucio.core import rse
 from rucio.core import rse_expression_parser
@@ -142,8 +142,7 @@ class TestRSEExpressionParserCore():
         assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, {'availability_write': True})]),
                      sorted([rseWRITE_id]))
 
-        assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, {'availability_write': False})]),
-                     sorted([rseNOWRITE_id]))
+        assert_raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s=de" % attribute, {'availability_write': False})
 
 
 class TestRSEExpressionParserClient():
