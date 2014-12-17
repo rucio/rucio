@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -22,12 +22,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
-    parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
     parser.add_argument("--total-threads", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, process=args.process, total_processes=args.total_processes, total_threads=args.total_threads)
+        run(once=args.run_once, total_threads=args.total_threads)
     except KeyboardInterrupt:
         stop()
