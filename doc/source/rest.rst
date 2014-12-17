@@ -126,7 +126,7 @@ Identity
 ========
 
 * :ref:`POST /accounts/{account_name}/identities/{userpass|x509|gss|proxy}/{identityString}`: Grant a \{userpass|x509|gss|proxy\} identity access to an account
-* :ref:`GET /accounts/{account_name}/identities/`: List all identities on an account
+* :ref:`GET /accounts/{account_name}/identities`: List all identities on an account
 * :ref:`GET /identities/{userpass|x509|gss|proxy}/{identityString}/accounts/`: List all account memberships of an identity
 * :ref:`DELETE /accounts/{account_name}/identities/{userpass|x509|gss|proxy}/{identityString}`:  Revoke a \{userpass|x509|gss|proxy\} identity's access to an account
 
