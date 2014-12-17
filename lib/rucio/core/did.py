@@ -34,7 +34,7 @@ import rucio.core.replica  # import add_replicas
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.constants import reserved_keys
-from rucio.core.message import add_message
+# from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db import models
 from rucio.db.constants import DIDType, DIDReEvaluation
@@ -143,17 +143,17 @@ def add_dids(dids, account, session=None):
                 if did.get('rules', None):
                     rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
 
-                event_type = None
-                if did['type'] == DIDType.CONTAINER:
-                    event_type = 'REGISTER_CNT'
-                if did['type'] == DIDType.DATASET:
-                    event_type = 'REGISTER_DTS'
-                if not event_type:
-                    add_message(event_type, {'account': account,
-                                             'scope': did['scope'],
-                                             'name': did['name'],
-                                             'expires': expired_at},
-                                session=session)
+                # event_type = None
+                # if did['type'] == DIDType.CONTAINER:
+                #     event_type = 'REGISTER_CNT'
+                # if did['type'] == DIDType.DATASET:
+                #     event_type = 'REGISTER_DTS'
+                # if not event_type:
+                #     add_message(event_type, {'account': account,
+                #                              'scope': did['scope'],
+                #                              'name': did['name'],
+                #                              'expires': expired_at},
+                #                 session=session)
 
             except KeyError, e:
                 # ToDo
@@ -345,10 +345,10 @@ def delete_dids(dids, account, session=None):
         content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
 
         # Send message for AMI
-        add_message('ERASE', {'account': account,
-                              'scope': did['scope'],
-                              'name': did['name']},
-                    session=session)
+        # add_message('ERASE', {'account': account,
+        #                       'scope': did['scope'],
+        #                       'name': did['name']},
+        #             session=session)
 
     # Delete rules on did
     if rule_id_clause:
