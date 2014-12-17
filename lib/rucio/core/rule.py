@@ -812,11 +812,11 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
     replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
 
-    datasets = []
-    parent_dids = rucio.core.did.list_parent_dids(scope=scope, name=name, session=session)
-    for p in parent_dids:
-        if {'name': p['name'], 'scope': p['scope']} not in datasets:
-            datasets.append({'name': p['name'], 'scope': p['scope']})
+    # datasets = []
+    # parent_dids = rucio.core.did.list_parent_dids(scope=scope, name=name, session=session)
+    # for p in parent_dids:
+    #     if {'name': p['name'], 'scope': p['scope']} not in datasets:
+    #         datasets.append({'name': p['name'], 'scope': p['scope']})
 
     for lock in locks:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
@@ -847,13 +847,13 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
         replica.tombstone = datetime.utcnow()
         replica.state = ReplicaState.UNAVAILABLE
         session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
-        for dts in datasets:
-            add_message('LOST', {'scope': scope,
-                                 'name': name,
-                                 'dataset_name': dts['name'],
-                                 'dataset_scope': dts['scope']
-                                 },
-                        session=session)
+        # for dts in datasets:
+        #     add_message('LOST', {'scope': scope,
+        #                          'name': name,
+        #                          'dataset_name': dts['name'],
+        #                          'dataset_scope': dts['scope']
+        #                          },
+        #                  session=session)
     else:
         # This should never happen
         raise RucioException('Problem with the locks')
