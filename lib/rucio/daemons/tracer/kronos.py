@@ -141,6 +141,9 @@ class AMQConsumer(object):
             for did in list_parent_dids(report['scope'], report['filename']):
                 if did['type'] != DIDType.DATASET:
                     continue
+                # do not update _dis datasets
+                if did['scope'] == 'panda' and '_dis' in did['name']:
+                    continue
                 self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
         logging.info(replicas)
