@@ -708,8 +708,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
 @transactional_session
 def touch_replicas(replicas, session=None):
     """
-    Update the accessed_at timestamp of the given file replicas, the file dids,
-    the containing datasets and dataset locks.
+    Update the accessed_at timestamp of the given file replicas/dids.
 
     :param replicas: the list of replicas.
     :param session: The database session in use.
@@ -729,12 +728,12 @@ def touch_replicas(replicas, session=None):
         session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
             update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
 
-        resolve_datasets = session.query(models.DataIdentifierAssociation).filter_by(child_scope=replica['scope'], child_name=replica['name'], did_type=DIDType.DATASET)
-        for dataset in resolve_datasets:
-            session.query(models.DataIdentifier).filter_by(scope=dataset['scope'], name=dataset['name'], did_type=DIDType.DATASET).\
-                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
-            session.query(models.DatasetLock).filter_by(scope=dataset['scope'], name=dataset['name'], rse_id=replica['rse_id']).\
-                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+        # resolve_datasets = session.query(models.DataIdentifierAssociation).filter_by(child_scope=replica['scope'], child_name=replica['name'], did_type=DIDType.DATASET)
+        # for dataset in resolve_datasets:
+        #    session.query(models.DataIdentifier).filter_by(scope=dataset['scope'], name=dataset['name'], did_type=DIDType.DATASET).\
+        #        update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+        #    session.query(models.DatasetLock).filter_by(scope=dataset['scope'], name=dataset['name'], rse_id=replica['rse_id']).\
+        #        update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
 
     return True
 

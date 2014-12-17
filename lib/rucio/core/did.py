@@ -912,3 +912,20 @@ def get_dataset_by_guid(guid, session=None):
         raise exception.DataIdentifierNotFound("No file associated to GUID : %s" % guid)
     for tmp_did in datasets.yield_per(5):
         yield {'scope': tmp_did.scope, 'name': tmp_did.name}
+
+
+@transactional_session
+def touch_dids(dids, session=None):
+    """
+    Update the accessed_at timestamp of the given dids.
+
+    :param replicas: the list of dids.
+    :param session: The database session in use.
+
+    :returns: True, if successful, False otherwise.
+    """
+
+    now = datetime.utcnow()
+    for did in dids:
+        session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).\
+            update({'accessed_at': did.get('accessed_at') or now}, synchronize_session=False)

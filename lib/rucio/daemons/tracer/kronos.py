@@ -20,14 +20,17 @@ from sys import stdout
 from threading import Event, Thread
 from time import sleep, time
 from traceback import format_exc
+from Queue import Queue
 
 from json import loads as jloads
-from pickle import loads as ploads
 from stomp import Connection
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.monitor import record_counter, record_timer
+from rucio.core.did import touch_dids, list_parent_dids
+from rucio.core.lock import touch_dataset_locks
 from rucio.core.replica import touch_replicas
+from rucio.db.constants import DIDType
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -39,7 +42,7 @@ graceful_stop = Event()
 
 
 class AMQConsumer(object):
-    def __init__(self, broker, conn, chunksize, subscription_id, excluded_usrdns):
+    def __init__(self, broker, conn, chunksize, subscription_id, excluded_usrdns, dataset_queue):
         self.__broker = broker
         self.__conn = conn
         self.__reports = []
@@ -50,6 +53,7 @@ class AMQConsumer(object):
         self.__excluded_states = set([])
         # exclude specific usrdns like GangaRBT
         self.__excluded_usrdns = excluded_usrdns
+        self.__dataset_queue = dataset_queue
 
     def on_error(self, headers, message):
         record_counter('daemons.tracer.kronos.error')
@@ -65,14 +69,15 @@ class AMQConsumer(object):
 
         try:
             if appversion == 'dq2':
-                report = ploads(message)
+                self.__conn.ack(id, self.__subscription_id)
+                return
             else:
                 report = jloads(message)
         except:
             # message is corrupt, not much to do here
             # send count to graphite, send ack to broker and return
-            record_counter('daemons.tracer.kronos.pickle_error')
-            logging.error('json/pickle error')
+            record_counter('daemons.tracer.kronos.json_error')
+            logging.error('json error')
             self.__conn.ack(id, self.__subscription_id)
             return
 
@@ -127,13 +132,19 @@ class AMQConsumer(object):
                     continue
                 if not report['remoteSite']:
                     continue
-                replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcnow()})
+                replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
             except (KeyError, AttributeError):
                 logging.error(format_exc())
                 record_counter('daemons.tracer.kronos.report_error')
                 continue
 
+            for did in list_parent_dids(report['scope'], report['filename']):
+                if did['type'] != DIDType.DATASET:
+                    continue
+                self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+
         logging.info(replicas)
+
         try:
             ts = time()
             touch_replicas(replicas)
@@ -145,7 +156,7 @@ class AMQConsumer(object):
         logging.info('updated %d replicas' % len(replicas))
 
 
-def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, brokers_resolved=None):
+def kronos_file(once=False, process=0, total_processes=1, thread=0, total_threads=1, brokers_resolved=None, dataset_queue=None):
     """
     Main loop to consume tracer reports.
     """
@@ -189,7 +200,7 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             if not conn.is_connected():
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
-                conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0], conn=conn, chunksize=chunksize, subscription_id=subscription_id, excluded_usrdns=excluded_usrdns))
+                conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0], conn=conn, chunksize=chunksize, subscription_id=subscription_id, excluded_usrdns=excluded_usrdns, dataset_queue=dataset_queue))
                 conn.start()
                 if not use_ssl:
                     conn.connect(username, password)
@@ -207,6 +218,56 @@ def kronos(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             pass
 
     logging.info('graceful stop done')
+
+
+def kronos_dataset(once=False, process=0, total_processes=1, thread=0, total_threads=1, dataset_queue=None):
+    dataset_wait = config_get_int('tracer-kronos', 'dataset_wait')
+    start = datetime.now()
+    while not graceful_stop.is_set():
+        if (datetime.now() - start).seconds > dataset_wait:
+            __update_datasets(dataset_queue)
+            start = datetime.now()
+        sleep(10)
+    # once again for the backlog
+    logging.info('cleaning dataset backlog before shutdown...')
+    __update_datasets(dataset_queue)
+
+
+def __update_datasets(dataset_queue):
+    len_ds = dataset_queue.qsize()
+    datasets = {}
+    dslocks = {}
+    logging.info('(kronos_dataset) trying to fetch %d datasets from queue' % len_ds)
+    for i in xrange(0, len_ds):
+        dataset = dataset_queue.get()
+        did = dataset['scope'] + ":" + dataset['name']
+        rse = dataset['rse']
+        if did not in datasets:
+            datasets[did] = dataset['accessed_at']
+        else:
+            datasets[did] = max(datasets[did], dataset['accessed_at'])
+
+        if did not in dslocks:
+            dslocks[did] = {}
+        if rse not in dslocks[did]:
+            dslocks[did][rse] = dataset['accessed_at']
+        else:
+            dslocks[did][rse] = max(dataset['accessed_at'], dslocks[did][rse])
+
+    update_dids = []
+    update_dslocks = []
+    for did, accessed_at in datasets.items():
+        scope, name = did.split(':')
+        update_dids.append({'scope': scope, 'name': name, 'type': DIDType.DATASET, 'accessed_at': accessed_at})
+
+    for did, rses in dslocks.items():
+        scope, name = did.split(':')
+        for rse, accessed_at in rses.items():
+            update_dslocks.append({'scope': scope, 'name': name, 'rse': rse, 'accessed_at': accessed_at})
+
+    logging.info('(kronos_dataset) trying to update %d datasets atime' % len(update_dids))
+    touch_dids(update_dids)
+    touch_dataset_locks(update_dslocks)
 
 
 def stop(signum=None, frame=None):
@@ -238,8 +299,12 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
 
     logging.debug('brokers resolved to %s', brokers_resolved)
 
+    dataset_queue = Queue()
     logging.info('starting tracer consumer threads')
-    threads = [Thread(target=kronos, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'brokers_resolved': brokers_resolved}) for i in xrange(0, total_threads)]
+    threads = []
+    for i in xrange(0, total_threads):
+        threads.append(Thread(target=kronos_file, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'brokers_resolved': brokers_resolved, 'dataset_queue': dataset_queue}))
+        threads.append(Thread(target=kronos_dataset, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'dataset_queue': dataset_queue}))
 
     [t.start() for t in threads]
 

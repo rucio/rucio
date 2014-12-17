@@ -10,16 +10,19 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import logging
 import sys
+
+from datetime import datetime
 
 from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.rule
 
 from rucio.common.config import config_get
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping
 from rucio.db.session import read_session, transactional_session, stream_session
@@ -264,3 +267,25 @@ def failed_transfer(scope, name, rse_id, session=None):
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+
+
+@transactional_session
+def touch_dataset_locks(dataset_locks, session=None):
+    """
+    Update the accessed_at timestamp of the given dataset locks.
+
+    :param replicas: the list of dataset locks.
+    :param session: The database session in use.
+
+    :returns: True, if successful, False otherwise.
+    """
+
+    rse_ids, now = {}, datetime.utcnow()
+    for dataset_lock in dataset_locks:
+        if 'rse_id' not in dataset_lock:
+            if dataset_lock['rse'] not in rse_ids:
+                rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
+            dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
+
+        session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
+            update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
