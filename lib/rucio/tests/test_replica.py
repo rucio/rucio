@@ -180,7 +180,7 @@ class TestReplicaCore:
             assert_equal(lock_counter, replica['lock_cnt'])
 
     def test_touch_replicas(self):
-        """ REPLICA (CORE): Touch replicas/dids accessed_at timestamp"""
+        """ REPLICA (CORE): Touch replicas accessed_at timestamp"""
         tmp_scope = 'mock'
         nbfiles = 5
         files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
@@ -189,30 +189,17 @@ class TestReplicaCore:
         add_replicas(rse='MOCK', files=files1, account='root', ignore_availability=True)
         add_replicas(rse='MOCK', files=files2, account='root', ignore_availability=True)
 
-        tmp_dsn1 = 'dsn_%s' % generate_uuid()
-        tmp_dsn2 = 'dsn_%s' % generate_uuid()
-
-        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
-        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account='root')
-
-        attach_dids(scope=tmp_scope, name=tmp_dsn1, rse='MOCK', dids=files1, account='root')
-        attach_dids(scope=tmp_scope, name=tmp_dsn2, rse='MOCK', dids=files2, account='root')
-
         now = datetime.utcnow()
 
         now -= timedelta(microseconds=now.microsecond)
 
         assert_equal(None, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
         assert_equal(None, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
-        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
-        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
 
         touch_replicas(replicas=[{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK', 'accessed_at': now}])
 
         assert_equal(now, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
         assert_equal(now, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
-        assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
-        assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
 
         for i in range(1, nbfiles):
             assert_equal(None, get_replica_atime({'scope': files1[i]['scope'], 'name': files1[i]['name'], 'rse': 'MOCK'}))
