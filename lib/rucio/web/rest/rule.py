@@ -148,7 +148,7 @@ class Rule:
         except InvalidReplicationRule, e:
             raise generate_http_error(409, 'InvalidReplicationRule', e.args[0][0])
         except DuplicateRule, e:
-            raise generate_http_error(409, 'DuplicateRule', e.args[0][0])
+            raise generate_http_error(409, 'DuplicateRule', e.args[0])
         except InsufficientTargetRSEs, e:
             raise generate_http_error(409, 'InsufficientTargetRSEs', e.args[0][0])
         except InsufficientAccountLimit, e:
