@@ -340,7 +340,7 @@ def perm_del_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if issuer == 'root':
+    if issuer == 'root' or issuer == 'ddmadmin':
         return True
     if get_rule(kwargs['rule_id'])['account'] != issuer:
         return False
