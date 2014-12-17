@@ -177,7 +177,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1):
+def run(once=False, total_threads=1):
     """
     Starts up the consumer thread
     """
