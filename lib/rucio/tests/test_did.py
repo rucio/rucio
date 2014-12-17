@@ -28,7 +28,7 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     KeyNotFound, UnsupportedOperation, UnsupportedStatus, ScopeNotFound)
 from rucio.common.utils import generate_uuid
-from rucio.core.did import list_dids, add_did, delete_dids
+from rucio.core.did import list_dids, add_did, delete_dids, get_did_atime, touch_dids
 from rucio.db.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -47,6 +47,24 @@ class TestDIDCore:
         for dsn in dsns:
             add_did(scope=tmp_scope, name=dsn['name'], type='DATASET', account='root')
         delete_dids(dids=dsns, account='root')
+
+    def test_touch_dids(self):
+        """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
+        tmp_scope = 'mock'
+        tmp_dsn1 = 'dsn_%s' % generate_uuid()
+        tmp_dsn2 = 'dsn_%s' % generate_uuid()
+
+        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
+        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account='root')
+        now = datetime.utcnow()
+
+        now -= timedelta(microseconds=now.microsecond)
+        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
+        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
+
+        touch_dids(dids=[{'scope': tmp_scope, 'name': tmp_dsn1, 'type': DIDType.DATASET, 'accessed_at': now}])
+        assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
+        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
 
 
 class TestDIDApi:

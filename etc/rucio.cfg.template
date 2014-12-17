@@ -97,18 +97,19 @@ topic = /topic/rucio.tracer
 
 [tracer-kronos]
 brokers=atlas-test-mb.cern.ch
-port=61023
+port=61013
 ssl_key_file = /etc/grid-security/hostkey.pem
 ssl_cert_file = /etc/grid-security/hostcert.pem
-queue = /queue/Consumer.DB.atlas.ddm.tracer
+queue = /queue/Consumer.kronos.rucio.tracer
 prefetch_size = 10
 chunksize = 10
 subscription_id = rucio-tracer-listener
-use_ssl = True
+use_ssl = False
 reconnect_attempts = 100
 excluded_usrdns = /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=gangarbt/CN=722147/CN=Robot: Ganga Robot/CN=proxy
 username = _________
 password = _________
+dataset_wait = 60
 
 [injector]
 file = /opt/rucio/tools/test.file.1000
