@@ -17,6 +17,7 @@ import sys
 
 from datetime import datetime
 
+from sqlalchemy.exc import DatabaseError
 from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.rule
@@ -287,5 +288,10 @@ def touch_dataset_locks(dataset_locks, session=None):
                 rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
             dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
 
-        session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
-            update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
+        try:
+            session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
+                update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
+        except DatabaseError:
+            return False
+
+    return True
