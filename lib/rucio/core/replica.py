@@ -722,12 +722,15 @@ def touch_replicas(replicas, session=None):
                 rse_ids[replica['rse']] = get_rse_id(rse=replica['rse'], session=session)
             replica['rse_id'] = rse_ids[replica['rse']]
 
-        session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
-            update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+        try:
+            session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
+                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
 
-        session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
-            update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+            session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
+                update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
 
+        except DatabaseError:
+            return False
         # resolve_datasets = session.query(models.DataIdentifierAssociation).filter_by(child_scope=replica['scope'], child_name=replica['name'], did_type=DIDType.DATASET)
         # for dataset in resolve_datasets:
         #    session.query(models.DataIdentifier).filter_by(scope=dataset['scope'], name=dataset['name'], did_type=DIDType.DATASET).\
