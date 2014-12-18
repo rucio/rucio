@@ -337,6 +337,12 @@ def list_rules(filters={}, session=None):
     query = session.query(models.ReplicationRule)
     if filters:
         for (k, v) in filters.items():
+            if k == 'state' and isinstance(v, basestring):
+                v = RuleState.from_string(v)
+            if k == 'did_type' and isinstance(v, basestring):
+                v = DIDType.from_string(v)
+            if k == 'grouping' and isinstance(v, basestring):
+                v = RuleGrouping.from_string(v)
             query = query.filter(getattr(models.ReplicationRule, k) == v)
 
     try:
