@@ -79,6 +79,15 @@ def queue_requests(requests, session=None):
                 if isinstance(req['attributes'], (str, unicode)):
                     req['attributes'] = json.loads(req['attributes'])
 
+            # do not insert duplicate stagein requests
+            if req['request_type'] == RequestType.STAGEIN:
+                if get_request_by_did(req['scope'],
+                                      req['name'],
+                                      None,
+                                      rse_id=req['dest_rse_id'],
+                                      request_type=RequestType.STAGEIN):
+                    continue
+
             new_request = models.Request(request_type=req['request_type'],
                                          scope=req['scope'],
                                          name=req['name'],
@@ -445,13 +454,15 @@ def get_request(request_id, session=None):
 
 
 @read_session
-def get_request_by_did(scope, name, rse, session=None):
+def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session=None):
     """
     Retrieve a request by its DID for a destination RSE.
 
     :param scope: The scope of the data identifier.
     :param name: The name of the data identifier.
     :param rse: The destination RSE of the request.
+    :param rse_id: The destination RSE ID of the request. Overrides rse param!
+    :param request_type: The type of request as rucio.db.constants.RequestType.
     :param session: Database session to use.
     :returns: Request as a dictionary.
     """
@@ -459,8 +470,17 @@ def get_request_by_did(scope, name, rse, session=None):
     record_counter('core.request.get_request_by_did')
     try:
         tmp = session.query(models.Request).filter_by(scope=scope,
-                                                      name=name,
-                                                      dest_rse_id=get_rse_id(rse)).first()
+                                                      name=name)
+
+        if rse_id:
+            tmp = tmp.filter_by(dest_rse_id=rse_id)
+        else:
+            tmp = tmp.filter_by(dest_rse_id=get_rse_id(rse))
+
+        if request_type:
+            tmp = tmp.filter_by(request_type=request_type)
+
+        tmp = tmp.first()
         if not tmp:
             return
         else:

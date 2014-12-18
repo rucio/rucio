@@ -88,7 +88,7 @@ class TestCurlRucio():
 
     def test_get_auth_validate(self):
         """AUTH (CURL): Test if token is valid"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
@@ -100,7 +100,7 @@ class TestCurlRucio():
 
     def test_post_account(self):
         """ACCOUNT (CURL): add account"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
@@ -112,7 +112,7 @@ class TestCurlRucio():
 
     def test_get_accounts_whoami(self):
         """ACCOUNT (CURL): Test whoami method"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
@@ -124,7 +124,7 @@ class TestCurlRucio():
 
     def test_post_rse(self):
         """RSE (CURL): add RSE"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):-1]
