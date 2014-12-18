@@ -926,6 +926,11 @@ def touch_dids(dids, session=None):
     """
 
     now = datetime.utcnow()
-    for did in dids:
-        session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).\
-            update({'accessed_at': did.get('accessed_at') or now}, synchronize_session=False)
+    try:
+        for did in dids:
+            session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name'], did_type=did['type']).\
+                update({'accessed_at': did.get('accessed_at') or now}, synchronize_session=False)
+    except DatabaseError:
+        return False
+
+    return True
