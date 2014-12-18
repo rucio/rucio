@@ -166,6 +166,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
     :param session: The database session in use.
     """
     # Get the list of files
+    rseinfo = {}
     replicas = {}
     replica_conditions, did_conditions = [], []
     # remove duplicate did from the list
@@ -268,65 +269,68 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
             compile()
         # models.RSE.availability.op(avail_op)(0x100) != 0
         for scope, name, bytes, md5, adler32, path, state, rse in session.execute(replica_query.statement, replica_query.params).fetchall():
-            if not key:
-                key = '%s:%s' % (scope, name)
-            elif key != '%s:%s' % (scope, name):
-                yield replicas[key]
-                del replicas[key]
-                key = '%s:%s' % (scope, name)
+            if rse not in rseinfo:
+                rseinfo[rse] = rsemgr.get_rse_info(rse, session=session)
+            if not rseinfo[rse]['staging_area']:
+                if not key:
+                    key = '%s:%s' % (scope, name)
+                elif key != '%s:%s' % (scope, name):
+                    yield replicas[key]
+                    del replicas[key]
+                    key = '%s:%s' % (scope, name)
 
-            if 'bytes' not in replicas[key]:
-                replicas[key]['bytes'] = bytes
-                replicas[key]['md5'] = md5
-                replicas[key]['adler32'] = adler32
+                if 'bytes' not in replicas[key]:
+                    replicas[key]['bytes'] = bytes
+                    replicas[key]['md5'] = md5
+                    replicas[key]['adler32'] = adler32
 
-            if rse not in replicas[key]['rses']:
-                replicas[key]['rses'][rse] = []
+                if rse not in replicas[key]['rses']:
+                    replicas[key]['rses'][rse] = []
 
-            if all_states:
-                if 'states' not in replicas[key]:
-                    replicas[key]['states'] = {}
-                replicas[key]['states'][rse] = state
-            # get protocols
-            if rse not in tmp_protocols:
-                protocols = list()
-                if not schemes:
-                    try:
-                        protocols.append(rsemgr.create_protocol(rsemgr.get_rse_info(rse, session=session), 'read'))
-                    except exception.RSEProtocolNotSupported:
-                        pass  # no need to be verbose
-                    except:
-                        print format_exc()
-                else:
-                    for s in schemes:
+                if all_states:
+                    if 'states' not in replicas[key]:
+                        replicas[key]['states'] = {}
+                    replicas[key]['states'][rse] = state
+                # get protocols
+                if rse not in tmp_protocols:
+                    protocols = list()
+                    if not schemes:
                         try:
-                            protocols.append(rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse, session=session), operation='read', scheme=s))
+                            protocols.append(rsemgr.create_protocol(rseinfo[rse], 'read'))
                         except exception.RSEProtocolNotSupported:
                             pass  # no need to be verbose
                         except:
                             print format_exc()
-                tmp_protocols[rse] = protocols
+                    else:
+                        for s in schemes:
+                            try:
+                                protocols.append(rsemgr.create_protocol(rse_settings=rseinfo[rse], operation='read', scheme=s))
+                            except exception.RSEProtocolNotSupported:
+                                pass  # no need to be verbose
+                            except:
+                                print format_exc()
+                    tmp_protocols[rse] = protocols
 
-            # get pfns
-            pfns_cache = dict()
-            for protocol in tmp_protocols[rse]:
-                if 'determinism_type' in protocol.attributes:  # PFN is cachable
-                    try:
-                        path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)]
-                    except KeyError:  # No cache entry scope:name found for this protocol
-                        path = protocol._get_path(scope, name)
-                        pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
-                if not schemes or protocol.attributes['scheme'] in schemes:
-                    try:
-                        replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0])
-                    except:
-                        # temporary protection
-                        print format_exc()
-                    if protocol.attributes['scheme'] == 'srm':
+                # get pfns
+                pfns_cache = dict()
+                for protocol in tmp_protocols[rse]:
+                    if 'determinism_type' in protocol.attributes:  # PFN is cachable
                         try:
-                            replicas[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
-                        except KeyError:
-                            replicas[key]['space_token'] = None
+                            path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)]
+                        except KeyError:  # No cache entry scope:name found for this protocol
+                            path = protocol._get_path(scope, name)
+                            pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
+                    if not schemes or protocol.attributes['scheme'] in schemes:
+                        try:
+                            replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0])
+                        except:
+                            # temporary protection
+                            print format_exc()
+                        if protocol.attributes['scheme'] == 'srm':
+                            try:
+                                replicas[key]['space_token'] = protocol.attributes['extended_attributes']['space_token']
+                            except KeyError:
+                                replicas[key]['space_token'] = None
     if key:
         yield replicas[key]
 

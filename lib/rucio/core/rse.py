@@ -512,7 +512,8 @@ def get_rse_protocols(rse, schemes=None, session=None):
             'deterministic': _rse.deterministic,
             'rse_type': str(_rse.rse_type),
             'credentials': None,
-            'volatile': _rse.volatile
+            'volatile': _rse.volatile,
+            'staging_area': _rse.staging_area
             }
 
     for op in utils.rse_supported_protocol_operations():
