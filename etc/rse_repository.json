@@ -215,7 +215,7 @@
     "country_name": "Switzerland",
     "continent": "EU",
     "time_zone": "Europe/Zurich",
-    "staging_area": true,
+    "staging_area": false,
     "ISP": "CERN- LHC",
     "protocols": {
       "default": "mock",
