@@ -361,9 +361,11 @@ def delete_dids(dids, account, session=None):
                 rucio.core.rule.delete_rule(rule_id=rule_id, nowait=True, session=session)
 
     # Detach from parent dids:
+    existing_parent_dids = False
     if parent_content_clause:
         with record_timer_block('undertaker.parent_content'):
             for parent_did in session.query(models.DataIdentifierAssociation).filter(or_(*parent_content_clause)):
+                existing_parent_dids = True
                 detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
 
     # Remove content
@@ -374,6 +376,10 @@ def delete_dids(dids, account, session=None):
         record_counter(counters='undertaker.content.rowcount',  delta=rowcount)
 
     # remove data identifier
+    if existing_parent_dids:
+        # Exit method early to give Judge time to remove locks (Otherwise, due to foreign keys, did removal does not work
+        logging.debug('Leaving delete_dids early for Judge-Evaluator checks')
+        return
     with record_timer_block('undertaker.dids'):
         rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
             filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
