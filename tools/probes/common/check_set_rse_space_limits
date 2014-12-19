@@ -117,20 +117,26 @@ for rse in rses:
     # Client and server API are different for get_rse_usage
     try:
         if server:
-            capacity = c.get_rse_usage(rse, None, source='srm')
+            spaceinfo = c.get_rse_usage(rse, None)
         else:
-            capacity = c.get_rse_usage(rse, filters={'source': 'srm'})
+            spaceinfo = c.get_rse_usage(rse)
     except Exception, e:
-        print "Could not get SRM information for %s: %s" % (rse, str(e))
+        print "Could not get space information for %s: %s" % (rse, str(e))
         continue
 
-    capacity = [source['total'] for source in capacity if source['source'] == 'srm']
-    if not capacity:
-        print 'No SRM information available for %s' % rse
+    spaceinfo = [i for i in spaceinfo] # Generator can only be used once
+
+    capacity = [source['total'] for source in spaceinfo if source['source'] == 'srm']
+    srmused = [source['used'] for source in spaceinfo if source['source'] == 'srm']
+    rucioused = [source['used'] for source in spaceinfo if source['source'] == 'rucio']
+    if not capacity or not srmused or not rucioused:
+        print 'Missing space info for %s' % rse
         continue
     capacity = capacity[0]
+    srmused = srmused[0]
+    rucioused = rucioused[0]
 
-    print "RSE %s: total capacity %sTB" % (rse, TB(capacity))
+    print "RSE %s: total capacity %sTB, SRM used %sTB, Rucio used %sTB" % (rse, TB(capacity), TB(srmused), TB(rucioused))
 
     # If this RSE shares space with others remove rucio used from total space
     # to calculate the limit
@@ -157,8 +163,15 @@ for rse in rses:
 
     capacity -= used_others
     print "Remaining capacity for %s: %sTB" % (rse, TB(capacity))
+
     minfree = min(capacity * policy[token][0]/100.0, policy[token][1]*(1000**4))
     print "RSE %s: calculated minimum free space %sTB" % (rse, TB(minfree))
+
+    # Add dark data to minfree (only if positive)
+    darkdata = srmused - used_others - rucioused
+    if darkdata > 0:
+        print "RSE %s: adding %sTB of dark data" % (rse, TB(darkdata))
+        minfree += darkdata
 
     # Now add the space used in other tokens to the limit
     minfree += used_others
