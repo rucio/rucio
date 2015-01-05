@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 from rucio.common.utils import generate_uuid as uuid
@@ -148,3 +148,32 @@ class TestJudgeEvaluator():
         account_counter_after = get_counter(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] - 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 1 == account_counter_after['files'])
+
+    def test_judge_evaluate_detach_datasetlock(self):
+        """ JUDGE EVALUATOR: Test if the a datasetlock is detached correctly when removing a dataset from a container"""
+        re_evaluator(once=True)
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        container = 'container_' + str(uuid())
+        add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+
+        # Add a rule to the Container
+        add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        # Check if the datasetlock is there
+        locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=container)]
+        assert(len(locks) > 0)
+
+        detach_dids(scope, container, [{'scope': scope, 'name': dataset}])
+
+        # Fake judge
+        re_evaluator(once=True)
+
+        locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=container)]
+        assert(len(locks) == 0)

@@ -1070,6 +1070,12 @@ def __evaluate_did_detach(eval_did, session=None):
         for file in rucio.core.did.list_files(scope=eval_did.scope, name=eval_did.name, session=session):
             files[(file['scope'], file['name'])] = True
 
+        # Get all datasets of eval_did
+        child_datasets = {}
+        if eval_did.did_type == DIDType.CONTAINER:
+            for ds in rucio.core.did.list_child_datasets(scope=eval_did.scope, name=eval_did.name, session=session):
+                child_datasets[(ds['scope'], ds['name'])] = True
+
         # Iterate rules and delete locks
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
@@ -1091,6 +1097,15 @@ def __evaluate_did_detach(eval_did, session=None):
                     elif lock.state == LockState.STUCK:
                         rule.locks_stuck_cnt -= 1
             logging.debug("Finished removing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
+            if eval_did.did_type == DIDType.CONTAINER:
+                logging.debug("Removing dataset_locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+                query = session.query(models.DatasetLock).filter_by(rule_id=rule.id)
+                for ds_lock in query:
+                    if (ds_lock.scope, ds_lock.name) not in child_datasets:
+                        ds_lock.delete(flush=False, session=session)
+                logging.debug("Finished removing dataset_locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
             if rule.state == RuleState.SUSPENDED:
                 continue
             elif rule.state == RuleState.STUCK:
@@ -1321,8 +1336,8 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
         for dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
             files, tmp_replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
             tmp_locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=dataset['scope'], name=dataset['name'], nowait=nowait, restrict_rses=restrict_rses, session=session)
-            datasetfiles.append({'scope': did.scope,
-                                 'name': did.name,
+            datasetfiles.append({'scope': dataset['scope'],
+                                 'name': dataset['name'],
                                  'files': files})
             replicas = dict(replicas.items() + tmp_replicas.items())
             locks = dict(locks.items() + tmp_locks.items())
