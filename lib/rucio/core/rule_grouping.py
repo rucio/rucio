@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
 import logging
@@ -15,6 +15,7 @@ import sys
 from datetime import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import func
 
 from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
@@ -435,6 +436,16 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, rsese
                         locks_to_delete[lock.rse_id] = [lock]
                     rule.locks_stuck_cnt -= 1
                     continue
+                # Check if the replica is AVAILABLE now
+                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id]:
+                    lock.state = LockState.OK
+                    rule.locks_stuck_cnt -= 1
+                    rule.locks_ok_cnt += 1
+                    # Recalculate the replica_lock_cnt
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id][0]
+                    associated_replica.tombstone = None
+                    associated_replica.lock_cnt = session.query(func.count(models.ReplicaLock.rule_id)).filter_by(scope=associated_replica.scope, name=associated_replica.name, rse_id=lock.rse_id)
+                    continue
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
@@ -521,6 +532,16 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, rsesel
                     else:
                         locks_to_delete[lock.rse_id] = [lock]
                     rule.locks_stuck_cnt -= 1
+                    continue
+                # Check if the replica is AVAILABLE now
+                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id]:
+                    lock.state = LockState.OK
+                    rule.locks_stuck_cnt -= 1
+                    rule.locks_ok_cnt += 1
+                    # Recalculate the replica_lock_cnt
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id][0]
+                    associated_replica.tombstone = None
+                    associated_replica.lock_cnt = session.query(func.count(models.ReplicaLock.rule_id)).filter_by(scope=associated_replica.scope, name=associated_replica.name, rse_id=lock.rse_id)
                     continue
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
@@ -616,6 +637,16 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, rs
                     else:
                         locks_to_delete[lock.rse_id] = [lock]
                     rule.locks_stuck_cnt -= 1
+                    continue
+                # Check if the replica is AVAILABLE now
+                if [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id]:
+                    lock.state = LockState.OK
+                    rule.locks_stuck_cnt -= 1
+                    rule.locks_ok_cnt += 1
+                    # Recalculate the replica_lock_cnt
+                    associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.AVAILABLE and replica.rse_id == lock.rse_id][0]
+                    associated_replica.tombstone = None
+                    associated_replica.lock_cnt = session.query(func.count(models.ReplicaLock.rule_id)).filter_by(scope=associated_replica.scope, name=associated_replica.name, rse_id=lock.rse_id)
                     continue
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
