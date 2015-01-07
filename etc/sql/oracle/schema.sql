@@ -22,6 +22,7 @@ ATLAS_RUCIO_HIST_DATA01
 
 ACCOUNTS
 ACCOUNT_MAP
+ACCOUNT_ATTR_MAP
 SCOPES
 RSES
 RSE_ATTR_MAP
@@ -29,7 +30,6 @@ IDENTITIES
 DID_KEYS
 DID_KEY_MAP
 SUBSCRIPTIONS
-
 
 
 -- ============================================== section FACT data ==============================================================================
@@ -179,7 +179,24 @@ CREATE TABLE account_map (
 ) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
 
+-- ========================================= ACCOUNT_ATTR_MAP (IOT type) =========================================
+-- Description: Table to mapping between account attributes and account
+-- Estimated volume: ~4000 * 2 account attributes
+-- Access pattern: by account. By key or by "key/value"
 
+CREATE TABLE atlas_rucio.account_attr_map (
+	account VARCHAR2(25 CHAR) NOT NULL,
+	key VARCHAR2(255 CHAR) NOT NULL,
+	value VARCHAR2(255 CHAR),
+	updated_at DATE,
+	created_at DATE,
+	CONSTRAINT "ACCOUNT_ATTR_MAP_PK" PRIMARY KEY (account, key),
+	CONSTRAINT "ACCOUNT_ATTR_MAP_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
+	CONSTRAINT "ACCOUNT_ATTR_MAP_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
+	CONSTRAINT "ACCOUNT_ATTR_MAP_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL)
+) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
+
+CREATE INDEX atlas_rucio."ACCOUNT_ATTR_MAP_KEY_VALUE_IDX" ON atlas_rucio.account_attr_map (key, value) COMPRESS 2 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
 -- ========================================= SCOPES (IOT type) =========================================
 -- Description: Table to store the scopes
@@ -269,10 +286,6 @@ CREATE TABLE rse_attr_map (
 ) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
 
 CREATE INDEX RSE_ATTR_MAP_KEY_VALUE_IDX ON rse_attr_map (key, value) COMPRESS 2 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;
-
-
-
-
 
 
 -- ========================================= DID_KEYS =========================================
