@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
@@ -234,6 +234,17 @@ class Account(BASE, ModelBase):
                    CheckConstraint('ACCOUNT_TYPE IS NOT NULL', name='ACCOUNTS_TYPE_NN'),
                    CheckConstraint('STATUS IS NOT NULL', name='ACCOUNTS_STATUS_NN')
                    )
+
+
+class AccountAttrAssociation(BASE, ModelBase):
+    """Represents an account"""
+    __tablename__ = 'account_attr_map'
+    account = Column(String(25))
+    key = Column(String(255))
+    value = Column(BooleanString(255))
+    _table_args = (PrimaryKeyConstraint('account', 'key', name='ACCOUNT_ATTR_MAP_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_ATTR_MAP_ACCOUNT_FK'),
+                   Index('ACCOUNT_ATTR_MAP_KEY_VALUE_IDX', 'key', 'value'))
 
 
 class Identity(BASE, SoftModelBase):
@@ -765,6 +776,7 @@ def register_models(engine):
     Creates database tables for all models with the given engine
     """
     models = (Account,
+              AccountAttrAssociation,
               AccountCounter,
               UpdatedAccountCounter,
               AccountLimit,
@@ -803,6 +815,7 @@ def unregister_models(engine):
     Drops database tables for all models with the given engine
     """
     models = (Account,
+              AccountAttrAssociation,
               AccountCounter,
               UpdatedAccountCounter,
               AccountLimit,
