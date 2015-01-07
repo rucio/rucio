@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 
 import rucio.api.permission
 
@@ -228,3 +229,14 @@ def get_dataset_by_guid(guid):
     :returns: A did
     """
     return did.get_dataset_by_guid(guid=guid)
+
+
+def list_parent_dids(scope, name):
+    """
+    List parent datasets and containers of a did.
+
+    :param scope:   The scope.
+    :param name:    The name.
+    """
+
+    return did.list_parent_dids(scope=scope, name=name)

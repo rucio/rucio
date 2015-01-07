@@ -12,6 +12,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Martin Baristis, <martin.barisits@cern.ch>, 2014-2015
 
 from json import dumps, loads
 from traceback import format_exc
@@ -21,7 +22,7 @@ from web import application, ctx, data, Created, header, InternalError, OK, load
 from rucio.api.did import (add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
-                           attach_dids_to_dids, get_dataset_by_guid)
+                           attach_dids_to_dids, get_dataset_by_guid, list_parent_dids)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -43,6 +44,7 @@ urls = (
     '/(.*)/(.*)/meta', 'Meta',
     '/(.*)/(.*)/status', 'DIDs',
     '/(.*)/(.*)/rules', 'Rules',
+    '/(.*)/(.*)/parents', 'Parents',
     '/(.*)/(.*)/associated_rules', 'AssociatedRules',
     '/(.*)/(.*)', 'DIDs',
     '', 'BulkDIDS',
@@ -441,6 +443,33 @@ class Files(RucioController):
         try:
             for file in list_files(scope=scope, name=name, long=long):
                 yield dumps(file) + "\n"
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
+
+class Parents(RucioController):
+
+    def GET(self, scope, name):
+        """ List all parents of a data identifier.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :returns: A list of dictionary containing all dataset information.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for dataset in list_parent_dids(scope=scope, name=name):
+                yield render_json(**dataset) + "\n"
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except RucioException, e:
