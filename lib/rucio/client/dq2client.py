@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - JingYa You, <jingya.you@twgrid.org>, 2014
 # - ChengHsi Chao, <chenghsi.chao@twgrid.org>, 2014
 # - Ookey Lai, <ookey.lai@twgird.org>, 2014
@@ -378,9 +378,9 @@ class DQ2Client:
         result = {}
         metadata = self.client.get_metadata(scope=scope, name=dsn)
         metadata_mapping = {'owner': 'account', 'creationdate': 'created_at', 'deleteddate': 'deleted_at', 'lifetime': 'expired_at', 'hidden': 'hidden', 'versioncreationdate': 'created_at',
-                            'events': 'events', 'lumiblocknr': 'lumiblocknr'}
-        metadata_static = {'latestversion': 1, 'lastoperationdn': None, 'lastoperationip': None, 'closeddate': None, 'frozendate': None, 'freezingdate': None, 'group': None, 'provenance': None,
-                           'version': 1, 'origin': None, 'physicsgroup': None, 'temperature': None, 'tier0state': None, 'tier0type': None}
+                            'events': 'events', 'lumiblocknr': 'lumiblocknr', 'provenance': 'provenance', 'physicsgroup': 'phys_group'}
+        metadata_static = {'latestversion': 1, 'lastoperationdn': None, 'lastoperationip': None, 'closeddate': None, 'frozendate': None, 'freezingdate': None, 'group': None,
+                           'version': 1, 'origin': None, 'temperature': None, 'tier0state': None, 'tier0type': None}
         for key in attributes:
             if key in metadata_mapping:
                 result[key] = metadata[metadata_mapping[key]]
