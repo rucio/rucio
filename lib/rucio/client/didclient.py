@@ -11,6 +11,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 
 from json import dumps
 from requests.status_codes import codes
@@ -465,6 +466,24 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
         url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def list_parent_dids(self, scope, name):
+        """
+        List parent dataset/containers of a did.
+
+        :param scope: The scope.
+        :param name:  The name.
+        """
+
+        path = '/'.join([self.DIDS_BASEURL, scope, name, 'parents'])
+        url = build_url(choice(self.list_hosts), path=path)
+
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
