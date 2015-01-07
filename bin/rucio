@@ -12,7 +12,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2015
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
 
 """
@@ -595,6 +595,34 @@ def list_files(args):
             return FAILURE
         except Exception, e:
             print e
+
+    return SUCCESS
+
+
+def list_parent_dids(args):
+    """
+    %(prog)s list-parent-dids
+
+    List parent data identifier.
+    """
+
+    creds = None
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+
+    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
+                       account=args.account, auth_type=args.auth_strategy, creds=creds,
+                       ca_cert=args.ca_certificate, timeout=args.timeout)
+
+    try:
+        scope, name = args.did.split(':')
+        for dataset in client.list_parent_dids(scope=scope, name=name):
+            print '%s:%s [%s]' % (dataset['scope'], dataset['name'], dataset['type'])
+    except ValueError, e:
+        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
+        return FAILURE
+    except Exception, e:
+        print e
 
     return SUCCESS
 
@@ -1423,6 +1451,11 @@ Commands:
     list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value another_key=next_value`')
     list_parser.add_argument(dest='dids', nargs='*', action='store', default=None, help='List of space separated data identifiers')
 
+    # The list parent-dids command
+    list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent data identifiers', description='List data identifier parents')
+    list_parent_parser.set_defaults(which='list-parent-dids')
+    list_parent_parser.add_argument(dest='did', action='store', default=None, help='Data identifier')
+
     # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes')
     scope_list_parser.set_defaults(which='list_scopes')
@@ -1590,7 +1623,8 @@ Commands:
                 'list_account_limits': list_account_limits,
                 'list_account_usage': list_account_usage,
                 'update_rule': update_rule,
-                'test_server': test_server}
+                'test_server': test_server,
+                'list-parent-dids': list_parent_dids}
 
     try:
         start_time = time.time()
