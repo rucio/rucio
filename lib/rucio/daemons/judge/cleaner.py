@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 """
@@ -70,9 +70,10 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                 time.sleep(10)
             else:
                 record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 1)
-                for rule_id in rules:
-                    rule_id = rule_id[0]
-                    logging.info('rule_cleaner[%s/%s]: Deleting rule %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id))
+                for rule in rules:
+                    rule_id = rule[0]
+                    rule_expression = rule[1]
+                    logging.info('rule_cleaner[%s/%s]: Deleting rule %s with expression %s' % (process*threads_per_process+thread, total_processes*threads_per_process-1, rule_id, rule_expression))
                     if graceful_stop.is_set():
                         break
                     try:
