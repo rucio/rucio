@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 
 import logging
@@ -48,7 +48,7 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
                 scope, name, rse_id, rse = replica['scope'], replica['name'], replica['rse_id'], replica['rse']
                 logging.info('Thread [%i/%i] : Working on %s:%s on %s' % (worker_number, total_workers, scope, name, rse))
                 rep = [r for r in list_replicas([{'scope': scope, 'name': name}, ], all_states=True)]
-                if not rep[0]['rses']:
+                if (not rep[0]['rses']) or (rep[0]['rses'].keys() == [rse]):
                     logging.info('Thread [%i/%i] : File %s:%s has no other replicas, it will be marked as lost' % (worker_number, total_workers, scope, name))
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id)
