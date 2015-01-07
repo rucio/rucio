@@ -9,6 +9,7 @@ Mako==1.0.0                # Templating language
 flup==1.0.3.dev-20110405   # Needed to deploy web.py in lighthttpd
 web.py==0.37               # Python web framework
 python-memcached==1.53     # Quick and small memcached client for Python
+ntplib==0.3.2              # NTPlib
 
 # Celery==2.5.1            # Distributed Task Queue
 # importlib==1.0.2         # An implementation of import

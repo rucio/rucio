@@ -13,6 +13,7 @@ Judge-Cleaner is a daemon to clean expired replication rules.
 """
 
 import logging
+import ntplib
 import sys
 import threading
 import time
@@ -117,6 +118,16 @@ def run(once=False, process=0, total_processes=1, threads_per_process=1):
     """
     Starts up the Judge-Clean threads.
     """
+
+    try:
+        ntpc = ntplib.NTPClient()
+        response = ntpc.request('137.138.16.69', version=3)  # 137.138.16.69 CERN IP-TIME-1 NTP Server (Stratum 2)
+        if response.offset > 60*60+10:  # 1hour 10seconds
+            logging.critical('Offset between NTP server and system time too big. Stopping Cleaner')
+            return
+    except:
+        return
+
     for i in xrange(process * threads_per_process, max(0, process * threads_per_process + threads_per_process - 1)):
         record_gauge('rule.judge.cleaner.threads.%d' % i, 0)
 
