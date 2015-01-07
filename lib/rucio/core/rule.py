@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
@@ -722,7 +722,7 @@ def get_expired_rules(total_workers, worker_number, limit=10, session=None):
     :param session:            Database session in use.
     """
 
-    query = session.query(models.ReplicationRule.id).filter(models.ReplicationRule.expires_at < datetime.utcnow(), models.ReplicationRule.locked == False).\
+    query = session.query(models.ReplicationRule.id, models.ReplicationRule.rse_expression).filter(models.ReplicationRule.expires_at < datetime.utcnow(), models.ReplicationRule.locked == False).\
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
 
