@@ -11,6 +11,7 @@
 # - ChengHsi Chao, <chenghsi.chao@twgrid.org>, 2014
 # - Ookey Lai, <ookey.lai@twgird.org>, 2014
 # - HuoHao Ho, <luke.ho@twgrid.org>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 '''
 Compatibility Wrapper for DQ2 and Rucio.
@@ -57,7 +58,7 @@ def extract_scope(dsn):
         if scope.find('*') > -1:
             if scope.endswith('*'):
                 scope = scope.rstrip('*')
-            client = Client()
+            client = Client(user_agent='dq2-clients')
             if scope not in client.list_scopes():
                 raise ScopeNotFound('%s is not a valid scope' % scope)
         return scope, dsn
@@ -65,7 +66,7 @@ def extract_scope(dsn):
 
 class DQ2Client:
     def __init__(self):
-        self.client = Client()
+        self.client = Client(user_agent='dq2-clients')
 
     def finger(self, userId=None):
         """

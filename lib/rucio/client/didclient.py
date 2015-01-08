@@ -10,6 +10,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 from json import dumps
 from requests.status_codes import codes
@@ -25,8 +26,8 @@ class DIDClient(BaseClient):
 
     DIDS_BASEURL = 'dids'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+        super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def list_dids(self, scope, filters, type='collection'):
         """

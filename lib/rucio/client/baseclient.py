@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 
 """
@@ -34,6 +35,7 @@ from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, NoAuthInformation, MissingClientParameter
 from rucio.common.utils import build_url, my_key_generator, parse_response
+from rucio import version
 
 LOG = getLogger(__name__)
 sh = StreamHandler()
@@ -61,7 +63,7 @@ class BaseClient(object):
     TOKEN_PATH_PREFIX = '/tmp/' + getuser() + '/.rucio_'
     TOKEN_PREFIX = 'auth_token_'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         """
         Constructor of the BaseClient.
         :param rucio_host: the address of the rucio server, if None it is read from the config file.
@@ -73,12 +75,14 @@ class BaseClient(object):
         :param ca_cert: the path to the rucio server certificate.
         :param auth_type: the type of authentication (e.g.: 'userpass', 'kerberos' ...)
         :param creds: a dictionary with credentials needed for authentication.
+        :param user_agent: indicates the client
         """
 
         self.host = rucio_host
         self.list_hosts = []
         self.auth_host = auth_host
         self.session = session()
+        self.user_agent = user_agent
 
         try:
             if self.host is None:
@@ -210,7 +214,7 @@ class BaseClient(object):
         """
         r = None
         retry = 0
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': '', 'Connection': 'Keep-Alive'}
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': '', 'Connection': 'Keep-Alive', 'User-Agent': '%s/%s' % (self.user_agent, version.version_string())}
 
         if headers is not None:
             hds.update(headers)
