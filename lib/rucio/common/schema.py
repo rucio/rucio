@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from jsonschema import validate, ValidationError
@@ -21,6 +21,12 @@ account = {"description": "Account name",
 account_type = {"description": "Account type",
                 "type": "string",
                 "enum": ["USER", "GROUP", "SERVICE"]}
+
+activity = {"description": "Activity name",
+            "type": "string",
+            "enum": ['Data Brokering', 'Data Consolidation', 'Debug',
+                     'Functional Test', 'Group Subscriptions', 'Production', 'Staging',
+                     'T0 Export', 'Upload/Download (Job)', 'Upload/Download (User)', 'User Subscriptions']}
 
 scope = {"description": "Scope name",
          "type": "string",
