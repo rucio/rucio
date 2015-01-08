@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 from requests.status_codes import codes
 
@@ -20,8 +21,8 @@ class LockClient(BaseClient):
 
     LOCKS_BASEURL = 'locks'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(LockClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+        super(LockClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def get_dataset_locks(self, scope, name):
         """

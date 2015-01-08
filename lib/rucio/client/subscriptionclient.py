@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 from json import dumps
 from requests.status_codes import codes
@@ -21,8 +22,8 @@ class SubscriptionClient(BaseClient):
 
     SUB_BASEURL = 'subscriptions'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(SubscriptionClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+        super(SubscriptionClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def add_subscription(self, name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run):
         """

@@ -7,6 +7,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2013
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 """
 Client class for callers of the Rucio system
@@ -28,7 +29,7 @@ class Client(AccountClient, MetaClient, PingClient, ReplicaClient, RSEClient, Sc
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         """
         Constructor for the Rucio main client class.
 
@@ -40,4 +41,4 @@ class Client(AccountClient, MetaClient, PingClient, ReplicaClient, RSEClient, Sc
         :param creds: credentials needed for authentication.
         :param timeout: Float describes the timeout of the request (in seconds).
         """
-        super(Client, self).__init__(rucio_host=rucio_host, auth_host=auth_host, account=account, ca_cert=ca_cert, auth_type=auth_type, creds=creds, timeout=timeout)
+        super(Client, self).__init__(rucio_host=rucio_host, auth_host=auth_host, account=account, ca_cert=ca_cert, auth_type=auth_type, creds=creds, timeout=timeout, user_agent=user_agent)

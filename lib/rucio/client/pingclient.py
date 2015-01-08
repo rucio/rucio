@@ -7,9 +7,9 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 from json import loads
-from requests import get
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -20,8 +20,8 @@ class PingClient(BaseClient):
 
     """Ping client class"""
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None):
-        super(PingClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
+        super(PingClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
     def ping(self):
         """
@@ -33,7 +33,7 @@ class PingClient(BaseClient):
         headers = None
         path = 'ping'
         url = build_url(self.host, path=path)
-        r = get(url, headers=headers, verify=self.ca_cert)
+        r = self._send_request(url, headers=headers, type='GET')
         if r.status_code == codes.ok:
             server_info = loads(r.text)
             return server_info
