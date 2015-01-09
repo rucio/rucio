@@ -9,11 +9,14 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - David Cameron, <david.cameron@cern.ch>, 2015
 
 import commands
 import os
+import random
 import re
 import sys
+import time
 import types
 
 
@@ -86,6 +89,9 @@ if __name__ == '__main__':
     except Exception as e:
         print "Failed to get proxy from rucio.cfg"
         sys.exit(CRITICAL)
+    # It can take longer than nagios allows to get all the voms info, so randomise
+    # the user list and force an exit after 30 mins until a better solution can be found.
+    starttime = time.time()
     status = OK
     nbusers = 0
     nonicknames = []
@@ -94,7 +100,11 @@ if __name__ == '__main__':
                            user_cert=cert, user_key=key)
     res = admin.call_method('list-users')
     if isinstance(res, types.ListType):
+        random.shuffle(res)
         for user in res:
+            if time.time() - starttime > 1800:
+                print "Out of time, exiting"
+                break
             nbusers += 1
             attempts = 0
             totattemps = 3
@@ -130,8 +140,7 @@ if __name__ == '__main__':
                                     print 'Scope %(scope)s added' % locals()
                                 except Duplicate:
                                     pass
-                            else:
-                                break
+                            break
                         elif user._DN not in nonicknames:
                             nonicknames.append(user._DN)
                     except:
