@@ -1241,8 +1241,7 @@ def __evaluate_did_attach(eval_did, session=None):
                         # Are there any existing did's in this dataset
                         brother_did = session.query(models.DataIdentifierAssociation).filter(
                             models.DataIdentifierAssociation.scope == eval_did.scope,
-                            models.DataIdentifierAssociation.name == eval_did.name,
-                            models.DataIdentifierAssociation.rule_evaluation is not True).first()   # noqa
+                            models.DataIdentifierAssociation.name == eval_did.name).order_by(models.DataIdentifierAssociation.created_at).first()
                         if brother_did is not None:
                             # There are other files in the dataset
                             brother_locks = rucio.core.lock.get_replica_locks(scope=brother_did.child_scope,
