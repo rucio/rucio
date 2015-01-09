@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
@@ -79,13 +79,13 @@ def queue_requests(requests, session=None):
                 if isinstance(req['attributes'], (str, unicode)):
                     req['attributes'] = json.loads(req['attributes'])
 
-            # do not insert duplicate stagein requests
-            if req['request_type'] == RequestType.STAGEIN:
+            # do not insert duplicate transfer requests
+            if req['request_type'] == RequestType.TRANSFER:
                 if get_request_by_did(req['scope'],
                                       req['name'],
                                       None,
                                       rse_id=req['dest_rse_id'],
-                                      request_type=RequestType.STAGEIN):
+                                      request_type=RequestType.TRANSFER):
                     continue
 
             new_request = models.Request(request_type=req['request_type'],
