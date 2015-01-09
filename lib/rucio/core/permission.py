@@ -477,7 +477,7 @@ def perm_delete_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK') or issuer == 'root' or issuer in get_special_accounts()
+    return False
 
 
 def perm_update_replicas_states(issuer, kwargs):
