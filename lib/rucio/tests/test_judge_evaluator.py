@@ -167,7 +167,7 @@ class TestJudgeEvaluator():
         add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Check if the datasetlock is there
-        locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=container)]
+        locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(locks) > 0)
 
         detach_dids(scope, container, [{'scope': scope, 'name': dataset}])
@@ -175,5 +175,5 @@ class TestJudgeEvaluator():
         # Fake judge
         re_evaluator(once=True)
 
-        locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=container)]
+        locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=dataset)]
         assert(len(locks) == 0)
