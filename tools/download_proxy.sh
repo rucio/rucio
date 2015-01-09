@@ -7,8 +7,8 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 
-scp ddmusr01@voatlas73.cern.ch:/data/ddmusr01/x509up x509up
+scp root@rucio-daemon-prod-01.cern.ch:/opt/rucio/etc/x509up x509up
 chmod 600 x509up
 export X509_USER_PROXY=x509up

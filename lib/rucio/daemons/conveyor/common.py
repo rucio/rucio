@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
@@ -28,7 +28,7 @@ from rucio.common.exception import UnsupportedOperation
 from rucio.core import did, lock, replica, request, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
-from rucio.db.constants import DIDType, RequestState, ReplicaState
+from rucio.db.constants import DIDType, RequestState, ReplicaState, RequestType
 from rucio.db.session import transactional_session
 
 
@@ -80,14 +80,21 @@ def update_request_state(response, session=None):
 
         if response['new_state'] == RequestState.DONE:
             rse_name = response['dst_rse']
+            rse_update_name = rse_name
+
+            req = request.get_request(response['request_id'], session=session)
+            if req['request_type'] == RequestType.STAGEIN:
+                rse_update_name = rse_core.list_rse_attributes(response['dst_rse'], session=session)['staging_buffer']
+                logging.debug('OVERRIDE REPLICA DID %s:%s RSE %s TO %s' % (response['scope'], response['name'], response['dst_rse'], rse_update_name))
+
             try:
                 tss = time.time()
-                logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (response['scope'], response['name'], rse_name))
+                logging.debug('UPDATE REPLICA STATE DID %s:%s RSE %s' % (response['scope'], response['name'], rse_update_name))
 
                 # make sure we do not leave the transaction
                 try:
                     # try quickly
-                    replica.update_replicas_states([{'rse': rse_name,
+                    replica.update_replicas_states([{'rse': rse_update_name,
                                                      'scope': response['scope'],
                                                      'name': response['name'],
                                                      'state': ReplicaState.AVAILABLE}],
@@ -155,7 +162,15 @@ def update_request_state(response, session=None):
                 raise
 
         elif response['new_state'] == RequestState.FAILED:
+
             rse_name = response['dst_rse']
+            rse_update_name = rse_name
+
+            req = request.get_request(response['request_id'], session=session)
+            if req['request_type'] == RequestType.STAGEIN:
+                rse_update_name = rse_core.list_rse_attributes(response['dst_rse'], session=session)['staging_buffer']
+                logging.debug('OVERRIDE REPLICA DID %s:%s RSE %s TO %s' % (response['scope'], response['name'], response['dst_rse'], rse_update_name))
+
             tss = time.time()
             new_req = request.requeue_and_archive(response['request_id'], session=session)
             record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time()-tss)*1000)
@@ -168,7 +183,7 @@ def update_request_state(response, session=None):
                                                                 response['name'],
                                                                 response['request_id']))
                 try:
-                    replica.update_replicas_states([{'rse': rse_name,
+                    replica.update_replicas_states([{'rse': rse_update_name,
                                                      'scope': response['scope'],
                                                      'name': response['name'],
                                                      'state': ReplicaState.UNAVAILABLE}],
@@ -176,7 +191,7 @@ def update_request_state(response, session=None):
                 except:
                     logging.critical("Could not update replica state for failed transfer %s:%s at %s (%s)" % (response['scope'],
                                                                                                               response['name'],
-                                                                                                              rse_name,
+                                                                                                              rse_update_name,
                                                                                                               traceback.format_exc()))
                     raise
 
@@ -184,12 +199,12 @@ def update_request_state(response, session=None):
                 try:
                     lock.failed_transfer(response['scope'],
                                          response['name'],
-                                         response['dest_rse_id'],
+                                         rse_core.get_rse_id(rse=rse_update_name, session=session),
                                          session=session)
                 except:
                     logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (response['scope'],
                                                                                                  response['name'],
-                                                                                                 rse_name,
+                                                                                                 rse_update_name,
                                                                                                  traceback.format_exc()))
                     raise
 
@@ -202,12 +217,17 @@ def update_request_state(response, session=None):
                                                                              new_req['retry_count']))
 
         elif response['new_state'] == RequestState.LOST:
-            tss = time.time()
             req = request.get_request(response['request_id'])
             rse_name = rse_core.get_rse_name(rse_id=req['dest_rse_id'], session=session)
+            rse_update_name = rse_name
+
+            if req['request_type'] == RequestType.STAGEIN:
+                rse_update_name = rse_core.list_rse_attributes(response['dst_rse'], session=session)['staging_buffer']
+                logging.debug('OVERRIDE REPLICA DID %s:%s RSE %s TO %s' % (response['scope'], response['name'], response['dst_rse'], rse_update_name))
+
             response['scope'] = req['scope']
             response['name'] = req['name']
-            response['dest_rse_id'] = req['dest_rse_id']
+            response['dest_rse_id'] = rse_core.get_rse_id(rse=rse_update_name, session=session)
             response['dst_rse'] = rse_name
 
             add_monitor_message(response, session=session)
@@ -225,7 +245,7 @@ def update_request_state(response, session=None):
             except:
                 logging.warn('Could not update lock for lost transfer %s:%s at %s (%s)' % (response['scope'],
                                                                                            response['name'],
-                                                                                           rse_name,
+                                                                                           rse_update_name,
                                                                                            sys.exc_info()[1]))
                 raise
 
