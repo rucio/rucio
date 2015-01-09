@@ -8,7 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
@@ -28,7 +28,8 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     KeyNotFound, UnsupportedOperation, UnsupportedStatus, ScopeNotFound)
 from rucio.common.utils import generate_uuid
-from rucio.core.did import list_dids, add_did, delete_dids, get_did_atime, touch_dids
+from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
+                            get_metadata, set_metadata)
 from rucio.db.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -65,6 +66,27 @@ class TestDIDCore:
         touch_dids(dids=[{'scope': tmp_scope, 'name': tmp_dsn1, 'type': DIDType.DATASET, 'accessed_at': now}])
         assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
         assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
+
+    def test_update_dids(self):
+        """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
+        tmp_scope = 'mock'
+        dsn = 'dsn_%s' % generate_uuid()
+        lfn = 'lfn.%s' % str(generate_uuid())
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account='root')
+
+        files = [{'scope': tmp_scope, 'name': lfn,
+                  'bytes': 724963570L, 'adler32': '0cc737eb',
+                  'meta': {'guid': str(generate_uuid()), 'events': 100}}]
+        attach_dids(scope=tmp_scope, name=dsn, rse='MOCK', dids=files, account='root')
+
+        set_metadata(scope=tmp_scope, name=lfn, key='adler32', value='0cc737ee')
+        assert_equal(get_metadata(scope=tmp_scope, name=lfn)['adler32'], '0cc737ee')
+
+        with assert_raises(UnsupportedOperation):
+            set_metadata(scope=tmp_scope, name='Nimportnawak', key='adler32', value='0cc737ee')
+
+        set_metadata(scope=tmp_scope, name=lfn, key='bytes', value=724963577L)
+        assert_equal(get_metadata(scope=tmp_scope, name=lfn)['bytes'], 724963577L)
 
 
 class TestDIDApi:

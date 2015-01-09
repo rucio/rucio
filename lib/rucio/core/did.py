@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
@@ -31,9 +31,10 @@ from sqlalchemy.sql.expression import bindparam, text
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
 
+
 from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.constants import reserved_keys
+from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.db import models
@@ -733,16 +734,44 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     :paran did: The data identifier info.
     :param session: The database session in use.
     """
-
-    if key in reserved_keys:
-        raise exception.InvalidValueForKey("%s is a reserved key and cannot be used." % key)
-
     if key == 'lifetime':
         try:
             expired_at = datetime.utcnow() + timedelta(seconds=value)
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
         except TypeError, e:
             raise exception.InvalidValueForKey(e)
+    elif key == 'adler32':
+            rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+            if not rowcount:
+                raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+            session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+            session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
+
+    elif key == 'bytes':
+            rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+            if not rowcount:
+                raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+            session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+            session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
+
+            for account, bytes, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id).filter_by(scope=scope, name=name):
+                session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rule_id=rule_id, rse_id=rse_id).update({key: value}, synchronize_session=False)
+                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=bytes, session=session)
+                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=value, session=session)
+
+            for bytes, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
+                session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).update({key: value}, synchronize_session=False)
+                rse_counter.decrease(rse_id=rse_id, files=1, bytes=bytes, session=session)
+                rse_counter.increase(rse_id=rse_id, files=1, bytes=value, session=session)
+
+            for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
+
+                values = {}
+                values['length'], values['bytes'], values['events'] = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                                                    func.sum(models.DataIdentifierAssociation.bytes),
+                                                                                    func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()
+                session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update(values, synchronize_session=False)
+                session.query(models.DatasetLock).filter_by(scope=parent_scope, name=parent_name).update({'length': values['length'], 'bytes': values['bytes']}, synchronize_session=False)
     else:
         try:
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
