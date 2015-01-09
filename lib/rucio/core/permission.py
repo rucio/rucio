@@ -11,7 +11,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 from dogpile.cache import make_region
@@ -364,11 +364,13 @@ def perm_update_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if issuer == 'root':
+    if issuer == 'root' or issuer in get_special_accounts():
         return True
-    if get_rule(kwargs['rule_id'])['account'] != issuer:
-        return False
-    return True
+    if 'account' in kwargs['options']:
+        return False  # Only priv accounts are allowed to change owner
+    if get_rule(kwargs['rule_id'])['account'] == issuer:
+        return True
+    return False
 
 
 def perm_detach_dids(issuer, kwargs):

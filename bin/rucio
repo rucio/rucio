@@ -1071,7 +1071,8 @@ def update_rule(args):
                 options['locked'] = True
             elif args.locked == "False":
                 options['locked'] = False
-        print options
+        if args.rule_account:
+            options['account'] = args.rule_account
         client.update_replication_rule(rule_id=args.rule_id, options=options)
         print 'Updated Rule'
     except Exception, e:
@@ -1575,6 +1576,7 @@ Commands:
     update_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
     update_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
     update_rule_parser.add_argument('--locked', dest='locked', action='store', help='Locked (True/False).')
+    update_rule_parser.add_argument('--account', dest='rule_account', action='store', help='Account to change.')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='List RSEs')
