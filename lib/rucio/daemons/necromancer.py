@@ -47,7 +47,7 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
             for replica in replicas:
                 scope, name, rse_id, rse = replica['scope'], replica['name'], replica['rse_id'], replica['rse']
                 logging.info('Thread [%i/%i] : Working on %s:%s on %s' % (worker_number, total_workers, scope, name, rse))
-                rep = [r for r in list_replicas([{'scope': scope, 'name': name}, ], all_states=True)]
+                rep = [r for r in list_replicas([{'scope': scope, 'name': name}, ])]
                 if (not rep[0]['rses']) or (rep[0]['rses'].keys() == [rse]):
                     logging.info('Thread [%i/%i] : File %s:%s has no other replicas, it will be marked as lost' % (worker_number, total_workers, scope, name))
                     try:
