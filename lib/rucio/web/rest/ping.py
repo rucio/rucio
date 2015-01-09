@@ -27,15 +27,33 @@ urls = ('/?$', 'Ping')
 
 class Ping(RucioController):
     def GET(self):
-        """ List server version information.
+        """
+        .. http:get:: /ping
 
-        HTTP Success:
-            200 OK
+            Get server version information.
 
-        HTTP Error:
-            500 InternalError
+            **Example request**:
 
-        :returns: A dictionary with the Rucio server information.
+            .. sourcecode:: http
+
+                GET /ping HTTP/1.1
+                Host: rucio-server.com
+                Accept: application/json
+
+            **Example response**:
+
+            .. sourcecode:: http
+
+              HTTP/1.1 200 OK
+              Vary: Accept
+              Content-Type: application/json
+
+             {
+               "version": "0.2.9"
+              }
+
+            :statuscode 200: no error
+            :statuscode 500: InternalError
         """
 
         header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
