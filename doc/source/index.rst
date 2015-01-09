@@ -38,6 +38,7 @@ The following concepts define how data is organised, accessed, and catalogued by
     overview_Rucio_Storage_Element
     overview_Permission_model
     overview_Replica_management
+    replication_rules_examples
     overview_Accounting_and_quota
     overview_Notifications
     overview_Subscriptions
@@ -82,12 +83,24 @@ Installing Rucio
     overview_Deployment
     atlas_integration_testbed
 
-Rucio Client APIs
+Rucio RESTful API
 =================
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
+    rest
+    api_curl_examples
+
+
+Rucio Python Client APIs
+========================
+
+.. toctree::
+    :maxdepth: 1
+
+    rucio_clients
+    client_examples
     account
     accountlimit
     scope
@@ -102,20 +115,15 @@ Rucio Client APIs
     core_constants
     exception
 
-Using Rucio
-===========
+Rucio CLI
+=========
 
 .. toctree::
     :maxdepth: 1
 
-    rest
-    api_curl_examples
     rucio_cli
     cli_examples
     cli_admin_examples
-    rucio_clients
-    client_examples
-    replication_rules_examples
     client_tutorial
 
 Appendices

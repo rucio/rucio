@@ -7,5 +7,3 @@ Account Methods
     :members:
     :undoc-members:
     :show-inheritance:
-
-
