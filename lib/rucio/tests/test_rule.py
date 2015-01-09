@@ -462,6 +462,30 @@ class TestReplicationRuleCore():
         assert(account_counter_before['bytes'] - 3*100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 3 == account_counter_after['files'])
 
+    def test_account_counter_rule_update(self):
+        """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when a rule is updated"""
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1, bytes=100)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        account_update(once=True)
+        account_counter_before_1 = get_account_counter(self.rse1_id, 'jdoe')
+        account_counter_before_2 = get_account_counter(self.rse1_id, 'root')
+
+        update_rule(rule_id, {'account': 'root'})
+        account_update(once=True)
+
+        # Check if the counter has been updated correctly
+        account_counter_after_1 = get_account_counter(self.rse1_id, 'jdoe')
+        account_counter_after_2 = get_account_counter(self.rse1_id, 'root')
+        assert(account_counter_before_1['bytes'] - 3*100 == account_counter_after_1['bytes'])
+        assert(account_counter_before_2['bytes'] + 3*100 == account_counter_after_2['bytes'])
+
     def test_rse_counter_unavailable_replicas(self):
         """ REPLICATION RULE (CORE): Test if creating UNAVAILABLE replicas updates the RSE Counter correctly"""
 

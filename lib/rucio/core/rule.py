@@ -650,7 +650,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used.
     """
 
-    valid_options = ['locked', 'lifetime']
+    valid_options = ['locked', 'lifetime', 'account']
 
     for key in options:
         if key not in valid_options:
@@ -661,9 +661,31 @@ def update_rule(rule_id, options, session=None):
         for key in options:
             if key == 'lifetime':
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
+            elif key == 'account':
+                # Update locks
+                locks = session.query(models.ReplicaLock).filter_by(rule_id=rule.id).all()
+                counter_rses = {}
+                for lock in locks:
+                    if lock.rse_id in counter_rses:
+                        counter_rses[lock.rse_id].append(lock.bytes)
+                    else:
+                        counter_rses[lock.rse_id] = [lock.bytes]
+                session.query(models.ReplicaLock).filter_by(rule_id=rule.id).update({'account': options['account']})
+                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'account': options['account']})
+                # Update counters
+                for rse_id in counter_rses:
+                    account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(counter_rses[rse_id]), bytes=sum(counter_rses[rse_id]), session=session)
+                    account_counter.increase(rse_id=rse_id, account=options['account'], files=len(counter_rses[rse_id]), bytes=sum(counter_rses[rse_id]), session=session)
+                # Update rule
+                rule.account = options['account']
             else:
                 setattr(rule, key, options[key])
 
+    except IntegrityError, e:
+        if match('.*ORA-00001.*', str(e.args[0]))\
+           or match('.*IntegrityError.*UNIQUE constraint failed.*', str(e.args[0]))\
+           or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0])):
+            raise DuplicateRule()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
