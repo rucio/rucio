@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -61,7 +61,7 @@ def declare_bad_file_replicas(pfns, rse, session=None):
         try:
             update_replicas_states(replicas, session=session)
         except exception.UnsupportedOperation:
-            pass
+            raise exception.ReplicaNotFound("One or several replicas don't exist.")
     else:
         path_clause = []
         parsed_pfn = p.parse_pfns(pfns=pfns)
@@ -71,7 +71,9 @@ def declare_bad_file_replicas(pfns, rse, session=None):
         query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
             filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
-        query.update({'state': ReplicaState.BAD})
+        rowcount = query.update({'state': ReplicaState.BAD})
+        if rowcount != len(parsed_pfn):
+            raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
 
 @read_session
