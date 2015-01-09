@@ -6,7 +6,7 @@
 # License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
@@ -15,6 +15,7 @@
 import rucio.api.permission
 
 from rucio.core import did
+from rucio.common.constants import reserved_keys
 from rucio.common.schema import validate_schema
 from rucio.db.constants import DIDType
 
@@ -191,8 +192,12 @@ def set_metadata(scope, name, key, value, issuer):
     """
 
     kwargs = {'scope': scope, 'name': name, 'key': key, 'value': value, 'issuer': issuer}
+
+    if key in reserved_keys:
+        raise rucio.common.exception.AccessDenied('Account %s can not change this metadata value to data identifier %s:%s' % (issuer, scope, name))
+
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
-        raise rucio.common.exception.AccessDenied('Account %s can not add metadate to data identifier %s:%s' % (issuer, scope, name))
+        raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
     return did.set_metadata(scope=scope, name=name, key=key, value=value)
 
 
