@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps, loads
@@ -434,6 +434,8 @@ class BadReplicas(RucioController):
 
         try:
             declare_bad_file_replicas(rse=rse, pfns=pfns, issuer=ctx.env.get('issuer'))
+        except ReplicaNotFound, e:
+            raise generate_http_error(404, 'ReplicaNotFound', e.args[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
