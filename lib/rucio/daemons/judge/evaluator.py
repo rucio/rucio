@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 
 """
@@ -28,7 +28,7 @@ from sqlalchemy.orm.exc import FlushError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
-from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_duplicate_updated_dids, delete_updated_did
+from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did  # , delete_duplicate_updated_dids
 from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
@@ -80,7 +80,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                         break
 
                     # Try to delete all duplicate dids
-                    delete_duplicate_updated_dids(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, id=did.id)
+                    # delete_duplicate_updated_dids(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, id=did.id)
 
                     # Check if this did has already been operated on
                     if '%s:%s' % (did.scope, did.name) in done_dids:
