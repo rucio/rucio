@@ -152,7 +152,7 @@ def add_dids(dids, account, session=None):
                     add_message(event_type, {'account': account,
                                              'scope': did['scope'],
                                              'name': did['name'],
-                                             'expires': expired_at},
+                                             'expires': str(expired_at)},
                                 session=session)
 
             except KeyError, e:
