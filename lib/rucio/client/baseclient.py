@@ -30,6 +30,9 @@ from requests import session
 from requests.status_codes import codes, _codes
 from requests.exceptions import SSLError
 from requests_kerberos import HTTPKerberosAuth
+# See https://github.com/kennethreitz/requests/issues/2214
+from requests.packages.urllib3 import disable_warnings
+disable_warnings()
 
 from rucio.common import exception
 from rucio.common.config import config_get
