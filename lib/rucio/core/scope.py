@@ -41,7 +41,7 @@ def add_scope(scope, account, session=None):
     except IntegrityError, e:
         if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]) \
            or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]) \
-           or e.args[0] == "(IntegrityError) column scope is not unique" \
+           or e.args[0] == "(IntegrityError) UNIQUE constraint failed: scopes.scope" \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
     except:
