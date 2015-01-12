@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
@@ -29,7 +29,7 @@ from rucio.common.utils import chunks
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
-from rucio.db.constants import DIDType, ReplicaState
+from rucio.db.constants import DIDType, ReplicaState, OBSOLETE
 from rucio.db.session import read_session, stream_session, transactional_session, default_schema_name
 from rucio.rse import rsemanager as rsemgr
 
@@ -625,7 +625,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
     # filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
     none_value = None  # Hack to get pep8 happy...
-    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes).\
+    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes, models.RSEFileAssociation.tombstone).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
@@ -648,12 +648,13 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     rows = list()
     neededSpace = bytes
     totalbytes = 0
-    for (scope, name, bytes) in query.yield_per(1000):
+    for (scope, name, bytes, tombstone) in query.yield_per(1000):
         if neededSpace is not None and totalbytes >= neededSpace:
             break
         d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
-        totalbytes += bytes
+        if tombstone != OBSOLETE:
+            totalbytes += bytes
     return rows
 
 
