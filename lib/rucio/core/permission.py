@@ -347,9 +347,13 @@ def perm_del_rule(issuer, kwargs):
     """
     if issuer == 'root' or issuer == 'ddmadmin':
         return True
-    if get_rule(kwargs['rule_id'])['account'] != issuer:
-        return False
-    return True
+    if get_rule(kwargs['rule_id'])['account'] == issuer:
+        return True
+    # If issuer is a country admin
+    #     Resolve the list of rses the user is allowed to manage
+    #     Check if there is an overlap in this list and in lock.get_replica_locks_for_rule_id_per_rse(rule_id=rule_id)
+    #         return True
+    return False
 
 
 def perm_update_rule(issuer, kwargs):
