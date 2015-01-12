@@ -67,6 +67,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
         new_subscription.save(session=session)
     except IntegrityError, e:
         if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', e.args[0])\
+           or re.match(".*IntegrityError.*UNIQUE constraint failed: subscriptions.name, subscriptions.account.*", e.args[0])\
            or re.match(".*columns name, account are not unique.*", e.args[0])\
            or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_NAME_ACCOUNT_UQ.*violated.*', e.args[0])\
            or re.match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \

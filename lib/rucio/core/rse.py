@@ -661,7 +661,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
 
         up.update(data, flush=True, session=session)
     except (IntegrityError, OperationalError) as e:
-        if 'unique' in e.args[0] or 'Duplicate' in e.args[0]:  # Covers SQLite, Oracle and MySQL error
+        if 'UNIQUE' in e.args[0] or 'Duplicate' in e.args[0]:  # Covers SQLite, Oracle and MySQL error
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
         elif 'may not be NULL' in e.args[0] or "cannot be null" in e.args[0]:
             raise exception.InvalidObject('Missing values: %s' % e.args[0])

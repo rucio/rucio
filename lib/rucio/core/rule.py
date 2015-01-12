@@ -136,10 +136,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
-                    if match('.*ORA-00001.*', str(e.args[0])) or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0])):
+                    if match('.*ORA-00001.*', str(e.args[0]))\
+                       or match('.*IntegrityError.*UNIQUE constraint failed.*', str(e.args[0]))\
+                       or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0])):
                         raise DuplicateRule()
                     raise InvalidReplicationRule(e.args[0])
-
                 rule_ids.append(new_rule.id)
 
             # 5. Resolve the did to its contents
@@ -287,6 +288,8 @@ def add_rules(dids, rules, session=None):
                             new_rule.save(session=session)
                         except IntegrityError, e:
                             if match('.*ORA-00001.*', str(e.args[0])):
+                                raise DuplicateRule('A duplicate rule already exists')
+                            elif '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies' == str(e.args[0]):
                                 raise DuplicateRule('A duplicate rule already exists')
                             raise InvalidReplicationRule(e.args[0])
 

@@ -163,13 +163,13 @@ def add_dids(dids, account, session=None):
         session.flush()
 
     except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) columns scope, name are not unique" \
+        if e.args[0] == "(IntegrityError) UNIQUE constraint failed: dids.scope, dids.name" \
                 or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
-        if e.args[0] == "(IntegrityError) foreign key constraint failed" \
+        if e.args[0] == "(IntegrityError) FOREIGN KEY constraint failed" \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
                 or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
