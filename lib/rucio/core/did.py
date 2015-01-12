@@ -148,7 +148,7 @@ def add_dids(dids, account, session=None):
                     event_type = 'REGISTER_CNT'
                 if did['type'] == DIDType.DATASET:
                     event_type = 'REGISTER_DTS'
-                if not event_type:
+                if event_type:
                     add_message(event_type, {'account': account,
                                              'scope': did['scope'],
                                              'name': did['name'],
