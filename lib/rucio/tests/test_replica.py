@@ -21,7 +21,7 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
-from rucio.common.exception import DataIdentifierNotFound
+from rucio.common.exception import DataIdentifierNotFound, AccessDenied
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter,\
@@ -324,10 +324,11 @@ class TestReplicaClients:
         nbfiles = 5
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
         self.replica_client.add_replicas(rse='MOCK', files=files)
-        self.replica_client.delete_replicas(rse='MOCK', files=files)
+        with assert_raises(AccessDenied):
+            self.replica_client.delete_replicas(rse='MOCK', files=files)
 
-        replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
-        assert_equal(len(replicas), 0)
+        # replicas = [r for r in self.replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files])]
+        # assert_equal(len(replicas), 0)
 
 
 class TestReplicaMetalink:
