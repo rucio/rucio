@@ -19,6 +19,8 @@ CRITICAL = 2
 WARNING = 1
 OK = 0
 
+dryrun = '-n' in sys.argv
+
 if __name__ == '__main__':
     status = OK
     url = 'http://atlas-agis-api.cern.ch/request/ddmendpointstatus/query/list/?json'
@@ -41,10 +43,12 @@ if __name__ == '__main__':
             if site['rse'] in blacklisted_sites[activity]:
                 print '%s will be blacklisted for %s' % (site['rse'], activity)
                 try:
-                    update_rse(site['rse'], {activity: False})
+                    if not dryrun:
+                        update_rse(site['rse'], {activity: False})
                 except Exception, e:
                     print e
-                    status = WARNING
+                    if status == OK:
+                        status = WARNING
 
     # Whitelisting
     for activity in blacklisted_sites:
@@ -52,8 +56,10 @@ if __name__ == '__main__':
             if site['rse'] not in blacklisted_sites[activity]:
                 print '%s will be whitelisted for %s' % (site['rse'], activity)
                 try:
-                    update_rse(site['rse'], {activity: True})
+                    if not dryrun:
+                        update_rse(site['rse'], {activity: True})
                 except Exception, e:
                     print e
-                    status = WARNING
+                    if status == OK:
+                        status = WARNING
     sys.exit(status)
