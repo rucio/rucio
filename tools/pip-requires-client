@@ -1,15 +1,15 @@
 # All dependencies needed to run rucio client should be defined here
 
 argparse==1.2.1          # Command-line parsing library
-argcomplete==0.8.1       # Bash tab completion for argparse
+argcomplete==0.8.4       # Bash tab completion for argparse
 kerberos==1.1.1          # Kerberos high-level interface
-requests==2.4.1          # Python HTTP for Humans
-requests-kerberos==0.5   # A Kerberos authentication handler for python-requests
-#  TODO: requests-cache==0.4.4  # Persistent cache for requests library
-urllib3==1.9.1           # HTTP library with thread-safe connection pooling and file post support
+requests==2.5.1          # Python HTTP for Humans
+requests-kerberos==0.6.1 # A Kerberos authentication handler for python-requests
+#  TODO: requests-cache==0.4.8  # Persistent cache for requests library
+urllib3==1.10            # HTTP library with thread-safe connection pooling and file post support
 wsgiref==0.1.2           # WSGI (PEP 333) Reference Library
 dogpile==0.2.2           # Caching API
 dogpile.core==0.4.1      # Caching API
 dogpile.cache==0.5.4     # Caching API plugins
-nose==1.3.1              # For rucio test-server
-boto==2.34.0                # needed for S3 boto protocol
+nose==1.3.4              # rucio test-server
+boto==2.35.1             # S3 boto protocol
