@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
@@ -212,14 +212,16 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                             'file-size': replica['bytes'],
                                                                             'url': replica['pfn'],
                                                                             'reason': str(e)})
-                                        except:
+                                        except Exception as e:
                                             logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc())))
                                             add_message('deletion-failed', {'scope': replica['scope'],
                                                                             'name': replica['name'],
                                                                             'rse': rse_info['rse'],
                                                                             'file-size': replica['bytes'],
                                                                             'url': replica['pfn'],
-                                                                            'reason': str(traceback.format_exc())[:1000] + '......'})
+                                                                            'reason': str(e)})
+                                        except:
+                                            logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc())))
                                 except (ServiceUnavailable, RSEAccessDenied) as e:
                                     for replica in files:
                                         logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
