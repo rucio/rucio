@@ -28,6 +28,7 @@ function usage {
   echo '  -q    Exclude DQ2 tests'.
   echo '  -a    Run alembic tests at the end'
   echo '  -u    Update pip dependencies only'
+  echo '  -x    Stop running tests after the first error or failure'
   exit
 }
 
@@ -38,7 +39,7 @@ else
     range=$(seq 1 2)
 fi
 
-while getopts hrcid1kqau opt
+while getopts hrcid1kqaux opt
 do
   case "$opt" in
     h) usage;;
@@ -51,6 +52,7 @@ do
     q) dq2opts="--exclude=test_dq2*";;
     a) alembic="true";;
     u) pip_only="true";;
+    x) stop_on_failure="--stop";;
   esac
 done
 
@@ -108,8 +110,8 @@ fi
 for i in $range
 do
     echo 'Running tests with nose - Iteration' $i
-    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts
-    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts
+    echo nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts $stop_on_failure
+    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts $dq2opts $stop_on_failure
 done
 
 if test ${alembic}; then
