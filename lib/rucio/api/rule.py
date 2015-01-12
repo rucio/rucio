@@ -11,6 +11,7 @@
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
+from rucio.common.schema import validate_schema
 from rucio.core import rule
 
 
@@ -40,7 +41,9 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
-              'source_replica_expression': source_replica_expression, 'notify': notify}
+              'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity}
+
+    validate_schema(name='activity', obj=kwargs['activity'])
 
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
