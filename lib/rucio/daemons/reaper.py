@@ -126,8 +126,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                         logging.info('Reaper %(worker_number)s-%(child_number)s: Space usage for RSE %(rse)s - max_being_deleted_files: %(max_being_deleted_files)s, needed_free_space: %(needed_free_space)s, used: %(used)s, free: %(free)s' % locals())
                         if needed_free_space <= 0:
+                            needed_free_space = 0
                             logging.info('Reaper %s-%s: free space is above minimum limit for %s' % (worker_number, child_number, rse['rse']))
-                            continue
 
                     s = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
