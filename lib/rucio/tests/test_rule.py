@@ -22,14 +22,14 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule
+from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, InvalidRSEExpression
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.account_limit import set_account_limit, delete_account_limit
 from rucio.core.replica import add_replica, get_replica
-from rucio.core.rse import add_rse_attribute, get_rse
+from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule
 from rucio.daemons.abacus.account import account_update
@@ -37,6 +37,7 @@ from rucio.daemons.abacus.rse import rse_update
 from rucio.db.constants import DIDType, OBSOLETE
 from rucio.db import models
 from rucio.db.session import transactional_session
+from rucio.tests.common import rse_name_generator
 
 
 def create_files(nrfiles, scope, rse, bytes=1):
@@ -620,6 +621,23 @@ class TestReplicationRuleCore():
         for file in files:
             replica = get_replica(rse=self.rse4, scope=file['scope'], name=file['name'])
             assert(replica['tombstone'] == OBSOLETE)
+
+    def test_add_rule_with_ignore_availability(self):
+        """ REPLICATION RULE (CORE): Add a replication rule with ignore_availability setting"""
+        rse = rse_name_generator()
+        add_rse(rse)
+        update_rse(rse, {'availability_write': False})
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        with assert_raises(InvalidRSEExpression):
+            add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
 
 
 class TestReplicationRuleClient():

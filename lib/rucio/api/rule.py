@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from rucio.api.permission import has_permission
@@ -15,7 +15,7 @@ from rucio.common.schema import validate_schema
 from rucio.core import rule
 
 
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, issuer):
+def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, issuer):
     """
     Adds a replication rule.
 
@@ -34,6 +34,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param activity:                   Activity to be passed on to the conveyor.
     :param notify:                     Notification setting of the rule.
     :purge purge_replicas:             The purge setting to delete replicas immediately after rule deletion.
+    :param ignore_availability:        Option to ignore the availability of RSEs.
     :param issuer:                     The issuing account of this operation.
     :returns:                          List of created replication rules.
     """
@@ -42,7 +43,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
-              'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity, 'purge_replicas': purge_replicas}
+              'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity,
+              'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability}
 
     validate_schema(name='activity', obj=kwargs['activity'])
 
@@ -60,7 +62,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          source_replica_expression=source_replica_expression,
                          activity=activity,
                          notify=notify,
-                         purge_replicas=purge_replicas)
+                         purge_replicas=purge_replicas,
+                         ignore_availability=ignore_availability)
 
 
 def get_replication_rule(rule_id):
