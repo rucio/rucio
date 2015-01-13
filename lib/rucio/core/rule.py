@@ -49,7 +49,7 @@ logging.basicConfig(stream=sys.stdout,
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, notify=None, purge_replicas=False, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, notify=None, purge_replicas=False, ignore_availability=False, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -68,6 +68,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param activity:                   Activity to be passed on to the conveyor.
     :param notify:                     Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
     :param purge_replicas:             Purge setting if a replica should be directly deleted after the rule is deleted.
+    :param ignore_availability:        Option to ignore the availability of RSEs.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule
@@ -77,7 +78,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
         with record_timer_block('rule.add_rule.parse_rse_expression'):
-            rses = parse_expression(rse_expression, filter={'availability_write': True}, session=session)
+            if ignore_availability:
+                rses = parse_expression(rse_expression, session=session)
+            else:
+                rses = parse_expression(rse_expression, filter={'availability_write': True}, session=session)
 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -135,7 +139,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   activity=activity,
                                                   subscription_id=subscription_id,
                                                   notification=notify,
-                                                  purge_replicas=purge_replicas)
+                                                  purge_replicas=purge_replicas,
+                                                  ignore_availability=ignore_availability)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -210,7 +215,10 @@ def add_rules(dids, rules, session=None):
         all_source_rses = []
         with record_timer_block('rule.add_rules.parse_rse_expressions'):
             for rule in rules:
-                restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session))
+                if rule.get('ignore_availability'):
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
+                else:
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session))
             restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
 
             for rule in rules:
@@ -242,7 +250,10 @@ def add_rules(dids, rules, session=None):
             for rule in rules:
                 with record_timer_block('rule.add_rules.add_rule'):
                     # 4. Resolve the rse_expression into a list of RSE-ids
-                    rses = parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session)
+                    if rule.get('ignore_availability'):
+                        rses = parse_expression(rule['rse_expression'], session=session)
+                    else:
+                        rses = parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session)
 
                     if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
                         if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -288,7 +299,8 @@ def add_rules(dids, rules, session=None):
                                                           activity=rule.get('activity'),
                                                           subscription_id=rule.get('subscription_id'),
                                                           notification=notify,
-                                                          purge_replicas=rule.get('purge_replicas', False))
+                                                          purge_replicas=rule.get('purge_replicas', False),
+                                                          ignore_availability=rule.get('ignore_availability', False))
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
@@ -473,7 +485,10 @@ def repair_rule(rule_id, session=None):
 
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
-            rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+            if rule.ignore_availability:
+                rses = parse_expression(rule.rse_expression, session=session)
+            else:
+                rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
             if rule.source_replica_expression:
                 source_rses = parse_expression(rule.source_replica_expression, session=session)
             else:
@@ -1217,7 +1232,10 @@ def __evaluate_did_attach(eval_did, session=None):
                     session.begin_nested()
                 try:
                     for rule in rules:
-                        possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
+                        if rule.ignore_availability:
+                            possible_rses.extend(parse_expression(rule.rse_expression, session=session))
+                        else:
+                            possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                     possible_rses = list(set([rse['id'] for rse in possible_rses]))
                 except Exception, e:
                     logging.warning('Could not parse RSE expression for possible RSEs for rule %s' % (str(rule.id)))
@@ -1241,7 +1259,10 @@ def __evaluate_did_attach(eval_did, session=None):
                     if session.bind.dialect.name != 'sqlite':
                         session.begin_nested()
                     try:
-                        rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                        if rule.ignore_availability:
+                            rses = parse_expression(rule.rse_expression, session=session)
+                        else:
+                            rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
                         source_rses = []
                         if rule.source_replica_expression:
                             source_rses = parse_expression(rule.source_replica_expression, session=session)

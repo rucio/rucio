@@ -10,7 +10,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 
 """
 SQLAlchemy models for rucio data
@@ -587,6 +587,7 @@ class ReplicationRule(BASE, ModelBase):
     notification = Column(RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'), default=RuleNotification.NO)
     stuck_at = Column(DateTime)
     purge_replicas = Column(Boolean(name='RULES_PURGE_REPLICAS_CHK'), default=False)
+    ignore_availability = Column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),

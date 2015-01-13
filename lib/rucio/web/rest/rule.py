@@ -129,6 +129,8 @@ class Rule:
                 notify = params['notify']
             if 'purge_replicas' in params:
                 purge_replicas = params['purge_replicas']
+            if 'ignore_availability' in params:
+                ignore_availability = params['ignore_availability']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -146,6 +148,7 @@ class Rule:
                                             activity=activity,
                                             notify=notify,
                                             purge_replicas=purge_replicas,
+                                            ignore_availability=ignore_availability,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:

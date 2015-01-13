@@ -550,6 +550,7 @@ CREATE TABLE rules (
     notification CHAR(1 CHAR),
     stuck_at DATE,
     purge_replicas NUMBER(1) DEFAULT 0,
+    ignore_availability NUMBER(1) DEFAULT 0,
     CONSTRAINT "RULES_PK" PRIMARY KEY (id),   -- id, scope, name
     CONSTRAINT "RULES_SCOPE_NAME_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
     CONSTRAINT "RULES_ACCOUNT_FK" FOREIGN KEY(account) REFERENCES accounts (account),
@@ -571,6 +572,7 @@ CREATE TABLE rules (
     CONSTRAINT "RULES_STATE_CHK" CHECK (state IN ('S', 'R', 'U', 'O')),
     CONSTRAINT "RULES_LOCKED_CHK" CHECK (locked IN (0, 1)),
     CONSTRAINT "RULES_PURGE_REPLICAS_CHK" CHECK (purge_replicas IN (0, 1)),
+    CONSTRAINT "RULES_IGNORE_AVAILABILITY_CHK" CHECK (ignore_availability IN (0, 1)),
     CONSTRAINT "RULES_GROUPING_CHK" CHECK (grouping IN ('A', 'D', 'N')),
     CONSTRAINT "RULES_NOTIFICATION_CHK" CHECK (state IN('Y', 'N', 'C'))
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
