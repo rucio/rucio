@@ -861,7 +861,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
         session.delete(lock)
 
     if replica.lock_cnt == 0:
-        replica.tombstone = datetime.utcnow()
+        replica.tombstone = OBSOLETE
         replica.state = ReplicaState.UNAVAILABLE
         session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
         for dts in datasets:
@@ -889,6 +889,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     """
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
+    replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
 
     nlock = 0
     for lock in locks:
@@ -901,11 +902,15 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         elif lock.state == LockState.STUCK:
             rule.locks_stuck_cnt -= 1
         rule.locks_replicating_cnt += 1
+        ds_scope = rule.scope
+        ds_name = rule.name
+        bytes = replica.bytes
+        md5 = replica.md5
+        adler32 = replica.adler32
         queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                       request_type=RequestType.TRANSFER,
-                                                      scope=scope,
-                                                      name=name,
-                                                      rule=rule)], session=session)
+                                                      scope=scope, name=name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                      ds_scope=ds_scope, ds_name=ds_name, lifetime=None)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             continue
@@ -918,7 +923,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     if nlock:
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
     else:
-        tombstone = datetime.utcnow()
+        tombstone = OBSOLETE
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.UNAVAILABLE, 'tombstone': tombstone})
 
 
