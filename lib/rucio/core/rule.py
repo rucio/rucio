@@ -29,7 +29,8 @@ from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
-                                    AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule)
+                                    AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
+                                    InvalidObject)
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
@@ -108,6 +109,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                                       models.DataIdentifier.name == elem['name']).one()
                 except NoResultFound:
                     raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                except TypeError, e:
+                    raise InvalidObject(e.args)
 
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
@@ -225,6 +228,8 @@ def add_rules(dids, rules, session=None):
                         models.DataIdentifier.name == elem['name']).one()
                 except NoResultFound:
                     raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                except TypeError, e:
+                    raise InvalidObject(e.args)
 
             # 3. Resolve the did into its contents
             with record_timer_block('rule.add_rules.resolve_dids_to_locks_replicas'):
