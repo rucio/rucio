@@ -649,8 +649,10 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     neededSpace = bytes
     totalbytes = 0
     for (scope, name, bytes, tombstone) in query.yield_per(1000):
+
         if tombstone != OBSOLETE and neededSpace is not None and totalbytes >= neededSpace:
             break
+
         d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
         if tombstone != OBSOLETE:
