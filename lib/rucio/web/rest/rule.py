@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 
 from logging import getLogger, StreamHandler, DEBUG
 from json import dumps, loads
@@ -20,7 +20,7 @@ from rucio.api.rule import add_replication_rule, delete_replication_rule, get_re
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    DuplicateRule)
+                                    DuplicateRule, InvalidObject)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -166,6 +166,8 @@ class Rule:
             raise generate_http_error(409, 'InvalidRuleWeight', e.args[0][0])
         except StagingAreaRuleRequiresLifetime, e:
             raise generate_http_error(409, 'StagingAreaRuleRequiresLifetime', e.args[0])
+        except InvalidObject, e:
+            raise generate_http_error(409, 'InvalidObject', e.args[0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
