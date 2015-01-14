@@ -582,7 +582,7 @@ class ReplicationRule(BASE, ModelBase):
     locks_replicating_cnt = Column(BigInteger, server_default='0')
     locks_stuck_cnt = Column(BigInteger, server_default='0')
     source_replica_expression = Column(String(255))
-    activity = Column(String(50))
+    activity = Column(String(50), default='default')
     grouping = Column(RuleGrouping.db_type(name='RULES_GROUPING_CHK'), default=RuleGrouping.ALL)
     notification = Column(RuleNotification.db_type(name='RULES_NOTIFICATION_CHK'), default=RuleNotification.NO)
     stuck_at = Column(DateTime)
