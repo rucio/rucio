@@ -8,7 +8,6 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 from jsonschema import validate, ValidationError
 
@@ -241,10 +240,6 @@ cache_delete_replicas = {"description": "rucio cache delete replicas",
 message_operation = {"type": "object",
                      "properties": {'operation': {"enum": ["add_replicas", "delete_replicas"]}}}
 
-account_attribute = {"description": "Account attribute",
-                     "type": "string",
-                     "pattern": r'^[a-z0-9-_]{1,30}$'}
-
 schemas = {'account': account,
            'account_type': account_type,
            'name': name,
@@ -263,8 +258,7 @@ schemas = {'account': account,
            'attachments': attachments,
            'subscription_filter': subscription_filter,
            'cache_add_replicas': cache_add_replicas,
-           'cache_delete_replicas': cache_delete_replicas,
-           'account_attribute': account_attribute}
+           'cache_delete_replicas': cache_delete_replicas}
 
 
 def validate_schema(name, obj):

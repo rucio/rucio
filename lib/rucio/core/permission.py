@@ -13,7 +13,6 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 from dogpile.cache import make_region
 
@@ -99,9 +98,7 @@ def has_permission(issuer, action, kwargs):
             'config_set': perm_config,
             'config_remove_section': perm_config,
             'config_remove_option': perm_config,
-            'get_account_usage': perm_get_account_usage,
-            'add_attribute': perm_add_account_attribute,
-            'del_attribute': perm_del_account_attribute
+            'get_account_usage': perm_get_account_usage
             }
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
@@ -649,25 +646,3 @@ def perm_get_account_usage(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or issuer in get_special_accounts() or kwargs.get('account') == issuer
-
-
-def perm_add_account_attribute(issuer, kwargs):
-    """
-    Checks if an account can add attributes to accounts.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
-    """
-    return issuer == 'root' or issuer in get_special_accounts()
-
-
-def perm_del_account_attribute(issuer, kwargs):
-    """
-    Checks if an account can add attributes to accounts.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed to call the API call, otherwise False
-    """
-    return perm_add_account_attribute(issuer, kwargs)
