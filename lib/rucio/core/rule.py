@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 import logging
@@ -49,7 +49,7 @@ logging.basicConfig(stream=sys.stdout,
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity=None, notify=None, purge_replicas=False, ignore_availability=False, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity='default', notify=None, purge_replicas=False, ignore_availability=False, session=None):
     """
     Adds a replication rule for every did in dids
 
