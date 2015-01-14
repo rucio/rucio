@@ -112,3 +112,45 @@ def list_identities(account):
     :param account: The account name.
     """
     return account_core.list_identities(account)
+
+
+def list_account_attributes(account):
+    """
+    Returns all the attributes for the given account.
+
+    :param account: The account name.
+    """
+    return account_core.list_account_attributes(account)
+
+
+def add_account_attribute(key, value, account, issuer):
+    """
+    Add an attribute to an account.
+
+    :param key: attribute key.
+    :param value: attribute value.
+    :param account: The account name.
+    :param issuer: The issuer account_core.
+    """
+    validate_schema(name='account_attribute', obj=key)
+    validate_schema(name='account_attribute', obj=value)
+
+    kwargs = {'account': account, 'key': key, 'value': value}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='add_attribute', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not add attributes' % (issuer))
+    account_core.add_account_attribute(account, key, value)
+
+
+def del_account_attribute(key, account, issuer):
+    """
+    Delete an attribute to an account.
+
+    :param key: attribute key.
+    :param account: The account name.
+    :param issuer: The issuer account_core.
+    """
+    kwargs = {'account': account, 'key': key}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='del_attribute', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not delete attribute' % (issuer))
+
+    account_core.del_account_attribute(account, key)
