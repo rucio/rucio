@@ -10,6 +10,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 import rucio.api.permission
 import rucio.common.exception
@@ -152,5 +153,4 @@ def del_account_attribute(key, account, issuer):
     kwargs = {'account': account, 'key': key}
     if not rucio.api.permission.has_permission(issuer=issuer, action='del_attribute', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not delete attribute' % (issuer))
-
     account_core.del_account_attribute(account, key)
