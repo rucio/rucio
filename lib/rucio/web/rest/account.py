@@ -11,7 +11,6 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 from datetime import datetime
 from json import dumps, loads
@@ -20,7 +19,7 @@ from traceback import format_exc
 from urlparse import parse_qsl
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, loadhook, redirect, seeother
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
 from rucio.api.rule import list_replication_rules
@@ -36,8 +35,6 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = (
-    '/(.+)/attr/', 'Attributes',
-    '/(.+)/attr/(.+)', 'Attributes',
     '/(.+)/scopes/', 'Scopes',
     '/(.+)/scopes/(.+)', 'Scopes',
     '/(.+)/identities', 'Identities',
@@ -49,104 +46,6 @@ urls = (
     '/(.+)', 'AccountParameter',
     '/?$', 'Account',
 )
-
-
-class Attributes(RucioController):
-
-    def GET(self, account):
-        """ list all attributes for an account.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            500 InternalError
-
-        :param Rucio-Account: Account identifier.
-        :param Rucio-Auth-Token: as an 32 character hex string.
-        :returns: JSON dict containing informations about the requested account.
-        """
-        header('Content-Type', 'application/json')
-        try:
-            attribs = list_account_attributes(account)
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except RucioException, e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception, e:
-            print format_exc()
-            raise InternalError(e)
-        return dumps(attribs)
-
-    def POST(self, account, key):
-        """ Add attributes to an account.
-
-        HTTP Success:
-            201 Created
-
-        HTTP Error:
-            400 Bad Reqeust
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
-
-        :param account: Account identifier.
-        """
-        json_data = data()
-        try:
-            parameter = loads(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
-
-        try:
-            key = parameter['key']
-            value = parameter['value']
-        except KeyError, e:
-            if e.args[0] == 'key' or e.args[0] == 'value':
-                raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
-        except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
-
-        try:
-            add_account_attribute(key=key, value=value, account=account, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except Duplicate as e:
-            raise generate_http_error(409, 'Duplicate', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            print str(format_exc())
-            raise InternalError(e)
-
-        raise Created()
-
-    def DELETE(self, account, key):
-        """ disable account with given account name.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            500 InternalError
-
-        :param Rucio-Account: Account identifier.
-        :param Rucio-Auth-Token: as an 32 character hex string.
-        """
-        try:
-            del_account_attribute(account=account, key=key, issuer=ctx.env.get('issuer'))
-        except AccessDenied, e:
-            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
-        except AccountNotFound, e:
-            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
-        except Exception, e:
-            raise InternalError(e)
-
-        raise OK()
 
 
 class Scopes(RucioController):
