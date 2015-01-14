@@ -12,12 +12,14 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 from datetime import datetime
 from re import match
+from traceback import format_exc
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
-from traceback import format_exc
 
 import rucio.core.account_counter
 
