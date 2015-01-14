@@ -697,7 +697,7 @@ class Request(BASE, ModelBase, Versioned):
     err_msg = Column(String(4000))
     previous_attempt_id = Column(GUID())
     rule_id = Column(GUID())
-    activity = Column(String(50))
+    activity = Column(String(50), default='default')
     bytes = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
