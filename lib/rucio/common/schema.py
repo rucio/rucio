@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 from jsonschema import validate, ValidationError
 
@@ -25,7 +26,7 @@ account_type = {"description": "Account type",
 
 activity = {"description": "Activity name",
             "type": "string",
-            "enum": ['Data Brokering', 'Data Consolidation', 'Debug',
+            "enum": ['default', 'Data Brokering', 'Data Consolidation', 'Debug',
                      'Functional Test', 'Group Subscriptions', 'Production', 'Staging',
                      'T0 Export', 'Upload/Download (Job)', 'Upload/Download (User)', 'User Subscriptions']}
 
