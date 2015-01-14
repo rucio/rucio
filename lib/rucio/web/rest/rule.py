@@ -105,7 +105,7 @@ class Rule:
         """
         json_data = data()
         try:
-            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas = 'DATASET', None, None, False, None, None, None, None, False
+            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability = 'DATASET', None, None, False, None, None, None, None, False, False
             params = loads(json_data)
             dids = params['dids']
             account = params['account']
