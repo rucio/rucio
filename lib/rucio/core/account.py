@@ -9,14 +9,15 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 from datetime import datetime
-
+from re import match
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
+from traceback import format_exc
 
 import rucio.core.account_counter
 
@@ -166,3 +167,73 @@ def list_identities(account, session=None):
         identity_list.append({'type': identity.identity_type, 'identity': identity.identity})
 
     return identity_list
+
+
+@read_session
+def list_account_attributes(account, session=None):
+    """
+    Get all attributes defined for an account.
+
+    :param account: the account name to list the scopes of.
+    :param session: The database session in use.
+
+    :returns: a list of all key, value pairs for this account.
+    """
+    attr_list = []
+    query = session.query(models.Account).filter_by(account=account).filter_by(status=AccountStatus.ACTIVE)
+    try:
+        query.one()
+    except exc.NoResultFound:
+        raise exception.AccountNotFound("Account ID '{}' does not exist".format(account))
+
+    query = session.query(models.AccountAttrAssociation).filter_by(account=account)
+    for attr in query:
+        attr_list.append({'key': attr.key, 'value': attr.value})
+
+    return attr_list
+
+
+@transactional_session
+def add_account_attribute(account, key, value, session=None):
+    """
+    Add an attribute for the given account name.
+
+    :param key: the key for the new attribute.
+    :param value: the value for the new attribute.
+    :param account: the account to add the attribute to.
+    :param session: The database session in use.
+    """
+
+    query = session.query(models.Account).filter_by(account=account, status=AccountStatus.ACTIVE)
+
+    try:
+        query.one()
+    except exc.NoResultFound:
+        raise exception.AccountNotFound("Account ID '{}' does not exist".format(account))
+
+    new_attr = models.AccountAttrAssociation(account=account, key=key, value=value)
+    try:
+        new_attr.save(session=session)
+    except IntegrityError, e:
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*ACCOUNT_ATTR_MAP_PK.*violated.*', e.args[0]) \
+           or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]) \
+           or e.args[0] == "(IntegrityError) column account/key is not unique" \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
+            raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))
+    except:
+        raise exception.RucioException(str(format_exc()))
+
+
+@transactional_session
+def del_account_attribute(account, key, session=None):
+    """
+    Add an attribute for the given account name.
+
+    :param account: the account to add the attribute to.
+    :param key: the key for the new attribute.
+    :param session: The database session in use.
+    """
+    aid = session.query(models.AccountAttrAssociation).filter_by(key=key, account=account).first()
+    if aid is None:
+        raise exception.AccountNotFound('Attribute ({0}) does not exist for the account {0}!'.format(key, account))
+    aid.delete(session=session)
