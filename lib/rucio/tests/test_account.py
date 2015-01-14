@@ -10,6 +10,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 from json import dumps, loads
 
@@ -218,6 +219,35 @@ class TestAccountRestApi():
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(account_app.wsgifunc(*mw)).get('/whoami', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 303)
+
+    def test_add_attribute(self):
+        """ ACCOUNT (REST): Add/Get attribute."""
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(r1.status, 200)
+        token = str(r1.header('X-Rucio-Auth-Token'))
+
+        acntusr = account_name_generator()
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'type': 'USER'})
+        r2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 201)
+
+        key = account_name_generator()
+        value = "true"
+        data = dumps({'key': key, 'value': value})
+        r3 = TestApp(account_app.wsgifunc(*mw)).post('/{0}/attr/{1}'.format(acntusr, key), headers=headers2, params=data, expect_errors=True)
+        assert_equal(r3.status, 201)
+
+        r4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr + '/attr/', headers=headers2, expect_errors=True)
+        assert_equal(r4.status, 200)
+
+        r5 = TestApp(account_app.wsgifunc(*mw)).delete('/{0}/attr/{1}'.format(acntusr, key), headers=headers2, params=data, expect_errors=True)
+        print r5
+        assert_equal(r5.status, 200)
 
 
 class TestAccountClient():
