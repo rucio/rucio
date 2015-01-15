@@ -36,7 +36,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.request import queue_requests, cancel_request_did
+from rucio.core.request import get_request_by_did, queue_requests, cancel_request_did
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
 from rucio.db import models
@@ -927,6 +927,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
     replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
+    rse = get_rse_name(rse_id, session=session)
 
     nlock = 0
     for lock in locks:
@@ -939,15 +940,16 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         elif lock.state == LockState.STUCK:
             rule.locks_stuck_cnt -= 1
         rule.locks_replicating_cnt += 1
-        ds_scope = rule.scope
-        ds_name = rule.name
-        bytes = replica.bytes
-        md5 = replica.md5
-        adler32 = replica.adler32
-        queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
-                                                      request_type=RequestType.TRANSFER,
-                                                      scope=scope, name=name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
-                                                      ds_scope=ds_scope, ds_name=ds_name, lifetime=None)], session=session)
+        if not get_request_by_did(scope, name, rse, session=session):
+            ds_scope = rule.scope
+            ds_name = rule.name
+            bytes = replica.bytes
+            md5 = replica.md5
+            adler32 = replica.adler32
+            queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
+                                                          request_type=RequestType.TRANSFER,
+                                                          scope=scope, name=name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
+                                                          ds_scope=ds_scope, ds_name=ds_name, lifetime=None)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             continue
