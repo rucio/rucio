@@ -148,10 +148,6 @@ def perm_add_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if issuer != 'root' and issuer not in get_special_accounts():
-        if kwargs['purge_replicas']:
-            return False
-
     if kwargs['account'] == issuer:
         return True
     if issuer == 'root' or issuer in get_special_accounts():
