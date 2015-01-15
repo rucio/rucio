@@ -99,7 +99,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add_dataset(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
+    def add_dataset(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None, files=None, rse=None):
         """
         Add data identifier for a dataset.
 
@@ -109,8 +109,12 @@ class DIDClient(BaseClient):
         :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
+        :param files: The content.
+        :param rse: The RSE name when registering replicas.
         """
-        return self.add_did(scope=scope, name=name, type='DATASET', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
+        self.add_did(scope=scope, name=name, type='DATASET', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
+        if files:
+            self.add_files_to_dataset(scope=scope, name=name, files=files, rse=rse)
 
     def add_datasets(self, dsns):
         """
