@@ -14,6 +14,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2015
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
+# - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 
 """
     Rucio CLI.
@@ -1504,7 +1505,7 @@ Commands:
     download_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The get-metadata subparser
-    get_metadata_parser = subparsers.add_parser('get-metadata', help='get-metadata method')
+    get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs')
     get_metadata_parser.set_defaults(which='get_metadata')
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
@@ -1517,7 +1518,7 @@ Commands:
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
     # The delete-metadata subparser
-    delete_metadata_parser = subparsers.add_parser('delete-metadata', help='delete-metadata method')
+    delete_metadata_parser = subparsers.add_parser('delete-metadata', help='Delete metadata')
     delete_metadata_parser.set_defaults(which='delete_metadata')
 
     # The list-rse-usage subparser
