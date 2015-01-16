@@ -330,6 +330,7 @@ class DataIdentifier(BASE, ModelBase):
     lumiblocknr = Column(Integer())
     provenance = Column(String(2))
     phys_group = Column(String(25))
+    transient = Column(Boolean(name='DID_TRANSIENT_CHK'), server_default='0')
     accessed_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DIDS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], ondelete='CASCADE', name='DIDS_ACCOUNT_FK'),
