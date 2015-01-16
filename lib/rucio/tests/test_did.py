@@ -26,7 +26,9 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
-                                    KeyNotFound, UnsupportedOperation, UnsupportedStatus, ScopeNotFound)
+                                    FileAlreadyExists, FileConsistencyMismatch,
+                                    KeyNotFound, UnsupportedOperation, UnsupportedStatus,
+                                    ScopeNotFound)
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
                             get_metadata, set_metadata)
@@ -316,6 +318,62 @@ class TestDIDClients:
         self.did_client.add_container(scope='mock', name=cnt_name)
         with assert_raises(UnsupportedOperation):
             self.did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
+
+    def test_add_files_to_datasets(self):
+        """ DATA IDENTIFIERS (CLIENT): Add files to Datasets"""
+        tmp_scope = 'mock'
+        tmp_rse = 'MOCK'
+        dsn1 = 'dsn.%s' % str(generate_uuid())
+        dsn2 = 'dsn.%s' % str(generate_uuid())
+        meta = {'transient': True}
+        files1, files2, nb_files = [], [], 5
+        for i in xrange(nb_files):
+            files1.append({'scope': tmp_scope, 'name': 'lfn.%s' % str(generate_uuid()),
+                           'bytes': 724963570L, 'adler32': '0cc737eb',
+                           'meta': {'guid': str(generate_uuid()), 'events': 100}})
+            files2.append({'scope': tmp_scope, 'name': 'lfn.%s' % str(generate_uuid()),
+                           'bytes': 724963570L, 'adler32': '0cc737eb',
+                           'meta': {'guid': str(generate_uuid()), 'events': 100}})
+
+        self.did_client.add_dataset(scope=tmp_scope, name=dsn1, files=files1,
+                                    rse=tmp_rse, meta=meta)
+        self.did_client.add_dataset(scope=tmp_scope, name=dsn2, files=files2,
+                                    rse=tmp_rse, meta=meta)
+
+        attachments = [{'scope': tmp_scope, 'name': dsn1, 'dids': files2, 'rse': tmp_rse},
+                       {'scope': tmp_scope, 'name': dsn2, 'dids': files1, 'rse': tmp_rse}]
+
+        self.did_client.add_files_to_datasets(attachments)
+
+        files = [f for f in self.did_client.list_files(scope=tmp_scope, name=dsn1)]
+        assert_equal(len(files), 10)
+
+        with assert_raises(FileAlreadyExists):
+            self.did_client.add_files_to_datasets(attachments)
+
+        for attachment in attachments:
+            for i in xrange(nb_files):
+                attachment['dids'].append({'scope': tmp_scope,
+                                           'name': 'lfn.%s' % str(generate_uuid()),
+                                           'bytes': 724963570L,
+                                           'adler32': '0cc737eb',
+                                           'meta': {'guid': str(generate_uuid()),
+                                                    'events': 100}})
+
+        self.did_client.add_files_to_datasets(attachments, ignore_duplicate=True)
+
+        files = [f for f in self.did_client.list_files(scope=tmp_scope, name=dsn1)]
+        assert_equal(len(files), 15)
+
+        # Corrupt meta-data
+        files = []
+        for attachment in attachments:
+            for file in attachment['dids']:
+                file['bytes'] = 1000L
+                break
+
+        with assert_raises(FileConsistencyMismatch):
+            self.did_client.add_files_to_datasets(attachments, ignore_duplicate=True)
 
     def test_add_dataset(self):
         """ DATA IDENTIFIERS (CLIENT): Add dataset """

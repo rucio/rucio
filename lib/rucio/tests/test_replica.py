@@ -132,7 +132,7 @@ class TestReplicaCore:
 
         for file in files1:
             with assert_raises(DataIdentifierNotFound):
-                get_did(scope=file['scope'], name=file['name'])
+                print get_did(scope=file['scope'], name=file['name'])
 
         for file in files2:
             get_did(scope=file['scope'], name=file['name'])
