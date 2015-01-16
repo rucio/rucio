@@ -378,7 +378,7 @@ class DQ2Client:
         result = {}
         metadata = self.client.get_metadata(scope=scope, name=dsn)
         metadata_mapping = {'owner': 'account', 'creationdate': 'created_at', 'deleteddate': 'deleted_at', 'lifetime': 'expired_at', 'hidden': 'hidden', 'versioncreationdate': 'created_at',
-                            'events': 'events', 'lumiblocknr': 'lumiblocknr', 'provenance': 'provenance', 'physicsgroup': 'phys_group'}
+                            'events': 'events', 'lumiblocknr': 'lumiblocknr', 'provenance': 'provenance', 'physicsgroup': 'phys_group', 'transient': 'transient'}
         metadata_static = {'latestversion': 1, 'lastoperationdn': None, 'lastoperationip': None, 'closeddate': None, 'frozendate': None, 'freezingdate': None, 'group': None,
                            'version': 1, 'origin': None, 'temperature': None, 'tier0state': None, 'tier0type': None}
         for key in attributes:
@@ -1087,6 +1087,7 @@ class DQ2Client:
         archived = 'secondary'
         immutable = 1
         metadata = self.client.get_metadata(scope=scope, name=dsn)
+        atime = metadata['accessed_at']
         if metadata['is_open']:
             immutable = 0
         exists = False
