@@ -55,7 +55,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def add_did(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None):
+    def add_did(self, scope, name, type, statuses=None, meta=None, rules=None, lifetime=None, dids=None, rse=None):
         """
         Add data identifier for a dataset or container.
 
@@ -66,6 +66,8 @@ class DIDClient(BaseClient):
         :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
+        :param dids: The content.
+        :param rse: The RSE name when registering replicas.
         """
         path = '/'.join([self.DIDS_BASEURL, scope, name])
         url = build_url(choice(self.list_hosts), path=path)
@@ -79,6 +81,10 @@ class DIDClient(BaseClient):
             data['rules'] = rules
         if lifetime:
             data['lifetime'] = lifetime
+        if dids:
+            data['dids'] = dids
+        if rse:
+            data['rse'] = rse
         r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return True
@@ -112,9 +118,9 @@ class DIDClient(BaseClient):
         :param files: The content.
         :param rse: The RSE name when registering replicas.
         """
-        self.add_did(scope=scope, name=name, type='DATASET', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
-        if files:
-            self.add_files_to_dataset(scope=scope, name=name, files=files, rse=rse)
+        return self.add_did(scope=scope, name=name, type='DATASET',
+                            statuses=statuses, meta=meta, rules=rules,
+                            lifetime=lifetime, dids=files, rse=rse)
 
     def add_datasets(self, dsns):
         """
