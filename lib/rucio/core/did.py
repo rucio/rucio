@@ -13,7 +13,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 
 import logging
 import sys
@@ -146,9 +146,9 @@ def add_dids(dids, account, session=None):
 
                 event_type = None
                 if did['type'] == DIDType.CONTAINER:
-                    event_type = 'REGISTER_CNT'
+                    event_type = 'CREATE_CNT'
                 if did['type'] == DIDType.DATASET:
-                    event_type = 'REGISTER_DTS'
+                    event_type = 'CREATE_DTS'
                 if event_type:
                     add_message(event_type, {'account': account,
                                              'scope': did['scope'],
@@ -258,6 +258,20 @@ def __add_collections_to_container(scope, name, collections, account, session):
         did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=c['scope'], child_name=c['name'],
                                                     did_type=DIDType.CONTAINER, child_type=available_dids.get(c['scope'] + c['name']), rule_evaluation=True)
         did_asso.save(session=session, flush=False)
+        # Send AMI messages
+        if child_type == DIDType.CONTAINER:
+            chld_type = 'CONTAINER'
+        elif child_type == DIDType.DATASET:
+            chld_type = 'DATASET'
+        else:
+            chld_type = 'UNKNOWN'
+        add_message('REGISTER_CNT', {'account': account,
+                                     'scope': scope,
+                                     'name': name,
+                                     'childscope': c['scope'],
+                                     'childname': c['name'],
+                                     'childtype': chld_type},
+                    session=session)
     try:
         session.flush()
     except IntegrityError, e:
@@ -417,9 +431,23 @@ def detach_dids(scope, name, dids, session=None):
         child_scope = source['scope']
         child_name = source['name']
         associ_did = query_all.filter_by(child_scope=child_scope, child_name=child_name).first()
+        child_type = associ_did.did_type
         if associ_did is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
         associ_did.delete(session=session)
+        # Send message for AMI
+        if child_type == DIDType.CONTAINER:
+            chld_type = 'CONTAINER'
+        elif child_type == DIDType.DATASET:
+            chld_type = 'DATASET'
+        else:
+            chld_type = 'UNKNOWN'
+        add_message('ERASE_CNT', {'scope': scope,
+                                  'name': name,
+                                  'childscope': source['scope'],
+                                  'childname': source['name'],
+                                  'childtype': chld_type},
+                    session=session)
 
 
 @stream_session
