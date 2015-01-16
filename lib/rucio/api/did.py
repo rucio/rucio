@@ -92,19 +92,21 @@ def attach_dids(scope, name, attachment, issuer):
                            account=attachment.get('account', issuer), rse=attachment.get('rse'))
 
 
-def attach_dids_to_dids(attachments, issuer):
+def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False):
     """
     Append content to dids.
 
     :param attachments: The contents.
     :param issuer: The issuer account.
+    :param ignore_duplicate: If True, ignore duplicate entries.
     """
     validate_schema(name='attachments', obj=attachments)
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='attach_dids_to_dids', kwargs={'attachments': attachments}):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers' % (issuer))
 
-    return did.attach_dids_to_dids(attachments=attachments, account=issuer)
+    return did.attach_dids_to_dids(attachments=attachments, account=issuer,
+                                   ignore_duplicate=ignore_duplicate)
 
 
 def detach_dids(scope, name, dids, issuer):

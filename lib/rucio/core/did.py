@@ -190,7 +190,7 @@ def add_dids(dids, account, session=None):
 
 
 @transactional_session
-def __add_files_to_dataset(scope, name, files, account, rse, session):
+def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=False, session=None):
     """
     Add files to dataset.
 
@@ -199,18 +199,38 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
     :param files: .
     :param account: The account owner.
     :param rse: The RSE name for the replicas.
+    :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
     if rse:
         rucio.core.replica.add_replicas(rse=rse, files=files, account=account, session=session)
 
     files = get_files(files=files, session=session)
+
+    existing_content = []
+    if ignore_duplicate:
+        content_query = session.query(models.DataIdentifierAssociation.scope,
+                                      models.DataIdentifierAssociation.name,
+                                      models.DataIdentifierAssociation.child_scope,
+                                      models.DataIdentifierAssociation.child_name).\
+            with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
+        content_condition = []
+        for file in files:
+            content_condition.append(and_(models.DataIdentifierAssociation.scope == scope,
+                                          models.DataIdentifierAssociation.name == name,
+                                          models.DataIdentifierAssociation.child_scope == file['scope'],
+                                          models.DataIdentifierAssociation.child_name == file['name']))
+        for row in content_query.filter(or_(*content_condition)):
+            existing_content.append(row)
+
     for file in files:
-        did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
-                                                    bytes=file['bytes'], adler32=file.get('adler32'),
-                                                    guid=file['guid'], events=file['events'],
-                                                    md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE, rule_evaluation=True)
-        did_asso.save(session=session, flush=False)
+        if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
+            did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=file['scope'], child_name=file['name'],
+                                                        bytes=file['bytes'], adler32=file.get('adler32'),
+                                                        guid=file['guid'], events=file['events'],
+                                                        md5=file.get('md5'), did_type=DIDType.DATASET, child_type=DIDType.FILE, rule_evaluation=True)
+            did_asso.save(session=session, flush=False)
+
     try:
         session.flush()
     except IntegrityError, e:
@@ -220,8 +240,9 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
-                or match('.*columns scope, name, child_scope, child_name are not unique.*', e.args[0]):
-            raise exception.DuplicateContent(e.args)
+                or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', e.args[0])\
+                or match('.*duplicate entry.*key.*PRIMARY.*', e.args[0]):
+            raise exception.FileAlreadyExists(e.args)
         else:
             raise exception.RucioException(e.args)
 
@@ -302,12 +323,13 @@ def attach_dids(scope, name, dids, account, rse=None, session=None):
 
 
 @transactional_session
-def attach_dids_to_dids(attachments, account, session=None):
+def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=None):
     """
     Append content to dids.
 
     :param attachments: The contents.
     :param account: The account.
+    :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
     parent_did_condition = list()
@@ -324,7 +346,12 @@ def attach_dids_to_dids(attachments, account, session=None):
             if parent_did.did_type == DIDType.FILE:
                 raise exception.UnsupportedOperation("Data identifier '%(scope)s:%(name)s' is a file" % attachment)
             elif parent_did.did_type == DIDType.DATASET:
-                __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'], files=attachment['dids'], account=account, rse=attachment['rse'], session=session)
+                __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
+                                       files=attachment['dids'], account=account,
+                                       ignore_duplicate=ignore_duplicate,
+                                       rse=attachment['rse'],
+                                       session=session)
+
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container(scope=attachment['scope'], name=attachment['name'], collections=attachment['dids'], account=account, session=session)
 
@@ -336,14 +363,6 @@ def attach_dids_to_dids(attachments, account, session=None):
 
     for scope, name in parent_dids:
         models.UpdatedDID(scope=scope, name=name, rule_evaluation_action=DIDReEvaluation.ATTACH).save(session=session, flush=False)
-
-    # is_none = None
-    # rowcount = session.query(models.DataIdentifier).filter(or_(*parent_did_condition)).\
-    #    update({'rule_evaluation_required': datetime.utcnow(),
-    #            'rule_evaluation_action': case([(models.DataIdentifier.rule_evaluation_action == DIDReEvaluation.DETACH, DIDReEvaluation.BOTH.value),
-    #                                            (models.DataIdentifier.rule_evaluation_action == is_none, DIDReEvaluation.ATTACH.value),
-    #                                            ], else_=models.DataIdentifier.rule_evaluation_action)},
-    #           synchronize_session=False)    # increase(rse_id=replica_rse.id, delta=nbfiles, bytes=bytes, session=session)
 
 
 @transactional_session
@@ -740,12 +759,22 @@ def get_files(files, session=None):
                                 models.DataIdentifier.events,
                                 models.DataIdentifier.adler32, models.DataIdentifier.md5).\
         filter(models.DataIdentifier.did_type == DIDType.FILE).\
-        with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
+        with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')
     file_condition = []
     for file in files:
         file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
 
-    rows = [row._asdict() for row in files_query.filter(or_(*file_condition))]
+    rows = []
+    for row in files_query.filter(or_(*file_condition)):
+        file = row._asdict()
+        rows.append(file)
+        # Check meta-data, if provided
+        for f in files:
+            if f['name'] == file['name'] and f['scope'] == file['scope']:
+                for key in ['bytes', 'adler32', 'md5']:
+                    if key in f and f.get(key) != file[key]:
+                        raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % file + str(f.get(key)) + '!=' + str(file[key]))
+                break
 
     if len(rows) != len(files):
         for file in files:
