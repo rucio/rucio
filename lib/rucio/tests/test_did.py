@@ -239,11 +239,13 @@ class TestDIDClients:
         with assert_raises(ScopeNotFound):
             self.did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
 
-        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
+        files = [{'scope': tmp_scope, 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()), 'bytes': 724963570L, 'adler32': '0cc737eb'}, ]
+        with assert_raises(DataIdentifierNotFound):
+            self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files)
 
         with assert_raises(DataIdentifierNotFound):
-            self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=[{'scope': tmp_scope, 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()),
-                                                                                        'bytes': 724963570L, 'adler32': '0cc737eb'}, ])
+            self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files)
+
         files = []
         for i in xrange(5):
             lfn = 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid())
@@ -256,9 +258,12 @@ class TestDIDClients:
                           'bytes': 724963570L, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
 
-        rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
+        rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2), 'account': 'root'}]
 
-        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files, rse=tmp_rse)
+
+        with assert_raises(DataIdentifierAlreadyExists):
+            self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
 
         files = []
         for i in xrange(5):

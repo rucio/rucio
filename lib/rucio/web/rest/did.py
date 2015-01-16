@@ -232,7 +232,7 @@ class DIDs(RucioController):
         :param scope: Create the data identifier within this scope.
         :param name: Create the data identifier with this name.
         """
-        statuses, meta, rules, lifetime = {}, [], [], None
+        statuses, meta, rules, lifetime, dids, rse = {}, [], [], None, [], None
         try:
             json_data = loads(data())
             type = json_data['type']
@@ -244,13 +244,17 @@ class DIDs(RucioController):
                 rules = json_data['rules']
             if 'lifetime' in json_data:
                 lifetime = json_data['lifetime']
+            if 'dids' in json_data:
+                dids = json_data['dids']
+            if 'rse' in json_data:
+                rse = json_data['rse']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         except KeyError, e:
             raise generate_http_error(400, 'ValueError', str(e))
 
         try:
-            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, issuer=ctx.env.get('issuer'))
+            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:

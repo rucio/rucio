@@ -32,7 +32,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case, limit=limit, offset=offset)
 
 
-def add_did(scope, name, type, issuer, account=None, statuses={}, meta=[], rules=[], lifetime=None):
+def add_did(scope, name, type, issuer, account=None, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None):
     """
     Add data did.
 
@@ -43,14 +43,22 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta=[], rules
     :param account: The account owner. If None, then issuer is selected as owner.
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-    :param lifetime: DID's lifetime (in seconds).
     :rules: Replication rules associated with the data did. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :param lifetime: DID's lifetime (in seconds).
+    :param dids: The content.
+    :param rse: The RSE name when registering replicas.
     """
+    validate_schema(name='name', obj=name)
+    validate_schema(name='scope', obj=scope)
+    validate_schema(name='dids', obj=dids)
+    validate_schema(name='rse', obj=rse)
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_did', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
 
-    return did.add_did(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
+    return did.add_did(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer,
+                       statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
+                       dids=dids, rse=rse)
 
 
 def add_dids(dids, issuer):
