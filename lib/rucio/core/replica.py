@@ -29,8 +29,9 @@ from rucio.common.utils import chunks
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
-from rucio.db.constants import DIDType, ReplicaState, OBSOLETE
-from rucio.db.session import read_session, stream_session, transactional_session, default_schema_name
+from rucio.db.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability
+from rucio.db.session import (read_session, stream_session, transactional_session,
+                              default_schema_name)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -538,9 +539,13 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     replica_condition, parent_condition, did_condition = list(), list(), list()
     for file in files:
         replica_condition.append(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))
-        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'], models.DataIdentifierAssociation.child_name == file['name'],
+        parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == file['scope'],
+                                     models.DataIdentifierAssociation.child_name == file['name'],
+                                     ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(and_(models.DataIdentifier.scope == file['scope'],
+                                                                                                                                 models.DataIdentifier.name == file['name'],
+                                                                                                                                 models.DataIdentifier.availability == DIDAvailability.LOST)),
                                      ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
-        did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'],
+        did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'], models.DataIdentifier.availability != DIDAvailability.LOST,
                                   ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
     delta, bytes, rowcount = 0, 0, 0
@@ -556,8 +561,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     # Delete did from the content for the last did
     while parent_condition:
-        child_did_condition = list()
-        tmp_parent_condition = list()
+        child_did_condition, tmp_parent_condition = [], []
         for c in chunks(parent_condition, 10):
 
             query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
@@ -570,6 +574,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                                  ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(and_(models.DataIdentifierAssociation.scope == parent_scope,
                                                                                                                                                      models.DataIdentifierAssociation.name == parent_name))))
                 did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False,
+                                          ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
         if child_did_condition:

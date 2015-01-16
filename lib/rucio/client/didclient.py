@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
@@ -190,7 +190,7 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
 
-    def attach_dids_to_dids(self, attachments):
+    def attach_dids_to_dids(self, attachments, ignore_duplicate=False):
         """
         Add dids to dids.
 
@@ -198,17 +198,19 @@ class DIDClient(BaseClient):
             attachments is: [attachment, attachment, ...]
             attachment is: {'scope': scope, 'name': name, 'dids': dids}
             dids is: [{'scope': scope, 'name': name}, ...]
+            :param ignore_duplicate: If True, ignore duplicate entries.
         """
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='POST', data=render_json_list(attachments))
+        data = {'ignore_duplicate': ignore_duplicate, 'attachments': attachments}
+        r = self._send_request(url, type='POST', data=dumps(data))
         if r.status_code in (codes.ok, codes.no_content, codes.created):
             return True
 
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
 
-    def add_files_to_datasets(self, attachments):
+    def add_files_to_datasets(self, attachments, ignore_duplicate=False):
         """
         Add files to datasets.
 
@@ -216,8 +218,10 @@ class DIDClient(BaseClient):
             attachments is: [attachment, attachment, ...]
             attachment is: {'scope': scope, 'name': name, 'dids': dids}
             dids is: [{'scope': scope, 'name': name}, ...]
+        :param ignore_duplicate: If True, ignore duplicate entries.
         """
-        return self.attach_dids_to_dids(attachments=attachments)
+        return self.attach_dids_to_dids(attachments=attachments,
+                                        ignore_duplicate=ignore_duplicate)
 
     def add_datasets_to_containers(self, attachments):
         """

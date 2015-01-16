@@ -307,7 +307,8 @@ class DataIdentifier(BASE, ModelBase):
     obsolete = Column(Boolean(name='DIDS_OBSOLETE_CHK'), server_default='0')
     complete = Column(Boolean(name='DIDS_COMPLETE_CHK'))
     is_new = Column(Boolean(name='DIDS_IS_NEW_CHK'), server_default='1')
-    availability = Column(DIDAvailability.db_type(name='DIDS_AVAILABILITY_CHK'))
+    availability = Column(DIDAvailability.db_type(name='DIDS_AVAILABILITY_CHK'),
+                          default=DIDAvailability.AVAILABLE)
     suppressed = Column(Boolean(name='FILES_SUPP_CHK'), server_default='0')
     bytes = Column(BigInteger)
     length = Column(BigInteger)

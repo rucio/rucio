@@ -8,7 +8,7 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -162,13 +162,20 @@ class Attachments(RucioController):
     def POST(self):
 
         # To be moved in a common processor
+
+        attachments, ignore_duplicate = [], False
         try:
             json_data = loads(data())
+            if type(json_data) is dict:
+                attachments = json_data.get('attachments')
+                ignore_duplicate = json_data.get('ignore_duplicate')
+            elif type(json_data) is list:
+                attachments = json_data
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            attach_dids_to_dids(attachments=json_data, issuer=ctx.env.get('issuer'))
+            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound, e:
             raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
         except DuplicateContent, e:
