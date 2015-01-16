@@ -87,7 +87,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
 
 @transactional_session
-def add_did(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, session=None):
+def add_did(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None, session=None):
     """
     Add data identifier.
 
@@ -99,9 +99,12 @@ def add_did(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
     :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     :param lifetime: DID's lifetime (in seconds).
+    :param dids: The content.
+    :param rse: The RSE name when registering replicas.
     :param session: The database session in use.
     """
-    return add_dids(dids=[{'scope': scope, 'name': name, 'type': type, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}], account=account, session=session)
+    return add_dids(dids=[{'scope': scope, 'name': name, 'type': type, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime, 'dids': dids, 'rse': rse}],
+                    account=account, session=session)
 
 
 @transactional_session
@@ -141,7 +144,12 @@ def add_dids(dids, account, session=None):
 
                 new_did.save(session=session, flush=False)
 
+                if did.get('dids', None):
+                    attach_dids(scope=did['scope'], name=did['name'], dids=did['dids'],
+                                account=account, rse=did.get('rse'), session=session)
+
                 if did.get('rules', None):
+                    print did['rules']
                     rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
 
                 event_type = None

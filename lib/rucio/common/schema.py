@@ -276,6 +276,7 @@ def validate_schema(name, obj):
     :param obj: The object to validate.
     """
     try:
-        validate(obj, schemas.get(name, {}))
+        if obj:
+            validate(obj, schemas.get(name, {}))
     except ValidationError, e:  # NOQA
         raise InvalidObject("Problem validating %(name)s : %(e)s" % locals())
