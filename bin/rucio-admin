@@ -15,7 +15,7 @@
 # - David Cameron, <david.cameron@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 
 """
 Rucio Administration Utility
@@ -25,6 +25,7 @@ import argcomplete
 import argparse
 import json
 import os
+import pprint
 import sys
 import time
 
@@ -50,6 +51,7 @@ SUCCESS = 0
 FAILURE = 1
 DEFAULT_PORT = 443
 
+pp = pprint.PrettyPrinter(indent=4)
 
 def add_account(args):
     """
@@ -919,6 +921,83 @@ def update_subscription(args):
     return SUCCESS
 
 
+def list_account_attributes(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    List the attributes for an account.
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.issuer,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        attributes = client.list_account_attributes(account=args.account)
+    except Exception, e:
+        print 'Failed get attributes for account {0}'.format(args.account)
+        print e
+        return FAILURE
+    for attr in attributes:
+        pp.pprint("{0}: {1}".format(attr[0]['key'], attr[0]['value']))
+    return SUCCESS
+
+
+def add_account_attribute(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Add attribute for an account.
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.issuer,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.add_account_attribute(account=args.account, key=args.key, value=args.value)
+    except Exception, e:
+        print 'Failed add attributes for account {0}'.format(args.account)
+        print e
+        return FAILURE
+    return SUCCESS
+
+
+def delete_account_attribute(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Delete attribute for an account.
+
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
+                           account=args.issuer,
+                           auth_type=args.auth_strategy, creds=creds,
+                           ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client.delete_account_attribute(account=args.account, key=args.key)
+    except Exception, e:
+        print 'Failed add attributes for account {0}'.format(args.account)
+        print e
+        return FAILURE
+    return SUCCESS
+
+
 if __name__ == '__main__':
     usage = """
 %(prog)s
@@ -960,6 +1039,24 @@ Commands:
     list_account_parser.add_argument('--id', dest='identity', action='store', help='Identity (e.g. DN)')
 
     list_account_parser.set_defaults(which='list_accounts')
+
+    # The list_account_attributes command
+    list_attr_parser = account_subparser.add_parser('list-attributes', help='List attributes for an account')
+    list_attr_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    list_attr_parser.set_defaults(which='list_account_attributes')
+
+    # The add_account_attribute command
+    add_attr_parser = account_subparser.add_parser('add-attribute', help='Add attribute for an account')
+    add_attr_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    add_attr_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    add_attr_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
+    add_attr_parser.set_defaults(which='add_account_attribute')
+
+    # The add_account_attribute command
+    delete_attr_parser = account_subparser.add_parser('delete-attribute', help='Delete attribute for an account')
+    delete_attr_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    delete_attr_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
+    delete_attr_parser.set_defaults(which='delete_account_attribute')
 
     # The add_account command
     add_account_parser = account_subparser.add_parser('add', help='Add Rucio account')
@@ -1147,6 +1244,9 @@ Commands:
 
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
+                'list_account_attributes': list_account_attributes,
+                'add_account_attribute': add_account_attribute,
+                'delete_account_attribute': delete_account_attribute,
                 'delete_account': delete_account,
                 'info_account': info_account,
                 'ban_account': ban_account,
