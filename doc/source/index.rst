@@ -125,6 +125,7 @@ Rucio CLI
     cli_examples
     cli_admin_examples
     client_tutorial
+    client_howto
 
 Appendices
 ==========
