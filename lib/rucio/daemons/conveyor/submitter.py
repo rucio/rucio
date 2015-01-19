@@ -25,6 +25,7 @@ import traceback
 from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
+from rucio.common.closeness_sorter import sort_sources
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.utils import construct_surl
 from rucio.core import did, replica, request, rse as rse_core
@@ -207,6 +208,8 @@ def get_sources(dest_rse, scheme, req):
         for tmp in tmpsrc:
             sources.append(tmp)
 
+    if len(sources) > 1:
+        sources = sort_sources(sources, dest_rse['rse'])
     return sources, metadata
 
 
