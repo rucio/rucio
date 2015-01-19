@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 
 from os import remove
@@ -100,6 +100,32 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         nose.tools.assert_equal('', out)
+
+    def test_attributes(self):
+        """CLIENT(ADMIN): Add/List/Delete attributes"""
+        tmp_acc = account_name_generator()
+
+        # create account
+        cmd = 'rucio-admin account add %s' % tmp_acc
+        exitcode, out, err = execute(cmd)
+        # add attribute to the account
+        cmd = 'rucio-admin account add-attribute --account {0} --key test_attribute_key --value true'.format(tmp_acc)
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_equal(0, exitcode)
+        # list attributes
+        cmd = 'rucio-admin account list-attributes --account {0}'.format(tmp_acc)
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_equal(0, exitcode)
+        # delete attribute to the account
+        cmd = 'rucio-admin account delete-attribute --account {0} --key test_attribute_key'.format(tmp_acc)
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_equal(0, exitcode)
 
     def test_add_scope(self):
         """CLIENT(ADMIN): Add scope"""

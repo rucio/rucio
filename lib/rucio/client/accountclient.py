@@ -11,6 +11,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 from json import dumps
 from requests.status_codes import codes
@@ -255,4 +256,55 @@ class AccountClient(BaseClient):
             return self._load_json_data(r)
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def list_account_attributes(self, account):
+        """
+        List the attributes for an account.
+
+        :param account: The account name.
+        """
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr/'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def add_account_attribute(self, account, key, value):
+        """
+        Adds an attribute to an account.
+
+        :param account: The account name.
+        :param key: The attribute key.
+        :param value: The attribute value.
+        """
+
+        data = dumps({'key': key, 'value': value})
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr', key])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+            raise exc_cls(exc_msg)
+
+    def delete_account_attribute(self, account, key):
+        """
+        Delete an attribute for an account.
+
+        :param account: The account name.
+        :param key: The attribute key.
+        """
+
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr', key])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='DEL', data=None)
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
