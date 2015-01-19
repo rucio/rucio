@@ -1122,7 +1122,7 @@ Commands:
     add_sub_parser.add_argument(dest='name', action='store', help='Subscription name')
     add_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
     add_sub_parser.add_argument(dest='replication_rules', action='store', help='Replication rules (eg \'[{"copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')')
-    add_sub_parser.add_argument(dest='comments', action='store', help='Subscription name')
+    add_sub_parser.add_argument(dest='comments', action='store', help='Comments on subscription')
     add_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
     add_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
     # retroactive and dry_run hard-coded for now
@@ -1140,6 +1140,7 @@ Commands:
     update_sub_parser.add_argument(dest='name', action='store', help='Subscription name')
     update_sub_parser.add_argument(dest='filter', action='store', help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')
     update_sub_parser.add_argument(dest='replication_rules', action='store', help='Replication rules (eg \'[{"copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')')
+    update_sub_parser.add_argument(dest='comments', action='store', help='Comments on subscription')
     update_sub_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Subscription lifetime (in days)')
     update_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
     # subscription policy, retroactive and dry_run hard-coded for now
