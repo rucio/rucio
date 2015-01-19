@@ -869,6 +869,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
     replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
+    rse = get_rse_name(rse_id, session=session)
 
     datasets = []
     parent_dids = rucio.core.did.list_parent_dids(scope=scope, name=name, session=session)
@@ -906,6 +907,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
         replica.state = ReplicaState.UNAVAILABLE
         session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
         for dts in datasets:
+            logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST' % (scope, name, rse, dts['scope'], dts['name']))
             add_message('LOST', {'scope': scope,
                                  'name': name,
                                  'dataset_name': dts['name'],
@@ -934,9 +936,16 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     rse = get_rse_name(rse_id, session=session)
 
     nlock = 0
+    datasets = []
     for lock in locks:
         nlock += 1
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
+        ds_scope = rule.scope
+        ds_name = rule.name
+        dataset = '%s:%s' % (ds_scope, ds_name)
+        if dataset not in datasets:
+            datasets.append(dataset)
+            logging.info('Recovering file %s:%s from dataset %s:%s at site %s' % (scope, name, ds_scope, ds_name, rse))
         if lock.state == LockState.OK:
             rule.locks_ok_cnt -= 1
         elif lock.state == LockState.REPLICATING:
@@ -945,15 +954,13 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
             rule.locks_stuck_cnt -= 1
         rule.locks_replicating_cnt += 1
         if not get_request_by_did(scope, name, rse, session=session):
-            ds_scope = rule.scope
-            ds_name = rule.name
             bytes = replica.bytes
             md5 = replica.md5
             adler32 = replica.adler32
             queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                           request_type=RequestType.TRANSFER,
                                                           scope=scope, name=name, rule=rule, bytes=bytes, md5=md5, adler32=adler32,
-                                                          ds_scope=ds_scope, ds_name=ds_name, lifetime=None)], session=session)
+                                                          ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery')], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
             continue
@@ -966,6 +973,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     if nlock:
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
     else:
+        logging.info('File %s:%s at site %s has no locks. Will be deleted now.' % (scope, name, rse))
         tombstone = OBSOLETE
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.UNAVAILABLE, 'tombstone': tombstone})
 

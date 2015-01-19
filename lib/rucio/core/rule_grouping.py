@@ -8,6 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 import logging
 import sys
@@ -137,7 +138,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, rs
     return replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
 
 
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None):
+def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=None, md5=None, adler32=None, ds_scope=None, ds_name=None, lifetime=None, activity=None):
     """
     This method creates a transfer dictionary and returns it
 
@@ -152,9 +153,10 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, bytes=Non
     :param ds_scope:      Dataset the file belongs to.
     :param ds_name:       Dataset the file belongs to.
     :param lifetime:      Lifetime in the case of STAGIN requests.
+    :param activity:      Activity to be used.
     :returns:             Request dictionary.
     """
-    attributes = {'activity': rule.activity,
+    attributes = {'activity': activity or rule.activity or 'default',
                   'source_replica_expression': rule.source_replica_expression,
                   'lifetime': lifetime,
                   'ds_scope': ds_scope,
