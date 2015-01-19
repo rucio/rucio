@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
@@ -213,7 +213,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, session):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
                 or match('.*columns scope, name, child_scope, child_name are not unique.*', e.args[0]):
-            raise exception.FileAlreadyExists(e.args)
+            raise exception.DuplicateContent(e.args)
         else:
             raise exception.RucioException(e.args)
 
