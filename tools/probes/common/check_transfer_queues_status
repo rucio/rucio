@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 '''
@@ -21,62 +21,29 @@ from rucio.db.session import get_session
 # Exit statuses
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
-history_queue = """SELECT
-CASE
- WHEN state = 'Q' THEN 'requests.history.queued'
- WHEN state = 'S' THEN 'requests.history.submitted'
- WHEN state = 'F' THEN 'requests.history.failed'
- WHEN state = 'D' THEN 'requests.history.done'
- WHEN state = 'L' THEN 'requests.history.lost'
- ELSE state
-END state_desc ,
-num_rows
-FROM
-(
-select  /*+ INDEX(REQUESTS_HISTORY REQUESTS_H_TYP_STA_IDX) */ state, count(*) num_rows
-FROM atlas_rucio.requests_history
-WHERE request_type='T'
-GROUP BY state
-)"""
-
 active_queue = """SELECT
 CASE
- WHEN state = 'Q' THEN 'requests.queued'
- WHEN state = 'S' THEN 'requests.submitted'
- WHEN state = 'F' THEN 'requests.failed'
- WHEN state = 'D' THEN 'requests.done'
- WHEN state = 'L' THEN 'requests.lost'
+ WHEN state = 'S' THEN 'queues.requests.submitted.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
+ WHEN state = 'Q' THEN 'queues.requests.queued.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
+ WHEN state = 'F' THEN 'queues.requests.failed.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
+ WHEN state = 'D' THEN 'queues.requests.done.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
+ WHEN state = 'L' THEN 'queues.requests.lost.' || replace(activity, ' ', '_') || '.' || nvl(replace(substr(external_host, 9, length(external_host)-13), '.', '_'), 'no_fts_host')
  ELSE state
-END state_desc ,
+END state_desc,
 num_rows
 FROM
 (
-select state, count(*) num_rows
+select state, count(*) num_rows, activity, external_host
 FROM atlas_rucio.requests
-WHERE request_type='T'
-GROUP BY state
+GROUP BY state, activity, external_host
 )"""
 
-metrics = {'requests.queued': 0,
-           'requests.submitted': 0,
-           'requests.failed': 0,
-           'requests.done': 0,
-           'requests.lost': 0}
 if __name__ == "__main__":
     try:
         session = get_session()
-        # Check on history requests disabled for now because of high load on the DB
-        if False:
-            result = session.execute(history_queue).fetchall()
-            for r in result:
-                print 'queues.%s' % r[0], r[1],
-                monitor.record_gauge(stat='queues.%s' % r[0], value=r[1])
-        result = session.execute(active_queue).fetchall()
-        for r in result:
-            metrics[r[0]] = r[1]
-        for k in metrics.keys():
-            print 'queues.%s' % k, metrics[k],
-            monitor.record_gauge(stat='queues.%s' % k, value=metrics[k])
+        for k in session.execute(active_queue).fetchall():
+            print k[0],k[1],
+            monitor.record_gauge(stat=k[0], value=k[1])
     except:
         sys.exit(UNKNOWN)
     sys.exit(OK)
