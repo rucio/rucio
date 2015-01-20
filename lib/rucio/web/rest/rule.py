@@ -20,7 +20,7 @@ from rucio.api.rule import add_replication_rule, delete_replication_rule, get_re
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    DuplicateRule, InvalidObject)
+                                    DuplicateRule, InvalidObject, AccountNotFound)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -83,6 +83,8 @@ class Rule:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RuleNotFound, e:
             raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         except RucioException, e:
