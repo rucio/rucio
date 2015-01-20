@@ -60,16 +60,22 @@ class RuleClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def delete_replication_rule(self, rule_id):
+    def delete_replication_rule(self, rule_id, purge_replicas=None):
         """
         Deletes a replication rule and all associated locks.
 
-        :param rule_id:  The id of the rule to be deleted
-        :raises:         RuleNotFound, AccessDenied
+        :param rule_id:         The id of the rule to be deleted
+        :param purge_replicas:  Immediately delete the replicas.
+        :raises:                RuleNotFound, AccessDenied
         """
+
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='DEL')
+
+        data = dumps({'purge_replicas': purge_replicas})
+
+        r = self._send_request(url, type='DEL', data=data)
+
         if r.status_code == codes.ok:
             return True
         else:
