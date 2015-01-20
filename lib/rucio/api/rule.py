@@ -94,7 +94,7 @@ def list_associated_replication_rules_for_file(scope, name):
     return rule.list_associated_rules_for_file(scope=scope, name=name)
 
 
-def delete_replication_rule(rule_id, issuer):
+def delete_replication_rule(rule_id, purge_replicas, issuer):
     """
     Deletes a replication rule and all associated locks.
 
@@ -102,10 +102,10 @@ def delete_replication_rule(rule_id, issuer):
     :param issuer:   The issuing account of this operation
     :raises:         RuleNotFound, AccessDenied
     """
-    kwargs = {'rule_id': rule_id}
+    kwargs = {'rule_id': rule_id, 'purge_replicas': purge_replicas}
     if not has_permission(issuer=issuer, action='del_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not remove this replication rule.' % (issuer))
-    rule.delete_rule(rule_id)
+    rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas)
 
 
 def update_replication_rule(rule_id, options, issuer):

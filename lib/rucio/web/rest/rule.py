@@ -194,8 +194,17 @@ class Rule:
             404 Not Found
             500 Internal Error
         """
+        json_data = data()
         try:
-            delete_replication_rule(rule_id=rule_id, issuer=ctx.env.get('issuer'))
+            purge_replicas = None
+            params = loads(json_data)
+            if 'purge_replicas' in params:
+                purge_replicas = params['purge_replicas']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'))
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RuleNotFound, e:

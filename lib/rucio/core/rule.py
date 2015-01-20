@@ -411,15 +411,16 @@ def list_associated_rules_for_file(scope, name, session=None):
 
 
 @transactional_session
-def delete_rule(rule_id, nowait=False, session=None):
+def delete_rule(rule_id, purge_replicas=None, nowait=False, session=None):
     """
     Delete a replication rule.
 
-    :param rule_id:   The rule to delete.
-    :param nowait:    Nowait parameter for the FOR UPDATE statement.
-    :param session:   The database session in use.
-    :raises:          RuleNotFound if no Rule can be found.
-    :raises:          AccessDenied if the Rule is locked.
+    :param rule_id:         The rule to delete.
+    :param purge_replicas:  Purge the replicas immediately.
+    :param nowait:          Nowait parameter for the FOR UPDATE statement.
+    :param session:         The database session in use.
+    :raises:                RuleNotFound if no Rule can be found.
+    :raises:                AccessDenied if the Rule is locked.
     """
 
     with record_timer_block('rule.delete_rule'):
@@ -429,6 +430,9 @@ def delete_rule(rule_id, nowait=False, session=None):
             raise RuleNotFound('No rule with the id %s found' % (rule_id))
         if rule.locked:
             raise AccessDenied('The replication rule is locked and has to be unlocked before it can be deleted.')
+
+        if purge_replicas is not None:
+            rule.purge_replicas = purge_replicas
 
         locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == rule_id).with_for_update(nowait=nowait).all()
 
