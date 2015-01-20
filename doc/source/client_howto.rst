@@ -12,8 +12,35 @@ Rucio Client How To
 ``General concepts``
 --------------------
 
+``Introduction``
+----------------
+The main command line interface is rucio. Type rucio without arguments to get a list of possible sub-commands. A rucio-admin tool also exists which is used for administrative purposes. This tool is not covered here.
+
+The recommended set up is to use ATLAS Local Root Base. localSetupDQ2Clients also sets up Rucio clients.
+
+
+``Rucio concepts``
+------------------
+
+``DIDs``
+--------
+Dataset identifiers (DIDs) are the core objects in Rucio. They may be files, datasets or containers. Many Rucio commands ask for a DID and can accept files, datasets or containers.
+
+``Accounts``
+------------
+
+Your identity in Rucio is the Rucio account. When joining the ATLAS VO you must pick a nickname which is the same as your CERN login account - this is also your default Rucio account. When using the recommended set up above the account is set automatically and you do not need to do anything further. Under special circumstances you may need to use another Rucio account and it can be set with the RUCIO_ACCOUNT environment variable.
+
+``Scopes``
+----------
+
+Scopes are a new concept in Rucio and are a way of partitioning the dataset and file namespace. Every DID has a scope and a name and the Rucio clients always display this as scope:name. When a command requires a DID argument it must be the full DID with scope:name. With the default Rucio account you may only create new DIDs in your own scope, user.username. Only special admin users can create DIDs in other scopes.
+
+``Permissions``
+---------------
+As a regular user you are only permitted to upload data directly to SCRATCHDISK sites or at your LOCALGROUPDISK. SCRATCHDISKs is also where the outputs of your jobs normally go. Data on SCRATCHDISK has a lifetime of 15 days. The lifetime of the data on LOCALGROUPDISKs can be infinite.
+
     - Datasets and files
-    - Versions
     - Dataset Containers
     - Physics Containers
     - Replicas
