@@ -32,6 +32,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject)
 from rucio.core import account_counter, rse_counter
+from rucio.core.account import get_account
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name
@@ -677,6 +678,8 @@ def update_rule(rule_id, options, session=None):
             if key == 'lifetime':
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
             elif key == 'account':
+                # Check if the account exists
+                get_account(options['account'], session=session)
                 # Update locks
                 locks = session.query(models.ReplicaLock).filter_by(rule_id=rule.id).all()
                 counter_rses = {}
@@ -693,6 +696,7 @@ def update_rule(rule_id, options, session=None):
                     account_counter.increase(rse_id=rse_id, account=options['account'], files=len(counter_rses[rse_id]), bytes=sum(counter_rses[rse_id]), session=session)
                 # Update rule
                 rule.account = options['account']
+                session.flush()
             else:
                 setattr(rule, key, options[key])
 
