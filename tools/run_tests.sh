@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Evangelia Liotiri, <evangelia.liotiri@cern.ch>, 2015
 
 noseopts="--exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server"
 dq2opts=""
@@ -120,3 +121,11 @@ if test ${alembic}; then
     echo '==============================='
     nosetests -v lib/rucio/tests/test_alembic.py
 fi
+
+
+echo '==============================='
+echo 'Running flake8                 '
+echo '==============================='
+flake8 bin/* lib/ tools/*.py tools/probes/common/*
+
+
