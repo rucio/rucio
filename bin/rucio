@@ -1061,7 +1061,10 @@ def delete_rule(args):
                         account=args.account, auth_type=args.auth_strategy, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        client.delete_replication_rule(rule_id=args.rule_id)
+        if args.purge_replicas:
+            client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=True)
+        else:
+            client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=None)
         print 'Removed Rule'
     except Exception, e:
         print 'Failed to delete replication rule'
@@ -1578,6 +1581,7 @@ Commands:
     delete_rule_parser = subparsers.add_parser('delete-rule', help='Delete replication rule')
     delete_rule_parser.set_defaults(which='delete_rule')
     delete_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
+    delete_rule_parser.add_argument('--purge-replicas', dest='purge_replicas', action='store_true', help='Purge rule replicas')
 
     # Info replication rule subparser
     info_rule_parser = subparsers.add_parser('rule-info', help='Retrieve information about a rule')
