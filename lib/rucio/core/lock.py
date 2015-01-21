@@ -239,11 +239,11 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
 
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
-            continue
+            pass
         elif (rule.error is not None):
-            continue
+            pass
         elif (rule.locks_stuck_cnt > 0):
-            continue
+            pass
         elif (rule.locks_replicating_cnt == 0):
             rule.state = RuleState.OK
             # Try to update the DatasetLocks
@@ -251,6 +251,9 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
                 session.flush()
                 rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
+
+        # Insert rule history
+        rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
 
 @transactional_session
@@ -280,15 +283,18 @@ def failed_transfer(scope, name, rse_id, session=None):
 
         # Update the rule state
         if rule.state == RuleState.SUSPENDED:
-            continue
+            pass
         elif rule.error is not None:
-            continue
+            pass
         elif rule.locks_stuck_cnt > 0:
             if rule.state != RuleState.STUCK:
                 rule.state = RuleState.STUCK
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+
+        # Insert rule history
+        rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
 
 @transactional_session

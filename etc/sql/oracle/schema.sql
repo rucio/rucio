@@ -72,6 +72,8 @@ SUBSCRIPTIONS_HISTORY
 RSE_USAGE_HISTORY
 ACCOUNT_USAGE_HISTORY
 LOGGING_TABPARTITIONS
+RULES_HIST_RECENT
+RULES_HIST_LONGTERM
 
 as total 31 tables (+ one obsolete)
 
@@ -1272,3 +1274,77 @@ CREATE TABLE configs_history (
   created_at DATE,
   CONSTRAINT configs_history_pk PRIMARY KEY (section, opt, updated_at) USING INDEX COMPRESS 1
 ) PCTFREE 0 COMPRESS FOR OLTP tablespace ATLAS_RUCIO_HIST_DATA01;
+
+
+-- ========================================= RULES_HIST_RECENT ==============================================
+-- Description: Table of recent rule changes
+-- Estimated volume:  ~10mio
+-- Access pattern: -- By rule_id
+
+
+CREATE TABLE rules (
+    history_id RAW(16),
+    id RAW(16),
+    subscription_id RAW(16),
+    account VARCHAR2(25 CHAR),
+    scope VARCHAR2(25 CHAR),
+    name VARCHAR2(255 CHAR),
+    did_type CHAR(1 CHAR),
+    state CHAR(1 CHAR),
+    rse_expression VARCHAR2(255 CHAR),
+    copies NUMBER(4) DEFAULT 1,
+    expires_at DATE,
+    weight VARCHAR2(255 CHAR),
+    locked NUMBER(1) DEFAULT 0,
+    grouping CHAR(1 CHAR),
+    error VARCHAR2(255 CHAR),
+    updated_at DATE,
+    created_at DATE,
+    source_replica_expression VARCHAR2(255 CHAR),
+    activity VARCHAR2(50 CHAR),
+    locks_ok_cnt NUMBER(10) DEFAULT 0,
+    locks_replicating_cnt NUMBER(10) DEFAULT 0,
+    locks_stuck_cnt NUMBER(10) DEFAULT 0,
+    notification CHAR(1 CHAR),
+    stuck_at DATE,
+    purge_replicas NUMBER(1) DEFAULT 0,
+    ignore_availability NUMBER(1) DEFAULT 0,
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+
+CREATE INDEX RULES_HIST_RECENT_ID_IDX ON rules_hist_recent (id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+
+
+-- ========================================= RULES_HIST_LONGTERM ==============================================
+-- Description: Table of longterm rules (deleted)
+-- Estimated volume:  ?
+-- Access pattern: -- Usually by scope, name - but very rare so full table scan is fine
+
+
+CREATE TABLE rules (
+    history_id RAW(16),
+    id RAW(16),
+    subscription_id RAW(16),
+    account VARCHAR2(25 CHAR),
+    scope VARCHAR2(25 CHAR),
+    name VARCHAR2(255 CHAR),
+    did_type CHAR(1 CHAR),
+    state CHAR(1 CHAR),
+    rse_expression VARCHAR2(255 CHAR),
+    copies NUMBER(4) DEFAULT 1,
+    expires_at DATE,
+    weight VARCHAR2(255 CHAR),
+    locked NUMBER(1) DEFAULT 0,
+    grouping CHAR(1 CHAR),
+    error VARCHAR2(255 CHAR),
+    updated_at DATE,
+    created_at DATE,
+    source_replica_expression VARCHAR2(255 CHAR),
+    activity VARCHAR2(50 CHAR),
+    locks_ok_cnt NUMBER(10) DEFAULT 0,
+    locks_replicating_cnt NUMBER(10) DEFAULT 0,
+    locks_stuck_cnt NUMBER(10) DEFAULT 0,
+    notification CHAR(1 CHAR),
+    stuck_at DATE,
+    purge_replicas NUMBER(1) DEFAULT 0,
+    ignore_availability NUMBER(1) DEFAULT 0,
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01;

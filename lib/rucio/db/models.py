@@ -611,6 +611,67 @@ class ReplicationRule(BASE, ModelBase):
                    Index('RULES_STUCKSTATE_IDX', 'state'))  # This Index is only needed for the STUCK state
 
 
+class ReplicationRuleHistoryRecent(BASE, ModelBase):
+    """Represents replication rules in the recent history"""
+    __tablename__ = 'rules_hist_recent'
+    history_id = Column(GUID(), default=utils.generate_uuid)
+    id = Column(GUID())
+    subscription_id = Column(GUID())
+    account = Column(String(25))
+    scope = Column(String(25))
+    name = Column(String(255))
+    did_type = Column(DIDType.db_type())
+    state = Column(RuleState.db_type())
+    error = Column(String(255))
+    rse_expression = Column(String(255))
+    copies = Column(SmallInteger)
+    expires_at = Column(DateTime)
+    weight = Column(String(255))
+    locked = Column(Boolean())
+    locks_ok_cnt = Column(BigInteger)
+    locks_replicating_cnt = Column(BigInteger)
+    locks_stuck_cnt = Column(BigInteger)
+    source_replica_expression = Column(String(255))
+    activity = Column(String(50))
+    grouping = Column(RuleGrouping.db_type())
+    notification = Column(RuleNotification.db_type())
+    stuck_at = Column(DateTime)
+    purge_replicas = Column(Boolean())
+    ignore_availability = Column(Boolean())
+    _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
+                   Index('RULES_HIST_RECENT_ID_IDX', 'id'))
+
+
+class ReplicationRuleHistoryLongterm(BASE, ModelBase):
+    """Represents replication rules in the longterm history"""
+    __tablename__ = 'rules_hist_longterm'
+    history_id = Column(GUID(), default=utils.generate_uuid)
+    id = Column(GUID())
+    subscription_id = Column(GUID())
+    account = Column(String(25))
+    scope = Column(String(25))
+    name = Column(String(255))
+    did_type = Column(DIDType.db_type())
+    state = Column(RuleState.db_type())
+    error = Column(String(255))
+    rse_expression = Column(String(255))
+    copies = Column(SmallInteger)
+    expires_at = Column(DateTime)
+    weight = Column(String(255))
+    locked = Column(Boolean())
+    locks_ok_cnt = Column(BigInteger)
+    locks_replicating_cnt = Column(BigInteger)
+    locks_stuck_cnt = Column(BigInteger)
+    source_replica_expression = Column(String(255))
+    activity = Column(String(50))
+    grouping = Column(RuleGrouping.db_type())
+    notification = Column(RuleNotification.db_type())
+    stuck_at = Column(DateTime)
+    purge_replicas = Column(Boolean())
+    ignore_availability = Column(Boolean())
+    _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_LONGTERM_PK'),)  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
+
+
 class ReplicaLock(BASE, ModelBase):
     """Represents replica locks"""
     __tablename__ = 'locks'
