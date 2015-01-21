@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 
 """
 Rucio utilities.
@@ -316,6 +316,32 @@ def construct_surl_DQ2(dsn, filename):
             tag = __strip_tag(fields[-1])
         stripped_dsn = __strip_dsn(dsn)
         return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
+
+
+def construct_surl_T0(dsn, filename):
+    """
+    Defines relative SURL for new replicas. This method
+    contains Tier0 convention. To be used for non-deterministic sites.
+
+    @return: relative SURL for new replica.
+    @rtype: str
+    """
+    fields = dsn.split('.')
+    nfields = len(fields)
+    if nfields >= 3:
+        return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], fields[1], dsn, filename)
+    elif nfields == 1:
+        return '/%s/%s/%s/%s/%s' % (fields[0], 'other', 'other', dsn, filename)
+    elif nfields == 2:
+        return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], 'other', dsn, filename)
+
+
+def construct_surl(dsn, filename, naming_convention=None):
+    if naming_convention == 'T0':
+        return construct_surl_T0(dsn, filename)
+    elif naming_convention == 'DQ2':
+        return construct_surl_DQ2(dsn, filename)
+    return construct_surl_DQ2(dsn, filename)
 
 
 def __strip_dsn(dsn):
