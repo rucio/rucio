@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
 """
@@ -26,7 +26,7 @@ from ConfigParser import NoOptionError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
-from rucio.common.utils import construct_surl_DQ2
+from rucio.common.utils import construct_surl
 from rucio.core import did, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
@@ -210,7 +210,7 @@ def get_sources(dest_rse, scheme, req):
     return sources, metadata
 
 
-def get_destinations(rse_info, scheme, req, sources):
+def get_destinations(rse_info, scheme, req, sources, naming_convention):
     dsn = 'other'
     pfn = {}
     paths = {}
@@ -245,7 +245,7 @@ def get_destinations(rse_info, scheme, req, sources):
                 prefix = s['prefix']
 
         # DQ2 path always starts with /, but prefix might not end with /
-        path = construct_surl_DQ2(dsn, req['name'])
+        path = construct_surl(dsn, req['name'], naming_convention)
 
         # retrial transfers to tape need a new filename - add timestamp
         if req['request_type'] == RequestType.TRANSFER\
@@ -332,8 +332,19 @@ def get_transfer(rse, req, scheme, mock):
     md5 = metadata['md5']
     adler32 = metadata['adler32']
 
+    naming_convention = None
+    fts_hosts = None
+    if req['request_type'] == RequestType.STAGEIN:
+        # get external host
+        if rse_core.get_rse(rse['rse'])['staging_area'] or rse['rse'].endswith("STAGING"):
+            rse_attr = rse_core.list_rse_attributes(sources[0][0])
+        else:
+            rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
+        fts_hosts = rse_attr.get('fts', None)
+        naming_convention = rse_attr.get('naming_convention', None)
+
     ts = time.time()
-    destinations, dest_spacetoken = get_destinations(rse, scheme, req, sources)
+    destinations, dest_spacetoken = get_destinations(rse, scheme, req, sources, naming_convention)
     record_timer('daemons.conveyor.submitter.get_destinations', (time.time() - ts) * 1000)
     logging.debug('Destinations for request %s: %s' % (req['request_id'], destinations))
     if destinations is None:
@@ -414,12 +425,6 @@ def get_transfer(rse, req, scheme, mock):
     if req['request_type'] == RequestType.STAGEIN:
         tmp_metadata['dst_rse'] = sources[0][0]
 
-    # get external host
-    if rse_core.get_rse(rse['rse'])['staging_area'] or rse['rse'].endswith("STAGING"):
-        rse_attr = rse_core.list_rse_attributes(sources[0][0])
-    else:
-        rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
-    fts_hosts = rse_attr.get('fts', None)
     retry_count = req['retry_count']
     if not retry_count:
         retry_count = 0
