@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 
 
 import logging
@@ -148,10 +148,12 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                     weight = rule.get('weight', None)
                                     source_replica_expression = rule.get('source_replica_expression', None)
                                     activity = rule.get('activity', None)
+                                    locked = rule.get('locked', None)
+                                    purge_replicas = rule.get('purge_replicas', False)
                                     try:
                                         rse_expression = str(rule['rse_expression']).encode('string-escape')
                                         add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rse_expression,
-                                                 grouping=grouping, weight=weight, lifetime=lifetime, locked=False, subscription_id=subscription['id'], source_replica_expression=source_replica_expression, activity=activity)
+                                                 grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription['id'], source_replica_expression=source_replica_expression, activity=activity, purge_replicas=purge_replicas)
                                         monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
                                         if subscription['name'].find('test') > -1:
                                             monitor.record_counter(counters='transmogrifier.addnewrule.activity.test', delta=1)
