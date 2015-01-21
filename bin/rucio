@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2015
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
@@ -207,7 +207,7 @@ def list_replicas(args):
                 logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
                 return FAILURE
             dids.append({'scope': scope, 'name': name})
-        replicas = client.list_replicas(dids, schemes=protocols)
+        replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
         print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
         for replica in replicas:
             if 'bytes' in replica:
@@ -1393,6 +1393,7 @@ Commands:
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
     list_replicas_parser.set_defaults(which='list_replicas')
     list_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols', required=False)
+    list_replicas_parser.add_argument('--all_states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones)', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The add-dataset command

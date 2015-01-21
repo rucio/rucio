@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 from json import dumps
@@ -58,7 +58,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
         raise exc_cls(exc_msg)
 
-    def list_replicas(self, dids, schemes=None, unavailable=False, metalink=None):
+    def list_replicas(self, dids, schemes=None, unavailable=False, all_states=False, metalink=None):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -75,6 +75,7 @@ class ReplicaClient(BaseClient):
             data['schemes'] = schemes
         if unavailable:
             data['unavailable'] = True
+        data['all_states'] = all_states
         url = build_url(choice(self.list_hosts), path='/'.join([self.REPLICAS_BASEURL, 'list']))
 
         headers = {}
