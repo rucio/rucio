@@ -190,6 +190,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if new_rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.REPLICATING})
 
+            # Add rule to History
+            insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
+
             logging.debug("Created rule %s [%d/%d/%d]" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt))
 
     return rule_ids
@@ -343,6 +346,9 @@ def add_rules(dids, rules, session=None):
                         if new_rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=new_rule.id).update({'state': LockState.REPLICATING})
 
+                    # Add rule to History
+                    insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
+
                     logging.debug("Created rule %s [%d/%d/%d]" % (str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt))
 
     return rule_ids
@@ -444,6 +450,9 @@ def delete_rule(rule_id, nowait=False, session=None):
         for rse_id in account_counter_decreases.keys():
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
 
+        # Insert history
+        insert_rule_history(rule=rule, recent=False, longterm=True, session=session)
+
         session.flush()
         rule.delete(session=session)
 
@@ -478,6 +487,7 @@ def repair_rule(rule_id, session=None):
             rule.stuck_at = datetime.utcnow()
         if rule.stuck_at < (datetime.utcnow() - timedelta(days=14)):
             rule.state = RuleState.SUSPENDED
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             logging.info('Replication rule %s has been SUSPENDED' % (rule_id))
             return
 
@@ -499,6 +509,8 @@ def repair_rule(rule_id, session=None):
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
+            # Insert rule history
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -517,6 +529,8 @@ def repair_rule(rule_id, session=None):
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
+            # Insert rule history
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -560,6 +574,8 @@ def repair_rule(rule_id, session=None):
                 rule.state = RuleState.STUCK
                 rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                 rule.save(session=session)
+                # Insert rule history
+                insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -585,6 +601,8 @@ def repair_rule(rule_id, session=None):
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
             rule.save(session=session)
+            # Insert rule history
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -599,6 +617,8 @@ def repair_rule(rule_id, session=None):
         if rule.locks_stuck_cnt != 0:
             logging.info('Rule %s [%d/%d/%d] state=STUCK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             rule.state = RuleState.STUCK
+            # Insert rule history
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -611,6 +631,8 @@ def repair_rule(rule_id, session=None):
             logging.info('Rule %s [%d/%d/%d] state=REPLICATING' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
             rule.state = RuleState.REPLICATING
             rule.error = None
+            # Insert rule history
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
@@ -618,6 +640,8 @@ def repair_rule(rule_id, session=None):
 
         rule.state = RuleState.OK
         rule.error = None
+        # Insert rule history
+        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
         logging.info('Rule %s [%d/%d/%d] state=OK' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         if rule.grouping != RuleGrouping.NONE:
@@ -889,9 +913,9 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
             rule.locks_stuck_cnt -= 1
         account_counter.decrease(rse_id=rse_id, account=rule.account, files=1, bytes=lock.bytes, session=session)
         if rule.state == RuleState.SUSPENDED:
-            continue
+            pass
         elif rule.state == RuleState.STUCK:
-            continue
+            pass
         elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
             rule.state = RuleState.OK
             if rule.grouping != RuleGrouping.NONE:
@@ -899,6 +923,8 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
                 session.flush()
                 if rule_state_before != RuleState.OK:
                     generate_message_for_dataset_ok_callback(rule=rule, session=session)
+        # Insert rule history
+        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
         session.delete(lock)
 
@@ -963,13 +989,15 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
                                                           ds_scope=ds_scope, ds_name=ds_name, lifetime=None, activity='Recovery')], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
-            continue
+            pass
         elif rule.state == RuleState.STUCK:
-            continue
+            pass
         else:
             rule.state = RuleState.REPLICATING
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
+        # Insert rule history
+        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
     if nlock:
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
     else:
@@ -1016,6 +1044,32 @@ def generate_message_for_dataset_ok_callback(rule, session=None):
                                         session=session)
                 except DataIdentifierNotFound:
                     pass
+
+
+@transactional_session
+def insert_rule_history(rule, recent=True, longterm=False, session=None):
+    """
+    Insert rule history to recent/longterm history.
+
+    :param rule:      The rule object.
+    :param recent:    Insert to recent table.
+    :param longterm:  Insert to longterm table.
+    :param session:   The Database session.
+    """
+    if recent:
+        models.ReplicationRuleHistoryRecent(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
+                                            did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
+                                            expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
+                                            locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
+                                            activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
+                                            ignore_availability=rule.ignore_availability, created_at=rule.created_at, updated_at=rule.updated_at).save(session=session)
+    if longterm:
+        models.ReplicationRuleHistoryLongterm(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
+                                              did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
+                                              expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
+                                              locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
+                                              activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
+                                              ignore_availability=rule.ignore_availability, created_at=rule.created_at, updated_at=rule.updated_at).save(session=session)
 
 
 @transactional_session
@@ -1180,9 +1234,9 @@ def __evaluate_did_detach(eval_did, session=None):
                 logging.debug("Finished removing dataset_locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
             if rule.state == RuleState.SUSPENDED:
-                continue
+                pass
             elif rule.state == RuleState.STUCK:
-                continue
+                pass
             elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
                 rule.state = RuleState.OK
                 if rule.grouping != RuleGrouping.NONE:
@@ -1190,6 +1244,9 @@ def __evaluate_did_detach(eval_did, session=None):
                     session.flush()
                     if rule_locks_ok_cnt_before != rule.locks_ok_cnt:
                         generate_message_for_dataset_ok_callback(rule=rule, session=session)
+
+            # Insert rule history
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
         session.flush()
 
@@ -1285,6 +1342,8 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule.state = RuleState.STUCK
                         rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                         rule.save(session=session)
+                        # Insert rule history
+                        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
                         # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -1302,6 +1361,8 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule.state = RuleState.STUCK
                         rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                         rule.save(session=session)
+                        # Insert rule history
+                        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
                         # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -1338,6 +1399,8 @@ def __evaluate_did_attach(eval_did, session=None):
                         rule.state = RuleState.STUCK
                         rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
                         rule.save(session=session)
+                        # Insert rule history
+                        insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
                         # Try to update the DatasetLocks
                         if rule.grouping != RuleGrouping.NONE:
                             session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
@@ -1362,6 +1425,9 @@ def __evaluate_did_attach(eval_did, session=None):
                             session.flush()
                             if rule_locks_ok_cnt_before < rule.locks_ok_cnt:
                                 generate_message_for_dataset_ok_callback(rule=rule, session=session)
+
+                    # Insert rule history
+                    insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
                     if session.bind.dialect.name != 'sqlite':
                         session.commit()
