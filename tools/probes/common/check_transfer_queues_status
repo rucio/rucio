@@ -42,7 +42,7 @@ if __name__ == "__main__":
     try:
         session = get_session()
         for k in session.execute(active_queue).fetchall():
-            print k[0],k[1],
+            print k[0], k[1],
             monitor.record_gauge(stat=k[0], value=k[1])
     except:
         sys.exit(UNKNOWN)
