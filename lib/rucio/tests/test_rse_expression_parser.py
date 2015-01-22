@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 
 from random import choice
 from string import ascii_uppercase, digits, ascii_lowercase
@@ -16,7 +16,7 @@ from nose.tools import assert_equal, raises, assert_raises
 from rucio.core import rse
 from rucio.core import rse_expression_parser
 from rucio.client.rseclient import RSEClient
-from rucio.common.exception import InvalidRSEExpression
+from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 
 
 def rse_name_generator(size=10):
@@ -142,7 +142,7 @@ class TestRSEExpressionParserCore():
         assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, {'availability_write': True})]),
                      sorted([rseWRITE_id]))
 
-        assert_raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s=de" % attribute, {'availability_write': False})
+        assert_raises(RSEBlacklisted, rse_expression_parser.parse_expression, "%s=de" % attribute, {'availability_write': False})
 
 
 class TestRSEExpressionParserClient():

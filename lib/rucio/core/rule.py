@@ -30,7 +30,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject)
+                                    InvalidObject, RSEBlacklisted)
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
 from rucio.core.message import add_message
@@ -72,7 +72,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param ignore_availability:        Option to ignore the availability of RSEs.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
-    :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule
+    :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted
     """
     rule_ids = []
 
@@ -205,7 +205,7 @@ def add_rules(dids, rules, session=None):
                      {account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notifiy, purge_replicas}
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
-    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule
+    :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted
     """
 
     with record_timer_block('rule.add_rules'):
@@ -462,7 +462,7 @@ def repair_rule(rule_id, session=None):
 
     # Rule error cases:
     # (A) A rule get's an exception on rule-creation. This can only be the MissingSourceReplica exception.
-    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs
+    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs, RSEBlacklisted
     #     InsufficientAccountLimit. The re-evaluation has to be done again and potential missing locks have to be
     #     created.
     # (C) Transfers fail and mark locks (and the rule) as STUCK. All STUCK locks have to be repaired.
@@ -494,7 +494,7 @@ def repair_rule(rule_id, session=None):
                 source_rses = parse_expression(rule.source_replica_expression, session=session)
             else:
                 source_rses = []
-        except (InvalidRSEExpression) as e:
+        except (InvalidRSEExpression, RSEBlacklisted) as e:
             session.rollback()
             rule.state = RuleState.STUCK
             rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
@@ -502,7 +502,7 @@ def repair_rule(rule_id, session=None):
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-            logging.debug('InvalidRSEExpression while repairing rule %s' % (rule_id))
+            logging.debug('%s while repairing rule %s' % (str(e), rule_id))
             return
 
         # Create the RSESelector
@@ -1280,7 +1280,7 @@ def __evaluate_did_attach(eval_did, session=None):
                         source_rses = []
                         if rule.source_replica_expression:
                             source_rses = parse_expression(rule.source_replica_expression, session=session)
-                    except (InvalidRSEExpression) as e:
+                    except (InvalidRSEExpression, RSEBlacklisted) as e:
                         session.rollback()
                         rule.state = RuleState.STUCK
                         rule.error = (str(e)[:245] + '...') if len(str(e)) > 245 else str(e)
