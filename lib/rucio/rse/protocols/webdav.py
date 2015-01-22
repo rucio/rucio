@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 
 import os
@@ -198,13 +198,15 @@ class Default(protocol.RSEProtocol):
 
             :returns: True if the file exists, False if it doesn't
 
-            :raise  ServiceUnavailable
+            :raise  ServiceUnavailable, RSEAccessDenied
         """
         path = self.path2pfn(pfn)
         try:
             result = self.session.request('HEAD', path, verify=False, timeout=self.timeout, cert=self.cert)
             if (result.status_code == 200):
                 return True
+            elif result.status_code in [401, ]:
+                raise exception.RSEAccessDenied()
             elif result.status_code in [404, ]:
                 return False
             else:
@@ -219,7 +221,7 @@ class Default(protocol.RSEProtocol):
             :param pfn Physical file name of requested file
             :param dest Name and path of the files when stored at the client
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(pfn)
         chunksize = 1024
@@ -242,6 +244,8 @@ class Default(protocol.RSEProtocol):
                 f.close()
             elif result.status_code in [404, 403]:
                 raise exception.SourceNotFound()
+            elif result.status_code in [401, ]:
+                raise exception.RSEAccessDenied()
             else:
                 # catchall exception
                 raise exception.RucioException(result.status_code, result.text)
@@ -255,7 +259,7 @@ class Default(protocol.RSEProtocol):
             :param target Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(target)
         full_name = source_dir + '/' + source if source_dir else source
@@ -284,6 +288,8 @@ class Default(protocol.RSEProtocol):
                         return
                     if result.status_code in [409, ]:
                         raise exception.FileReplicaAlreadyExists()
+                    elif result.status_code in [401, ]:
+                        raise exception.RSEAccessDenied()
                     else:
                         # catchall exception
                         raise exception.RucioException(result.status_code, result.text)
@@ -302,7 +308,7 @@ class Default(protocol.RSEProtocol):
             :param pfn      Current physical file name
             :param new_pfn  New physical file name
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(pfn)
         new_path = self.path2pfn(new_pfn)
@@ -327,6 +333,8 @@ class Default(protocol.RSEProtocol):
                         return
                     elif result.status_code in [404, ]:
                         raise exception.SourceNotFound()
+                    elif result.status_code in [401, ]:
+                        raise exception.RSEAccessDenied()
                     else:
                         # catchall exception
                         raise exception.RucioException(result.status_code, result.text)
@@ -340,7 +348,7 @@ class Default(protocol.RSEProtocol):
 
             :param pfn Physical file name
 
-            :raises ServiceUnavailable, SourceNotFound
+            :raises ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(pfn)
         try:
@@ -349,6 +357,8 @@ class Default(protocol.RSEProtocol):
                 return
             elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
+            elif result.status_code in [401, ]:
+                raise exception.RSEAccessDenied()
             else:
                 # catchall exception
                 raise exception.RucioException(result.status_code, result.text)
@@ -360,7 +370,7 @@ class Default(protocol.RSEProtocol):
 
             :param directory Name of the directory that needs to be created
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(directory)
         try:
@@ -369,6 +379,8 @@ class Default(protocol.RSEProtocol):
                 return
             elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
+            elif result.status_code in [401, ]:
+                raise exception.RSEAccessDenied()
             else:
                 # catchall exception
                 raise exception.RucioException(result.status_code, result.text)
@@ -380,7 +392,7 @@ class Default(protocol.RSEProtocol):
 
             :param filename Name of the directory that needs to be created
 
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(filename)
         headers = {'Depth': '1'}
@@ -389,6 +401,8 @@ class Default(protocol.RSEProtocol):
             result = self.session.request('PROPFIND', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
             if result.status_code in [404, ]:
                 raise exception.SourceNotFound()
+            elif result.status_code in [401, ]:
+                raise exception.RSEAccessDenied()
             p = Parser()
             p.feed(result.text)
             list = [self.server + file for file in p.list]
@@ -413,6 +427,7 @@ class Default(protocol.RSEProtocol):
 
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
+            :raises RSEAccessDenied: in case of permission issue.
 
             :returns: a dict with two keys, filesize and adler32 of the file provided in path.
         """
@@ -423,6 +438,8 @@ class Default(protocol.RSEProtocol):
             result = self.session.request('PROPFIND', path, verify=False, headers=headers, timeout=self.timeout, cert=self.cert)
             if result.status_code in [404, ]:
                 raise exception.SourceNotFound()
+            elif result.status_code in [401, ]:
+                raise exception.RSEAccessDenied()
             if result.status_code in [400, ]:
                 raise NotImplementedError
             p = Parser()
