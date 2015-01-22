@@ -57,16 +57,23 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 -----------------
 ``Querying``
 ------------
-    - List all DDM sites      
-        Martin     
+    - List all DDM sites
+        Martin
     - Find a dataset
     - List the contents of a dataset
+        Cedric
     - List the replica locations of a dataset
+        Cedric
     - List the datasets at a site
+        Cedric
     - List the files in a dataset
+        Cedric
     - List the files in a dataset existing at a site
+        Cedric
     - List the physical filenames in a dataset
+        Cedric
     - List the file paths of a dataset replica at a site
+        Cedric
     - List the dataset(s) where a particular file belongs
         Martin
     - Create a Pool File Catalogue with files on a site
@@ -76,6 +83,7 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 ``Retrieving data``
 -------------------
     - Download a full dataset
+        Cedric
     - Download specific files from a dataset
     - Download a sample of n random files from a dataset
     - Download a dataset from a specific site
@@ -86,8 +94,11 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 ``Creating data``
 -----------------
     - General Workflow for creating data
+        Cedric
     - Which name should I give to my files and dataset
+        Cedric
     - Where my dataset/files will be stored with dq2-put ?
+        Cedric
     - Where my dataset/files should be finally stored ?
     - Maximum number of files in a dataset
     - Create a dataset from files on my local disk
