@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -383,6 +383,12 @@ class RSEAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEAccessDenied, self).__init__(args, kwargs)
         self._message = "Referrenced RSE not reachable."
+
+
+class RSEBlacklisted(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RSEBlacklisted, self).__init__(args, kwargs)
+        self._message = "RSE excluded due to write blacklisting."
 
 
 class RSENotConnected(RucioException):
