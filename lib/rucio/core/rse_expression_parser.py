@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -20,7 +20,7 @@ from dogpile.cache.api import NoValue
 from hashlib import sha256
 
 from rucio.common import schema
-from rucio.common.exception import InvalidRSEExpression
+from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 from rucio.core.rse import list_rses
 from rucio.db.session import transactional_session
 
@@ -50,7 +50,7 @@ def parse_expression(expression, filter=None, session=None):
     :param filter:        Availability filter (dictionary) used for the RSEs. e.g.: {'availability_write': True}
     :param session:       Database session in use.
     :returns:             A list of rse dictionaries.
-    :raises:              InvalidRSEExpression, RSENotFound
+    :raises:              InvalidRSEExpression, RSENotFound, RSEBlacklisted
     """
     result = region.get(sha256(expression).hexdigest())
     if type(result) is NoValue:
@@ -91,7 +91,7 @@ def parse_expression(expression, filter=None, session=None):
                 if rse.get('availability') in (7, 3, 2):
                     final_result.append(rse)
         if not final_result:
-            raise InvalidRSEExpression('RSE excluded due to write blacklisting.')
+            raise RSEBlacklisted('RSE excluded due to write blacklisting.')
     else:
         final_result = result
 

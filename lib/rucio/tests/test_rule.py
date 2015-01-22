@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 
 import string
 import random
@@ -22,7 +22,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, InvalidRSEExpression
+from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
@@ -634,7 +634,7 @@ class TestReplicationRuleCore():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
-        with assert_raises(InvalidRSEExpression):
+        with assert_raises(RSEBlacklisted):
             add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
