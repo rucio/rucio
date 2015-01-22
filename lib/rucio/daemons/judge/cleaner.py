@@ -27,7 +27,7 @@ from random import randint
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException, AccessDenied
+from rucio.common.exception import DatabaseException, AccessDenied, RuleNotFound
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.core.monitor import record_gauge, record_counter
 
@@ -93,6 +93,8 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
+                    except RuleNotFound, e:
+                        pass
                 record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 0)
         except Exception, e:
             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
