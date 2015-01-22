@@ -57,29 +57,31 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 -----------------
 ``Querying``
 ------------
-    - list all DDM sites
-    - find a dataset
-    - list the contents of a dataset
-    - list the replica locations of a dataset
-    - list the datasets at a site
-    - list the files in a dataset
-    - list the files in a dataset existing at a site
-    - list the physical filenames in a dataset
-    - list the file paths of a dataset replica at a site
-    - list the dataset(s) where a particular file belongs
-    - create a Pool File Catalogue with files on a site
-    - create a Pool File Catalogue and let the system guess the PFN
-    - create a Pool File Catalogue in a Tier-3
+    - List all DDM sites      
+        Martin     
+    - Find a dataset
+    - List the contents of a dataset
+    - List the replica locations of a dataset
+    - List the datasets at a site
+    - List the files in a dataset
+    - List the files in a dataset existing at a site
+    - List the physical filenames in a dataset
+    - List the file paths of a dataset replica at a site
+    - List the dataset(s) where a particular file belongs
+        Martin
+    - Create a Pool File Catalogue with files on a site
+    - Create a Pool File Catalogue and let the system guess the PFN
+    - Create a Pool File Catalogue in a Tier-3
 
 ``Retrieving data``
 -------------------
-    - download a full dataset
-    - download specific files from a dataset
-    - download a sample of n random files from a dataset
-    - download a dataset from a specific site
-    - download with datasets/files given in an inputfile
-    - download datasets from tape
-      - Restrictions to access datasets on tape
+    - Download a full dataset
+    - Download specific files from a dataset
+    - Download a sample of n random files from a dataset
+    - Download a dataset from a specific site
+    - Download with datasets/files given in an inputfile
+    - Download datasets from tape
+    - Restrictions to access datasets on tape
 
 ``Creating data``
 -----------------
@@ -88,16 +90,19 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
     - Where my dataset/files will be stored with dq2-put ?
     - Where my dataset/files should be finally stored ?
     - Maximum number of files in a dataset
-    - create a dataset from files on my local disk
-    - create a dataset from files on CASTOR at CERN
-    - create a dataset from files on my site's DPM
-    - write a dataset/files in a specific DDM site
-    - create a dataset from files already in other datasets
-    - add files to a dataset
+    - Create a dataset from files on my local disk
+    - Create a dataset from files on CASTOR at CERN
+    - Create a dataset from files on my site's DPM
+    - Write a dataset/files in a specific DDM site
+    - Create a dataset from files already in other datasets
+    - Add files to a dataset
     - What to do after creating a dataset?
-    - close a dataset
-    - re-open a dataset
-    - freeze a dataset
+    - Close a dataset
+        Martin
+    - Re-open a dataset
+        Martin
+    - Freeze a dataset
+        Martin
 
 ``Policy implemented centrally on datasets``
 --------------------------------------------
@@ -108,8 +113,8 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 
 ``Dataset Container commands``
 ------------------------------
-    - create a Dataset Container and include datasets
-    - list the locations of a container
+    - Create a Dataset Container and include datasets
+    - List the locations of a container
     - Remove datasets from a Dataset Container
     - List datasets in a Dataset Container
     - Erase a container
@@ -122,14 +127,15 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 ``Advanced uses``
 -----------------
     - What to do after my distributed analysis jobs create a dataset?
-    - replicate a dataset to another DDM site
-    - check if a file is corrupted
-    - know the size of the dataset
-    - delete a dataset replica from a site - delete a dataset from DDM catalog
+    - Replicate a dataset to another DDM site
+        Martin
+    - Check if a file is corrupted
+    - Know the size of the dataset
+    - Delete a dataset replica from a site - delete a dataset from DDM catalog
     - Remove files from a dataset
     - Create a dataset from files already in other datasets
     - Verify local files with registered attributes
-    - more advanced uses
+    - More advanced uses
 
 ``Known problems``
 ------------------
