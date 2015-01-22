@@ -9,6 +9,7 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 import os
 import sys
@@ -71,7 +72,7 @@ if __name__ == '__main__':
                 sys.exit(CRITICAL)
         print '%i users extracted from VOMS with %s' % (nbusers, account)
 
-    account_list = ['phys-top','phys-higgs']
+    account_list = ['phys-top', 'phys-higgs']
     for account in account_list:
         nbusers = 0
         attempts = 0

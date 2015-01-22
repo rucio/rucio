@@ -6,7 +6,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 import argparse
 import datetime
@@ -22,6 +23,7 @@ logging.basicConfig(stream=stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 logger = logging.getLogger(__name__)
+
 
 def monitor_nginx(uri):
     raise NotImplemented
@@ -107,7 +109,7 @@ def backend_xsls(fqdn, stats):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Takes backend classes and Apaches URLs')
-    parser.add_argument('--backend', metavar='B', type=str, nargs='+',  help='a list of type::URL[:port][::scope] sets to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
+    parser.add_argument('--backend', metavar='B', type=str, nargs='+',  help='a list of type::URL[:port][::scope] to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
     parser.add_argument('--server', metavar='S', type=str, nargs='+',  help='a list of type::FQDN tuples. Type is either apache or nginx. E.g. --sever apache::www.example.com nginx::www.example2.net')
     parser.add_argument('--verbose', help='makes it chatty', action="store_true")
     args = parser.parse_args()
@@ -179,7 +181,7 @@ if __name__ == "__main__":
                     logger.error('Unable to report to Graphite backend: %s' % e)
             elif t == 'xsls':
                 try:
-                    sc =  backend_xsls(url, stats)
+                    sc = backend_xsls(url, stats)
                 except Exception:
                     sc = -1
                 if sc != 200:

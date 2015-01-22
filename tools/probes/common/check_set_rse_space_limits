@@ -7,7 +7,7 @@
 #
 # Authors:
 # - David Cameron, <david.cameron@cern.ch>, 2014
-#
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 # Sets the minimum free space on RSEs according to the policy, which is set in
 # the configuration table of Rucio server. A relative and absolute limit are
@@ -124,7 +124,7 @@ for rse in rses:
         print "Could not get space information for %s: %s" % (rse, str(e))
         continue
 
-    spaceinfo = [i for i in spaceinfo] # Generator can only be used once
+    spaceinfo = [i for i in spaceinfo]  # Generator can only be used once
 
     capacity = [source['total'] for source in spaceinfo if source['source'] == 'srm']
     srmused = [source['used'] for source in spaceinfo if source['source'] == 'srm']

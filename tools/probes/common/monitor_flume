@@ -6,7 +6,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne <ralph.vigne@cern.ch>, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 import argparse
 import json
@@ -71,7 +72,7 @@ def get_server_name(fqdn):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Takes backend classes and Apaches URLs')
-    parser.add_argument('--backend', metavar='B', type=str, nargs='+',  help='a list of type::URL[:port][::scope] sets to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
+    parser.add_argument('--backend', metavar='B', type=str, nargs='+',  help='a list of type::URL[:port][::scope] to which the script will report to. E.g. --backend graphite::rucio-graphite-int.cern.ch:8025/listen/now::rucio.backends xsls::xsls.cern.ch')
     parser.add_argument('--server', metavar='S', type=str, nargs='+',  help='a list of FQDNs. --server http://rucio-daemon-prod-01.cern.ch:34545/metrics')
     parser.add_argument('--verbose', help='makes it chatty', action="store_true")
     args = parser.parse_args()
