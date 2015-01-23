@@ -27,21 +27,13 @@ import os
 import random
 import sys
 import time
+import traceback
 
+from functools import wraps
 
-from rucio import client
 from rucio.client import Client
 from rucio import version
-from rucio.client.accountclient import AccountClient
-from rucio.client.didclient import DIDClient
-from rucio.client.replicaclient import ReplicaClient
-from rucio.client.metaclient import MetaClient
-from rucio.client.pingclient import PingClient
-from rucio.client.rseclient import RSEClient
-from rucio.client.ruleclient import RuleClient
-from rucio.client.scopeclient import ScopeClient
-from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, RessourceTemporaryUnavailable, DataIdentifierNotFound
+from rucio.common.exception import DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, RessourceTemporaryUnavailable, DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression
 from rucio.common.utils import adler32, generate_uuid
 from rucio.rse import rsemanager as rsemgr
 
@@ -56,7 +48,7 @@ logger = logging.getLogger("user")
 
 
 def setup_logger(logger):
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     hdlr = logging.StreamHandler()
 
     def emit_decorator(fn):
@@ -84,31 +76,76 @@ def setup_logger(logger):
 setup_logger(logger)
 
 
+def extract_scope(did):
+    try:
+        scope, name = did.split(':')
+    except ValueError, e:
+        raise InvalidObject('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
+    return scope, name
+
+
+def exception_handler(function):
+    @wraps(function)
+    def new_funct(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except InvalidObject, e:
+            logger.error(e)
+            return FAILURE
+        except DataIdentifierNotFound, e:
+            logger.error(e)
+            logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
+            return FAILURE
+        except AccessDenied, e:
+            logger.error(e)
+            logger.debug('This error is a permission issue. You cannot run this command with your account.')
+            return FAILURE
+        except DataIdentifierAlreadyExists, e:
+            logger.error(e)
+            logger.debug('This means that the data IDentifier you try to add is already registered in Rucio.')
+            return FAILURE
+        except RSENotFound, e:
+            logger.error(e)
+            logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
+            return FAILURE
+        except InvalidRSEExpression, e:
+            logger.error(e)
+            logger.debug('This means the RSE expression you provided is not syntactically correct.')
+            return FAILURE
+        except TypeError, e:
+            logger.error(e)
+            logger.debug('This means the parameter you passed has a wrong type.')
+            return FAILURE
+        except Exception, e:
+            logger.error(e)
+            logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developpers.')
+            logger.debug(traceback.format_exc())
+            return FAILURE
+    return new_funct
+
+
 def get_client(args):
     """
     Returns a new client object.
-    specified by the --host and --port options
-    supplied to the CLI
     """
-
-    return client.Client(host="0.0.0.0")
-
-
-def ping(args):
-    """
-    Pings a Rucio server.
-    """
-
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
     else:
         creds = None
 
-    client = PingClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account,
-                        auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = Client(rucio_host=args.host, auth_host=args.auth_host,
+                    account=args.account,
+                    auth_type=args.auth_strategy, creds=creds,
+                    ca_cert=args.ca_certificate, timeout=args.timeout)
+    return client
 
+
+@exception_handler
+def ping(args):
+    """
+    Pings a Rucio server.
+    """
+    client = get_client(args)
     server_info = client.ping()
     if server_info:
         print server_info['version']
@@ -117,125 +154,90 @@ def ping(args):
     return FAILURE
 
 
+@exception_handler
 def whoami_account(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Show extended information of a given account
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        info = accountClient.whoami()
-    except Exception, e:
-            print 'Failed to show account'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    info = client.whoami()
     for k in info:
         print k.ljust(10) + ' : ' + str(info[k])
-
     return SUCCESS
 
 
+@exception_handler
 def add_file(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Add file.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
+    client = get_client(args)
     scope = args.scope
     lfn = args.lfn
     if scope is None:
-        if args.lfn.find(':') == -1:
-            print 'Error: Cannot extract scope from %s (notation: scope:filename) !' % args.lfn
-            return FAILURE
-        scope, lfn = args.lfn.split(':')
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.add_file(rse=args.rse, scope=scope, lfn=lfn)
-        print 'Added new file replica: %s-%s' % (args.rse, args.lfn)
-    except Exception, e:
-            print 'Failed to add file replica'
-            print e
-            return FAILURE
+        scope, lfn = extract_scope(lfn)
+    client.add_file(rse=args.rse, scope=scope, lfn=lfn)
+    print 'Added new file replica: %s-%s' % (args.rse, args.lfn)
     return SUCCESS
 
 
+@exception_handler
 def list_replicas(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     List file replicas
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = Client(rucio_host=args.host, auth_host=args.auth_host,
-                    account=args.account, auth_type=args.auth_strategy, creds=creds,
-                    ca_cert=args.ca_certificate, timeout=args.timeout)
-
+    client = get_client(args)
     protocols = None
     if args.protocols:
         protocols = args.protocols.split(',')
 
     dids = []
     rse_dict = {}
-    if args.list_collections and len(args.dids) > 1:
-        print 'Cannot use this option with multiple dids'
+    if args.selected_rse and args.list_collections:
+        print 'Cannot use --rse with --list_collections option'
         return FAILURE
-    try:
-        for did in args.dids:
-            try:
-                scope, name = did.split(':')
-            except ValueError, e:
-                logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-                return FAILURE
-            dids.append({'scope': scope, 'name': name})
-        replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
-        if not args.list_collections:
-            print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
-        for replica in replicas:
-            if 'bytes' in replica:
-                str = '%s\t%s\t%s\t%s\t' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
-                for rse in replica['rses']:
-                    if args.list_collections:
-                        if rse not in rse_dict:
-                            rse_dict[rse] = 0
-                        if replica['rses'][rse] != []:
-                            rse_dict[rse] += 1
-                    else:
-                        line = '%s%s\t:\t' % (str, rse)
-                        for pfn in replica['rses'][rse]:
+    if args.list_collections and len(args.dids) > 1:
+        print 'Cannot use --list_collections option with multiple dids'
+        return FAILURE
+
+    for did in args.dids:
+        scope, name = extract_scope(did)
+        dids.append({'scope': scope, 'name': name})
+    replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
+    if not args.list_collections:
+        print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
+    for replica in replicas:
+        if 'bytes' in replica:
+            str = '%s\t%s\t%s\t%s\t' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
+            for rse in replica['rses']:
+                if args.list_collections:
+                    if rse not in rse_dict:
+                        rse_dict[rse] = 0
+                    if replica['rses'][rse] != []:
+                        rse_dict[rse] += 1
+                else:
+                    line = '%s%s\t:\t' % (str, rse)
+                    for pfn in replica['rses'][rse]:
+                        if args.selected_rse:
+                            if rse == args.selected_rse:
+                                output = '%s%s' % (line, pfn)
+                                print output.expandtabs()
+                                line = len(line.expandtabs()) * ' '
+                                str = len(str.expandtabs()) * ' '
+                        else:
                             output = '%s%s' % (line, pfn)
                             print output.expandtabs()
                             line = len(line.expandtabs()) * ' '
                             str = len(str.expandtabs()) * ' '
-            elif not args.list_collections:
-                str = '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], '???', '???', 'Unavalaible')
-                print str.expandtabs()
-    except Exception, e:
-        print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
-        print e
+        elif not args.list_collections:
+            str = '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], '???', '???', 'Unavalaible')
+            print str.expandtabs()
     if args.list_collections:
         nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
         print '{0:40} {1:6} {2:6}'.format('RSE', 'Found', 'Total')
@@ -247,296 +249,181 @@ def list_replicas(args):
     return SUCCESS
 
 
+@exception_handler
 def add_dataset(args):
     """
     %(prog)s add-dataset [options] <dsn>
 
     Add a dataset identifier.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    try:
-        scope, name = args.did.split(':')
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
-        return FAILURE
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
-        print 'Added %s:%s' % (scope, name)
-    except Exception, e:
-        logger.error('Failed to add data identifier due to a unknow exception : {0}'.format(e))
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
+    print 'Added %s:%s' % (scope, name)
     return SUCCESS
 
 
+@exception_handler
 def add_container(args):
     """
     %(prog)s add-container [options] <dsn>
 
     Add a container identifier.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    try:
-        scope, name = args.did.split(':')
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
-        return FAILURE
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
-        print 'Added %s:%s' % (scope, name)
-    except Exception, e:
-        logger.error('Failed to add data identifier due to a unknow exception : {0}'.format(e))
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
+    print 'Added %s:%s' % (scope, name)
     return SUCCESS
 
 
+@exception_handler
 def attach(args):
     """
     %(prog)s attach [options] <field1=value1 field2=value2 ...>
 
     Attach a data identifier.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
-        scope, name = args.todid.split(':')
-    except ValueError, e:
-        logger.error('ERROR cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
-        return FAILURE
-    except Exception, e:
-        logger.warning('Unknown exception occurred : {0}'.format(e))
-
-    try:
-        client.attach_dids(scope=scope, name=name, dids=dids)
-    except Exception, e:
-        logger.error('Failed to attach data identifier\n{0}'.format(e))
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.todid)
+    dids = []
+    for did in args.dids:
+        cscope, cname = extract_scope(did)
+        dids.append({'scope': cscope, 'name': cname})
+    client.attach_dids(scope=scope, name=name, dids=dids)
+    print 'DIDs successfully attached to %s:%s' % (scope, name)
     return SUCCESS
 
 
+@exception_handler
 def detach(args):
     """
     %(prog)s detach [options] <field1=value1 field2=value2 ...>
 
     Detach data identifier.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.dids]
-        scope, name = args.fromdid.split(':')
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.fromdid, e))
-        return FAILURE
-    except Exception, e:
-        logger.warning('Unknown exception occurred : {0}'.format(e))
-
-    try:
-        client.detach_dids(scope=scope, name=name, dids=dids)
-    except Exception, e:
-        logger.error('Failed to detach data identifier\n{0}'.format(e))
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.fromdid)
+    dids = []
+    for did in args.dids:
+        cscope, cname = extract_scope(did)
+        dids.append({'scope': cscope, 'name': cname})
+    client.detach_dids(scope=scope, name=name, dids=dids)
     return SUCCESS
 
 
+@exception_handler
 def add_files_to_dataset(args):
     """
     %(prog)s add-files-to-dataset [options] <field1=value1 field2=value2 ...>
 
     Attach files to a dataset.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.files]
-        scope, name = args.todid.split(':')
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
-        return FAILURE
-    except Exception, e:
-        print e
-
-    try:
-        client.add_files_to_dataset(scope=scope, name=name, files=dids)
-    except Exception, e:
-        logger.error('Failed to attach files to the dataset due to a unknow exception : {0}'.format(e))
-        logger.error('Probably, one of the files is not a file or the dataset is not a dataset. You can try \'rucio attach\' instead.')
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.todid)
+    dids = []
+    for did in args.files:
+        cscope, cname = extract_scope(did)
+        dids.append({'scope': cscope, 'name': cname})
+    client.add_files_to_dataset(scope=scope, name=name, files=dids)
     return SUCCESS
 
 
+@exception_handler
 def add_datasets_to_container(args):
     """
     %(prog)s add-datasets-to-container [options] <field1=value1 field2=value2 ...>
 
     Attach datasets to a container.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.datasets]
-        scope, name = args.todid.split(':')
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
-        return FAILURE
-    except Exception, e:
-        print e
-
-    try:
-        client.add_datasets_to_container(scope=scope, name=name, dsns=dids)
-    except Exception, e:
-        logger.error('Failed to attach datasets to the container due to a unknow exception : {0}'.format(e))
-        logger.error('Probably, one of the datasets is not a dataset or the container is not a container. You can try \'rucio attach\' instead.')
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.todid)
+    dids = []
+    for did in args.datasets:
+        cscope, cname = extract_scope(did)
+        dids.append({'scope': cscope, 'name': cname})
+    client.add_datasets_to_container(scope=scope, name=name, dsns=dids)
     return SUCCESS
 
 
+@exception_handler
 def add_containers_to_container(args):
     """
     %(prog)s add-containers-to-container [options] <field1=value1 field2=value2 ...>
 
     Attach containers to a container.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        dids = [{'scope': did.split(':')[0], 'name': did.split(':')[1]} for did in args.containers]
-        scope, name = args.todid.split(':')
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.todid, e))
-        return FAILURE
-    except Exception, e:
-        print e
-
-    try:
-        client.add_containers_to_container(scope=scope, name=name, cnts=dids)
-    except Exception, e:
-        logger.error('Failed to attach containers to the container due to a unknow exception : {0}'.format(e))
-        logger.error('Probably, one of the containers is not a container. You can try \'rucio attach\' instead.')
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.todid)
+    dids = []
+    for did in args.containers:
+        cscope, cname = extract_scope(did)
+        dids.append({'scope': cscope, 'name': cname})
+    client.add_containers_to_container(scope=scope, name=name, cnts=dids)
     return SUCCESS
 
 
+@exception_handler
 def list_dids(args):
     """
     %(prog)s list <did_1> ... <did_n>
 
     List data identifier contents.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
+    client = get_client(args)
+    filters = {}
+    type = 'all'
+    if args.filter:
+        if args.recursive:
+            print 'Option recursive and filter cannot be used together'
+            return FAILURE
+        elif args.recursive:
+            print 'Option recursive and dids cannot be used together'
+            return FAILURE
+        else:
+            for key, value in [(a.split('=')[0], a.split('=')[1]) for a in args.filter.split(',')]:
+                if key == 'type':
+                    if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
+                        type = value.lower()
+                    else:
+                        raise TypeError('%s is not a valid type' % value)
+                else:
+                    filters[key] = value
     if not args.dids:
         scope = args.scope
         if not args.scope:  # list scopes
-            client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
-                                 account=args.account,
-                                 auth_type=args.auth_strategy, creds=creds,
-                                 ca_cert=args.ca_certificate, timeout=args.timeout)
-            try:
-                account = args.account
-                if not account:
-                    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                                  account=args.account,
-                                                  auth_type=args.auth_strategy, creds=creds,
-                                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-                    info = accountClient.whoami()
-                    account = info['account']
-                scopes = client.list_scopes_for_account(account)
-                if len(scopes) > 1:
-                    print 'Too many scopes to list. Please specify one scope'
-                    return FAILURE
-                scope = scopes[0]
-            except Exception, e:
-                print 'Failed to list scopes'
-                print e
+            account = args.account
+            if not account:
+                info = client.whoami()
+                account = info['account']
+            scopes = client.list_scopes_for_account(account)
+            if len(scopes) > 1:
+                print 'Too many scopes to list. Please specify one scope'
                 return FAILURE
-        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account, auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-        try:
+            scope = scopes[0]
+        if args.recursive:
             dids = client.scope_list(scope=scope, recursive=args.recursive)
             for d in dids:
                 if d['level'] == 0:
                     print '%(scope)s:%(name)s [%(type)s]' % d
                 else:
                     print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
-        except Exception, e:
-            print e
-            return FAILURE
+        else:
+            for did in client.list_dids(scope, filters=filters, type=type):
+                print '%s:%s [%s]' % (scope, did, type.upper())
     else:
-        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account, auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
         for did in args.dids:
-            try:
-                scope, name = did.split(':')
-                dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
-                for d in dids:
-                    if d['level'] == 0:
-                        print '%(scope)s:%(name)s [%(type)s]' % d
-                    else:
-                        print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
-            except ValueError, e:
-                logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-                return FAILURE
-            except Exception, e:
-                print e
-
+            scope, name = extract_scope(did)
+            dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
+            for d in dids:
+                if d['level'] == 0:
+                    print '%(scope)s:%(name)s [%(type)s]' % d
+                else:
+                    print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
     return SUCCESS
 
 
+@exception_handler
 def list_scopes(args):
     """
     %(prog)s list-scopes <scope>
@@ -544,162 +431,84 @@ def list_scopes(args):
     List scopes.
     """
     # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.account,
-                         auth_type=args.auth_strategy, creds=creds,
-                         ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        scopes = client.list_scopes()
-    except Exception, e:
-            print 'Failed to list scopes'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    scopes = client.list_scopes()
     for scope in scopes:
         print scope
-
     return SUCCESS
 
 
+@exception_handler
 def scope_list(args):
     """
     %(prog)s scope_list <scope>
 
     List all data identifiers in given scope.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        dids = client.scope_list(scope=args.scope)
-        for d in dids:
-            print '%(scope)s:%(name)s [%(type)s]' % d
-    except Exception, e:
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    dids = client.scope_list(scope=args.scope)
+    for d in dids:
+        print '%(scope)s:%(name)s [%(type)s]' % d
     return SUCCESS
 
 
+@exception_handler
 def list_files(args):
     """
     %(prog)s list-files [options] <field1=value1 field2=value2 ...>
 
     List data identifier contents.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
+    client = get_client(args)
     for did in args.dids:
-        try:
-            scope, name = did.split(':')
-            for file in client.list_files(scope=scope, name=name):
-                print '%(scope)s:%(name)s' % file  # %(size)s\t%(checksum)s
-        except ValueError, e:
-            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-            return FAILURE
-        except Exception, e:
-            print e
-
+        scope, name = extract_scope(did)
+        for file in client.list_files(scope=scope, name=name):
+            print '%(scope)s:%(name)s\t%(bytes)s\t%(adler32)s\t%(guid)s' % file  # %(size)s\t%(checksum)s
     return SUCCESS
 
 
+@exception_handler
 def list_parent_dids(args):
     """
     %(prog)s list-parent-dids
 
     List parent data identifier.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        scope, name = args.did.split(':')
-        for dataset in client.list_parent_dids(scope=scope, name=name):
-            print '%s:%s [%s]' % (dataset['scope'], dataset['name'], dataset['type'])
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
-        return FAILURE
-    except Exception, e:
-        print e
-
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    for dataset in client.list_parent_dids(scope=scope, name=name):
+        print '%s:%s [%s]' % (dataset['scope'], dataset['name'], dataset['type'])
     return SUCCESS
 
 
+@exception_handler
 def close(args):
     """
     %(prog)s close [options] <field1=value1 field2=value2 ...>
 
     Close data identifier.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = get_client(args)
     for did in args.dids:
-        try:
-            scope, name = did.split(':')
-            client.set_status(scope=scope, name=name, open=False)
-            print '%(scope)s:%(name)s has been closed.' % locals()
-        except ValueError, e:
-            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-            return FAILURE
-        except Exception, e:
-            print e
-
+        scope, name = extract_scope(did)
+        client.set_status(scope=scope, name=name, open=False)
+        print '%(scope)s:%(name)s has been closed.' % locals()
     return SUCCESS
 
 
+@exception_handler
 def stat(args):
     """
     %(prog)s stat [options] <field1=value1 field2=value2 ...>
 
     List attributes and statuses about data identifiers..
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = get_client(args)
     for did in args.dids:
-        try:
-            scope, name = did.split(':')
-            info = client.get_did(scope=scope, name=name)
-            for k, v in info.iteritems():
-                print '%(k)s: %(v)s' % locals()
-        except ValueError, e:
-            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-            return FAILURE
-        except Exception, e:
-            print e
-
+        scope, name = extract_scope(did)
+        info = client.get_did(scope=scope, name=name)
+        for k, v in info.iteritems():
+            print '%(k)s: %(v)s' % locals()
     return SUCCESS
 
 
@@ -718,14 +527,7 @@ def upload(args):
 
     Upload files into Rucio
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = Client(rucio_host=args.host, auth_host=args.auth_host,
-                    account=args.account, auth_type=args.auth_strategy, creds=creds,
-                    ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = get_client(args)
 
     files = args.files
     list_files = []
@@ -868,14 +670,7 @@ def download(args):
 
     Download files from Rucio
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account, auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = get_client(args)
     rse_dict = {}
     summary = {}
     for did in args.dids:
@@ -933,6 +728,7 @@ def download(args):
                 local_files += 1
 
 
+@exception_handler
 def get_metadata(args):
     """
     %(prog)s get_metadata [options] <field1=value1 field2=value2 ...>
@@ -940,28 +736,16 @@ def get_metadata(args):
     Get data identifier metadata
     """
     # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
+    client = get_client(args)
     for did in args.dids:
-        try:
-            scope, name = did.split(':')
-            meta = client.get_metadata(scope=scope, name=name)
-            for k in meta:
-                print '%s: %s' % (k, meta[k])
-        except ValueError, e:
-            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-            return FAILURE
-        except Exception, e:
-            print 'Failed to get metadata for %(scope)s:%(name)s' % locals()
-            print e
+        scope, name = extract_scope(did)
+        meta = client.get_metadata(scope=scope, name=name)
+        for k in meta:
+            print '%s: %s' % (k, meta[k])
+    return SUCCESS
 
 
+@exception_handler
 def set_metadata(args):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
@@ -969,23 +753,10 @@ def set_metadata(args):
     Set data identifier metadata
     """
     # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account, auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.set_metadata(scope=args.did.split(':')[0], name=args.did.split(':')[1], key=args.key, value=args.value)
-    except ValueError, e:
-        logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
-        return FAILURE
-    except Exception, e:
-        print 'Failed to set metadata'
-        print e
-        return FAILURE
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    client.set_metadata(scope=scope, name=name, key=args.key, value=args.value)
+    return SUCCESS
 
 
 def delete_metadata(args):
@@ -995,229 +766,126 @@ def delete_metadata(args):
     Delete data identifier metadata
     """
     # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    MetaClient(rucio_host=args.host, auth_host=args.auth_host,
-               account=args.account,
-               auth_type=args.auth_strategy, creds=creds,
-               ca_cert=args.ca_certificate, timeout=args.timeout)
+    raise NotImplementedError
 
 
+@exception_handler
 def add_rule(args):
     """
     %(prog)s add-rule <did> <copies> <rse-expression> [options]
 
     Add a rule to a did.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
+    client = get_client(args)
     dids = []
     for did in args.dids:
-        try:
-            scope, name = did.split(':')
-        except ValueError, e:
-            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-            return FAILURE
+        scope, name = extract_scope(did)
         dids.append({'scope': scope, 'name': name})
-
-    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account, auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        rule_ids = client.add_replication_rule(dids=dids,
-                                               copies=args.copies,
-                                               rse_expression=args.rse_expression,
-                                               weight=args.weight,
-                                               lifetime=args.lifetime,
-                                               grouping=args.grouping,
-                                               account=args.account,
-                                               locked=args.locked,
-                                               source_replica_expression=args.source_replica_expression,
-                                               notify=args.notify)
-        for rule in rule_ids:
-            print rule
-    except Exception, e:
-        print 'Failed to add rule to data identifier'
-        print e
-        return FAILURE
+    rule_ids = client.add_replication_rule(dids=dids,
+                                           copies=args.copies,
+                                           rse_expression=args.rse_expression,
+                                           weight=args.weight,
+                                           lifetime=args.lifetime,
+                                           grouping=args.grouping,
+                                           account=args.account,
+                                           locked=args.locked,
+                                           source_replica_expression=args.source_replica_expression,
+                                           notify=args.notify)
+    for rule in rule_ids:
+        print rule
     return SUCCESS
 
 
+@exception_handler
 def delete_rule(args):
     """
     %(prog)s delete-rule [options] <ruleid>
 
     Delete a rule.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account, auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        if args.purge_replicas:
-            client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=True)
-        else:
-            client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=None)
-        print 'Removed Rule'
-    except Exception, e:
-        print 'Failed to delete replication rule'
-        print e
-        return FAILURE
+    client = get_client(args)
+    if args.purge_replicas:
+        client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=True)
+    else:
+        client.delete_replication_rule(rule_id=args.rule_id, purge_replicas=None)
     return SUCCESS
 
 
+@exception_handler
 def update_rule(args):
     """
     %(prog)s update-rule [options] <ruleid>
 
     Update a rule.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account, auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        options = {}
-        if args.lifetime:
-            options['lifetime'] = None if args.lifetime == "None" else int(args.lifetime)
-        if args.locked:
-            if args.locked == "True":
-                options['locked'] = True
-            elif args.locked == "False":
-                options['locked'] = False
-        if args.rule_account:
-            options['account'] = args.rule_account
-        client.update_replication_rule(rule_id=args.rule_id, options=options)
-        print 'Updated Rule'
-    except Exception, e:
-        print 'Failed to update replication rule'
-        print e
-        return FAILURE
+    client = get_client(args)
+    options = {}
+    if args.lifetime:
+        options['lifetime'] = None if args.lifetime == "None" else int(args.lifetime)
+    if args.locked:
+        if args.locked == "True":
+            options['locked'] = True
+        elif args.locked == "False":
+            options['locked'] = False
+    if args.rule_account:
+        options['account'] = args.rule_account
+    client.update_replication_rule(rule_id=args.rule_id, options=options)
+    print 'Updated Rule'
     return SUCCESS
 
 
+@exception_handler
 def info_rule(args):
     """
     %(prog)s rule-info [options] <ruleid>
 
     Retrieve information about a rule.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account, auth_type=args.auth_strategy, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        rule = client.get_replication_rule(rule_id=args.rule_id)
-        print "Id:                         %s" % rule['id']
-        print "Account:                    %s" % rule['account']
-        print "Scope:                      %s" % rule['scope']
-        print "Name:                       %s" % rule['name']
-        print "RSE Expression:             %s" % rule['rse_expression']
-        print "Copies:                     %s" % rule['copies']
-        print "State:                      %s" % rule['state']
-        print "Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'])
-        print "Grouping:                   %s" % rule['grouping']
-        print "Expires at:                 %s" % rule['expires_at']
-        print "Locked:                     %s" % rule['locked']
-        print "Weight:                     %s" % rule['weight']
-        print "Created at:                 %s" % rule['created_at']
-        print "Updated at:                 %s" % rule['updated_at']
-        print "Error:                      %s" % rule['error']
-        print "Subscription Id:            %s" % rule['subscription_id']
-        print "Source replica expression:  %s" % rule['source_replica_expression']
-    except Exception, e:
-        print 'Failed to get replication rule'
-        print e
-        return FAILURE
+    client = get_client(args)
+    rule = client.get_replication_rule(rule_id=args.rule_id)
+    print "Id:                         %s" % rule['id']
+    print "Account:                    %s" % rule['account']
+    print "Scope:                      %s" % rule['scope']
+    print "Name:                       %s" % rule['name']
+    print "RSE Expression:             %s" % rule['rse_expression']
+    print "Copies:                     %s" % rule['copies']
+    print "State:                      %s" % rule['state']
+    print "Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'])
+    print "Grouping:                   %s" % rule['grouping']
+    print "Expires at:                 %s" % rule['expires_at']
+    print "Locked:                     %s" % rule['locked']
+    print "Weight:                     %s" % rule['weight']
+    print "Created at:                 %s" % rule['created_at']
+    print "Updated at:                 %s" % rule['updated_at']
+    print "Error:                      %s" % rule['error']
+    print "Subscription Id:            %s" % rule['subscription_id']
+    print "Source replica expression:  %s" % rule['source_replica_expression']
     return SUCCESS
 
 
+@exception_handler
 def list_rules(args):
     """
     %(prog)s list-rules ...
 
     List rules.
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
+    client = get_client(args)
     if args.rule_id:
-        client = RuleClient(rucio_host=args.host, auth_host=args.auth_host,
-                            account=args.account,
-                            auth_type=args.auth_strategy, creds=creds,
-                            ca_cert=args.ca_certificate, timeout=args.timeout)
-        try:
-            rules = [client.get_replication_rule(args.rule_id)]
-        except Exception, e:
-            logger.error('Failed to list rules.\n{0}'.format(e))
-            return FAILURE
+        rules = [client.get_replication_rule(args.rule_id)]
     elif args.file:
-        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-        try:
-            scope, name = args.file.split(':')
-            rules = client.list_associated_rules_for_file(scope=scope, name=name)
-        except ValueError, e:
-            logger.error('Cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
-            return FAILURE
-        except Exception, e:
-            print 'Failed to list rules'
-            print e
-            return FAILURE
+        scope, name = extract_scope(args.file)
+        rules = client.list_associated_rules_for_file(scope=scope, name=name)
     elif args.did:
-        client = DIDClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-        try:
-            scope, name = args.did.split(':')
-            client.get_metadata(scope=scope, name=name)
-            rules = client.list_did_rules(scope=scope, name=name)
-        except ValueError, e:
-            logger.error('ERROR cannot extract the scope and name from {0} : [{1}]'.format(args.did, e))
-            return FAILURE
-        except Exception, e:
-            logger.error('Failed to list rules.\n{0}'.format(e))
-            return FAILURE
+        scope, name = extract_scope(args.did)
+        client.get_metadata(scope=scope, name=name)
+        rules = client.list_did_rules(scope=scope, name=name)
     elif args.rule_account:
-        client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                               account=args.account,
-                               auth_type=args.auth_strategy, creds=creds,
-                               ca_cert=args.ca_certificate, timeout=args.timeout)
-        try:
-            rules = client.list_account_rules(account=args.rule_account)
-        except Exception, e:
-            print 'Failed to list rules'
-            print e
-            return FAILURE
+        rules = client.list_account_rules(account=args.rule_account)
     elif args.subscription:
         account = args.subscription[0]
         name = args.subscription[1]
-        client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
-                                    account=args.account,
-                                    auth_type=args.auth_strategy, creds=creds,
-                                    ca_cert=args.ca_certificate, timeout=args.timeout)
-        try:
-            rules = client.list_subscription_rules(account=account, name=name)
-        except Exception, e:
-            logger.error('Failed to list rules\n{0}'.format(e))
-            return FAILURE
+        rules = client.list_subscription_rules(account=account, name=name)
     else:
         print 'At least one option has to be given. Use -h to list the options.'
         return FAILURE
@@ -1226,10 +894,10 @@ def list_rules(args):
     print "==================================================================================="
     for rule in rules:
         print "%s (%s) %s:%s: %s[%s/%s/%s], \"%s\", %s " % (rule['id'], rule['account'], rule['scope'], rule['name'], rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'], rule['rse_expression'], rule['copies'])
-
     return SUCCESS
 
 
+@exception_handler
 def list_rses(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -1237,32 +905,17 @@ def list_rses(args):
     List rses.
 
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.account,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
+    client = get_client(args)
     rse_expression = None
     if args.rse_expression:
         rse_expression = args.rse_expression
-
-    try:
-        rses = client.list_rses(rse_expression)
-    except Exception, e:
-        print 'Failed to list RSEs'
-        print e
-        return FAILURE
-
+    rses = client.list_rses(rse_expression)
     for rse in rses:
         print '%(rse)s' % rse
-
     return SUCCESS
 
 
+@exception_handler
 def list_rse_usage(args):
     """
     %(prog)s list-rse-usage [options] <rse>
@@ -1270,32 +923,18 @@ def list_rse_usage(args):
     Show the space usage of a given rse
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    rseclient = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                          account=args.account,
-                          auth_type=args.auth_strategy, creds=creds,
-                          ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        usages = rseclient.get_rse_usage(rse=args.rse)
-    except Exception, e:
-            print 'Failed to get RSE info'
-            print e
-            return FAILURE
+    client = get_client(args)
+    usages = client.get_rse_usage(rse=args.rse)
     print 'Usage:'
     print '======'
     for usage in usages:
         for elem in usage:
             print '  ' + elem + ': ' + str(usage[elem])
         print '  ======'
-
     return SUCCESS
 
 
+@exception_handler
 def list_account_limits(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -1303,33 +942,19 @@ def list_account_limits(args):
     List account limits.
 
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        if args.rse:
-            limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
-        else:
-            limits = client.get_account_limits(account=args.limit_account)
-    except Exception, e:
-        print 'Failed to list Account limits'
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    if args.rse:
+        limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
+    else:
+        limits = client.get_account_limits(account=args.limit_account)
     print "RSE: limit (bytes)"
     print "=================="
     for limit in limits.items():
         print "%s: %s" % limit
-
     return SUCCESS
 
 
+@exception_handler
 def list_account_usage(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -1337,30 +962,31 @@ def list_account_usage(args):
     List account usage.
 
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        if args.rse:
-            usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
-        else:
-            usage = client.get_account_usage(account=args.usage_account)
-    except Exception, e:
-        print 'Failed to list Account usage'
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    if args.rse:
+        usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
+    else:
+        usage = client.get_account_usage(account=args.usage_account)
     print "RSE: usage (bytes), limit (bytes), quota_left (bytes)"
     print "====================================================="
     for item in usage:
         print "%s: %s, %s, %s" % (item['rse'], item['bytes'], item['bytes_limit'], item['bytes_remaining'])
+    return SUCCESS
 
+
+@exception_handler
+def list_datasets_site(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List the datasets in a site.
+
+    """
+    client = get_client(args)
+    dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.get_dataset_locks_by_rse(args.rse)]))
+    dsns.sort()
+    for dsn in dsns:
+        print dsn
     return SUCCESS
 
 
@@ -1375,6 +1001,7 @@ def test_server(args):
     nose.run(argv=sys.argv[1:], defaultTest='rucio.tests.test_rucio_server', config=config)
     return SUCCESS
 
+
 if __name__ == '__main__':
     usage = """
 usage: %(prog)s <command> [options] [args]
@@ -1382,6 +1009,7 @@ usage: %(prog)s <command> [options] [args]
 Commands:
 
     help <command>  Output help for one of the commands below
+
 
 """
     oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
@@ -1413,12 +1041,14 @@ Commands:
     whoami_parser.set_defaults(which='whoami_account')
 
     # The list_replicas command
-    list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas')
+    list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas', description='This method allows to list all the replicas of a given Data IDentifier (DID).\
+                                                 The only mandatory parameter is the DID which can be a container/dataset/files. By default all the files replicas in state available are returned. Various options can be used :')
     list_replicas_parser.set_defaults(which='list_replicas')
     list_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols', required=False)
     list_replicas_parser.add_argument('--all_states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones)', required=False)
     list_replicas_parser.add_argument('--list_collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
+    list_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Target RSE', required=False)
 
     # The add-dataset command
     add_dataset_parser = subparsers.add_parser('add-dataset', help='Add dataset')
@@ -1453,34 +1083,34 @@ Commands:
 
     # The add_files_to_dataset command
     add_files_to_dataset_parser = subparsers.add_parser('add-files-to-dataset', help='Attach a list of files to a dataset', description='Attach a list of files to a dataset')
-    add_files_to_dataset_parser.set_defaults(which='add-files-to-dataset')
+    add_files_to_dataset_parser.set_defaults(which='add_files_to_dataset')
     add_files_to_dataset_parser.add_argument(dest='files', nargs='+', action='store', help='List of space separated files')
     add_files_to_dataset_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target dataset', required=True)
 
     # The add_datasets_to_container command
     add_datasets_to_container_parser = subparsers.add_parser('add-datasets-to-container', help='Attach a list of datasets to a container', description='Attach a list of datasets to a container')
-    add_datasets_to_container_parser.set_defaults(which='add-datasets-to-container')
+    add_datasets_to_container_parser.set_defaults(which='add_datasets_to_container')
     add_datasets_to_container_parser.add_argument(dest='datasets', nargs='+', action='store', help='List of space separated datasets')
     add_datasets_to_container_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target container', required=True)
 
     # The add_containers_to_container command
     add_containers_to_container_parser = subparsers.add_parser('add-containers-to-container', help='Attach a list of containers to a container', description='Attach a list of containers to a container')
-    add_containers_to_container_parser.set_defaults(which='add-containers-to-container')
+    add_containers_to_container_parser.set_defaults(which='add_containers_to_container')
     add_containers_to_container_parser.add_argument(dest='containers', nargs='+', action='store', help='List of space separated datasets')
     add_containers_to_container_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target container', required=True)
 
     # The list command
-    list_parser = subparsers.add_parser('list-dids', help='List data identifier contents', description='List data identifier contents')
-    list_parser.set_defaults(which='list-dids')
+    list_parser = subparsers.add_parser('list-dids', help='List data identifier contents', description='List the Data Identifiers matching certain pattern. Many options are available.\
+                                         If no scope specified, it will look into the scopes owned by the account you use.')
+    list_parser.set_defaults(which='list_dids')
     list_parser.add_argument('--scope', dest='scope', action='store', default=None, help='Scope name')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively')
-    list_parser.add_argument('--flat', dest='flat', action='store_true', default=False, help='Flatl (unique) listing')
-    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value another_key=next_value`')
+    list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
     list_parser.add_argument(dest='dids', nargs='*', action='store', default=None, help='List of space separated data identifiers')
 
     # The list parent-dids command
     list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent data identifiers', description='List data identifier parents')
-    list_parent_parser.set_defaults(which='list-parent-dids')
+    list_parent_parser.set_defaults(which='list_parent_dids')
     list_parent_parser.add_argument(dest='did', action='store', default=None, help='Data identifier')
 
     # The list-scopes command
@@ -1504,7 +1134,8 @@ Commands:
     delete_parser.add_argument('--from', dest='from', default=None, action='store', help='Target data identifier')
 
     # The list_files command
-    list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents')
+    list_files_parser = subparsers.add_parser('list-files', help='List data identifier contents', description='List all the files in a Data IDentifier (DID). The DID can be a container, dataset or a file.\
+                                                                  What is returned is a list of files in the DID with : <scope>:<name>\t<filesize>\t<checksum>\t<guid>')
     list_files_parser.set_defaults(which='list_files')
     list_files_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
@@ -1610,6 +1241,11 @@ Commands:
     list_rses_parser.set_defaults(which='list_rses')
     list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='RSE Expression')
 
+    # The list-datasets-site command
+    list_datasets_site_parser = subparsers.add_parser('list-datasets-site', help='List all the datasets at a site', description='This method allows to list all the datasets on a given Rucio Storage Element. The only mandatory option is --rse <rse>')
+    list_datasets_site_parser.set_defaults(which='list_datasets_site')
+    list_datasets_site_parser.add_argument('--rse', dest='rse', action='store', help='The RSE name', required=True)
+
     # The test-server command
     test_server_parser = subparsers.add_parser('test-server', help='Test Server')
     test_server_parser.set_defaults(which='test_server')
@@ -1622,40 +1258,43 @@ Commands:
 
     args = oparser.parse_args(sys.argv[1:])
 
-    commands = {'ping': ping,
-                'list_replicas': list_replicas,
-                'attach': attach,
-                'detach': detach,
-                'add-files-to-dataset': add_files_to_dataset,
-                'add-datasets-to-container': add_datasets_to_container,
-                'add-containers-to-container': add_containers_to_container,
+    commands = {'add_container': add_container,
+                'add_containers_to_container': add_containers_to_container,
+                'add_datasets_to_container': add_datasets_to_container,
                 'add_dataset': add_dataset,
-                'add_container': add_container,
-                'delete': delete,
-                'list-dids': list_dids,
-                'list_files': list_files,
-                'list_scopes': list_scopes,
-                'close': close,
-                'stat': stat,
-                'whoami_account': whoami_account,
-                'download': download,
-                'upload': upload,
-                'get_metadata': get_metadata,
-                'set_metadata': set_metadata,
-                'delete_metadata': delete_metadata,
+                'add_files_to_dataset': add_files_to_dataset,
                 'add_rule': add_rule,
-                'info_rule': info_rule,
-                'list_rules': list_rules,
+                'attach': attach,
+                'close': close,
+                'delete': delete,
+                'delete_metadata': delete_metadata,
                 'delete_rule': delete_rule,
-                'list_rses': list_rses,
-                'list_rse_usage': list_rse_usage,
+                'detach': detach,
+                'download': download,
+                'get_metadata': get_metadata,
+                'info_rule': info_rule,
                 'list_account_limits': list_account_limits,
                 'list_account_usage': list_account_usage,
-                'update_rule': update_rule,
+                'list_datasets_site': list_datasets_site,
+                'list_parent_dids': list_parent_dids,
+                'list_files': list_files,
+                'list_dids': list_dids,
+                'list_replicas': list_replicas,
+                'list_rses': list_rses,
+                'list_rse_usage': list_rse_usage,
+                'list_rules': list_rules,
+                'list_scopes': list_scopes,
+                'ping': ping,
+                'set_metadata': set_metadata,
+                'stat': stat,
                 'test_server': test_server,
-                'list-parent-dids': list_parent_dids}
+                'update_rule': update_rule,
+                'upload': upload,
+                'whoami_account': whoami_account}
 
     try:
+        if args.verbose:
+            logger.setLevel(logging.DEBUG)
         start_time = time.time()
         command = commands.get(args.which)
         result = command(args)
