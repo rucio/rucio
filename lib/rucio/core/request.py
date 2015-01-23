@@ -151,7 +151,7 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
 
     record_counter('core.request.submit_transfer')
 
-    transfer_id = None
+    transfer_ids = []
 
     if transfertool == 'fts3':
         ts = time.time()

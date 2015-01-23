@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -111,15 +111,21 @@ def submit_transfers(transfers, job_metadata):
 
         transfer_host = transfer['external_host']
         if transfer_host.startswith('https://'):
-            r = requests.post('%s/jobs' % transfer_host,
-                              verify=False,
-                              cert=(__USERCERT, __USERCERT),
-                              data=params_str,
-                              headers={'Content-Type': 'application/json'})
+            try:
+                r = requests.post('%s/jobs' % transfer_host,
+                                  verify=False,
+                                  cert=(__USERCERT, __USERCERT),
+                                  data=params_str,
+                                  headers={'Content-Type': 'application/json'})
+            except:
+                logging.warn('Could not submit transfer to %s' % transfer_host)
         else:
-            r = requests.post('%s/jobs' % transfer_host,
-                              data=params_str,
-                              headers={'Content-Type': 'application/json'})
+            try:
+                r = requests.post('%s/jobs' % transfer_host,
+                                  data=params_str,
+                                  headers={'Content-Type': 'application/json'})
+            except:
+                logging.warn('Could not submit transfer to %s' % transfer_host)
 
         if r and r.status_code == 200:
             record_counter('transfertool.fts3.%s.submission.success' % __extract_host(transfer_host))
@@ -128,7 +134,6 @@ def submit_transfers(transfers, job_metadata):
                                                     'external_host': transfer_host}
         else:
             record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(transfer_host))
-            raise Exception('Could not submit transfer: %s', r.content)
 
     return transfer_ids
 
