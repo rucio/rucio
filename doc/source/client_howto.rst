@@ -156,19 +156,19 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
     - List the files in a dataset
 The content of a dataset can be listed with list-files. Mandatory parameters are <scope>:<name>.::
 
-    $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-    mc12_14TeV:log.01596380._000026.job.log.tgz.1
-    mc12_14TeV:log.01596380._000050.job.log.tgz.1
-    mc12_14TeV:log.01596380._000082.job.log.tgz.1
-    mc12_14TeV:log.01596380._000091.job.log.tgz.1
-    mc12_14TeV:log.01596380._000130.job.log.tgz.1
-    mc12_14TeV:log.01596380._000131.job.log.tgz.1
-    mc12_14TeV:log.01596380._000134.job.log.tgz.1
-    mc12_14TeV:log.01596380._000142.job.log.tgz.1
-    mc12_14TeV:log.01596380._000156.job.log.tgz.1
-    mc12_14TeV:log.01596380._000170.job.log.tgz.1
-    mc12_14TeV:log.01596380._000192.job.log.tgz.1
-    mc12_14TeV:log.01596380._000215.job.log.tgz.1
+        $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+        mc12_14TeV:log.01596380._000026.job.log.tgz.1
+        mc12_14TeV:log.01596380._000050.job.log.tgz.1
+        mc12_14TeV:log.01596380._000082.job.log.tgz.1
+        mc12_14TeV:log.01596380._000091.job.log.tgz.1
+        mc12_14TeV:log.01596380._000130.job.log.tgz.1
+        mc12_14TeV:log.01596380._000131.job.log.tgz.1
+        mc12_14TeV:log.01596380._000134.job.log.tgz.1
+        mc12_14TeV:log.01596380._000142.job.log.tgz.1
+        mc12_14TeV:log.01596380._000156.job.log.tgz.1
+        mc12_14TeV:log.01596380._000170.job.log.tgz.1
+        mc12_14TeV:log.01596380._000192.job.log.tgz.1
+        mc12_14TeV:log.01596380._000215.job.log.tgz.1
 
 This command can also be used to list the content of a container.
 
@@ -176,58 +176,85 @@ This command can also be used to list the content of a container.
 It can be done with the list-replicas command and option --list_collections. Mandatory parameters are <scope>:<name>.::
 
 
-    $> rucio list-replicas --list_collections mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-    RSE                                      Found  Total
-    ------------------------------------------------------
-    IN2P3-CC_DATADISK                            12     12
+        $> rucio list-replicas --list_collections mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+        RSE                                      Found  Total
+        ------------------------------------------------------
+        IN2P3-CC_DATADISK                            12     12
 
 It returns all the locations of the dataset, the number of files on each of these locations and the total number of files.
 
     - List the datasets at a site
-        Cedric. CLI not implemented yet
+The command list-datasets-site with option --rse <rse> can be used.::
+        $> rucio list-datasets-site --rse LRZ-LMU_DATADISK
+        data11_2p76TeV:data11_2p76TeV.00178163.physics_MinBias.merge.AOD.r4408_p1468_tid01234284_00
+        data11_2p76TeV:data11_2p76TeV.00178229.physics_MinBias.merge.AOD.r4408_p1468_tid01234266_00
+        data11_7TeV:data11_7TeV.00178047.physics_Standby.recon.ESD.r2603_tid495757_00
+        data11_7TeV:data11_7TeV.00180124.physics_ZeroBias.merge.AOD.r2603_p659_tid497281_00
+        data11_7TeV:data11_7TeV.00180212.physics_Standby.merge.AOD.r2603_p659_tid497021_00
+        data11_7TeV:data11_7TeV.00180636.physics_Background.merge.AOD.r2603_p659_tid496550_00
+        data11_7TeV:data11_7TeV.00180710.physics_Egamma.merge.AOD.r2603_p659_tid496573_00
+        data11_7TeV:data11_7TeV.00182161.physics_Muons.merge.AOD.f379_m849
+        data11_7TeV:data11_7TeV.00182424.physics_Muons.merge.AOD.f381_m861
+        data11_7TeV:data11_7TeV.00182456.physics_JetTauEtmiss.merge.AOD.r2603_p659_tid496207_00
+        data11_7TeV:data11_7TeV.00183045.physics_Muons.merge.AOD.r2603_p659_tid493607_00
+
+TBD : Add --filter option
+
     - List the files in a dataset existing at a site
-        Cedric. CLI not implemented yet
+The command list-replicas with option --rse <rse> can be used.::
+        rucio list-replicas  --rse BNL-OSG2_DATADISK --protocol srm mc14_13TeV:mc14_13TeV.129194.Pythia8B_AU2CTEQ6L1_bbToJpsie3e8.recon.AOD.e2743_s2044_s2008_r5988_tid04606956_00
+        $> Scope   Name                    Filesize        adler32 Replicas
+        mc14_13TeV      AOD.04606956._000001.pool.root.1        146285426       c140b17a        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/52/1d/AOD.04606956._000001.pool.root.1
+        mc14_13TeV      AOD.04606956._000002.pool.root.1        194963494       d1f0a425        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/0b/6e/AOD.04606956._000002.pool.root.1
+        mc14_13TeV      AOD.04606956._000003.pool.root.1        224301101       99f07fe4        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/48/a0/AOD.04606956._000003.pool.root.1
+        mc14_13TeV      AOD.04606956._000004.pool.root.1        249912271       f1c1eb1f        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/53/44/AOD.04606956._000004.pool.root.1
+        mc14_13TeV      AOD.04606956._000005.pool.root.1        280050015       9a3bdc26        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/75/91/AOD.04606956._000005.pool.root.1
+        mc14_13TeV      AOD.04606956._000006.pool.root.1        309249992       e6bcf77f        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/09/e5/AOD.04606956._000006.pool.root.1
+        mc14_13TeV      AOD.04606956._000077.pool.root.1        152151303       1aff742e        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/4a/92/AOD.04606956._000077.pool.root.1
+        mc14_13TeV      AOD.04606956._000078.pool.root.1        188347733       01908bd8        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/b4/ac/AOD.04606956._000078.pool.root.1
+        mc14_13TeV      AOD.04606956._000079.pool.root.1        223638483       1a6d87a5        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/88/0d/AOD.04606956._000079.pool.root.1
+
+You can use the option --protocol <protocol> to get the TURLs at the site for a given protocol.
+
     - List the physical filenames in a dataset
 It can be done with the list-replicas command. Mandatory parameters are <scope>:<name>.::
 
 
-    $> rucio list-replicas mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-    Scope   Name                    Filesize        adler32 Replicas
-    mc12_14TeV      log.01596380._000026.job.log.tgz.1      700680  52bb0e00        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/5b/d9/log.01596380._000026.job.log.tgz.1
-    mc12_14TeV      log.01596380._000050.job.log.tgz.1      538783  14979047        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/13/94/log.01596380._000050.job.log.tgz.1
-    mc12_14TeV      log.01596380._000082.job.log.tgz.1      539690  8c4c69a7        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/ea/7d/log.01596380._000082.job.log.tgz.1
-    mc12_14TeV      log.01596380._000091.job.log.tgz.1      548126  7fd2e951        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/22/d0/log.01596380._000091.job.log.tgz.1
-    mc12_14TeV      log.01596380._000130.job.log.tgz.1      537886  ee702106        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/0c/54/log.01596380._000130.job.log.tgz.1
-    mc12_14TeV      log.01596380._000131.job.log.tgz.1      540323  e8a222f8        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/4b/93/log.01596380._000131.job.log.tgz.1
-    mc12_14TeV      log.01596380._000134.job.log.tgz.1      546319  f0d257e1        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/8e/5c/log.01596380._000134.job.log.tgz.1
-    mc12_14TeV      log.01596380._000142.job.log.tgz.1      525845  347c45cf        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/c4/0b/log.01596380._000142.job.log.tgz.1
-    mc12_14TeV      log.01596380._000156.job.log.tgz.1      702544  fb020a40        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/78/e9/log.01596380._000156.job.log.tgz.1
-    mc12_14TeV      log.01596380._000170.job.log.tgz.1      530714  37d44ab9        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/50/77/log.01596380._000170.job.log.tgz.1
-    mc12_14TeV      log.01596380._000192.job.log.tgz.1      506128  5d47209c        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/47/dd/log.01596380._000192.job.log.tgz.1
-    mc12_14TeV      log.01596380._000215.job.log.tgz.1      534603  04de7f9f        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/2c/b7/log.01596380._000215.job.log.tgz.1
+        $> rucio list-replicas mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+        Scope   Name                    Filesize        adler32 Replicas
+        mc12_14TeV      log.01596380._000026.job.log.tgz.1      700680  52bb0e00        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/5b/d9/log.01596380._000026.job.log.tgz.1
+        mc12_14TeV      log.01596380._000050.job.log.tgz.1      538783  14979047        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/13/94/log.01596380._000050.job.log.tgz.1
+        mc12_14TeV      log.01596380._000082.job.log.tgz.1      539690  8c4c69a7        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/ea/7d/log.01596380._000082.job.log.tgz.1
+        mc12_14TeV      log.01596380._000091.job.log.tgz.1      548126  7fd2e951        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/22/d0/log.01596380._000091.job.log.tgz.1
+        mc12_14TeV      log.01596380._000130.job.log.tgz.1      537886  ee702106        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/0c/54/log.01596380._000130.job.log.tgz.1
+        mc12_14TeV      log.01596380._000131.job.log.tgz.1      540323  e8a222f8        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/4b/93/log.01596380._000131.job.log.tgz.1
+        mc12_14TeV      log.01596380._000134.job.log.tgz.1      546319  f0d257e1        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/8e/5c/log.01596380._000134.job.log.tgz.1
+        mc12_14TeV      log.01596380._000142.job.log.tgz.1      525845  347c45cf        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/c4/0b/log.01596380._000142.job.log.tgz.1
+        mc12_14TeV      log.01596380._000156.job.log.tgz.1      702544  fb020a40        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/78/e9/log.01596380._000156.job.log.tgz.1
+        mc12_14TeV      log.01596380._000170.job.log.tgz.1      530714  37d44ab9        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/50/77/log.01596380._000170.job.log.tgz.1
+        mc12_14TeV      log.01596380._000192.job.log.tgz.1      506128  5d47209c        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/47/dd/log.01596380._000192.job.log.tgz.1
+        mc12_14TeV      log.01596380._000215.job.log.tgz.1      534603  04de7f9f        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/2c/b7/log.01596380._000215.job.log.tgz.1
 
 The command return the TURLs (Transport URLs) in the protocol that is defined as primary at the site. To obtain the TURLs for a given protocol, the option --protocols can be used as shown below.::
 
 
-    $> rucio list-replicas --protocols srm mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-    Scope   Name                    Filesize        adler32 Replicas
-    mc12_14TeV      log.01596380._000026.job.log.tgz.1      700680  52bb0e00        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/5b/d9/log.01596380._000026.job.log.tgz.1
-    mc12_14TeV      log.01596380._000050.job.log.tgz.1      538783  14979047        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/13/94/log.01596380._000050.job.log.tgz.1
-    mc12_14TeV      log.01596380._000082.job.log.tgz.1      539690  8c4c69a7        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/ea/7d/log.01596380._000082.job.log.tgz.1
-    mc12_14TeV      log.01596380._000091.job.log.tgz.1      548126  7fd2e951        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/22/d0/log.01596380._000091.job.log.tgz.1
-    mc12_14TeV      log.01596380._000130.job.log.tgz.1      537886  ee702106        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/0c/54/log.01596380._000130.job.log.tgz.1
-    mc12_14TeV      log.01596380._000131.job.log.tgz.1      540323  e8a222f8        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/4b/93/log.01596380._000131.job.log.tgz.1
-    mc12_14TeV      log.01596380._000134.job.log.tgz.1      546319  f0d257e1        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/8e/5c/log.01596380._000134.job.log.tgz.1
-    mc12_14TeV      log.01596380._000142.job.log.tgz.1      525845  347c45cf        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/c4/0b/log.01596380._000142.job.log.tgz.1
-    mc12_14TeV      log.01596380._000156.job.log.tgz.1      702544  fb020a40        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/78/e9/log.01596380._000156.job.log.tgz.1
-    mc12_14TeV      log.01596380._000170.job.log.tgz.1      530714  37d44ab9        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/50/77/log.01596380._000170.job.log.tgz.1
-    mc12_14TeV      log.01596380._000192.job.log.tgz.1      506128  5d47209c        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/47/dd/log.01596380._000192.job.log.tgz.1
-    mc12_14TeV      log.01596380._000215.job.log.tgz.1      534603  04de7f9f        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/2c/b7/log.01596380._000215.job.log.tgz.1
+        $> rucio list-replicas --protocols srm mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+        Scope   Name                    Filesize        adler32 Replicas
+        mc12_14TeV      log.01596380._000026.job.log.tgz.1      700680  52bb0e00        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/5b/d9/log.01596380._000026.job.log.tgz.1
+        mc12_14TeV      log.01596380._000050.job.log.tgz.1      538783  14979047        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/13/94/log.01596380._000050.job.log.tgz.1
+        mc12_14TeV      log.01596380._000082.job.log.tgz.1      539690  8c4c69a7        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/ea/7d/log.01596380._000082.job.log.tgz.1
+        mc12_14TeV      log.01596380._000091.job.log.tgz.1      548126  7fd2e951        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/22/d0/log.01596380._000091.job.log.tgz.1
+        mc12_14TeV      log.01596380._000130.job.log.tgz.1      537886  ee702106        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/0c/54/log.01596380._000130.job.log.tgz.1
+        mc12_14TeV      log.01596380._000131.job.log.tgz.1      540323  e8a222f8        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/4b/93/log.01596380._000131.job.log.tgz.1
+        mc12_14TeV      log.01596380._000134.job.log.tgz.1      546319  f0d257e1        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/8e/5c/log.01596380._000134.job.log.tgz.1
+        mc12_14TeV      log.01596380._000142.job.log.tgz.1      525845  347c45cf        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/c4/0b/log.01596380._000142.job.log.tgz.1
+        mc12_14TeV      log.01596380._000156.job.log.tgz.1      702544  fb020a40        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/78/e9/log.01596380._000156.job.log.tgz.1
+        mc12_14TeV      log.01596380._000170.job.log.tgz.1      530714  37d44ab9        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/50/77/log.01596380._000170.job.log.tgz.1
+        mc12_14TeV      log.01596380._000192.job.log.tgz.1      506128  5d47209c        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/47/dd/log.01596380._000192.job.log.tgz.1
+        mc12_14TeV      log.01596380._000215.job.log.tgz.1      534603  04de7f9f        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/2c/b7/log.01596380._000215.job.log.tgz.1
 
 The protocols currently supported are SRM, GSIFTP, HTTPS/WebDAV, xrootd.
 
-    - List the file paths of a dataset replica at a site
-        Cedric. TBD Need a new option --rse in the CLI to only get the PFNs at a specific RSE.
     - List the dataset(s) where a particular file belongs
 
       The command rucio list-parent-dids <scope>:<name> has to be used for this::
@@ -251,28 +278,28 @@ The protocols currently supported are SRM, GSIFTP, HTTPS/WebDAV, xrootd.
 It can be done with the download command. Mandatory parameters are <scope>:<name>, but it supports many options::
 
 
-    $> rucio download user.serfon:user.serfon.test.08012015.2
-    2015-01-23 09:15:23,789 INFO [Starting download for user.serfon:user.serfon.test.08012015.2]
-    2015-01-23 09:15:23,790 DEBUG [Getting the list of replicas]
-    2015-01-23 09:15:23,899 DEBUG [Choosing RSE]
-    2015-01-23 09:15:23,999 DEBUG [Getting file user.serfon:file1.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
-    File downloaded. Will be validated
-    File validated
-    2015-01-23 09:15:26,320 INFO [File user.serfon:file1.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
-    2015-01-23 09:15:26,321 DEBUG [Choosing RSE]
-    2015-01-23 09:15:26,321 DEBUG [Getting file user.serfon:file2.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
-    File downloaded. Will be validated
-    File validated
-    2015-01-23 09:15:28,621 INFO [File user.serfon:file2.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
-    2015-01-23 09:15:28,622 DEBUG [Choosing RSE]
-    2015-01-23 09:15:28,623 DEBUG [Getting file user.serfon:file3.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
-    File downloaded. Will be validated
-    File validated
-    2015-01-23 09:15:30,934 INFO [File user.serfon:file3.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
-    2015-01-23 09:15:30,939 INFO [Download operation for user.serfon:user.serfon.test.08012015.2 done]
-    ----------------------------------
-    Download summary
-    DID user.serfon:user.serfon.test.08012015.2
+        $> rucio download user.serfon:user.serfon.test.08012015.2
+        2015-01-23 09:15:23,789 INFO [Starting download for user.serfon:user.serfon.test.08012015.2]
+        2015-01-23 09:15:23,790 DEBUG [Getting the list of replicas]
+        2015-01-23 09:15:23,899 DEBUG [Choosing RSE]
+        2015-01-23 09:15:23,999 DEBUG [Getting file user.serfon:file1.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
+        File downloaded. Will be validated
+        File validated
+        2015-01-23 09:15:26,320 INFO [File user.serfon:file1.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
+        2015-01-23 09:15:26,321 DEBUG [Choosing RSE]
+        2015-01-23 09:15:26,321 DEBUG [Getting file user.serfon:file2.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
+        File downloaded. Will be validated
+        File validated
+        2015-01-23 09:15:28,621 INFO [File user.serfon:file2.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
+        2015-01-23 09:15:28,622 DEBUG [Choosing RSE]
+        2015-01-23 09:15:28,623 DEBUG [Getting file user.serfon:file3.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
+        File downloaded. Will be validated
+        File validated
+        2015-01-23 09:15:30,934 INFO [File user.serfon:file3.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
+        2015-01-23 09:15:30,939 INFO [Download operation for user.serfon:user.serfon.test.08012015.2 done]
+        ----------------------------------
+        Download summary
+        DID user.serfon:user.serfon.test.08012015.2
 
 The files are copied locally into a directory <scope>
 
