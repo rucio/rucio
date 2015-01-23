@@ -190,15 +190,19 @@ def list_replicas(args):
     if args.auth_strategy == 'userpass':
         creds = {'username': args.username, 'password': args.password}
 
-    client = ReplicaClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.account, auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = Client(rucio_host=args.host, auth_host=args.auth_host,
+                    account=args.account, auth_type=args.auth_strategy, creds=creds,
+                    ca_cert=args.ca_certificate, timeout=args.timeout)
 
     protocols = None
     if args.protocols:
         protocols = args.protocols.split(',')
 
     dids = []
+    rse_dict = {}
+    if args.list_collections and len(args.dids) > 1:
+        print 'Cannot use this option with multiple dids'
+        return FAILURE
     try:
         for did in args.dids:
             try:
@@ -208,23 +212,39 @@ def list_replicas(args):
                 return FAILURE
             dids.append({'scope': scope, 'name': name})
         replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
-        print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
+        if not args.list_collections:
+            print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
         for replica in replicas:
             if 'bytes' in replica:
                 str = '%s\t%s\t%s\t%s\t' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
                 for rse in replica['rses']:
-                    line = '%s%s\t:\t' % (str, rse)
-                    for pfn in replica['rses'][rse]:
-                        output = '%s%s' % (line, pfn)
-                        print output.expandtabs()
-                        line = len(line.expandtabs()) * ' '
-                        str = len(str.expandtabs()) * ' '
-            else:
+                    if args.list_collections:
+                        if rse not in rse_dict:
+                            rse_dict[rse] = 0
+                        if replica['rses'][rse] != []:
+                            rse_dict[rse] += 1
+                    else:
+                        line = '%s%s\t:\t' % (str, rse)
+                        for pfn in replica['rses'][rse]:
+                            output = '%s%s' % (line, pfn)
+                            print output.expandtabs()
+                            line = len(line.expandtabs()) * ' '
+                            str = len(str.expandtabs()) * ' '
+            elif not args.list_collections:
                 str = '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], '???', '???', 'Unavalaible')
                 print str.expandtabs()
     except Exception, e:
         print 'Failed to list file replicas for %(scope)s:%(name)s' % locals()
         print e
+    if args.list_collections:
+        nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
+        print '{0:40} {1:6} {2:6}'.format('RSE', 'Found', 'Total')
+        print '-'*54
+        sorted_key = rse_dict.keys()
+        sorted_key.sort()
+        for rse in sorted_key:
+            print '{0:40} {1:6d} {2:6d}'.format(rse, rse_dict[rse], nbfiles)
+    return SUCCESS
 
 
 def add_dataset(args):
@@ -1394,6 +1414,7 @@ Commands:
     list_replicas_parser.set_defaults(which='list_replicas')
     list_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols', required=False)
     list_replicas_parser.add_argument('--all_states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones)', required=False)
+    list_replicas_parser.add_argument('--list_collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
 
     # The add-dataset command
