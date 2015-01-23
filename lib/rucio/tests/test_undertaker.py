@@ -7,13 +7,14 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015
 
 from datetime import datetime, timedelta
 
 from nose.tools import assert_not_equal
 
 from rucio.common.utils import generate_uuid
-from rucio.core.did import add_dids, attach_dids
+from rucio.core.did import add_dids, attach_dids, list_expired_dids
 from rucio.core.replica import get_replica
 from rucio.core.rule import add_rules
 from rucio.daemons.undertaker import undertaker
@@ -55,3 +56,20 @@ class TestUndertaker:
 
         for replica in replicas:
             assert_not_equal(get_replica(scope=replica['scope'], name=replica['name'], rse='MOCK')['tombstone'], None)
+
+    def test_list_expired_dids_with_locked_rules(self):
+        """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
+        tmp_scope = 'mock'
+
+        dsn = {'name': 'dsn_%s' % generate_uuid(),
+               'scope': tmp_scope,
+               'type': 'DATASET',
+               'lifetime': -1,
+               'rules': [{'account': 'jdoe', 'copies': 1,
+                          'rse_expression':  'MOCK', 'locked': True,
+                          'grouping': 'DATASET'}]}
+
+        add_dids(dids=[dsn], account='root')
+
+        for did in list_expired_dids(limit=1000):
+            assert(did['scope'] != dsn['scope'] and did['name'] != dsn['name'])

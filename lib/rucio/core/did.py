@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
@@ -56,8 +56,12 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
     :param limit: limit number.
     :param session: The database session in use.
     """
+
+    stmt = exists().where(and_(models.ReplicationRule.scope == models.DataIdentifier.scope,
+                               models.ReplicationRule.name == models.DataIdentifier.name,
+                               models.ReplicationRule.locked == True))  # NOQA
     query = session.query(models.DataIdentifier.scope, models.DataIdentifier.name, models.DataIdentifier.did_type).\
-        filter(models.DataIdentifier.expired_at < datetime.utcnow()).\
+        filter(models.DataIdentifier.expired_at < datetime.utcnow(), not_(stmt)).\
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
@@ -149,7 +153,6 @@ def add_dids(dids, account, session=None):
                                 account=account, rse=did.get('rse'), session=session)
 
                 if did.get('rules', None):
-                    print did['rules']
                     rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
 
                 event_type = None
