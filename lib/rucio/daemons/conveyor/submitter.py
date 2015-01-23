@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -557,16 +557,16 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
                                                                                                                                         req['name'],
                                                                                                                                         transfer['src_urls'],
                                                                                                                                         transfer['dest_urls'],
-                                                                                                                                        eids[req['request_id']]['external_host'],
-                                                                                                                                        eids[req['request_id']]['external_id']))
+                                                                                                                                        eids[req['request_id']]['external_host'] if req['request_id'] in eids else None,
+                                                                                                                                        eids[req['request_id']]['external_id'] if req['request_id'] in eids else None))
                             else:
                                 logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s with eid: %s' % (req['request_id'],
                                                                                                                    req['scope'],
                                                                                                                    req['name'],
                                                                                                                    transfer['src_urls'],
                                                                                                                    transfer['dest_urls'],
-                                                                                                                   eids[req['request_id']]['external_host'],
-                                                                                                                   eids[req['request_id']]['external_id']))
+                                                                                                                   eids[req['request_id']]['external_host'] if req['request_id'] in eids else None,
+                                                                                                                   eids[req['request_id']]['external_id'] if req['request_id'] in eids else None))
                             record_counter('daemons.conveyor.submitter.submit_request')
                         except UnsupportedOperation, e:
                             # The replica doesn't exist, need to cancel the request
