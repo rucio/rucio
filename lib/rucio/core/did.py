@@ -444,18 +444,19 @@ def detach_dids(scope, name, dids, session=None):
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
         associ_did.delete(session=session)
         # Send message for AMI
-        if child_type == DIDType.CONTAINER:
-            chld_type = 'CONTAINER'
-        elif child_type == DIDType.DATASET:
-            chld_type = 'DATASET'
-        else:
-            chld_type = 'UNKNOWN'
-        add_message('ERASE_CNT', {'scope': scope,
-                                  'name': name,
-                                  'childscope': source['scope'],
-                                  'childname': source['name'],
-                                  'childtype': chld_type},
-                    session=session)
+        if did.did_type == DIDType.CONTAINER:
+            if child_type == DIDType.CONTAINER:
+                chld_type = 'CONTAINER'
+            elif child_type == DIDType.DATASET:
+                chld_type = 'DATASET'
+            else:
+                chld_type = 'UNKNOWN'
+            add_message('ERASE_CNT', {'scope': scope,
+                                      'name': name,
+                                      'childscope': source['scope'],
+                                      'childname': source['name'],
+                                      'childtype': chld_type},
+                        session=session)
 
 
 @stream_session
