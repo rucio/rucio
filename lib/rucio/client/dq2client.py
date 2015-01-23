@@ -25,7 +25,7 @@ import string
 
 from datetime import datetime, timedelta
 from rucio.client.client import Client
-from rucio.common.exception import (AccountNotFound, DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError, InvalidRSEExpression,
+from rucio.common.exception import (AccountNotFound, DataIdentifierNotFound, Duplicate, InvalidMetadata, RSENotFound, NameTypeError,
                                     InputValidationError, UnsupportedOperation, ScopeNotFound, ReplicaNotFound, RuleNotFound, FileAlreadyExists, FileConsistencyMismatch)
 
 
@@ -1366,9 +1366,8 @@ class DQ2Client:
                     lifetime = min(lifetime, 14 * 86400)
                 else:
                     lifetime = 14 * 86400
-            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
-        except InvalidRSEExpression:
-            raise UnsupportedOperation('Unknown RSE [%s]' % (location))
+            ignore_availability = (self.client.account == 'panda')
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N', ignore_availability=ignore_availability)
         except Duplicate:
             return True
         return True
@@ -1440,7 +1439,9 @@ class DQ2Client:
             # This is a staging request
             attr = self.client.list_rse_attributes(location)
             if 'istape' in attr and attr['istape']:
-                self.client.add_replication_rule(dids, copies=1, rse_expression=attr['staging_buffer'], weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify)
+                ignore_availability = (self.client.account == 'panda')
+                self.client.add_replication_rule(dids, copies=1, rse_expression=attr['staging_buffer'], weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity,
+                                                 notify=notify, ignore_availability=ignore_availability)
         else:
             for rule in self.client.list_did_rules(scope=scope, name=dsn):
                 if (rule['rse_expression'] == location) and (rule['account'] == owner):
@@ -1450,7 +1451,8 @@ class DQ2Client:
                     replica_lifetime = min(replica_lifetime, 14 * 86400)
                 else:
                     replica_lifetime = 14 * 86400
-            self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify)
+            ignore_availability = (self.client.account == 'panda')
+            self.client.add_replication_rule(dids, copies=1, rse_expression=location, weight=None, lifetime=replica_lifetime, grouping='DATASET', account=owner, locked=locked, activity=activity, notify=notify, ignore_availability=ignore_availability)
 
     def registerDatasetsInContainer(self, name, datasets, scope=None):
         """
@@ -1704,7 +1706,9 @@ class DQ2Client:
                         lifetime = min(lifetime, 14 * 86400)
                     else:
                         lifetime = 14 * 86400
-                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+                ignore_availability = (self.client.account == 'panda')
+                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False,
+                                                 notify='N', ignore_availability=ignore_availability)
             except Duplicate:
                 pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}
@@ -1776,7 +1780,9 @@ class DQ2Client:
                         lifetime = min(lifetime, 14 * 86400)
                     else:
                         lifetime = 14 * 86400
-                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False, notify='N')
+                ignore_availability = (self.client.account == 'panda')
+                self.client.add_replication_rule(dids=[{'scope': scope, 'name': dsn}], copies=1, rse_expression=rse, weight=None, lifetime=lifetime, grouping='DATASET', account=self.client.account, locked=False,
+                                                 notify='N', ignore_availability=ignore_availability)
             except Duplicate:
                 pass
         return {'duid': duid, 'version': 1, 'vuid': vuid}, statuses
@@ -2007,7 +2013,8 @@ class DQ2Client:
                         raise InputValidationError(errMsg)
                     lifetime = lifetime.days * 86400 + lifetime.seconds
             dids = [{'scope': scope, 'name': dsn}, ]
-            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=account, locked=locked, notify='N')
+            ignore_availability = (self.client.account == 'panda')
+            self.client.add_replication_rule(dids=dids, copies=1, rse_expression=location, weight=None, lifetime=lifetime, grouping='DATASET', account=account, locked=locked, notify='N', ignore_availability=ignore_availability)
         return 0
 
     def verifyFilesInDataset(self, dsn, guids, version=None, scope=None):
