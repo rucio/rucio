@@ -42,9 +42,14 @@ Your identity in Rucio is the Rucio account. When joining the ATLAS VO you must 
 
 Scopes are a new concept in Rucio and are a way of partitioning the dataset and file namespace. Every DID has a unique scope and a name and the Rucio clients always display this as ``scope:name``. When a command requires a DID argument it must be the full DID with ``scope:name``. With the default Rucio account you may only create new DIDs in your own scope, ``user.<RUCIO_ACCOUNT>``. Only special admin users can create DIDs in other scopes.
 
+``RSE (Rucio Storage Element)``
+-------------------------------
+A Rucio Storage Element is a site or part of the site that allows to store datasets and files in. There are several types of RSEs. The most important are DATADISK, SCRATCHDISK, and LOCALGROUPDISK.
+
 ``Permissions``
 ---------------
 As a regular user you are only permitted to upload data directly to SCRATCHDISK sites or at your LOCALGROUPDISK. SCRATCHDISK is also where the outputs of your jobs normally go. Data on SCRATCHDISK has a lifetime of 15 days. The lifetime of the data on LOCALGROUPDISKs can be infinite.
+
 
     - Datasets and files
      - Datasets
@@ -73,8 +78,21 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
         Ralph
     - Replicas
         Ralph
-    - Sites, mass storage systems and SRM
-        Joaquin
+    - RSEs, mass storage systems and SRM
+        DDM sites (RSEs)
+
+        - A site is a managed logical entity, described in TiersOfATLAS
+        - A site is serving datasets.
+        - A site has one or more mass storage systems, which store the constituent replicated files of datasets.
+
+        Datasets in a DDM site
+
+        - A dataset is considered locally replicated to a site, if there are files in the mass storage system of the site.
+        - A dataset is considered complete at a site, once all constituent files are replicated there; otherwise incomplete.
+
+        Accessing datasets in a DDM site
+
+        - At the contrary as in dq2- client, there is no default RSE in rucio to search for local replicas. You will always need to specify the RSE.
     - When to use rucio download or rules
      - Both rucio download and Rucio rules will access ONLY files registered in Rucio.
      - rucio download creates "local" copies of files, which will not be known to DDM and will not be accessible with rucio commands. The Grid/Rucio informations of the files will not be kept in the local files. If you plan to publish these data on the Grid later from the target storage, add a rule.
@@ -88,7 +106,6 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
       1. Select "Monitoring" in the title bar.
       2. Select "Subscription & Rules" to get an overview.
       3. From there, you can navigate through all available rules, and see their status and progress.
-
 
 
 ``Installing/Initializing dq2 commands``
@@ -308,9 +325,23 @@ You can decide to upload your datasets into 2 different storage areas :
        Because of temporary limitations in xrootd sites (SLACXRD and SWT2_SPB), the DDM sites SCRATCHDISK and LOCALGROUPDISK could not be created. Users are asked to send their datasets to GROUPDISK.
 
     - Maximum number of files in a dataset
-        Joaquin
-    - Create a dataset from files on my local disk
-        Joaquin
+        For technical reasons, it is strongly recommended to limit the number of files per dataset to 10k. Above this threshold, the time to scan the Rucio Catalog for transfers is becoming problematic. If more than 10k files are manipulated, create many datasets of 10k files and group them in a container.
+    - Create a dataset from files on my local disk::
+
+            rucio upload --rse RSE_NAME --files local/file1 local/file2 local/file3 --scope `account`--did scope:dataset_name
+
+        It's possible to create a dataset without files with the command::
+
+            rucio add-dataset scope:dataset_name
+
+        And then, attach files to it::
+
+            rucio attach --to scope:dataset_name scope:file1 scope:file2 scope:file3
+
+        Note however than the files should be already in the catalog.
+
+        ''Important note'': The names of files and datasets must be unique for a given scope. Otherwise, the rucio command will end in an error. Also the name of the files must be different that the one given for the dataset.
+
     - Create a dataset from files on CASTOR at CERN
         Thomas
     - Create a dataset from files on my site's DPM
@@ -456,7 +487,16 @@ You can decide to upload your datasets into 2 different storage areas :
     - Remove datasets from a Dataset Container
         Ralph
     - List datasets in a Dataset Container
-        Joaquin
+        To list the datasets in a container:::
+
+            rucio list-dids scope:container_name
+
+        It's also possible to list the contents recursively with the `--recursive` option: ::
+
+            rucio list-dids --recursive scope:container_name
+
+        The output of this command can be large.
+
     - Erase a container
         Rucio Client has not implemented delete operations on dids(file, dataset, container). Rucio will automatically delete expired dids.
 
@@ -523,8 +563,17 @@ You can decide to upload your datasets into 2 different storage areas :
         .. todo:: Explain how to retrieve a rule_id for a dataset, site, account
 
     - delete a dataset from DDM catalog
-    - Remove files from a dataset
-        Joaquin
+        Command not implemented in Rucio yet.
+    - Delete a dataset replica from a site - delete a dataset from DDM catalog
+        Vincent
+    - Remove files from a dataset (detach)::
+
+            rucio detach --from scope:dataset_name scope:file_name1 scope:file_name2
+
+        Notice however that this will not remove the file from the catalog.
+
+    - Create a dataset from files already in other datasets
+        Wen
     - Verify local files with registered attributes
         Joaquin
     - More advanced uses
