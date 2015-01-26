@@ -244,6 +244,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', e.args[0])\
+                or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', e.args[0]) \
                 or match('.*duplicate entry.*key.*PRIMARY.*', e.args[0]):
             raise exception.FileAlreadyExists(e.args)
         else:
@@ -307,6 +308,15 @@ def __add_collections_to_container(scope, name, collections, account, session):
     try:
         session.flush()
     except IntegrityError, e:
+        if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', e.args[0]) \
+           or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
+           or e.args[0] == "(IntegrityError) foreign key constraint failed" \
+           or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
+            raise exception.DataIdentifierNotFound("Data identifier not found")
+        elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', e.args[0]) \
+                or match('.*columns scope, name, child_scope, child_name are not unique.*', e.args[0]):
+            raise exception.DuplicateContent(e.args)
         raise exception.RucioException(e.args)
 
 
