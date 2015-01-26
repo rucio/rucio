@@ -67,7 +67,23 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 ``Querying``
 ------------
     - List all DDM sites
-        Martin
+      
+      All RSEs in alphabetical order can be listed with list-rses::
+
+        $> rucio list-rses
+        AGLT2_CALIBDISK
+        AGLT2_DATADISK
+        AGLT2_LOCALGROUPDISK
+        AGLT2_PERF-MUONS
+        AGLT2_PHYS-HIGGS
+        AGLT2_PHYS-SM
+        AGLT2_PRODDISK
+        AGLT2_SCRATCHDISK
+        AGLT2_USERDISK
+        AM-04-YERPHI_LOCALGROUPDISK
+
+      To use an RSE Expression to filter the results the option --expression <expression> can be used.
+    
     - Find a dataset
         Ralph
     - List the files in a dataset
@@ -141,11 +157,19 @@ The protocols currently supported are SRM, GSIFTP, HTTPS/WebDAV, xrootd.
     - List the file paths of a dataset replica at a site
         Cedric. TBD Need a new option --rse in the CLI to only get the PFNs at a specific RSE.
     - List the dataset(s) where a particular file belongs
-        Martin
+
+      The command rucio list-parent-dids <scope>:<name> has to be used for this::
+
+        $> rucio list-parent-dids mc12_14TeV:HITS.04640638._001016.pool.root.1
+        mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00 [DATASET]
+        mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00_sub0201868877 [DATASET]
+      
     - Create a Pool File Catalogue with files on a site
         Joaquin
     - Create a Pool File Catalogue and let the system guess the PFN
-        Martin
+
+      Martin; I don't think this works in Rucio. Any idea?
+      
     - Create a Pool File Catalogue in a Tier-3
         Thomas
 
@@ -183,7 +207,7 @@ The files are copied locally into a directory <scope>
     - Download a sample of n random files from a dataset
         Thomas
     - Download a dataset from a specific site
-        Martin
+        Martin; I don't think this works, does it?
     - Download with datasets/files given in an inputfile
         Ralph
     - Download datasets from tape
@@ -225,11 +249,19 @@ You can decide to upload your datasets into 2 different storage areas :
     - What to do after creating a dataset?
         Mario
     - Close a dataset
-        Martin
+
+      To close a dataset the command rucio close has to be used::
+
+        $> rucio close user.barisits:test-dataset
+        user.barisits:test-dataset has been closed.
+
     - Re-open a dataset
-        Martin
+
+      This is only possible for privileged accounts using the Rucio Python clients.
+      
     - Freeze a dataset
-        Martin
+
+      Freezing a dataset is not possible in Rucio. Closing the dataset is sufficient.
 
 ``Policy implemented centrally on datasets``
 --------------------------------------------
@@ -269,7 +301,14 @@ You can decide to upload your datasets into 2 different storage areas :
     - What to do after my distributed analysis jobs create a dataset?
         Joaquin
     - Replicate a dataset to another DDM site
-        Martin
+      
+      Replication in Rucio is exclusively done via replication rules. To replica a dataset to another DDM site the user just has to create a replication rule for it, specifying the did, the number of copies and an RSE-Expression, which can just be the name of the RSE::
+
+        $> rucio add-rule user.barisits:test-dataset 1 CERN-PROD_SCRATCHDISK
+        09292C75957FF882E05317938A894A13
+
+      The return value of the command is the Replication rule ID of the created rule.
+      
     - Check if a file is corrupted
         Wen
     - Know the size of the dataset
