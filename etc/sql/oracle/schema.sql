@@ -1282,7 +1282,7 @@ CREATE TABLE configs_history (
 -- Access pattern: -- By rule_id
 
 
-CREATE TABLE rules (
+CREATE TABLE rules_hist_recent (
     history_id RAW(16),
     id RAW(16),
     subscription_id RAW(16),
@@ -1314,13 +1314,13 @@ CREATE TABLE rules (
 CREATE INDEX RULES_HIST_RECENT_ID_IDX ON rules_hist_recent (id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
 
 
--- ========================================= RULES_HIST_LONGTERM ==============================================
+-- ========================================= RULES_HISTORY ==============================================
 -- Description: Table of longterm rules (deleted)
 -- Estimated volume:  ?
 -- Access pattern: -- Usually by scope, name - but very rare so full table scan is fine
 
 
-CREATE TABLE rules (
+CREATE TABLE rules_history (
     history_id RAW(16),
     id RAW(16),
     subscription_id RAW(16),
