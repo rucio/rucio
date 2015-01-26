@@ -75,9 +75,36 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
       - The replica locations of the contained datasets define where the data of a container are available. The contained datasets might spread over multiple grid sites, or even over multiple clouds.
       - Rules on containers will be made at the time of execution. If the container is modified later, the rule will be automatically reevaluated.
     - Physics Containers
-        Ralph
+
+      See `Physics Containers <https://twiki.cern.ch/twiki/bin/view/AtlasProtected/PhysicsContainers>`_.
+
     - Replicas
-        Ralph
+
+      Replicas are the instances of datasets (or files) that you access.
+      A dataset can be distributed among sites (see below),
+      thus replicas. In DDM, we do not distinguish the 'original' and 'copies'; a dataset is a registered entry in the DDM catalog, 
+      and a replica is a physical entity that you use in your jobs.
+
+        * A dataset replica contains physical files of the dataset, but not necessarily all of them.
+        * A replica has a location (a DDM site name; see below)
+        * When a replica has all the files of the dataset, it is "complete".
+        * When a replica has only a part of the files of the dataset, it is marked as "incomplete". This indicate either;
+
+          * the dataset is not frozen
+          * its replication is on-going
+          * there was a problem in its replication
+
+
+        The files are stored at a storage element in a hierarchical namespace. The classic naming conventions stores files in a path derived from the name of the dataset::
+
+          srm://atlassrm-fzk.gridka.de/pnfs/gridka.de/atlas/atlasdatatape/data12_8TeV/DESDM_TRACK/r4487_p1476/data12_8TeV.00214651.physics_HadDelayed.merge.DESDM_TRACK.r4487_p1476_tid01254244_00/DESDM_TRACK.01254244._000001.pool.root.14
+
+        The new (Rucio) naming convention uses more random distribution of files in directories (the same file from the same dataset but belonging to a replica at a different site)::
+
+          srm://ccsrm.in2p3.fr/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/data12_8TeV/9f/3b/DESDM_TRACK.01254244._000001.pool.root.14
+
+        More details about Rucio naming convention (motivation, pros and cons) were presented at `ATLAS weekly <https://indico.cern.ch/contributionDisplay.py?confId=156444&contribId=2>`_ and is described on `DDMRucioPhysicalFileName <https://twiki.cern.ch/twiki/bin/view/AtlasComputing/DDMRucioPhysicalFileName>`_.
+
     - RSEs, mass storage systems and SRM
         DDM sites (RSEs)
 
@@ -97,7 +124,6 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
      - Both rucio download and Rucio rules will access ONLY files registered in Rucio.
      - rucio download creates "local" copies of files, which will not be known to DDM and will not be accessible with rucio commands. The Grid/Rucio informations of the files will not be kept in the local files. If you plan to publish these data on the Grid later from the target storage, add a rule.
      - Rucio rules will copy all the files belonging to the dataset to a storage known by Rucio. The files at the destination will be registered to Rucio and accessible by rucio commands.
-
     - Few informations about rules
      - Rucio will try to enforce the minimum placement, and thus transfers, that is necessary to satisfy all rules, over all ATLAS users.
      - Rules where such transfers are impossible will be marked stuck.
@@ -152,24 +178,57 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 
       To use an RSE Expression to filter the results the option --expression <expression> can be used.
 
-    - Find a dataset
-        Ralph
-    - List the files in a dataset
-The content of a dataset can be listed with list-files. Mandatory parameters are <scope>:<name>.::
+    - Find a dataset (seems broken `Ticket <https://its.cern.ch/jira/browse/RUCIO-1120>`_)
 
-        $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-        mc12_14TeV:log.01596380._000026.job.log.tgz.1
-        mc12_14TeV:log.01596380._000050.job.log.tgz.1
-        mc12_14TeV:log.01596380._000082.job.log.tgz.1
-        mc12_14TeV:log.01596380._000091.job.log.tgz.1
-        mc12_14TeV:log.01596380._000130.job.log.tgz.1
-        mc12_14TeV:log.01596380._000131.job.log.tgz.1
-        mc12_14TeV:log.01596380._000134.job.log.tgz.1
-        mc12_14TeV:log.01596380._000142.job.log.tgz.1
-        mc12_14TeV:log.01596380._000156.job.log.tgz.1
-        mc12_14TeV:log.01596380._000170.job.log.tgz.1
-        mc12_14TeV:log.01596380._000192.job.log.tgz.1
-        mc12_14TeV:log.01596380._000215.job.log.tgz.1
+      To make sure that a dataset exists::
+
+        $> rucio list-dids --scope mc12_14TeV mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+
+      To find datasets whose names start with DATASETNAME::
+
+        $> rucio list-dids --scope mc12_14TeV --filter name=mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.*
+
+      do not forget to quote (either by ' or ") the pattern when you use *
+
+      To find datasets that matches a pattern. This is supported by the ``--filter`` CLI argument, e.g.::
+
+        $> rucio list-dids --scope mc12_14TeV --filter name=mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.*
+
+      only wild cards '*' can be used in the PATTERN
+      **Note: You cannot use a wild card '\*'** at the beginning of the pattern
+      You must specify the full scope at the start of the pattern, for example::
+
+        $> rucio list-dids --scope mc12_14TeV --filter name=mc12_14TeV:*mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.*
+
+      do not forget to quote (either by ' or ") the pattern when you use *
+
+      **BE CAREFUL**
+
+      you should escape the wildcard if you do not use a setup script which disables globbing::
+
+        $> rucio list-dids "..."
+
+      Otherwise
+        * with zsh, you will not find anything!.
+        * with sh/bash, you may find only a single dataset if you have a directory with the dataset name.
+
+    - List the files in a dataset
+
+      The content of a dataset can be listed with list-files. Mandatory parameters are <scope>:<name>.::
+
+         $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+         mc12_14TeV:log.01596380._000026.job.log.tgz.1
+         mc12_14TeV:log.01596380._000050.job.log.tgz.1
+         mc12_14TeV:log.01596380._000082.job.log.tgz.1
+         mc12_14TeV:log.01596380._000091.job.log.tgz.1
+         mc12_14TeV:log.01596380._000130.job.log.tgz.1
+         mc12_14TeV:log.01596380._000131.job.log.tgz.1
+         mc12_14TeV:log.01596380._000134.job.log.tgz.1
+         mc12_14TeV:log.01596380._000142.job.log.tgz.1
+         mc12_14TeV:log.01596380._000156.job.log.tgz.1
+         mc12_14TeV:log.01596380._000170.job.log.tgz.1
+         mc12_14TeV:log.01596380._000192.job.log.tgz.1
+         mc12_14TeV:log.01596380._000215.job.log.tgz.1
 
 This command can also be used to list the content of a container.
 
@@ -311,7 +370,16 @@ The files are copied locally into a directory <scope>
     - Download a dataset from a specific site
         Martin; I don't think this works, does it?
     - Download with datasets/files given in an inputfile
-        Ralph
+
+      Not supported by Rucio, but similar functionality can be achieved by::
+
+        $> rucio download `cat input.txt`
+
+      where the input file (``input.txt``) contains one DID per line, e.g.::
+
+        user.dcameron:test66
+        user.dcameron:test8
+
     - Download datasets from tape
         Users cannot download files from DDM sites associated to TAPE (xxx_MCTAPE and xxx_DATATAPE, CERN-PROD_TZERO and CERN-PROD_DAQ). To access data from TAPE, one should request a replication of the dataset to DISK storage through DDM request.
         If you need the whole dataset, choose the DATADISK of the same site as the destination.
@@ -373,7 +441,9 @@ You can decide to upload your datasets into 2 different storage areas :
     - Create a dataset from files on CASTOR at CERN
         Thomas
     - Create a dataset from files on my site's DPM
-        Ralph
+
+      .. todo::  **NO CLUE**
+
     - Write a dataset/files in a specific DDM site::
 
         $> rucio upload --files <filepath1> <filepath2> --rse <RSEName> --did <scope>:<datasetname> --scope <scope>
@@ -472,7 +542,10 @@ You can decide to upload your datasets into 2 different storage areas :
 ``Policy implemented centrally on datasets``
 --------------------------------------------
     - Automatic freezing of user/group datasets
-        Ralph
+
+        Freezeing (``freeze``) as such is totaly yesteryear and replaced by Closing (``close``) (see ???). But, also no automiatic closing is applied in Rucio.
+
+
     - Lifetime of datasets on SCRATCHDISK
      The files on SCRATCHDISK have a lifetime of 7 days, or possibly larger depending on the free space (see the announcement to https://groups.cern.ch/group/hn-atlas-gridAnnounce/Lists/Archive/Flat.aspx?RootFolder=%2fgroup%2fhn-atlas-gridAnnounce%2fLists%2fArchive%2fLifetime%20of%20files%20on%20SCRATCHDISK&FolderCTID=0x01200200B0EE6A3A1528A6438E8AA50D12F94E5C&TopicsView=https%3A%2F%2Fgroups.cern.ch%2Fgroup%2Fhn-atlas-gridAnnounce%2Fdefault.aspx). The deletion of the oldest datasets is triggered when the site is almost full. In the near future, it will also depend on your personal usage in that specific SCRATCHDISK and also all the SCRATCHDISKs over the whole grid.
 
@@ -513,7 +586,10 @@ You can decide to upload your datasets into 2 different storage areas :
     .. todo:: Explain how to list scopes
 
     - Remove datasets from a Dataset Container
-        Ralph
+
+      Deleting content or DIDs directly is not supported any more. To remove content from your quota, delete the rule pointing to the according container i.e. DID. See also delete-rule.
+
+
     - List datasets in a Dataset Container
         To list the datasets in a container:::
 
@@ -604,13 +680,75 @@ You can decide to upload your datasets into 2 different storage areas :
         Wen
     - Verify local files with registered attributes
         Joaquin
+
+
     - More advanced uses
-        Ralph
+
+      - Dataset Replica History
+
+          **TODO:** Implement in core and susequently in client
+
+      - Accounting
+
+          Rucio has no more CLI support for this. See `DDM Accounting Dashboard <http://dashb-atlas-ddm-acc.cern.ch/dashboard/request.py/ddmaccounting>`_
+
+      - Per-User Usage at a Site
+
+          Not exposed to CLI any more. If needed use Python API. The class ``rucio.client.accountclient`` implements the method ``get_account_usage`` for this purpose.
+
+      - Delete a Dataset from DDM Catalog
+
+         See rucio delete
+
+      - Remove Files from Dataset
+        ::
+          $> rucio datach --from user.dcameron:test66 user.dcameron:a.66
+
+      - Create a dataset from files already in other datasets
+
+         .. todo:: **No clue**
+
+      - DQ2-put mechanism
+
+          .. todo:: **No clue**
+
+      - Dataset Retrieval
+
+        See `Rucio download`
+
+      - Download a dataset to a SE not known by DDM
+
+          .. todo:: **No clue**
+
+      - Dataset subscription
+
+        No exposed via CLI in Rucio.
+
+      - Shares
+
+         .. todo:: **No clue**
+
+      - dq2-put and DDM transfers
+
+         .. todo:: I'm guessing the rpoper answer is 'no convention applied' use metadata during upload instead?
+
+      - Ganga
+
+         .. todo:: **No clue**
+          * usertag can be user08
+          * LFN: usertag/DN/ganga/DATASETNAME/FILENAME
+
+        Panda/pathena
+
+         .. todo:: **No clue**
+          * LFN
+
 
 ``Known problems``
 ------------------
-    - Dataset complete in siteA but dq2-ls -f provides no physical files
-        Ralph
+
+    1. Rucio flawless
+    2. if an error occurs, remember #1
 
 ``Links to external applications creating datasets``
 ----------------------------------------------------
