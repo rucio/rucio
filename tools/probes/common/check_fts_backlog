@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 import os
@@ -41,14 +41,20 @@ if __name__ == "__main__":
         retvalue = WARNING
     for ftshost in ftshosts.split(','):
         url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (ftshost, vo)
-        try:
-            r = requests.get(url, verify=False)
-            summary = r.json()['summary']
-            h = urlparse(url)
-            hostname = h.hostname.replace('.', '_')
-            print '%s : %s' % (hostname, summary['submitted'])
-            monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=summary['submitted'])
-        except Exception, e:
-            retvalue = CRITICAL
-            print 'Error when trying to get info from %s' % ftshost
+        for attempt in xrange(0, 5):
+            print '%i/5 attempt to contact %s' % (attempt+1, ftshost)
+            try:
+                r = requests.get(url, verify=False)
+                summary = r.json()['summary']
+                h = urlparse(url)
+                hostname = h.hostname.replace('.', '_')
+                print '%s : %s' % (hostname, summary['submitted'])
+                monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=summary['submitted'])
+                break
+            except Exception, e:
+                retvalue = CRITICAL
+                if r.status_code:
+                    print 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(r.status_code), str(e))
+                else:
+                    print 'Error when trying to get info from %s. %s' % (ftshost, str(e))
     sys.exit(retvalue)
