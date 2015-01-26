@@ -20,9 +20,9 @@ Rucio Client How To
 
 ``Introduction``
 ----------------
-The main command line interface is rucio. Type rucio without arguments to get a list of possible sub-commands. A rucio-admin tool also exists which is used for administrative purposes. This tool is not covered here.
+The main command line interface is ``rucio``. Type ``rucio`` without arguments to get a list of possible sub-commands. A ``rucio-admin`` tool also exists which is used for administrative purposes. This tool is not covered here.
 
-The recommended set up is to use ATLAS Local Root Base. localSetupDQ2Clients also sets up Rucio clients.
+The recommended set up is to use ATLAS Local Root Base. ``localSetupDQ2Clients`` also sets up the Rucio clients.
 
 
 ``Rucio concepts``
@@ -30,36 +30,63 @@ The recommended set up is to use ATLAS Local Root Base. localSetupDQ2Clients als
 
 ``DIDs``
 --------
-Dataset identifiers (DIDs) are the core objects in Rucio. They may be files, datasets or containers. Many Rucio commands ask for a DID and can accept files, datasets or containers.
+Dataset identifiers (DIDs) are the core objects in Rucio and are labelled with a unique ``scope:name`` pair. They may be files, datasets or containers. Many Rucio commands ask for a DID and can accept files, datasets or containers.
 
 ``Accounts``
 ------------
 
-Your identity in Rucio is the Rucio account. When joining the ATLAS VO you must pick a nickname which is the same as your CERN login account - this is also your default Rucio account. When using the recommended set up above the account is set automatically and you do not need to do anything further. Under special circumstances you may need to use another Rucio account and it can be set with the RUCIO_ACCOUNT environment variable.
+Your identity in Rucio is the Rucio account. When joining the ATLAS VO you must pick a nickname which is the same as your CERN login account - this is also your default Rucio account. When using the recommended set up above the account is set automatically and you do not need to do anything further. Under special circumstances you may need to use another Rucio account and it can be set with the ``RUCIO_ACCOUNT`` environment variable.
 
 ``Scopes``
 ----------
 
-Scopes are a new concept in Rucio and are a way of partitioning the dataset and file namespace. Every DID has a scope and a name and the Rucio clients always display this as scope:name. When a command requires a DID argument it must be the full DID with scope:name. With the default Rucio account you may only create new DIDs in your own scope, user.username. Only special admin users can create DIDs in other scopes.
+Scopes are a new concept in Rucio and are a way of partitioning the dataset and file namespace. Every DID has a unique scope and a name and the Rucio clients always display this as ``scope:name``. When a command requires a DID argument it must be the full DID with ``scope:name``. With the default Rucio account you may only create new DIDs in your own scope, ``user.<RUCIO_ACCOUNT>``. Only special admin users can create DIDs in other scopes.
 
 ``Permissions``
 ---------------
-As a regular user you are only permitted to upload data directly to SCRATCHDISK sites or at your LOCALGROUPDISK. SCRATCHDISKs is also where the outputs of your jobs normally go. Data on SCRATCHDISK has a lifetime of 15 days. The lifetime of the data on LOCALGROUPDISKs can be infinite.
+As a regular user you are only permitted to upload data directly to SCRATCHDISK sites or at your LOCALGROUPDISK. SCRATCHDISK is also where the outputs of your jobs normally go. Data on SCRATCHDISK has a lifetime of 15 days. The lifetime of the data on LOCALGROUPDISKs can be infinite.
 
     - Datasets and files
-        Mario
+     - Datasets
+      - A dataset is a logical entity with an arbitrary name that must follow the naming convention.
+      - A dataset consists of logically referencable, grid-enabled files; and depending on the state of the dataset it may be replicated to multiple sites.
+      - Datasets can be open or closed. If it is open, then new files can be added at any time. If it is closed, no new files can be opened anymore.
+     - Files
+      - A file is a physical entity with an arbitrary name that exists within Rucio. Together with the scope, it forms a unique Data Identifier.
+      - Files are immutable, once they get registered to Rucio.
+      - POOL files (files named as '*.pool.root.*') should contain its own unique identifier (GUID) in the file itself.
+      - Files have an adler32 checksum or md5 checksum stored in Rucio.
+      - Files have their size stored in the DQ2 catalog.
+      - Files have additional metadata stored in the Rucio catalog.
     - Dataset Containers
-        Mario
+     - Dataset containers are logical objects which contain one or many dataset (datasets contain files). They have been introduced to manipulate group of datasets. The production system gathers in a container the datasets with a common physics content. The users just have to deal with the container. For example, MC containers contain the files belonging to the tid datasets (containing _tidxxxx with xxxx as task number).
+     - Previously, in DQ2, the convention is that containers finish with a /. This is not the case anymore in Rucio.
+     - Previously, in DQ2, it was not possible to make containers of containers. With Rucio this is possible.
+     - Dataset Containers can be open or closed.
+      - Open : Datasets can be added at any time.
+      - Closed : No more datasets can be added. Re-opening container is not possible.
+     - Replica Locations
+      - Dataset containers have no replicas, and thus no locations.
+      - The replica locations of the contained datasets define where the data of a container are available. The contained datasets might spread over multiple grid sites, or even over multiple clouds.
+      - Rules on containers will be made at the time of execution. If the container is modified later, the rule will be automatically reevaluated.
     - Physics Containers
         Ralph
     - Replicas
         Ralph
     - Sites, mass storage systems and SRM
         Joaquin
-    - When to use dq2-get or DDM subscriptions
+    - When to use dq2-get or rules
         Wen
-    - Few informations about DDM subscriptions
-        Mario
+    - Few informations about rules
+     - Rucio will try to enforce the minimum placement, and thus transfers, that is necessary to satisfy all rules, over all ATLAS users.
+     - Rules where such transfers are impossible will be marked stuck.
+     - Rules where transfers repeatedly fail will be marked stuck.
+     - The status of rules can be monitored on the Rucio UI https://rucio-ui.cern.ch/
+      1. Select "Monitoring" in the title bar.
+      2. Select "Subscription & Rules" to get an overview.
+      3. From there, you can navigate through all available rules, and see their status and progress.
+
+
 
 ``Installing/Initializing dq2 commands``
 ----------------------------------------
@@ -73,7 +100,7 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 ``Querying``
 ------------
     - List all DDM sites
-      
+
       All RSEs in alphabetical order can be listed with list-rses::
 
         $> rucio list-rses
@@ -89,7 +116,7 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
         AM-04-YERPHI_LOCALGROUPDISK
 
       To use an RSE Expression to filter the results the option --expression <expression> can be used.
-    
+
     - Find a dataset
         Ralph
     - List the files in a dataset
@@ -174,13 +201,13 @@ The protocols currently supported are SRM, GSIFTP, HTTPS/WebDAV, xrootd.
         $> rucio list-parent-dids mc12_14TeV:HITS.04640638._001016.pool.root.1
         mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00 [DATASET]
         mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00_sub0201868877 [DATASET]
-      
+
     - Create a Pool File Catalogue with files on a site
         Joaquin
     - Create a Pool File Catalogue and let the system guess the PFN
 
       Martin; I don't think this works in Rucio. Any idea?
-      
+
     - Create a Pool File Catalogue in a Tier-3
         Thomas
 
@@ -244,7 +271,23 @@ You can decide to upload your datasets into 2 different storage areas :
 - The first one is a temporary area, which is any SCRATCHDISK. The datasets uploaded there will be kept for 2 weeks, but after that period, they can disappear at anytime.
 - The second place is a permanent area (the so called LOCALGROUPDISK). This areas are dedicated to local users and are managed by the cloud squads. Permissions are set according to the user nationality and/or institut. The retention policy and the quota on these endpoints are defined by the cloud squads.
     - Where my dataset/files should be finally stored ?
-        Mario
+
+     - Long term storage for user datasets
+
+       On the Grid managed by DDM, the final destination for user datasets should be LOCALGROUPDISK. This area is not pledged, its size is defined by the site and its access is restricted to local users (technically to users from the same country). Datasets in this area are deleted only if the dataset was produced centrally (mc* or data*) and the associated task is declared aborted (usually meaning that the task was bugged). To send your dataset there, request the replication by setting a rule. There is no such storage at CERN. Outside the Grid or for Grid storage not declared in DDM, the storage managment is done by the site with its own tools. Currently, files can be replicated to this area through ``dq2-get`` / ``rucio download``. There is non-Grid storage at CERN with quotas per user (to be documented).
+
+     - Long term storage for group datasets
+
+       The group datasets are user (possible that this user is working for a group) datasets replicated in group areas. Only the data manager of the group can request the replication of datasets.
+
+     - Short term storage
+
+       The dataset can be stored or replicated in SCRATCHDISK. SCRATCHDISK is the place for analysis output (except in US where _USERDISK is the place for pathena output) or ``dq2-put`` / ``rucio upload``. The deletion policy for datasets in SCRATCHDISK is defined. Using LOCALGROUPDISK as the ouput location for analysis jobs is not recommended by the DDM team.
+
+     - Exceptions in US
+
+       Because of temporary limitations in xrootd sites (SLACXRD and SWT2_SPB), the DDM sites SCRATCHDISK and LOCALGROUPDISK could not be created. Users are asked to send their datasets to GROUPDISK.
+
     - Maximum number of files in a dataset
         Joaquin
     - Create a dataset from files on my local disk
@@ -257,10 +300,25 @@ You can decide to upload your datasets into 2 different storage areas :
         Wen
     - Create a dataset from files already in other datasets
         Wen
-    - Add files to a dataset
-        Mario
+    - Add files to a dataset::
+
+       rucio add-files-to-dataset --to <DATASET> <FILE_1> <FILE_2> ... <FILE_n>
+
+      or::
+
+       rucio attach --to <DATASET> <FILE_1>  <FILE_2> ...  <FILE_n>
+
     - What to do after creating a dataset?
-        Mario
+     - You should "close" the dataset. If the dataset is not closed, matching rules will have to constantly reevaluate your dataset and possibly generate transfers.
+     - If you want to add another set of files after a while, think about using containers.
+     - If you want to keep the possibility to add files to this dataset, do not close the dataset.
+     - By default, user datasets are created on SCRATCHDISK at the site where the jobs run.
+     - All the datasets on SCRATCHDISK are to be deleted after a certain period (minimum 7 days). See the section Lifetime of data on SCRATCHDISK.
+     - To retrieve your output files, you should either
+      - Set a rule. The output files will stay as a dataset on Grid.
+      - Download onto your local disk using ``dq2-get`` \ ``rucio download``. The output files will not be available via DDM after the dataset on the SCRATCHDISK is deleted. If the files are Athena files (POOL files), you will not be able to re-register the files. If you see a possibility to use them on Grid, you should think about setting rules.
+     - After retrieving the data from the SCRATCHDISK, you are encouraged to request early deletion of the original replicas in SCRATCHDISK.
+
     - Close a dataset
 
       To close a dataset the command rucio close has to be used::
@@ -271,7 +329,7 @@ You can decide to upload your datasets into 2 different storage areas :
     - Re-open a dataset
 
       This is only possible for privileged accounts using the Rucio Python clients.
-      
+
     - Freeze a dataset
 
       Freezing a dataset is not possible in Rucio. Closing the dataset is sufficient.
@@ -281,15 +339,29 @@ You can decide to upload your datasets into 2 different storage areas :
     - Automatic freezing of user/group datasets
         Ralph
     - Lifetime of datasets on SCRATCHDISK
-        Mario
+     The files on SCRATCHDISK have a lifetime of 7 days, or possibly larger depending on the free space (see the announcement to https://groups.cern.ch/group/hn-atlas-gridAnnounce/Lists/Archive/Flat.aspx?RootFolder=%2fgroup%2fhn-atlas-gridAnnounce%2fLists%2fArchive%2fLifetime%20of%20files%20on%20SCRATCHDISK&FolderCTID=0x01200200B0EE6A3A1528A6438E8AA50D12F94E5C&TopicsView=https%3A%2F%2Fgroups.cern.ch%2Fgroup%2Fhn-atlas-gridAnnounce%2Fdefault.aspx). The deletion of the oldest datasets is triggered when the site is almost full. In the near future, it will also depend on your personal usage in that specific SCRATCHDISK and also all the SCRATCHDISKs over the whole grid.
+
+     To save your datasets before deletion, many possibilities are provided, depending on your final storage of dataset:
+      - Set a rule on your favorite site on LOCALGROUPDISK through the Rucio UI https://rucio-ui.cern.ch/ It will take a few hours up to a few days to satisfy the rule.
+      - If you do not want to store on a Grid disk or a disk which is not known by DDM, you can use ``dq2-get`` / ``rucio download``
+      - The last possibility is to write directly your output to LOCALGROUPDISK.
+
+    - Dataset deletion from 'aborted' or 'obsolete' tasks (central or group production)
+        Vincent
     - Central deletion policy on DDM sites
         Wen
 
 ``Dataset Container commands``
 ------------------------------
 
-    - Create a Dataset Container and include datasets
-        Mario
+    - Create a Dataset Container and include datasets::
+
+       rucio add-container <CONTAINER>
+       rucio add-dataset-to-container --to <CONTAINER> <DATASET_1> <DATASET_2> ... <DATASET_n>
+
+      or::
+
+       rucio attach --to <DATASET|CONTAINER> <FILE_1|DATASET_1>  <FILE_2|DATASET_2> ...  <FILE_n|DATASET_n>
 
     - List the locations of a container::
 
@@ -304,7 +376,6 @@ You can decide to upload your datasets into 2 different storage areas :
         FZK-LCG2_DATADISK                            12     12
 
     .. todo:: Explain how to list scopes
-
 
     - Remove datasets from a Dataset Container
         Ralph
@@ -327,14 +398,14 @@ You can decide to upload your datasets into 2 different storage areas :
     - What to do after my distributed analysis jobs create a dataset?
         Joaquin
     - Replicate a dataset to another DDM site
-      
+
       Replication in Rucio is exclusively done via replication rules. To replica a dataset to another DDM site the user just has to create a replication rule for it, specifying the did, the number of copies and an RSE-Expression, which can just be the name of the RSE::
 
         $> rucio add-rule user.barisits:test-dataset 1 CERN-PROD_SCRATCHDISK
         09292C75957FF882E05317938A894A13
 
       The return value of the command is the Replication rule ID of the created rule.
-      
+
     - Check if a file is corrupted
         Wen
     - Know the size of the dataset
