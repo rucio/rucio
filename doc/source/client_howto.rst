@@ -12,6 +12,12 @@ Rucio Client How To
 ``General concepts``
 --------------------
 
+``todolist``
+------------
+
+.. todolist::
+
+
 ``Introduction``
 ----------------
 The main command line interface is rucio. Type rucio without arguments to get a list of possible sub-commands. A rucio-admin tool also exists which is used for administrative purposes. This tool is not covered here.
@@ -107,6 +113,8 @@ This command can also be used to list the content of a container.
 
     - List the replica locations of a dataset
 It can be done with the list-replicas command and option --list_collections. Mandatory parameters are <scope>:<name>.::
+
+
     $> rucio list-replicas --list_collections mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
     RSE                                      Found  Total
     ------------------------------------------------------
@@ -120,6 +128,7 @@ It returns all the locations of the dataset, the number of files on each of thes
         Cedric. CLI not implemented yet
     - List the physical filenames in a dataset
 It can be done with the list-replicas command. Mandatory parameters are <scope>:<name>.::
+
 
     $> rucio list-replicas mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
     Scope   Name                    Filesize        adler32 Replicas
@@ -137,7 +146,9 @@ It can be done with the list-replicas command. Mandatory parameters are <scope>:
     mc12_14TeV      log.01596380._000215.job.log.tgz.1      534603  04de7f9f        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/2c/b7/log.01596380._000215.job.log.tgz.1
 
 The command return the TURLs (Transport URLs) in the protocol that is defined as primary at the site. To obtain the TURLs for a given protocol, the option --protocols can be used as shown below.::
-    rucio list-replicas --protocols srm mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+
+
+    $> rucio list-replicas --protocols srm mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
     Scope   Name                    Filesize        adler32 Replicas
     mc12_14TeV      log.01596380._000026.job.log.tgz.1      700680  52bb0e00        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/5b/d9/log.01596380._000026.job.log.tgz.1
     mc12_14TeV      log.01596380._000050.job.log.tgz.1      538783  14979047        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/13/94/log.01596380._000050.job.log.tgz.1
@@ -177,6 +188,8 @@ The protocols currently supported are SRM, GSIFTP, HTTPS/WebDAV, xrootd.
 -------------------
     - Download a full dataset
 It can be done with the download command. Mandatory parameters are <scope>:<name>, but it supports many options::
+
+
     $> rucio download user.serfon:user.serfon.test.08012015.2
     2015-01-23 09:15:23,789 INFO [Starting download for user.serfon:user.serfon.test.08012015.2]
     2015-01-23 09:15:23,790 DEBUG [Getting the list of replicas]
@@ -213,14 +226,14 @@ The files are copied locally into a directory <scope>
     - Download datasets from tape
         Wen
     - Restrictions to access datasets on tape
-        Vincent
+        .. todo:: TBD: Restrictions to access datasets on tape
 
 ``Creating data``
 -----------------
     - General Workflow for creating data
 There 2 ways to create data on the Grid.
 - The first one is by using Panda. The Panda jobs will create output data that are copied to some temporary areas (they can be identified by their name that ends with SCRATHDISK, e.g. FZK-LCG2_SCRATCHDISK). Rucio ensures that the data are kept on this area for 2 weeks, but after that period they can disappear are anytime.
-- The second method is to upload files with Rucio. The typical use case is that you produced locally some files, but want to share it with some other persons, or you want to run over these files using Distributed Analysis tools like Panda. For this you need to upload the files into a dataset on some Rucio Storage element (RSE). It can be done with rucio upload. Rucio will take care of registering the files into the rucio catalog and to physically upload the files on the Rucio Storage Element you choose. Once the dataset is successfully uploaded, you can use all the rucio features on it (transfer, deletion...). You can find below one example how to use rucio upload : 
+- The second method is to upload files with Rucio. The typical use case is that you produced locally some files, but want to share it with some other persons, or you want to run over these files using Distributed Analysis tools like Panda. For this you need to upload the files into a dataset on some Rucio Storage element (RSE). It can be done with rucio upload. Rucio will take care of registering the files into the rucio catalog and to physically upload the files on the Rucio Storage Element you choose. Once the dataset is successfully uploaded, you can use all the rucio features on it (transfer, deletion...). You can find below one example how to use rucio upload :
 TBD Cedric
 
     - Which name should I give to my files and dataset
@@ -229,7 +242,7 @@ For official data, a specific nomanclature is used.
     - Where my dataset/files will be stored with rucio upload ?
 You can decide to upload your datasets into 2 different storage areas :
 - The first one is a temporary area, which is any SCRATCHDISK. The datasets uploaded there will be kept for 2 weeks, but after that period, they can disappear at anytime.
-- The second place is a permanent area (the so called LOCALGROUPDISK). This areas are dedicated to local users and are managed by the cloud squads. Permissions are set according to the user nationality and/or institut. The retention policy and the quota on these endpoints are defined by the cloud squads. 
+- The second place is a permanent area (the so called LOCALGROUPDISK). This areas are dedicated to local users and are managed by the cloud squads. Permissions are set according to the user nationality and/or institut. The retention policy and the quota on these endpoints are defined by the cloud squads.
     - Where my dataset/files should be finally stored ?
         Mario
     - Maximum number of files in a dataset
@@ -269,17 +282,30 @@ You can decide to upload your datasets into 2 different storage areas :
         Ralph
     - Lifetime of datasets on SCRATCHDISK
         Mario
-    - Dataset deletion from 'aborted' or 'obsolete' tasks (central or group production)
-        Vincent
     - Central deletion policy on DDM sites
         Wen
 
 ``Dataset Container commands``
 ------------------------------
+
     - Create a Dataset Container and include datasets
         Mario
-    - List the locations of a container
-        Vincent
+
+    - List the locations of a container::
+
+
+      $ rucio list-replicas --list_collections  {scope}:{container_name}
+
+      Example::
+
+        $ rucio list-replicas --list_collections data13_8TeV:data13_8TeV.00218048.express_express.merge.HIST.r5108_p1620
+        RSE                                      Found  Total
+        ------------------------------------------------------
+        FZK-LCG2_DATADISK                            12     12
+
+    .. todo:: Explain how to list scopes
+
+
     - Remove datasets from a Dataset Container
         Ralph
     - List datasets in a Dataset Container
@@ -313,8 +339,17 @@ You can decide to upload your datasets into 2 different storage areas :
         Wen
     - Know the size of the dataset
         Joaquin
-    - Delete a dataset replica from a site - delete a dataset from DDM catalog
-        Vincent
+    - Delete a dataset replica from a site::
+
+      $ rucio delete-rule {rule_id}
+
+
+        Deleting a dataset replica in Rucio is the same
+        as removing the replication rule on a dataset at a site.
+
+        .. todo:: Explain how to retrieve a rule_id for a dataset, site, account
+
+    - delete a dataset from DDM catalog
     - Remove files from a dataset
         Joaquin
     - Create a dataset from files already in other datasets
