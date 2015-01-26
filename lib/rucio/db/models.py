@@ -642,9 +642,9 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
                    Index('RULES_HIST_RECENT_ID_IDX', 'id'))
 
 
-class ReplicationRuleHistoryLongterm(BASE, ModelBase):
+class ReplicationRuleHistory(BASE, ModelBase):
     """Represents replication rules in the longterm history"""
-    __tablename__ = 'rules_hist_longterm'
+    __tablename__ = 'rules_history'
     history_id = Column(GUID(), default=utils.generate_uuid)
     id = Column(GUID())
     subscription_id = Column(GUID())
