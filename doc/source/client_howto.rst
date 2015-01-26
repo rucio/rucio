@@ -108,10 +108,11 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
       3. From there, you can navigate through all available rules, and see their status and progress.
 
 
-``Installing/Initializing dq2 commands``
+``Installing/Initializing Rucio commands``
 ----------------------------------------
-    - Installing dq2 commands
-        Thomas
+    - Installing Rucio commands
+        - :doc:`installing_clients`
+        - :doc:`installing_atlas_clients`
     - Initializing Rucio commands
      - Step 0: Start with a clean environment
          Some GRID or python environment might screw up the setups.
@@ -304,9 +305,9 @@ It can be done with the download command. Mandatory parameters are <scope>:<name
 The files are copied locally into a directory <scope>
 
     - Download specific files from a dataset
-        Thomas
+        .. todo:: TDB
     - Download a sample of n random files from a dataset
-        Thomas
+        .. todo:: TBD
     - Download a dataset from a specific site
         Martin; I don't think this works, does it?
     - Download with datasets/files given in an inputfile
@@ -614,4 +615,4 @@ You can decide to upload your datasets into 2 different storage areas :
 ``Links to external applications creating datasets``
 ----------------------------------------------------
     - Group production through Production system
-        Thomas
+        https://twiki.cern.ch/twiki/bin/view/AtlasProtected/AtlasGroupProduction
