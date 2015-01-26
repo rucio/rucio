@@ -75,8 +75,11 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
         Ralph
     - Sites, mass storage systems and SRM
         Joaquin
-    - When to use dq2-get or rules
-        Wen
+    - When to use rucio download or rules
+     - Both rucio download and Rucio rules will access ONLY files registered in Rucio.
+     - rucio download creates "local" copies of files, which will not be known to DDM and will not be accessible with rucio commands. The Grid/Rucio informations of the files will not be kept in the local files. If you plan to publish these data on the Grid later from the target storage, add a rule.
+     - Rucio rules will copy all the files belonging to the dataset to a storage known by Rucio. The files at the destination will be registered to Rucio and accessible by rucio commands.
+
     - Few informations about rules
      - Rucio will try to enforce the minimum placement, and thus transfers, that is necessary to satisfy all rules, over all ATLAS users.
      - Rules where such transfers are impossible will be marked stuck.
@@ -92,8 +95,22 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 ----------------------------------------
     - Installing dq2 commands
         Thomas
-    - Initializing dq2 commands
-        Wen
+    - Initializing Rucio commands
+     - Step 0: Start with a clean environment
+         Some GRID or python environment might screw up the setups.
+     - Step 1: Grid environment::
+
+        $ export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+        $ source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh
+        $ localSetupEmi
+        $ voms-proxy-init -voms atlas
+
+     - Step 2: Rucio enviroment::
+
+        $> export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+        $> source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh
+        $> localSetupRucioClients
+
 
 ``User Identity``
 -----------------
@@ -251,7 +268,9 @@ The files are copied locally into a directory <scope>
     - Download with datasets/files given in an inputfile
         Ralph
     - Download datasets from tape
-        Wen
+        Users cannot download files from DDM sites associated to TAPE (xxx_MCTAPE and xxx_DATATAPE, CERN-PROD_TZERO and CERN-PROD_DAQ). To access data from TAPE, one should request a replication of the dataset to DISK storage through DDM request.
+        If you need the whole dataset, choose the DATADISK of the same site as the destination.
+
     - Restrictions to access datasets on tape
         .. todo:: TBD: Restrictions to access datasets on tape
 
@@ -296,10 +315,67 @@ You can decide to upload your datasets into 2 different storage areas :
         Thomas
     - Create a dataset from files on my site's DPM
         Ralph
-    - Write a dataset/files in a specific DDM site
-        Wen
+    - Write a dataset/files in a specific DDM site::
+
+        $> rucio upload --files <filepath1> <filepath2> --rse <RSEName> --did <scope>:<datasetname> --scope <scope>
+
+       You can list all RSEName with the command::
+
+        $> rucio list-rses
+
+       Attention: You can ignore the WARNINGs, they are not ERRORs::
+
+        $> rucio upload --files setup_dev.sh setup_dq2.sh --rse FZK-LCG2_SCRATCHDISK --did user.wguan:user.wguan.test.upload --scope user.wguan
+        2015-01-26 14:07:07,661 DEBUG [Looping over the files]
+        2015-01-26 14:07:07,661 DEBUG [Extracting filesize (746) and checksum (f3c7fa78) for file user.wguan:setup_dev.sh]
+        2015-01-26 14:07:07,662 DEBUG [Extracting filesize (331) and checksum (c3de6c45) for file user.wguan:setup_dq2.sh]
+        2015-01-26 14:07:07,978 DEBUG [Using account wguan]
+        2015-01-26 14:07:08,301 INFO [Dataset successfully creat]
+        2015-01-26 14:07:08,356 INFO [Adding replicas in Rucio catalog]
+        2015-01-26 14:07:08,538 INFO [Replicas successfully added]
+        2015-01-26 14:07:08,538 INFO [Adding replication rule on RSE FZK-LCG2_SCRATCHDISK for the file user.wguan:setup_dev.sh]
+        2015-01-26 14:07:19,591 INFO [File user.wguan:setup_dev.sh successfully uploaded on the storage]
+        2015-01-26 14:07:19,812 WARNING [Failed to attach file {'adler32': 'c3de6c45', 'name': 'setup_dq2.sh', 'bytes': 331, 'state': 'C', 'meta': {'guid': '6e3f326efe4d4268a2aec524e2958071'}, 'scope': 'user.wguan'} to the dataset]
+        2015-01-26 14:07:19,812 WARNING [Data identifier not found.
+        Details: Data identifier 'user.wguan:setup_dq2.sh' not found]
+        2015-01-26 14:07:19,813 WARNING [Continuing with the next one]
+        2015-01-26 14:07:19,969 INFO [Adding replicas in Rucio catalog]
+        2015-01-26 14:07:20,133 INFO [Replicas successfully added]
+        2015-01-26 14:07:20,133 INFO [Adding replication rule on RSE FZK-LCG2_SCRATCHDISK for the file user.wguan:setup_dq2.sh]
+        2015-01-26 14:07:30,480 INFO [File user.wguan:setup_dq2.sh successfully uploaded on the storage]
+        2015-01-26 14:07:30,569 WARNING [Failed to attach file {'adler32': 'f3c7fa78', 'name': 'setup_dev.sh', 'bytes': 746, 'state': 'C', 'meta': {'guid': 'e95d53297bab4cb0b3426c94659fa32b'}, 'scope': 'user.wguan'} to the dataset]
+        2015-01-26 14:07:30,570 WARNING [The file already exists.
+        Details: (('(IntegrityError) ORA-00001: unique constraint (ATLAS_RUCIO.CONTENTS_PK) violated\n',),)]
+        2015-01-26 14:07:30,570 WARNING [Continuing with the next one]
+        2015-01-26 14:07:30,950 INFO [Will update the file replicas states]
+        2015-01-26 14:07:31,116 INFO [File replicas states successfully updated]
+
     - Create a dataset from files already in other datasets
-        Wen
+        To create a dataset from files in other datasets, you can follow these steps:
+
+     - Step 0: List files in the source datasets::
+
+        $> rucio list-dids  user.wguan:user.wguan.test.upload
+        |    |- user.wguan:setup_dev.sh [FILE]
+        |    |- user.wguan:setup_dq2.sh [FILE]
+        |    |- user.wguan:testMulProcess.py [FILE]
+        |    |- user.wguan:testcatalog.py [FILE]
+
+     - Step 1: Add destination dataset::
+
+        $> rucio add-dataset user.wguan:user.wguan.test.upload1
+        Added user.wguan:user.wguan.test.upload1
+
+     - Step 2: Add files to destination dataset::
+
+        $> rucio add-files-to-dataset --to user.wguan:user.wguan.test.upload1 user.wguan:setup_dev.sh user.wguan:setup_dq2.sh
+
+     - Step 3: List the destination dataset to check the result::
+
+        $> rucio list-dids  user.wguan:user.wguan.test.upload1
+        |    |- user.wguan:setup_dev.sh [FILE]
+        |    |- user.wguan:setup_dq2.sh [FILE]
+
     - Add files to a dataset::
 
        rucio add-files-to-dataset --to <DATASET> <FILE_1> <FILE_2> ... <FILE_n>
@@ -349,7 +425,7 @@ You can decide to upload your datasets into 2 different storage areas :
     - Dataset deletion from 'aborted' or 'obsolete' tasks (central or group production)
         Vincent
     - Central deletion policy on DDM sites
-        Wen
+        .. todo:: TBD: Central deletion policy on DDM sites
 
 ``Dataset Container commands``
 ------------------------------
@@ -382,14 +458,24 @@ You can decide to upload your datasets into 2 different storage areas :
     - List datasets in a Dataset Container
         Joaquin
     - Erase a container
-        Wen
+        Rucio Client has not implemented delete operations on dids(file, dataset, container). Rucio will automatically delete expired dids.
+
     - Commands to manipulate files in Dataset Containers
         Thomas
     - FAQ
         - 'Freezing' a container
             Thomas
         - Naming convention
-            Wen
+            Rucio doesn't store the file replica path(except Tape files). The path can be directly obtained from LFN via a deterministric function.
+
+            For example::
+
+            $> hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
+            $> if scope.startswith('user') or scope.startswith('group'):
+            $>    scope = scope.replace('.', '/')
+            $> commonPath = 'rucio/%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
+            $> pfn = os.path.join(<site-prefix>, commonPath)
+
         - Container of containers
             Thomas
 
@@ -407,7 +493,23 @@ You can decide to upload your datasets into 2 different storage areas :
       The return value of the command is the Replication rule ID of the created rule.
 
     - Check if a file is corrupted
-        Wen
+        To check whether a file is corrupted, we can compare the checksum.
+     - Step 0: Get the checksum metadata of the file::
+
+        $> rucio get-metadata user.wguan:setup_dev.sh|grep adler32
+        adler32: f3c7fa78
+
+     - Step 1: List the replica path of the file::
+
+        $> rucio list-replicas --protocols srm user.wguan:setup_dev.sh
+        Scope   Name                    Filesize        adler32 Replicas
+        user.wguan      setup_dev.sh    746     f3c7fa78        FZK-LCG2_SCRATCHDISK    :       srm://atlassrm-fzk.gridka.de:8443/srm/managerv2?SFN=/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/rucio/user/wguan/fe/65/setup_dev.sh
+
+     - Step 2: Check the checksum of this replica::
+
+        $> gfal-sum srm://atlassrm-fzk.gridka.de:8443/srm/managerv2?SFN=/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/rucio/user/wguan/fe/65/setup_dev.sh adler32
+        srm://atlassrm-fzk.gridka.de:8443/srm/managerv2?SFN=/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/rucio/user/wguan/fe/65/setup_dev.sh f3c7fa78
+
     - Know the size of the dataset
         Joaquin
     - Delete a dataset replica from a site::
@@ -423,8 +525,6 @@ You can decide to upload your datasets into 2 different storage areas :
     - delete a dataset from DDM catalog
     - Remove files from a dataset
         Joaquin
-    - Create a dataset from files already in other datasets
-        Wen
     - Verify local files with registered attributes
         Joaquin
     - More advanced uses
