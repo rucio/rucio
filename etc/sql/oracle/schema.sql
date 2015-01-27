@@ -73,7 +73,7 @@ RSE_USAGE_HISTORY
 ACCOUNT_USAGE_HISTORY
 LOGGING_TABPARTITIONS
 RULES_HIST_RECENT
-RULES_HIST_LONGTERM
+RULES_HISTORY
 
 as total 31 tables (+ one obsolete)
 
@@ -1280,6 +1280,7 @@ CREATE TABLE configs_history (
 -- Description: Table of recent rule changes
 -- Estimated volume:  ~10mio
 -- Access pattern: -- By rule_id
+-- Range partitioned on "updated_at" with interval of 7 days. Locally partitioned index on ID column. 
 
 
 CREATE TABLE rules_hist_recent (
@@ -1309,15 +1310,25 @@ CREATE TABLE rules_hist_recent (
     stuck_at DATE,
     purge_replicas NUMBER(1) DEFAULT 0,
     ignore_availability NUMBER(1) DEFAULT 0,
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01 
+PARTITION BY RANGE(updated_at) 
+INTERVAL ( NUMTODSINTERVAL(7,'DAY') ) 
+( 
+PARTITION DATA_BEFORE_01012015 VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY')) 
+) ENABLE ROW MOVEMENT ; 
 
-CREATE INDEX RULES_HIST_RECENT_ID_IDX ON rules_hist_recent (id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
 
+CREATE INDEX ATLAS_RUCIO.RULES_HIST_RECENT_ID_IDX ON ATLAS_RUCIO.rules_hist_recent(id) LOCAL COMPRESS 1 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+
+
+COMMENT ON TABLE ATLAS_RUCIO.rules_hist_recent IS 'Recent history table (1 month) for rules';
+COMMENT ON COLUMN ATLAS_RUCIO.rules_hist_recent.history_id IS 'Fake id necessary for sqlalchemy'; 
 
 -- ========================================= RULES_HISTORY ==============================================
 -- Description: Table of longterm rules (deleted)
 -- Estimated volume:  ?
 -- Access pattern: -- Usually by scope, name - but very rare so full table scan is fine
+-- Range partitioned on "updated_at" with interval of a month. OLTP compression on the data blocks. 
 
 
 CREATE TABLE rules_history (
@@ -1347,4 +1358,12 @@ CREATE TABLE rules_history (
     stuck_at DATE,
     purge_replicas NUMBER(1) DEFAULT 0,
     ignore_availability NUMBER(1) DEFAULT 0,
-) PCTFREE 0 TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01 
+PARTITION BY RANGE(updated_at) 
+INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') ) 
+( PARTITION "DATA_BEFORE_01012015" VALUES LESS THAN (TO_DATE('01-01-2015', 'DD-MM-YYYY')) )
+ ENABLE ROW MOVEMENT ; 
+
+
+COMMENT ON TABLE ATLAS_RUCIO.rules_history IS 'Full history table for rules';
+COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for sqlalchemy'; 
