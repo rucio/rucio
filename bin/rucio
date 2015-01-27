@@ -619,8 +619,10 @@ def upload(args):
                 logger.info('Adding replicas in Rucio catalog')
                 client.add_replicas(files=[f], rse=args.rse)
                 logger.info('Replicas successfully added')
-                logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                client.add_replication_rule([f], copies=1, rse_expression=args.rse)
+                # rules for each file are created if the files not belong to a dataset
+                if not args.did:
+                    logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
+                    client.add_replication_rule([f], copies=1, rse_expression=args.rse)
                 directory = revert_dict[f['scope'], f['name']]
                 rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': f['name'], 'scope': f['scope'], 'adler32': f['adler32'], 'filesize': f['bytes']}], source_dir=directory)
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
