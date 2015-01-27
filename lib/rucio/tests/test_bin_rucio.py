@@ -364,12 +364,8 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        search = 'Getting file {0}:{1}'.format(self.user, tmp_file1[5:])
+        search = 'Download operation for {0} done'.format(tmp_dataset)
         nose.tools.assert_not_equal(re.search(search, err), None)
-        search = 'File validated'
-        nose.tools.assert_not_equal(re.search(search, out), None)
-        search = 'DID ' + tmp_dataset
-        nose.tools.assert_not_equal(re.search(search, out), None)
 
     def test_create_rule(self):
         """CLIENT(USER): Rucio add rule"""
