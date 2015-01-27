@@ -186,6 +186,42 @@ def add_file(args):
 
 
 @exception_handler
+def list_dataset_replicas(args):
+    """
+    %(prog)s list [options] <field1=value1 field2=value2 ...>
+
+    List file replicas
+    """
+    client = get_client(args)
+    scope, name = extract_scope(args.did)
+    dids = client.scope_list(scope=scope, name=name, recursive=True)
+    datasets = {}
+    result = {}
+    for d in dids:
+        if d['type'] == 'FILE':
+            dsn = '%s:%s' % (d['parent']['scope'], d['parent']['name'])
+            if dsn not in datasets:
+                datasets[dsn] = 0
+            datasets[dsn] += 1
+    for dsn in datasets:
+        scope, name = extract_scope(dsn)
+        replicas = client.list_replicas([{'scope': scope, 'name': name}])
+        result[dsn] = {}
+        for replica in replicas:
+            for rse in replica['rses']:
+                if rse not in result[dsn]:
+                    result[dsn][rse] = 0
+                if replica['rses'][rse] != []:
+                    result[dsn][rse] += 1
+    for dsn in result:
+        print 'Dataset %s' % (dsn)
+        print '{0:40} {1:6} {2:6}'.format('RSE', 'Found', 'Total')
+        for rse in result[dsn]:
+            print '{0:40} {1:6d} {2:6d}'.format(rse, result[dsn][rse], datasets[dsn])
+    return SUCCESS
+
+
+@exception_handler
 def list_replicas(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -368,17 +404,14 @@ def list_dids(args):
     """
     %(prog)s list <did_1> ... <did_n>
 
-    List data identifier contents.
+    List the data identifiers matching some metadata.
     """
     client = get_client(args)
     filters = {}
-    type = 'all'
+    type = 'collection'
     if args.filter:
         if args.recursive:
-            print 'Option recursive and filter cannot be used together'
-            return FAILURE
-        elif args.recursive:
-            print 'Option recursive and dids cannot be used together'
+            print 'ERROR: Option recursive and filter cannot be used together'
             return FAILURE
         else:
             for key, value in [(a.split('=')[0], a.split('=')[1]) for a in args.filter.split(',')]:
@@ -389,37 +422,25 @@ def list_dids(args):
                         raise TypeError('%s is not a valid type' % value)
                 else:
                     filters[key] = value
-    if not args.dids:
-        scope = args.scope
-        if not args.scope:  # list scopes
-            account = args.account
-            if not account:
-                info = client.whoami()
-                account = info['account']
-            scopes = client.list_scopes_for_account(account)
-            if len(scopes) > 1:
-                print 'Too many scopes to list. Please specify one scope'
-                return FAILURE
-            scope = scopes[0]
+
+    scope, name = extract_scope(args.did)
+    if name.find('*') > -1:
         if args.recursive:
-            dids = client.scope_list(scope=scope, recursive=args.recursive)
-            for d in dids:
-                if d['level'] == 0:
-                    print '%(scope)s:%(name)s [%(type)s]' % d
-                else:
-                    print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
-        else:
-            for did in client.list_dids(scope, filters=filters, type=type):
-                print '%s:%s [%s]' % (scope, did, type.upper())
+            print 'ERROR: Option recursive cannot be used with wildcards'
+            return FAILURE
+        elif ('name' in filters) and (name != '*'):
+            print 'ERROR: you cannot use a wildcard query and a filter by name'
+            return FAILURE
+        filters['name'] = name
+        for did in client.list_dids(scope, filters=filters, type=type):
+            print '%s:%s [%s]' % (scope, did, type.upper())
     else:
-        for did in args.dids:
-            scope, name = extract_scope(did)
-            dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
-            for d in dids:
-                if d['level'] == 0:
-                    print '%(scope)s:%(name)s [%(type)s]' % d
-                else:
-                    print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
+        dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
+        for d in dids:
+            if d['level'] == 0:
+                print '%(scope)s:%(name)s [%(type)s]' % d
+            else:
+                print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
     return SUCCESS
 
 
@@ -619,10 +640,8 @@ def upload(args):
                 logger.info('Adding replicas in Rucio catalog')
                 client.add_replicas(files=[f], rse=args.rse)
                 logger.info('Replicas successfully added')
-                # rules for each file are created if the files not belong to a dataset
-                if not args.did:
-                    logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                    client.add_replication_rule([f], copies=1, rse_expression=args.rse)
+                logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
+                client.add_replication_rule([f], copies=1, rse_expression=args.rse)
                 directory = revert_dict[f['scope'], f['name']]
                 rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': f['name'], 'scope': f['scope'], 'adler32': f['adler32'], 'filesize': f['bytes']}], source_dir=directory)
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
@@ -981,7 +1000,7 @@ def list_account_usage(args):
 
 
 @exception_handler
-def list_datasets_site(args):
+def list_datasets_rse(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -1046,7 +1065,7 @@ Commands:
     whoami_parser = subparsers.add_parser('whoami', help='Get information about account whose token is used')
     whoami_parser.set_defaults(which='whoami_account')
 
-    # The list_replicas command
+    # The list-replicas command
     list_replicas_parser = subparsers.add_parser('list-replicas', help='List file replicas', description='This method allows to list all the replicas of a given Data IDentifier (DID).\
                                                  The only mandatory parameter is the DID which can be a container/dataset/files. By default all the files replicas in state available are returned. Various options can be used :')
     list_replicas_parser.set_defaults(which='list_replicas')
@@ -1055,6 +1074,11 @@ Commands:
     list_replicas_parser.add_argument('--list_collections', dest='list_collections', action='store_true', default=False, help='To have the number of files of the dataset by site', required=False)
     list_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     list_replicas_parser.add_argument('--rse', dest='selected_rse', default=False, action='store', help='Target RSE', required=False)
+
+    # The list-dataset-replicas command
+    list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas')
+    list_dataset_replicas_parser.set_defaults(which='list_dataset_replicas')
+    list_dataset_replicas_parser.add_argument(dest='did', action='store', help='Data IDentifier to search')
 
     # The add-dataset command
     add_dataset_parser = subparsers.add_parser('add-dataset', help='Add dataset')
@@ -1106,13 +1130,13 @@ Commands:
     add_containers_to_container_parser.add_argument('--to', dest='todid', default=None, action='store', help='Target container', required=True)
 
     # The list command
-    list_parser = subparsers.add_parser('list-dids', help='List data identifier contents', description='List the Data Identifiers matching certain pattern. Many options are available.\
-                                         If no scope specified, it will look into the scopes owned by the account you use.')
+    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata', description='List the Data IDentifiers matching certain pattern.\
+                                         Only the collections (i.e. dataset or container) are returned by default.\
+                                         With the filter option, you can specify a list of metadata that the Data IDentifier should match.')
     list_parser.set_defaults(which='list_dids')
-    list_parser.add_argument('--scope', dest='scope', action='store', default=None, help='Scope name')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
-    list_parser.add_argument(dest='dids', nargs='*', action='store', default=None, help='List of space separated data identifiers')
+    list_parser.add_argument(dest='did', nargs='?', action='store', default=None, help='Data IDentifier pattern')
 
     # The list parent-dids command
     list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent data identifiers', description='List data identifier parents')
@@ -1174,7 +1198,6 @@ Commands:
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
     set_metadata_parser.set_defaults(which='set_metadata')
-    set_metadata_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)  # to be optional after
     set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
     set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
@@ -1228,8 +1251,8 @@ Commands:
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules')
     list_rules_parser.set_defaults(which='list_rules')
+    list_rules_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='List by did')
     list_rules_parser.add_argument('--rule', dest='rule_id', action='store', help='List by rule id')
-    list_rules_parser.add_argument('--did', dest='did', action='store', help='List by did')
     list_rules_parser.add_argument('--file', dest='file', action='store', help='List associated rules of an affected file')
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
     list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
@@ -1250,9 +1273,9 @@ Commands:
     list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='RSE Expression')
 
     # The list-datasets-site command
-    list_datasets_site_parser = subparsers.add_parser('list-datasets-site', help='List all the datasets at a site', description='This method allows to list all the datasets on a given Rucio Storage Element. The only mandatory option is --rse <rse>')
-    list_datasets_site_parser.set_defaults(which='list_datasets_site')
-    list_datasets_site_parser.add_argument('--rse', dest='rse', action='store', help='The RSE name', required=True)
+    list_datasets_rse_parser = subparsers.add_parser('list-datasets-rse', help='List all the datasets at a Rucio Storage Element', description='This method allows to list all the datasets on a given Rucio Storage Element.')
+    list_datasets_rse_parser.set_defaults(which='list_datasets_rse')
+    list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name')
 
     # The test-server command
     test_server_parser = subparsers.add_parser('test-server', help='Test Server')
@@ -1283,10 +1306,11 @@ Commands:
                 'info_rule': info_rule,
                 'list_account_limits': list_account_limits,
                 'list_account_usage': list_account_usage,
-                'list_datasets_site': list_datasets_site,
+                'list_datasets_rse': list_datasets_rse,
                 'list_parent_dids': list_parent_dids,
                 'list_files': list_files,
                 'list_dids': list_dids,
+                'list_dataset_replicas': list_dataset_replicas,
                 'list_replicas': list_replicas,
                 'list_rses': list_rses,
                 'list_rse_usage': list_rse_usage,
