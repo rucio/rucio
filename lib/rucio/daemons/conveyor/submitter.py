@@ -337,14 +337,13 @@ def get_transfer(rse, req, scheme, mock):
 
     naming_convention = None
     fts_hosts = None
-    if req['request_type'] == RequestType.STAGEIN:
-        # get external host
-        if rse_core.get_rse(rse['rse'])['staging_area'] or rse['rse'].endswith("STAGING"):
-            rse_attr = rse_core.list_rse_attributes(sources[0][0])
-        else:
-            rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
-        fts_hosts = rse_attr.get('fts', None)
-        naming_convention = rse_attr.get('naming_convention', None)
+    # get external host
+    if rse_core.get_rse(rse['rse'])['staging_area'] or rse['rse'].endswith("STAGING"):
+        rse_attr = rse_core.list_rse_attributes(sources[0][0])
+    else:
+        rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
+    fts_hosts = rse_attr.get('fts', None)
+    naming_convention = rse_attr.get('naming_convention', None)
 
     ts = time.time()
     destinations, dest_spacetoken = get_destinations(rse, scheme, req, sources, naming_convention)
