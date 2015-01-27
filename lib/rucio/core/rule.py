@@ -694,7 +694,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account']
+    valid_options = ['locked', 'lifetime', 'account', 'state']
 
     for key in options:
         if key not in valid_options:
@@ -725,6 +725,15 @@ def update_rule(rule_id, options, session=None):
                 # Update rule
                 rule.account = options['account']
                 session.flush()
+
+            elif key == 'state':
+                if options['state'].lower() == 'suspended':
+                    rule.state = RuleState.SUSPENDED
+                elif options['state'].lower() == 'stuck':
+                    rule.state = RuleState.STUCK
+                    session.query(models.ReplicaLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+
             else:
                 setattr(rule, key, options[key])
 
