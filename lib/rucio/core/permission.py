@@ -367,6 +367,8 @@ def perm_update_rule(issuer, kwargs):
         return True
     if 'account' in kwargs['options']:
         return False  # Only priv accounts are allowed to change owner
+    if 'state' in kwargs['options']:
+        return False  # Only priv accounts are allowed to change state
     if get_rule(kwargs['rule_id'])['account'] == issuer:
         return True
     return False
