@@ -6,19 +6,21 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 from os.path import dirname, join
 
-from web import application, template
+from web import application, header, template
 
-from rucio.web.ui.common.utils import check_token
+from rucio.common.utils import generate_http_error
+from rucio.web.ui.common.utils import check_token, get_token
 
 
 urls = (
     '/', 'Index',
+    '/auth', 'Auth',
     '/accounting', 'Accounting',
     '/did', 'DID',
     '/dumps', 'Dumps',
@@ -33,6 +35,16 @@ urls = (
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
 )
+
+
+class Auth():
+    def GET(self):
+        token = get_token()
+        if token:
+            header('X-Rucio-Auth-Token', token)
+            return str()
+        else:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token')
 
 
 class Accounting():

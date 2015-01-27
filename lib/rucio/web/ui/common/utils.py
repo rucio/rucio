@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 
 from os.path import dirname, join
 from web import template, ctx, cookies, setcookie
@@ -27,6 +27,19 @@ def __to_js(var, value):
     return '<script type="text/javascript">var %s = "%s";</script>' % (var, value)
 
     return join(dirname(file), 'templates/')
+
+
+def get_token():
+    account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+    dn = ctx.env.get('SSL_CLIENT_S_DN')
+    try:
+        token = authentication.get_auth_token_x509(account,
+                                                   dn,
+                                                   'webui',
+                                                   ctx.env.get('REMOTE_ADDR'))
+        return token
+    except:
+        return False
 
 
 def check_token(rendered_tpl):
