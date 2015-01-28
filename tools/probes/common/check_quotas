@@ -48,12 +48,19 @@ if __name__ == '__main__':
         try:
             rse.get_rse(name)
         except RSENotFound:
+            print "WARNING: RSE %s missing in Rucio" % name
+            result = WARNING
             continue
 
-        quotas = ddmendpoint['quotas']
-
         # Only group disk quotas for now
-        if not ddmendpoint['phys_groups'] or not quotas:
+        if not ddmendpoint['phys_groups']:
+            continue
+
+        # Check if quota is defined
+        quotas = ddmendpoint['quotas']
+        if not quotas:
+            print "WARNING: No quota defined for %s" % name
+            result = WARNING
             continue
 
         for quota, value in quotas.iteritems():
