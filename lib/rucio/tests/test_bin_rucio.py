@@ -624,4 +624,4 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out
         print err
-        nose.tools.assert_not_equal(re.search("Failed to detach data identifier", err), None)
+        nose.tools.assert_not_equal(re.search("Data identifier not found.", err), None)
