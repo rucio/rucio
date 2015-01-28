@@ -176,7 +176,7 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
         AGLT2_USERDISK
         AM-04-YERPHI_LOCALGROUPDISK
 
-      To use an RSE Expression to filter the results the option --expression <expression> can be used.
+      To use an RSE Expression to filter the results the option --expression <expression> can be used. See :doc:`replication_rules_examples` for more information.
 
     - Find a dataset (seems broken `Ticket <https://its.cern.ch/jira/browse/RUCIO-1120>`_)
 
