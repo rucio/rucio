@@ -471,9 +471,9 @@ def detach_dids(scope, name, dids, session=None):
         child_scope = source['scope']
         child_name = source['name']
         associ_did = query_all.filter_by(child_scope=child_scope, child_name=child_name).first()
-        child_type = associ_did.did_type
         if associ_did is None:
             raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
+        child_type = associ_did.did_type
         associ_did.delete(session=session)
         # Send message for AMI
         if did.did_type == DIDType.CONTAINER:
