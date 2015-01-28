@@ -203,7 +203,7 @@ class TestBinRucio():
         print out
         print err
         # get the rule for the file
-        cmd = "rucio list-rules --did {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -415,7 +415,7 @@ class TestBinRucio():
         print out
         rule = out[:-1]  # triming new line character
         # check if rule exist for the file
-        cmd = "rucio list-rules --did {0}:{1}".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -446,7 +446,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out
         # get the rules for the file
-        cmd = "rucio list-rules --did {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -488,7 +488,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         # get the rule for the file
-        cmd = "rucio list-rules --did {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
