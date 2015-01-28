@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - David Cameron, <david.cameron@cern.ch>, 2015
+
+import json
+import re
+import requests
+import sys
+import traceback
+
+from rucio.common.exception import RucioException, RSENotFound, AccountNotFound
+from rucio.api.account_limit import set_account_limit, get_account_usage
+from rucio.api import rse
+
+UNKNOWN = 3
+CRITICAL = 2
+WARNING = 1
+OK = 0
+
+result = OK
+
+# Takes DDM endpoint quota information from AGIS and sets rucio account quotas
+if __name__ == '__main__':
+
+    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
+    try:
+        resp = requests.get(url=url)
+        data = json.loads(resp.content)
+    except Exception, e:
+        print "Failed to load info from AGIS: %s" % str(e)
+        sys.exit(WARNING)
+
+    for ddmendpoint in data:
+
+        # Only use active endpoints in AGIS
+        if ddmendpoint['state'] != 'ACTIVE':
+            continue
+
+        # Check if RSE exists
+        name = ddmendpoint['name']
+        try:
+            rse.get_rse(name)
+        except RSENotFound:
+            continue
+
+        quotas = ddmendpoint['quotas']
+
+        # Only group disk quotas for now
+        if not ddmendpoint['phys_groups'] or not quotas:
+            continue
+
+        for quota, value in quotas.iteritems():
+            # in AGIS quota 999999 means no limit, so skip these
+            if value == 999999:
+                continue
+
+            physgroup = re.match('/atlas/(.*)/', quota)
+            if not physgroup:
+                continue
+            physgroup = physgroup.group(1)
+            size = value * 1024**4 # AGIS numbers are in TiB
+
+            try:
+                usage = rse.get_rse_usage(name, 'root', source='rucio')
+                account_usage = get_account_usage(physgroup, name, 'root')
+                try:
+                    account_used = account_usage[0]['bytes']
+                except:
+                    account_used = 0
+                print "Set quota for %s on RSE %s to %dTB (used RSE %dTB, used account %dTB)" % \
+                    (physgroup, name, size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
+                set_account_limit(physgroup, name, size, 'root')
+            except AccountNotFound:
+                print "Account %s does not exist" % physgroup
+            except RucioException as e:
+                print str(e)
+                sys.exit(CRITICAL)
+            except:
+                print traceback.format_exc()
+                result = WARNING
+
+    sys.exit(result)
