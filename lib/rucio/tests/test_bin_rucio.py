@@ -309,7 +309,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         # add files to dataset
-        cmd = 'rucio add-files-to-dataset --to {0} mock:{1} mock:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio attach {0} mock:{1} mock:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:])  # triming '/tmp/' from filename
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -355,7 +355,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         # add files to dataset
-        cmd = 'rucio add-files-to-dataset --to {0} {1}:{2}'.format(tmp_dataset, self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dataset, self.user, tmp_file1[5:])  # triming '/tmp/' from filename
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -538,7 +538,7 @@ class TestBinRucio():
         remove(tmp_file2)
         remove(tmp_file3)
         # attach the files to the dataset
-        cmd = 'rucio attach --to {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
+        cmd = 'rucio attach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -571,7 +571,7 @@ class TestBinRucio():
         remove(tmp_file2)
         remove(tmp_file3)
         # detach the files to the dataset
-        cmd = 'rucio detach --from {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
+        cmd = 'rucio detach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -600,7 +600,7 @@ class TestBinRucio():
         print err
         remove(tmp_file1)
         # attach the files to the dataset
-        cmd = 'rucio attach --to {0} {1}:{2}'.format(tmp_dsn, self.user, tmp_file1[5:])  # triming '/tmp/' from filenames
+        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dsn, self.user, tmp_file1[5:])  # triming '/tmp/' from filenames
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -619,7 +619,7 @@ class TestBinRucio():
         print err
         remove(tmp_file1)
         # attach the files to the dataset
-        cmd = 'rucio detach --from {0} {1}:{2}'.format(tmp_dsn, self.user, 'file_ghost')  # triming '/tmp/' from filenames
+        cmd = 'rucio detach {0} {1}:{2}'.format(tmp_dsn, self.user, 'file_ghost')  # triming '/tmp/' from filenames
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
