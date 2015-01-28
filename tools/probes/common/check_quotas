@@ -65,7 +65,7 @@ if __name__ == '__main__':
             if not physgroup:
                 continue
             physgroup = physgroup.group(1)
-            size = value * 1024**4 # AGIS numbers are in TiB
+            size = value * 1024**4  # AGIS numbers are in TiB
 
             try:
                 usage = rse.get_rse_usage(name, 'root', source='rucio')
