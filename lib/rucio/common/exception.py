@@ -112,7 +112,7 @@ class DatabaseException(RucioException):
 class DatasetAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(DatasetAccessDenied, self).__init__(args, kwargs)
-        self._message = "Access to referrenced dataset denied."
+        self._message = "Access to Referenced dataset denied."
 
 
 class DatasetAlreadyExists(RucioException):
@@ -244,7 +244,7 @@ class ForbiddenSearch(RucioException):
 class FullStorage(RucioException):
     def __init__(self, *args, **kwargs):
         super(FullStorage, self).__init__(args, kwargs)
-        self._message = "The referrenced storage is out of disk space."
+        self._message = "The Referenced storage is out of disk space."
 
 
 class IdentityError(RucioException):
@@ -382,7 +382,7 @@ class ReplicationRuleCreationTemporaryFailed(RucioException):
 class RSEAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEAccessDenied, self).__init__(args, kwargs)
-        self._message = "Referrenced RSE not reachable."
+        self._message = "Referenced RSE not reachable."
 
 
 class RSEBlacklisted(RucioException):
@@ -436,7 +436,7 @@ class RSEFileNameNotSupported(RucioException):
 class RSEOverQuota(RucioException):
     def __init__(self, *args, **kwargs):
         super(RSEOverQuota, self).__init__(args, kwargs)
-        self._message = "Quota of referrenced RSE is exceeded."
+        self._message = "Quota of Referenced RSE is exceeded."
 
 
 class RSETagNotFound(RucioException):
@@ -466,7 +466,7 @@ class ServiceUnavailable(RucioException):
 class ScopeAccessDenied(RucioException):
     def __init__(self, *args, **kwargs):
         super(ScopeAccessDenied, self).__init__(args, kwargs)
-        self._message = "Access to referrenced scope denied."
+        self._message = "Access to Referenced scope denied."
 
 
 class ScopeNotFound(RucioException):

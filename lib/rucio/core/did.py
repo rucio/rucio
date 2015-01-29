@@ -362,7 +362,7 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                 __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
                                        files=attachment['dids'], account=account,
                                        ignore_duplicate=ignore_duplicate,
-                                       rse=attachment['rse'],
+                                       rse=attachment.get('rse'),
                                        session=session)
 
             elif parent_did.did_type == DIDType.CONTAINER:
