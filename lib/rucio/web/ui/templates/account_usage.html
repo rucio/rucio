@@ -17,10 +17,18 @@ $var script: <script src="/static/account_usage.js"></script>
 
   <div id="t_data" class="columns panel">
     <h4>Account Usage Overview (in TB)</h4>
-    <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
-      <thead><tr><th>Account</th><th>RSE</th><th>Quota</th><th>Usage</th><th>Difference</th><th>Total Quota</th><th>Total Used</th><th>Total Difference</th></tr></thead>
-      <tfoot><tr><th>Account</th><th>RSE</th><th>Quota</th><th>Usage</th><th>Difference</th><th>Total Quota</th><th>Total Used</th><th>Total Difference</th></tr></tfoot>
+    <table id="resulttable_overview" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></thead>
+      <tfoot><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></tfoot>
     </table>
+
+    </br>
+    <h4>Account Usage per RSE (in TB)</h4>
+    <table id="resulttable_details" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Account</th><th>RSE</th><th>Quota</th><th>Used</th><th>Difference</th></tr></thead>
+      <tfoot><tr><th>Account</th><th>RSE</th><th>Quota</th><th>Used</th><th>Difference</th></tr></tfoot>
+    </table>
+
   </div>
 
 </div>
