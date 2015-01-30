@@ -33,7 +33,7 @@ class TestBinRucio():
         self.marker = '$> '
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
-        self.user = 'mock'
+        self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
 
     def test_rucio_version(self):
@@ -181,7 +181,7 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -197,7 +197,7 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -218,7 +218,7 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -236,13 +236,13 @@ class TestBinRucio():
         tmp_file3 = file_generator()
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} --did {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
         print err
         # upload the files to the dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} --did {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -268,7 +268,7 @@ class TestBinRucio():
         tmp_file3 = file_generator()
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} --did {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -299,7 +299,7 @@ class TestBinRucio():
         tmp_file2 = file_generator()
         tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # add files
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_file2)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_file2)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -309,7 +309,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         # add files to dataset
-        cmd = 'rucio attach {0} mock:{1} mock:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio attach {0} {3}:{1} {3}:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:], self.user)  # triming '/tmp/' from filename
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -324,7 +324,7 @@ class TestBinRucio():
         """CLIENT(USER): Rucio download files"""
         tmp_file1 = file_generator()
         # add files
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -345,7 +345,7 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # add files
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -371,7 +371,7 @@ class TestBinRucio():
         """CLIENT(USER): Rucio add rule"""
         tmp_file1 = file_generator()
         # add files
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -425,7 +425,7 @@ class TestBinRucio():
         """CLIENT(USER): rule deletion"""
         tmp_file1 = file_generator()
         # add files
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -471,10 +471,10 @@ class TestBinRucio():
         """CLIENT(USER): Add file twice"""
         tmp_file1 = file_generator()
         # add file twice
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         nose.tools.assert_equal(re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out), None)
@@ -483,7 +483,7 @@ class TestBinRucio():
         """CLIENT(USER): Add/Delete/Add"""
         tmp_file1 = file_generator()
         # add file
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -509,7 +509,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         # add the same file
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2}'.format(self.def_rse, self.user, tmp_file1)
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
@@ -523,13 +523,13 @@ class TestBinRucio():
         tmp_file3 = file_generator()
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} --did {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
         print err
         # upload the files
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3}'.format(self.def_rse, self.user, tmp_file2, tmp_file3)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file2, tmp_file3)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -562,7 +562,7 @@ class TestBinRucio():
         tmp_file3 = file_generator()
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} --did {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -593,7 +593,7 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} --did {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -612,7 +612,7 @@ class TestBinRucio():
         tmp_file1 = file_generator()
         tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} --did {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out

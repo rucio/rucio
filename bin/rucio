@@ -495,51 +495,75 @@ def delete(args):
     raise NotImplementedError('operation not implemented (delete).')
 
 
+def __get_dataset(args):
+    '''Parse helper for upload'''
+    dsscope = None
+    dsname = None
+    for a in args:
+        if a.count(':') == 1:
+            if dsscope:
+                raise Exception("Only one dataset should be given")
+            else:
+                dsscope, dsname = a.split(':')
+    return dsscope, dsname
+
+
+def __get_files(args):
+    '''Parse helper for upload'''
+    files = []
+    for a in args:
+        if os.path.isfile(a):
+            files.append(a)
+        if os.path.isdir(a):
+            dname, subdirs, fnames = os.walk(a).next()
+            for f in fnames:
+                files.append(os.path.join(dname, f))
+    return files
+
+
 def upload(args):
     """
+    rucio upload [scope:datasetname] [folder/] [files1 file2 file3]
     %(prog)s upload [options] <field1=value1 field2=value2 ...>
 
     Upload files into Rucio
     """
     client = get_client(args)
+    try:
+        dsscope, dsname = __get_dataset(args.args)    # None, None if no dataset given
+    except Exception:
+        logger.error('rucio upload only allows to upload files to one dataset, more than one provided.')
+        return FAILURE
+    files = __get_files(args.args)               # a list of file names (even if a directory is given)
 
-    files = args.files
     list_files = []
     files_to_list = []
     lfns = {}
     revert_dict = {}
-    logger.debug('Looping over the files')
+    if args.scope:
+        fscope = args.scope
+    else:
+        fscope = 'user.' + client.account
+    if fscope not in client.list_scopes_for_account(client.account):
+        logger.error("Cannot guess the scope for the files. You must specify one with --scope option. The scope must be one of: " + ', '.join(client.list_scopes_for_account(client.account)))
+        return FAILURE
+
     for name in files:
         try:
             size = os.stat(name).st_size
             checksum = adler32(name)
-            logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, args.scope, os.path.basename(name)))
-            files_to_list.append({'scope': args.scope, 'name': os.path.basename(name)})
-            list_files.append({'scope': args.scope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
+            # logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, args.scope, os.path.basename(name)))
+            files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
+            list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
             if not os.path.dirname(name) in lfns:
                 lfns[os.path.dirname(name)] = []
             lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope, 'adler32': checksum, 'filesize': size})
             revert_dict[args.scope, os.path.basename(name)] = os.path.dirname(name)
+
         except OSError, e:
             logger.error(e)
             logger.error("No operation will be performed. Exiting!")
             return FAILURE
-
-    metadata = {}
-    if args.project:
-        metadata['project'] = args.project
-    if args.datatype:
-        metadata['datatype'] = args.datatype
-    if args.run_number:
-        metadata['run_number'] = args.run_number
-    if args.stream_name:
-        metadata['stream_name'] = args.stream_name
-    if args.prod_step:
-        metadata['prod_step'] = args.prod_step
-    if args.version:
-        metadata['version'] = args.version
-    if args.campaign:
-        metadata['campaign'] = args.campaign
 
     rse_settings = rsemgr.get_rse_info(args.rse)
     if rse_settings['availability_write'] != 1:
@@ -552,25 +576,17 @@ def upload(args):
         account = args.account
     logger.debug('Using account %s' % (account))
 
-    if args.did:
-        try:
-            dsscope, dsname = args.did.split(':')
-            if files_to_list.count({'scope': dsscope, 'name': dsname}) > 0:
-                # There is a file with the name of the destination dataset.
-                logger.error('ERROR: scope:name for the files must be different from scope:name for the destination dataset. {0}'.format(args.did))
-                return FAILURE
-            meta = client.get_metadata(scope=dsscope, name=dsname)    # Dataset already exist
-        except ValueError, e:
-            logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (args.did, e))
+    if dsscope and dsname:
+        if files_to_list.count({'scope': dsscope, 'name': dsname}) > 0:
+            # There is a file with the name of the destination dataset.
+            logger.error('scope:name for the files must be different from scope:name for the destination dataset. {0}:{1}'.format(dsscope, dsname))
             return FAILURE
-        except DataIdentifierNotFound:
-            # Dataset non existent. Must be created.
-            client.add_dataset(scope=dsscope, name=dsname, rules=[{'account': account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}], meta=metadata)
+        try:
+            client.add_dataset(scope=dsscope, name=dsname, rules=[{'account': client.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}])
             logger.info('Dataset successfully created')
-    else:
-        # no dataset provided, only upload files
-        dsscope = None
-        dsname = None
+        except DataIdentifierAlreadyExists:
+            # TODO: Need to check the rules thing!!
+            logger.warning("The dataset name already exist")
 
     # Adding files to the catalog
     for f in list_files:
@@ -593,8 +609,10 @@ def upload(args):
                 logger.info('Adding replicas in Rucio catalog')
                 client.add_replicas(files=[f], rse=args.rse)
                 logger.info('Replicas successfully added')
-                logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                client.add_replication_rule([f], copies=1, rse_expression=args.rse)
+                if not dsscope:
+                    # only need to add rules for files if no dataset is given
+                    logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
+                    client.add_replication_rule([f], copies=1, rse_expression=args.rse)
                 directory = revert_dict[f['scope'], f['name']]
                 rsemgr.upload(rse_settings=rse_settings, lfns=[{'name': f['name'], 'scope': f['scope'], 'adler32': f['adler32'], 'filesize': f['bytes']}], source_dir=directory)
                 logger.info('File {0}:{1} successfully uploaded on the storage'.format(f['scope'], f['name']))
@@ -605,16 +623,17 @@ def upload(args):
                 logger.error(e)
                 return FAILURE
         except DataIdentifierAlreadyExists, e:
-            logger.error(e)
-        if dsname:
-            # A dataset is provided. Must add the files to the dataset.
-            for f in list_files:
-                try:
-                    client.add_files_to_dataset(scope=dsscope, name=dsname, files=[f])
-                except Exception, e:
-                    logger.warning('Failed to attach file {0} to the dataset'.format(f))
-                    logger.warning(e)
-                    logger.warning("Continuing with the next one")
+            logger.debug(e)
+            logger.error("Some of the files already exist in the catalog. No one will be added.")
+    if dsname:
+        # A dataset is provided. Must add the files to the dataset.
+        for f in list_files:
+            try:
+                client.add_files_to_dataset(scope=dsscope, name=dsname, files=[f])
+            except Exception, e:
+                logger.warning('Failed to attach file {0} to the dataset'.format(f))
+                logger.warning(e)
+                logger.warning("Continuing with the next one")
 
     replicas = []
     replica_dictionary = {}
@@ -1111,17 +1130,9 @@ Commands:
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method')
     upload_parser.set_defaults(which='upload')
-    upload_parser.add_argument('--files', dest='files', nargs='+', action='store', help='List of space separated files', required=True)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
-    upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name', required=True)  # to be optional after
-    upload_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add')
-    upload_parser.add_argument('--project', dest='project', action='store', help='Project of the dataset')
-    upload_parser.add_argument('--datatype', dest='datatype', action='store', help='Datatype of the dataset')
-    upload_parser.add_argument('--run_number', dest='run_number', action='store', help='Run number of the dataset')
-    upload_parser.add_argument('--stream_name', dest='stream_name', action='store', help='Stream name of the dataset')
-    upload_parser.add_argument('--prod_step', dest='prod_step', action='store', help='Production step of the dataset')
-    upload_parser.add_argument('--version', dest='version', action='store', help='Version of the dataset')
-    upload_parser.add_argument('--campaign', dest='campaign', action='store', help='Campaign of the dataset')
+    upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name')  # to be optional after
+    upload_parser.add_argument(dest='args', action='store', nargs='+', metavar=('file', 'other_file, directory, scope:dataset_name'), help='files and datasets')
 
     # The download subparser
     download_parser = subparsers.add_parser('download', help='Download method')
