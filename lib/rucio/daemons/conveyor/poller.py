@@ -27,7 +27,7 @@ from rucio.common.utils import chunks
 from rucio.core import request
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
-from rucio.db.constants import RequestState, RequestType
+from rucio.db.constants import RequestState, RequestType, FTSState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -120,6 +120,66 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
     logging.debug('%i:%i - graceful stop done' % (process, thread))
 
 
+def poller_latest(external_hosts, once=False, last_nhours=1):
+    """
+    Main loop to check the status of a transfer primitive with a transfertool.
+    """
+
+    logging.info('poller started to poll latest %s hours on hosts: %s' % (last_nhours, external_hosts))
+    if external_hosts:
+        if type(external_hosts) == str:
+            external_hosts = [external_hosts]
+
+    while not graceful_stop.is_set():
+
+        try:
+            start_time = time.time()
+            for external_host in external_hosts:
+                logging.debug('poller started to poll latest %s hours on host: %s' % (last_nhours, external_host))
+                ts = time.time()
+                state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
+                try:
+                    resps = request.query_latest(external_host, state=state, last_nhours=last_nhours)
+                except:
+                    logging.critical(traceback.format_exc())
+                record_timer('daemons.conveyor.poller_latest.000-query_latest', (time.time()-ts)*1000)
+
+                if resps:
+                    logging.debug('poller_latest - polling %i requests' % (len(resps)))
+
+                if not resps or resps == []:
+                    if once:
+                        break
+                    logging.debug("no requests found. will sleep 60 seconds")
+                    time.sleep(60)
+                    continue
+
+                for resp in resps:
+                    try:
+                        common.update_request_state(resp)
+                        record_counter('daemons.conveyor.poller.update_request_state')
+                    except:
+                        logging.critical(traceback.format_exc())
+            if once:
+                break
+
+            time_left = last_nhours * 3600 - abs(time.time() - start_time)
+            # overlap 10 minutes
+            if time_left > 600:
+                time.sleep(time_left)
+            else:
+                logging.warning("Polling time %s is longer than %s hours, last_nhours needs to be updated" % (abs(time.time() - start_time), last_nhours))
+        except:
+            logging.critical(traceback.format_exc())
+
+        if once:
+            return
+
+    logging.debug('poller_latest- graceful stop requests')
+
+    logging.debug('poller_latest - graceful stop done')
+
+
 def stop(signum=None, frame=None):
     """
     Graceful exit.
@@ -128,24 +188,31 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000, older_than=60):
+def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000, older_than=60, mode=None, last_nhours=1, external_hosts=None):
     """
     Starts up the conveyer threads.
     """
 
     if once:
         logging.info('executing one poller iteration only')
-        poller(once=once, bulk=bulk, older_than=older_than)
+        if mode and mode == 'latest':
+            poller_latest(external_hosts, once=once, last_nhours=last_nhours)
+        else:
+            poller(once=once, bulk=bulk, older_than=older_than)
 
     else:
 
         logging.info('starting poller threads')
-        threads = [threading.Thread(target=poller, kwargs={'process': process,
-                                                           'total_processes': total_processes,
-                                                           'thread': i,
-                                                           'total_threads': total_threads,
-                                                           'older_than': older_than,
-                                                           'bulk': bulk}) for i in xrange(0, total_threads)]
+        if mode and mode == 'latest':
+            threads = [threading.Thread(target=poller_latest, kwargs={'external_hosts': external_hosts,
+                                                                      'last_nhours': last_nhours}) for i in xrange(0, total_threads)]
+        else:
+            threads = [threading.Thread(target=poller, kwargs={'process': process,
+                                                               'total_processes': total_processes,
+                                                               'thread': i,
+                                                               'total_threads': total_threads,
+                                                               'older_than': older_than,
+                                                               'bulk': bulk}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 
