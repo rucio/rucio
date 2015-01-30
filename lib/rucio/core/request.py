@@ -525,6 +525,7 @@ def archive_request(request_id, session=None):
         hist_request.save(session=session)
         try:
             session.query(models.Request).filter_by(id=request_id).delete()
+            session.commit()
         except IntegrityError, e:
             raise RucioException(e.args)
 
