@@ -62,7 +62,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             logging.debug('%i:%i - start to poll requests older than %i seconds' % (process, thread, older_than))
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=bulk,
+                                    limit=10000,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
@@ -74,7 +74,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             if not reqs or reqs == []:
                 if once:
                     break
-                logging.debug("no requests found. will sleep 60 seconds")
+                logging.debug("%i:%i - no requests found. will sleep 60 seconds" % (process, thread))
                 time.sleep(60)  # Only sleep if there is nothing to do
                 continue
 
@@ -90,6 +90,7 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
                     responses = {}
                     for external_host in req_ids:
                         ts = time.time()
+                        logging.debug('%i:%i - polling %i requests against %s' % (process, thread, len(req_ids[external_host]), external_host))
                         resps = request.bulk_query_requests(external_host, req_ids[external_host], 'fts3')
                         record_timer('daemons.conveyor.poller.001-bulk_query_requests', (time.time()-ts)*1000/len(req_ids[external_host]))
                         responses = dict(responses.items() + resps.items())
