@@ -199,6 +199,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
     query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
                                          .filter_by(state=state)\
                                          .filter(models.Request.request_type.in_(request_type))\
+                                         .order_by(asc(models.Request.external_host))\
                                          .order_by(asc(models.Request.updated_at))
 
     if isinstance(older_than, datetime.datetime):

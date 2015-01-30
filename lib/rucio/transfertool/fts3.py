@@ -18,6 +18,10 @@ import urlparse
 
 import requests
 
+# See https://github.com/kennethreitz/requests/issues/2214
+from requests.packages.urllib3 import disable_warnings
+disable_warnings()
+
 from rucio.common.config import config_get
 from rucio.core.monitor import record_counter
 from rucio.db.constants import FTSState
