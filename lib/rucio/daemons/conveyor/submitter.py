@@ -132,7 +132,12 @@ def get_sources(dest_rse, scheme, req):
 
         for source in replications:
 
-            metadata['filesize'] = long(source['bytes'])
+            try:
+                metadata['filesize'] = long(source['bytes'])
+            except KeyError, e:
+                logging.critical('source for %s:%s has no filesize set' % (source['scope'], source['name']))
+                continue
+
             metadata['md5'] = source['md5']
             metadata['adler32'] = source['adler32']
             # TODO: Source protection
