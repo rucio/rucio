@@ -9,12 +9,13 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
 import datetime
 import json
 import logging
 import time
+import traceback
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
@@ -290,6 +291,80 @@ def query_request(request_id, transfertool='fts3', session=None):
         raise NotImplementedError
 
     return req_status
+
+
+@read_session
+def query_latest(external_host, state, last_nhours=1, session=None):
+    """
+    Query the latest requests in last n hours with state.
+
+    :param external_host: FTS host name as a string.
+    :param state: FTS job state as a string or a dictionary.
+    :param last_nhours: Latest n hours as an integer.
+    :returns: Requests status information as a dictionary.
+    """
+
+    record_counter('core.request.query_latest')
+
+    try:
+        ts = time.time()
+        resps = fts3.query_latest(external_host, state, last_nhours)
+        record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - ts) * 1000)
+    except Exception:
+        raise
+
+    ret_resps = []
+    for resp in resps:
+        if 'job_metadata' not in resp or 'issuer' not in resp['job_metadata'] or resp['job_metadata']['issuer'] != 'rucio':
+            continue
+
+        request_id = resp['job_metadata']['request_id']
+        try:
+            req = get_request(request_id, session=session)
+        except:
+            logging.warning(traceback.format_exc())
+            continue
+
+        if req:
+            if resp['job_state'] in (str(FTSState.FAILED),
+                                     str(FTSState.FINISHEDDIRTY),
+                                     str(FTSState.CANCELED)):
+                new_state = RequestState.FAILED
+            elif resp['job_state'] == str(FTSState.FINISHED):
+                new_state = RequestState.DONE
+
+            if 'finish_time' in resp and resp['finish_time'] and 'submit_time' in resp and resp['submit_time']:
+                duration = (datetime.datetime.strptime(resp['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                            datetime.datetime.strptime(resp['submit_time'], '%Y-%m-%dT%H:%M:%S')).seconds
+            else:
+                duration = 0
+
+            response = {'new_state': new_state,
+                        'transfer_id': resp.get('job_id', None),
+                        'job_state': resp.get('job_state', None),
+                        # Todo, "source_se" is just a short se path, for example "srm://srm-atlas.cern.ch". It's not full surl.
+                        # for multiple source replicas, it will be None
+                        'src_url': resp.get('source_se', None),
+                        'dst_url': req['dest_url'],
+                        # Todo, should be file start_time, not job start_time
+                        'duration': duration,
+                        'reason': resp.get('reason', None),
+                        'scope': resp['job_metadata'].get('scope', None),
+                        'name': resp['job_metadata'].get('name', None),
+                        'src_rse': resp['job_metadata'].get('src_rse', None),  # Todo for multiple source replicas
+                        'dst_rse': resp['job_metadata'].get('dst_rse', None),
+                        'request_id': resp['job_metadata'].get('request_id', None),
+                        'activity': resp['job_metadata'].get('activity', None),
+                        'dest_rse_id': resp['job_metadata'].get('dest_rse_id', None),
+                        'previous_attempt_id': resp['job_metadata'].get('previous_attempt_id', None),
+                        'adler32': resp['job_metadata'].get('adler32', None),
+                        'md5': resp['job_metadata'].get('md5', None),
+                        'filesize': resp['job_metadata'].get('filesize', None),
+                        'external_host': external_host,
+                        'job_m_replica': None,   # Todo, do we need to set it true? If it's true, common.get_source_rse will not called to correct the src_url and src_rse
+                        'details': {'files': resp['job_metadata']}}
+            ret_resps.append(response)
+    return ret_resps
 
 
 @read_session

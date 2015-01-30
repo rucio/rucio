@@ -265,14 +265,14 @@ def get_source_rse(scope, name, src_url):
         for source in replications:
             for source_rse in source['rses']:
                 for pfn in source['rses'][source_rse]:
-                    if pfn == src_url:
-                        return source_rse
+                    if pfn == src_url or pfn.startswith(src_url):
+                        return source_rse, pfn
         # cannot find matched surl
         logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
-        return None
+        return None, None
     except:
         logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
-        return None
+        return None, None
 
 
 @transactional_session
@@ -298,15 +298,17 @@ def add_monitor_message(response, session=None):
     scope = response.get('scope', None)
     name = response.get('name', None)
     job_m_replica = response.get('job_m_replica', None)
-    if job_m_replica and str(job_m_replica) == str('true'):
+    if (job_m_replica and str(job_m_replica) == str('true') and src_url):
         try:
-            rse_name = get_source_rse(scope, name, src_url)
+            rse_name, new_src_url = get_source_rse(scope, name, src_url)
         except:
             logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
             rse_name = None
-        if rse_name and rse_name != src_rse:
-            src_rse = rse_name
-            logging.info('find RSE: %s for source surl: %s' % (src_rse, src_url))
+        if rse_name:
+            if rse_name != src_rse:
+                src_rse = rse_name
+                src_url = new_src_url
+                logging.info('find RSE: %s for source surl: %s' % (src_rse, src_url))
 
     add_message(transfer_status, {'activity': activity,
                                   'request-id': response['request_id'],
