@@ -11,12 +11,13 @@
 -->
 
 $var title: Account Usage
-$var script: <script src="/static/account_usage.js"></script>
+$var script: <script src="/static/account_usage.js"></script><script src="https://code.highcharts.com/highcharts.js"></script><script src="https://code.highcharts.com/modules/exporting.js"></script>
 
 <div id="results" class="row">
 
   <div id="t_data" class="columns panel">
     <h4>Account Usage Overview (in TB)</h4>
+    <div id="quotaplot"></div>
     <table id="resulttable_overview" class="compact stripe order-column" style="word-wrap: break-word;">
       <thead><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></thead>
       <tfoot><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></tfoot>
