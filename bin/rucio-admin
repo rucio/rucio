@@ -945,7 +945,8 @@ def list_account_attributes(args):
         print e
         return FAILURE
     for attr in attributes:
-        pp.pprint("{0}: {1}".format(attr[0]['key'], attr[0]['value']))
+        if len(attr) > 0:
+            pp.pprint("{0}: {1}".format(attr[0]['key'], attr[0]['value']))
     return SUCCESS
 
 
