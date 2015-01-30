@@ -11,7 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 
 from datetime import datetime, timedelta
 from re import match
@@ -751,6 +751,32 @@ def touch_replicas(replicas, session=None):
         #        update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
         #    session.query(models.DatasetLock).filter_by(scope=dataset['scope'], name=dataset['name'], rse_id=replica['rse_id']).\
         #        update({'accessed_at': replica.get('accessed_at') or now}, synchronize_session=False)
+
+    return True
+
+
+@transactional_session
+def touch_replica_no_wait(replica, session=None):
+    """
+    Update the accessed_at timestamp of the given file replica/did but don't wait if row is locked.
+
+    :param replica: a dictionary with the information of the affected replica.
+    :param session: The database session in use.
+
+    :returns: True, if successful, False otherwise.
+    """
+    now = datetime.utcnow()
+    if 'rse_id' not in replica:
+        replica['rse_id'] = get_rse_id(rse=replica['rse'], session=session)
+
+    try:
+        replica_db = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).with_for_update(nowait=True).one()
+        replica_db.accessed_at = replica.get('accessed_at') or now
+
+        file_did = session.query(models.DataIdentifier).filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).with_for_update(nowait=True).one()
+        file_did.accessed_at = replica.get('accessed_at') or now
+    except DatabaseError:
+        return False
 
     return True
 

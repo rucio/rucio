@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -22,14 +22,14 @@ from time import sleep, time
 from traceback import format_exc
 from Queue import Queue
 
-from json import loads as jloads
+from json import loads as jloads, dumps as jdumps
 from stomp import Connection
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.lock import touch_dataset_locks
-from rucio.core.replica import touch_replicas
+from rucio.core.replica import touch_replica_no_wait
 from rucio.db.constants import DIDType
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -42,9 +42,10 @@ graceful_stop = Event()
 
 
 class AMQConsumer(object):
-    def __init__(self, broker, conn, chunksize, subscription_id, excluded_usrdns, dataset_queue):
+    def __init__(self, broker, conn, queue, chunksize, subscription_id, excluded_usrdns, dataset_queue):
         self.__broker = broker
         self.__conn = conn
+        self.__queue = queue
         self.__reports = []
         self.__ids = []
         self.__chunksize = chunksize
@@ -66,6 +67,10 @@ class AMQConsumer(object):
         id = headers['message-id']
         if 'appversion' in headers:
             appversion = headers['appversion']
+
+        if 'resubmitted' in headers:
+            record_counter('daemons.tracer.kronos.received_resubmitted')
+            logging.info('(kronos_file) got a resubmitted report')
 
         try:
             if appversion == 'dq2':
@@ -132,7 +137,7 @@ class AMQConsumer(object):
                     continue
                 if not report['remoteSite']:
                     continue
-                replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']), 'traceTimeentryUnix': report['traceTimeentryUnix']})
             except (KeyError, AttributeError):
                 logging.error(format_exc())
                 record_counter('daemons.tracer.kronos.report_error')
@@ -150,7 +155,13 @@ class AMQConsumer(object):
 
         try:
             ts = time()
-            touch_replicas(replicas)
+            for replica in replicas:
+                # if touch replica hits a locked row put the trace back into queue for later retry
+                if not touch_replica_no_wait(replica):
+                    resubmit = {'filename': replica['name'], 'scope': replica['scope'], 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'], 'eventType': 'get', 'usrdn': 'someuser', 'clientState': 'DONE'}
+                    self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
+                    record_counter('daemons.tracer.kronos.sent_resubmitted')
+                    logging.info('(kronos_file) hit locked row, resubmitted to queue')
             record_timer('daemons.tracer.kronos.update_atime', (time() - ts) * 1000)
         except:
             logging.error(format_exc())
@@ -203,7 +214,13 @@ def kronos_file(once=False, process=0, total_processes=1, thread=0, total_thread
             if not conn.is_connected():
                 logging.info('(kronos_file) connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
-                conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0], conn=conn, chunksize=chunksize, subscription_id=subscription_id, excluded_usrdns=excluded_usrdns, dataset_queue=dataset_queue))
+                conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
+                                                                     conn=conn,
+                                                                     queue=config_get('tracer-kronos', 'queue'),
+                                                                     chunksize=chunksize,
+                                                                     subscription_id=subscription_id,
+                                                                     excluded_usrdns=excluded_usrdns,
+                                                                     dataset_queue=dataset_queue))
                 conn.start()
                 if not use_ssl:
                     conn.connect(username, password)
