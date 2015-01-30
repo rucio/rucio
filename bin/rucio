@@ -1094,7 +1094,7 @@ Commands:
     list_parser.set_defaults(which='list_dids')
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
-    list_parser.add_argument(dest='did', nargs='?', action='store', default=None, help='Data IDentifier pattern')
+    list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
     # The list parent-dids command
     list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent data identifiers', description='List data identifier parents')
