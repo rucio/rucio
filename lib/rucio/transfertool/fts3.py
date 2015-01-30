@@ -175,6 +175,56 @@ def query(transfer_id, transfer_host):
     raise Exception('Could not retrieve transfer information: %s', job.content)
 
 
+def query_latest(transfer_host, state, last_nhours=1):
+    """
+    Query the latest status transfers status in FTS3 via JSON.
+
+    :param transfer_host: FTS server as a string.
+    :param state: Transfer state as a string or a dictionary.
+    :returns: Transfer status information as a dictionary.
+    """
+
+    jobs = None
+
+    if transfer_host.startswith('https://'):
+        try:
+            whoami = requests.get('%s/whoami' % (transfer_host),
+                                  verify=False,
+                                  cert=(__USERCERT, __USERCERT),
+                                  headers={'Content-Type': 'application/json'})
+            if whoami and whoami.status_code == 200:
+                delegation_id = whoami.json()['delegation_id']
+            else:
+                raise Exception('Could not retrieve delegation id: %s', whoami.content)
+            state_string = ','.join(state)
+            jobs = requests.get('%s/jobs?dlg_id=%s&state_in=%s&time_window=%s' % (transfer_host, delegation_id, state_string, last_nhours),
+                                verify=False,
+                                cert=(__USERCERT, __USERCERT),
+                                headers={'Content-Type': 'application/json'})
+        except Exception:
+            raise
+    else:
+        try:
+            whoami = requests.get('%s/whoami' % (transfer_host),
+                                  headers={'Content-Type': 'application/json'})
+            if whoami and whoami.status_code == 200:
+                delegation_id = whoami.json()['delegation_id']
+            else:
+                raise Exception('Could not retrieve delegation id: %s', whoami.content)
+            state_string = ','.join(state)
+            jobs = requests.get('%s/jobs?dlg_id=%s&state_in=%s&time_window=%s' % (transfer_host, delegation_id, state_string, last_nhours),
+                                headers={'Content-Type': 'application/json'})
+        except Exception:
+            raise
+
+    if jobs and jobs.status_code == 200:
+        record_counter('transfertool.fts3.%s.query_latest.success' % __extract_host(transfer_host))
+        return jobs.json()
+
+    record_counter('transfertool.fts3.%s.query.failure' % __extract_host(transfer_host))
+    raise Exception('Could not retrieve transfer information: %s', jobs.content)
+
+
 def query_details(transfer_id, transfer_host):
     """
     Query the detailed status of a transfer in FTS3 via JSON.

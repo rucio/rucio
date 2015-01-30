@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -36,6 +36,12 @@ if __name__ == "__main__":
                         help='Bulk control: number of requests')
     parser.add_argument("--older-than", action="store", default=60, type=int,
                         help='Poll control: older request more than this value to poll')
+    parser.add_argument("--mode", action="store", default=None, type=str,
+                        help='Poll control: "latest" mode will poll latest FTS jobs status')
+    parser.add_argument("--last-nhours", action="store", default=1, type=int,
+                        help='Poll control: poll FTS jobs in last n hours with given state in "latest" mode')
+    parser.add_argument("--external-hosts",  nargs='+', type=str,
+                        help='Poll control: List of FTS hosts')
     args = parser.parse_args()
 
     try:
@@ -44,6 +50,9 @@ if __name__ == "__main__":
             total_processes=args.total_processes,
             total_threads=args.total_threads,
             bulk=args.bulk,
-            older_than=args.older_than)
+            older_than=args.older_than,
+            mode=args.mode,
+            last_nhours=args.last_nhours,
+            external_hosts=args.external_hosts)
     except KeyboardInterrupt:
         stop()
