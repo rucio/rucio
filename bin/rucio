@@ -355,34 +355,47 @@ def detach(args):
 @exception_handler
 def list_dids(args):
     """
-    %(prog)s list <did_1> ... <did_n>
+    %(prog)s list-dids scope[:*|:name] [--filter 'key=value' | --recursive]
 
-    List the data identifiers matching some metadata.
+    List the data identifiers for a given scope.
     """
     client = get_client(args)
     filters = {}
     type = 'collection'
     if args.filter:
         if args.recursive:
-            print 'ERROR: Option recursive and filter cannot be used together'
+            logger.error('Option recursive and filter cannot be used together')
             return FAILURE
         else:
-            for key, value in [(a.split('=')[0], a.split('=')[1]) for a in args.filter.split(',')]:
-                if key == 'type':
-                    if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
-                        type = value.lower()
+            try:
+                for key, value in [(a.split('=')[0], a.split('=')[1]) for a in args.filter.split(',')]:
+                    if key == 'type':
+                        if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
+                            type = value.lower()
+                        else:
+                            logger.error('{0} is not a valid type. Valid types are {1}'.format(value, ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']))
+                            return FAILURE
                     else:
-                        raise TypeError('%s is not a valid type' % value)
-                else:
-                    filters[key] = value
-
-    scope, name = extract_scope(args.did)
+                        filters[key] = value
+            except Exception:
+                logger.error("Invalid Filter. Filter must be 'key=value'")
+                return FAILURE
+    try:
+        scope, name = extract_scope(args.did[0])
+        if name ==  '':
+            name = '*'
+    except InvalidObject:
+        scope = args.did[0]
+        name = '*'
+    if scope not in client.list_scopes():
+        logger.error('Scope not found')
+        return FAILURE
     if name.find('*') > -1:
         if args.recursive:
-            print 'ERROR: Option recursive cannot be used with wildcards'
+            logger.error('Option recursive cannot be used with wildcards')
             return FAILURE
         elif ('name' in filters) and (name != '*'):
-            print 'ERROR: you cannot use a wildcard query and a filter by name'
+            logger.error('You cannot use a wildcard query and a filter by name')
             return FAILURE
         filters['name'] = name
         for did in client.list_dids(scope, filters=filters, type=type):
