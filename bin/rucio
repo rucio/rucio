@@ -427,20 +427,6 @@ def list_scopes(args):
 
 
 @exception_handler
-def scope_list(args):
-    """
-    %(prog)s scope_list <scope>
-
-    List all data identifiers in given scope.
-    """
-    client = get_client(args)
-    dids = client.scope_list(scope=args.scope)
-    for d in dids:
-        print '%(scope)s:%(name)s [%(type)s]' % d
-    return SUCCESS
-
-
-@exception_handler
 def list_files(args):
     """
     %(prog)s list-files [options] <field1=value1 field2=value2 ...>
