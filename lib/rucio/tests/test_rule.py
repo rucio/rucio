@@ -16,6 +16,9 @@ import json
 
 from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises
 
+import rucio.api.rule
+
+from rucio.api.account import add_account
 from rucio.client.accountclient import AccountClient
 from rucio.client.lockclient import LockClient
 from rucio.client.didclient import DIDClient
@@ -27,6 +30,7 @@ from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
+from rucio.core.account import add_account_attribute
 from rucio.core.account_limit import set_account_limit, delete_account_limit
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse
@@ -37,7 +41,7 @@ from rucio.daemons.abacus.rse import rse_update
 from rucio.db.constants import DIDType, OBSOLETE
 from rucio.db import models
 from rucio.db.session import transactional_session
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import rse_name_generator, account_name_generator
 
 
 def create_files(nrfiles, scope, rse, bytes=1):
@@ -638,6 +642,30 @@ class TestReplicationRuleCore():
             add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
+
+    def test_delete_rule_country_admin(self):
+        """ REPLICATION RULE (CORE): Delete a rule with a country admin account"""
+        rse = rse_name_generator()
+        add_rse(rse)
+        add_rse_attribute(rse, 'country', 'test')
+
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        usr = account_name_generator()
+        add_account(usr, 'USER', 'root')
+
+        with assert_raises(AccessDenied):
+            rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr)
+
+        add_account_attribute(usr, 'country-test', 'admin')
+
+        rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr)
 
 
 class TestReplicationRuleClient():
