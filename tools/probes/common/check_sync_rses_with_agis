@@ -42,7 +42,7 @@ if __name__ == '__main__':
             continue
 
         try:
-            deterministic = not rse['is_tape']
+            deterministic = not rse['is_deterministic']
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
         except Duplicate, e:
