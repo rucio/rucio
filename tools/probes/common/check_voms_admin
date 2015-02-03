@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - David Cameron, <david.cameron@cern.ch>, 2015
+#
+# Get country groups from VOMS, get DNs with production role,
+# map to Rucio account and set country-<country>: admin
+
+import os
+import re
+import sys
+
+from rucio.api.account import list_accounts, add_account_attribute
+from rucio.common.config import config_get
+from rucio.common.exception import RucioException, Duplicate
+
+from VOMSAdmin.VOMSCommands import VOMSAdminProxy
+
+UNKNOWN = 3
+CRITICAL = 2
+WARNING = 1
+OK = 0
+
+if __name__ == '__main__':
+    result = OK
+
+    try:
+        proxy = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = proxy
+        cert, key = os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']
+    except Exception as e:
+        print "Failed to get proxy from rucio.cfg"
+        sys.exit(CRITICAL)
+
+    admin = VOMSAdminProxy(vo='atlas', host='voms.cern.ch', port=8443,
+                           user_cert=cert, user_key=key)
+    res = admin.call_method('list-sub-groups', '/atlas')
+    if not res:
+        print 'Could not list VOMS groups'
+        sys.exit(CRITICAL)
+
+    for group in res:
+        accounts_done = []
+
+        m = re.match('/atlas/(\w\w)$', group) or re.match('/atlas/(cern)$', group) or re.match('/atlas/(usatlas)$', group)
+        if not m:
+            continue
+        vomsgroup = m.group(0)
+        country = m.group(1)
+        if country == 'usatlas':
+            country = 'us'
+
+        # Get DNs with production role in each country
+        dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production')
+        if not dns:
+            print 'No admins in country %s' % country
+            continue
+
+        for dn in dns:
+            # Get Rucio account
+            accounts = list_accounts(filter={'identity': dn._DN, 'account_type': 'USER'})
+            if not accounts:
+                print "Warning: no user accounts for %s" % dn._DN
+                continue
+
+            for acc in accounts:
+                account = acc['account']
+                if account not in accounts_done:
+                    print 'Set admin role for country-%s for %s' % (country, account)
+                    try:
+                        add_account_attribute('country-%s' % country, 'admin', account, 'root')
+                    except Duplicate:
+                        pass
+                    except RucioException, e:
+                        print "Failed to add account attribute: %s" % str(e)
+                        result = WARNING
+                    accounts_done.append(account)
+
+    sys.exit(result)
