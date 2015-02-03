@@ -26,6 +26,18 @@ OK = 0
 
 result = OK
 
+# Map of countries to 2-letter code
+# Eventually should be available in AGIS
+countrycodes = {'Argentina': 'ar', 'Armenia': 'am', 'Australia': 'au', 'Austria': 'at',
+                'Canada': 'ca', 'Switzerland': 'ch', 'Chile': 'cl', 'China': 'cn',
+                'Czech Republic': 'cz', 'Germany': 'de', 'Denmark': 'dk', 'Spain': 'es',
+                'France': 'fr', 'Greece': 'gr', 'Israel': 'il', 'Italy': 'it',
+                'Japan': 'jp', 'Netherlands': 'nl', 'Norway': 'no', 'Poland': 'pl',
+                'Portugal': 'pt', 'Romania': 'ro', 'Russian Federation': 'ru',
+                'Sweden': 'se', 'Slovakia': 'sk', 'Turkey': 'tr', 'Taiwan': 'tw',
+                'UK': 'uk', 'USA': 'us', 'South Africa': 'za'}
+
+
 # Takes DDM endpoint information from AGIS and adds selected attributes to RSEs
 if __name__ == '__main__':
 
@@ -39,36 +51,41 @@ if __name__ == '__main__':
 
     for rse in data:
 
+        name = rse['name']
         # Only use active endpoints in AGIS
         if rse['state'] != 'ACTIVE':
             continue
 
         # Check if RSE exists
         try:
-            r.get_rse(rse['name'])
+            r.get_rse(name)
         except RSENotFound:
             continue
 
-        print rse['name']
+        print name
 
         try:
-            r.add_rse_attribute(rse['name'], 'ALL', '1', 'root')
-            r.add_rse_attribute(rse['name'], 'tier', str(rse['tier_level']), 'root')
-            r.add_rse_attribute(rse['name'], 'istape', str(rse['is_tape']), 'root')
-            r.add_rse_attribute(rse['name'], 'cloud', str(rse['cloud']), 'root')
-            r.add_rse_attribute(rse['name'], 'spacetoken', str(rse['token']), 'root')
-            r.add_rse_attribute(rse['name'], 'country', str(rse['country']), 'root')
-            r.add_rse_attribute(rse['name'], 'site', str(rse['site']), 'root')
+            r.add_rse_attribute(name, 'ALL', '1', 'root')
+            r.add_rse_attribute(name, 'tier', str(rse['tier_level']), 'root')
+            r.add_rse_attribute(name, 'istape', str(rse['is_tape']), 'root')
+            r.add_rse_attribute(name, 'cloud', str(rse['cloud']), 'root')
+            r.add_rse_attribute(name, 'spacetoken', str(rse['token']), 'root')
+            r.add_rse_attribute(name, 'site', str(rse['site']), 'root')
+            if name.endswith('_LOCALGROUPDISK') or name.endswith('_USERDISK'):
+                country = countrycodes[str(rse['country'])]
+                if name.startswith('CERN'):
+                    country = 'cern'
+                r.add_rse_attribute(name, 'country', country, 'root')
             if rse['phys_groups']:
-                r.add_rse_attribute(rse['name'], 'physgroup', str(rse['phys_groups'][0]), 'root')
+                r.add_rse_attribute(name, 'physgroup', str(rse['phys_groups'][0]), 'root')
             if isinstance(rse['servedrestfts']['MASTER'], list):
-                r.add_rse_attribute(rse['name'], 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
+                r.add_rse_attribute(name, 'fts', ','.join(rse['servedrestfts']['MASTER']), 'root')
             else:
-                r.add_rse_attribute(rse['name'], 'fts', str(rse['servedrestfts']['MASTER']), 'root')
+                r.add_rse_attribute(name, 'fts', str(rse['servedrestfts']['MASTER']), 'root')
             if isinstance(rse['servedrestfts']['TESTING'], list):
-                r.add_rse_attribute(rse['name'], 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
+                r.add_rse_attribute(name, 'fts_testing', ','.join(rse['servedrestfts']['TESTING']), 'root')
             else:
-                r.add_rse_attribute(rse['name'], 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
+                r.add_rse_attribute(name, 'fts_testing', str(rse['servedrestfts']['TESTING']), 'root')
 
         except RucioException as e:
             print str(e)
