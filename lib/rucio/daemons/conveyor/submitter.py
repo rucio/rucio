@@ -440,7 +440,7 @@ def get_transfer(rse, req, scheme, mock):
         return
 
     fts_list = fts_hosts.split(",")
-    external_host = fts_list[retry_count/len(fts_list)]
+    external_host = fts_list[retry_count % len(fts_list)]
 
     transfer = {'request_id': req['request_id'],
                 'src_urls': source_surls,

@@ -14,6 +14,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2015
 
 import logging
 import sys
@@ -785,7 +786,7 @@ def get_files(files, session=None):
         for f in files:
             if f['name'] == file['name'] and f['scope'] == file['scope']:
                 for key in ['bytes', 'adler32', 'md5']:
-                    if key in f and f.get(key) != file[key]:
+                    if key in f and str(f.get(key)) != str(file[key]):
                         raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % file + str(f.get(key)) + '!=' + str(file[key]))
                 break
 
