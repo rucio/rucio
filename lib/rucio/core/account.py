@@ -186,7 +186,7 @@ def list_account_attributes(account, session=None):
     try:
         query.one()
     except exc.NoResultFound:
-        raise exception.AccountNotFound("Account ID '{}' does not exist".format(account))
+        raise exception.AccountNotFound("Account ID '{0}' does not exist".format(account))
 
     query = session.query(models.AccountAttrAssociation).filter_by(account=account)
     for attr in query:
