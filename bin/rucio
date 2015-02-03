@@ -536,6 +536,7 @@ def __get_files(args):
     return files
 
 
+@exception_handler
 def upload(args):
     """
     rucio upload [scope:datasetname] [folder/] [files1 file2 file3]
@@ -567,13 +568,13 @@ def upload(args):
         try:
             size = os.stat(name).st_size
             checksum = adler32(name)
-            # logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, args.scope, os.path.basename(name)))
+            logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, os.path.basename(name)))
             files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
             list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
             if not os.path.dirname(name) in lfns:
                 lfns[os.path.dirname(name)] = []
-            lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': args.scope, 'adler32': checksum, 'filesize': size})
-            revert_dict[args.scope, os.path.basename(name)] = os.path.dirname(name)
+            lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': fscope, 'adler32': checksum, 'filesize': size})
+            revert_dict[fscope, os.path.basename(name)] = os.path.dirname(name)
 
         except OSError, e:
             logger.error(e)
@@ -607,7 +608,10 @@ def upload(args):
     for f in list_files:
         try:  # If the did already exist in the catalog, only shold be upload if the checksum is the same
             meta = client.get_metadata(f['scope'], f['name'])
-            logger.warning("The file {0}:{1} already exist in the catalog and will not be added.".format(f['scope'], f['name']))
+            replicastate = [rep for rep in client.list_replicas([{'scope': f['scope'], 'name': f['name']}], all_states=True)]
+            if args.rse not in replicastate[0]['rses']:
+                client.add_replicas(files=[f], rse=args.rse)
+            # logger.warning("The file {0}:{1} already exist in the catalog and will not be added.".format(f['scope'], f['name']))
             if rsemgr.exists(rse_settings=rse_settings, files={'name': f['name'], 'scope': f['scope']}):
                 logger.warning('File {0}:{1} already exists on RSE. Will not try to reupload'.format(f['scope'], f['name']))
             else:
@@ -618,7 +622,12 @@ def upload(args):
                     logger.info('File %s:%s successfully uploaded on the storage' % (f['scope'], f['name']))
                 else:
                     raise DataIdentifierAlreadyExists
-
+        except NotImplementedError, e:
+            for p in rse_settings['protocols']:
+                if p['domains']['wan']['read'] == 1:
+                    prot = p['scheme']
+            logger.error('Protocol {0} for RSE {1} not supported!'.format(prot, args.rse))
+            return FAILURE
         except DataIdentifierNotFound:
             try:
                 logger.info('Adding replicas in Rucio catalog')
@@ -666,7 +675,7 @@ def upload(args):
         try:
             client.update_replicas_states(rse=args.rse, files=replicas)
         except AccessDenied, e:
-            logger.info(e)
+            logger.error(e)
             return FAILURE
         logger.info('File replicas states successfully updated')
     return SUCCESS
@@ -1188,7 +1197,7 @@ Commands:
     upload_parser.set_defaults(which='upload')
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name')  # to be optional after
-    upload_parser.add_argument(dest='args', action='store', nargs='+', metavar=('file', 'other_file, directory, scope:dataset_name'), help='files and datasets')
+    upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets')
 
     # The download subparser
     download_parser = subparsers.add_parser('download', help='Download method')
@@ -1346,6 +1355,6 @@ Commands:
         if args.verbose:
             print "Completed in %-0.4f sec." % (end_time - start_time)
         sys.exit(result)
-    except (RuntimeError, NotImplementedError), e:
-        print >> sys.stderr, "ERROR: ", e
+    except Exception, e:
+        logger.error("Strange error {0}".format(e))
         sys.exit(FAILURE)
