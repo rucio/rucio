@@ -26,19 +26,20 @@ if __name__ == "__main__":
         vo = sys.argv[1]
     except IndexError, e:
         vo = 'atlas'
-    retvalue = OK
+    worst_retvalue = OK
+
     try:
         proxy = config_get('nagios', 'proxy')
         os.environ["X509_USER_PROXY"] = proxy
     except Exception as e:
         print "Failed to get proxy from rucio.cfg"
-        retvalue = WARNING
+        worst_retvalue = WARNING
 
     try:
         ftshosts = config_get('conveyor', 'ftsmonhosts')
     except Exception as e:
         print "Failed to get ftsmonhosts"
-        retvalue = WARNING
+        worst_retvalue = WARNING
     for ftshost in ftshosts.split(','):
         url = '%s/fts3/ftsmon/overview?dest_se=&source_se=&time_window=1&vo=%s' % (ftshost, vo)
         for attempt in xrange(0, 5):
@@ -50,6 +51,7 @@ if __name__ == "__main__":
                 hostname = h.hostname.replace('.', '_')
                 print '%s : %s' % (hostname, summary['submitted'])
                 monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=summary['submitted'])
+                retvalue = OK
                 break
             except Exception, e:
                 retvalue = CRITICAL
@@ -57,4 +59,5 @@ if __name__ == "__main__":
                     print 'Error when trying to get info from %s : HTTP status code %s. [%s]' % (ftshost, str(r.status_code), str(e))
                 else:
                     print 'Error when trying to get info from %s. %s' % (ftshost, str(e))
-    sys.exit(retvalue)
+        worst_retvalue = max(retvalue,worst_retvalue)
+    sys.exit(worst_retvalue)
