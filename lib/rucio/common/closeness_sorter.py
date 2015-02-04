@@ -15,7 +15,7 @@ methods to get closeness between sites
 import json
 import logging
 import random
-import sys
+import traceback
 import urllib2
 
 from dogpile.cache import make_region
@@ -56,7 +56,7 @@ def get_sitename(rse_name):
                 result[rse] = sitename
             region.set(sha256(url).hexdigest(), result)
         except:
-            logging.error("INFO: failed to load data from url=%s, error: %s" % (url, sys.exc_info()))
+            logging.warning("INFO: failed to load data from url=%s, error: %s" % (url, traceback.format_exc()))
     if result and rse_name in result:
         return result[rse_name]
     return None
@@ -93,7 +93,7 @@ def get_closeness(dest_rse):
                     result[src][src] = -BIGGEST_DISTANCE
             region.set(sha256(url).hexdigest(), result)
         except:
-            logging.error("INFO: failed to load data from url=%s, error: %s" % (url, sys.exc_info()))
+            logging.warning("INFO: failed to load data from url=%s, error: %s" % (url, traceback.format_exc()))
 
     if result:
         dest_site = get_sitename(dest_rse)
@@ -121,7 +121,10 @@ def sort_rses(rses, dest_rse):
             close_dict = {}
             for rse in rses:
                 site = get_sitename(rse)
-                if site in closeness:
+                if site is None:
+                    logging.error("Cannot get site name for RSE %s" % rse)
+
+                if site and site in closeness:
                     distance = closeness[site]
                 else:
                     distance = BIGGEST_DISTANCE
@@ -132,7 +135,7 @@ def sort_rses(rses, dest_rse):
             sorted_list = sorted(close_dict.items())
             region.set(sha256(key).hexdigest(), sorted_list)
         except:
-            logging.error("INFO: failed to sort rses with network distance, error: %s" % (sys.exc_info()))
+            logging.warning("INFO: failed to sort rses with network distance, error: %s" % (traceback.format_exc()))
 
     ret_rses = []
     if sorted_list:
