@@ -24,8 +24,8 @@ import traceback
 
 from ConfigParser import NoOptionError
 
-from rucio.common.config import config_get
 from rucio.common.closeness_sorter import sort_sources
+from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.utils import construct_surl
 from rucio.core import did, replica, request, rse as rse_core
@@ -75,7 +75,9 @@ def get_rses(rses=None, include_rses=None, exclude_rses=None):
     return working_rses
 
 
-def get_requests(rse_id=None, process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100, activity=None):
+def get_requests(rse_id=None,
+                 process=0, total_processes=1, thread=0, total_threads=1,
+                 mock=False, bulk=100, activity=None, activity_shares=None):
     ts = time.time()
     reqs = request.get_next(request_type=[RequestType.TRANSFER,
                                           RequestType.STAGEIN,
@@ -87,7 +89,8 @@ def get_requests(rse_id=None, process=0, total_processes=1, thread=0, total_thre
                             process=process,
                             total_processes=total_processes,
                             thread=thread,
-                            total_threads=total_threads)
+                            total_threads=total_threads,
+                            activity_shares=activity_shares)
     record_timer('daemons.conveyor.submitter.get_next', (time.time() - ts) * 1000)
     return reqs
 
@@ -459,7 +462,10 @@ def get_transfer(rse, req, scheme, mock):
     return transfer
 
 
-def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total_threads=1, mock=False, bulk=100, activities=None):
+def submitter(once=False, rses=[],
+              process=0, total_processes=1, thread=0, total_threads=1,
+              mock=False, bulk=100,
+              activities=None, activity_shares=None):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -502,7 +508,8 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
                                             total_threads=total_threads,
                                             mock=mock,
                                             bulk=bulk,
-                                            activity=activity)
+                                            activity=activity,
+                                            activity_shares=activity_shares)
                         record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
                     else:
                         # no rse list, run FIFO mode
@@ -514,7 +521,8 @@ def submitter(once=False, rses=[], process=0, total_processes=1, thread=0, total
                                             total_threads=total_threads,
                                             mock=mock,
                                             bulk=bulk,
-                                            activity=activity)
+                                            activity=activity,
+                                            activity_shares=activity_shares)
                         record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
 
                     if reqs:
@@ -607,7 +615,10 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, activities=[]):
+def run(once=False,
+        process=0, total_processes=1, total_threads=1,
+        mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100,
+        activities=[], activity_shares=None):
     """
     Starts up the conveyer threads.
     """
@@ -621,9 +632,33 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, r
     else:
         logging.info("RSE auto mode")
 
+    if activity_shares:
+
+        try:
+            activity_shares = json.loads(activity_shares)
+        except:
+            logging.critical('activity share is not a valid JSON dictionary')
+            return
+
+        try:
+            if round(sum(activity_shares.values()), 2) != 1:
+                logging.critical('activity shares do not sum up to 1, got %s - aborting' % round(sum(activity_shares.values()), 2))
+                return
+        except:
+            logging.critical('activity shares are not numbers? - aborting')
+            return
+
+        activity_shares.update((share, int(percentage*bulk)) for share, percentage in activity_shares.items())
+        logging.info('activity shares enabled: %s' % activity_shares)
+
     if once:
         logging.info('executing one submitter iteration only')
-        submitter(once, rses=working_rses, mock=mock, bulk=bulk, activities=activities)
+        submitter(once,
+                  rses=working_rses,
+                  mock=mock,
+                  bulk=bulk,
+                  activities=activities,
+                  activity_shares=activity_shares)
 
     else:
         logging.info('starting submitter threads')
@@ -634,7 +669,8 @@ def run(once=False, process=0, total_processes=1, total_threads=1, mock=False, r
                                                               'rses': working_rses,
                                                               'bulk': bulk,
                                                               'activities': activities,
-                                                              'mock': mock}) for i in xrange(0, total_threads)]
+                                                              'mock': mock,
+                                                              'activity_shares': activity_shares}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 

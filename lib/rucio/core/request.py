@@ -173,7 +173,9 @@ def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=No
 
 
 @read_session
-def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None,
+             process=None, total_processes=None, thread=None, total_threads=None,
+             activity_shares=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -186,6 +188,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
     :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
+    :param activity_shares: Activity shares dictionary, with number of requests
     :param session: Database session to use.
     :returns: Request as a dictionary.
     """
@@ -202,52 +205,57 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
     elif len(state) == 1:
         state = [state[0], state[0]]
 
-    query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                                         .filter(models.Request.state.in_(state))\
-                                         .filter(models.Request.request_type.in_(request_type))\
-                                         .order_by(asc(models.Request.external_host))\
-                                         .order_by(asc(models.Request.updated_at))
+    result = []
+    if not activity_shares:
+        activity_shares = [None]
 
-    if isinstance(older_than, datetime.datetime):
-        query = query.filter(models.Request.updated_at < older_than)
+    for share in activity_shares:
 
-    if rse:
-        query = query.filter(models.Request.dest_rse_id == rse)
+        query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+                                             .filter(models.Request.state.in_(state))\
+                                             .filter(models.Request.request_type.in_(request_type))\
+                                             .order_by(asc(models.Request.external_host))\
+                                             .order_by(asc(models.Request.updated_at))
 
-    if activity:
-        query = query.filter(models.Request.activity == activity)
+        if isinstance(older_than, datetime.datetime):
+            query = query.filter(models.Request.updated_at < older_than)
 
-    if (total_processes-1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+        if rse:
+            query = query.filter(models.Request.dest_rse_id == rse)
 
-    if (total_threads-1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+        if share:
+            query = query.filter(models.Request.activity == share)
+            query = query.limit(activity_shares[share])
+        else:
+            query = query.limit(limit)
 
-    tmp = query.limit(limit).all()
+        if (total_processes-1) > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+                query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
 
-    if not tmp:
-        return
-    else:
-        result = []
-        for t in tmp:
-            t2 = dict(t)
-            t2.pop('_sa_instance_state')
-            t2['request_id'] = t2['id']
-            t2['attributes'] = json.loads(str(t2['attributes']))
-            result.append(t2)
-        return result
+        if (total_threads-1) > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+                query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+
+        tmp = query.all()
+        if tmp:
+            for t in tmp:
+                t2 = dict(t)
+                t2.pop('_sa_instance_state')
+                t2['request_id'] = t2['id']
+                t2['attributes'] = json.loads(str(t2['attributes']))
+                result.append(t2)
+    return result
 
 
 @read_session

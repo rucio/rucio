@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -16,6 +16,7 @@ Conveyor is a daemon to manage file transfers.
 """
 
 import datetime
+import json
 import logging
 import re
 import sys
@@ -45,7 +46,9 @@ graceful_stop = threading.Event()
 datetime.datetime.strptime('', '')
 
 
-def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, bulk=1000, older_than=60):
+def poller(once=False,
+           process=0, total_processes=1, thread=0, total_threads=1,
+           bulk=1000, older_than=60, activity_shares=None):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
@@ -66,10 +69,11 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             logging.debug('%i:%i - start to poll requests older than %i seconds' % (process, thread, older_than))
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=10000,
+                                    limit=bulk,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
                                     process=process, total_processes=total_processes,
-                                    thread=thread, total_threads=total_threads)
+                                    thread=thread, total_threads=total_threads,
+                                    activity_shares=activity_shares)
             record_timer('daemons.conveyor.poller.000-get_next', (time.time()-ts)*1000)
 
             if reqs:
@@ -78,8 +82,8 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
             if not reqs or reqs == []:
                 if once:
                     break
-                logging.debug("%i:%i - no requests found. will sleep 60 seconds" % (process, thread))
-                time.sleep(60)  # Only sleep if there is nothing to do
+                logging.debug("%i:%i - no requests found. will sleep 1 second" % (process, thread))
+                time.sleep(1)  # Only sleep if there is nothing to do
                 continue
 
             for xfers in chunks(reqs, bulk):
@@ -199,31 +203,56 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000, older_than=60, mode=None, last_nhours=1, external_hosts=None):
+def run(once=False,
+        process=0, total_processes=1, total_threads=1,
+        bulk=1000, older_than=60,
+        mode=None, last_nhours=1, external_hosts=None,
+        activity_shares=None):
     """
     Starts up the conveyer threads.
     """
+
+    if activity_shares:
+
+        try:
+            activity_shares = json.loads(activity_shares)
+        except:
+            logging.critical('activity share is not a valid JSON dictionary')
+            return
+
+        try:
+            if round(sum(activity_shares.values()), 2) != 1:
+                logging.critical('activity shares do not sum up to 1, got %s - aborting' % round(sum(activity_shares.values()), 2))
+                return
+        except:
+            logging.critical('activity shares are not numbers? - aborting')
+            return
+
+        activity_shares.update((share, int(percentage*bulk)) for share, percentage in activity_shares.items())
+        logging.info('activity shares enabled: %s' % activity_shares)
 
     if once:
         logging.info('executing one poller iteration only')
         if mode and mode == 'latest':
             poller_latest(external_hosts, once=once, last_nhours=last_nhours)
         else:
-            poller(once=once, bulk=bulk, older_than=older_than)
+            poller(once=once, bulk=bulk, older_than=older_than, activity_shares=activity_shares)
 
     else:
 
         logging.info('starting poller threads')
+
+        threads = [threading.Thread(target=poller, kwargs={'process': process,
+                                                           'total_processes': total_processes,
+                                                           'thread': i,
+                                                           'total_threads': total_threads,
+                                                           'older_than': older_than,
+                                                           'bulk': bulk,
+                                                           'activity_shares': activity_shares}) for i in xrange(0, total_threads)]
+
         if mode and mode == 'latest':
             threads = [threading.Thread(target=poller_latest, kwargs={'external_hosts': external_hosts,
                                                                       'last_nhours': last_nhours}) for i in xrange(0, total_threads)]
-        else:
-            threads = [threading.Thread(target=poller, kwargs={'process': process,
-                                                               'total_processes': total_processes,
-                                                               'thread': i,
-                                                               'total_threads': total_threads,
-                                                               'older_than': older_than,
-                                                               'bulk': bulk}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
 
