@@ -136,201 +136,202 @@ As a regular user you are only permitted to upload data directly to SCRATCHDISK 
 
 ``Installing/Initializing Rucio commands``
 ----------------------------------------
-    - Installing Rucio commands
-        - :doc:`installing_clients`
-        - :doc:`installing_atlas_clients`
-    - Initializing Rucio commands
-     - Step 0: Start with a clean environment
-         Some GRID or python environment might screw up the setups.
-     - Step 1: Grid environment::
+Start with a clean environment
+(Some GRID or python environment might screw up the setups.)
+::
+    $ export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+    $ source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh
+    $ localSetupEmi
+    $ localSetupDQ2Clients
+    $ voms-proxy-init -voms atlas
 
-        $ export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
-        $ source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh
-        $ localSetupEmi
-        $ voms-proxy-init -voms atlas
 
-     - Step 2: Rucio enviroment::
 
-        $> export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
-        $> source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh
-        $> localSetupRucioClients
 
+    $ setupATLAS
+Type localSetupAGIS to setup AGIS
+Type localSetupDQ2Wrappers to setup DQ2Wrappers
+Type localSetupRucioClients to setup rucio-clients
+Type localSetupSFT to setup SFT packages
 
 ``User Identity``
 -----------------
+Is possible to get information about the current account the users is using with the following command:
+::
+    jbogadog@lxplus0157:~$ rucio whoami
+    status  : ACTIVE
+    account : jbogadog
+    account_type : USER
+    created_at : 2014-08-25T18:19:42
+    suspended_at : None
+    updated_at : 2014-08-25T18:19:42
+    deleted_at : None
+    email   : None
+
+This account will use the user certificate for authentication automatically. The user DN can be mapped to different accounts (meaning, some users can have several identities associated to his/her DN) and is possible to change the account that the users is using setting the environment variable RUCIO_ACCOUNT. However, if your certificate is not mapped to the account you will receive an error.
+::
+    jbogadog@lxplus0157:~$ RUCIO_ACCOUNT=root
+    jbogadog@lxplus0157:~$ rucio whoami
+    Traceback (most recent call last):
+
+    rucio.common.exception.CannotAuthenticate: Cannot authenticate.
+    Details: Cannot authenticate to account root with given credentials
+
 ``Querying``
 ------------
-    - List all DDM sites
+``List all DDM sites``
+All RSEs in alphabetical order can be listed with list-rses::
+    $> rucio list-rses
+    AGLT2_CALIBDISK
+    AGLT2_DATADISK
+    AGLT2_LOCALGROUPDISK
+    AGLT2_PERF-MUONS
+    AGLT2_PHYS-HIGGS
+    AGLT2_PHYS-SM
+    AGLT2_PRODDISK
+    AGLT2_SCRATCHDISK
+    AGLT2_USERDISK
+    AM-04-YERPHI_LOCALGROUPDISK
 
-      All RSEs in alphabetical order can be listed with list-rses::
+To use an RSE Expression to filter the results the option --expression <expression> can be used. See :doc:`replication_rules_examples` for more information.
 
-        $> rucio list-rses
-        AGLT2_CALIBDISK
-        AGLT2_DATADISK
-        AGLT2_LOCALGROUPDISK
-        AGLT2_PERF-MUONS
-        AGLT2_PHYS-HIGGS
-        AGLT2_PHYS-SM
-        AGLT2_PRODDISK
-        AGLT2_SCRATCHDISK
-        AGLT2_USERDISK
-        AM-04-YERPHI_LOCALGROUPDISK
+``Scopes``
 
-      To use an RSE Expression to filter the results the option --expression <expression> can be used. See :doc:`replication_rules_examples` for more information.
+List all scopes in Rucio
+    $> rucio list-scopes
+    ...
+    user.vfilimon
+    user.vgallo
+    user.vgaronne
+    user.vgiangio
+    user.vgjika
+    ...
+    data13
+    data13_1beam
+    data13_2p76TeV
+    data13_8TeV
+    data13_calib
+    data13_calocomm
+    data13_comm
+    data13_cos
+    ...
+    group.det-muon
+    group.det-slhc
+    group.det-tile
+    group.perf-egamma
+    group.perf-flavtag
+    ...
 
-    - Find a dataset (seems broken `Ticket <https://its.cern.ch/jira/browse/RUCIO-1120>`_)
+User scopes always have the prefix ‘user.’ followed by the account name.
 
-      To make sure that a dataset exists::
 
-        $> rucio list-dids --scope mc12_14TeV mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+``Find a dataset``
+- List all the datasets and containers for a scope
+::
+    $> rucio list-dids data13_hip
+or::
+    $> rucio list-dids data13_hip:
 
-      To find datasets whose names start with DATASETNAME::
+and also ::
+    $> rucio list-dids data13_hip:*
 
-        $> rucio list-dids --scope mc12_14TeV --filter name=mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.*
+- Search by pattern:
+::
+    $> rucio list-dids mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00*
+    mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00 [COLLECTION]
 
-      do not forget to quote (either by ' or ") the pattern when you use *
+- Search by meta-data:
+::
+    $> rucio list-dids mc12_14TeV:*  --filter datatype=AOD | head
+    mc12_14TeV:mc12_14TeV.159000.ParticleGenerator_nu_E50.recon.AOD.e1564_s1762_s1777_r6030_tid04659335_00_sub0202463592 [COLLECTION]
+    mc12_14TeV:mc12_14TeV.147807.PowhegPythia8_AU2CT10_Zmumu.recon.AOD.e1564_s1762_s1777_r6030_tid04659337_00_sub0202481445 [COLLECTION]
+    mc12_14TeV:mc12_14TeV.147807.PowhegPythia8_AU2CT10_Zmumu.recon.AOD.e1564_s1762_s1777_r6025_tid04658484_00_sub0202361579 [COLLECTION]
+    mc12_14TeV:mc12_14TeV.107218.ParticleGenerator_mu_Pt20.recon.AOD.e2023_s1762_s1777_r6028_tid04659431_00_sub0202438551 [COLLECTION]
+    mc12_14TeV:mc12_14TeV.159072.ParticleGenerator_mu_Pt100.recon.AOD.e2023_s1762_s1777_r6028_tid04659428_00_sub0202439480 [COLLECTION]
 
-      To find datasets that matches a pattern. This is supported by the ``--filter`` CLI argument, e.g.::
+- Search by type:
+You can filter the results for `file`, `dataset`, `container`, `collection` (dataset or container) or `all`.
+::
+    $> rucio list-dids mc12_14TeV:*  --filter type=dataset | head
+    mc12_14TeV:mc12_14TeV.159000.ParticleGenerator_nu_E50.recon.AOD.e1564_s1762_s1777_r6030_tid04659335_00_sub0202463592 [DATASET]
+    mc12_14TeV:mc12_14TeV.147807.PowhegPythia8_AU2CT10_Zmumu.recon.AOD.e1564_s1762_s1777_r6030_tid04659337_00_sub0202481445 [DATASET]
+    mc12_14TeV:mc12_14TeV.147807.PowhegPythia8_AU2CT10_Zmumu.recon.AOD.e1564_s1762_s1777_r6025_tid04658484_00_sub0202361579 [DATASET]
+    mc12_14TeV:mc12_14TeV.107218.ParticleGenerator_mu_Pt20.recon.AOD.e2023_s1762_s1777_r6028_tid04659431_00_sub0202438551 [DATASET]
+    mc12_14TeV:mc12_14TeV.159072.ParticleGenerator_mu_Pt100.recon.AOD.e2023_s1762_s1777_r6028_tid04659428_00_sub0202439480 [DATASET]
 
-        $> rucio list-dids --scope mc12_14TeV --filter name=mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.*
 
-      only wild cards '*' can be used in the PATTERN
-      **Note: You cannot use a wild card '\*'** at the beginning of the pattern
-      You must specify the full scope at the start of the pattern, for example::
 
-        $> rucio list-dids --scope mc12_14TeV --filter name=mc12_14TeV:*mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.*
+If the results are not as you spect, you should escape the wildcard in order to bypass globbing:
+::
+    $> rucio list-dids 'scope:my_dataset*'
 
-      do not forget to quote (either by ' or ") the pattern when you use *
+Otherwise you will not find anything with zsh or you may find only a single dataset if you have a directory with the dataset name in bash.
 
-      **BE CAREFUL**
+``List the files in a dataset``
 
-      you should escape the wildcard if you do not use a setup script which disables globbing::
+The content of a dataset can be listed with list-files. Mandatory parameters are <scope>:<name>.
+::
+    $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+    mc12_14TeV:log.01596380._000026.job.log.tgz.1    700680    52bb0e00    AC39C3DE6B8A4BD3B27BC77DDC26AE7A
+    mc12_14TeV:log.01596380._000050.job.log.tgz.1    538783    14979047    8C511D9D63C048648BC7EE2194793654
+    mc12_14TeV:log.01596380._000082.job.log.tgz.1    539690    8c4c69a7    AA6E75F579564128B7FE1079FE9EAD9E
+    mc12_14TeV:log.01596380._000091.job.log.tgz.1    548126    7fd2e951    D4C051251A1F4022B9B17D30084514B3
+    mc12_14TeV:log.01596380._000130.job.log.tgz.1    537886    ee702106    A84676B20E964DB58C23970ED8919372
+    mc12_14TeV:log.01596380._000131.job.log.tgz.1    540323    e8a222f8    A867E909F4BB4C0D9A67123F44B1224E
+    mc12_14TeV:log.01596380._000134.job.log.tgz.1    546319    f0d257e1    983048962F3C4179978630661848F484
+    mc12_14TeV:log.01596380._000142.job.log.tgz.1    525845    347c45cf    252F61AC8D9447919F9AD12A995EF6B6
+    mc12_14TeV:log.01596380._000156.job.log.tgz.1    702544    fb020a40    D1B8A2579DBD45FDB8BDF8F8DACBB509
+    mc12_14TeV:log.01596380._000170.job.log.tgz.1    530714    37d44ab9    325F5C1F7B84445C94DD824F5AC7EE9B
 
-        $> rucio list-dids "..."
-
-      Otherwise
-        * with zsh, you will not find anything!.
-        * with sh/bash, you may find only a single dataset if you have a directory with the dataset name.
-
-    - List the files in a dataset
-
-      The content of a dataset can be listed with list-files. Mandatory parameters are <scope>:<name>.::
-
-         $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-         mc12_14TeV:log.01596380._000026.job.log.tgz.1
-         mc12_14TeV:log.01596380._000050.job.log.tgz.1
-         mc12_14TeV:log.01596380._000082.job.log.tgz.1
-         mc12_14TeV:log.01596380._000091.job.log.tgz.1
-         mc12_14TeV:log.01596380._000130.job.log.tgz.1
-         mc12_14TeV:log.01596380._000131.job.log.tgz.1
-         mc12_14TeV:log.01596380._000134.job.log.tgz.1
-         mc12_14TeV:log.01596380._000142.job.log.tgz.1
-         mc12_14TeV:log.01596380._000156.job.log.tgz.1
-         mc12_14TeV:log.01596380._000170.job.log.tgz.1
-         mc12_14TeV:log.01596380._000192.job.log.tgz.1
-         mc12_14TeV:log.01596380._000215.job.log.tgz.1
 
 This command can also be used to list the content of a container.
 
-    - List the replica locations of a dataset
-It can be done with the list-replicas command and option --list_collections. Mandatory parameters are <scope>:<name>.::
+Also, yo can use `rucio list-dids` command. If you specify one dataset or container, the command will list it's content.
+::
+    $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+    |    |- mc12_14TeV:log.01596380._000026.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000050.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000082.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000091.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000130.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000131.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000134.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000142.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000156.job.log.tgz.1    [FILE]
+    |    |- mc12_14TeV:log.01596380._000170.job.log.tgz.1    [FILE]
 
 
-        $> rucio list-replicas --list_collections mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
+
+``List the replica locations of a dataset``
+It can be done with the `rucio list-dataset-replicas <scope>:<name>`.
+::
+        $> rucio list-dataset-replicas mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
         RSE                                      Found  Total
         ------------------------------------------------------
         IN2P3-CC_DATADISK                            12     12
 
-It returns all the locations of the dataset, the number of files on each of these locations and the total number of files.
+It returns all the locations of the dataset, the number of files on each of these locations and the total number of files. If the scope and name belongs to a file, then the output will be empty.
 
-    - List the datasets at a site
-The command list-datasets-site with option --rse <rse> can be used.::
-        $> rucio list-datasets-site --rse LRZ-LMU_DATADISK
-        data11_2p76TeV:data11_2p76TeV.00178163.physics_MinBias.merge.AOD.r4408_p1468_tid01234284_00
-        data11_2p76TeV:data11_2p76TeV.00178229.physics_MinBias.merge.AOD.r4408_p1468_tid01234266_00
-        data11_7TeV:data11_7TeV.00178047.physics_Standby.recon.ESD.r2603_tid495757_00
-        data11_7TeV:data11_7TeV.00180124.physics_ZeroBias.merge.AOD.r2603_p659_tid497281_00
-        data11_7TeV:data11_7TeV.00180212.physics_Standby.merge.AOD.r2603_p659_tid497021_00
-        data11_7TeV:data11_7TeV.00180636.physics_Background.merge.AOD.r2603_p659_tid496550_00
-        data11_7TeV:data11_7TeV.00180710.physics_Egamma.merge.AOD.r2603_p659_tid496573_00
-        data11_7TeV:data11_7TeV.00182161.physics_Muons.merge.AOD.f379_m849
-        data11_7TeV:data11_7TeV.00182424.physics_Muons.merge.AOD.f381_m861
-        data11_7TeV:data11_7TeV.00182456.physics_JetTauEtmiss.merge.AOD.r2603_p659_tid496207_00
-        data11_7TeV:data11_7TeV.00183045.physics_Muons.merge.AOD.r2603_p659_tid493607_00
+``List the datasets at a site``
+    See dumps
 
-TBD : Add --filter option
+``List the replicas of file``
+The command `rucio list-file-replicas <scope>:<filename>` will show the physical location of the file.
+::
+    $> rucio list-file-replicas mc12_14TeV:ESD.01332706._000181.pool.root.1
+    Scope   Name                    Filesize        adler32 Replicas
+    mc12_14TeV      ESD.01332706._000181.pool.root.1        1175213672      3f51b03d        CERN-PROD_DATADISK      :       gsiftp://eosatlassftp.cern.ch:2811/eos/atlas/atlasdatadisk/rucio/mc12_14TeV/58/4f/ESD.01332706._000181.pool.root.1
 
-    - List the files in a dataset existing at a site
-The command list-replicas with option --rse <rse> can be used.::
-        rucio list-replicas  --rse BNL-OSG2_DATADISK --protocol srm mc14_13TeV:mc14_13TeV.129194.Pythia8B_AU2CTEQ6L1_bbToJpsie3e8.recon.AOD.e2743_s2044_s2008_r5988_tid04606956_00
-        $> Scope   Name                    Filesize        adler32 Replicas
-        mc14_13TeV      AOD.04606956._000001.pool.root.1        146285426       c140b17a        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/52/1d/AOD.04606956._000001.pool.root.1
-        mc14_13TeV      AOD.04606956._000002.pool.root.1        194963494       d1f0a425        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/0b/6e/AOD.04606956._000002.pool.root.1
-        mc14_13TeV      AOD.04606956._000003.pool.root.1        224301101       99f07fe4        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/48/a0/AOD.04606956._000003.pool.root.1
-        mc14_13TeV      AOD.04606956._000004.pool.root.1        249912271       f1c1eb1f        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/53/44/AOD.04606956._000004.pool.root.1
-        mc14_13TeV      AOD.04606956._000005.pool.root.1        280050015       9a3bdc26        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/75/91/AOD.04606956._000005.pool.root.1
-        mc14_13TeV      AOD.04606956._000006.pool.root.1        309249992       e6bcf77f        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/09/e5/AOD.04606956._000006.pool.root.1
-        mc14_13TeV      AOD.04606956._000077.pool.root.1        152151303       1aff742e        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/4a/92/AOD.04606956._000077.pool.root.1
-        mc14_13TeV      AOD.04606956._000078.pool.root.1        188347733       01908bd8        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/b4/ac/AOD.04606956._000078.pool.root.1
-        mc14_13TeV      AOD.04606956._000079.pool.root.1        223638483       1a6d87a5        BNL-OSG2_DATADISK       :       srm://dcsrm.usatlas.bnl.gov:8443/srm/managerv2?SFN=/pnfs/usatlas.bnl.gov/BNLT0D1/rucio/mc14_13TeV/88/0d/AOD.04606956._000079.pool.root.1
+It's possible to filter the results by site with the argument --rse <RSE-NAME>
 
-You can use the option --protocol <protocol> to get the TURLs at the site for a given protocol.
+``List the datasets where a particular file belongs``
+The command `rucio list-parent-dids <scope>:<name>` will show the datasets containing the file.
+::
+    $> rucio list-parent-dids mc12_14TeV:HITS.04640638._001016.pool.root.1
+    mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00 [DATASET]
+    mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00_sub0201868877 [DATASET]
 
-    - List the physical filenames in a dataset
-It can be done with the list-replicas command. Mandatory parameters are <scope>:<name>.::
-
-
-        $> rucio list-replicas mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-        Scope   Name                    Filesize        adler32 Replicas
-        mc12_14TeV      log.01596380._000026.job.log.tgz.1      700680  52bb0e00        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/5b/d9/log.01596380._000026.job.log.tgz.1
-        mc12_14TeV      log.01596380._000050.job.log.tgz.1      538783  14979047        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/13/94/log.01596380._000050.job.log.tgz.1
-        mc12_14TeV      log.01596380._000082.job.log.tgz.1      539690  8c4c69a7        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/ea/7d/log.01596380._000082.job.log.tgz.1
-        mc12_14TeV      log.01596380._000091.job.log.tgz.1      548126  7fd2e951        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/22/d0/log.01596380._000091.job.log.tgz.1
-        mc12_14TeV      log.01596380._000130.job.log.tgz.1      537886  ee702106        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/0c/54/log.01596380._000130.job.log.tgz.1
-        mc12_14TeV      log.01596380._000131.job.log.tgz.1      540323  e8a222f8        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/4b/93/log.01596380._000131.job.log.tgz.1
-        mc12_14TeV      log.01596380._000134.job.log.tgz.1      546319  f0d257e1        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/8e/5c/log.01596380._000134.job.log.tgz.1
-        mc12_14TeV      log.01596380._000142.job.log.tgz.1      525845  347c45cf        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/c4/0b/log.01596380._000142.job.log.tgz.1
-        mc12_14TeV      log.01596380._000156.job.log.tgz.1      702544  fb020a40        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/78/e9/log.01596380._000156.job.log.tgz.1
-        mc12_14TeV      log.01596380._000170.job.log.tgz.1      530714  37d44ab9        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/50/77/log.01596380._000170.job.log.tgz.1
-        mc12_14TeV      log.01596380._000192.job.log.tgz.1      506128  5d47209c        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/47/dd/log.01596380._000192.job.log.tgz.1
-        mc12_14TeV      log.01596380._000215.job.log.tgz.1      534603  04de7f9f        IN2P3-CC_DATADISK       :       https://ccdcatli013.in2p3.fr:2880/atlasdatadisk/rucio/mc12_14TeV/2c/b7/log.01596380._000215.job.log.tgz.1
-
-The command return the TURLs (Transport URLs) in the protocol that is defined as primary at the site. To obtain the TURLs for a given protocol, the option --protocols can be used as shown below.::
-
-
-        $> rucio list-replicas --protocols srm mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
-        Scope   Name                    Filesize        adler32 Replicas
-        mc12_14TeV      log.01596380._000026.job.log.tgz.1      700680  52bb0e00        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/5b/d9/log.01596380._000026.job.log.tgz.1
-        mc12_14TeV      log.01596380._000050.job.log.tgz.1      538783  14979047        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/13/94/log.01596380._000050.job.log.tgz.1
-        mc12_14TeV      log.01596380._000082.job.log.tgz.1      539690  8c4c69a7        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/ea/7d/log.01596380._000082.job.log.tgz.1
-        mc12_14TeV      log.01596380._000091.job.log.tgz.1      548126  7fd2e951        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/22/d0/log.01596380._000091.job.log.tgz.1
-        mc12_14TeV      log.01596380._000130.job.log.tgz.1      537886  ee702106        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/0c/54/log.01596380._000130.job.log.tgz.1
-        mc12_14TeV      log.01596380._000131.job.log.tgz.1      540323  e8a222f8        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/4b/93/log.01596380._000131.job.log.tgz.1
-        mc12_14TeV      log.01596380._000134.job.log.tgz.1      546319  f0d257e1        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/8e/5c/log.01596380._000134.job.log.tgz.1
-        mc12_14TeV      log.01596380._000142.job.log.tgz.1      525845  347c45cf        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/c4/0b/log.01596380._000142.job.log.tgz.1
-        mc12_14TeV      log.01596380._000156.job.log.tgz.1      702544  fb020a40        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/78/e9/log.01596380._000156.job.log.tgz.1
-        mc12_14TeV      log.01596380._000170.job.log.tgz.1      530714  37d44ab9        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/50/77/log.01596380._000170.job.log.tgz.1
-        mc12_14TeV      log.01596380._000192.job.log.tgz.1      506128  5d47209c        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/47/dd/log.01596380._000192.job.log.tgz.1
-        mc12_14TeV      log.01596380._000215.job.log.tgz.1      534603  04de7f9f        IN2P3-CC_DATADISK       :       srm://ccsrm.in2p3.fr:8443/srm/managerv2?SFN=/pnfs/in2p3.fr/data/atlas/atlasdatadisk/rucio/mc12_14TeV/2c/b7/log.01596380._000215.job.log.tgz.1
-
-The protocols currently supported are SRM, GSIFTP, HTTPS/WebDAV, xrootd.
-
-    - List the dataset(s) where a particular file belongs
-
-      The command rucio list-parent-dids <scope>:<name> has to be used for this::
-
-        $> rucio list-parent-dids mc12_14TeV:HITS.04640638._001016.pool.root.1
-        mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00 [DATASET]
-        mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00_sub0201868877 [DATASET]
-
-    - Create a Pool File Catalogue with files on a site
-        Joaquin
-    - Create a Pool File Catalogue and let the system guess the PFN
-
-      Martin; I don't think this works in Rucio. Any idea?
-
-    - Create a Pool File Catalogue in a Tier-3
-        Thomas
+.. *************** REVIEWED TILL HERE ********************
 
 ``Retrieving data``
 -------------------
