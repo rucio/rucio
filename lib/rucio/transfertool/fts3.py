@@ -14,6 +14,7 @@ import datetime
 import json
 import logging
 import sys
+import time
 import urlparse
 
 import requests
@@ -23,7 +24,7 @@ from requests.packages.urllib3 import disable_warnings
 disable_warnings()
 
 from rucio.common.config import config_get
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import FTSState
 
 
@@ -116,18 +117,22 @@ def submit_transfers(transfers, job_metadata):
         transfer_host = transfer['external_host']
         if transfer_host.startswith('https://'):
             try:
+                ts = time.time()
                 r = requests.post('%s/jobs' % transfer_host,
                                   verify=False,
                                   cert=(__USERCERT, __USERCERT),
                                   data=params_str,
                                   headers={'Content-Type': 'application/json'})
+                record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(transfer_host), (time.time() - ts) * 1000)
             except:
                 logging.warn('Could not submit transfer to %s' % transfer_host)
         else:
             try:
+                ts = time.time()
                 r = requests.post('%s/jobs' % transfer_host,
                                   data=params_str,
                                   headers={'Content-Type': 'application/json'})
+                record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(transfer_host), (time.time() - ts) * 1000)
             except:
                 logging.warn('Could not submit transfer to %s' % transfer_host)
 
