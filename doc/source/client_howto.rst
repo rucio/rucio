@@ -196,7 +196,7 @@ All RSEs in alphabetical order can be listed with list-rses::
 To use an RSE Expression to filter the results the option --expression <expression> can be used. See :doc:`replication_rules_examples` for more information.
 
 ``Scopes``
-
+----------
 List all scopes in Rucio
     $> rucio list-scopes
     ...
@@ -226,21 +226,24 @@ User scopes always have the prefix ‘user.’ followed by the account name.
 
 
 ``Find a dataset``
-- List all the datasets and containers for a scope
+-----------------
+List all the datasets and containers for a scope
 ::
     $> rucio list-dids data13_hip
-or::
+or
+::
     $> rucio list-dids data13_hip:
 
-and also ::
+and also
+::
     $> rucio list-dids data13_hip:*
 
-- Search by pattern:
+Search by pattern:
 ::
     $> rucio list-dids mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00*
     mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00 [COLLECTION]
 
-- Search by meta-data:
+Search by meta-data:
 ::
     $> rucio list-dids mc12_14TeV:*  --filter datatype=AOD | head
     mc12_14TeV:mc12_14TeV.159000.ParticleGenerator_nu_E50.recon.AOD.e1564_s1762_s1777_r6030_tid04659335_00_sub0202463592 [COLLECTION]
@@ -249,7 +252,7 @@ and also ::
     mc12_14TeV:mc12_14TeV.107218.ParticleGenerator_mu_Pt20.recon.AOD.e2023_s1762_s1777_r6028_tid04659431_00_sub0202438551 [COLLECTION]
     mc12_14TeV:mc12_14TeV.159072.ParticleGenerator_mu_Pt100.recon.AOD.e2023_s1762_s1777_r6028_tid04659428_00_sub0202439480 [COLLECTION]
 
-- Search by type:
+Search by type:
 You can filter the results for `file`, `dataset`, `container`, `collection` (dataset or container) or `all`.
 ::
     $> rucio list-dids mc12_14TeV:*  --filter type=dataset | head
@@ -268,7 +271,7 @@ If the results are not as you spect, you should escape the wildcard in order to 
 Otherwise you will not find anything with zsh or you may find only a single dataset if you have a directory with the dataset name in bash.
 
 ``List the files in a dataset``
-
+-------------------------------
 The content of a dataset can be listed with list-files. Mandatory parameters are <scope>:<name>.
 ::
     $> rucio list-files mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
@@ -303,6 +306,7 @@ Also, yo can use `rucio list-dids` command. If you specify one dataset or contai
 
 
 ``List the replica locations of a dataset``
+-------------------------------------------
 It can be done with the `rucio list-dataset-replicas <scope>:<name>`.
 ::
         $> rucio list-dataset-replicas mc12_14TeV:mc12_14TeV.167817.Sherpa_CT10_ZtautauMassiveCBPt140_280_CVetoBVeto.merge.log.e2445_p1614_tid01596380_00
@@ -313,9 +317,11 @@ It can be done with the `rucio list-dataset-replicas <scope>:<name>`.
 It returns all the locations of the dataset, the number of files on each of these locations and the total number of files. If the scope and name belongs to a file, then the output will be empty.
 
 ``List the datasets at a site``
+-------------------------------
     See dumps
 
 ``List the replicas of file``
+-----------------------------
 The command `rucio list-file-replicas <scope>:<filename>` will show the physical location of the file.
 ::
     $> rucio list-file-replicas mc12_14TeV:ESD.01332706._000181.pool.root.1
@@ -325,433 +331,185 @@ The command `rucio list-file-replicas <scope>:<filename>` will show the physical
 It's possible to filter the results by site with the argument --rse <RSE-NAME>
 
 ``List the datasets where a particular file belongs``
+-----------------------------------------------------
 The command `rucio list-parent-dids <scope>:<name>` will show the datasets containing the file.
 ::
     $> rucio list-parent-dids mc12_14TeV:HITS.04640638._001016.pool.root.1
     mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00 [DATASET]
     mc12_14TeV:mc12_14TeV.119996.Pythia8_A2MSTW2008LO_minbias_inelastic_high.merge.HITS.e1133_s2079_s1964_tid04640638_00_sub0201868877 [DATASET]
 
-.. *************** REVIEWED TILL HERE ********************
-
 ``Retrieving data``
 -------------------
-    - Download a full dataset
-It can be done with the download command. Mandatory parameters are <scope>:<name>, but it supports many options::
-
-
-        $> rucio download user.serfon:user.serfon.test.08012015.2
-        2015-01-23 09:15:23,789 INFO [Starting download for user.serfon:user.serfon.test.08012015.2]
-        2015-01-23 09:15:23,790 DEBUG [Getting the list of replicas]
-        2015-01-23 09:15:23,899 DEBUG [Choosing RSE]
-        2015-01-23 09:15:23,999 DEBUG [Getting file user.serfon:file1.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
-        File downloaded. Will be validated
-        File validated
-        2015-01-23 09:15:26,320 INFO [File user.serfon:file1.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
-        2015-01-23 09:15:26,321 DEBUG [Choosing RSE]
-        2015-01-23 09:15:26,321 DEBUG [Getting file user.serfon:file2.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
-        File downloaded. Will be validated
-        File validated
-        2015-01-23 09:15:28,621 INFO [File user.serfon:file2.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
-        2015-01-23 09:15:28,622 DEBUG [Choosing RSE]
-        2015-01-23 09:15:28,623 DEBUG [Getting file user.serfon:file3.80e66841eaf248829c7a22a601e8d257 from LRZ-LMU_SCRATCHDISK]
-        File downloaded. Will be validated
-        File validated
-        2015-01-23 09:15:30,934 INFO [File user.serfon:file3.80e66841eaf248829c7a22a601e8d257 successfully downloaded from LRZ-LMU_SCRATCHDISK]
-        2015-01-23 09:15:30,939 INFO [Download operation for user.serfon:user.serfon.test.08012015.2 done]
-        ----------------------------------
-        Download summary
-        DID user.serfon:user.serfon.test.08012015.2
+``Download a full dataset``
+---------------------------
+It can be done with `rucio download <scope>:<name>`
+::
+    $> rucio download mc14_13TeV:mc14_13TeV.169153.PowhegPythia8_AU2CT10_VBFH600NWA_WWlepnuqq.recon.log.e3292_s1982_s2008_r5787_tid04606738_00_sub0201586236
+    2015-02-04 13:49:17,867 INFO [Starting download for mc14_13TeV:mc14_13TeV.169153.PowhegPythia8_AU2CT10_VBFH600NWA_WWlepnuqq.recon.log.e3292_s1982_s2008_r5787_tid04606738_00_sub0201586236]
+    [++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++]    100/100
+    File downloaded. Will be validated
+    File validated
+    2015-02-04 13:49:18,554 INFO [File mc14_13TeV:log.04606738._000047.job.log.tgz.1 successfully downloaded from FZK-LCG2_DATADISK]
+    [++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++]    100/100
+    File downloaded. Will be validated
+    File validated
+    2015-02-04 13:49:18,923 INFO [File mc14_13TeV:log.04606738._000048.job.log.tgz.1 successfully downloaded from FZK-LCG2_DATADISK]
+    [++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++]    100/100
+    File downloaded. Will be validated
+    File validated
+    2015-02-04 13:49:19,325 INFO [File mc14_13TeV:log.04606738._000049.job.log.tgz.1 successfully downloaded from FZK-LCG2_DATADISK]
+    2015-02-04 13:49:19,325 INFO [Download operation for mc14_13TeV:mc14_13TeV.169153.PowhegPythia8_AU2CT10_VBFH600NWA_WWlepnuqq.recon.log.e3292_s1982_s2008_r5787_tid04606738_00_sub0201586236 done]
+    ----------------------------------
+    Download summary
+    ----------------------------------------
+    DID mc14_13TeV:mc14_13TeV.169153.PowhegPythia8_AU2CT10_VBFH600NWA_WWlepnuqq.recon.log.e3292_s1982_s2008_r5787_tid04606738_00_sub0201586236
+    Downloaded files :                            3
+    Files already found locally :                 0
+    Files that cannot be downloaded :             0
 
 The files are copied locally into a directory <scope>
 
-    - Download specific files from a dataset
-        .. todo:: TDB
-    - Download a sample of n random files from a dataset
-        .. todo:: TBD
-    - Download a dataset from a specific site
-        Martin; I don't think this works, does it?
-    - Download with datasets/files given in an inputfile
+The download command support --rse <RSE-NAME>, which allows to download a dataset from an spefic site and --protocol <PROTOCOL> to use a specific transfer protocol. Note that however, the dataset could not be available to download in a particular site or the protocol could not be supported by the rse.
 
-      Not supported by Rucio, but similar functionality can be achieved by::
 
-        $> rucio download `cat input.txt`
+``Download specific files from a dataset``
+------------------------------------------
+This operation is still not supported by rucio, but will be available soon.
 
-      where the input file (``input.txt``) contains one DID per line, e.g.::
+``Download a sample of n random files from a dataset``
+------------------------------------------------------
+This operation is still not supported by rucio, but will be available soon.
 
-        user.dcameron:test66
-        user.dcameron:test8
+``Download with datasets/files given in an inputfile``
+------------------------------------------------------
+Not supported by Rucio, but similar functionality can be achieved by
+::
+  $> rucio download `cat input.txt`
 
-    - Download datasets from tape
-        Users cannot download files from DDM sites associated to TAPE (xxx_MCTAPE and xxx_DATATAPE, CERN-PROD_TZERO and CERN-PROD_DAQ). To access data from TAPE, one should request a replication of the dataset to DISK storage through DDM request.
-        If you need the whole dataset, choose the DATADISK of the same site as the destination.
+where the input file (``input.txt``) contains one DID per line, e.g.
+::
+  user.dcameron:test66
+  user.dcameron:test8
 
-    - Restrictions to access datasets on tape
-        .. todo:: TBD: Restrictions to access datasets on tape
+``Download datasets from tape``
+-------------------------------
+Users cannot download files from DDM sites associated to TAPE (xxx_MCTAPE and xxx_DATATAPE, CERN-PROD_TZERO and CERN-PROD_DAQ). To access data from TAPE, one should request a replication of the dataset to DISK storage through DDM request.
+If you need the whole dataset, choose the DATADISK of the same site as the destination.
 
 ``Creating data``
 -----------------
-    - General Workflow for creating data
 There 2 ways to create data on the Grid.
-- The first one is by using Panda. The Panda jobs will create output data that are copied to some temporary areas (they can be identified by their name that ends with SCRATHDISK, e.g. FZK-LCG2_SCRATCHDISK). Rucio ensures that the data are kept on this area for 2 weeks, but after that period they can disappear are anytime.
-- The second method is to upload files with Rucio. The typical use case is that you produced locally some files, but want to share it with some other persons, or you want to run over these files using Distributed Analysis tools like Panda. For this you need to upload the files into a dataset on some Rucio Storage element (RSE). It can be done with rucio upload. Rucio will take care of registering the files into the rucio catalog and to physically upload the files on the Rucio Storage Element you choose. Once the dataset is successfully uploaded, you can use all the rucio features on it (transfer, deletion...). You can find below one example how to use rucio upload :
-TBD Cedric
+The first one is by using Panda. The Panda jobs will create output data that are copied to some temporary areas (they can be identified by their name that ends with SCRATCHDISK, e.g. FZK-LCG2_SCRATCHDISK). Rucio ensures that the data are kept on this area for 2 weeks, but after that period they can disappear are anytime.
 
-    - Which name should I give to my files and dataset
-If you create files into your own scope which is user.<account>, there is no restriction. You can give whatever name for your Data IDentifier (i.e. files/datasets/containers). But be carefull : once a name has been used for a Data IDentifier, it cannot be reused anymore even if you delete the original !
-For official data, a specific nomanclature is used.
-    - Where my dataset/files will be stored with rucio upload ?
-You can decide to upload your datasets into 2 different storage areas :
-- The first one is a temporary area, which is any SCRATCHDISK. The datasets uploaded there will be kept for 2 weeks, but after that period, they can disappear at anytime.
-- The second place is a permanent area (the so called LOCALGROUPDISK). This areas are dedicated to local users and are managed by the cloud squads. Permissions are set according to the user nationality and/or institut. The retention policy and the quota on these endpoints are defined by the cloud squads.
-    - Where my dataset/files should be finally stored ?
+The second method is to upload files with Rucio. The typical use case is that you produced locally some files, but want to share it with some other persons, or you want to run over these files using Distributed Analysis tools like Panda. For this you need to upload the files into a dataset on some Rucio Storage element (RSE). It can be done with rucio upload. Rucio will take care of registering the files into the rucio catalog and to physically upload the files on the Rucio Storage Element you choose. Once the dataset is successfully uploaded, you can use all the rucio features on it (transfer, deletion...).
 
-     - Long term storage for user datasets
-
-       On the Grid managed by DDM, the final destination for user datasets should be LOCALGROUPDISK. This area is not pledged, its size is defined by the site and its access is restricted to local users (technically to users from the same country). Datasets in this area are deleted only if the dataset was produced centrally (mc* or data*) and the associated task is declared aborted (usually meaning that the task was bugged). To send your dataset there, request the replication by setting a rule. There is no such storage at CERN. Outside the Grid or for Grid storage not declared in DDM, the storage managment is done by the site with its own tools. Currently, files can be replicated to this area through ``dq2-get`` / ``rucio download``. There is non-Grid storage at CERN with quotas per user (to be documented).
-
-     - Long term storage for group datasets
-
-       The group datasets are user (possible that this user is working for a group) datasets replicated in group areas. Only the data manager of the group can request the replication of datasets.
-
-     - Short term storage
-
-       The dataset can be stored or replicated in SCRATCHDISK. SCRATCHDISK is the place for analysis output (except in US where _USERDISK is the place for pathena output) or ``dq2-put`` / ``rucio upload``. The deletion policy for datasets in SCRATCHDISK is defined. Using LOCALGROUPDISK as the ouput location for analysis jobs is not recommended by the DDM team.
-
-     - Exceptions in US
-
-       Because of temporary limitations in xrootd sites (SLACXRD and SWT2_SPB), the DDM sites SCRATCHDISK and LOCALGROUPDISK could not be created. Users are asked to send their datasets to GROUPDISK.
-
-    - Maximum number of files in a dataset
-        For technical reasons, it is strongly recommended to limit the number of files per dataset to 10k. Above this threshold, the time to scan the Rucio Catalog for transfers is becoming problematic. If more than 10k files are manipulated, create many datasets of 10k files and group them in a container.
-    - Create a dataset from files on my local disk::
-
-            rucio upload --rse RSE_NAME --files local/file1 local/file2 local/file3 --scope `account`--did scope:dataset_name
-
-        It's possible to create a dataset without files with the command::
-
-            rucio add-dataset scope:dataset_name
-
-        And then, attach files to it::
-
-            rucio attach --to scope:dataset_name scope:file1 scope:file2 scope:file3
-
-        Note however than the files should be already in the catalog.
-
-        ''Important note'': The names of files and datasets must be unique for a given scope. Otherwise, the rucio command will end in an error. Also the name of the files must be different that the one given for the dataset.
-
-    - Create a dataset from files on CASTOR at CERN
-        Thomas
-    - Create a dataset from files on my site's DPM
-
-      .. todo::  **NO CLUE**
-
-    - Write a dataset/files in a specific DDM site::
-
-        $> rucio upload --files <filepath1> <filepath2> --rse <RSEName> --did <scope>:<datasetname> --scope <scope>
-
-       You can list all RSEName with the command::
-
-        $> rucio list-rses
-
-       Attention: You can ignore the WARNINGs, they are not ERRORs::
-
-        $> rucio upload --files setup_dev.sh setup_dq2.sh --rse FZK-LCG2_SCRATCHDISK --did user.wguan:user.wguan.test.upload --scope user.wguan
-        2015-01-26 14:07:07,661 DEBUG [Looping over the files]
-        2015-01-26 14:07:07,661 DEBUG [Extracting filesize (746) and checksum (f3c7fa78) for file user.wguan:setup_dev.sh]
-        2015-01-26 14:07:07,662 DEBUG [Extracting filesize (331) and checksum (c3de6c45) for file user.wguan:setup_dq2.sh]
-        2015-01-26 14:07:07,978 DEBUG [Using account wguan]
-        2015-01-26 14:07:08,301 INFO [Dataset successfully creat]
-        2015-01-26 14:07:08,356 INFO [Adding replicas in Rucio catalog]
-        2015-01-26 14:07:08,538 INFO [Replicas successfully added]
-        2015-01-26 14:07:08,538 INFO [Adding replication rule on RSE FZK-LCG2_SCRATCHDISK for the file user.wguan:setup_dev.sh]
-        2015-01-26 14:07:19,591 INFO [File user.wguan:setup_dev.sh successfully uploaded on the storage]
-        2015-01-26 14:07:19,812 WARNING [Failed to attach file {'adler32': 'c3de6c45', 'name': 'setup_dq2.sh', 'bytes': 331, 'state': 'C', 'meta': {'guid': '6e3f326efe4d4268a2aec524e2958071'}, 'scope': 'user.wguan'} to the dataset]
-        2015-01-26 14:07:19,812 WARNING [Data identifier not found.
-        Details: Data identifier 'user.wguan:setup_dq2.sh' not found]
-        2015-01-26 14:07:19,813 WARNING [Continuing with the next one]
-        2015-01-26 14:07:19,969 INFO [Adding replicas in Rucio catalog]
-        2015-01-26 14:07:20,133 INFO [Replicas successfully added]
-        2015-01-26 14:07:20,133 INFO [Adding replication rule on RSE FZK-LCG2_SCRATCHDISK for the file user.wguan:setup_dq2.sh]
-        2015-01-26 14:07:30,480 INFO [File user.wguan:setup_dq2.sh successfully uploaded on the storage]
-        2015-01-26 14:07:30,569 WARNING [Failed to attach file {'adler32': 'f3c7fa78', 'name': 'setup_dev.sh', 'bytes': 746, 'state': 'C', 'meta': {'guid': 'e95d53297bab4cb0b3426c94659fa32b'}, 'scope': 'user.wguan'} to the dataset]
-        2015-01-26 14:07:30,570 WARNING [The file already exists.
-        Details: (('(IntegrityError) ORA-00001: unique constraint (ATLAS_RUCIO.CONTENTS_PK) violated\n',),)]
-        2015-01-26 14:07:30,570 WARNING [Continuing with the next one]
-        2015-01-26 14:07:30,950 INFO [Will update the file replicas states]
-        2015-01-26 14:07:31,116 INFO [File replicas states successfully updated]
-
-    - Create a dataset from files already in other datasets
-        To create a dataset from files in other datasets, you can follow these steps:
-
-     - Step 0: List files in the source datasets::
-
-        $> rucio list-dids  user.wguan:user.wguan.test.upload
-        |    |- user.wguan:setup_dev.sh [FILE]
-        |    |- user.wguan:setup_dq2.sh [FILE]
-        |    |- user.wguan:testMulProcess.py [FILE]
-        |    |- user.wguan:testcatalog.py [FILE]
-
-     - Step 1: Add destination dataset::
-
-        $> rucio add-dataset user.wguan:user.wguan.test.upload1
-        Added user.wguan:user.wguan.test.upload1
-
-     - Step 2: Add files to destination dataset::
-
-        $> rucio add-files-to-dataset --to user.wguan:user.wguan.test.upload1 user.wguan:setup_dev.sh user.wguan:setup_dq2.sh
-
-     - Step 3: List the destination dataset to check the result::
-
-        $> rucio list-dids  user.wguan:user.wguan.test.upload1
-        |    |- user.wguan:setup_dev.sh [FILE]
-        |    |- user.wguan:setup_dq2.sh [FILE]
-
-    - Add files to a dataset::
-
-       rucio add-files-to-dataset --to <DATASET> <FILE_1> <FILE_2> ... <FILE_n>
-
-      or::
-
-       rucio attach --to <DATASET> <FILE_1>  <FILE_2> ...  <FILE_n>
-
-    - What to do after creating a dataset?
-     - You should "close" the dataset. If the dataset is not closed, matching rules will have to constantly reevaluate your dataset and possibly generate transfers.
-     - If you want to add another set of files after a while, think about using containers.
-     - If you want to keep the possibility to add files to this dataset, do not close the dataset.
-     - By default, user datasets are created on SCRATCHDISK at the site where the jobs run.
-     - All the datasets on SCRATCHDISK are to be deleted after a certain period (minimum 7 days). See the section Lifetime of data on SCRATCHDISK.
-     - To retrieve your output files, you should either
-      - Set a rule. The output files will stay as a dataset on Grid.
-      - Download onto your local disk using ``dq2-get`` \ ``rucio download``. The output files will not be available via DDM after the dataset on the SCRATCHDISK is deleted. If the files are Athena files (POOL files), you will not be able to re-register the files. If you see a possibility to use them on Grid, you should think about setting rules.
-     - After retrieving the data from the SCRATCHDISK, you are encouraged to request early deletion of the original replicas in SCRATCHDISK.
-
-    - Close a dataset
-
-      To close a dataset the command rucio close has to be used::
-
-        $> rucio close user.barisits:test-dataset
-        user.barisits:test-dataset has been closed.
-
-    - Re-open a dataset
-
-      This is only possible for privileged accounts using the Rucio Python clients.
-
-    - Freeze a dataset
-
-      Freezing a dataset is not possible in Rucio. Closing the dataset is sufficient.
-
-``Policy implemented centrally on datasets``
---------------------------------------------
-    - Automatic freezing of user/group datasets
-
-        Freezeing (``freeze``) as such is totaly yesteryear and replaced by Closing (``close``) (see ???). But, also no automiatic closing is applied in Rucio.
-
-
-    - Lifetime of datasets on SCRATCHDISK
-     The files on SCRATCHDISK have a lifetime of 7 days, or possibly larger depending on the free space (see the announcement to https://groups.cern.ch/group/hn-atlas-gridAnnounce/Lists/Archive/Flat.aspx?RootFolder=%2fgroup%2fhn-atlas-gridAnnounce%2fLists%2fArchive%2fLifetime%20of%20files%20on%20SCRATCHDISK&FolderCTID=0x01200200B0EE6A3A1528A6438E8AA50D12F94E5C&TopicsView=https%3A%2F%2Fgroups.cern.ch%2Fgroup%2Fhn-atlas-gridAnnounce%2Fdefault.aspx). The deletion of the oldest datasets is triggered when the site is almost full. In the near future, it will also depend on your personal usage in that specific SCRATCHDISK and also all the SCRATCHDISKs over the whole grid.
-
-     To save your datasets before deletion, many possibilities are provided, depending on your final storage of dataset:
-      - Set a rule on your favorite site on LOCALGROUPDISK through the Rucio UI https://rucio-ui.cern.ch/ It will take a few hours up to a few days to satisfy the rule.
-      - If you do not want to store on a Grid disk or a disk which is not known by DDM, you can use ``dq2-get`` / ``rucio download``
-      - The last possibility is to write directly your output to LOCALGROUPDISK.
-
-    - Dataset deletion from 'aborted' or 'obsolete' tasks (central or group production)
-        Vincent
-    - Central deletion policy on DDM sites
-        .. todo:: TBD: Central deletion policy on DDM sites
-
-``Dataset Container commands``
-------------------------------
-
-    - Create a Dataset Container and include datasets::
-
-       rucio add-container <CONTAINER>
-       rucio add-dataset-to-container --to <CONTAINER> <DATASET_1> <DATASET_2> ... <DATASET_n>
-
-      or::
-
-       rucio attach --to <DATASET|CONTAINER> <FILE_1|DATASET_1>  <FILE_2|DATASET_2> ...  <FILE_n|DATASET_n>
-
-    - List the locations of a container::
-
-
-      $ rucio list-replicas --list_collections  {scope}:{container_name}
-
-      Example::
-
-        $ rucio list-replicas --list_collections data13_8TeV:data13_8TeV.00218048.express_express.merge.HIST.r5108_p1620
-        RSE                                      Found  Total
-        ------------------------------------------------------
-        FZK-LCG2_DATADISK                            12     12
-
-    .. todo:: Explain how to list scopes
-
-    - Remove datasets from a Dataset Container
-
-      Deleting content or DIDs directly is not supported any more. To remove content from your quota, delete the rule pointing to the according container i.e. DID. See also delete-rule.
-
-
-    - List datasets in a Dataset Container
-        To list the datasets in a container:::
-
-            rucio list-dids scope:container_name
-
-        It's also possible to list the contents recursively with the `--recursive` option: ::
-
-            rucio list-dids --recursive scope:container_name
-
-        The output of this command can be large.
-
-    - Erase a container
-        Rucio Client has not implemented delete operations on dids(file, dataset, container). Rucio will automatically delete expired dids.
-
-    - Commands to manipulate files in Dataset Containers
-        Thomas
-    - FAQ
-        - 'Freezing' a container
-            Thomas
-        - Naming convention
-            Rucio doesn't store the file replica path(except Tape files). The path can be directly obtained from LFN via a deterministric function.
-
-            For example::
-
-            $> hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
-            $> if scope.startswith('user') or scope.startswith('group'):
-            $>    scope = scope.replace('.', '/')
-            $> commonPath = 'rucio/%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
-            $> pfn = os.path.join(<site-prefix>, commonPath)
-
-        - Container of containers
-            Thomas
-
-``Advanced uses``
------------------
-    - What to do after my distributed analysis jobs create a dataset?
-        Joaquin
-    - Replicate a dataset to another DDM site
-
-      Replication in Rucio is exclusively done via replication rules. To replica a dataset to another DDM site the user just has to create a replication rule for it, specifying the did, the number of copies and an RSE-Expression, which can just be the name of the RSE::
-
-        $> rucio add-rule user.barisits:test-dataset 1 CERN-PROD_SCRATCHDISK
-        09292C75957FF882E05317938A894A13
-
-      The return value of the command is the Replication rule ID of the created rule.
-
-    - Check if a file is corrupted
-        To check whether a file is corrupted, we can compare the checksum.
-     - Step 0: Get the checksum metadata of the file::
-
-        $> rucio get-metadata user.wguan:setup_dev.sh|grep adler32
-        adler32: f3c7fa78
-
-     - Step 1: List the replica path of the file::
-
-        $> rucio list-replicas --protocols srm user.wguan:setup_dev.sh
-        Scope   Name                    Filesize        adler32 Replicas
-        user.wguan      setup_dev.sh    746     f3c7fa78        FZK-LCG2_SCRATCHDISK    :       srm://atlassrm-fzk.gridka.de:8443/srm/managerv2?SFN=/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/rucio/user/wguan/fe/65/setup_dev.sh
-
-     - Step 2: Check the checksum of this replica::
-
-        $> gfal-sum srm://atlassrm-fzk.gridka.de:8443/srm/managerv2?SFN=/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/rucio/user/wguan/fe/65/setup_dev.sh adler32
-        srm://atlassrm-fzk.gridka.de:8443/srm/managerv2?SFN=/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/rucio/user/wguan/fe/65/setup_dev.sh f3c7fa78
-
-    - Know the size of the dataset
-        Joaquin
-    - Delete a dataset replica from a site::
-
-      $ rucio delete-rule {rule_id}
-
-
-        Deleting a dataset replica in Rucio is the same
-        as removing the replication rule on a dataset at a site.
-
-        .. todo:: Explain how to retrieve a rule_id for a dataset, site, account
-
-    - delete a dataset from DDM catalog
-        Command not implemented in Rucio yet.
-    - Delete a dataset replica from a site - delete a dataset from DDM catalog
-        Vincent
-    - Remove files from a dataset (detach)::
-
-            rucio detach --from scope:dataset_name scope:file_name1 scope:file_name2
-
-        Notice however that this will not remove the file from the catalog.
-
-    - Create a dataset from files already in other datasets
-        Wen
-    - Verify local files with registered attributes
-        Joaquin
-
-
-    - More advanced uses
-
-      - Dataset Replica History
-
-          **TODO:** Implement in core and susequently in client
-
-      - Accounting
-
-          Rucio has no more CLI support for this. See `DDM Accounting Dashboard <http://dashb-atlas-ddm-acc.cern.ch/dashboard/request.py/ddmaccounting>`_
-
-      - Per-User Usage at a Site
-
-          Not exposed to CLI any more. If needed use Python API. The class ``rucio.client.accountclient`` implements the method ``get_account_usage`` for this purpose.
-
-      - Delete a Dataset from DDM Catalog
-
-         See rucio delete
-
-      - Remove Files from Dataset
-        ::
-          $> rucio datach --from user.dcameron:test66 user.dcameron:a.66
-
-      - Create a dataset from files already in other datasets
-
-         .. todo:: **No clue**
-
-      - DQ2-put mechanism
-
-          .. todo:: **No clue**
-
-      - Dataset Retrieval
-
-        See `Rucio download`
-
-      - Download a dataset to a SE not known by DDM
-
-          .. todo:: **No clue**
-
-      - Dataset subscription
-
-        No exposed via CLI in Rucio.
-
-      - Shares
-
-         .. todo:: **No clue**
-
-      - dq2-put and DDM transfers
-
-         .. todo:: I'm guessing the rpoper answer is 'no convention applied' use metadata during upload instead?
-
-      - Ganga
-
-         .. todo:: **No clue**
-          * usertag can be user08
-          * LFN: usertag/DN/ganga/DATASETNAME/FILENAME
-
-        Panda/pathena
-
-         .. todo:: **No clue**
-          * LFN
-
-
-``Known problems``
-------------------
-
-    1. Rucio flawless
-    2. if an error occurs, remember #1
-
-``Links to external applications creating datasets``
+``Which name should I give to my files and dataset``
 ----------------------------------------------------
-    - Group production through Production system
-        https://twiki.cern.ch/twiki/bin/view/AtlasProtected/AtlasGroupProduction
+If you create files into your own scope which is user.<account>, there is no restriction. You can give whatever name for your Data IDentifier (i.e. files/datasets/containers). But be carefull : once a name has been used for a Data IDentifier, it cannot be reused anymore even if you delete the original!
+For official data, a specific nomanclature is used.
+
+``Where my dataset/files will be stored with rucio upload ?``
+-------------------------------------------------------------
+You can decide to upload your datasets into 2 different storage areas :
+    - The first one is a temporary area, which is any SCRATCHDISK. The datasets uploaded there will be kept for 2 weeks, but after that period, they can disappear at anytime.
+    - The second place is a permanent area (the so called LOCALGROUPDISK). This areas are dedicated to local users and are managed by the cloud squads. Permissions are set according to the user nationality and/or institut. The retention policy and the quota on these endpoints are defined by the cloud squads.
+
+``Where my dataset/files should be finally stored ?``
+-----------------------------------------------------
+    - Long term storage for user datasets
+
+      On the Grid managed by DDM, the final destination for user datasets should be LOCALGROUPDISK. This area is not pledged, its size is defined by the site and its access is restricted to local users (technically to users from the same country). Datasets in this area are deleted only if the dataset was produced centrally (mc* or data*) and the associated task is declared aborted (usually meaning that the task was bugged). To send your dataset there, request the replication by setting a rule. There is no such storage at CERN. Outside the Grid or for Grid storage not declared in DDM, the storage managment is done by the site with its own tools. Currently, files can be replicated to this area through ``dq2-get`` / ``rucio download``. There is non-Grid storage at CERN with quotas per user (to be documented).
+
+    - Long term storage for group datasets
+
+      The group datasets are user (possible that this user is working for a group) datasets replicated in group areas. Only the data manager of the group can request the replication of datasets.
+
+    - Short term storage
+
+      The dataset can be stored or replicated in SCRATCHDISK. SCRATCHDISK is the place for analysis output (except in US where _USERDISK is the place for pathena output) or ``dq2-put`` / ``rucio upload``. The deletion policy for datasets in SCRATCHDISK is defined. Using LOCALGROUPDISK as the ouput location for analysis jobs is not recommended by the DDM team.
+
+    - Exceptions in US
+
+      Because of temporary limitations in xrootd sites (SLACXRD and SWT2_SPB), the DDM sites SCRATCHDISK and LOCALGROUPDISK could not be created. Users are asked to send their datasets to GROUPDISK.
+
+``Create a dataset from files on my local disk``
+------------------------------------------------
+To upload local files to Rucio Catalog, the rucio upload command must be used.
+::
+    $> rucio upload --rse MY_SCRATCHDISK file1 file2 file3
+
+Rucio will try to guess the scope for the files based on the user account being used. If this fails or a different scope is needed, it can be specified by the --scope argument.
+::
+    $> rucio upload --rse MY_SCRATCHDISK file1 file2 file3 --scope user.jbogadog
+
+Rucio also support upload files within a directory. This command however is not recursive and only the files in the directory will be added.  If the only file in “directory” is  “my_file”, the following command will upload the file under user.account:my_file.
+::
+    $> rucio upload --rse MY_SCRATCHDISK directory/
+
+Also, if a scope:name is specified, it will be interpreted as a dataset name. All the files to upload will be automatically attached to this dataset. If the dataset exist already, the files will be added, if not, the dataset will be created first.
+::
+    $> rucio upload --rse MY_SCRATCHDISK user.name:mydataset file1 file2 file3 directory/
+
+Again, you can specify a different scope for the files with --scope
+::
+    $> rucio upload --rse MY_SCRATCHDISK  user.name:mydataset file1 file2 file3 directory/ --scope user.other_name
+
+`Important note`: The names of files and datasets must be unique for a given scope. Otherwise, the rucio command will end in an error. Also the name of the files must be different that the one given for the dataset.
+
+``Create a dataset from files already in other datasets``
+---------------------------------------------------------
+To create a dataset from files in other datasets, you can follow these steps:
+
+ Step 0: List files in the source datasets::
+
+  $> rucio list-dids  user.wguan:user.wguan.test.upload
+  |    |- user.wguan:setup_dev.sh [FILE]
+  |    |- user.wguan:setup_dq2.sh [FILE]
+  |    |- user.wguan:testMulProcess.py [FILE]
+  |    |- user.wguan:testcatalog.py [FILE]
+
+ Step 1: Add destination dataset::
+
+  $> rucio add-dataset user.wguan:user.wguan.test.upload1
+  Added user.wguan:user.wguan.test.upload1
+
+ Step 2: Add files to destination dataset::
+
+  $> rucio add-files-to-dataset --to user.wguan:user.wguan.test.upload1 user.wguan:setup_dev.sh user.wguan:setup_dq2.sh
+
+ Step 3: List the destination dataset to check the result::
+
+  $> rucio list-dids  user.wguan:user.wguan.test.upload1
+  |    |- user.wguan:setup_dev.sh [FILE]
+  |    |- user.wguan:setup_dq2.sh [FILE]
+
+Add files to a dataset::
+
+    rucio attach <DATASET> <FILE_1>  <FILE_2> ...  <FILE_n>
+
+``What to do after creating a dataset?``
+----------------------------------------
+ - You should "close" the dataset. If the dataset is not closed, matching rules will have to constantly reevaluate your dataset and possibly generate transfers.
+ - If you want to add another set of files after a while, think about using containers.
+ - If you want to keep the possibility to add files to this dataset, do not close the dataset.
+ - By default, user datasets are created on SCRATCHDISK at the site where the jobs run.
+ - All the datasets on SCRATCHDISK are to be deleted after a certain period (minimum 7 days). See the section Lifetime of data on SCRATCHDISK.
+ - To retrieve your output files, you should either
+  - Set a rule. The output files will stay as a dataset on Grid.
+  - Download onto your local disk using `dq2-get` \ `rucio download`. The output files will not be available via DDM after the dataset on the SCRATCHDISK is deleted. If the files are Athena files (POOL files), you will not be able to re-register the files. If you see a possibility to use them on Grid, you should think about setting rules.
+ - After retrieving the data from the SCRATCHDISK, you are encouraged to request early deletion of the original replicas in SCRATCHDISK.
+
+``Close a dataset``
+-------------------
+To close a dataset the command rucio close has to be used::
+    $> rucio close user.barisits:test-dataset
+    user.barisits:test-dataset has been closed.
+
+``Re-open a dataset``
+---------------------
+This is only possible for privileged accounts using the Rucio Python clients.
+
+``Freeze a dataset``
+--------------------
+Freezing a dataset is not possible in Rucio. Closing the dataset is sufficient.
+
