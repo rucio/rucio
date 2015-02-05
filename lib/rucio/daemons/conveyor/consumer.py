@@ -102,8 +102,8 @@ class Consumer(object):
                                                                             msg['job_metadata']['dst_rse'],
                                                                             response['new_state']))
 
-                        update_request_state(response)
-                        record_counter('daemons.conveyor.consumer.update_request_state')
+                        ret = update_request_state(response)
+                        record_counter('daemons.conveyor.consumer.update_request_state.%s' % ret)
                 except:
                     logging.critical(traceback.format_exc())
 
