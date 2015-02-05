@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -63,6 +63,7 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                                       ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
                                       ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
                                       ssl_version=ssl.PROTOCOL_TLSv1))
+    destination = config_get('messaging-hermes', 'destination')
 
     logging.info('hermes started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
                                                                                 thread, total_threads,
@@ -94,7 +95,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                         random.sample(conns, 1)[0].send(body=json.dumps({'event_type': str(t['event_type']).lower(),
                                                                          'payload': t['payload'],
                                                                          'created_at': str(t['created_at'])}),
-                                                        destination=config_get('messaging-hermes', 'destination'))
+                                                        destination=destination,
+                                                        headers={'persistent': 'true'})
                     except ValueError:
                         logging.warn('Cannot serialize payload to JSON: %s' % str(t['payload']))
                         continue
