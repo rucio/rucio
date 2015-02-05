@@ -271,16 +271,18 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
     if last_src_file > 0:
         job_m_replica = 'true'
 
-    if fts_files_response[last_src_file]['start_time'] is None:
-        fts_files_response[last_src_file]['start_time'] = fts_files_response[last_src_file]['finish_time']
+    if fts_files_response[last_src_file]['start_time'] is None or fts_files_response[last_src_file]['finish_time'] is None:
+        duration = 0
+    else:
+        duration = (datetime.datetime.strptime(fts_files_response[last_src_file]['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                    datetime.datetime.strptime(fts_files_response[last_src_file]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
 
     response = {'new_state': None,
                 'transfer_id': fts_job_response.get('job_id'),
                 'job_state': fts_job_response.get('job_state', None),
                 'src_url': fts_files_response[last_src_file].get('source_surl', None),
                 'dst_url': fts_files_response[last_src_file].get('dest_surl', None),
-                'duration': (datetime.datetime.strptime(fts_files_response[last_src_file]['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                             datetime.datetime.strptime(fts_files_response[last_src_file]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds,
+                'duration': duration,
                 'reason': fts_files_response[last_src_file].get('reason', None),
                 'scope': fts_job_response['job_metadata'].get('scope', None),
                 'name': fts_job_response['job_metadata'].get('name', None),
