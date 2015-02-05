@@ -142,6 +142,7 @@ def submit_transfers(transfers, job_metadata):
                                                     'dest_urls': transfer['dest_urls'],
                                                     'external_host': transfer_host}
         else:
+            logging.warn("Failed to submit transfer to %s, error: %s" % (transfer_host, r.text if r is not None else r))
             record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(transfer_host))
 
     return transfer_ids
