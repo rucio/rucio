@@ -102,8 +102,9 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
                                 logging.critical("Failed to poll request(%s) with FTS(%s) job (%s): %s" % (request_id, external_host, external_id, responses[request_id]))
                                 record_counter('daemons.conveyor.poller.query_request_exception')
                                 response = {'new_state': None, 'request_id': request_id, 'transfer_id': external_id, 'job_state': None}
-                            common.update_request_state(response)
-                            record_counter('daemons.conveyor.poller.update_request_state')
+                            ret = common.update_request_state(response)
+                            # if True, really update request content; if False, only touch request
+                            record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
                             if response['new_state'] == RequestState.LOST:
                                 record_counter('daemons.conveyor.poller.request_lost')
                 except:
@@ -157,19 +158,20 @@ def poller_latest(external_hosts, once=False, last_nhours=1):
 
                 for resp in resps:
                     try:
-                        common.update_request_state(resp)
-                        record_counter('daemons.conveyor.poller.update_request_state')
+                        ret = common.update_request_state(resp)
+                        # if True, really update request content; if False, only touch request
+                        record_counter('daemons.conveyor.poller_latest.update_request_state.%s' % ret)
                     except:
                         logging.critical(traceback.format_exc())
             if once:
                 break
 
-            time_left = last_nhours * 3600 - abs(time.time() - start_time)
-            # overlap 10 minutes
-            if time_left > 600:
-                time.sleep(time_left - 600)
+            # poll fts every 30 minutes
+            time_left = 1800 - abs(time.time() - start_time)
+            if time_left > 0:
+                time.sleep(time_left)
             else:
-                logging.warning("Polling time %s is longer than %s hours, last_nhours needs to be updated" % (abs(time.time() - start_time), last_nhours))
+                logging.warning("Polling time %s is longer than 30 minutes, it's too long" % (abs(time.time() - start_time)))
         except:
             logging.critical(traceback.format_exc())
 
