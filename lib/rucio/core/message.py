@@ -7,12 +7,13 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 
 import json
+import re
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, text
 
 from rucio.common.exception import InvalidObject, RucioException
@@ -34,6 +35,10 @@ def add_message(event_type, payload, session=None):
         new_message = Message(event_type=event_type, payload=json.dumps(payload))
     except TypeError, e:
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
+    except DatabaseError, e:
+        if re.match('.*ORA-12899.*', e.args[0]) \
+           or re.match('.*1406.*', e.args[0]):
+            raise RucioException('Could not persist message, payload too large')
 
     new_message.save(session=session, flush=False)
 
