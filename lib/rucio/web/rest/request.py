@@ -6,9 +6,8 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 
-import datetime
 import json
 
 from logging import getLogger, StreamHandler, DEBUG
@@ -16,7 +15,7 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, loadhook, header
 
 from rucio.api import request
-from rucio.common.utils import generate_http_error
+from rucio.common.utils import generate_http_error, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
 
 
@@ -26,14 +25,6 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = ('/(.+)/(.+)/(.+)', 'RequestGet',)
-
-
-def json_serial(obj):
-    """JSON serializer for objects not serializable by default json code"""
-
-    if isinstance(obj, datetime.datetime):
-        serial = obj.isoformat()
-        return serial
 
 
 class RequestGet(RucioController):
@@ -59,7 +50,7 @@ class RequestGet(RucioController):
                                                          name=name,
                                                          rse=rse,
                                                          issuer=ctx.env.get('issuer')),
-                              default=json_serial)
+                              cls=APIEncoder)
         except:
             raise generate_http_error(404, 'RequestNotFound', 'No request found for DID %s:%s at RSE %s' % (scope,
                                                                                                             name,
