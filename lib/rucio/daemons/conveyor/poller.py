@@ -137,6 +137,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1):
             for external_host in external_hosts:
                 logging.debug('poller started to poll latest %s hours on host: %s' % (last_nhours, external_host))
                 ts = time.time()
+                resps = None
                 state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
                 try:
                     resps = request.query_latest(external_host, state=state, last_nhours=last_nhours)
@@ -166,7 +167,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1):
             time_left = last_nhours * 3600 - abs(time.time() - start_time)
             # overlap 10 minutes
             if time_left > 600:
-                time.sleep(time_left)
+                time.sleep(time_left - 600)
             else:
                 logging.warning("Polling time %s is longer than %s hours, last_nhours needs to be updated" % (abs(time.time() - start_time), last_nhours))
         except:
