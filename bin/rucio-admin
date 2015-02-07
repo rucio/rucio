@@ -939,14 +939,13 @@ def list_account_attributes(args):
                            auth_type=args.auth_strategy, creds=creds,
                            ca_cert=args.ca_certificate, timeout=args.timeout)
     try:
-        attributes = client.list_account_attributes(account=args.account)
+        attributes = client.list_account_attributes(account=args.account).next()
     except Exception, e:
         print 'Failed get attributes for account {0}'.format(args.account)
         print e
         return FAILURE
     for attr in attributes:
-        if len(attr) > 0:
-            pp.pprint("{0}: {1}".format(attr[0]['key'], attr[0]['value']))
+        print "{0}: {1}".format(attr['key'], attr['value'])
     return SUCCESS
 
 
