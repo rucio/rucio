@@ -51,7 +51,7 @@ def request_transfer(once=False, src=None, dst=None):
     impl = 'rucio.rse.protocols.webdav.Default'
     if not src.startswith('https://'):
         scheme = 'srm'
-        impl = 'rucio.rse.protocols.srm.Default'
+        impl = 'rucio.rse.protocols.gfal.Default'
         srctoken = src.split(':')[0]
         dsttoken = dst.split(':')[0]
 
@@ -70,6 +70,7 @@ def request_transfer(once=False, src=None, dst=None):
         tmp_proto['extended_attributes'] = {'space_token': srctoken,
                                             'web_service_path': ''}
     rse.add_protocol(site_a, tmp_proto)
+    rse.add_rse_attribute(site_a, key='fts', value='https://fts3-pilot.cern.ch:8446')
 
     tmp_proto = {
         'impl': impl,
@@ -86,6 +87,7 @@ def request_transfer(once=False, src=None, dst=None):
         tmp_proto['extended_attributes'] = {'space_token': dsttoken,
                                             'web_service_path': ''}
     rse.add_protocol(site_b, tmp_proto)
+    rse.add_rse_attribute(site_b, key='fts', value='https://fts3-pilot.cern.ch:8446')
 
     si = rsemanager.get_rse_info(site_a)
 

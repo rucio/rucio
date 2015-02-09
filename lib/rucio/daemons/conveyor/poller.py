@@ -26,7 +26,7 @@ from rucio.common.config import config_get
 from rucio.common.utils import chunks
 from rucio.core import request
 from rucio.core.monitor import record_timer, record_counter
-from rucio.daemons.conveyor import common
+from rucio.daemons.conveyor import common1 as common
 from rucio.db.constants import RequestState, RequestType, FTSState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
