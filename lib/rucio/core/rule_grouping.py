@@ -208,6 +208,9 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, rseselect
                                                     preferred_rse_ids=preferred_rse_ids,
                                                     blacklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED])
             for rse_tuple in rse_tuples:
+                if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_tuple[0]]) == 1:
+                    # Due to a bug a lock could have been already submitted for this, in that case, skip it
+                    continue
                 __create_lock_and_replica(file=file,
                                           dataset=dataset,
                                           rule=rule,
@@ -272,6 +275,9 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
         for dataset in datasetfiles:
             for file in dataset['files']:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
+                    continue
+                if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_tuple[0]]) == 1:
+                    # Due to a bug a lock could have been already submitted for this, in that case, skip it
                     continue
                 __create_lock_and_replica(file=file,
                                           dataset=dataset,
@@ -360,6 +366,9 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
         for rse_tuple in rse_tuples:
             for file in dataset['files']:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
+                    continue
+                if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_tuple[0]]) == 1:
+                    # Due to a bug a lock could have been already submitted for this, in that case, skip it
                     continue
                 __create_lock_and_replica(file=file,
                                           dataset=dataset,
