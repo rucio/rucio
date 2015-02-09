@@ -63,7 +63,7 @@
       "supported": {
         "s3": {
           "impl": "rucio.rse.protocols.s3boto.Default",
-          "hostname": "cephgw.usatlas.bnl.gov",
+          "hostname": "cephgw.usatlas.bnl.gov.mock",
           "port": 8443,
           "scheme": "s3",
           "prefix": "rucio_bucket",
@@ -106,7 +106,7 @@
               "delete": 1
             }
           },
-          "hostname": "lxplus.cern.ch"
+          "hostname": "mock.lxplus.cern.ch"
         }
       }
     },
@@ -394,7 +394,7 @@
       "supported": {
         "https": {
           "impl": "rucio.rse.protocols.webdav.Default",
-          "hostname": "f01-060-114-e.gridka.de",
+          "hostname": "f01-060-114-e.gridka.de.mock",
           "port": 2880,
           "scheme": "https",
           "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/",
@@ -413,7 +413,7 @@
         },
         "srm": {
           "impl": "rucio.rse.protocols.srm.Default",
-          "hostname": "srm://atlassrm-fzk.gridka.de",
+          "hostname": "srm://atlassrm-fzk.gridka.de.mock",
           "prefix": "/pnfs/gridka.de/atlas/disk-only/atlasscratchdisk/",
           "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASSCRATCHDISK"},
           "domains": {
@@ -441,7 +441,7 @@
       "supported": {
         "rfio": {
           "impl": "rucio.rse.protocols.rfio.Default",
-          "hostname": "castoratlas.cern.ch",
+          "hostname": "castoratlas.cern.ch.mock",
           "port": 9002,
           "prefix": "/castor/cern.ch/grid/atlas/tzero/",
           "domains": {
@@ -471,7 +471,7 @@
         "xroot": {
           "prefix": "/tmp/rucio_rse/",
           "impl": "rucio.rse.protocols.xrootd.Default",
-          "hostname": "chenghsi-eos00.cern.ch",
+          "hostname": "chenghsi-eos00.cern.ch.mock",
           "port": 1094,
           "domains": {
             "lan": {
