@@ -178,7 +178,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
     Workers are balanced via hashing to reduce concurrency on database.
 
     :param request_type: Type of the request as a string or list of strings.
-    :param state: State of the request as a string.
+    :param state: State of the request as a string or list of strings.
     :param limit: Integer of requests to retrieve.
     :param older_than: Only select requests older than this DateTime.
     :param process: Identifier of the caller process as an integer.
@@ -196,9 +196,13 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
         request_type = [request_type, request_type]
     elif len(request_type) == 1:
         request_type = [request_type[0], request_type[0]]
+    if type(state) is not list:
+        state = [state, state]
+    elif len(state) == 1:
+        state = [state[0], state[0]]
 
     query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                                         .filter_by(state=state)\
+                                         .filter(models.Request.state.in_(state))\
                                          .filter(models.Request.request_type.in_(request_type))\
                                          .order_by(asc(models.Request.external_host))\
                                          .order_by(asc(models.Request.updated_at))
@@ -464,9 +468,12 @@ def set_request_state(request_id, new_state, session=None):
     record_counter('core.request.set_request_state')
 
     try:
-        session.query(models.Request).filter_by(id=request_id).update({'state': new_state}, synchronize_session=False)
+        rowcount = session.query(models.Request).filter_by(id=request_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
+
+    if not rowcount:
+        raise UnsupportedOperation("Request %s state cannot be updated." % request_id)
 
 
 @transactional_session
