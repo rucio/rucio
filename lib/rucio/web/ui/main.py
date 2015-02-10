@@ -31,6 +31,7 @@ urls = (
     '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
     '/rules', 'Rules',
+    '/rule_backlog_monitor', 'BacklogMon',
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
@@ -58,6 +59,12 @@ class Accounting():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.accounting())
+
+
+class BacklogMon():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.backlog_mon())
 
 
 class DID():
