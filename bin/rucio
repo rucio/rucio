@@ -219,8 +219,9 @@ def list_dataset_replicas(args):
                 if replica['rses'][rse] != []:
                     result[dsn][rse] += 1
     for dsn in result:
-        print 'Dataset %s' % (dsn)
-        print '{0:40} {1:6} {2:6}'.format('RSE', 'Found', 'Total')
+        print '\nDATASET: %s' % (dsn)
+        print '{0:40} {1:7} {2:7}'.format('RSE', 'FOUND', 'TOTAL')
+        print '{0:-<60}'.format('')
         for rse in result[dsn]:
             print '{0:40} {1:6d} {2:6d}'.format(rse, result[dsn][rse], datasets[dsn])
     return SUCCESS
@@ -252,10 +253,11 @@ def list_file_replicas(args):
         dids.append({'scope': scope, 'name': name})
     replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
     if not args.list_collections:
-        print 'Scope\tName\t\t\tFilesize\tadler32\tReplicas'
+        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE','NAME','FILESIZE','ADDLER32','RSE: REPLICA')
+        print '{0:-<130}'.format('')
     for replica in replicas:
         if 'bytes' in replica:
-            str = '%s\t%s\t%s\t%s\t' % (replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
+            str = '{0:}:{1:70} {2:10}  {3:10}'.format(replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
             for rse in replica['rses']:
                 if args.list_collections:
                     if rse not in rse_dict:
@@ -263,21 +265,21 @@ def list_file_replicas(args):
                     if replica['rses'][rse] != []:
                         rse_dict[rse] += 1
                 else:
-                    line = '%s%s\t:\t' % (str, rse)
+                    line = '{0}{1}'.format(str, rse)
                     for pfn in replica['rses'][rse]:
                         if args.selected_rse:
                             if rse == args.selected_rse:
-                                output = '%s%s' % (line, pfn)
+                                output = '%s: %s' % (line, pfn)
                                 print output.expandtabs()
                                 line = len(line.expandtabs()) * ' '
                                 str = len(str.expandtabs()) * ' '
                         else:
-                            output = '%s%s' % (line, pfn)
+                            output = '%s: %s' % (line, pfn)
                             print output.expandtabs()
                             line = len(line.expandtabs()) * ' '
                             str = len(str.expandtabs()) * ' '
         elif not args.list_collections:
-            str = '%s\t%s\t%s\t%s\t%s' % (replica['scope'], replica['name'], '???', '???', 'Unavalaible')
+            str = '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format(replica['scope'], replica['name'], '???', '???', 'Unavalaible')
             print str.expandtabs()
     if args.list_collections:
         nbfiles = len([i for i in client.list_files(dids[0]['scope'], dids[0]['name'])])
@@ -391,6 +393,8 @@ def list_dids(args):
     if scope not in client.list_scopes():
         logger.error('Scope not found')
         return FAILURE
+    print '{0:^20}{1:^80}{2:^10}'.format('SCOPE', 'NAME', '[DID TYPE]')
+    print '{0:-<110}'.format('')
     if name.find('*') > -1:
         if args.recursive:
             logger.error('Option recursive cannot be used with wildcards')
@@ -400,14 +404,14 @@ def list_dids(args):
             return FAILURE
         filters['name'] = name
         for did in client.list_dids(scope, filters=filters, type=type):
-            print '%s:%s [%s]' % (scope, did, type.upper())
+            print '{0:}:{1:90}[{2:^10}]'.format(scope, did, type.upper())
     else:
         dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
         for d in dids:
             if d['level'] == 0:
-                print '%(scope)s:%(name)s [%(type)s]' % d
+                print '{0:}:{1:90}[{2:^10}]'.format(d['scope'], d['name'], d['type'].upper())
             else:
-                print '|    ' * d['level'] + '|- %(scope)s:%(name)s [%(type)s]' % d
+                print '{0:}:{1:90}[{2:^10}]'.format(d['scope'], d['name'], d['type'].upper())
     return SUCCESS
 
 
@@ -434,10 +438,12 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
+    print '{0:^10}{1:^80}{2:10}{3:10}{4:^34}'.format('SCOPE','NAME','FILESIZE','ADDLER32','GUID')
+    print '{0:-<140}'.format('')
     for did in args.dids:
         scope, name = extract_scope(did)
         for file in client.list_files(scope=scope, name=name):
-            print '%(scope)s:%(name)s\t%(bytes)s\t%(adler32)s\t%(guid)s' % file  # %(size)s\t%(checksum)s
+            print '{0:}:{1:80} {2:>10} {3:>10} {4:>34}'.format(file['scope'], file['name'], file['bytes'], file['adler32'], file['guid'])
     return SUCCESS
 
 
@@ -449,10 +455,12 @@ def list_content(args):
     List data identifier contents.
     """
     client = get_client(args)
+    print '{0:^20}{1:^80}{2:^10}'.format('SCOPE', 'NAME', '[DID TYPE]')
+    print '{0:-<110}'.format('')
     for did in args.dids:
         scope, name = extract_scope(did)
         for content in client.list_content(scope=scope, name=name):
-            print '%(scope)s:%(name)s\t[%(type)s]' % content
+            print '{0:}:{1:80}[{2:^10}]'.format(content['scope'], content['name'], content['type'].upper())
     return SUCCESS
 
 
@@ -465,8 +473,10 @@ def list_parent_dids(args):
     """
     client = get_client(args)
     scope, name = extract_scope(args.did)
+    print '{0:^20}{1:^80}{2:^10}'.format('SCOPE', 'NAME', '[DID TYPE]')
+    print '{0:-<110}'.format('')
     for dataset in client.list_parent_dids(scope=scope, name=name):
-        print '%s:%s [%s]' % (dataset['scope'], dataset['name'], dataset['type'])
+        print '{0:}:{1:80} [{2:^10}]'.format(dataset['scope'], dataset['name'], dataset['type'])
     return SUCCESS
 
 
@@ -932,10 +942,10 @@ def list_rules(args):
         print 'At least one option has to be given. Use -h to list the options.'
         return FAILURE
 
-    print "ID (account) SCOPE:NAME: STATE [LOCKS_OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES"
-    print "==================================================================================="
+    print "ID                               (ACCOUNT) SCOPE:NAME                     STATE[OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES"
+    print '{0:-<130}'.format('')
     for rule in rules:
-        print "%s (%s) %s:%s: %s[%s/%s/%s], \"%s\", %s " % (rule['id'], rule['account'], rule['scope'], rule['name'], rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'], rule['rse_expression'], rule['copies'])
+        print "{0:32} ({1:}) {2:}:{3:40} {4:}[{5:}/{6:}/{7:}] \"{8:}\"  {9:}".format(rule['id'], rule['account'], rule['scope'], rule['name'], rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'], rule['rse_expression'], rule['copies'])
     return SUCCESS
 
 
@@ -982,16 +992,16 @@ def list_rse_usage(args):
     """
     client = get_client(args)
     usages = client.get_rse_usage(rse=args.rse)
-    print 'Usage:'
-    print '======'
+    print 'USAGE:'
     for usage in usages:
+        print '------'
         skip_free = False
         if usage['source'] in ['rucio', 'reaper']:
             skip_free = True
         for elem in usage:
             if not ((elem == 'free' or elem == 'total') and skip_free):
                 print '  ' + elem + ': ' + str(usage[elem])
-        print '  ======'
+    print '------'
     return SUCCESS
 
 
@@ -1008,8 +1018,8 @@ def list_account_limits(args):
         limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
     else:
         limits = client.get_account_limits(account=args.limit_account)
-    print "RSE: limit (bytes)"
-    print "=================="
+    print "RSE: LIMIT (bytes)"
+    print "------------------"
     for limit in limits.items():
         print "%s: %s" % limit
     return SUCCESS
@@ -1028,10 +1038,10 @@ def list_account_usage(args):
         usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
     else:
         usage = client.get_account_usage(account=args.usage_account)
-    print "RSE: usage (bytes), limit (bytes), quota_left (bytes)"
-    print "====================================================="
+    print "RSE                        USAGE (bytes), LIMIT (bytes), QUOTA LEFT (bytes)"
+    print '{0:-<130}'.format('')
     for item in usage:
-        print "%s: %s, %s, %s" % (item['rse'], item['bytes'], item['bytes_limit'], item['bytes_remaining'])
+        print "{0:40} {1:>10.0f} {2:>10.0f} {3:>10.0f}".format(item['rse'], item['bytes'], item['bytes_limit'], item['bytes_remaining'])
     return SUCCESS
 
 
@@ -1046,6 +1056,8 @@ def list_datasets_rse(args):
     client = get_client(args)
     dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.get_dataset_locks_by_rse(args.rse)]))
     dsns.sort()
+    print "SCOPE:NAME"
+    print '----------'
     for dsn in dsns:
         print dsn
     return SUCCESS
