@@ -878,7 +878,7 @@ def delete_duplicate_updated_dids(scope, name, rule_evaluation_action, id, sessi
     session.query(models.UpdatedDID).filter(models.UpdatedDID.scope == scope,
                                             models.UpdatedDID.name == name,
                                             models.UpdatedDID.rule_evaluation_action == rule_evaluation_action,
-                                            models.UpdatedDID.created_at < datetime.utcnow() - timedelta(seconds=60*10),
+                                            models.UpdatedDID.created_at < datetime.utcnow() - timedelta(seconds=60),
                                             models.UpdatedDID.id != id).delete(synchronize_session=False)
 
 
