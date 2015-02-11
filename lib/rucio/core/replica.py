@@ -709,6 +709,9 @@ def update_replicas_states(replicas, nowait=False, session=None):
         if replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
 
+        if replica['state'] == ReplicaState.UNAVAILABLE:
+            rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
+
         if 'path' in replica and replica['path']:
             rowcount = query.update({'state': replica['state'], 'path': replica['path']}, synchronize_session=False)
         else:
