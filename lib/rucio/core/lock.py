@@ -248,7 +248,9 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
             rule.state = RuleState.OK
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
-                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+                ds_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id)
+                for ds_lock in ds_locks:
+                    ds_lock.state = LockState.OK
                 session.flush()
                 rucio.core.rule.generate_message_for_dataset_ok_callback(rule=rule, session=session)
 
@@ -257,17 +259,18 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
 
 
 @transactional_session
-def failed_transfer(scope, name, rse_id, session=None):
+def failed_transfer(scope, name, rse_id, nowait=True, session=None):
     """
     Update the state of all replica locks because of a failed transfer
 
     :param scope:    Scope of the did.
     :param name:     Name of the did.
     :param rse_id:   RSE id.
+    :param nowait:   Nowait parameter for the for_update queries.
     :param session:  The database session in use.
     """
 
-    locks = session.query(models.ReplicaLock).with_for_update(nowait=True).filter_by(scope=scope, name=name, rse_id=rse_id)
+    locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id)
     for lock in locks:
         if lock.state == LockState.STUCK:
             continue
@@ -275,7 +278,7 @@ def failed_transfer(scope, name, rse_id, session=None):
         lock.state = LockState.STUCK
 
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_for_update(nowait=True).filter_by(id=lock.rule_id).one()
+        rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
         logging.debug('Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
         rule.locks_replicating_cnt -= 1
         rule.locks_stuck_cnt += 1
@@ -291,7 +294,9 @@ def failed_transfer(scope, name, rse_id, session=None):
                 rule.state = RuleState.STUCK
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
-                    session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                    ds_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id)
+                    for ds_lock in ds_locks:
+                        ds_lock.state = LockState.STUCK
 
         # Insert rule history
         rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
