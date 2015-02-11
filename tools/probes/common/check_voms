@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - David Cameron, <david.cameron@cern.ch>, 2015
 
 import commands
@@ -99,6 +99,8 @@ if __name__ == '__main__':
     admin = VOMSAdminProxy(vo='atlas', host='voms.cern.ch', port=8443,
                            user_cert=cert, user_key=key)
     res = admin.call_method('list-users')
+    accounts = [i['account'] for i in c.list_accounts()]
+    scopes = [i for i in c.list_scopes()]
     if isinstance(res, types.ListType):
         random.shuffle(res)
         for user in res:
@@ -124,22 +126,24 @@ if __name__ == '__main__':
                         if nickname:
                             if validate_nickname(nickname=nickname, email=email, dn=dn, debug=True):
                                 account = nickname
-                                try:
-                                    c.add_account(account=account, type='USER')
-                                    print 'Account %(account)s added' % locals()
-                                except Duplicate:
-                                    pass
+                                if account not in accounts:
+                                    try:
+                                        c.add_account(account=account, type='USER')
+                                        print 'Account %(account)s added' % locals()
+                                    except Duplicate:
+                                        pass
                                 try:
                                     c.add_identity(account=account, identity=dn, authtype='X509', email=email, default=True)
                                     print 'Identity %(dn)s added' % locals()
                                 except Duplicate:
                                     pass
-                                try:
-                                    scope = 'user.' + account
-                                    c.add_scope(account, scope)
-                                    print 'Scope %(scope)s added' % locals()
-                                except Duplicate:
-                                    pass
+                                scope = 'user.' + account
+                                if scope not in scopes:
+                                    try:
+                                        c.add_scope(account, scope)
+                                        print 'Scope %(scope)s added' % locals()
+                                    except Duplicate:
+                                        pass
                             break
                         elif user._DN not in nonicknames:
                             nonicknames.append(user._DN)
