@@ -21,9 +21,12 @@ import sys
 import time
 import traceback
 
+from re import match
+from sqlalchemy.exc import DatabaseError
+
 from rucio.common import exception
-from rucio.common.exception import UnsupportedOperation
-from rucio.core import lock, replica as replica_core, request as request_core, rse as rse_core
+from rucio.common.exception import DatabaseException, UnsupportedOperation
+from rucio.core import replica as replica_core, request as request_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import DIDType, RequestState, ReplicaState, RequestType
@@ -82,14 +85,7 @@ def handle_requests(reqs):
     replicas = {}
     for req in reqs:
         try:
-            if req['request_type'] == RequestType.STAGEIN:
-                dest_rse_name = rse_core.get_rse(rse=None, rse_id=req['dest_rse_id'])['rse']
-                dest_rse_update_name = rse_core.list_rse_attributes(dest_rse_name)['staging_buffer']
-                dest_rse_update_id = rse_core.get_rse_id(rse=dest_rse_update_name)
-                logging.debug('OVERRIDE REPLICA DID %s:%s RSE %s TO %s' % (req['scope'], req['name'], dest_rse_name, dest_rse_update_name))
-                replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': dest_rse_update_id, 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
-            else:
-                replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
+            replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
 
             if req['request_type'] == RequestType.STAGEIN or req['request_type'] == RequestType.STAGEOUT:
                 replica['pfn'] = req['dest_url']
@@ -148,13 +144,23 @@ def handle_terminated_replicas(replicas):
                 for replica in replicas[req_type][rule_id]:
                     try:
                         handle_one_replica(replica, req_type, rule_id)
+                    except (DatabaseException, DatabaseError), e:
+                        if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+                            logging.warn("Locks detected when handling replica %s:%s at RSE %s" % (replica['scope'], replica['name'], replica['rse_id']))
+                        else:
+                            logging.error("Could not finish handling replicas %s:%s at RSE %s (%s)" % (replica['scope'], replica['name'], replica['rse_id'], traceback.format_exc()))
                     except:
-                        logging.warn("Something unexpected happened when updating replica state for successful transfer %s:%s at %s (%s)" % (replica['scope'],
-                                                                                                                                             replica['name'],
-                                                                                                                                             replica['rse_id'],
-                                                                                                                                             traceback.format_exc()))
+                        logging.error("Something unexpected happened when updating replica state for transfer %s:%s at %s (%s)" % (replica['scope'],
+                                                                                                                                   replica['name'],
+                                                                                                                                   replica['rse_id'],
+                                                                                                                                   traceback.format_exc()))
+            except (DatabaseException, DatabaseError), e:
+                if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+                    logging.warn("Locks detected when handling replicas on %s rule %s" % (req_type, rule_id))
+                else:
+                    logging.error("Could not finish handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
             except:
-                logging.error("Could not finish handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
+                logging.error("Something unexpected happened when handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
 
 
 @transactional_session
@@ -171,16 +177,6 @@ def handle_bulk_replicas(replicas, req_type, rule_id, session=None):
 
     replica_core.update_replicas_states(replicas, nowait=True, session=session)
     for replica in replicas:
-        if replica['state'] == ReplicaState.UNAVAILABLE:
-            try:
-                lock.failed_transfer(replica['scope'], replica['name'], replica['rse_id'], session=session)
-            except:
-                logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (replica['scope'],
-                                                                                             replica['name'],
-                                                                                             replica['rse_id'],
-                                                                                             traceback.format_exc()))
-                raise
-
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
         logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
@@ -203,10 +199,12 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
         replica_core.update_replicas_states([replica], nowait=True, session=session)
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
+        logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
     except UnsupportedOperation:
         # replica cannot be found. register it and schedule it for deletion
         try:
             if replica['state'] == ReplicaState.AVAILABLE:
+                logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tomestone=utcnow" % (replica['scope'], replica['name'], replica['rse_id']))
                 replica_core.add_replica(None,
                                          replica['scope'],
                                          replica['name'],
@@ -217,22 +215,13 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
                                          adler32=replica['adler32'],
                                          tombstone=datetime.datetime.utcnow(),
                                          session=session)
-            if replica['request_id']:
+            if not replica['archived']:
                 request_core.archive_request(replica['request_id'], session=session)
+            logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
         except:
             logging.error('Cannot register replica for DID %s:%s at RSE %s - potential dark data' % (replica['scope'],
                                                                                                      replica['name'],
                                                                                                      replica['rse_id']))
-            raise
-
-    if replica['state'] == ReplicaState.UNAVAILABLE:
-        try:
-            lock.failed_transfer(replica['scope'], replica['name'], replica['rse_id'], session=session)
-        except:
-            logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (replica['scope'],
-                                                                                         replica['name'],
-                                                                                         replica['rse_id'],
-                                                                                         traceback.format_exc()))
             raise
 
     return True
@@ -306,7 +295,7 @@ def add_monitor_message(response, session=None):
                                   'reason': reason,
                                   'transfer-endpoint': response['external_host'],
                                   'transfer-id': response['transfer_id'],
-                                  'transfer-link': 'https://%s:8449/fts3/ftsmon/#/job/%s' % (response['external_host'],
-                                                                                             response['transfer_id']),
+                                  'transfer-link': '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'),
+                                                                                response['transfer_id']),
                                   'tool-id': 'rucio-conveyor'},
                 session=session)
