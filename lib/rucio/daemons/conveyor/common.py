@@ -195,20 +195,6 @@ def update_request_state(response, session=None):
                                                                                                               traceback.format_exc()))
                     raise
 
-                tss = time.time()
-                try:
-                    lock.failed_transfer(response['scope'],
-                                         response['name'],
-                                         rse_core.get_rse_id(rse=rse_update_name, session=session),
-                                         session=session)
-                except:
-                    logging.warn('Could not update lock for failed transfer %s:%s at %s (%s)' % (response['scope'],
-                                                                                                 response['name'],
-                                                                                                 rse_update_name,
-                                                                                                 traceback.format_exc()))
-                    raise
-
-                record_timer('daemons.conveyor.common.update_request_state.lock-failed_transfer', (time.time()-tss)*1000)
             else:
                 logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (response['scope'],
                                                                              response['name'],
