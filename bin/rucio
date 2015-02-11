@@ -253,7 +253,7 @@ def list_file_replicas(args):
         dids.append({'scope': scope, 'name': name})
     replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
     if not args.list_collections:
-        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE','NAME','FILESIZE','ADDLER32','RSE: REPLICA')
+        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE', 'NAME', 'FILESIZE', 'ADDLER32', 'RSE: REPLICA')
         print '{0:-<130}'.format('')
     for replica in replicas:
         if 'bytes' in replica:
@@ -438,7 +438,7 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
-    print '{0:^10}{1:^80}{2:10}{3:10}{4:^34}'.format('SCOPE','NAME','FILESIZE','ADDLER32','GUID')
+    print '{0:^10}{1:^80}{2:10}{3:10}{4:^34}'.format('SCOPE', 'NAME', 'FILESIZE', 'ADDLER32', 'GUID')
     print '{0:-<140}'.format('')
     for did in args.dids:
         scope, name = extract_scope(did)
@@ -945,7 +945,10 @@ def list_rules(args):
     print "ID                               (ACCOUNT) SCOPE:NAME                     STATE[OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES"
     print '{0:-<130}'.format('')
     for rule in rules:
-        print "{0:32} ({1:}) {2:}:{3:40} {4:}[{5:}/{6:}/{7:}] \"{8:}\"  {9:}".format(rule['id'], rule['account'], rule['scope'], rule['name'], rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt'], rule['rse_expression'], rule['copies'])
+        print "{0:32} ({1:}) {2:}:{3:40} {4:}[{5:}/{6:}/{7:}] \"{8:}\"  {9:}".format(rule['id'], rule['account'], rule['scope'],
+                                                                                     rule['name'], rule['state'], rule['locks_ok_cnt'],
+                                                                                     rule['locks_replicating_cnt'], rule['locks_stuck_cnt'],
+                                                                                     rule['rse_expression'], rule['copies'])
     return SUCCESS
 
 

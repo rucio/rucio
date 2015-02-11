@@ -465,7 +465,7 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        nose.tools.assert_equal('', out)
+        nose.tools.assert_equal(2, len(out.splitlines()))
 
     def test_add_file_twice(self):
         """CLIENT(USER): Add file twice"""
