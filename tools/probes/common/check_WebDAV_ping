@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 '''
 Probe to check the queues of the transfer service
@@ -15,7 +15,7 @@ Probe to check the queues of the transfer service
 import os
 import sys
 from rucio.common.config import config_get
-from rucio.common.exception import ServiceUnavailable
+from rucio.common.exception import ServiceUnavailable, RSEProtocolNotSupported
 from rucio.rse import rsemanager
 
 scheme = 'https'
@@ -45,6 +45,9 @@ try:
         sys.exit(CRITICAL)
     p.close()
     print '%s exists' % basepath
+except RSEProtocolNotSupported, e:
+    print e
+    sys.exit(WARNING)
 except:
     sys.exit(CRITICAL)
 sys.exit(OK)
