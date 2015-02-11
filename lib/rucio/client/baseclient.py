@@ -15,6 +15,7 @@
 Client class for callers of the Rucio system
 """
 
+import __main__ as main
 import random
 
 from getpass import getuser
@@ -85,7 +86,7 @@ class BaseClient(object):
         self.list_hosts = []
         self.auth_host = auth_host
         self.session = session()
-        self.user_agent = user_agent
+        self.user_agent = "%s %s/%s" % (main.__file__.split('/')[-1], user_agent, version.version_string())  # e.g. "nosetest rucio-clients/0.2.13"
 
         try:
             if self.host is None:
@@ -217,7 +218,7 @@ class BaseClient(object):
         """
         r = None
         retry = 0
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': '', 'Connection': 'Keep-Alive', 'User-Agent': '%s/%s' % (self.user_agent, version.version_string())}
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': '', 'Connection': 'Keep-Alive', 'User-Agent': self.user_agent}
 
         if headers is not None:
             hds.update(headers)
