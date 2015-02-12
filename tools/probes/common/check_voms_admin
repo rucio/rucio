@@ -11,14 +11,18 @@
 #
 # Get country groups from VOMS, get DNs with production role,
 # map to Rucio account and set country-<country>: admin
+# Get all DNs in country and set country-<country>: user
+# Get all names in cloud support e-group and set cloud-<cloud>: admin
 
 import os
 import re
 import sys
+import shlex
+import subprocess
 
 from rucio.api.account import list_accounts, add_account_attribute
 from rucio.common.config import config_get
-from rucio.common.exception import RucioException, Duplicate
+from rucio.common.exception import RucioException, Duplicate, AccountNotFound
 
 from VOMSAdmin.VOMSCommands import VOMSAdminProxy
 
@@ -27,9 +31,73 @@ CRITICAL = 2
 WARNING = 1
 OK = 0
 
+result = OK
+
+
+def add_country_attributes(dns, country, role):
+
+    if not dns:
+        print 'No user with %s role in country %s' % (role, country)
+        return
+
+    accounts_done = []
+    for dn in dns:
+        # Get Rucio account
+        accounts = list_accounts(filter={'identity': dn._DN, 'account_type': 'USER'})
+        if not accounts:
+            print "Warning: no user accounts for %s" % dn._DN
+            continue
+
+        for acc in accounts:
+            account = acc['account']
+            if account not in accounts_done:
+                print 'Set %s role for country-%s for %s' % (role, country, account)
+                try:
+                    add_account_attribute('country-%s' % country, role, account, 'root')
+                except Duplicate:
+                    pass
+                except RucioException, e:
+                    print "Failed to add account attribute: %s" % str(e)
+                    result = WARNING
+                accounts_done.append(account)
+
+
+def add_cloud_admins():
+
+    for cloud in ['ca', 'de', 'es', 'fr', 'it', 'ng', 'nl', 'ru', 't0', 'tw', 'uk', 'us']:
+        egroup = 'atlas-support-cloud-%s' % cloud
+        if cloud == 'ru':
+            egroup = 'atlas-adc-cloud-ru'
+        cmd = "/usr/bin/ldapsearch -x -h xldap.cern.ch -b 'CN=%s,OU=e-groups,OU=Workgroups,DC=cern,DC=ch' member" % egroup
+
+        p = subprocess.Popen(shlex.split(cmd), stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+        (stdout, stderr) = p.communicate()
+        if p.returncode != 0:
+            print "Warning: Failed to run ldapsearch: %s" % stdout
+            result = WARNING
+            continue
+
+        # Always exceptions...
+        cloud = cloud.replace('t0', 'cern')
+        cloud = cloud.replace('ng', 'nd')
+        for line in stdout.split('\n'):
+            m = re.match('member: CN=(\w+),OU=Users', line)
+            if m:
+                account = m.group(1)
+                print 'Set admin role for cloud-%s for %s' % (cloud, account)
+                try:
+                    add_account_attribute('cloud-%s' % cloud, 'admin', account, 'root')
+                except Duplicate:
+                    pass
+                except AccountNotFound:
+                    print 'Warning: Account %s not in Rucio' % account
+                    result = WARNING
+                except RucioException, e:
+                    print "Failed to add account attribute: %s" % str(e)
+                    result = WARNING
+
 if __name__ == '__main__':
     result = OK
-
     try:
         proxy = config_get('nagios', 'proxy')
         os.environ["X509_USER_PROXY"] = proxy
@@ -46,8 +114,6 @@ if __name__ == '__main__':
         sys.exit(CRITICAL)
 
     for group in res:
-        accounts_done = []
-
         m = re.match('/atlas/(\w\w)$', group) or re.match('/atlas/(cern)$', group) or re.match('/atlas/(usatlas)$', group)
         if not m:
             continue
@@ -58,28 +124,13 @@ if __name__ == '__main__':
 
         # Get DNs with production role in each country
         dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production')
-        if not dns:
-            print 'No admins in country %s' % country
-            continue
+        add_country_attributes(dns, country, 'admin')
 
-        for dn in dns:
-            # Get Rucio account
-            accounts = list_accounts(filter={'identity': dn._DN, 'account_type': 'USER'})
-            if not accounts:
-                print "Warning: no user accounts for %s" % dn._DN
-                continue
+        # Get DNs in country group (this won't overwite admin role)
+        dns = admin.call_method('list-members', vomsgroup)
+        add_country_attributes(dns, country, 'user')
 
-            for acc in accounts:
-                account = acc['account']
-                if account not in accounts_done:
-                    print 'Set admin role for country-%s for %s' % (country, account)
-                    try:
-                        add_account_attribute('country-%s' % country, 'admin', account, 'root')
-                    except Duplicate:
-                        pass
-                    except RucioException, e:
-                        print "Failed to add account attribute: %s" % str(e)
-                        result = WARNING
-                    accounts_done.append(account)
+    # Add cloud admins from ldap egroups
+    add_cloud_admins()
 
     sys.exit(result)
