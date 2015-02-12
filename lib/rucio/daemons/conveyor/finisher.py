@@ -20,7 +20,7 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.core import request
-from rucio.core.monitor import record_timer
+from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common1 as common
 from rucio.db.constants import RequestState, RequestType
 
@@ -69,7 +69,10 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
                 time.sleep(10)  # Only sleep if there is nothing to do
                 continue
 
+            ts = time.time()
             common.handle_requests(reqs)
+            record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/len(reqs))
+            record_counter('daemons.conveyor.finisher.handle_requests', len(reqs))
         except:
             logging.critical(traceback.format_exc())
 
