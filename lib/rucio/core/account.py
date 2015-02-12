@@ -211,7 +211,7 @@ def add_account_attribute(account, key, value, session=None):
     try:
         query.one()
     except exc.NoResultFound:
-        raise exception.AccountNotFound("Account ID '{}' does not exist".format(account))
+        raise exception.AccountNotFound("Account ID '{0}' does not exist".format(account))
 
     new_attr = models.AccountAttrAssociation(account=account, key=key, value=value)
     try:
