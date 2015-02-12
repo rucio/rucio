@@ -14,6 +14,7 @@
 import logging
 import sys
 
+from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
 from time import strptime
@@ -598,7 +599,18 @@ def repair_rule(rule_id, session=None):
 
         session.flush()
 
-        # 2. Try to find STUCK locks and repair them based on grouping
+        # 2. Try to find surplus locks and remove them
+        __find_surplus_locks_and_remove_them(datasetfiles=datasetfiles,
+                                             locks=locks,
+                                             replicas=replicas,
+                                             rseselector=rseselector,
+                                             rule=rule,
+                                             source_rses=[rse['id'] for rse in source_rses],
+                                             session=session)
+
+        session.flush()
+
+        # 3. Try to find STUCK locks and repair them based on grouping
         try:
             __find_stuck_locks_and_repair_them(datasetfiles=datasetfiles,
                                                locks=locks,
@@ -1136,6 +1148,52 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, rseselec
                                               session=session)
 
     logging.debug("Finished finding missing locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
+
+@transactional_session
+def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, rseselector, rule, source_rses, session=None):
+    """
+    Find surplocks locks for a rule and delete them.
+
+    :param datasetfiles:       Dict holding all datasets and files.
+    :param locks:              Dict holding locks.
+    :param replicas:           Dict holding replicas.
+    :param rseselector:        The RSESelector to be used.
+    :param rule:               The rule.
+    :param source_rses:        RSE ids for eglible source RSEs.
+    :param session:            Session of the db.
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
+    :attention:                This method modifies the contents of the locks and replicas input parameters.
+    """
+
+    logging.debug("Finding surplus locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
+
+    account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
+
+    # Put all the files in one dictionary
+    files = {}
+    for ds in datasetfiles:
+        for file in ds['files']:
+            files[(file['scope'], file['name'])] = True
+
+    iter_locks = deepcopy(locks)
+    for key in iter_locks:
+        if key not in files:
+            # The lock needs to be removed
+            lock = locks[key]
+            __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=True, session=session)
+            if lock.rse_id not in account_counter_decreases:
+                account_counter_decreases[lock.rse_id] = []
+            account_counter_decreases[lock.rse_id].append(lock.bytes)
+            if lock.state == LockState.OK:
+                rule.locks_ok_cnt -= 1
+            elif lock.state == LockState.REPLICATING:
+                rule.locks_replicating_cnt -= 1
+            elif lock.state == LockState.STUCK:
+                rule.locks_stuck_cnt -= 1
+            del locks[key]
+
+    logging.debug("Finished finding surplus locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
 
 @transactional_session
