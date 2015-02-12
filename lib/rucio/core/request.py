@@ -86,7 +86,8 @@ def queue_requests(requests, session=None):
                                       req['name'],
                                       None,
                                       rse_id=req['dest_rse_id'],
-                                      request_type=RequestType.TRANSFER):
+                                      request_type=RequestType.TRANSFER,
+                                      session=session):
                     continue
 
             new_request = models.Request(request_type=req['request_type'],
