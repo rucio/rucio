@@ -826,6 +826,7 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
                 raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
             session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
             session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
+            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
     elif key == 'bytes':
             rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
