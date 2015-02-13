@@ -58,7 +58,7 @@ def add_country_attributes(dns, country, role):
                     pass
                 except RucioException, e:
                     print "Failed to add account attribute: %s" % str(e)
-                    result = WARNING
+                    result = WARNING  # NOQA
                 accounts_done.append(account)
 
 
@@ -94,7 +94,7 @@ def add_cloud_admins():
                     result = WARNING
                 except RucioException, e:
                     print "Failed to add account attribute: %s" % str(e)
-                    result = WARNING
+                    result = WARNING  # NOQA
 
 if __name__ == '__main__':
     result = OK

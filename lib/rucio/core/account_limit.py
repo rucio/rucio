@@ -29,9 +29,13 @@ def get_account_limit(account, rse_id, session=None):
     try:
         account_limit = session.query(models.AccountLimit).filter(models.AccountLimit.account == account,
                                                                   models.AccountLimit.rse_id == rse_id).one()
-        return account_limit.bytes
+        if account_limit.bytes == -1:
+            return float("inf")
+        else:
+            return account_limit.bytes
     except NoResultFound:
         return float("inf")
+        # return 0
 
 
 @read_session
@@ -54,11 +58,17 @@ def get_account_limits(account, rse_ids=None, session=None):
         for rse_id_chunk in rse_id_clause_chunks:
             tmp_limits = session.query(models.AccountLimit).filter(or_(*rse_id_chunk)).all()
             for limit in tmp_limits:
-                account_limits[limit.rse_id] = limit.bytes
+                if limit.bytes == -1:
+                    account_limits[limit.rse_id] = float("inf")
+                else:
+                    account_limits[limit.rse_id] = limit.bytes
     else:
         account_limits_tmp = session.query(models.AccountLimit).filter(models.AccountLimit.account == account).all()
         for limit in account_limits_tmp:
-            account_limits[limit.rse_id] = limit.bytes
+            if limit.bytes == -1:
+                account_limits[limit.rse_id] = float("inf")
+            else:
+                account_limits[limit.rse_id] = limit.bytes
     return account_limits
 
 
