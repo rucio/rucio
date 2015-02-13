@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 
 """
@@ -152,6 +153,14 @@ class FTSState(DeclEnum):
 class FTSCompleteState(DeclEnum):
     OK = 'O', 'Ok'
     ERROR = 'E', 'Error'
+
+
+class BadFilesStatus(DeclEnum):
+    BAD = 'B', 'BAD'
+    DELETED = 'D', 'DELETED'
+    RECOVERED = 'R', 'RECOVERED'
+    SUSPICIOUS = 'S', 'SUSPICIOUS'
+
 
 # Individual constants
 
