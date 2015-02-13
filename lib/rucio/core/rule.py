@@ -16,6 +16,7 @@ import sys
 
 from datetime import datetime, timedelta
 from re import match
+from time import strptime
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
@@ -368,12 +369,19 @@ def list_rules(filters={}, session=None):
     if filters:
         for (k, v) in filters.items():
             if k == 'state' and isinstance(v, basestring):
-                v = RuleState.from_string(v)
-            if k == 'did_type' and isinstance(v, basestring):
-                v = DIDType.from_string(v)
-            if k == 'grouping' and isinstance(v, basestring):
-                v = RuleGrouping.from_string(v)
-            query = query.filter(getattr(models.ReplicationRule, k) == v)
+                query = query.filter(models.ReplicationRule.state == RuleState.from_string(v))
+            elif k == 'did_type' and isinstance(v, basestring):
+                query = query.filter(models.ReplicationRule.did_type == DIDType.from_string(v))
+            elif k == 'grouping' and isinstance(v, basestring):
+                query = query.filter(models.ReplicationRule.grouping == RuleGrouping.from_string(v))
+            elif k == 'created_before' and isinstance(v, basestring):
+                dt = strptime(v, '%Y-%m-%d %H:%M:%S')
+                query = query.filter(models.ReplicationRule.created_at < dt)
+            elif k == 'created_after' and isinstance(v, basestring):
+                dt = strptime(v, '%Y-%m-%d %H:%M:%S')
+                query = query.filter(models.ReplicationRule.created_at > dt)
+            else:
+                query = query.filter(getattr(models.ReplicationRule, k) == v)
 
     try:
         for rule in query.yield_per(5):
