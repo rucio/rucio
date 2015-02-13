@@ -8,7 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
 import datetime
 import json
@@ -295,10 +295,30 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
                 'adler32': fts_job_response['job_metadata'].get('adler32', None),
                 'md5': fts_job_response['job_metadata'].get('md5', None),
                 'filesize': fts_job_response['job_metadata'].get('filesize', None),
-                'external_host': transfer_host.split("//")[1].split(":")[0],
+                'external_host': transfer_host,
                 'job_m_replica': job_m_replica,
                 'details': {'files': fts_job_response['job_metadata']}}
     return response
+
+
+def bulk_query_responses(jobs_response, transfer_host):
+    if type(jobs_response) is not list:
+        jobs_response = [jobs_response]
+
+    responses = {}
+    for job_response in jobs_response:
+        transfer_id = job_response['job_id']
+        if job_response['http_status'] == '200 Ok':
+            files_response = job_response['files']
+            response = format_response(transfer_host, job_response, files_response)
+            responses[transfer_id] = response
+        elif job_response['http_status'] == '404 Not Found':
+            # Lost transfer
+            responses[transfer_id] = None
+        else:
+            responses[transfer_id] = Exception('Could not retrieve transfer information(http_status: %s, http_message: %s)' % (job_response['http_status'],
+                                                                                                                               job_response['http_message'] if 'http_message' in job_response else None))
+    return responses
 
 
 def bulk_query(transfer_ids, transfer_host):
@@ -310,81 +330,38 @@ def bulk_query(transfer_ids, transfer_host):
     :returns: Transfer status information as a dictionary.
     """
 
-    job = None
+    jobs = None
+
+    # for FTS3, if only one transfer_id and failed, the return value will not be a json.
+    if type(transfer_ids) is not list:
+        transfer_ids = [transfer_ids, transfer_ids]
+    if len(transfer_ids) == 1:
+        transfer_ids = [transfer_ids[0], transfer_ids[0]]
 
     responses = {}
+    fts_session = requests.Session()
+    xfer_ids = ','.join(transfer_ids)
     if transfer_host.startswith('https://'):
-        fts_session = requests.Session()
-        for transfer_id in transfer_ids:
-            job = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
-                                  verify=False,
-                                  cert=(__USERCERT, __USERCERT),
-                                  headers={'Content-Type': 'application/json'})
-            if not job:
-                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
-                responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
-            elif job.status_code == 200:
-                record_counter('transfertool.fts3.%s.bulk_establish.success' % __extract_host(transfer_host))
-                job_response = job.json()
-                if not job_response['job_state'] in (str(FTSState.FAILED),
-                                                     str(FTSState.FINISHEDDIRTY),
-                                                     str(FTSState.CANCELED),
-                                                     str(FTSState.FINISHED)):
-                    responses[transfer_id] = {}
-                    responses[transfer_id]['job_state'] = job_response['job_state']
-                    responses[transfer_id]['new_state'] = None
-                    responses[transfer_id]['transfer_id'] = transfer_id
-                else:
-                    files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
-                                            verify=False,
-                                            cert=(__USERCERT, __USERCERT),
-                                            headers={'Content-Type': 'application/json'})
-                    if files and files.status_code == 200:
-                        record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
-                        responses[transfer_id] = format_response(transfer_host, job_response, files.json())
-                    else:
-                        record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
-                        responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
-
-            elif "No job with the id" in job.text:
-                responses[transfer_id] = None
-            else:
-                responses[transfer_id] = Exception('Could not retrieve transfer information: %s', job.content)
+        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl' % (transfer_host, xfer_ids),
+                               verify=False,
+                               cert=(__USERCERT, __USERCERT),
+                               headers={'Content-Type': 'application/json'})
     else:
-        fts_session = requests.Session()
-        for transfer_id in transfer_ids:
-            job = fts_session.get('%s/jobs/%s' % (transfer_host, transfer_id),
-                                  headers={'Content-Type': 'application/json'})
-            if not job:
-                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
-                responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % job)
-            elif job.status_code == 200:
-                record_counter('transfertool.fts3.%s.bulk_establish.success' % __extract_host(transfer_host))
-                job_response = job.json()
-                if not job_response['job_state'] in (str(FTSState.FAILED),
-                                                     str(FTSState.FINISHEDDIRTY),
-                                                     str(FTSState.CANCELED),
-                                                     str(FTSState.FINISHED)):
-                    responses[transfer_id] = {}
-                    responses[transfer_id]['job_state'] = job_response['job_state']
-                    responses[transfer_id]['new_state'] = None
-                    responses[transfer_id]['transfer_id'] = transfer_id
-                else:
-                    files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
-                                            headers={'Content-Type': 'application/json'})
-                    if files and files.status_code == 200:
-                        record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
-                        responses[transfer_id] = format_response(transfer_host, job_response, files.json())
-                    else:
-                        record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
-                        responses[transfer_id] = Exception('Could not retrieve files information: %s', files)
+        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl' % (transfer_host, xfer_ids),
+                               headers={'Content-Type': 'application/json'})
 
-            elif "No job with the id" in job.text:
-                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
-                responses[transfer_id] = None
-            else:
-                record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
-                responses[transfer_id] = Exception('Could not retrieve transfer information: %s', job.content)
+    if not jobs:
+        record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
+        for transfer_id in transfer_ids:
+            responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
+    elif jobs.status_code == 200:
+        record_counter('transfertool.fts3.%s.bulk_establish.success' % __extract_host(transfer_host))
+        jobs_response = jobs.json()
+        responses = bulk_query_responses(jobs_response, transfer_host)
+    else:
+        record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
+        for transfer_id in transfer_ids:
+            responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
 
     return responses
 
