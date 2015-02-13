@@ -47,16 +47,15 @@ A Rucio Storage Element is a site or part of the site that allows to store datas
 Start with a clean environment
 (Some GRID or python environment might screw up the setups.)
 ::
-    $ export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
-    $ source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh
-    $ localSetupEmi
-    $ localSetupDQ2Clients
-    $ voms-proxy-init -voms atlas
     $ setupATLAS
+    $ localSetupRucioClients
+    $ voms-proxy-init -voms atlas
 
-Type localSetupAGIS to setup AGIS
-Type localSetupRucioClients to setup rucio-clients
-Type localSetupSFT to setup SFT packages
+if setupATLAS is undefined, then
+::
+    $ export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+    $ alias setupATLAS='source ${ATLAS_LOCAL_ROOT_BASE}
+    $ /user/atlasLocalSetup.sh'
 
 ``User Identity``
 -----------------
@@ -358,7 +357,10 @@ Again, you can specify a different scope for the files with --scope
 ::
     $> rucio upload --rse MY_SCRATCHDISK  user.name:mydataset file1 file2 file3 directory/ --scope user.other_name
 
-`Important note`: The names of files and datasets must be unique for a given scope. Otherwise, the rucio command will end in an error. Also the name of the files must be different that the one given for the dataset.
+**Important note**: The names of files and datasets must be unique for a given scope. Otherwise, the rucio command will end in an error. Also the name of the files must be different that the one given for the dataset.
+
+Also important. Note that the ``rse`` argument is mandatory. This is because rucio will automatically create a replication rule for you. This default rules is per dataset (if you provide one) or per files (if no dataset is provided.) This rule is associated to the particular RSE you have selected and have a lifetime of 15 days by default. After that, your dataset and files will be eligible for deletion.
+
 
 ``Create a dataset from files already in other datasets``
 ---------------------------------------------------------
