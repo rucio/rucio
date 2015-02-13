@@ -731,7 +731,7 @@ def update_rule(rule_id, options, session=None):
                     rule.state = RuleState.SUSPENDED
                 elif options['state'].lower() == 'stuck':
                     rule.state = RuleState.STUCK
-                    session.query(models.ReplicaLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                    session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).update({'state': LockState.STUCK})
                     session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
 
             else:
