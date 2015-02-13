@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN) 2013
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2014
+#
+import os
+import sys
+
+from rucio.client import Client
+from rucio.common.config import config_get
+from rucio.rse import rsemanager as rsemgr
+
+OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
+
+
+if __name__ == "__main__":
+
+    retvalue = OK
+    cloudRetValue = OK
+    usedsize = 0
+    freesize = 0
+
+    try:
+        proxy = config_get('nagios', 'proxy')
+        os.environ["X509_USER_PROXY"] = proxy
+    except Exception as e:
+        print "Failed to get proxy from rucio.cfg"
+        retvalue = WARNING
+
+    c = Client()
+
+    rses = c.list_rses()
+    for rse in rses:
+        rsename = rse['rse']
+        if 'GRIDFTP' not in rsename:
+            continue
+        rse_settings = rsemgr.get_rse_info(rsename)
+        try:
+            gs, ret = rsemgr.get_space_usage(rse_settings, "gsiftp")
+            if gs:
+                totalsize = long(ret["totalsize"])
+                freesize = long(ret["unusedsize"])
+                usedsize = totalsize - freesize
+                retvalue = OK
+            else:
+                print "Failed to get rse(%s) space information: %s" % (rsename, str(ret))
+                retvalue = WARNING
+                cloudRetValue = WARNING
+        except Exception as e:
+            print "Failed to get rse(%s) space information: %s" % (rsename, str(e))
+            retvalue = WARNING
+            cloudRetValue = WARNING
+
+        if retvalue == OK:
+            print "Update RSE %s space usage (usedsize: %s, freesize: %s)" % (rsename, usedsize, freesize)
+            c.set_rse_usage(rsename, "gsiftp", usedsize, freesize)
+
+    sys.exit(cloudRetValue)
