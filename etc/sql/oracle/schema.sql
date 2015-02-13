@@ -1367,3 +1367,40 @@ INTERVAL ( NUMTOYMINTERVAL(1,'MONTH') )
 
 COMMENT ON TABLE ATLAS_RUCIO.rules_history IS 'Full history table for rules';
 COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for sqlalchemy';
+
+
+
+-- ========================================= BAD_REPLICAS ==============================================
+-- Description: Table that stores the bad files
+-- Estimated volume:  A few millions per year
+-- Access pattern: -- By state, rse_id
+
+
+CREATE TABLE ATLAS_RUCIO.bad_replicas(
+    id CHAR(32) NOT NULL,
+    scope VARCHAR(25),
+    name VARCHAR(255),
+    rse_id CHAR(32),
+    reason VARCHAR(255),
+    state VARCHAR(1),
+    account VARCHAR(25),
+    updated_at DATETIME,
+    created_at DATETIME,
+    CONSTRAINT bad_replicas_pk PRIMARY KEY (scope, name, rse_id, created_at),
+    CONSTRAINT bad_replicas_account_fk FOREIGN KEY(account) REFERENCES accounts (account),
+    CONSTRAINT bad_replicas_scope_nn CHECK (scope IS NOT NULL),
+    CONSTRAINT bad_replicas_name_nn CHECK (name IS NOT NULL),
+    CONSTRAINT bad_replicas_rse_id_nn CHECK (rse_id IS NOT NULL),
+    CONSTRAINT bad_replicas_created_nn CHECK (created_at IS NOT NULL),
+    CONSTRAINT bad_replicas_updated_at CHECK (updated_at IS NOT NULL),
+    CONSTRAINT bad_replicas_state_chk CHECK (state IN ('R', 'S', 'B', 'D')),
+    CONSTRAINT bad_replias_reporter_chk CHECK (reporter IN ('P', 'R', 'M', 'F'))
+) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
+PARTITION BY RANGE(CREATED_AT)
+INTERVAL ( NUMTODSINTERVAL(1,'MONTH'))
+ ENABLE ROW MOVEMENT ;
+
+CREATE INDEX ATLAS_RUCIO.BAD_REPLICAS_STATE_IDX ON ATLAS_RUCIO.bad_replicas(rse_id, state) TABLESPACE ATLAS_RUCIO_HIST_DATA01;
+
+COMMENT ON TABLE ATLAS_RUCIO.bad_replicas IS 'Full history for bad replicas';
+

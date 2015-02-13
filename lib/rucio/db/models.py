@@ -29,7 +29,7 @@ from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 from rucio.db.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
-                                KeyType, IdentityType, LockState, RuleGrouping,
+                                KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
                                 RuleState, ReplicaState, RequestState, RequestType, RSEType,
                                 ScopeStatus, SubscriptionState, RuleNotification)
 from rucio.db.history import Versioned
@@ -357,6 +357,24 @@ class UpdatedDID(BASE, ModelBase):
                    CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='UPDATED_DIDS_NAME_NN'),
                    Index('UPDATED_DIDS_SCOPERULENAME_IDX', 'scope', 'rule_evaluation_action', 'name')
+                   )
+
+
+class BadFilesStatus(BASE, ModelBase):
+    """Represents the suspicious or bad replicas"""
+    __tablename__ = 'bad_replicas'
+    scope = Column(String(25))
+    name = Column(String(255))
+    rse_id = Column(GUID())
+    reason = Column(String(255))
+    state = Column(BadFilesStatus.db_type(name='BAD_REPLICAS_STATE_CHK'), default=BadFilesStatus.SUSPICIOUS)
+    account = Column(String(25))
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'created_at', name='BAD_REPLICAS_STATE_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
+                   CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_REPLICAS_ACCOUNT_FK'),
+                   Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state')
                    )
 
 
@@ -850,6 +868,7 @@ def register_models(engine):
               AccountLimit,
               AccountUsage,
               AlembicVersion,
+              BadFilesStatus,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
