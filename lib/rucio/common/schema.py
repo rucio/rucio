@@ -62,6 +62,10 @@ replica_state = {"description": "Replica state",
                  "type": "string",
                  "enum": ["AVAILABLE", "UNAVAILABLE", "COPYING", "BEING_DELETED", "BAD", "SOURCE", "A", "U", "C", "B", "D", "S"]}
 
+date = {"description": "Date",
+        "type": "string",
+        "pattern": r'((Mon)|(Tue)|(Wed)|(Thu)|(Fri)|(Sat)|(Sun))[,]\s\d{2}\s(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}\s(0\d|1\d|2[0-3])(\:)(0\d|1\d|2\d|3\d|4\d|5\d)(\:)(0\d|1\d|2\d|3\d|4\d|5\d)\s(UTC)'}
+
 did_type = {"description": "DID type",
             "type": "string",
             "enum": ["DATASET", "CONTAINER", "FILE", "F"]}
@@ -142,6 +146,12 @@ did = {"description": "Data Identifier(DID)",
                       "pfn": pfn},
        "required": ["scope", "name"],
        "additionalProperties": False}
+
+did_filters = {"description": "Filters dictionary to list DIDs",
+               "type": "object",
+               "properties": {"created_before": date,
+                              "created_afted": date},
+               "additionalProperties": True}
 
 r_did = {"description": "Data Identifier(DID)",
          "type": "object",
@@ -257,6 +267,7 @@ schemas = {'account': account,
            'scope': scope,
            'r_scope': r_scope,
            'did': did,
+           'did_filters': did_filters,
            'r_did': r_did,
            'dids': dids,
            'r_dids': r_dids,

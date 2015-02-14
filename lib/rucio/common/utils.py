@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 
@@ -148,7 +148,7 @@ def str_to_date(string):
 
     :param string: the RFC-1123 string to convert to datetime value.
     """
-    return datetime.strptime(string, DATE_FORMAT) if string else None
+    return datetime.datetime.strptime(string, DATE_FORMAT) if string else None
 
 
 def date_to_str(date):
