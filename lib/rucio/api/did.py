@@ -29,6 +29,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
     :param ignore_case: Ignore case distinctions.
     """
+    validate_schema(name='did_filters', obj=filters)
     return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case, limit=limit, offset=offset)
 
 
