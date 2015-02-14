@@ -18,7 +18,7 @@ from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url, render_json, render_json_list
+from rucio.common.utils import build_url, render_json, render_json_list, date_to_str
 
 
 class DIDClient(BaseClient):
@@ -38,11 +38,13 @@ class DIDClient(BaseClient):
         :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
         :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         """
-
         path = '/'.join([self.DIDS_BASEURL, scope, 'dids', 'search'])
         payload = {}
         for k, v in filters.items():
-            payload[k] = v
+            if k in ('created_before', 'created_after'):
+                payload[k] = date_to_str(v)
+            else:
+                payload[k] = v
         payload['type'] = type
 
         url = build_url(choice(self.list_hosts), path=path, params=payload)
@@ -315,30 +317,6 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
-    def scope_list(self, scope, name=None, recursive=False):
-        """
-        List data identifiers in a scope.
-
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param recursive: boolean, True or False.
-        """
-
-        payload = {}
-        path = '/'.join([self.DIDS_BASEURL, scope, ''])
-        if name:
-            payload['name'] = name
-        if recursive:
-            payload['recursive'] = True
-        url = build_url(choice(self.list_hosts), path=path, params=payload)
-
-        r = self._send_request(url, type='GET')
-        if r.status_code == codes.ok:
-            return self._load_json_data(r)
-        else:
-            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
-            raise exc_cls(exc_msg)
-
     def get_did(self, scope, name):
         """
         Retrieve a single data identifier.
@@ -480,6 +458,30 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
         url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def scope_list(self, scope, name=None, recursive=False):
+        """
+        List data identifiers in a scope.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param recursive: boolean, True or False.
+        """
+
+        payload = {}
+        path = '/'.join([self.DIDS_BASEURL, scope, ''])
+        if name:
+            payload['name'] = name
+        if recursive:
+            payload['recursive'] = True
+        url = build_url(choice(self.list_hosts), path=path, params=payload)
+
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)

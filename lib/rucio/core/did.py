@@ -35,6 +35,7 @@ import rucio.core.replica  # import add_replicas
 
 from rucio.common import exception
 from rucio.common.config import config_get
+from rucio.common.utils import str_to_date
 from rucio.core import account_counter, rse_counter
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
@@ -976,7 +977,8 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
 
     for (k, v) in filters.items():
 
-        if not hasattr(models.DataIdentifier, k):
+        if k not in ['created_before', 'created_after'] \
+           and not hasattr(models.DataIdentifier, k):
             raise exception.KeyNotFound(k)
 
         if (isinstance(v, unicode) or isinstance(v, str)) and ('*' in v or '%' in v):
@@ -984,6 +986,12 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
                 query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%')))
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%'), escape='\\'))
+        elif k == 'created_before':
+            dt = str_to_date(v)
+            query = query.filter(models.DataIdentifier.created_at <= dt)
+        elif k == 'created_after':
+            dt = str_to_date(v)
+            query = query.filter(models.DataIdentifier.created_at >= dt)
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 

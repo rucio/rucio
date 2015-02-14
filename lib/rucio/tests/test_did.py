@@ -166,7 +166,9 @@ class TestDIDClients:
             results.append(result)
         assert_equal(len(results), 3)
         results = []
-        for result in self.did_client.list_dids(tmp_scope, {'name': 'file*'}):
+
+        filters = {'name': 'file*', 'created_after': datetime.utcnow() - timedelta(hours=1)}
+        for result in self.did_client.list_dids(tmp_scope, filters):
             results.append(result)
         assert_equal(len(results), 0)
         with assert_raises(UnsupportedOperation):

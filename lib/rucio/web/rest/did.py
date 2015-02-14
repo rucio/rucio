@@ -108,7 +108,6 @@ class Search(RucioController):
         filters = {}
         if ctx.query:
             params = parse_qs(ctx.query[1:])
-
             for k, v in params.items():
                 if k == 'type':
                     type = v[0]
