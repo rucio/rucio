@@ -49,8 +49,11 @@ if __name__ == "__main__":
                 summary = r.json()['summary']
                 h = urlparse(url)
                 hostname = h.hostname.replace('.', '_')
-                print '%s : %s' % (hostname, summary['submitted'])
-                monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=summary['submitted'])
+                print '%s : Submitted : %s' % (hostname, summary['submitted'])
+                print '%s : Active : %s' % (hostname, summary['active'])
+                print '%s : Staging : %s' % (hostname, summary['staging'])
+                print '%s : Started : %s' % (hostname, summary['started'])
+                monitor.record_gauge(stat='fts3.%s.submitted' % (hostname), value=(summary['submitted'] + summary['active'] + summary['staging'] + summary['started']))
                 retvalue = OK
                 break
             except Exception, e:
