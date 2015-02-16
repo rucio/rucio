@@ -474,7 +474,7 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, ses
         replica_rse = get_rse(rse=None, rse_id=rse_id, session=session)
 
     if (not (replica_rse.availability & 2)) and not ignore_availability:
-        raise exception.RessourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
+        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse)
 
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
@@ -534,7 +534,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     replica_rse = get_rse(rse=rse, session=session)
 
     if (not (replica_rse.availability & 1)) and not ignore_availability:
-        raise exception.RessourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
+        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for deleting' % rse)
 
     replica_condition, parent_condition, did_condition = list(), list(), list()
     for file in files:

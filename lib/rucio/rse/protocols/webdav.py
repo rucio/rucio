@@ -348,7 +348,7 @@ class Default(protocol.RSEProtocol):
 
             :param pfn Physical file name
 
-            :raises ServiceUnavailable, SourceNotFound, RSEAccessDenied
+            :raises ServiceUnavailable, SourceNotFound, RSEAccessDenied, ResourceTemporaryUnavailable
         """
         path = self.path2pfn(pfn)
         try:
@@ -357,8 +357,10 @@ class Default(protocol.RSEProtocol):
                 return
             elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
-            elif result.status_code in [401, ]:
+            elif result.status_code in [401, 403]:
                 raise exception.RSEAccessDenied()
+            elif result.status_code in [503, ]:
+                raise exception.ResourceTemporaryUnavailable()
             else:
                 # catchall exception
                 raise exception.RucioException(result.status_code, result.text)

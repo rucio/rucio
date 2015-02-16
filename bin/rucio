@@ -33,7 +33,7 @@ from functools import wraps
 
 from rucio.client import Client
 from rucio import version
-from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, RessourceTemporaryUnavailable,
+from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported)
 from rucio.common.utils import adler32, generate_uuid
 from rucio.rse import rsemanager as rsemgr
@@ -653,7 +653,7 @@ def upload(args):
             except (Duplicate, FileAlreadyExists), e:
                 logger.warning(e)
                 return FAILURE
-            except RessourceTemporaryUnavailable, e:
+            except ResourceTemporaryUnavailable, e:
                 logger.error(e)
                 return FAILURE
         except DataIdentifierAlreadyExists, e:
