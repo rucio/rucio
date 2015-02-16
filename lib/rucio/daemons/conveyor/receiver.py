@@ -21,13 +21,15 @@ import threading
 import time
 import traceback
 
+import Queue
+
 import dns.resolver
 import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
-from rucio.daemons.conveyor.common1 import update_request_state
+from rucio.daemons.conveyor import common1 as common
 from rucio.db.constants import RequestState, FTSCompleteState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -42,10 +44,11 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id, total_threads):
+    def __init__(self, broker, id, total_threads, queue):
         self.__broker = broker
         self.__id = id
         self.__total_threads = total_threads
+        self.__msgQueue = queue
 
     def on_error(self, headers, message):
         record_counter('daemons.conveyor.receiver.error')
@@ -96,19 +99,19 @@ class Receiver(object):
 
                 try:
                     if response['new_state']:
-                        logging.debug('DID %s:%s FROM %s TO %s STATE %s' % (msg['job_metadata']['scope'],
-                                                                            msg['job_metadata']['name'],
-                                                                            msg['job_metadata']['src_rse'],
-                                                                            msg['job_metadata']['dst_rse'],
-                                                                            response['new_state']))
+                        logging.debug('RECEIVED DID %s:%s FROM %s TO %s STATE %s' % (msg['job_metadata']['scope'],
+                                                                                     msg['job_metadata']['name'],
+                                                                                     msg['job_metadata']['src_rse'],
+                                                                                     msg['job_metadata']['dst_rse'],
+                                                                                     response['new_state']))
 
-                        ret = update_request_state(response)
-                        record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
+                        self.__msgQueue.put(response)
+                        record_counter('daemons.conveyor.receiver.queue_message')
                 except:
                     logging.critical(traceback.format_exc())
 
 
-def receiver(id, total_threads=1):
+def receiver(id, queue, total_threads=1):
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -149,7 +152,7 @@ def receiver(id, total_threads=1):
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads))
+                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, queue=queue))
                 conn.start()
                 conn.connect()
                 conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
@@ -158,7 +161,7 @@ def receiver(id, total_threads=1):
 
         time.sleep(1)
 
-    logging.info('graceful stop requested')
+    logging.info('receiver graceful stop requested')
 
     for conn in conns:
         try:
@@ -166,7 +169,45 @@ def receiver(id, total_threads=1):
         except:
             pass
 
-    logging.info('graceful stop done')
+    logging.info('receiver graceful stop done')
+
+
+def updater(queue, bulk=10):
+    """
+    Main loop to update the rucio request status.
+    """
+    logging.info('updater starting')
+
+    timeout = 1
+    responses = []
+    stop = False
+
+    while True:
+        try:
+            response = queue.get(True, timeout)
+            responses.append(response)
+            queue.task_done()
+        except Queue.Empty:
+            if stop:
+                break
+            # queue is empty and stop signal is set, return
+            if graceful_stop.is_set():
+                logging.info("updater graceful stop requested, sleep 2 seconds to wait receiver to finish")
+                time.sleep(2)
+                stop = True
+            else:
+                continue
+        # if stop is True, no matter how many responses, just update.
+        if len(responses) >= bulk or stop:
+            try:
+                ret = common.update_requests_states(responses)
+                logging.debug("UPDATED %s REQUESTS" % len(responses))
+                record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret, len(responses))
+                responses = []
+            except:
+                logging.critical(traceback.format_exc())
+
+    logging.info('updater graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -177,17 +218,23 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1):
+def run(once=False, total_threads=1, bulk=10):
     """
     Starts up the receiver thread
     """
+    msgQueue = Queue.Queue()
 
     logging.info('starting receiver thread')
-    threads = [threading.Thread(target=receiver, kwargs={'id': i, 'total_threads': total_threads}) for i in xrange(0, total_threads)]
+    threads = [threading.Thread(target=receiver, kwargs={'id': i, 'total_threads': total_threads, 'queue': msgQueue}) for i in xrange(0, total_threads)]
     [t.start() for t in threads]
+
+    logging.info('starting updater thread')
+    thread = threading.Thread(target=updater, kwargs={'queue': msgQueue, 'bulk': bulk})
+    thread.start()
 
     logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
-    while t.isAlive():
-        t.join(timeout=3.14)
+    while len(threads) > 0:
+        [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+    thread.join()
