@@ -17,12 +17,16 @@ Conveyor is a daemon to manage file transfers.
 
 import datetime
 import logging
+import re
 import sys
 import threading
 import time
 import traceback
 
+from sqlalchemy.exc import DatabaseError
+
 from rucio.common.config import config_get
+from rucio.common.exception import DatabaseException
 from rucio.common.utils import chunks
 from rucio.core import request
 from rucio.core.monitor import record_timer, record_counter
@@ -107,9 +111,13 @@ def poller(once=False, process=0, total_processes=1, thread=0, total_threads=1, 
                             record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
                             if response['new_state'] == RequestState.LOST:
                                 record_counter('daemons.conveyor.poller.request_lost')
+                except (DatabaseException, DatabaseError), e:
+                    if isinstance(e.args[0], tuple) and (re.match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+                        logging.warn("Lock detected when handling request %s - skipping" % request_id)
+                    else:
+                        logging.critical(traceback.format_exc())
                 except:
                     logging.critical(traceback.format_exc())
-
         except:
             logging.critical(traceback.format_exc())
 
