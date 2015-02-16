@@ -20,7 +20,7 @@ from web import application, ctx, Created, data, header, InternalError, loadhook
 from geoip2.errors import AddressNotFoundError
 
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas
-from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, RessourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, ResourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
 from rucio.common.replicas_selector import random_order, geoIP_order
 
 
@@ -174,8 +174,8 @@ class Replicas(RucioController):
             raise generate_http_error(409, 'DataIdentifierAlreadyExists', e[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
-        except RessourceTemporaryUnavailable, e:
-            raise generate_http_error(503, 'RessourceTemporaryUnavailable', e[0][0])
+        except ResourceTemporaryUnavailable, e:
+            raise generate_http_error(503, 'ResourceTemporaryUnavailable', e[0][0])
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
@@ -237,8 +237,8 @@ class Replicas(RucioController):
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
-        except RessourceTemporaryUnavailable, e:
-            raise generate_http_error(503, 'RessourceTemporaryUnavailable', e[0][0])
+        except ResourceTemporaryUnavailable, e:
+            raise generate_http_error(503, 'ResourceTemporaryUnavailable', e[0][0])
         except ReplicaNotFound, e:
             raise generate_http_error(404, 'ReplicaNotFound', e.args[0][0])
         except RucioException, e:
