@@ -31,7 +31,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted)
+                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed)
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
 from rucio.core.message import add_message
@@ -758,6 +758,82 @@ def update_rule(rule_id, options, session=None):
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
         raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
+    """
+    Reduce the number of copies for a rule by atomically replacing the rule.
+
+    :param rule_id:             Rule to be reduced.
+    :param copies:              Number of copies of the new rule.
+    :param exclude_expression:  RSE Expression of RSEs to exclude.
+    :param session:             The DB Session.
+    :raises:                    RuleReplaceFailed, RuleNotFound
+    """
+    try:
+        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+
+        if copies >= rule.copies:
+            raise RuleReplaceFailed('Copies of the new rule must be smaller than the old rule.')
+
+        if rule.state != RuleState.OK:
+            raise RuleReplaceFailed('The source rule must be in state OK.')
+
+        if exclude_expression:
+            rse_expression = '(' + rule.rse_expression + ')' + '\\' + '(' + exclude_expression + ')'
+        else:
+            rse_expression = rule.rse_expression
+
+        if rule.grouping == RuleGrouping.ALL:
+            grouping = 'ALL'
+        elif rule.grouping == RuleGrouping.NONE:
+            grouping = 'NONE'
+        else:
+            grouping = 'DATASET'
+
+        if rule.expires_at:
+            lifetime = (datetime.utcnow() - rule.expires_at).days * 24 * 3600 + (datetime.utcnow() - rule.expires_at).seconds
+        else:
+            lifetime = None
+
+        if rule.notification == RuleNotification.YES:
+            notify = 'Y'
+        elif rule.notification == RuleNotification.CLOSE:
+            notify = 'C'
+        else:
+            notify = 'N'
+
+        new_rule_id = add_rule(dids=[{'scope': rule.scope, 'name': rule.name}],
+                               account=rule.account,
+                               copies=copies,
+                               rse_expression=rse_expression,
+                               grouping=grouping,
+                               weight=rule.weight,
+                               lifetime=lifetime,
+                               locked=rule.locked,
+                               subscription_id=rule.subscription_id,
+                               source_replica_expression=rule.source_replica_expression,
+                               activity=rule.activity,
+                               notify=notify,
+                               purge_replicas=rule.purge_replicas,
+                               ignore_availability=rule.ignore_availability,
+                               session=session)
+
+        session.flush()
+
+        new_rule = session.query(models.ReplicationRule).filter_by(id=new_rule_id[0]).one()
+
+        if new_rule.state != RuleState.OK:
+            raise RuleReplaceFailed('The replacement of the rule failed.')
+
+        delete_rule(rule_id=rule_id,
+                    session=session)
+
+        return new_rule_id[0]
+
+    except NoResultFound:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id))
 
 
 @transactional_session

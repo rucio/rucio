@@ -121,3 +121,19 @@ def update_replication_rule(rule_id, options, issuer):
     if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
     rule.update_rule(rule_id=rule_id, options=options)
+
+
+def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
+    """
+    Reduce the number of copies for a rule by atomically replacing the rule.
+
+    :param rule_id:             Rule to be reduced.
+    :param copies:              Number of copies of the new rule.
+    :param exclude_expression:  RSE Expression of RSEs to exclude.
+    :param issuer:              The issuing account of this operation
+    :raises:                    RuleReplaceFailed, RuleNotFound
+    """
+    kwargs = {'rule_id': rule_id, 'copies': copies, 'exclude_expression': exclude_expression}
+    if not has_permission(issuer=issuer, action='reduce_rule', kwargs=kwargs):
+        raise AccessDenied('Account %s can not reduce this replication rule.' % (issuer))
+    rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)

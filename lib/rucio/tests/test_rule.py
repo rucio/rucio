@@ -25,7 +25,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted
+from rucio.common.exception import RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RuleReplaceFailed
 from rucio.core.account_counter import get_counter as get_account_counter
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
@@ -35,10 +35,10 @@ from rucio.core.account_limit import set_account_limit, delete_account_limit
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id
 from rucio.core.rse_counter import get_counter as get_rse_counter
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule
+from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
-from rucio.db.constants import DIDType, OBSOLETE
+from rucio.db.constants import DIDType, OBSOLETE, RuleState
 from rucio.db import models
 from rucio.db.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator
@@ -57,7 +57,11 @@ def create_files(nrfiles, scope, rse, bytes=1):
     files = []
     for i in xrange(nrfiles):
         file = 'file_%s' % uuid()
-        add_replica(rse=rse, scope=scope, name=file, bytes=bytes, account='jdoe')
+        if isinstance(rse, list):
+            for r in rse:
+                add_replica(rse=r, scope=scope, name=file, bytes=bytes, account='jdoe')
+        else:
+            add_replica(rse=rse, scope=scope, name=file, bytes=bytes, account='jdoe')
         files.append({'scope': scope, 'name': file, 'bytes': bytes})
     return files
 
@@ -679,6 +683,34 @@ class TestReplicationRuleCore():
         add_account_attribute(usr, 'country-test', 'admin')
 
         rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr)
+
+    def test_reduce_rule(self):
+        """ REPLICATION RULE (CORE): Reduce a rule"""
+        scope = 'mock'
+        files = create_files(3, scope, [self.rse1, self.rse3])
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.rse1+'|'+self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        assert(get_rule(rule_id)['state'] == RuleState.OK)
+
+        rule_id2 = reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1)
+
+        assert(get_rule(rule_id2)['state'] == RuleState.OK)
+        assert_raises(RuleNotFound, get_rule, rule_id)
+
+        scope = 'mock'
+        files = create_files(3, scope, [self.rse1, self.rse3])
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.rse1+'|'+self.rse3+'|'+self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+
+        with assert_raises(RuleReplaceFailed):
+            reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1+'|'+self.rse3)
 
 
 class TestReplicationRuleClient():

@@ -70,6 +70,7 @@ def has_permission(issuer, action, kwargs):
             'del_rse': perm_del_rse,
             'del_rule': perm_del_rule,
             'update_rule': perm_update_rule,
+            'reduce_rule': perm_reduce_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
@@ -378,6 +379,19 @@ def perm_update_rule(issuer, kwargs):
     if 'state' in kwargs['options']:
         return False  # Only priv accounts are allowed to change state
     if get_rule(kwargs['rule_id'])['account'] == issuer:
+        return True
+    return False
+
+
+def perm_reduce_rule(issuer, kwargs):
+    """
+    Checks if an issuer can reduce a replication rule.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    if issuer == 'root' or issuer in get_special_accounts():
         return True
     return False
 

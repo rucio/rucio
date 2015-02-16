@@ -113,3 +113,22 @@ class RuleClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
+
+    def reduce_replication_rule(self, rule_id, copies, exclude_expression=None):
+        """
+        :param rule_id:             Rule to be reduced.
+        :param copies:              Number of copies of the new rule.
+        :param exclude_expression:  RSE Expression of RSEs to exclude.
+        :param issuer:              The issuing account of this operation
+        :raises:                    RuleReplaceFailed, RuleNotFound
+        """
+
+        path = self.RULE_BASEURL + '/' + rule_id + '/reduce'
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'copies': copies, 'exclude_expression': exclude_expression})
+        r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.ok:
+            return loads(r.text)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
