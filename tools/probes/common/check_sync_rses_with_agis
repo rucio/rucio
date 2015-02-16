@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - David Cameron, <david.cameron@cern.ch>, 2015
 
 import json
 import os.path
@@ -19,8 +20,10 @@ import traceback
 import urlparse
 
 
+from rucio.api.account_limit import set_account_limit
 from rucio.client import Client
 from rucio.common.exception import Duplicate, RSEProtocolPriorityError
+from rucio.core.permission import get_special_accounts
 
 
 UNKNOWN = 3
@@ -45,6 +48,10 @@ if __name__ == '__main__':
             deterministic = not rse['is_deterministic']
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
+            # Set infinite quotas for special accounts
+            special_accounts = get_special_accounts()
+            for account in special_accounts:
+                set_account_limit(account, rse['name'], -1, 'root')
         except Duplicate, e:
             pass
         except:
