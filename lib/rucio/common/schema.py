@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
@@ -26,9 +26,9 @@ account_type = {"description": "Account type",
 
 activity = {"description": "Activity name",
             "type": "string",
-            "enum": ['default', 'Data Brokering', 'Data Consolidation', 'Debug',
-                     'Functional Test', 'Group Subscriptions', 'Production', 'Staging',
-                     'T0 Export', 'Upload/Download (Job)', 'Upload/Download (User)', 'User Subscriptions']}
+            "enum": ["default", "Data Brokering", "Data Consolidation", "Debug",
+                     "Functional Test", "Group Subscriptions", "Production", "Staging",
+                     "T0 Export", "Upload/Download (Job)", "Upload/Download (User)", "User Subscriptions"]}
 
 scope = {"description": "Scope name",
          "type": "string",
@@ -260,6 +260,7 @@ account_attribute = {"description": "Account attribute",
 
 schemas = {'account': account,
            'account_type': account_type,
+           'activity': activity,
            'name': name,
            'r_name': r_name,
            'rse': rse,

@@ -23,9 +23,10 @@ from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule,
-                                    InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit,
+                                    InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, ValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.common.config import config_get
+from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core.rule import add_rule
@@ -148,6 +149,12 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                     weight = rule.get('weight', None)
                                     source_replica_expression = rule.get('source_replica_expression', None)
                                     activity = rule.get('activity', None)
+                                    try:
+                                        validate_schema(name='activity', obj=activity)
+                                    except ValidationError, e:
+                                        logging.error('Error validating the activity %s' % (str(e)))
+                                        activity = 'default'
+
                                     locked = rule.get('locked', None)
                                     purge_replicas = rule.get('purge_replicas', False)
                                     success = True

@@ -9,12 +9,12 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from json import dumps
 
-from rucio.common.exception import InvalidMetadata
+from rucio.common.exception import InvalidMetadata, InvalidObject
 from rucio.common.schema import validate_schema
 from rucio.core import subscription
 
@@ -53,8 +53,14 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
                     if key not in accepted_keys:
                         raise InvalidMetadata('Invalid metadata <%s>' % (key))
             validate_schema(name='subscription_filter', obj=filter)
-        if replication_rules and type(replication_rules) != list:
-            raise TypeError('replication_rules should be a list')
+        if replication_rules:
+            if type(replication_rules) != list:
+                raise TypeError('replication_rules should be a list')
+            else:
+                for rule in replication_rules:
+                    validate_schema(name='activity', obj=rule.get('activity', 'default'))
+        else:
+            raise InvalidObject('You must specify a rule')
     except ValueError, e:
         raise TypeError(e)
 
@@ -94,8 +100,12 @@ def update_subscription(name, account, filter=None, replication_rules=None, comm
                     if key not in accepted_keys:
                         raise InvalidMetadata('Invalid metadata <%s>' % (key))
             validate_schema(name='subscription_filter', obj=filter)
-        if replication_rules and type(replication_rules) != list:
-            raise TypeError('replication_rules should be a list')
+        if replication_rules:
+            if type(replication_rules) != list:
+                raise TypeError('replication_rules should be a list')
+            else:
+                for rule in replication_rules:
+                    validate_schema(name='activity', obj=rule.get('activity', 'default'))
     except ValueError, e:
         raise TypeError(e)
     return subscription.update_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run)
