@@ -11,7 +11,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 
 from json import dumps
@@ -21,7 +21,7 @@ from paste.fixture import TestApp
 from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
-                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, RessourceTemporaryUnavailable)
+                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, ResourceTemporaryUnavailable)
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import add_rse, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes
 from rucio.rse import rsemanager as mgr
@@ -177,11 +177,8 @@ class TestRSEClient():
         assert_equal(dict2['availability_delete'], False)
 
         files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
-        with assert_raises(RessourceTemporaryUnavailable):
+        with assert_raises(ResourceTemporaryUnavailable):
             replica_client.add_replicas(rse=renamed_rse, files=files2, ignore_availability=False)
-
-        # with assert_raises(RessourceTemporaryUnavailable):
-        #    replica_client.delete_replicas(rse=renamed_rse, files=files1, ignore_availability=False)
 
     def test_list_rses(self):
         """ RSE (CLIENTS): try to list rses."""

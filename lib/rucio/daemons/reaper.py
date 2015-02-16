@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
 
@@ -21,17 +21,17 @@ import threading
 import time
 import traceback
 
+from rucio.db.constants import ReplicaState
+from rucio.common.config import config_get
+from rucio.common.exception import SourceNotFound, ServiceUnavailable, RSEAccessDenied, ReplicaUnAvailable, ResourceTemporaryUnavailable
+from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core import rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse_counter import get_counter
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.constants import ReplicaState
 from rucio.rse import rsemanager as rsemgr
-from rucio.common.config import config_get
-from rucio.common.exception import SourceNotFound, ServiceUnavailable, RSEAccessDenied, ReplicaUnAvailable
-from rucio.common.utils import chunks
 
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -204,7 +204,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                             'file-size': replica['bytes'],
                                                                             'url': replica['pfn'],
                                                                             'reason': str(err_msg)})
-                                        except (ServiceUnavailable, RSEAccessDenied) as e:
+                                        except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as e:
                                             logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
                                             add_message('deletion-failed', {'scope': replica['scope'],
                                                                             'name': replica['name'],
@@ -222,7 +222,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                             'reason': str(e)})
                                         except:
                                             logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc())))
-                                except (ServiceUnavailable, RSEAccessDenied) as e:
+                                except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as e:
                                     for replica in files:
                                         logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(e)))
                                         add_message('deletion-failed', {'scope': replica['scope'],
