@@ -8,16 +8,23 @@
 #
 # Authors:
 # - David Cameron, <david.cameron@cern.ch>, 2015
+#
+# Set quotas for physgroups
+# Set quotas for users on their country's localgroupdisk
+# Set quotas for all users on scratchdisk
+# In the last two cases quotas are set only if accounts are new or if RSE
+# capacity has changed
 
 import json
 import re
 import requests
 import sys
-import traceback
 
-from rucio.common.exception import RucioException, RSENotFound, AccountNotFound
-from rucio.api.account_limit import set_account_limit, get_account_usage
 from rucio.api import rse
+from rucio.api.account import list_accounts, list_account_attributes
+from rucio.api.account_limit import set_account_limit, get_account_usage
+from rucio.common.exception import RucioException, RSENotFound, AccountNotFound
+from rucio.core.permission import get_special_accounts
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -26,6 +33,110 @@ OK = 0
 
 result = OK
 
+# Map of country to list of accounts
+country_accounts = {}
+# List of all user accounts
+all_accounts = []
+# Accounts already handled
+done_accounts = []
+# Map of RSE capacity
+rse_capacity = {}
+
+# Cache file of accounts
+accounts_cache = '/var/cache/nagios/rucio_quotas_accounts.json'
+# Cache file of RSE capacity
+rse_capacity_cache = '/var/cache/nagios/rucio_quotas_rse_capacity.json'
+
+
+def get_srm_total(name):
+    global result
+    try:
+        capacity = rse.get_rse_usage(name, 'root', source='srm')
+    except RucioException as e:
+        print "Could not get capacity of %s: %s" % (name, str(e))
+        result = WARNING
+        return None
+
+    try:
+        srmtotal = capacity[0]['total']
+    except:
+        print "No srm info for %s" % name
+        result = WARNING
+        return None
+
+    return srmtotal
+
+
+def set_group_quotas(quotas):
+    ''' Set quota for physics groups '''
+
+    global result
+    # Check if quota is defined
+    if not quotas:
+        print "WARNING: No quota defined for %s" % name
+        result = WARNING
+        return
+
+    for quota, value in quotas.iteritems():
+        # in AGIS quota 999999 means no limit, so skip these
+        if value == 999999:
+            continue
+
+        physgroup = re.match('/atlas/(.*)/', quota)
+        if not physgroup:
+            continue
+        physgroup = physgroup.group(1)
+        size = value * 1024**4  # AGIS numbers are in TiB
+
+        try:
+            usage = rse.get_rse_usage(name, 'root', source='rucio')
+            account_usage = get_account_usage(physgroup, name, 'root')
+            try:
+                account_used = account_usage[0]['bytes']
+            except:
+                account_used = 0
+            print "Set quota for %s on RSE %s to %dTB (used RSE %dTB, used account %dTB)" % \
+                (physgroup, name, size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
+            set_account_limit(physgroup, name, size, 'root')
+        except AccountNotFound:
+            print "Account %s does not exist" % physgroup
+        except RucioException as e:
+            print str(e)
+            result = WARNING
+
+
+def set_user_quotas(name, accs):
+    ''' Set quota for all accounts on RSE if space changed, or for new acconuts '''
+
+    global result
+    # Check space compared to cache value
+    srmtotal = get_srm_total(name)
+    if not srmtotal:
+        return
+
+    accounts = accs
+
+    if name not in rse_capacity:
+        print "%s: no cached info" % name
+    elif abs(rse_capacity[name] - srmtotal) > 1000**4:
+        # Changes of <1TB are not important enough to change all the quotas
+        print "%s capacity changed from %dTB to %dTB" % (name, rse_capacity[name]/1000**4, srmtotal/1000**4)
+    else:
+        print "%s total capacity is unchanged since last run" % name
+
+        # Just change new accounts
+        accounts = [a for a in accounts if a not in done_accounts]
+
+    rse_capacity[name] = srmtotal
+    for account in accounts:
+        try:
+            print "Set quota of %dTB on %s for %s" % (srmtotal/2 / 1000**4, name, account)
+            set_account_limit(account, name, srmtotal/2, 'root')
+        except RucioException as e:
+            print str(e)
+            result = WARNING
+
+
 # Takes DDM endpoint quota information from AGIS and sets rucio account quotas
 if __name__ == '__main__':
 
@@ -33,9 +144,41 @@ if __name__ == '__main__':
     try:
         resp = requests.get(url=url)
         data = json.loads(resp.content)
-    except Exception, e:
+    except Exception as e:
         print "Failed to load info from AGIS: %s" % str(e)
-        sys.exit(WARNING)
+        sys.exit(CRITICAL)
+
+    # Read capacity information from cached file
+    try:
+        with open(rse_capacity_cache) as f:
+            rse_capacity = json.load(f)
+    except:
+        print "Warning: no cached RSE capacity info, will set all quotas"
+
+    # Read accounts from cached file
+    try:
+        with open(accounts_cache) as f:
+            done_accounts = json.load(f)
+    except:
+        print "Warning: no cached accounts, will set quotas for all accounts"
+
+    # Get all rucio accounts and country attributes
+    try:
+        accounts = list_accounts(filter={'account_type': 'USER'})
+        special_accounts = get_special_accounts()
+        all_accounts = [a['account'] for a in accounts if a['account'] not in special_accounts]
+        for account in all_accounts:
+            attrs = list_account_attributes(account)
+            for attr in attrs:
+                if attr['key'].startswith('country-'):
+                    country = attr['key'].split('-')[1]
+                    try:
+                        country_accounts[country].append(account)
+                    except:
+                        country_accounts[country] = [account]
+    except RucioException as e:
+        print "Failed to list Rucio accounts or attributes: %s" % str(e)
+        sys.exit(CRITICAL)
 
     for ddmendpoint in data:
 
@@ -52,45 +195,36 @@ if __name__ == '__main__':
             result = WARNING
             continue
 
-        # Only group disk quotas for now
-        if not ddmendpoint['phys_groups']:
-            continue
+        if ddmendpoint['phys_groups']:
+            set_group_quotas(ddmendpoint['quotas'])
 
-        # Check if quota is defined
-        quotas = ddmendpoint['quotas']
-        if not quotas:
-            print "WARNING: No quota defined for %s" % name
-            result = WARNING
-            continue
-
-        for quota, value in quotas.iteritems():
-            # in AGIS quota 999999 means no limit, so skip these
-            if value == 999999:
-                continue
-
-            physgroup = re.match('/atlas/(.*)/', quota)
-            if not physgroup:
-                continue
-            physgroup = physgroup.group(1)
-            size = value * 1024**4  # AGIS numbers are in TiB
-
+        if name.endswith('_LOCALGROUPDISK'):
             try:
-                usage = rse.get_rse_usage(name, 'root', source='rucio')
-                account_usage = get_account_usage(physgroup, name, 'root')
-                try:
-                    account_used = account_usage[0]['bytes']
-                except:
-                    account_used = 0
-                print "Set quota for %s on RSE %s to %dTB (used RSE %dTB, used account %dTB)" % \
-                    (physgroup, name, size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
-                set_account_limit(physgroup, name, size, 'root')
-            except AccountNotFound:
-                print "Account %s does not exist" % physgroup
-            except RucioException as e:
-                print str(e)
-                sys.exit(CRITICAL)
+                country = rse.list_rse_attributes(name)['country']
             except:
-                print traceback.format_exc()
+                print "Warning: No country defined for %s" % name
                 result = WARNING
+                continue
+
+            if country not in country_accounts:
+                print "Warning: no accounts in country %s" % country
+            else:
+                set_user_quotas(name, country_accounts[country])
+
+        if name.endswith('_SCRATCHDISK') or name.endswith('_USERDISK'):
+            set_user_quotas(name, all_accounts)
+
+    # Write back cache files
+    try:
+        with open(accounts_cache, 'w') as f:
+            json.dump(all_accounts, f)
+    except:
+        print "Warning: Failed to write accounts cache"
+
+    try:
+        with open(rse_capacity_cache, 'w') as f:
+            json.dump(rse_capacity, f)
+    except:
+        print "Warning: Failed to write RSE capacity cache"
 
     sys.exit(result)
