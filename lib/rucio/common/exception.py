@@ -457,6 +457,12 @@ class RuleNotFound(RucioException):
         self._message = "No replication rule found."
 
 
+class RuleReplaceFailed(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RuleReplaceFailed, self).__init__(args, kwargs)
+        self._message = "The replace operation for the rule failed."
+
+
 class ServiceUnavailable(RucioException):
     def __init__(self, *args, **kwargs):
         super(ServiceUnavailable, self).__init__(args, kwargs)

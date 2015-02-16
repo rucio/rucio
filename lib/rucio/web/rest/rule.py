@@ -16,11 +16,11 @@ from traceback import format_exc
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
 from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    DuplicateRule, InvalidObject, AccountNotFound)
+                                    DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed)
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook
 
@@ -30,6 +30,7 @@ sh.setLevel(DEBUG)
 logger.addHandler(sh)
 
 urls = ('/(.+)/locks', 'ReplicaLocks',
+        '/(.+)/reduce', 'ReduceRule',
         '/', 'Rule',
         '/(.+)', 'Rule',)
 
@@ -239,6 +240,54 @@ class ReplicaLocks:
 
         for lock in locks:
             yield dumps(lock, cls=APIEncoder) + '\n'
+
+
+class ReduceRule:
+    """ REST APIs for reducing rules. """
+
+    def POST(self, rule_id):
+        """
+        Reduce a replication rule.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+        """
+        json_data = data()
+        try:
+            exclude_expression = None
+
+            params = loads(json_data)
+            copies = params['copies']
+            if 'exclude_expression' in params:
+                exclude_expression = params['exclude_expression']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            rule_ids = reduce_replication_rule(rule_id=rule_id,
+                                               copies=copies,
+                                               exclude_expression=exclude_expression,
+                                               issuer=ctx.env.get('issuer'))
+        # TODO: Add all other error cases here
+        except RuleReplaceFailed, e:
+            raise generate_http_error(409, 'RuleReplaceFailed', e.args[0][0])
+        except RuleNotFound, e:
+            raise generate_http_error(404, 'RuleNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print e
+            print format_exc()
+            raise InternalError(e)
+
+        raise Created(dumps(rule_ids))
 
 """----------------------
    Web service startup
