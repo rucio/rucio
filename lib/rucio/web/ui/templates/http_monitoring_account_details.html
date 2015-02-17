@@ -1,0 +1,26 @@
+<!--
+Copyright European Organization for Nuclear Research (CERN)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+You may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+
+Authors:
+- Ralph Vigne <ralph.vigne@cern.ch> 2015
+-->
+
+$var title: Index
+$var script: <script src="//code.jquery.com/jquery-2.1.1.min.js"></script><script src="//code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script><script src="//code.highcharts.com/highcharts.js"></script><script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.js"></script><link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.css"><script src="/static/http_monitoring_account_details.js"></script>
+
+<div>
+    <div>
+      <table><tr><td style="text-align: center"><a id="graphite" href="" target="_blank">Timeseries of Account</a></td></tr></table>
+    </div>
+    <div style="width:99%; align: center">
+      <table id="account_activity" class="hover" style="word-wrap: break-word;">
+        <thead><tr><th>Resource</th><th>Hits</th><th>Bandwidth in MB</th><th>Seconds</th></tr></thead>
+        <tfoot><tr><th>Resource</th><th>Hits</th><th>Bandwidth in MB</th><th>Seconds</th></tr></tfoot>
+      </table>
+    </div>
+</div>
