@@ -33,7 +33,7 @@ from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_tra
 from rucio.core.account import add_account_attribute
 from rucio.core.account_limit import set_account_limit, delete_account_limit
 from rucio.core.replica import add_replica, get_replica
-from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse
+from rucio.core.rse import add_rse_attribute, get_rse, add_rse, update_rse, get_rse_id
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule
 from rucio.daemons.abacus.account import account_update
@@ -105,6 +105,17 @@ class TestReplicationRuleCore():
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
+
+        # Add quota
+        set_account_limit('jdoe', cls.rse1_id, -1)
+        set_account_limit('jdoe', cls.rse3_id, -1)
+        set_account_limit('jdoe', cls.rse4_id, -1)
+        set_account_limit('jdoe', cls.rse5_id, -1)
+
+        set_account_limit('root', cls.rse1_id, -1)
+        set_account_limit('root', cls.rse3_id, -1)
+        set_account_limit('root', cls.rse4_id, -1)
+        set_account_limit('root', cls.rse5_id, -1)
 
     def test_add_rule_file_none(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
@@ -631,6 +642,7 @@ class TestReplicationRuleCore():
         rse = rse_name_generator()
         add_rse(rse)
         update_rse(rse, {'availability_write': False})
+        set_account_limit('jdoe', get_rse_id(rse), -1)
 
         scope = 'mock'
         files = create_files(3, scope, self.rse1)
@@ -648,6 +660,7 @@ class TestReplicationRuleCore():
         rse = rse_name_generator()
         add_rse(rse)
         add_rse_attribute(rse, 'country', 'test')
+        set_account_limit('jdoe', get_rse_id(rse), -1)
 
         scope = 'mock'
         files = create_files(3, scope, self.rse1)
@@ -696,6 +709,11 @@ class TestReplicationRuleClient():
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
+
+        set_account_limit('jdoe', cls.rse1_id, -1)
+        set_account_limit('jdoe', cls.rse3_id, -1)
+        set_account_limit('jdoe', cls.rse4_id, -1)
+        set_account_limit('jdoe', cls.rse5_id, -1)
 
     def setup(self):
         self.rule_client = RuleClient()
