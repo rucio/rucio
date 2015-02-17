@@ -19,4 +19,4 @@ for script_file in ${DIR}/*.pig; do
 	${DIR}/create_report.sh $script_name $date
 done
 
-./run_log2grpahite.sh $date
+./run_log2graphite.sh $date
