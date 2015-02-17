@@ -6,9 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 
 from rucio.common.utils import generate_uuid as uuid
+from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, get_rse
@@ -46,6 +47,17 @@ class TestJudgeCleaner():
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
+
+        # Add quota
+        set_account_limit('jdoe', cls.rse1_id, -1)
+        set_account_limit('jdoe', cls.rse3_id, -1)
+        set_account_limit('jdoe', cls.rse4_id, -1)
+        set_account_limit('jdoe', cls.rse5_id, -1)
+
+        set_account_limit('root', cls.rse1_id, -1)
+        set_account_limit('root', cls.rse3_id, -1)
+        set_account_limit('root', cls.rse4_id, -1)
+        set_account_limit('root', cls.rse5_id, -1)
 
     def test_judge_expire_rule(self):
         """ JUDGE CLEANER: Test the judge when deleting expired rules"""

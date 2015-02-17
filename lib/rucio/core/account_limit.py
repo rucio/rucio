@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
@@ -34,8 +34,7 @@ def get_account_limit(account, rse_id, session=None):
         else:
             return account_limit.bytes
     except NoResultFound:
-        return float("inf")
-        # return 0
+        return 0
 
 
 @read_session
@@ -133,6 +132,6 @@ def get_account_usage(account, rse_id=None, session=None):
         if counter.bytes > 0 or counter.files > 0 or rse_id in limits.keys():
             result_list.append({'rse': get_rse_name(rse_id=counter.rse_id, session=session),
                                 'bytes': counter.bytes, 'files': counter.files,
-                                'bytes_limit': limits.get(counter.rse_id, float("Inf")),
-                                'bytes_remaining': limits.get(counter.rse_id, float("Inf"))})
+                                'bytes_limit': limits.get(counter.rse_id, 0),
+                                'bytes_remaining': limits.get(counter.rse_id, 0) - counter.bytes})
     return result_list

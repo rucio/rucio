@@ -8,6 +8,7 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015
 
 from json import dumps, loads
 
@@ -18,8 +19,9 @@ from rucio.api.subscription import list_subscriptions, add_subscription, update_
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.utils import generate_uuid as uuid
+from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did
-from rucio.core.rse import add_rse
+from rucio.core.rse import add_rse, get_rse_id
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.db.constants import DIDType
@@ -95,6 +97,10 @@ class TestSubscriptionCoreApi():
 
         add_rse(site_a)
         add_rse(site_b)
+
+        # Add quota
+        set_account_limit('root', get_rse_id(site_a), -1)
+        set_account_limit('root', get_rse_id(site_b), -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
@@ -233,6 +239,10 @@ class TestSubscriptionRestApi():
 
         add_rse(site_a)
         add_rse(site_b)
+
+        # Add quota
+        set_account_limit('root', get_rse_id(site_a), -1)
+        set_account_limit('root', get_rse_id(site_b), -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()

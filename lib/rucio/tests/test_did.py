@@ -10,7 +10,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 
 from datetime import datetime, timedelta
@@ -30,8 +30,10 @@ from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlread
                                     KeyNotFound, UnsupportedOperation, UnsupportedStatus,
                                     ScopeNotFound)
 from rucio.common.utils import generate_uuid
+from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
                             get_metadata, set_metadata)
+from rucio.core.rse import get_rse_id
 from rucio.db.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
@@ -227,6 +229,9 @@ class TestDIDClients:
         tmp_scope = 'mock'
         tmp_rse = 'MOCK'
         tmp_dsn = 'dsn_%s' % generate_uuid()
+
+        set_account_limit('root', get_rse_id('MOCK'), -1)
+        set_account_limit('root', get_rse_id('CERN-PROD_TZERO'), -1)
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
         dataset_meta = {'project': 'data13_hip',

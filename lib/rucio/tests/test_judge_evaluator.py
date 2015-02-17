@@ -11,6 +11,7 @@
 
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_counter import get_counter
+from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
 from rucio.core.rse import add_rse_attribute, get_rse
@@ -49,6 +50,17 @@ class TestJudgeEvaluator():
         add_rse_attribute(cls.rse3, "fakeweight", 0)
         add_rse_attribute(cls.rse4, "fakeweight", 0)
         add_rse_attribute(cls.rse5, "fakeweight", 0)
+
+        # Add quota
+        set_account_limit('jdoe', cls.rse1_id, -1)
+        set_account_limit('jdoe', cls.rse3_id, -1)
+        set_account_limit('jdoe', cls.rse4_id, -1)
+        set_account_limit('jdoe', cls.rse5_id, -1)
+
+        set_account_limit('root', cls.rse1_id, -1)
+        set_account_limit('root', cls.rse3_id, -1)
+        set_account_limit('root', cls.rse4_id, -1)
+        set_account_limit('root', cls.rse5_id, -1)
 
     def test_judge_add_files_to_dataset(self):
         """ JUDGE EVALUATOR: Test the judge when adding files to dataset"""
