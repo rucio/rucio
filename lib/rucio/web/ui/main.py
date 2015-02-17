@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 
 from os.path import dirname, join
 
@@ -36,6 +37,9 @@ urls = (
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
+    '/webstats/accounts', 'HTTPMonitoringAccounts',
+    '/webstats/resources', 'HTTPMonitoringResources',
+    '/webstats/accounts/(.*)', 'HTTPMonitoringAccountDetails',
 )
 
 
@@ -143,6 +147,24 @@ class Subscriptions():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.subscriptions())
+
+
+class HTTPMonitoringAccounts():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_accounts())
+
+
+class HTTPMonitoringResources():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_resources())
+
+
+class HTTPMonitoringAccountDetails():
+    def GET(self, account):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_account_details())
 
 
 """----------------------
