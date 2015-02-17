@@ -14,9 +14,11 @@ from datetime import datetime, timedelta
 from nose.tools import assert_not_equal
 
 from rucio.common.utils import generate_uuid
+from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_dids, attach_dids, list_expired_dids
 from rucio.core.replica import get_replica
 from rucio.core.rule import add_rules
+from rucio.core.rse import get_rse_id
 from rucio.daemons.undertaker import undertaker
 
 
@@ -27,6 +29,8 @@ class TestUndertaker:
         tmp_scope = 'mock'
         nbdatasets = 5
         nbfiles = 5
+
+        set_account_limit('jdoe', get_rse_id('MOCK'), -1)
 
         dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
@@ -60,6 +64,9 @@ class TestUndertaker:
     def test_list_expired_dids_with_locked_rules(self):
         """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
         tmp_scope = 'mock'
+
+        # Add quota
+        set_account_limit('jdoe', get_rse_id('MOCK'), -1)
 
         dsn = {'name': 'dsn_%s' % generate_uuid(),
                'scope': tmp_scope,

@@ -11,6 +11,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015
 
 from os import remove
 
@@ -19,6 +20,8 @@ import re
 
 from rucio import version
 from rucio.common.config import config_get
+from rucio.core.account_limit import set_account_limit
+from rucio.core.rse import get_rse_id
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 
 
@@ -35,6 +38,8 @@ class TestBinRucio():
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
+
+        set_account_limit('root', get_rse_id(self.def_rse), -1)
 
     def test_rucio_version(self):
         """CLIENT(USER): Rucio version"""
@@ -381,6 +386,8 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
+        # add quota
+        set_account_limit('root', get_rse_id(tmp_rse), -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print self.marker + cmd
@@ -392,6 +399,8 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
+        # add quota
+        set_account_limit('root', get_rse_id(tmp_rse), -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print self.marker + cmd
@@ -403,6 +412,8 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
+        # add quota
+        set_account_limit('root', get_rse_id(tmp_rse), -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print self.marker + cmd
@@ -423,6 +434,7 @@ class TestBinRucio():
 
     def test_delete_rule(self):
         """CLIENT(USER): rule deletion"""
+        set_account_limit('root', get_rse_id(self.def_rse), -1)
         tmp_file1 = file_generator()
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
@@ -435,6 +447,9 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
+
+        set_account_limit('root', get_rse_id(tmp_rse), -1)
+
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print self.marker + cmd
@@ -444,6 +459,7 @@ class TestBinRucio():
         cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
+        print err
         print out
         # get the rules for the file
         cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
