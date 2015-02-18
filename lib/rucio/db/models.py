@@ -360,7 +360,7 @@ class UpdatedDID(BASE, ModelBase):
                    )
 
 
-class BadFilesStatus(BASE, ModelBase):
+class BadReplicas(BASE, ModelBase):
     """Represents the suspicious or bad replicas"""
     __tablename__ = 'bad_replicas'
     scope = Column(String(25))
@@ -868,7 +868,7 @@ def register_models(engine):
               AccountLimit,
               AccountUsage,
               AlembicVersion,
-              BadFilesStatus,
+              BadReplicas,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
@@ -910,6 +910,7 @@ def unregister_models(engine):
               AccountLimit,
               AccountUsage,
               AlembicVersion,
+              BadReplicas,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
