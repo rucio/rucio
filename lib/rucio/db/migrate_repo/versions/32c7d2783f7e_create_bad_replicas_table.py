@@ -22,13 +22,14 @@ down_revision = '384b96aa0f60'
 
 from alembic import op
 import sqlalchemy as sa
+from rucio.db.types import GUID
 
 
 def upgrade():
     op.create_table('bad_replicas',
                     sa.Column('scope', sa.String(25)),
                     sa.Column('name', sa.String(255)),
-                    sa.Column('rse_id', sa.GUID()),
+                    sa.Column('rse_id', GUID()),
                     sa.Column('reason', sa.String(255)),
                     sa.Column('state', sa.String(1)),
                     sa.Column('account', sa.String(25)),
