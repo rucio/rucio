@@ -19,7 +19,7 @@ from web import application, ctx, Created, data, header, InternalError, loadhook
 
 from geoip2.errors import AddressNotFoundError
 
-from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas
+from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, declare_suspicious_file_replicas
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, ResourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
 from rucio.common.replicas_selector import random_order, geoIP_order
 
@@ -30,8 +30,9 @@ from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioControl
 urls = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
         '/(.*)/(.*)/?$', 'Replicas',
-        '/badreplicas/?$', 'BadReplicas',
-        '/getdidsfromreplicas/?$', 'ReplicasDIDs')
+        '/bad/?$', 'BadReplicas',
+        '/suspicious/?$', 'SuspiciousReplicas',
+        '/dids/?$', 'ReplicasDIDs')
 
 
 class Replicas(RucioController):
@@ -426,19 +427,20 @@ class BadReplicas(RucioController):
 
         """
         json_data = data()
-        rse, pfns = None, []
+        pfns = []
         header('Content-Type', 'application/x-json-stream')
         try:
             params = parse_response(json_data)
             if 'pfns' in params:
                 pfns = params['pfns']
-            if 'rse' in params:
-                rse = params['rse']
+            if 'reason' in params:
+                reason = params['reason']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
+        not_declared_files = {}
         try:
-            declare_bad_file_replicas(rse=rse, pfns=pfns, issuer=ctx.env.get('issuer'))
+            not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=ctx.env.get('issuer'))
         except ReplicaNotFound, e:
             raise generate_http_error(404, 'ReplicaNotFound', e.args[0][0])
         except RucioException, e:
@@ -446,7 +448,46 @@ class BadReplicas(RucioController):
         except Exception, e:
             print format_exc()
             raise InternalError(e)
-        raise Created()
+        raise Created(dumps(not_declared_files))
+
+
+class SuspiciousReplicas(RucioController):
+
+    def POST(self):
+        """
+        Declare a list of suspicious replicas.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        """
+        json_data = data()
+        pfns = []
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            params = parse_response(json_data)
+            if 'pfns' in params:
+                pfns = params['pfns']
+            if 'reason' in params:
+                reason = params['reason']
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        not_declared_files = {}
+        try:
+            not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=ctx.env.get('issuer'))
+        except ReplicaNotFound, e:
+            raise generate_http_error(404, 'ReplicaNotFound', e.args[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+        raise Created(dumps(not_declared_files))
 
 
 """----------------------

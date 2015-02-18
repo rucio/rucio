@@ -378,3 +378,15 @@ def __strip_tag(tag):
     except IndexError:
         return stripped_tag
     return stripped_tag
+
+
+def clean_surls(surls):
+    res = []
+    for surl in surls:
+        surl = re.sub(':[0-9]+/', '/', surl)
+        surl = re.sub('/srm/managerv1\?SFN=', '', surl)
+        surl = re.sub('/srm/v2/server\?SFN=', '', surl)
+        surl = re.sub('/srm/managerv2\?SFN=', '', surl)
+        res.append(surl)
+    res.sort()
+    return res

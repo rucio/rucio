@@ -7,27 +7,42 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from rucio.api import permission
+from rucio.db.constants import BadFilesStatus
 from rucio.core import replica
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 
 
-def declare_bad_file_replicas(pfns, rse, issuer):
+def declare_bad_file_replicas(pfns, reason, issuer):
     """
     Declare a list of bad replicas.
 
     :param pfns: The list of PFNs.
-    :param rse: The RSE name.
+    :param reason: The reason of the loss.
     :param issuer: The issuer account.
     """
     kwargs = {}
     if not permission.has_permission(issuer=issuer, action='declare_bad_file_replicas', kwargs=kwargs):
-        raise exception.AccessDenied('Account %s can not declare bad replicas on %s' % (issuer, rse))
-    return replica.declare_bad_file_replicas(pfns=pfns, rse=rse)
+        raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
+    return replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.BAD)
+
+
+def declare_suspicious_file_replicas(pfns, reason, issuer):
+    """
+    Declare a list of bad replicas.
+
+    :param pfns: The list of PFNs.
+    :param reason: The reason of the loss.
+    :param issuer: The issuer account.
+    """
+    kwargs = {}
+    if not permission.has_permission(issuer=issuer, action='declare_bad_file_replicas', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
+    return replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS)
 
 
 def get_did_from_pfns(pfns, rse):

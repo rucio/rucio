@@ -25,29 +25,52 @@ from sqlalchemy.sql.expression import case, bindparam, select, text
 import rucio.core.lock
 
 from rucio.common import exception
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, clean_surls
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.db import models
-from rucio.db.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability
+from rucio.db.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
 from rucio.db.session import (read_session, stream_session, transactional_session,
                               default_schema_name)
 from rucio.rse import rsemanager as rsemgr
 
 
+@read_session
+def exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
+    if path:
+        q = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+            with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
+            filter(models.RSEFileAssociation.rse_id == rse_id).filter(models.RSEFileAssociation.path == path)
+    else:
+        q = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+            filter_by(rse_id=rse_id, scope=scope, name=name)
+    if session.query(q.exists()).scalar():
+        result = q.one()
+        path, scope, name, rse_id = result[0], result[1], result[2], result[3]
+        return True, scope, name
+    else:
+        return False, None, None
+
+
 @transactional_session
-def declare_bad_file_replicas(pfns, rse, session=None):
+def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', session=None):
     """
     Declare a list of bad replicas.
 
     :param pfns: The list of PFNs.
     :param rse: The RSE name.
+    :param reason: The reason of the loss.
+    :param issuer: The issuer account.
+    :param status: Either BAD or SUSPICIOUS.
+    :param scheme: The scheme of the PFNs.
     :param session: The database session in use.
     """
+    unknown_replicas = []
+    declared_replicas = []
     rse_info = rsemgr.get_rse_info(rse, session=session)
     rse_id = rse_info['id']
     replicas = []
-    p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
+    p = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
     if rse_info['deterministic']:
         parsed_pfn = p.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
@@ -58,23 +81,107 @@ def declare_bad_file_replicas(pfns, rse, session=None):
             else:
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
-            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-        try:
-            update_replicas_states(replicas, session=session)
-        except exception.UnsupportedOperation:
-            raise exception.ReplicaNotFound("One or several replicas don't exist.")
+            exists, scope, name = exists_replicas(rse_id, scope, name, path=None, session=session)
+            if exists:
+                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
+                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
+                new_bad_replica.save(session=session, flush=False)
+                declared_replicas.append(pfn)
+            else:
+                unknown_replicas.append(pfn)
+        if status == BadFilesStatus.BAD:
+            # For BAD file, we modify the replica state, not for suspicious
+            try:
+                # there shouldn't be any exceptions since all replicas exist
+                update_replicas_states(replicas, session=session)
+            except exception.UnsupportedOperation:
+                raise exception.ReplicaNotFound("One or several replicas don't exist.")
     else:
         path_clause = []
         parsed_pfn = p.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
+            exists, scope, name = exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
+            if exists:
+                replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
+                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
+                new_bad_replica.save(session=session, flush=False)
+                declared_replicas.append(pfn)
+            else:
+                unknown_replicas.append(pfn)
             path_clause.append(models.RSEFileAssociation.path == path)
-        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
-            with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
-            filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
-        rowcount = query.update({'state': ReplicaState.BAD})
-        if rowcount != len(parsed_pfn):
-            raise exception.ReplicaNotFound("One or several replicas don't exist.")
+        if status == BadFilesStatus.BAD:
+            # For BAD file, we modify the replica state, not for suspicious
+            query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+                with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
+                filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*path_clause))
+            rowcount = query.update({'state': ReplicaState.BAD})
+            if rowcount != len(declared_replicas):
+                # there shouldn't be any exceptions since all replicas exist
+                raise exception.ReplicaNotFound("One or several replicas don't exist.")
+    try:
+        session.flush()
+    except IntegrityError, e:
+        raise exception.RucioException(e.args)
+    except DatabaseError, e:
+        raise exception.RucioException(e.args)
+    except FlushError, e:
+        raise exception.RucioException(e.args)
+
+    return unknown_replicas
+
+
+@transactional_session
+def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, session=None):
+    """
+    Declare a list of bad replicas.
+
+    :param pfns: The list of PFNs.
+    :param reason: The reason of the loss.
+    :param issuer: The issuer account.
+    :param status: The status of the file (SUSPICIOUS or BAD).
+    :param session: The database session in use.
+    """
+    unknown_replicas = {}
+    ses = []
+    se_condition = []
+    files_to_declare = {}
+    surls = clean_surls(pfns)
+    scheme = surls[0].split(':')[0]
+    for surl in surls:
+        if surl.split(':')[0] != scheme:
+            raise exception.InvalidType('The PFNs specified must have the same protocol')
+        se = surl.split('/')[2]
+        if se not in ses:
+            ses.append(se)
+            se_condition.append(models.RSEProtocols.hostname == se)
+    query = session.query(models.RSE.rse, models.RSEProtocols.scheme, models.RSEProtocols.hostname, models.RSEProtocols.prefix).\
+        filter(models.RSEProtocols.rse_id == models.RSE.id).filter(and_(or_(*se_condition), models.RSEProtocols.scheme == scheme)).filter(models.RSE.staging_area != 1)
+    protocols = {}
+    for rse, protocol, hostname, prefix in query.yield_per(10000):
+        protocols[rse] = '%s://%s%s' % (protocol, hostname, prefix)
+    hint = None
+    for surl in surls:
+        if hint and surl.find(protocols[hint]) > -1:
+            print '%s at %s' % (surl, hint)
+            files_to_declare[hint].append(surl)
+        else:
+            multipleRSEmatch = 0
+            for rse in protocols:
+                if surl.find(protocols[rse]) > -1:
+                    multipleRSEmatch += 1
+                    if multipleRSEmatch > 1:
+                        print 'ERROR, multiple matches : %s at %s' % (surl, rse)
+                        raise
+                    hint = rse
+                    if hint not in files_to_declare:
+                        files_to_declare[hint] = []
+                    files_to_declare[hint].append(surl)
+    for rse in files_to_declare:
+        notdeclared = __declare_bad_file_replicas(files_to_declare[rse], rse, reason, issuer, status=status, scheme=scheme, session=None)
+        if notdeclared != []:
+            unknown_replicas[rse] = notdeclared
+    return unknown_replicas
 
 
 @read_session
