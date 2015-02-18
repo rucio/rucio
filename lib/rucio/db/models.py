@@ -579,7 +579,19 @@ class RSEFileAssociation(BASE, ModelBase):
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    Index('REPLICAS_PATH_IDX', 'path', mysql_length=255),
                    )
-#                   ForeignKeyConstraint(['rse_id', 'scope', 'name'], ['replica_locks.rse_id', 'replica_locks.scope', 'replica_locks.name'], name='REPLICAS_RULES_FK'),
+
+
+class RSEFileAssociationHistory(BASE, ModelBase):
+    """Represents a short history of the deleted replicas"""
+    __tablename__ = 'replicas_history'
+    rse_id = Column(GUID())
+    scope = Column(String(25))
+    name = Column(String(255))
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_HIST_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_HIST_LFN_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_HIST_RSE_ID_FK'),
+                   CheckConstraint('bytes IS NOT NULL', name='REPLICAS_HIST_SIZE_NN'))
 
 
 class ReplicationRule(BASE, ModelBase):
@@ -880,6 +892,7 @@ def register_models(engine):
               RSECounter,
               UpdatedRSECounter,
               RSEFileAssociation,
+              RSEFileAssociationHistory,
               RSELimit,
               RSEProtocols,
               RSEUsage,
@@ -922,6 +935,7 @@ def unregister_models(engine):
               RSECounter,
               UpdatedRSECounter,
               RSEFileAssociation,
+              RSEFileAssociationHistory,
               RSELimit,
               RSEProtocols,
               RSEUsage,

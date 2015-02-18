@@ -61,6 +61,7 @@ RSE_USAGE
 UPDATED_DIDS
 UPDATED_RSE_COUNTERS
 UPDATED_ACCOUNT_COUNTERS
+REPLICAS_HISTORY
 
 
 -- ============================================== section HISTORICAL data =========================================================================
@@ -368,14 +369,9 @@ CREATE INDEX SUBSCRIPTIONS_NAME_IDX ON subscriptions (NAME) TABLESPACE ATLAS_RUC
 
 
 
-
-
 -- ============================================== section FACT data ==============================================================================
 -- to reside in tablespace ATLAS_RUCIO_FACT_DATA01
 -- ===============================================================================================================================================
-
-
-
 
 
 
@@ -518,6 +514,30 @@ CREATE INDEX REPLICAS_STATE_IDX ON replicas (case when STATE != 'A' then RSE_ID 
 
 CREATE INDEX REPLICAS_PATH_IDX ON replicas (path) TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
+-- ========================================= REPLICAS_HISTORY =========================================
+-- Description: Table to store recent file deletion replicas
+-- Estimated volume: 20Hz
+-- Access pattern:
+--      get everything
+--      update rucio
+--      delete
+
+
+CREATE TABLE replicas_history (
+    scope VARCHAR2(25 CHAR),
+    name VARCHAR2(255 CHAR),
+    rse_id RAW(16),
+    bytes NUMBER(19),
+    updated_at DATE,
+    created_at DATE,
+    CONSTRAINT "REPLICAS_HIST_PK" PRIMARY KEY (scope, name, rse_id) USING INDEX LOCAL COMPRESS 1,
+    CONSTRAINT "REPLICAS_HIST_LFN_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
+    CONSTRAINT "REPLICAS_HIST_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
+    CONSTRAINT "REPLICAS_HIST_BYTES_NN" CHECK (bytes IS NOT NULL),
+    CONSTRAINT "REPLICAS_HIST_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+    CONSTRAINT "REPLICAS_HIST_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
 
 -- ========================================= RULES ==============================================
 -- Description: Table to store rules
@@ -586,18 +606,6 @@ CREATE INDEX RULES_EXPIRES_AT_IDX ON rules (expires_at, name) COMPRESS 1 TABLESP
 -- function based index for the "S" value of the STATE column
 CREATE INDEX RULES_STUCKSTATE_IDX ON rules (CASE when state='S' THEN state ELSE null END) COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 CREATE UNIQUE INDEX "RULES_SC_NA_AC_RS_CO_UQ_IDX" ON "RULES" ("SCOPE", "NAME", "ACCOUNT", "RSE_EXPRESSION", "COPIES") COMPRESS 2 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 -- ========================================= LOCKS (List partitioned table) =========================================
@@ -878,8 +886,6 @@ PARTITION BY LIST (SCOPE)
 
 -- this index is equivalent to ("CHILD_SCOPE", "CHILD_NAME", "SCOPE", "NAME") as the columns of the PKs are added as logical address
 CREATE INDEX CONTENTS_CHILD_SCOPE_NAME_IDX ON CONTENTS (CHILD_SCOPE, CHILD_NAME) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
-
 
 
 -- ========================================= REQUESTS =========================================
