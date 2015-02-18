@@ -371,8 +371,8 @@ class BadFilesStatus(BASE, ModelBase):
     account = Column(String(25))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'created_at', name='BAD_REPLICAS_STATE_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
-                   CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
-                   CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='BAD_REPLICAS_NAME_NN'),
+                   CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_RSE_ID_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_REPLICAS_ACCOUNT_FK'),
                    Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state')
                    )
