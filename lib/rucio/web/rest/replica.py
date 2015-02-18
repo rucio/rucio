@@ -90,7 +90,10 @@ class Replicas(RucioController):
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes):
-                client_ip = ctx.get('ip')
+                client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+                if client_ip is None:
+                    client_ip = ctx.ip
+
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
@@ -315,7 +318,9 @@ class ListReplicas(RucioController):
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes, unavailable=unavailable, request_id=ctx.env.get('request_id'), ignore_availability=ignore_availability, all_states=all_states):
-                client_ip = ctx.get('ip')
+                client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+                if client_ip is None:
+                    client_ip = ctx.ip
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
