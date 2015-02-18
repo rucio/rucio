@@ -35,7 +35,7 @@ from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 urls = (
-    '/(.*)/', 'Scope',
+    '/(.*)/$', 'Scope',
     '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
     '/(.*)/(.*)/files', 'Files',
