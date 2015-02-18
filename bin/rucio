@@ -13,7 +13,7 @@
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2015
-# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014
+# - Joaquin Bogado <joaquin.bogado@cern.ch>, 2014, 2015
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 
 """
@@ -438,12 +438,12 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
-    print '{0:^10}{1:^80}{2:10}{3:10}{4:^34}'.format('SCOPE', 'NAME', 'FILESIZE', 'ADDLER32', 'GUID')
+    print '{0:^10}{1:^80}{2:10}{3:10}{4:10}{5:^34}'.format('SCOPE', 'NAME', 'FILESIZE', 'EVENTS', 'ADDLER32', 'GUID')
     print '{0:-<140}'.format('')
     for did in args.dids:
         scope, name = extract_scope(did)
         for file in client.list_files(scope=scope, name=name):
-            print '{0:}:{1:80} {2:>10} {3:>10} {4:>34}'.format(file['scope'], file['name'], file['bytes'], file['adler32'], file['guid'])
+            print '{0:}:{1:80} {2:>10} {3:>10} {4:>10} {5:>34}'.format(file['scope'], file['name'], file['bytes'], file['events'], file['adler32'], file['guid'])
     return SUCCESS
 
 
