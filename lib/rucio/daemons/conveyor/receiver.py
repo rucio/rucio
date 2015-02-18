@@ -29,7 +29,7 @@ import stomp
 
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
-from rucio.daemons.conveyor import common1 as common
+from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, FTSCompleteState
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)

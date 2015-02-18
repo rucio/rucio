@@ -21,7 +21,7 @@ import traceback
 from rucio.common.config import config_get
 from rucio.core import request
 from rucio.core.monitor import record_timer, record_counter
-from rucio.daemons.conveyor import common1 as common
+from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
