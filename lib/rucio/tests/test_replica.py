@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 import xmltodict
@@ -69,7 +69,8 @@ class TestReplicaCore:
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
             replicas.extend(replica['rses']['MOCK'])
             list_rep.append(replica)
-        declare_bad_file_replicas(replicas, 'MOCK')
+        r = declare_bad_file_replicas(replicas, 'This is a good reason', 'root')
+        assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0
         for rep in list_rep:
@@ -92,7 +93,8 @@ class TestReplicaCore:
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
             replicas.extend(replica['rses']['MOCK2'])
             list_rep.append(replica)
-        declare_bad_file_replicas(replicas, 'MOCK2')
+        r = declare_bad_file_replicas(replicas, 'This is a good reason', 'root')
+        assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0
         for rep in list_rep:
@@ -101,6 +103,11 @@ class TestReplicaCore:
                     if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
                         nbbadrep += 1
         assert_equal(len(replicas), nbbadrep)
+
+        # Now adding non-existing bad replicas
+        files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
+        r = declare_bad_file_replicas(files, 'This is a good reason', 'root')
+        assert_equal(r, {'MOCK2': files})
 
     def test_add_list_replicas(self):
         """ REPLICA (CORE): Add and list file replicas """
@@ -250,7 +257,8 @@ class TestReplicaClients:
         for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK'])
             list_rep.append(replica)
-        self.replica_client.declare_bad_file_replicas(replicas, 'MOCK')
+        r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
+        assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0
         for rep in list_rep:
@@ -273,7 +281,8 @@ class TestReplicaClients:
         for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
             replicas.extend(replica['rses']['MOCK2'])
             list_rep.append(replica)
-        self.replica_client.declare_bad_file_replicas(replicas, 'MOCK2')
+        r = self.replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
+        assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0
         for rep in list_rep:
@@ -282,6 +291,47 @@ class TestReplicaClients:
                     if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
                         nbbadrep += 1
         assert_equal(len(replicas), nbbadrep)
+
+        # Now adding non-existing bad replicas
+        files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
+        r = self.replica_client.declare_bad_file_replicas(files, 'This is a good reason')
+        assert_equal(r, {'MOCK2': files})
+
+    def test_add_suspicious_replicas(self):
+        """ REPLICA (CLIENT): Add suspicious replicas"""
+        tmp_scope = 'mock'
+        nbfiles = 5
+        # Adding replicas to deterministic RSE
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb', 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        self.replica_client.add_replicas(rse='MOCK', files=files)
+
+        # Listing replicas on deterministic RSE
+        replicas = []
+        list_rep = []
+        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+            replicas.extend(replica['rses']['MOCK'])
+            list_rep.append(replica)
+        r = self.replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
+        assert_equal(r, {})
+
+        # Adding replicas to non-deterministic RSE
+        files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1L, 'adler32': '0cc737eb',
+                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for i in xrange(nbfiles)]
+        self.replica_client.add_replicas(rse='MOCK2', files=files)
+
+        # Listing replicas on non-deterministic RSE
+        replicas = []
+        list_rep = []
+        for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
+            replicas.extend(replica['rses']['MOCK2'])
+            list_rep.append(replica)
+        r = self.replica_client.declare_suspicious_file_replicas(replicas, 'This is a good reason')
+        assert_equal(r, {})
+
+        # Now adding non-existing bad replicas
+        files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
+        r = self.replica_client.declare_suspicious_file_replicas(files, 'This is a good reason')
+        assert_equal(r, {'MOCK2': files})
 
     def test_add_list_replicas(self):
         """ REPLICA (CLIENT): Add, change state and list file replicas """

@@ -9,7 +9,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
-from json import dumps
+from json import dumps, loads
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
@@ -25,19 +25,35 @@ class ReplicaClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, user_agent='rucio-clients'):
         super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
 
-    def declare_bad_file_replicas(self, pfns, rse):
+    def declare_bad_file_replicas(self, pfns, reason):
         """
         Declare a list of bad replicas.
 
         :param pfns: The list of PFNs.
-        :param rse: The RSE name.
+        :param reason: The reason of the loss.
         """
-        data = {'rse': rse, 'pfns': pfns}
-        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'badreplicas']))
+        data = {'reason': reason, 'pfns': pfns}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad']))
         headers = {}
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.created:
-            return True
+            return loads(r.text)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+        raise exc_cls(exc_msg)
+
+    def declare_suspicious_file_replicas(self, pfns, reason):
+        """
+        Declare a list of bad replicas.
+
+        :param pfns: The list of PFNs.
+        :param reason: The reason of the loss.
+        """
+        data = {'reason': reason, 'pfns': pfns}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'suspicious']))
+        headers = {}
+        r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
+        if r.status_code == codes.created:
+            return loads(r.text)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
         raise exc_cls(exc_msg)
 
@@ -50,7 +66,7 @@ class ReplicaClient(BaseClient):
         :returns: A list of dictionaries {pfn: {'scope': scope, 'name': name}}
         """
         data = {'rse': rse, 'pfns': pfns}
-        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'getdidsfromreplicas']))
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'dids']))
         headers = {}
         r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
         if r.status_code == codes.ok:
