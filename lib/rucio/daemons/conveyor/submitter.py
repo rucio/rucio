@@ -529,7 +529,7 @@ def submitter(once=False, rses=[],
                         logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
 
                     if not reqs or reqs == []:
-                        time.sleep(1)
+                        time.sleep(60)
                         continue
 
                     for req in reqs:
