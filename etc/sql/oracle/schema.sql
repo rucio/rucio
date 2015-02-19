@@ -522,22 +522,20 @@ CREATE INDEX REPLICAS_PATH_IDX ON replicas (path) TABLESPACE ATLAS_RUCIO_FACT_DA
 --      update rucio
 --      delete
 
-
-CREATE TABLE replicas_history (
-    scope VARCHAR2(25 CHAR),
-    name VARCHAR2(255 CHAR),
-    rse_id RAW(16),
-    bytes NUMBER(19),
-    updated_at DATE,
-    created_at DATE,
-    CONSTRAINT "REPLICAS_HIST_PK" PRIMARY KEY (scope, name, rse_id) USING INDEX LOCAL COMPRESS 1,
-    CONSTRAINT "REPLICAS_HIST_LFN_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
-    CONSTRAINT "REPLICAS_HIST_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
-    CONSTRAINT "REPLICAS_HIST_BYTES_NN" CHECK (bytes IS NOT NULL),
+CREATE TABLE REPLICAS_HISTORY (
+    SCOPE VARCHAR2(25 CHAR),
+    NAME VARCHAR2(255 CHAR),
+    RSE_ID RAW(16),
+    BYTES NUMBER(19),
+    UPDATED_AT DATE,
+    CREATED_AT DATE,
+    CONSTRAINT "REPLICAS_HIST_PK" PRIMARY KEY (SCOPE, NAME, RSE_ID),
+    --CONSTRAINT "REPLICAS_HIST_LFN_FK" FOREIGN KEY(SCOPE, NAME) REFERENCES DIDS (SCOPE, NAME),
+    CONSTRAINT "REPLICAS_HIST_RSE_ID_FK" FOREIGN KEY(RSE_ID) REFERENCES RSES (ID),
+    CONSTRAINT "REPLICAS_HIST_BYTES_NN" CHECK (BYTES IS NOT NULL),
     CONSTRAINT "REPLICAS_HIST_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
     CONSTRAINT "REPLICAS_HIST_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
 ) PCTFREE 0 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
-
 
 -- ========================================= RULES ==============================================
 -- Description: Table to store rules
@@ -1390,8 +1388,8 @@ CREATE TABLE ATLAS_RUCIO.bad_replicas(
     reason VARCHAR(255),
     state VARCHAR(1),
     account VARCHAR(25),
-    updated_at DATETIME,
-    created_at DATETIME,
+    updated_at DATE,
+    created_at DATE,
     CONSTRAINT bad_replicas_pk PRIMARY KEY (scope, name, rse_id, created_at),
     CONSTRAINT bad_replicas_account_fk FOREIGN KEY(account) REFERENCES accounts (account),
     CONSTRAINT bad_replicas_scope_nn CHECK (scope IS NOT NULL),
@@ -1399,14 +1397,14 @@ CREATE TABLE ATLAS_RUCIO.bad_replicas(
     CONSTRAINT bad_replicas_rse_id_nn CHECK (rse_id IS NOT NULL),
     CONSTRAINT bad_replicas_created_nn CHECK (created_at IS NOT NULL),
     CONSTRAINT bad_replicas_updated_at CHECK (updated_at IS NOT NULL),
-    CONSTRAINT bad_replicas_state_chk CHECK (state IN ('R', 'S', 'B', 'D')),
-    CONSTRAINT bad_replias_reporter_chk CHECK (reporter IN ('P', 'R', 'M', 'F'))
+    CONSTRAINT bad_replicas_state_chk CHECK (state IN ('R', 'S', 'B', 'D'))
 ) PCTFREE 0 COMPRESS FOR OLTP TABLESPACE ATLAS_RUCIO_HIST_DATA01
 PARTITION BY RANGE(CREATED_AT)
-INTERVAL ( NUMTODSINTERVAL(1,'MONTH'))
- ENABLE ROW MOVEMENT ;
+INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
+(
+PARTITION "DATA_BEFORE_02192013" VALUES LESS THAN (TO_DATE('19-02-2013', 'DD-MM-YYYY'))
+) ENABLE ROW MOVEMENT ;
 
 CREATE INDEX ATLAS_RUCIO.BAD_REPLICAS_STATE_IDX ON ATLAS_RUCIO.bad_replicas(rse_id, state) TABLESPACE ATLAS_RUCIO_HIST_DATA01;
 
 COMMENT ON TABLE ATLAS_RUCIO.bad_replicas IS 'Full history for bad replicas';
-
