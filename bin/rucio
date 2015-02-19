@@ -253,11 +253,11 @@ def list_file_replicas(args):
         dids.append({'scope': scope, 'name': name})
     replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
     if not args.list_collections:
-        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE', 'NAME', 'FILESIZE (TB) ', 'ADDLER32', 'RSE: REPLICA')
+        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE', 'NAME', 'FILESIZE', 'ADDLER32', 'RSE: REPLICA')
         print '{0:-<130}'.format('')
     for replica in replicas:
         if 'bytes' in replica:
-            str = '{0:}:{1:70} {2:.4f}  {3:10}'.format(replica['scope'], replica['name'], int(replica['bytes'])/1000000000000.0, replica['adler32'])
+            str = '{0:}:{1:70} {2:10}  {3:10}'.format(replica['scope'], replica['name'], int(replica['bytes']), replica['adler32'])
             for rse in replica['rses']:
                 if args.list_collections:
                     if rse not in rse_dict:
@@ -438,12 +438,12 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
-    print '{0:^10}{1:^80}{2:10}{3:10}{4:10}{5:^34}'.format('SCOPE', 'NAME', 'FILESIZE (TB) ', 'EVENTS', 'ADDLER32', 'GUID')
+    print '{0:^10}{1:^80}{2:10}{3:10}{4:10}{5:^34}'.format('SCOPE', 'NAME', 'FILESIZE', 'EVENTS', 'ADDLER32', 'GUID')
     print '{0:-<140}'.format('')
     for did in args.dids:
         scope, name = extract_scope(did)
         for file in client.list_files(scope=scope, name=name):
-            print '{0:}:{1:80} {2:>10.4f} {3:>10} {4:>10} {5:>34}'.format(file['scope'], file['name'], int(file['bytes'])/1000000000000.0, file['events'], file['adler32'], file['guid'])
+            print '{0:}:{1:80} {2:>10} {3:>10} {4:>10} {5:>34}'.format(file['scope'], file['name'], int(file['bytes']), file['events'], file['adler32'], file['guid'])
     return SUCCESS
 
 
