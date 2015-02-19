@@ -26,7 +26,7 @@ from sqlalchemy.exc import DatabaseError
 
 from rucio.common import exception
 from rucio.common.exception import DatabaseException, UnsupportedOperation
-from rucio.core import replica as replica_core, request as request_core
+from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import DIDType, RequestState, ReplicaState, RequestType
@@ -87,8 +87,8 @@ def handle_requests(reqs):
         try:
             replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
 
-            if req['request_type'] == RequestType.STAGEIN or req['request_type'] == RequestType.STAGEOUT:
-                replica['pfn'] = req['dest_url']
+            replica['pfn'] = req['dest_url']
+            replica['request_type'] = req['request_type']
 
             if req['request_type'] not in replicas:
                 replicas[req['request_type']] = {}
@@ -203,13 +203,13 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
     except UnsupportedOperation:
         # replica cannot be found. register it and schedule it for deletion
         try:
-            if replica['state'] == ReplicaState.AVAILABLE:
-                logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tomestone=utcnow" % (replica['scope'], replica['name'], replica['rse_id']))
-                replica_core.add_replica(None,
+            if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
+                logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow" % (replica['scope'], replica['name'], replica['rse_id']))
+                rse = rse_core.get_rse(rse=None, rse_id=replica['rse_id'])
+                replica_core.add_replica(rse['rse'],
                                          replica['scope'],
                                          replica['name'],
                                          replica['bytes'],
-                                         rse_id=replica['rse_id'],
                                          pfn=replica['pfn'] if 'pfn' in replica else None,
                                          account='root',  # it will deleted immediately, do we need to get the accurate account from rule?
                                          adler32=replica['adler32'],
