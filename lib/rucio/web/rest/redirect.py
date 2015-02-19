@@ -89,7 +89,9 @@ class Redirector(RucioController):
                                 return found(rep[0])
                             return notfound("Sorry, the replica you were looking for was not found.")
                         else:
-                            client_ip = ctx.get('ip')
+                            client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+                            if client_ip is None:
+                                client_ip = ctx.ip
                             if select == 'geoip':
                                 rep = geoIP_order(replicadict, client_ip)
                             else:
