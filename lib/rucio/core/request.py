@@ -224,9 +224,6 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
 
         if share:
             query = query.filter(models.Request.activity == share)
-            query = query.limit(activity_shares[share])
-        else:
-            query = query.limit(limit)
 
         if (total_processes-1) > 0:
             if session.bind.dialect.name == 'oracle':
@@ -245,6 +242,11 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
                 query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
             elif session.bind.dialect.name == 'postgresql':
                 query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+
+        if share:
+            query = query.limit(activity_shares[share])
+        else:
+            query = query.limit(limit)
 
         tmp = query.all()
         if tmp:
