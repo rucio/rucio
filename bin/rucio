@@ -253,11 +253,11 @@ def list_file_replicas(args):
         dids.append({'scope': scope, 'name': name})
     replicas = client.list_replicas(dids, schemes=protocols, all_states=args.all_states)
     if not args.list_collections:
-        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE', 'NAME', 'FILESIZE', 'ADDLER32', 'RSE: REPLICA')
+        print '{0:^10}{1:^80}{2:10}{3:10}{4:10}'.format('SCOPE', 'NAME', 'FILESIZE (TB) ', 'ADDLER32', 'RSE: REPLICA')
         print '{0:-<130}'.format('')
     for replica in replicas:
         if 'bytes' in replica:
-            str = '{0:}:{1:70} {2:10}  {3:10}'.format(replica['scope'], replica['name'], replica['bytes'], replica['adler32'])
+            str = '{0:}:{1:70} {2:.4f}  {3:10}'.format(replica['scope'], replica['name'], int(replica['bytes'])/1000000000000.0, replica['adler32'])
             for rse in replica['rses']:
                 if args.list_collections:
                     if rse not in rse_dict:
@@ -438,12 +438,12 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
-    print '{0:^10}{1:^80}{2:10}{3:10}{4:10}{5:^34}'.format('SCOPE', 'NAME', 'FILESIZE', 'EVENTS', 'ADDLER32', 'GUID')
+    print '{0:^10}{1:^80}{2:10}{3:10}{4:10}{5:^34}'.format('SCOPE', 'NAME', 'FILESIZE (TB) ', 'EVENTS', 'ADDLER32', 'GUID')
     print '{0:-<140}'.format('')
     for did in args.dids:
         scope, name = extract_scope(did)
         for file in client.list_files(scope=scope, name=name):
-            print '{0:}:{1:80} {2:>10} {3:>10} {4:>10} {5:>34}'.format(file['scope'], file['name'], file['bytes'], file['events'], file['adler32'], file['guid'])
+            print '{0:}:{1:80} {2:>10.4f} {3:>10} {4:>10} {5:>34}'.format(file['scope'], file['name'], int(file['bytes'])/1000000000000.0, file['events'], file['adler32'], file['guid'])
     return SUCCESS
 
 
@@ -1021,10 +1021,10 @@ def list_account_limits(args):
         limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
     else:
         limits = client.get_account_limits(account=args.limit_account)
-    print "RSE: LIMIT (bytes)"
+    print "RSE:             LIMIT (TB)"
     print "------------------"
     for limit in limits.items():
-        print "%s: %s" % limit
+        print "{0:20} {1:.4f}".format(limit[0], int(limit[1])/1000000000000.0)
     return SUCCESS
 
 
@@ -1041,10 +1041,11 @@ def list_account_usage(args):
         usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
     else:
         usage = client.get_account_usage(account=args.usage_account)
-    print "RSE                        USAGE (bytes), LIMIT (bytes), QUOTA LEFT (bytes)"
+    print "RSE                                USAGE (TB), LIMIT (TB), QUOTA LEFT (TB)"
     print '{0:-<130}'.format('')
     for item in usage:
-        print "{0:40} {1:>10.0f} {2:>10.0f} {3:>10.0f}".format(item['rse'], item['bytes'], item['bytes_limit'], item['bytes_remaining'])
+        print "{0:30} {1:>10.4f} {2:>10.4f} {3:>10.4f}".format(item['rse'], int(item['bytes'])/1000000000000.0,
+                                                               int(item['bytes_limit'])/1000000000000.0, int(item['bytes_remaining'])/1000000000000.0)
     return SUCCESS
 
 
