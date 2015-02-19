@@ -380,17 +380,15 @@ To create a dataset from files in other datasets, you can follow these steps:
 
  Step 2: Add files to destination dataset::
 
-  $> rucio add-files-to-dataset --to user.wguan:user.wguan.test.upload1 user.wguan:setup_dev.sh user.wguan:setup_dq2.sh
+  $> rucio attach user.wguan:user.wguan.test.upload1 user.wguan:setup_dev.sh user.wguan:setup_dq2.sh
+
+ Note that the arguments are positional and the first argument after `attach` must be the dataset name
 
  Step 3: List the destination dataset to check the result::
 
   $> rucio list-dids  user.wguan:user.wguan.test.upload1
   |    |- user.wguan:setup_dev.sh [FILE]
   |    |- user.wguan:setup_dq2.sh [FILE]
-
-Add files to a dataset::
-
-  $> rucio attach <DATASET> <FILE_1>  <FILE_2> ...  <FILE_n>
 
 ``What to do after creating a dataset?``
 ----------------------------------------
