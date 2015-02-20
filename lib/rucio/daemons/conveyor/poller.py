@@ -107,7 +107,7 @@ def poller(once=False,
                         for request_id, external_id in req_ids[external_host]:
                             response = responses[request_id]
                             if isinstance(response, Exception):
-                                logging.critical("Failed to poll request(%s) with FTS(%s) job (%s): %s" % (request_id, external_host, external_id, responses[request_id]))
+                                logging.warning("Failed to poll request(%s) with FTS(%s) job (%s): %s" % (request_id, external_host, external_id, responses[request_id]))
                                 record_counter('daemons.conveyor.poller.query_request_exception')
                                 response = {'new_state': None, 'request_id': request_id, 'transfer_id': external_id, 'job_state': None}
                             ret = common.update_request_state(response)

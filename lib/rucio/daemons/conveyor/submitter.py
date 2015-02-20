@@ -138,7 +138,7 @@ def get_sources(dest_rse, scheme, req):
             try:
                 metadata['filesize'] = long(source['bytes'])
             except KeyError, e:
-                logging.critical('source for %s:%s has no filesize set' % (source['scope'], source['name']))
+                logging.warning('source for %s:%s has no filesize set - skipping' % (source['scope'], source['name']))
                 continue
 
             metadata['md5'] = source['md5']
@@ -210,7 +210,7 @@ def get_sources(dest_rse, scheme, req):
                                                     'type': DIDType.FILE}],
                                                   schemes=[scheme],
                                                   unavailable=True)):
-            logging.critical('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
+            logging.warning('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
         return None, None
     else:
         for tmp in tmpsrc:
