@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -28,7 +28,7 @@ from ConfigParser import NoOptionError
 
 from rucio.common.closeness_sorter import sort_sources
 from rucio.common.config import config_get
-from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
+from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression, InvalidRequest
 from rucio.common.utils import construct_surl
 from rucio.core import did, heartbeat, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
@@ -97,7 +97,7 @@ def get_requests(rse_id=None,
     return reqs
 
 
-def get_sources(dest_rse, scheme, req):
+def get_sources(dest_rse, schemes, req):
     allowed_rses = []
     if req['request_type'] == RequestType.STAGEIN:
         rses = rse_core.list_rses(filters={'staging_buffer': dest_rse['rse']})
@@ -128,7 +128,7 @@ def get_sources(dest_rse, scheme, req):
         replications = replica.list_replicas(dids=[{'scope': req['scope'],
                                                     'name': req['name'],
                                                     'type': DIDType.FILE}],
-                                             schemes=[scheme, 'gsiftp'])
+                                             schemes=schemes)
         record_timer('daemons.conveyor.submitter.list_replicas', (time.time() - ts) * 1000)
 
         # return gracefully if there are no replicas for a DID
@@ -140,7 +140,7 @@ def get_sources(dest_rse, scheme, req):
             try:
                 metadata['filesize'] = long(source['bytes'])
             except KeyError, e:
-                logging.warning('source for %s:%s has no filesize set - skipping' % (source['scope'], source['name']))
+                logging.error('source for %s:%s has no filesize set - skipping' % (source['scope'], source['name']))
                 continue
 
             metadata['md5'] = source['md5']
@@ -210,9 +210,9 @@ def get_sources(dest_rse, scheme, req):
         if sum(1 for tmp in replica.list_replicas([{'scope': req['scope'],
                                                     'name': req['name'],
                                                     'type': DIDType.FILE}],
-                                                  schemes=[scheme],
+                                                  schemes=schemes,
                                                   unavailable=True)):
-            logging.warning('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
+            logging.error('DID %s:%s lost! This should not happen!' % (req['scope'], req['name']))
         return None, None
     else:
         for tmp in tmpsrc:
@@ -223,10 +223,9 @@ def get_sources(dest_rse, scheme, req):
     return sources, metadata
 
 
-def get_destinations(rse_info, scheme, req, sources, naming_convention):
+def get_destinations(rse_info, scheme, req, naming_convention):
     dsn = 'other'
     pfn = {}
-    paths = {}
     if not rse_info['deterministic']:
         ts = time.time()
 
@@ -246,64 +245,41 @@ def get_destinations(rse_info, scheme, req, sources, naming_convention):
                     break
         record_timer('daemons.conveyor.submitter.list_parent_dids', (time.time() - ts) * 1000)
 
-        # always use SRM
-        ts = time.time()
-        nondet = rsemgr.create_protocol(rse_info, 'write', scheme='srm')
-        record_timer('daemons.conveyor.submitter.create_protocol', (time.time() - ts) * 1000)
-
-        # if there exists a prefix for SRM, use it
-        prefix = ''
-        for s in rse_info['protocols']:
-            if s['scheme'] == 'srm':
-                prefix = s['prefix']
-
         # DQ2 path always starts with /, but prefix might not end with /
         path = construct_surl(dsn, req['name'], naming_convention)
 
         # retrial transfers to tape need a new filename - add timestamp
-        if req['request_type'] == RequestType.TRANSFER\
-           and 'previous_attempt_id' in req\
-           and req['previous_attempt_id']\
-           and rse_info['rse_type'] == 'TAPE':  # TODO: RUCIO-809 - rsemanager: get_rse_info -> rse_type is string instead of RSEType
-            path = '%s_%i' % (path, int(time.time()))
-            logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
-                                                                                              req['scope'],
-                                                                                              req['name'],
-                                                                                              rse_info['rse'],
-                                                                                              path))
-
-        tmp_path = '%s%s' % (prefix[:-1], path)
-        if prefix[-1] != '/':
-            tmp_path = '%s%s' % (prefix, path)
-        paths[req['scope'], req['name']] = path
-
-        # add the hostname
-        pfn['%s:%s' % (req['scope'], req['name'])] = nondet.path2pfn(tmp_path)
-        if req['request_type'] == RequestType.STAGEIN:
-            if len(sources) == 1:
-                pfn['%s:%s' % (req['scope'], req['name'])] = sources[0][1]
-            else:
-                # TODO: need to check
-                return None, None
-
+        if req['request_type'] == RequestType.TRANSFER and rse_info['rse_type'] == 'TAPE':
+            if 'previous_attempt_id' in req and req['previous_attempt_id']:
+                path = '%s_%i' % (path, int(time.time()))
+                logging.debug('Retrial transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
+                                                                                                  req['scope'],
+                                                                                                  req['name'],
+                                                                                                  rse_info['rse'],
+                                                                                                  path))
+            if req['activity'] and req['activity'] == 'Recovery':
+                path = '%s_%i' % (path, int(time.time()))
+                logging.debug('Recovery transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
+                                                                                                   req['scope'],
+                                                                                                   req['name'],
+                                                                                                   rse_info['rse'],
+                                                                                                   path))
         # we must set the destination path for nondeterministic replicas explicitly
         replica.update_replicas_paths([{'scope': req['scope'],
                                         'name': req['name'],
                                         'rse_id': req['dest_rse_id'],
                                         'path': path}])
-
+        lfn = [{'scope': req['scope'], 'name': req['name'], 'path': path}]
     else:
-        ts = time.time()
-        try:
-            pfn = rsemgr.lfns2pfns(rse_info,
-                                   lfns=[{'scope': req['scope'],
-                                          'name': req['name']}],
-                                   scheme=scheme)
-        except RSEProtocolNotSupported:
-            logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
-            return None, None
+        lfn = [{'scope': req['scope'], 'name': req['name']}]
 
-        record_timer('daemons.conveyor.submitter.lfns2pfns', (time.time() - ts) * 1000)
+    ts = time.time()
+    try:
+        pfn = rsemgr.lfns2pfns(rse_info, lfns=lfn, operation='write')
+    except RSEProtocolNotSupported:
+        logging.error('Operation "write" not supported by %s' % (rse_info['rse']))
+        return None, None
+    record_timer('daemons.conveyor.submitter.lfns2pfns', (time.time() - ts) * 1000)
 
     destinations = []
     for k in pfn:
@@ -313,17 +289,17 @@ def get_destinations(rse_info, scheme, req, sources, naming_convention):
             for url in pfn[k]:
                 destinations.append(pfn[k][url])
 
-    protocols = None
+    protocol = None
     try:
-        protocols = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
+        protocol = rsemgr.select_protocol(rse_info, 'write')
     except RSEProtocolNotSupported:
-        logging.warn('%s not supported by %s' % (scheme, rse_info['rse']))
+        logging.error('Operation "write" not supported by %s' % (rse_info['rse']))
         return None, None
 
     # we need to set the spacetoken if we use SRM
     dest_spacetoken = None
-    if scheme == 'srm':
-        dest_spacetoken = protocols['extended_attributes']['space_token']
+    if protocol['extended_attributes'] and 'space_token' in protocol['extended_attributes']:
+        dest_spacetoken = protocol['extended_attributes']['space_token']
 
     return destinations, dest_spacetoken
 
@@ -331,64 +307,57 @@ def get_destinations(rse_info, scheme, req, sources, naming_convention):
 def get_transfer(rse, req, scheme, mock):
     src_spacetoken = None
 
-    ts = time.time()
-    sources, metadata = get_sources(rse, scheme, req)
-    record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
-    logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
-    if sources is None:
-        logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
-                                                                             req['scope'],
-                                                                             req['name'],
-                                                                             rse['rse']))
-        return None
-    filesize = metadata['filesize']
-    md5 = metadata['md5']
-    adler32 = metadata['adler32']
-
-    naming_convention = None
-    fts_hosts = None
-    # get external host
-    if rse_core.get_rse(rse['rse'])['staging_area'] or rse['rse'].endswith("STAGING"):
-        rse_attr = rse_core.list_rse_attributes(sources[0][0])
-    else:
-        rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
-    fts_hosts = rse_attr.get('fts', None)
-    naming_convention = rse_attr.get('naming_convention', None)
-
-    ts = time.time()
-    destinations, dest_spacetoken = get_destinations(rse, scheme, req, sources, naming_convention)
-    record_timer('daemons.conveyor.submitter.get_destinations', (time.time() - ts) * 1000)
-    logging.debug('Destinations for request %s: %s' % (req['request_id'], destinations))
-    if destinations is None:
-        logging.error("Request %s DID %s:%s RSE %s failed to get destinations" % (req['request_id'],
-                                                                                  req['scope'],
-                                                                                  req['name'],
-                                                                                  rse['rse']))
-        return None
-
-    # Come up with mock sources if necessary
-    if mock:
-        tmp_sources = []
-        for s in sources:
-            tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:])))
-        sources = tmp_sources
-
-    tmp_metadata = {'request_id': req['request_id'],
-                    'scope': req['scope'],
-                    'name': req['name'],
-                    'activity': req['activity'],
-                    'src_rse': sources[0][0],
-                    'dst_rse': rse['rse'],
-                    'dest_rse_id': req['dest_rse_id'],
-                    'filesize': filesize,
-                    'md5': md5,
-                    'adler32': adler32}
-    if 'previous_attempt_id' in req and req['previous_attempt_id']:
-        tmp_metadata['previous_attempt_id'] = req['previous_attempt_id']
-
-    # Extend the metadata dictionary with request attributes
-    copy_pin_lifetime, overwrite, bring_online = -1, True, None
     if req['request_type'] == RequestType.STAGEIN:
+        # for staging in, get the sources at first, then use the sources as destination
+        if not (rse['staging_area'] or rse['rse'].endswith("STAGING")):
+            raise InvalidRequest('Not a STAGING RSE for STAGE-IN request')
+
+        ts = time.time()
+        if scheme is None:
+            sources, metadata = get_sources(rse, None, req)
+        else:
+            sources, metadata = get_sources(rse, [scheme], req)
+        record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
+        logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
+        if sources is None:
+            logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
+                                                                                 req['scope'],
+                                                                                 req['name'],
+                                                                                 rse['rse']))
+            return None
+
+        filesize = metadata['filesize']
+        md5 = metadata['md5']
+        adler32 = metadata['adler32']
+        # Sources are properly set, so now we can finally force the source RSE to the destination RSE for STAGEIN
+        dest_rse = sources[0][0]
+
+        rse_attr = rse_core.list_rse_attributes(sources[0][0])
+        fts_hosts = rse_attr.get('fts', None)
+        naming_convention = rse_attr.get('naming_convention', None)
+
+        if len(sources) == 1:
+            destinations = [sources[0][1]]
+        else:
+            # TODO: need to check
+            return None
+
+        protocol = None
+        try:
+            # for stagin, dest_space_token should be the source space token
+            source_rse_info = rsemgr.get_rse_info(sources[0][0])
+            protocol = rsemgr.select_protocol(source_rse_info, 'write')
+        except RSEProtocolNotSupported:
+            logging.error('Operation "write" not supported by %s' % (source_rse_info['rse']))
+            return None
+
+        # we need to set the spacetoken if we use SRM
+        dest_spacetoken = None
+        if 'space_token' in protocol['extended_attributes']:
+            dest_spacetoken = protocol['extended_attributes']['space_token']
+
+        # Extend the metadata dictionary with request attributes
+        copy_pin_lifetime, overwrite, bring_online = -1, True, None
         if req['attributes']:
             if type(req['attributes']) is dict:
                 attr = json.loads(json.dumps(req['attributes']))
@@ -397,45 +366,95 @@ def get_transfer(rse, req, scheme, mock):
             copy_pin_lifetime = attr.get('lifetime')
         overwrite = False
         bring_online = 21000
-
-    # if the source for transfer is a tape rse, set bring_online
-    if req['request_type'] == RequestType.TRANSFER\
-       and rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
-        bring_online = 21000
-
-    # never overwrite on tape destinations
-    if req['request_type'] == RequestType.TRANSFER\
-       and rse_core.get_rse(None, rse_id=req['dest_rse_id']).rse_type == RSEType.TAPE:
-        overwrite = False
-
-    # exclude destination replica from source
-    source_surls = [s[1] for s in sources]
-    if req['request_type'] == RequestType.STAGEIN and source_surls.sort() == destinations.sort():
-        logging.debug('STAGING REQUEST %s - Will not try to ignore equivalent sources' % req['request_id'])
-    elif req['request_type'] == RequestType.STAGEIN:
-        logging.debug('STAGING REQUEST %s - Forcing destination to source' % req['request_id'])
-        destinations = source_surls
     else:
-        new_sources = source_surls
-        for source_surl in source_surls:
-            if source_surl in destinations:
-                logging.info('Excluding source %s for request %s' % (source_surl,
-                                                                     req['request_id']))
-                new_sources.remove(source_surl)
+        # for normal transfer, get the destination at first, then use the destination scheme to get sources
 
+        rse_attr = rse_core.list_rse_attributes(rse['rse'], rse['id'])
+        fts_hosts = rse_attr.get('fts', None)
+        naming_convention = rse_attr.get('naming_convention', None)
+
+        ts = time.time()
+        destinations, dest_spacetoken = get_destinations(rse, scheme, req, naming_convention)
+        record_timer('daemons.conveyor.submitter.get_destinations', (time.time() - ts) * 1000)
+        logging.debug('Destinations for request %s: %s' % (req['request_id'], destinations))
+        if destinations is None:
+            logging.error("Request %s DID %s:%s RSE %s failed to get destinations" % (req['request_id'],
+                                                                                      req['scope'],
+                                                                                      req['name'],
+                                                                                      rse['rse']))
+            return None
+
+        schemes = []
+        for destination in destinations:
+            schemes.append(destination.split("://")[0])
+        if 'srm' in schemes and 'gsiftp' not in schemes:
+            schemes.append('gsiftp')
+        if 'gsiftp' in schemes and 'srm' not in schemes:
+            schemes.append('srm')
+        logging.debug('Schemes will be allowed for sources: %s' % (schemes))
+
+        ts = time.time()
+        sources, metadata = get_sources(rse, schemes, req)
+        record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
+        logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
+
+        dest_rse = rse['rse']
+        # exclude destination replica from source
+        new_sources = sources
+        for source in sources:
+            if source[0] == dest_rse:
+                logging.info('Excluding source %s for request %s: source is destination' % (source[0],
+                                                                                            req['request_id']))
+                new_sources.remove(source)
+        sources = new_sources
+
+        if not sources:
+            logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
+                                                                                 req['scope'],
+                                                                                 req['name'],
+                                                                                 rse['rse']))
+            return None
+
+        filesize = metadata['filesize']
+        md5 = metadata['md5']
+        adler32 = metadata['adler32']
+
+        # Extend the metadata dictionary with request attributes
+        copy_pin_lifetime, overwrite, bring_online = -1, True, None
+        if rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
+            bring_online = 21000
+        if rse_core.get_rse(None, rse_id=req['dest_rse_id']).rse_type == RSEType.TAPE:
+            overwrite = False
         # make sure we only use one source when bring_online is needed
-        if bring_online and len(new_sources) > 1:
-            source_surls = [new_sources[0]]
-            logging.info('Only using first source %s for bring_online request %s' % (source_surls,
+        if bring_online and len(sources) > 1:
+            sources = [sources[0]]
+            logging.info('Only using first source %s for bring_online request %s' % (sources,
                                                                                      req['request_id']))
 
+    # Come up with mock sources if necessary
+    if mock:
+        tmp_sources = []
+        for s in sources:
+            tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:])))
+        sources = tmp_sources
+
+    source_surls = [s[1] for s in sources]
     if not source_surls:
         logging.error('All sources excluded - SKIP REQUEST %s' % req['request_id'])
         return
 
-    # Sources are properly set, so now we can finally force the source RSE to the destination RSE for STAGEIN
-    if req['request_type'] == RequestType.STAGEIN:
-        tmp_metadata['dst_rse'] = sources[0][0]
+    tmp_metadata = {'request_id': req['request_id'],
+                    'scope': req['scope'],
+                    'name': req['name'],
+                    'activity': req['activity'],
+                    'src_rse': sources[0][0],
+                    'dst_rse': dest_rse,
+                    'dest_rse_id': req['dest_rse_id'],
+                    'filesize': filesize,
+                    'md5': md5,
+                    'adler32': adler32}
+    if 'previous_attempt_id' in req and req['previous_attempt_id']:
+        tmp_metadata['previous_attempt_id'] = req['previous_attempt_id']
 
     retry_count = req['retry_count']
     if not retry_count:
@@ -476,11 +495,10 @@ def submitter(once=False, rses=[],
                                                                           total_processes,
                                                                           thread,
                                                                           total_threads))
-
     try:
         scheme = config_get('conveyor', 'scheme')
     except NoOptionError:
-        scheme = 'srm'
+        scheme = None
 
     executable = ' '.join(sys.argv)
     hostname = socket.getfqdn()
@@ -554,10 +572,10 @@ def submitter(once=False, rses=[],
                             logging.debug('Transfer for request %s: %s' % (req['request_id'], transfer))
 
                             if transfer is None:
-                                logging.warn("Request %s DID %s:%s RSE %s failed to get transfer" % (req['request_id'],
-                                                                                                     req['scope'],
-                                                                                                     req['name'],
-                                                                                                     rse_info['rse']))
+                                logging.error("Request %s DID %s:%s RSE %s failed to get transfer" % (req['request_id'],
+                                                                                                      req['scope'],
+                                                                                                      req['name'],
+                                                                                                      rse_info['rse']))
                                 # TODO: Merge these two calls
                                 request.set_request_state(req['request_id'],
                                                           RequestState.LOST)  # if the DID does not exist anymore
