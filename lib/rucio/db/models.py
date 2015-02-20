@@ -861,12 +861,22 @@ class AlembicVersion(BASE):
 class Config(BASE, ModelBase, Versioned):
     """Represents the configuration"""
     __tablename__ = 'configs'
-    revision = '2b8e7bcb4783'
-    down_revision = '16a0aca82e12'
     section = Column(String(128))
     opt = Column(String(128))
     value = Column(String(4000))
     _table_args = (PrimaryKeyConstraint('section', 'opt', name='CONFIGS_PK'), )
+
+
+class Heartbeats(BASE, ModelBase):
+    """Represents the status and heartbeat of the running daemons and services"""
+    __tablename__ = 'heartbeats'
+    executable = Column(String(767))  # mysql max length
+    hostname = Column(String(128))
+    pid = Column(Integer, autoincrement=False)
+    thread_id = Column(BigInteger, autoincrement=False)
+    thread_name = Column(String(64))
+    _table_args = (PrimaryKeyConstraint('executable', 'hostname', 'pid', 'thread_id', name='HEARTBEATS_PK'),
+                   Index('HEARTBEATS_UPDATED_AT', 'updated_at'))
 
 
 def register_models(engine):
@@ -876,37 +886,38 @@ def register_models(engine):
     models = (Account,
               AccountAttrAssociation,
               AccountCounter,
-              UpdatedAccountCounter,
               AccountLimit,
               AccountUsage,
               AlembicVersion,
               BadReplicas,
+              Config,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
+              Heartbeats,
               Identity,
               IdentityAccountAssociation,
               Message,
               RSE,
               RSEAttrAssociation,
               RSECounter,
-              UpdatedRSECounter,
               RSEFileAssociation,
               RSEFileAssociationHistory,
               RSELimit,
               RSEProtocols,
               RSEUsage,
-              ReplicationRule,
-              ReplicationRuleHistoryRecent,
-              ReplicationRuleHistory,
               ReplicaLock,
               ReplicationRule,
+              ReplicationRule,
+              ReplicationRuleHistory,
+              ReplicationRuleHistoryRecent,
               Request,
               Scope,
               Subscription,
               Token,
+              UpdatedAccountCounter,
               UpdatedDID,
-              Config)
+              UpdatedRSECounter)
 
     for model in models:
         model.metadata.create_all(engine)
@@ -919,37 +930,38 @@ def unregister_models(engine):
     models = (Account,
               AccountAttrAssociation,
               AccountCounter,
-              UpdatedAccountCounter,
               AccountLimit,
               AccountUsage,
               AlembicVersion,
               BadReplicas,
+              Config,
               DIDKey,
               DIDKeyValueAssociation,
               DataIdentifier,
+              Heartbeats,
               Identity,
               IdentityAccountAssociation,
               Message,
               RSE,
               RSEAttrAssociation,
               RSECounter,
-              UpdatedRSECounter,
               RSEFileAssociation,
               RSEFileAssociationHistory,
               RSELimit,
               RSEProtocols,
               RSEUsage,
-              ReplicationRule,
-              ReplicationRuleHistoryRecent,
-              ReplicationRuleHistory,
               ReplicaLock,
               ReplicationRule,
+              ReplicationRule,
+              ReplicationRuleHistory,
+              ReplicationRuleHistoryRecent,
               Request,
               Scope,
               Subscription,
               Token,
+              UpdatedAccountCounter,
               UpdatedDID,
-              Config)
+              UpdatedRSECounter)
 
     for model in models:
         model.metadata.drop_all(engine)

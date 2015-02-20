@@ -17,6 +17,8 @@ Conveyor is a daemon to manage file transfers.
 
 import json
 import logging
+import os
+import socket
 import sys
 import threading
 import time
@@ -28,7 +30,7 @@ from rucio.common.closeness_sorter import sort_sources
 from rucio.common.config import config_get
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.utils import construct_surl
-from rucio.core import did, replica, request, rse as rse_core
+from rucio.core import did, heartbeat, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
@@ -480,12 +482,19 @@ def submitter(once=False, rses=[],
     except NoOptionError:
         scheme = 'srm'
 
+    executable = ' '.join(sys.argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+
     logging.info('submitter started - process (%i/%i) thread (%i/%i)' % (process,
                                                                          total_processes,
                                                                          thread,
                                                                          total_threads))
 
     while not graceful_stop.is_set():
+
+        heartbeat.live(executable, hostname, pid, hb_thread)
 
         try:
 
@@ -603,6 +612,8 @@ def submitter(once=False, rses=[],
             return
 
     logging.info('graceful stop requested')
+
+    heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.info('graceful stop done')
 
