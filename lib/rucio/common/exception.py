@@ -319,6 +319,12 @@ class InvalidValueForKey(RucioException):
         self._message = "Invalid value for the key."
 
 
+class InvalidRequest(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidRequest, self).__init__(args, kwargs)
+        self._message = "Request is considered invalid."
+
+
 class KeyNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(KeyNotFound, self).__init__(args, kwargs)
