@@ -140,6 +140,7 @@ def set_user_quotas(name, accs):
 # Takes DDM endpoint quota information from AGIS and sets rucio account quotas
 if __name__ == '__main__':
 
+    global result
     url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
     try:
         resp = requests.get(url=url)
@@ -164,7 +165,7 @@ if __name__ == '__main__':
 
     # Get all rucio accounts and country attributes
     try:
-        accounts = list_accounts(filter={'account_type': 'USER'})
+        accounts = list_accounts()
         special_accounts = get_special_accounts()
         all_accounts = [a['account'] for a in accounts if a['account'] not in special_accounts]
         for account in all_accounts:
