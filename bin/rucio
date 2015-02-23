@@ -35,7 +35,7 @@ from rucio.client import Client
 from rucio import version
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported)
-from rucio.common.utils import adler32, generate_uuid
+from rucio.common.utils import adler32, generate_uuid, execute
 from rucio.rse import rsemanager as rsemgr
 
 SUCCESS = 0
@@ -561,7 +561,6 @@ def upload(args):
         logger.error('rucio upload only allows to upload files to one dataset, more than one provided.')
         return FAILURE
     files = __get_files(args.args)               # a list of file names (even if a directory is given)
-
     list_files = []
     files_to_list = []
     lfns = {}
@@ -580,7 +579,21 @@ def upload(args):
             checksum = adler32(name)
             logger.debug('Extracting filesize (%s) and checksum (%s) for file %s:%s' % (str(size), checksum, fscope, os.path.basename(name)))
             files_to_list.append({'scope': fscope, 'name': os.path.basename(name)})
-            list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
+            if 'pool.root' in name.lower():  # is a root file, getting the GUID
+                status, output, error = execute('pool_extractFileIdentifier {0}'.format(name))
+                if status != 0:
+                    logger.error('Trying to upload ROOT files but pool_extractFileIdentifier tool can not be found.')
+                    logger.error('Setup your ATHENA environment and try again.')
+                    return FAILURE
+                try:
+                    logger.debug('Extracting GUID from POOL file: {0}'.format(output.splitlines()[-1].split()[0].replace('-', '').lower()))
+                    guid = output.splitlines()[-1].split()[0].replace('-', '').lower()
+                except Exception:
+                    logger.error('Error during GUID extraction. Failing. None of the files will be uploaded.')
+                    return FAILURE
+                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': guid}})
+            else:
+                list_files.append({'scope': fscope, 'name': os.path.basename(name), 'bytes': size, 'adler32': checksum, 'state': 'C', 'meta': {'guid': generate_uuid()}})
             if not os.path.dirname(name) in lfns:
                 lfns[os.path.dirname(name)] = []
             lfns[os.path.dirname(name)].append({'name': os.path.basename(name), 'scope': fscope, 'adler32': checksum, 'filesize': size})
