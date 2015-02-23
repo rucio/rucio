@@ -33,17 +33,13 @@ OK = 0
 
 if __name__ == '__main__':
 
-    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
+    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
     resp = requests.get(url=url)
     data = json.loads(resp.content)
     retvalue = OK
 
     c = Client()
     for rse in data:
-
-        if rse['state'] != 'ACTIVE':
-            continue
-
         try:
             deterministic = not rse['is_deterministic']
             volatile = False

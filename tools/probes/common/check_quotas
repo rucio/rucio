@@ -52,14 +52,14 @@ def get_srm_total(name):
     try:
         capacity = rse.get_rse_usage(name, 'root', source='srm')
     except RucioException as e:
-        print "Could not get capacity of %s: %s" % (name, str(e))
+        print "WARNING: Could not get capacity of %s: %s" % (name, str(e))
         result = WARNING
         return None
 
     try:
         srmtotal = capacity[0]['total']
     except:
-        print "No srm info for %s" % name
+        print "WARNING: No srm info for %s" % name
         result = WARNING
         return None
 
@@ -100,7 +100,7 @@ def set_group_quotas(quotas):
         except AccountNotFound:
             print "Account %s does not exist" % physgroup
         except RucioException as e:
-            print str(e)
+            print 'WARNING: %s' % str(e)
             result = WARNING
 
 
@@ -132,7 +132,7 @@ def set_user_quotas(name, accs):
             print "Set quota of %dTB on %s for %s" % (srmtotal/2 / 1000**4, name, account)
             set_account_limit(account, name, srmtotal/2, 'root')
         except RucioException as e:
-            print str(e)
+            print 'WARNING: %s' % str(e)
             result = WARNING
 
 
@@ -140,7 +140,7 @@ def set_user_quotas(name, accs):
 if __name__ == '__main__':
 
     global result
-    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
+    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
     try:
         resp = requests.get(url=url)
         data = json.loads(resp.content)
@@ -153,14 +153,14 @@ if __name__ == '__main__':
         with open(rse_capacity_cache) as f:
             rse_capacity = json.load(f)
     except:
-        print "Warning: no cached RSE capacity info, will set all quotas"
+        print "No cached RSE capacity info, will set all quotas"
 
     # Read accounts from cached file
     try:
         with open(accounts_cache) as f:
             done_accounts = json.load(f)
     except:
-        print "Warning: no cached accounts, will set quotas for all accounts"
+        print "No cached accounts, will set quotas for all accounts"
 
     # Get all rucio accounts and country attributes
     try:
@@ -184,10 +184,6 @@ if __name__ == '__main__':
 
     for ddmendpoint in data:
 
-        # Only use active endpoints in AGIS
-        if ddmendpoint['state'] != 'ACTIVE':
-            continue
-
         # Check if RSE exists
         name = ddmendpoint['name']
         try:
@@ -204,12 +200,12 @@ if __name__ == '__main__':
             try:
                 country = rse.list_rse_attributes(name)['country']
             except:
-                print "Warning: No country defined for %s" % name
+                print "WARNING: No country defined for %s" % name
                 result = WARNING
                 continue
 
             if country not in country_accounts:
-                print "Warning: no accounts in country %s" % country
+                print "No accounts in country %s" % country
             else:
                 set_user_quotas(name, country_accounts[country])
 
@@ -221,12 +217,12 @@ if __name__ == '__main__':
         with open(accounts_cache, 'w') as f:
             json.dump(all_accounts, f)
     except:
-        print "Warning: Failed to write accounts cache"
+        print "Failed to write accounts cache"
 
     try:
         with open(rse_capacity_cache, 'w') as f:
             json.dump(rse_capacity, f)
     except:
-        print "Warning: Failed to write RSE capacity cache"
+        print "Failed to write RSE capacity cache"
 
     sys.exit(result)
