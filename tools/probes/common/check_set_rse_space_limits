@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - David Cameron, <david.cameron@cern.ch>, 2014
+# - David Cameron, <david.cameron@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 # Sets the minimum free space on RSEs according to the policy, which is set in
@@ -56,7 +56,7 @@ def TB(size):
 
 # Get endpoint info from AGIS to know the RSEs in each space token
 try:
-    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
+    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
     resp = requests.get(url=url)
     data = json.loads(resp.content)
 except Exception, e:

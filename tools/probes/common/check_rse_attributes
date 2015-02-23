@@ -41,7 +41,7 @@ countrycodes = {'Argentina': 'ar', 'Armenia': 'am', 'Australia': 'au', 'Austria'
 # Takes DDM endpoint information from AGIS and adds selected attributes to RSEs
 if __name__ == '__main__':
 
-    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
+    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
     try:
         resp = requests.get(url=url)
         data = json.loads(resp.content)
@@ -52,9 +52,6 @@ if __name__ == '__main__':
     for rse in data:
 
         name = rse['name']
-        # Only use active endpoints in AGIS
-        if rse['state'] != 'ACTIVE':
-            continue
 
         # Check if RSE exists
         try:
