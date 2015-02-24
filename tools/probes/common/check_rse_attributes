@@ -8,7 +8,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
-# - David Cameron, <david.cameron@cern.ch>, 2014
+# - David Cameron, <david.cameron@cern.ch>, 2014-2015
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
 
 import json
@@ -32,8 +32,8 @@ countrycodes = {'Argentina': 'ar', 'Armenia': 'am', 'Australia': 'au', 'Austria'
                 'Canada': 'ca', 'Switzerland': 'ch', 'Chile': 'cl', 'China': 'cn',
                 'Czech Republic': 'cz', 'Germany': 'de', 'Denmark': 'dk', 'Spain': 'es',
                 'France': 'fr', 'Greece': 'gr', 'Israel': 'il', 'Italy': 'it',
-                'Japan': 'jp', 'Netherlands': 'nl', 'Norway': 'no', 'Poland': 'pl',
-                'Portugal': 'pt', 'Romania': 'ro', 'Russian Federation': 'ru',
+                'Japan': 'jp', 'Netherlands': 'nl', 'Nordic': 'dk', 'Norway': 'no',
+                'Poland': 'pl', 'Portugal': 'pt', 'Romania': 'ro', 'Russian Federation': 'ru',
                 'Sweden': 'se', 'Slovakia': 'sk', 'Turkey': 'tr', 'Taiwan': 'tw',
                 'UK': 'uk', 'USA': 'us', 'South Africa': 'za'}
 
