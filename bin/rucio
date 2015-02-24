@@ -22,9 +22,12 @@
 
 import argcomplete
 import argparse
+import json
 import logging
 import os
 import random
+import requests
+import socket
 import sys
 import time
 import traceback
@@ -714,6 +717,9 @@ def download(args):
     rse_dict = {}
     summary = {}
     protocol = None
+    trace = {}
+    trace_uuid = generate_uuid()
+    trace['hostname'] = socket.getfqdn()
     for did in args.dids:
         try:
             scope, name = did.split(':')
@@ -722,6 +728,19 @@ def download(args):
             logger.debug('Getting the list of replicas')
             files = client.list_replicas([{'scope': scope, 'name': name}])
             for file in files:
+                trace['account'] = client.account
+                trace['scope'] = file['scope']
+                trace['filename'] = file['name']
+                trace['uuid'] = trace_uuid
+                if scope == file['scope'] and name == file['name']:
+                    trace['dataset'] = ''
+                    trace['datasetScope'] = ''
+                else:
+                    trace['dataset'] = name
+                    trace['datasetScope'] = scope
+                trace['filesize'] = file['bytes']
+                trace['eventType'] = 'download'
+                trace['eventVersion'] = version.RUCIO_VERSION[0]
                 if os.path.isfile('%s/%s/%s' % (args.dir, file['scope'], file['name'])):
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
@@ -750,11 +769,32 @@ def download(args):
                         if rse_dict[rse]['availability_read']:
                             logger.debug('Getting file %s:%s from %s' % (file['scope'], file['name'], rse))
                             try:
+                                trace['remoteSite'] = rse_dict[rse]['rse']
+                                trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
+                                trace['transferStart'] = time.time()
                                 rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
+                                trace['transferEnd'] = time.time()
+                                trace['clientState'] = 'DONE'
+                                retries = 2
+                                for i in xrange(retries):
+                                    try:
+                                        requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+                                        break
+                                    except:
+                                        pass
                                 logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
                                 summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
                                 break
                             except Exception, e:
+                                trace['transferEnd'] = time.time()
+                                trace['clientState'] = str(type(e).__name__)
+                                retries = 2
+                                for i in xrange(retries):
+                                    try:
+                                        requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+                                        break
+                                    except:
+                                        pass
                                 logger.warning(e)
                                 index += 1
                                 if index != len(rse):
