@@ -195,6 +195,22 @@ def list_account_attributes(account, session=None):
     return attr_list
 
 
+@read_session
+def has_account_attribute(account, key, session=None):
+    """
+    Indicates whether the named key is present for the account.
+
+    :param account: the account name to list the scopes of.
+    :param key: the key for the attribute.
+    :param session: The database session in use.
+
+    :returns: True or False
+    """
+    if session.query(models.AccountAttrAssociation.value).filter_by(account=account, key=key).first():
+        return True
+    return False
+
+
 @transactional_session
 def add_account_attribute(account, key, value, session=None):
     """
