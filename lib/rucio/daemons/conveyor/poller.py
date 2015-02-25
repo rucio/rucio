@@ -34,7 +34,6 @@ from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType, FTSState
 
-logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -82,8 +81,8 @@ def poller(once=False,
             if not reqs or reqs == []:
                 if once:
                     break
-                logging.debug("%i:%i - no requests found. will sleep 1 second" % (process, thread))
-                time.sleep(1)  # Only sleep if there is nothing to do
+                logging.debug("%i:%i - no requests found. will sleep 60 second" % (process, thread))
+                time.sleep(60)  # Only sleep if there is nothing to do
                 continue
 
             for xfers in chunks(reqs, bulk):
@@ -133,12 +132,12 @@ def poller(once=False,
     logging.debug('%i:%i - graceful stop done' % (process, thread))
 
 
-def poller_latest(external_hosts, once=False, last_nhours=1):
+def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
-    logging.info('poller started to poll latest %s hours on hosts: %s' % (last_nhours, external_hosts))
+    logging.info('polling latest %s hours on hosts: %s' % (last_nhours, external_hosts))
     if external_hosts:
         if type(external_hosts) == str:
             external_hosts = [external_hosts]
@@ -148,7 +147,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1):
         try:
             start_time = time.time()
             for external_host in external_hosts:
-                logging.debug('poller started to poll latest %s hours on host: %s' % (last_nhours, external_host))
+                logging.debug('polling latest %s hours on host: %s' % (last_nhours, external_host))
                 ts = time.time()
                 resps = None
                 state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
@@ -178,19 +177,18 @@ def poller_latest(external_hosts, once=False, last_nhours=1):
             if once:
                 break
 
-            # poll fts every 30 minutes
-            time_left = 1800 - abs(time.time() - start_time)
+            time_left = fts_wait - abs(time.time() - start_time)
             if time_left > 0:
+                logging.warning("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
                 time.sleep(time_left)
-            else:
-                logging.warning("Polling time %s is longer than 30 minutes, it's too long" % (abs(time.time() - start_time)))
+
         except:
             logging.critical(traceback.format_exc())
 
         if once:
             return
 
-    logging.debug('poller_latest- graceful stop requests')
+    logging.debug('poller_latest - graceful stop requests')
 
     logging.debug('poller_latest - graceful stop done')
 
@@ -205,7 +203,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False,
         process=0, total_processes=1, total_threads=1,
-        bulk=1000, older_than=60,
+        bulk=1000, older_than=60, fts_wait=1800,
         mode=None, last_nhours=1, external_hosts=None,
         activity_shares=None):
     """
@@ -252,6 +250,7 @@ def run(once=False,
 
         if mode and mode == 'latest':
             threads = [threading.Thread(target=poller_latest, kwargs={'external_hosts': external_hosts,
+                                                                      'fts_wait': fts_wait,
                                                                       'last_nhours': last_nhours}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]

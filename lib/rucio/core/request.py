@@ -20,7 +20,6 @@ import traceback
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
-from rucio.common.config import config_get
 from rucio.common.exception import RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
@@ -29,8 +28,6 @@ from rucio.db import models
 from rucio.db.constants import RequestState, RequestType, FTSState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
-
-__HOSTS = [b.strip() for b in config_get('conveyor', 'ftshosts').split(',')]
 
 
 @transactional_session
@@ -320,12 +317,12 @@ def query_latest(external_host, state, last_nhours=1, session=None):
 
     record_counter('core.request.query_latest')
 
-    try:
-        ts = time.time()
-        resps = fts3.query_latest(external_host, state, last_nhours)
-        record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - ts) * 1000)
-    except Exception:
-        raise
+    ts = time.time()
+    resps = fts3.query_latest(external_host, state, last_nhours)
+    record_timer('core.request.query_latest_fts3.%s.%s_hours' % (external_host, last_nhours), (time.time() - ts) * 1000)
+
+    if not resps:
+        return
 
     ret_resps = []
     for resp in resps:
