@@ -63,7 +63,7 @@ def update_request_state(response, session=None):
             request_core.touch_request(response['request_id'], session=session)
             return False
         transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-        logging.debug('UPDATING REQUEST %s FOR TRANSFER(%s) STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
+        logging.debug('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
         request_core.set_request_state(response['request_id'],
                                        response['new_state'],
                                        session=session)
@@ -71,7 +71,7 @@ def update_request_state(response, session=None):
         add_monitor_message(response, session=session)
         return True
     except exception.UnsupportedOperation, e:
-        logging.warning("Request %s doesn't exist anymore, should not be updated again. Error: %s" % (response['request_id'], str(e).replace('\n', '')))
+        logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(e).replace('\n', '')))
         return False
 
 
@@ -99,7 +99,6 @@ def handle_requests(reqs):
                 replica['state'] = ReplicaState.AVAILABLE
                 replica['archived'] = False
                 replicas[req['request_type']][req['rule_id']].append(replica)
-                logging.info("START TO HANDLE REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
             elif req['state'] == RequestState.FAILED or req['state'] == RequestState.LOST:
                 tss = time.time()
                 new_req = request_core.requeue_and_archive(req['request_id'])
@@ -111,7 +110,6 @@ def handle_requests(reqs):
                     replica['state'] = ReplicaState.UNAVAILABLE
                     replica['archived'] = True
                     replicas[req['request_type']][req['rule_id']].append(replica)
-                    logging.info("START TO HANDLE REQUEST %s DID %s:%s AT RSE %s STATE %s" % (req['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
                 else:
                     logging.warn('REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                  req['name'],

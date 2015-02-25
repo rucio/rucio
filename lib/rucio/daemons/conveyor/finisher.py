@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
@@ -24,7 +25,6 @@ from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType
 
-logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -51,7 +51,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
         try:
             ts = time.time()
 
-            logging.debug('%i:%i - start to update first %s finished requests' % (process, thread, bulk))
+            logging.debug('%i:%i - start to update %s finished requests' % (process, thread, bulk))
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST],
                                     limit=bulk,
@@ -98,12 +98,12 @@ def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000):
     """
 
     if once:
-        logging.info('executing one poller iteration only')
+        logging.info('executing one finisher iteration only')
         finisher(once=once, bulk=bulk)
 
     else:
 
-        logging.info('starting poller threads')
+        logging.info('starting finisher threads')
         threads = [threading.Thread(target=finisher, kwargs={'process': process,
                                                              'total_processes': total_processes,
                                                              'thread': i,

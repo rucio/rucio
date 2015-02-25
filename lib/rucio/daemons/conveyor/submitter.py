@@ -36,8 +36,6 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
 from rucio.rse import rsemanager as rsemgr
 
-logging.getLogger("requests").setLevel(logging.CRITICAL)
-logging.getLogger("dogpile").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -398,6 +396,13 @@ def get_transfer(rse, req, scheme, mock):
         record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
         logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
 
+        if not sources:
+            logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
+                                                                                 req['scope'],
+                                                                                 req['name'],
+                                                                                 rse['rse']))
+            return None
+
         dest_rse = rse['rse']
         # exclude destination replica from source
         new_sources = sources
@@ -407,13 +412,6 @@ def get_transfer(rse, req, scheme, mock):
                                                                                             req['request_id']))
                 new_sources.remove(source)
         sources = new_sources
-
-        if not sources:
-            logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
-                                                                                 req['scope'],
-                                                                                 req['name'],
-                                                                                 rse['rse']))
-            return None
 
         filesize = metadata['filesize']
         md5 = metadata['md5']
@@ -576,11 +574,8 @@ def submitter(once=False, rses=[],
                                                                                                       req['scope'],
                                                                                                       req['name'],
                                                                                                       rse_info['rse']))
-                                # TODO: Merge these two calls
                                 request.set_request_state(req['request_id'],
                                                           RequestState.LOST)  # if the DID does not exist anymore
-                                # request.archive_request(req['request_id'])
-                                # new_req = request.requeue_and_archive(req['request_id'])
                                 continue
 
                             ts = time.time()
@@ -652,14 +647,17 @@ def run(once=False,
     Starts up the conveyer threads.
     """
 
+    if mock:
+        logging.info('mock source replicas: enabled')
+
     working_rses = None
     if rses or include_rses or exclude_rses:
         working_rses = get_rses(rses, include_rses, exclude_rses)
-        logging.info("RSE selection mode (RSEs: %s, Include: %s, Exclude: %s)" % (rses,
-                                                                                  include_rses,
-                                                                                  exclude_rses))
+        logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s" % (rses,
+                                                                            include_rses,
+                                                                            exclude_rses))
     else:
-        logging.info("RSE auto mode")
+        logging.info("RSE selection: automatic")
 
     if activity_shares:
 

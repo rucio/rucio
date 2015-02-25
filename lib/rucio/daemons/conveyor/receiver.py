@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
@@ -33,7 +33,7 @@ from rucio.core.monitor import record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, FTSCompleteState
 
-logging.getLogger("requests").setLevel(logging.CRITICAL)
+
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 logging.basicConfig(stream=sys.stdout,
@@ -49,7 +49,7 @@ class Receiver(object):
         self.__broker = broker
         self.__id = id
         self.__total_threads = total_threads
-        self.__msgQueue = queue
+        self.__msg_queue = queue
 
     def on_error(self, headers, message):
         record_counter('daemons.conveyor.receiver.error')
@@ -112,7 +112,7 @@ class Receiver(object):
                             logging.warn("Cannot get request with request_id(%s): %s" % (response['request_id'], traceback.format_exc()))
                         if request:
                             response['external_host'] = request['external_host']
-                            self.__msgQueue.put(response)
+                            self.__msg_queue.put(response)
                             record_counter('daemons.conveyor.receiver.queue_message')
                 except:
                     logging.critical(traceback.format_exc())
@@ -147,7 +147,8 @@ def receiver(id, queue, total_threads=1):
                                       use_ssl=True,
                                       ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
                                       ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
-                                      ssl_version=ssl.PROTOCOL_TLSv1))
+                                      ssl_version=ssl.PROTOCOL_TLSv1,
+                                      reconnect_attempts_max=999))
 
     logging.info('receiver started')
 
@@ -199,7 +200,7 @@ def updater(queue, bulk=10):
                 break
             # queue is empty and stop signal is set, return
             if graceful_stop.is_set():
-                logging.info("updater graceful stop requested, sleep 2 seconds to wait receiver to finish")
+                logging.info("updater graceful stop requested, sleep 2 seconds to wait for receiver to finish")
                 time.sleep(2)
                 stop = True
             else:
@@ -229,19 +230,21 @@ def run(once=False, total_threads=1, bulk=10):
     """
     Starts up the receiver thread
     """
-    msgQueue = Queue.Queue()
+    msg_queue = Queue.Queue()
 
     logging.info('starting receiver thread')
-    threads = [threading.Thread(target=receiver, kwargs={'id': i, 'total_threads': total_threads, 'queue': msgQueue}) for i in xrange(0, total_threads)]
-    [t.start() for t in threads]
+    threads = [threading.Thread(target=receiver, kwargs={'id': i,
+                                                         'total_threads': total_threads,
+                                                         'queue': msg_queue}) for i in xrange(0, total_threads)]
 
     logging.info('starting updater thread')
-    thread = threading.Thread(target=updater, kwargs={'queue': msgQueue, 'bulk': bulk})
-    thread.start()
+    threads.append(threading.Thread(target=updater, kwargs={'queue': msg_queue,
+                                                            'bulk': bulk}))
+
+    [t.start() for t in threads]
 
     logging.info('waiting for interrupts')
 
     # Interruptible joins require a timeout.
     while len(threads) > 0:
         [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
-    thread.join()

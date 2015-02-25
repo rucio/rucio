@@ -19,22 +19,17 @@ import urlparse
 
 import requests
 
-# See https://github.com/kennethreitz/requests/issues/2214
-from requests.packages.urllib3 import disable_warnings
-disable_warnings()
-
 from rucio.common.config import config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.constants import FTSState
 
-
 logging.getLogger("requests").setLevel(logging.CRITICAL)
+requests.packages.urllib3.disable_warnings()
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-__CACERT = config_get('conveyor', 'cacert')
 __USERCERT = config_get('conveyor', 'usercert')
 
 
@@ -97,6 +92,23 @@ def submit_transfers(transfers, job_metadata):
         if 'previous_attempt_id' in transfer.keys():
             job_metadata['previous_attempt_id'] = transfer['previous_attempt_id']
 
+        # ~~~ HARDCODED UNTIL FTS SHARES ARE IN PLACE ~~~
+
+        if transfer['activity'].startswith('T0'):
+            transfer['priority'] = 5
+        elif transfer['activity'] == 'Production':
+            transfer['priority'] = 4
+        elif transfer['activity'] == 'Staging':
+            transfer['priority'] = 4
+        elif transfer['activity'].startswith('Data'):
+            transfer['priority'] = 3
+        elif transfer['activity'].startswith('User'):
+            transfer['priority'] = 1
+        else:
+            transfer['priority'] = 2
+
+        # ~~~ HARDCODED UNTIL FTS SHARES ARE IN PLACE ~~~
+
         params_dict = {'files': [{'sources': transfer['src_urls'],
                                   'destinations': transfer['dest_urls'],
                                   'metadata': {'issuer': 'rucio'},
@@ -109,7 +121,8 @@ def submit_transfers(transfers, job_metadata):
                                   'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                                   'job_metadata': job_metadata,
                                   'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
-                                  'overwrite': transfer['overwrite']}}
+                                  'overwrite': transfer['overwrite'],
+                                  'priority': transfer['priority']}}
 
         r = None
         params_str = json.dumps(params_dict)
@@ -197,12 +210,15 @@ def query_latest(transfer_host, state, last_nhours=1):
             else:
                 raise Exception('Could not retrieve delegation id: %s', whoami.content)
             state_string = ','.join(state)
-            jobs = requests.get('%s/jobs?dlg_id=%s&state_in=%s&time_window=%s' % (transfer_host, delegation_id, state_string, last_nhours),
+            jobs = requests.get('%s/jobs?dlg_id=%s&state_in=%s&time_window=%s' % (transfer_host,
+                                                                                  delegation_id,
+                                                                                  state_string,
+                                                                                  last_nhours),
                                 verify=False,
                                 cert=(__USERCERT, __USERCERT),
                                 headers={'Content-Type': 'application/json'})
         except Exception:
-            raise
+            logging.warn('Could not query latest terminal states from %s' % transfer_host)
     else:
         try:
             whoami = requests.get('%s/whoami' % (transfer_host),
@@ -212,17 +228,19 @@ def query_latest(transfer_host, state, last_nhours=1):
             else:
                 raise Exception('Could not retrieve delegation id: %s', whoami.content)
             state_string = ','.join(state)
-            jobs = requests.get('%s/jobs?dlg_id=%s&state_in=%s&time_window=%s' % (transfer_host, delegation_id, state_string, last_nhours),
+            jobs = requests.get('%s/jobs?dlg_id=%s&state_in=%s&time_window=%s' % (transfer_host,
+                                                                                  delegation_id,
+                                                                                  state_string,
+                                                                                  last_nhours),
                                 headers={'Content-Type': 'application/json'})
         except Exception:
-            raise
+            logging.warn('Could not query latest terminal states from %s' % transfer_host)
 
     if jobs and jobs.status_code == 200:
         record_counter('transfertool.fts3.%s.query_latest.success' % __extract_host(transfer_host))
         return jobs.json()
 
     record_counter('transfertool.fts3.%s.query.failure' % __extract_host(transfer_host))
-    raise Exception('Could not retrieve transfer information: %s', jobs.content)
 
 
 def query_details(transfer_id, transfer_host):
@@ -351,15 +369,15 @@ def bulk_query(transfer_ids, transfer_host):
                                headers={'Content-Type': 'application/json'})
 
     if not jobs:
-        record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
+        record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
         for transfer_id in transfer_ids:
             responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
     elif jobs.status_code == 200:
-        record_counter('transfertool.fts3.%s.bulk_establish.success' % __extract_host(transfer_host))
+        record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
         jobs_response = jobs.json()
         responses = bulk_query_responses(jobs_response, transfer_host)
     else:
-        record_counter('transfertool.fts3.%s.bulk_establish.failure' % __extract_host(transfer_host))
+        record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
         for transfer_id in transfer_ids:
             responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
 
