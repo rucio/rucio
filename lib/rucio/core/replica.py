@@ -44,12 +44,48 @@ def exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
     else:
         q = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             filter_by(rse_id=rse_id, scope=scope, name=name)
-    if session.query(q.exists()).scalar():
-        result = q.one()
+    if q.count():
+        result = q.first()
         path, scope, name, rse_id = result[0], result[1], result[2], result[3]
         return True, scope, name
     else:
         return False, None, None
+
+
+@read_session
+def list_bad_replicas_history(limit=10000, worker_number=None, total_workers=None, session=None):
+    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
+        filter(models.BadReplicas.state == BadFilesStatus.BAD)
+    if worker_number and total_workers and total_workers - 1 > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
+    query = query.limit(limit)
+    bad_replicas = {}
+    for scope, name, rse_id in query.yield_per(1000):
+        if rse_id not in bad_replicas:
+            bad_replicas[rse_id] = []
+        bad_replicas[rse_id].append({'scope': scope, 'name': name})
+    return bad_replicas
+
+
+@transactional_session
+def update_bad_replicas_history(dids, rse_id, session=None):
+    for did in dids:
+        query = session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name'])
+        if query.count():
+            r = query.first()
+            state = r.state
+            if state == ReplicaState.AVAILABLE:
+                query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
+                query.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
+        else:
+            query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
+            query.update({'state': BadFilesStatus.DELETED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
 
 
 @transactional_session

@@ -18,7 +18,7 @@ from traceback import format_exception
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.core import monitor
-from rucio.core.replica import list_bad_replicas, list_replicas
+from rucio.core.replica import list_bad_replicas, list_replicas, list_bad_replicas_history, update_bad_replicas_history
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica
 
 
@@ -40,6 +40,8 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
     once: To run only once
     """
     sleep_time = 60
+    update_history_threshold = 3600
+    update_history_time = time.time()
     while not graceful_stop.is_set():
         stime = time.time()
         try:
@@ -69,6 +71,14 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
         if once:
             break
         else:
+            now = time.time()
+            if (now - update_history_time) > update_history_threshold:
+                logging.info('Thread [%i/%i] : Last update of history table %s seconds ago. Running update.' % (worker_number, total_workers, (now - update_history_time)))
+                bad_replicas = list_bad_replicas_history(10000000, worker_number=worker_number, total_workers=total_workers)
+                for rse_id in bad_replicas:
+                    update_bad_replicas_history(bad_replicas[rse_id], rse_id)
+                logging.info('Thread [%i/%i] : History table updated in %s seconds' % (worker_number, total_workers, (time.time() - now)))
+                update_history_time = time.time()
             tottime = time.time() - stime
             if tottime < sleep_time:
                 logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (worker_number, total_workers, str(sleep_time - tottime)))
