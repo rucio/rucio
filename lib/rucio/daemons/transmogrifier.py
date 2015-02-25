@@ -23,7 +23,7 @@ from rucio.api.did import list_new_dids, set_new_dids, get_metadata
 from rucio.api.subscription import list_subscriptions
 from rucio.db.constants import DIDType, SubscriptionState
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule,
-                                    InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, ValidationError,
+                                    InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime)
 from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
@@ -151,7 +151,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                     activity = rule.get('activity', None)
                                     try:
                                         validate_schema(name='activity', obj=activity)
-                                    except ValidationError, e:
+                                    except InputValidationError, e:
                                         logging.error('Error validating the activity %s' % (str(e)))
                                         activity = 'default'
 
