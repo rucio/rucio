@@ -1385,7 +1385,6 @@ COMMENT ON COLUMN ATLAS_RUCIO.rules_history.history_id IS 'Fake id necessary for
 
 
 CREATE TABLE BAD_REPLICAS(
-   ID RAW(16) NOT NULL,
    SCOPE VARCHAR2(25),
    NAME VARCHAR2(255),
    RSE_ID RAW(16),
