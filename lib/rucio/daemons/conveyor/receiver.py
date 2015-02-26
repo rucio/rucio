@@ -28,6 +28,7 @@ import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
+from rucio.core import request as request_core
 from rucio.core.monitor import record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, FTSCompleteState
@@ -105,8 +106,14 @@ class Receiver(object):
                                                                                      msg['job_metadata']['dst_rse'],
                                                                                      response['new_state']))
 
-                        self.__msgQueue.put(response)
-                        record_counter('daemons.conveyor.receiver.queue_message')
+                        try:
+                            request = request_core.get_request(response['request_id'])
+                        except:
+                            logging.warn("Cannot get request with request_id(%s): %s" % (response['request_id'], traceback.format_exc()))
+                        if request:
+                            response['external_host'] = request['external_host']
+                            self.__msgQueue.put(response)
+                            record_counter('daemons.conveyor.receiver.queue_message')
                 except:
                     logging.critical(traceback.format_exc())
 
