@@ -257,7 +257,7 @@ def get_destinations(rse_info, scheme, req, naming_convention):
                                                                                                   req['name'],
                                                                                                   rse_info['rse'],
                                                                                                   path))
-            if req['activity'] and req['activity'] == 'Recovery':
+            elif req['activity'] and req['activity'] == 'Recovery':
                 path = '%s_%i' % (path, int(time.time()))
                 logging.debug('Recovery transfer request %s DID %s:%s to tape %s renamed to %s' % (req['request_id'],
                                                                                                    req['scope'],
