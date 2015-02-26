@@ -91,6 +91,7 @@ Rucio RESTful API
 
     rest
     api_curl_examples
+    REST_Intro
 
 
 Rucio Python Client APIs
