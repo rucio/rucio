@@ -580,7 +580,7 @@ def submitter(once=False, rses=[],
                                 request.set_request_state(req['request_id'],
                                                           RequestState.LOST)  # if the DID does not exist anymore
                                 # request.archive_request(req['request_id'])
-                                new_req = request.requeue_and_archive(req['request_id'])
+                                # new_req = request.requeue_and_archive(req['request_id'])
                                 continue
 
                             ts = time.time()
@@ -611,8 +611,8 @@ def submitter(once=False, rses=[],
                                                                                                                    eids[req['request_id']]['external_host'] if req['request_id'] in eids else None,
                                                                                                                    eids[req['request_id']]['external_id'] if req['request_id'] in eids else None))
                             if not req['request_id'] in eids:
-                                new_req = request.requeue_and_archive(req['request_id'])
-                                logging.warn("Failed to submit request: %s, new request created: %s" % (req['request_id'], new_req['request_id']))
+                                request.set_request_state(req['request_id'], RequestState.LOST)
+                                logging.warn("Failed to submit request: %s, set request LOST" % (req['request_id']))
                             record_counter('daemons.conveyor.submitter.submit_request')
                         except UnsupportedOperation, e:
                             # The replica doesn't exist, need to cancel the request
