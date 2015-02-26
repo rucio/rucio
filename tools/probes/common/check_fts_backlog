@@ -19,6 +19,7 @@ from rucio.core import monitor
 
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 
+requests.packages.urllib3.disable_warnings()
 
 if __name__ == "__main__":
 
@@ -46,7 +47,12 @@ if __name__ == "__main__":
             print '%i/5 attempt to contact %s' % (attempt+1, ftshost)
             try:
                 r = requests.get(url, verify=False)
-                summary = r.json()['summary']
+                res = r.json()
+                busylimit = 5000
+                for channel in res['overview']['items']:
+                    if 'submitted' in channel and channel['submitted'] >= busylimit:
+                        print 'Busy channels (>%s submitted) : %s to %s : %s jobs' % (busylimit, channel['source_se'], channel['dest_se'], channel['submitted'])
+                summary = res['summary']
                 h = urlparse(url)
                 hostname = h.hostname.replace('.', '_')
                 print '%s : Submitted : %s' % (hostname, summary['submitted'])
