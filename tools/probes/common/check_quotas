@@ -24,7 +24,6 @@ from rucio.api import rse
 from rucio.api.account import list_accounts, list_account_attributes
 from rucio.api.account_limit import set_account_limit, get_account_usage
 from rucio.common.exception import RucioException, RSENotFound, AccountNotFound
-from rucio.core.permission import get_special_accounts
 
 UNKNOWN = 3
 CRITICAL = 2
@@ -166,11 +165,13 @@ if __name__ == '__main__':
     # Get all rucio accounts and country attributes
     try:
         accounts = list_accounts()
-        special_accounts = get_special_accounts()
-        all_accounts = [a['account'] for a in accounts if a['account'] not in special_accounts]
-        for account in all_accounts:
+        all_accounts = [a['account'] for a in accounts]
+        for account in all_accounts[:]:
             attrs = list_account_attributes(account)
             for attr in attrs:
+                if attr['key'] == 'admin' and attr['value'] == 1:
+                    all_accounts.remove(account)
+                    continue
                 if attr['key'].startswith('country-'):
                     country = attr['key'].split('-')[1]
                     try:
@@ -199,7 +200,7 @@ if __name__ == '__main__':
         if ddmendpoint['phys_groups']:
             set_group_quotas(ddmendpoint['quotas'])
 
-        if name.endswith('_LOCALGROUPDISK'):
+        if name.endswith('_LOCALGROUPDISK') or ddmendpoint['token'] == 'ATLASLOCALGROUPDISK':
             try:
                 country = rse.list_rse_attributes(name)['country']
             except:
