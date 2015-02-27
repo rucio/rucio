@@ -12,6 +12,8 @@
 
 from rucio.client import Client
 from rucio.common.exception import Duplicate
+from rucio.core.account import add_account_attribute
+
 
 if __name__ == '__main__':
     c = Client()
@@ -19,6 +21,12 @@ if __name__ == '__main__':
         c.add_account('jdoe', 'SERVICE')
     except Duplicate:
         print 'Account jdoe already added' % locals()
+
+    try:
+        c.add_account('panda', 'SERVICE')
+        add_account_attribute(account='panda', key='admin', value=True)
+    except Duplicate:
+        print 'Account panda already added' % locals()
 
     try:
         c.add_scope('jdoe', 'mock')

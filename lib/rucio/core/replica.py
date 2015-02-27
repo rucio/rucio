@@ -741,7 +741,11 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     delta, bytes, rowcount = 0, 0, 0
     for c in chunks(replica_condition, 10):
-        for (replica_bytes, ) in session.query(models.RSEFileAssociation.bytes).with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
+        for (scope, name, rse_id, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
+                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
+            deleted_replica = models.RSEFileAssociationHistory(rse_id=rse_id, scope=scope, name=name, bytes=replica_bytes)
+            deleted_replica.save(session=session, flush=False)
+
             bytes += replica_bytes
             delta += 1
 
@@ -891,16 +895,17 @@ def update_replicas_states(replicas, nowait=False, session=None):
 
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
 
+        if nowait:
+            query.with_for_update(nowait=True).one()
+
         if isinstance(replica['state'], str) or isinstance(replica['state'], unicode):
             replica['state'] = ReplicaState.from_string(replica['state'])
 
         if replica['state'] == ReplicaState.BEING_DELETED:
             query = query.filter_by(lock_cnt=0)
-
-        if replica['state'] == ReplicaState.AVAILABLE:
+        elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
-
-        if replica['state'] == ReplicaState.UNAVAILABLE:
+        elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
 
         if 'path' in replica and replica['path']:

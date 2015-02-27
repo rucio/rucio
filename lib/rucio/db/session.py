@@ -7,7 +7,7 @@
 # Authors:
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
-# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2014
+# - Vincent Garonne,  <vincent.garonne@cern.ch>, 2011-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 
 import sys
@@ -304,6 +304,7 @@ def transactional_session(function):
             try:
                 kwargs['session'] = session
                 result = function(*args, **kwargs)
+                session.commit()
             except TimeoutError, e:
                 print e
                 session.rollback()
@@ -315,8 +316,6 @@ def transactional_session(function):
             except:
                 session.rollback()
                 raise
-            else:
-                session.commit()
             finally:
                 session.remove()
         else:

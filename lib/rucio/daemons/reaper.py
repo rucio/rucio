@@ -16,6 +16,9 @@ Reaper is a daemon to manage file deletion.
 
 import logging
 import math
+import os
+import random
+import socket
 import sys
 import threading
 import time
@@ -23,10 +26,13 @@ import traceback
 
 from rucio.db.constants import ReplicaState
 from rucio.common.config import config_get
-from rucio.common.exception import SourceNotFound, ServiceUnavailable, RSEAccessDenied, ReplicaUnAvailable, ResourceTemporaryUnavailable
+from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAccessDenied,
+                                    ReplicaUnAvailable, ResourceTemporaryUnavailable,
+                                    DatabaseException)
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core import rse as rse_core
+from rucio.core.heartbeat import live, die
 from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse_counter import get_counter
@@ -100,27 +106,36 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     """
-    logging.info('Starting reaper: worker %(worker_number)s, child %(child_number)s' % locals())
+    logging.info('Starting Reaper: Worker %(worker_number)s, child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
+
+    hostname = socket.gethostname()
+    pid = os.getpid()
+    thread = threading.current_thread()
     while not graceful_stop.is_set():
         try:
             max_deleting_rate = 0
 
-            for rse in rses:
-                deleting_rate = 0
-                rse_info = rsemgr.get_rse_info(rse['rse'])
-                rse_protocol = rse_core.get_rse_protocols(rse['rse'])
-
-                if not rse_protocol['availability_delete']:
-                    logging.info('Reaper %s-%s: RSE %s is not available for deletion' % (worker_number, child_number, rse_info['rse']))
-                    continue
-
-                # Temporary hack to force gfal for deletion
-                for protocol in rse_info['protocols']:
-                    if protocol['impl'] == 'rucio.rse.protocols.srm.Default' or protocol['impl'] == 'rucio.rse.protocols.gsiftp.Default':
-                        protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
-
-                logging.info('Reaper %s-%s: Running on RSE %s' % (worker_number, child_number, rse_info['rse']))
+            for rse in random.sample(rses, len(rses)):
                 try:
+
+                    # heartbeat
+                    live(executable='rucio-reaper', hostname=hostname, pid=pid, thread=thread)
+
+                    deleting_rate = 0
+                    rse_info = rsemgr.get_rse_info(rse['rse'])
+                    rse_protocol = rse_core.get_rse_protocols(rse['rse'])
+
+                    if not rse_protocol['availability_delete']:
+                        logging.info('Reaper %s-%s: RSE %s is not available for deletion' % (worker_number, child_number, rse_info['rse']))
+                        continue
+
+                    # Temporary hack to force gfal for deletion
+                    for protocol in rse_info['protocols']:
+                        if protocol['impl'] == 'rucio.rse.protocols.srm.Default' or protocol['impl'] == 'rucio.rse.protocols.gsiftp.Default':
+                            protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
+
+                    logging.info('Reaper %s-%s: Running on RSE %s' % (worker_number, child_number, rse_info['rse']))
+
                     needed_free_space, max_being_deleted_files = None, 10000
                     if not greedy:
                         max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
@@ -131,7 +146,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                     s = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                        replicas = list_unlocked_replicas(rse=rse['rse'], bytes=needed_free_space, limit=max_being_deleted_files, worker_number=child_number, total_workers=total_children, delay_seconds=delay_seconds)
+                        replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'], bytes=needed_free_space, limit=10000, worker_number=child_number, total_workers=total_children, delay_seconds=delay_seconds)
                     logging.debug('Reaper %s-%s: list_unlocked_replicas %s %s %s' % (worker_number, child_number, rse['rse'], time.time() - s, len(replicas)))
 
                     if not replicas:
@@ -143,7 +158,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         logging.debug('Reaper %s-%s: Running on : %s' % (worker_number, child_number, str(files)))
                         try:
                             s = time.time()
-                            update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files])
+                            update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
 
                             for replica in files:
                                 try:
@@ -159,7 +174,6 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                  'url': replica['pfn'],
                                                                  'rse': rse_info['rse']})
 
-                            # logging.debug('update_replicas_states %s' % (time.time() - s))
                             monitor.record_counter(counters='reaper.deletion.being_deleted',  delta=len(files))
 
                             if not scheme:
@@ -239,6 +253,9 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             logging.debug('Reaper %s-%s: delete_replicas successes %s %s %s' % (worker_number, child_number, rse['rse'], len(deleted_files), time.time() - s))
                             monitor.record_counter(counters='reaper.deletion.done',  delta=len(deleted_files))
                             deleting_rate += len(deleted_files)
+
+                        except DatabaseException, e:
+                            logging.warning('Reaper %s-%s: DatabaseException %s' % (worker_number, child_number, str(e)))
                         except:
                             logging.critical(traceback.format_exc())
                     deleting_rate = deleting_rate * 1.0 / max_being_deleted_files
@@ -250,13 +267,10 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
             if once:
                 break
 
-            logging.info(" Reaper %s-%s: max_deleting_rate: %s " % (worker_number, child_number, max_deleting_rate))
-            sleep_time = int((1 - max_deleting_rate) * 60 + 1)
-            time.sleep(sleep_time)
-
         except:
             logging.critical(traceback.format_exc())
 
+    die(executable='rucio-reaper', hostname=hostname, pid=pid, thread=thread)
     logging.info('Graceful stop requested')
     logging.info('Graceful stop done')
 
@@ -313,7 +327,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
                       'rses': rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker],
                       'delay_seconds': delay_seconds,
                       'scheme': scheme}
-            threads.append(threading.Thread(target=reaper, kwargs=kwargs))
+            threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, child: %s' % (worker, child + 1)))
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]
