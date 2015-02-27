@@ -589,9 +589,9 @@ class RSEFileAssociationHistory(BASE, ModelBase):
     name = Column(String(255))
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_HIST_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_HIST_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_HIST_RSE_ID_FK'),
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_HIST_SIZE_NN'))
+#  ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_HIST_LFN_FK'),
 
 
 class ReplicationRule(BASE, ModelBase):
