@@ -27,6 +27,7 @@ import logging
 import os
 import random
 import requests
+import signal
 import socket
 import sys
 import time
@@ -80,13 +81,19 @@ def setup_logger(logger):
 setup_logger(logger)
 
 
+def signal_handler(signal, frame):
+    logger.warning('You pressed Ctrl+C! Exiting gracefully')
+    sys.exit(1)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+
 def extract_scope(did):
     try:
         scope, name = did.split(':')
     except ValueError, e:
         raise InvalidObject('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
     return scope, name
-
 
 def exception_handler(function):
     @wraps(function)
@@ -757,14 +764,26 @@ def download(args):
     trace = {}
     trace_uuid = generate_uuid()
     trace['hostname'] = socket.getfqdn()
+    nbfiles_to_download = {}
     for did in args.dids:
         try:
             scope, name = did.split(':')
-            logger.info('Starting download for %s:%s' % (scope, name))
+            client.get_did(scope, name)
+            files_to_download = [f for f in client.list_files(scope=scope, name=name)]
+            if args.nrandom:
+                files_to_download = files_to_download[0:args.nrandom]
+            nbfiles_to_download['%s:%s' % (scope, name)] = len(files_to_download)
+            logger.info('Starting download for %s:%s with %s files' % (scope, name, len(files_to_download)))
             summary['%s:%s' % (scope, name)] = {}
             logger.debug('Getting the list of replicas')
             files = client.list_replicas([{'scope': scope, 'name': name}])
-            for file in files:
+            if args.nrandom:
+                files_to_download = [f for f in files]
+                random.shuffle(files_to_download)
+                files_to_download = files_to_download[0:args.nrandom]
+            else:
+                files_to_download = files
+            for file in files_to_download:
                 trace['account'] = client.account
                 trace['scope'] = file['scope']
                 trace['filename'] = file['name']
@@ -805,42 +824,57 @@ def download(args):
                             rse_dict[rse]['protocols'] = [protocol, ]
                         if rse_dict[rse]['availability_read']:
                             logger.debug('Getting file %s:%s from %s' % (file['scope'], file['name'], rse))
-                            try:
-                                trace['remoteSite'] = rse_dict[rse]['rse']
-                                trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
-                                trace['transferStart'] = time.time()
-                                rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
-                                trace['transferEnd'] = time.time()
-                                trace['clientState'] = 'DONE'
-                                retries = 2
-                                for i in xrange(retries):
-                                    try:
-                                        requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                                        break
-                                    except:
-                                        pass
-                                logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
-                                summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
-                                break
-                            except Exception, e:
-                                trace['transferEnd'] = time.time()
-                                trace['clientState'] = str(type(e).__name__)
-                                retries = 2
-                                for i in xrange(retries):
-                                    try:
-                                        requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                                        break
-                                    except:
-                                        pass
-                                logger.warning(e)
-                                index += 1
-                                if index != len(rse):
-                                    logger.debug('Will retry download on an other RSE')
+                            trace['remoteSite'] = rse_dict[rse]['rse']
+                            trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
+                            trace['transferStart'] = time.time()
+                            success = False
+                            retries = 2
+                            for attempt in xrange(0, retries):
+                                try:
+                                    rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
+                                    logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
+                                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
+                                    success = True
+                                    break
+                                except Exception, e:
+                                    logger.warning(str(e))
+                                    logger.debug('Failed attempt %s/%s' % (attempt + 1, retries))
+                            if success:
+                                try:
+                                    trace['transferEnd'] = time.time()
+                                    trace['clientState'] = 'DONE'
+                                    for i in xrange(retries):
+                                        try:
+                                            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+                                            break
+                                        except:
+                                            pass
+                                    logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
+                                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
+                                    break
+                                except Exception, e:
+                                    trace['transferEnd'] = time.time()
+                                    trace['clientState'] = str(type(e).__name__)
+                                    retries = 2
+                                    for i in xrange(retries):
+                                        try:
+                                            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+                                            break
+                                        except:
+                                            pass
+                                    logger.warning(e)
+                                    break
+                            index += 1
+                            if index != len(list_rses):
+                                logger.debug('Will retry download on an other RSE')
                     if summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] == 0:
                         logger.error('Cannot download file %s:%s' % (file['scope'], file['name']))
             logger.info('Download operation for %s:%s done' % (scope, name))
         except ValueError, e:
             logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, e))
+            return FAILURE
+        except DataIdentifierAlreadyExists, e:
+            logger.error(e)
             return FAILURE
         except Exception, e:
             logger.error('Failed to download %(scope)s:%(name)s' % locals())
@@ -861,9 +895,11 @@ def download(args):
                 local_files += 1
             elif summary[did][file] == 0:
                 not_downloaded_files += 1
+        print '{0:40} {1:6d}'.format('Total files : ', nbfiles_to_download[did])
         print '{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files)
         print '{0:40} {1:6d}'.format('Files already found locally : ', local_files)
         print '{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files)
+    return SUCCESS
 
 
 @exception_handler
@@ -1315,6 +1351,7 @@ Commands:
     download_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers')
     download_parser.add_argument('--rse', action='store', help='Force the RSE from where the DID is downloaded')
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
+    download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs')
