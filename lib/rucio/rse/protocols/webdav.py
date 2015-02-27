@@ -13,6 +13,7 @@ import os
 import requests
 import ssl
 
+from progressbar import ProgressBar
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
 from sys import stdout
@@ -230,17 +231,16 @@ class Default(protocol.RSEProtocol):
             if result and result.status_code in [200, ]:
                 length = int(result.headers['content-length'])
                 totnchunk = int(length / chunksize) + 1
-                progressbar_width = 100
-                stdout.write("[%s]\t  0/100" % (" " * progressbar_width))
                 nchunk = 0
-                f = open(dest, 'wb')
-                for chunk in result.iter_content(chunksize):
-                    nchunk += 1
-                    f.write(chunk)
-                    percent = int(100 * nchunk / (float(totnchunk)))
-                    stdout.write("\r[%s%s]\t  %s/100" % ("+" * percent, "-" * (100 - percent), percent))
-                    stdout.flush()
-                stdout.write('\n')
+                try:
+                    pbar = ProgressBar(maxval=totnchunk).start()
+                    f = open(dest, 'wb')
+                    for chunk in result.iter_content(chunksize):
+                        nchunk += 1
+                        f.write(chunk)
+                        pbar.update(nchunk)
+                finally:
+                    pbar.finish()
                 f.close()
             elif result.status_code in [404, 403]:
                 raise exception.SourceNotFound()
