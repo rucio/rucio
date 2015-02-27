@@ -269,7 +269,7 @@ class DQ2Client:
         @return: List of lfns that failed to be added since they are duplicates?
         """
         dids = []
-        for file in self.client.list_files(scope=scope, name=dsn, long=True):
+        for file in self.client.list_files(scope=scope, name=dsn):
             guid = file['guid']
             guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
             if guid in guids or guid.upper() in guids:
@@ -962,7 +962,7 @@ class DQ2Client:
         immutable = 1
         if self.client.get_metadata(scope, dsn)['is_open']:
             immutable = 1
-        for x in self.client.list_files(scope, dsn, long=True):
+        for x in self.client.list_files(scope, dsn):
             guid = str('%s-%s-%s-%s-%s' % (x['guid'][0:8], x['guid'][8:12], x['guid'][12:16], x['guid'][16:20], x['guid'][20:32]))
             lfn_to_guid[(scope, x['name'])] = guid
             total += 1
