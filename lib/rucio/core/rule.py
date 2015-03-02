@@ -1248,18 +1248,19 @@ def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, rseselec
     for key in iter_locks:
         if key not in files:
             # The lock needs to be removed
-            lock = locks[key]
-            __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=True, session=session)
-            if lock.rse_id not in account_counter_decreases:
-                account_counter_decreases[lock.rse_id] = []
-            account_counter_decreases[lock.rse_id].append(lock.bytes)
-            if lock.state == LockState.OK:
-                rule.locks_ok_cnt -= 1
-            elif lock.state == LockState.REPLICATING:
-                rule.locks_replicating_cnt -= 1
-            elif lock.state == LockState.STUCK:
-                rule.locks_stuck_cnt -= 1
-            del locks[key]
+            for lock in locks[key]:
+                if lock.rule_id == rule.id:
+                    __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=True, session=session)
+                    if lock.rse_id not in account_counter_decreases:
+                        account_counter_decreases[lock.rse_id] = []
+                    account_counter_decreases[lock.rse_id].append(lock.bytes)
+                    if lock.state == LockState.OK:
+                        rule.locks_ok_cnt -= 1
+                    elif lock.state == LockState.REPLICATING:
+                        rule.locks_replicating_cnt -= 1
+                    elif lock.state == LockState.STUCK:
+                        rule.locks_stuck_cnt -= 1
+                    locks[key].remove(lock)
 
     logging.debug("Finished finding surplus locks for rule %s [%d/%d/%d]" % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
