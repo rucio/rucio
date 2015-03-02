@@ -19,7 +19,8 @@ from web import application, ctx, Created, data, header, InternalError, loadhook
 
 from geoip2.errors import AddressNotFoundError
 
-from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, declare_suspicious_file_replicas
+from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, declare_suspicious_file_replicas, list_bad_replicas_status
+from rucio.db.constants import BadFilesStatus
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, ResourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
 from rucio.common.replicas_selector import random_order, geoIP_order
 
@@ -29,6 +30,7 @@ from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioControl
 
 urls = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
+        '/bad/states/?$', 'BadReplicasStates',
         '/(.*)/(.*)/?$', 'Replicas',
         '/bad/?$', 'BadReplicas',
         '/suspicious/?$', 'SuspiciousReplicas',
@@ -488,6 +490,46 @@ class SuspiciousReplicas(RucioController):
             print format_exc()
             raise InternalError(e)
         raise Created(dumps(not_declared_files))
+
+
+class BadReplicasStates(RucioController):
+
+    def GET(self):
+        """
+        Declare a list of bad or suspicious replicas.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            500 InternalError
+
+        """
+        header('Content-Type', 'application/x-json-stream')
+        result = []
+        state, rse, younger_than, older_than, limit = None, None, None, None, None
+        if ctx.query:
+            try:
+                params = loads(unquote(ctx.query[1:]))
+            except ValueError:
+                params = parse_qs(ctx.query[1:])
+            state = params.get('state', BadFilesStatus.BAD)
+            if type(state) is str or type(state) is unicode:
+                state = BadFilesStatus.from_string(state)
+            rse = params.get('rse', None)
+            younger_than = params.get('younger_than', None)
+            older_than = params.get('older_than', None)
+            limit = params.get('limit', None)
+
+        try:
+            result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+        for row in result:
+            yield dumps(row, cls=APIEncoder) + '\n'
 
 
 """----------------------

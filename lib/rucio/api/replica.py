@@ -17,6 +17,18 @@ from rucio.common import exception
 from rucio.common.schema import validate_schema
 
 
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None):
+    """
+    List the bad file replicas history states. Method used by the rucio-ui.
+    :param state: The state of the file (SUSPICIOUS or BAD).
+    :param rse: The RSE name.
+    :param younger_than: datetime object to select bad replicas younger than this date.
+    :param older_than:  datetime object to select bad replicas older than this date.
+    :param limit: The maximum number of replicas returned.
+    """
+    return replica.list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit)
+
+
 def declare_bad_file_replicas(pfns, reason, issuer):
     """
     Declare a list of bad replicas.
