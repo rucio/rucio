@@ -8,12 +8,12 @@
  * Authors:
  * - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 */
-REGISTER rucioloader.jar;
+REGISTER /data/rucioudfs.jar;
 REGISTER /usr/lib/pig/piggybank.jar;
 REGISTER /usr/lib/pig/pig.jar;
 
 
-logs = LOAD '/user/rucio01/logs/server/access*$date*' USING rucioloader.RucioServerLogs20150211 AS (
+logs = LOAD '/user/rucio01/logs/server/access*$date*' USING rucioudfs.RucioServerLogs20150211 AS (
 	timestamp, 
 	backendname, 
 	loadbalancer, 
