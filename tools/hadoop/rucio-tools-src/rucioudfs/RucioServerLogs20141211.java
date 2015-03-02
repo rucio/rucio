@@ -8,7 +8,7 @@
  * Authors:
  * - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 */
-package rucioloader;
+package rucioudfs;
 
 import java.util.regex.Pattern;
 import org.apache.pig.piggybank.storage.RegExLoader;

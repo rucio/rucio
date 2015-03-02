@@ -45,27 +45,36 @@ GRAPHITE_HOST = 'rucio-graphite-int.cern.ch'
 GRAPHITE_PORT = 2003
 GRAPHITE_SCOPE = 'rucio.http-monitoring'
 
-pattern = re.compile("^\\[(.*):(.*?)\\]\t((.*?)\\..*?)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t\"((\\S+)\\s+(\\S+)\\s+(\\S+))\"\t\"((.*?)-.*?)\"\t\"(.*?)\"$")
+pattern = re.compile("^\\[(.*):(.*?)\\]\t((.*?)\\..*?)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t\"((\\S+)\\s+(\\S+)\\s+(\\S+))\"\t\"((.*?)-/.*?)\"\t\"(.*?)\"$")
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 timestamp = 0
 events = []
 
+cnt_ts = 0
+cnt_unkonwn_account = 0
+cnt_no_match = 0
+cnt_match = 0
+
 for line in sys.stdin:
     try:
         attr = pattern.match(line).group(*key_mapper)
         if not re.match('[0-9]{,4}-[0-9]{,2}-[0-9]{,2} [0-9]{,2}:[0-9]{,2}', attr[keys.index('time')]):
+            cnt_ts += 1
             continue
-        if attr[keys.index('host')].startswith('rucio-server-prod-05') or attr[keys.index('host')].startswith('rucio-server-prod-06'):
+        if attr[keys.index('account')] == '':
+            cnt_unkonwn_account += 1
             continue
         new_minute = (timestamp < int(time.mktime(time.strptime(attr[keys.index('time')], '%Y-%m-%d %H:%M'))))
     except Exception:
+        cnt_no_match += 1
         continue
-    if new_minute:  # New lower started
+    cnt_match += 1
+    if new_minute:
         # Report stats to Graphite
         message = "%s.%s.%s.%s" % (GRAPHITE_SCOPE,
                                    attr[keys.index('host')],
-                                   attr[keys.index('account')] if attr[keys.index('account')] != '' else 'unknown',
+                                   attr[keys.index('account')],
                                    attr[keys.index('http_verb')])
         for metric in events:
             for value in events[metric].keys():
@@ -90,3 +99,5 @@ for line in sys.stdin:
         e[metric + '.sum'] += int(attr[keys.index(metric)])
         e[metric + '.lower'] = int(attr[keys.index(metric)]) if (e[metric + '.lower'] > attr[keys.index(metric)]) or (e[metric + '.lower'] is None) else e[metric + '.lower']
         e[metric + '.upper'] = int(attr[keys.index(metric)]) if (e[metric + '.upper'] < attr[keys.index(metric)]) else e[metric + '.upper']  # In case of None, True. Thus no None check
+
+print 'Macthed: %s\t Unknown accounts: %s\tFailed matching lines: %s\tFailed matching timestamp: %s' % (cnt_match, cnt_unkonwn_account, cnt_no_match, cnt_ts)
