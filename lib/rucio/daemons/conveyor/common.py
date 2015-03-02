@@ -275,6 +275,12 @@ def add_monitor_message(response, session=None):
             src_rse = rse_name
             logging.info('find RSE: %s for source surl: %s' % (src_rse, src_url))
 
+    if response['external_host']:
+        transfer_link = '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'), response['transfer_id'])
+    else:
+        # for LOST request, response['external_host'] maybe is None
+        transfer_link = None
+
     add_message(transfer_status, {'activity': activity,
                                   'request-id': response['request_id'],
                                   'duration': duration,
@@ -293,7 +299,6 @@ def add_monitor_message(response, session=None):
                                   'reason': reason,
                                   'transfer-endpoint': response['external_host'],
                                   'transfer-id': response['transfer_id'],
-                                  'transfer-link': '%s/fts3/ftsmon/#/job/%s' % (response['external_host'].replace('8446', '8449'),
-                                                                                response['transfer_id']),
+                                  'transfer-link': transfer_link,
                                   'tool-id': 'rucio-conveyor'},
                 session=session)
