@@ -595,6 +595,7 @@ def archive_request(request_id, session=None):
 
     if req:
         hist_request = models.Request.__history_mapper__.class_(id=req['id'],
+                                                                created_at=req['created_at'],
                                                                 request_type=req['request_type'],
                                                                 scope=req['scope'],
                                                                 name=req['name'],
