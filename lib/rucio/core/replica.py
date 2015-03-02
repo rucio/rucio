@@ -53,7 +53,47 @@ def exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
 
 
 @read_session
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, session=None):
+    """
+    List the bad file replicas history states. Method used by the rucio-ui.
+    :param state: The state of the file (SUSPICIOUS or BAD).
+    :param rse: The RSE name.
+    :param younger_than: datetime object to select bad replicas younger than this date.
+    :param older_than:  datetime object to select bad replicas older than this date.
+    :param limit: The maximum number of replicas returned.
+    :param session: The database session in use.
+    """
+    result = []
+    rse_id = None
+    if rse:
+        rse_id = get_rse_id(rse, session=session)
+    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.RSE.rse, models.BadReplicas.state, models.BadReplicas.created_at, models.BadReplicas.updated_at)
+    if state:
+        query = query.filter(models.BadReplicas.state == state)
+    if rse_id:
+        query = query.filter(rse_id == rse_id)
+    if younger_than:
+        query = query.filter(models.BadReplicas.created_at >= younger_than)
+    if older_than:
+        query = query.filter(models.BadReplicas.created_at <= older_than)
+    query = query.filter(models.RSE.id == models.BadReplicas.rse_id)
+    if limit:
+        query = query.limit(limit)
+    for badfile in query.yield_per(1000):
+        result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': badfile.rse, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
+    return result
+
+
+@read_session
 def list_bad_replicas_history(limit=10000, worker_number=None, total_workers=None, session=None):
+    """
+    List the bad file replicas history. Method only used by necromancer
+
+    :param limit: The maximum number of replicas returned.
+    :param worker_number: The worker_number for the necromancer.
+    :param total_workers: The total_workers for the necromancer.
+    :param session: The database session in use.
+    """
     query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
         filter(models.BadReplicas.state == BadFilesStatus.BAD)
     if worker_number and total_workers and total_workers - 1 > 0:
@@ -75,6 +115,14 @@ def list_bad_replicas_history(limit=10000, worker_number=None, total_workers=Non
 
 @transactional_session
 def update_bad_replicas_history(dids, rse_id, session=None):
+    """
+    Update the bad file replicas history. Method only used by necromancer
+
+    :param dids: The list of DIDs.
+    :param rse_id: The rse_id.
+    :param session: The database session in use.
+    """
+
     for did in dids:
         query = session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name'])
         if query.count():
