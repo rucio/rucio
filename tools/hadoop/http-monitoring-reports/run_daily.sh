@@ -11,7 +11,14 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 #
 
-date=`date --date='yesterday' '+%Y-%m-%d'`
+
+
+if [ $# -eq 0 ]; then
+	date=`date --date='yesterday' '+%Y-%m-%d'`
+else
+	date=$1
+fi
+
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 for script_file in ${DIR}/*.pig; do
@@ -19,4 +26,4 @@ for script_file in ${DIR}/*.pig; do
 	${DIR}/create_report.sh $script_name $date
 done
 
-./run_log2graphite.sh $date
+${DIR}/run_log2graphite.sh $date

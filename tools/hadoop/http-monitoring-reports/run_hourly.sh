@@ -22,4 +22,4 @@ for script_file in ${DIR}/*.pig; do
 done
 
 
-./run_log2graphite.sh `date +%Y-%m-%d.%H`
+${DIR}/run_log2graphite.sh `date +%Y-%m-%d.%H`
