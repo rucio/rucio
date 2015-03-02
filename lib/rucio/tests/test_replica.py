@@ -14,7 +14,10 @@
 import xmltodict
 
 from datetime import datetime, timedelta
+from json import dumps
 from nose.tools import assert_equal, assert_in, assert_raises
+from paste.fixture import TestApp
+
 
 from rucio.db.constants import DIDType, ReplicaState
 from rucio.client.baseclient import BaseClient
@@ -27,6 +30,8 @@ from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import add_replica, add_replicas, delete_replicas, update_replica_lock_counter,\
     get_replica, list_replicas, declare_bad_file_replicas, list_bad_replicas, touch_replicas, update_replicas_paths, update_replica_state, get_replica_atime
 from rucio.rse import rsemanager as rsemgr
+from rucio.web.rest.authentication import app as auth_app
+from rucio.web.rest.replica import app as rep_app
 
 
 class TestReplicaCore:
@@ -332,6 +337,45 @@ class TestReplicaClients:
         files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
         r = self.replica_client.declare_suspicious_file_replicas(files, 'This is a good reason')
         assert_equal(r, {'MOCK2': files})
+
+    def test_bad_replica_methods_for_UI(self):
+        """ REPLICA (REST): Test the listing of bad and suspicious replicas """
+        mw = []
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(r1.status, 200)
+        token = str(r1.header('X-Rucio-Auth-Token'))
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+
+        data = dumps({})
+        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 200)
+        tot_files = []
+        for line in r2.body.split('\n'):
+            if line != '':
+                tot_files.append(dumps(line))
+        nb_tot_files = len(tot_files)
+
+        data = dumps({'state': 'B'})
+        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 200)
+        tot_bad_files = []
+        for line in r2.body.split('\n'):
+            if line != '':
+                tot_bad_files.append(dumps(line))
+        nb_tot_bad_files = len(tot_bad_files)
+        assert_equal(nb_tot_files, nb_tot_bad_files)
+
+        tomorrow = datetime.utcnow() + timedelta(2)
+        data = dumps({'state': 'B', 'younger_than': str(tomorrow)})
+        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 200)
+        tot_bad_files = []
+        for line in r2.body.split('\n'):
+            if line != '':
+                tot_bad_files.append(dumps(line))
+        nb_tot_bad_files = len(tot_bad_files)
+        assert_equal(nb_tot_bad_files, 0)
 
     def test_add_list_replicas(self):
         """ REPLICA (CLIENT): Add, change state and list file replicas """

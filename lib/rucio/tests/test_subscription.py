@@ -165,8 +165,6 @@ class TestSubscriptionRestApi():
         assert_equal(r3.status, 201)
 
         r4 = TestApp(subs_app.wsgifunc(*mw)).get('/root/%s' % (subscription_name), headers=headers2, expect_errors=True)
-        print r4
-        print type(loads(r4.body))
         assert_equal(r4.status, 200)
         assert_equal(loads(loads(r4.body)['filter'])['project'][0], 'toto')
 
