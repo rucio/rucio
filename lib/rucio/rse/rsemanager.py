@@ -6,8 +6,8 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014
@@ -168,7 +168,7 @@ def parse_pfns(rse_settings, pfns, operation='read'):
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme).parse_pfns(pfns)
 
 
-def download(rse_settings, files, dest_dir='.', printstatements=False):
+def download(rse_settings, files, dest_dir=None, printstatements=False):
     """
         Copy a file from the connected storage to the local file system.
         Providing a list indicates the bulk mode.
@@ -179,7 +179,7 @@ def download(rse_settings, files, dest_dir='.', printstatements=False):
                                 if LFNs are provided and additional 'pfn' if PFNs are provided.
                                 E.g.  [{'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
                                        {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}]
-        :param dest_dir:        path to the directory where the downloaded files will be stored. For each scope a seperate subdirectory is created
+        :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
 
         :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -197,15 +197,16 @@ def download(rse_settings, files, dest_dir='.', printstatements=False):
     files = [files] if not type(files) is list else files
     for f in files:
         pfn = f['pfn'] if 'pfn' in f else protocol.lfns2pfns(f).values()[0]
+        target_dir = "./%s" % f['scope'] if dest_dir is None else dest_dir
         try:
-            if not os.path.exists('%s/%s' % (dest_dir, f['scope'])):
-                os.makedirs('%s/%s' % (dest_dir, f['scope']))
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir)
             # Each scope is stored into a separate folder
-            finalfile = '%s/%s/%s' % (dest_dir, f['scope'], f['name'])
+            finalfile = '%s/%s' % (target_dir, f['name'])
             # Check if the file already exists, if not download and validate it
             if not os.path.isfile(finalfile):
                 if 'adler32' in f:
-                    tempfile = '%s/%s/%s.part' % (dest_dir, f['scope'], f['name'])
+                    tempfile = '%s/%s.part' % (target_dir, f['name'])
                     if os.path.isfile(tempfile):
                         if printstatements:
                             print '%s already exists, probably from a failed attempt. Will remove it' % (tempfile)
@@ -222,7 +223,7 @@ def download(rse_settings, files, dest_dir='.', printstatements=False):
                         os.unlink(tempfile)
                         raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(f['adler32'])))
                 else:
-                    protocol.get(pfn, '%s/%s/%s' % (dest_dir, f['scope'], f['name']))
+                    protocol.get(pfn, '%s/%s' % (target_dir, f['name']))
                 ret['%s:%s' % (f['scope'], f['name'])] = True
             else:
                 ret['%s:%s' % (f['scope'], f['name'])] = True
