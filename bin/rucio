@@ -95,6 +95,7 @@ def extract_scope(did):
         raise InvalidObject('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
     return scope, name
 
+
 def exception_handler(function):
     @wraps(function)
     def new_funct(*args, **kwargs):
@@ -1153,7 +1154,7 @@ def list_account_limits(args):
     print "RSE:             LIMIT (TB)"
     print "------------------"
     for limit in limits.items():
-        print "{0:20} {1:.4f}".format(limit[0], int(limit[1])/1000000000000.0)
+        print "{0:20} {1:.4f}".format(limit[0], float(limit[1])/1000000000000.0)
     return SUCCESS
 
 
