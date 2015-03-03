@@ -86,10 +86,11 @@ class BaseClient(object):
         self.list_hosts = []
         self.auth_host = auth_host
         self.session = session()
+        self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
         try:
-            self.user_agent = "%s %s/%s" % (main.__file__.split('/')[-1], user_agent, version.version_string())  # e.g. "nosetest rucio-clients/0.2.13"
+            self.script_id = main.__file__.split('/')[-1]
         except AttributeError:
-            self.user_agent = "python rucio/{0}".format(version.version_string())
+            self.script_id = "python"
         try:
             if self.host is None:
                 self.host = config_get('client', 'rucio_host')
@@ -220,7 +221,7 @@ class BaseClient(object):
         """
         r = None
         retry = 0
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-Appid': '', 'Connection': 'Keep-Alive', 'User-Agent': self.user_agent}
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'Connection': 'Keep-Alive', 'User-Agent': self.user_agent, 'X-Rucio-Script': self.script_id}
 
         if headers is not None:
             hds.update(headers)
