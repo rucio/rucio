@@ -89,11 +89,14 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def extract_scope(did):
-    try:
-        scope, name = did.split(':')
-    except ValueError, e:
-        raise InvalidObject('Cannot extract the scope and name from {0} : [{1}]'.format(did, e))
-    return scope, name
+    # Try to extract the scope from the DSN
+    if did.find(':') > -1:
+        return did.split(':')[0], did.split(':')[1]
+    else:
+        scope = did.split('.')[0]
+        if did.startswith('user') or did.startswith('group'):
+            scope = ".".join(did.split('.')[0:2])
+        return scope, did
 
 
 def exception_handler(function):
@@ -449,12 +452,26 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
-    print '{0:^10}{1:^80}{2:10}{3:10}{4:10}{5:^34}'.format('SCOPE', 'NAME', 'FILESIZE', 'EVENTS', 'ADDLER32', 'GUID')
-    print '{0:-<140}'.format('')
+    print '{0:^105}{1:^40}{2:12}{3:14}{4:10}'.format('SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS')
+    print '{0:-<181}'.format('')
     for did in args.dids:
+        totfiles = 0
+        totsize = 0
+        totevents = 0
         scope, name = extract_scope(did)
         for file in client.list_files(scope=scope, name=name):
-            print '{0:}:{1:80} {2:>10} {3:>10} {4:>10} {5:>34}'.format(file['scope'], file['name'], int(file['bytes']), file['events'], file['adler32'], file['guid'])
+            totfiles += 1
+            totsize += int(file['bytes'])
+            if file['events']:
+                totevents += int(file.get('events', 0))
+            guid = file['guid']
+            guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+            print '{0:105}{1:>38}{2:>12}{3:>14}{4:>10}'.format('%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], int(file['bytes']), file['events'])
+        print '{0:-<181}'.format('')
+        print 'Total files : %s' % totfiles
+        print 'Total size : %s' % totsize
+        if totevents:
+           print 'Total events : %s' % totevents
     return SUCCESS
 
 
@@ -768,8 +785,8 @@ def download(args):
     nbfiles_to_download = {}
     for did in args.dids:
         try:
-            scope, name = did.split(':')
-            client.get_did(scope, name)
+            scope, name = extract_scope(did)
+            did_info = client.get_did(scope, name)
             files_to_download = [f for f in client.list_files(scope=scope, name=name)]
             if args.nrandom:
                 files_to_download = files_to_download[0:args.nrandom]
@@ -784,6 +801,7 @@ def download(args):
                 files_to_download = files_to_download[0:args.nrandom]
             else:
                 files_to_download = files
+            last_chosen_rse = None
             for file in files_to_download:
                 trace['account'] = client.account
                 trace['scope'] = file['scope']
@@ -798,14 +816,28 @@ def download(args):
                 trace['filesize'] = file['bytes']
                 trace['eventType'] = 'download'
                 trace['eventVersion'] = version.RUCIO_VERSION[0]
-                if os.path.isfile('%s/%s/%s' % (args.dir, file['scope'], file['name'])):
+                dest_dir = None
+                file_exists = False
+                if did_info['type'] != 'FILE':
+                    dest_dir = '%s/%s' % (args.dir, name)
+                    if os.path.isfile('%s/%s' % (dest_dir, file['name'])):
+                        file_exists = True
+                else:
+                    if os.path.isfile('%s/%s' % (file['scope'], file['name'])):
+                        file_exists = True
+                if file_exists:
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
                 else:
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 0
                     list_rses = file['rses'].keys()
-                    random.shuffle(list_rses)
+                    if last_chosen_rse and last_chosen_rse in list_rses:
+                        idx = list_rses.index(last_chosen_rse)
+                        list_rses[idx], list_rses[0] = list_rses[0], list_rses[idx]
+                    else:
+                        random.shuffle(list_rses)
                     logger.debug('Choosing RSE')
+                    logger.debug(list_rses)
                     index = 0
                     if args.rse:
                         if args.rse in list_rses:
@@ -832,10 +864,11 @@ def download(args):
                             retries = 2
                             for attempt in xrange(0, retries):
                                 try:
-                                    rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=args.dir, printstatements=True)
+                                    rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
                                     logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
                                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
                                     success = True
+                                    last_chosen_rse = rse
                                     break
                                 except Exception, e:
                                     logger.warning(str(e))
@@ -850,7 +883,6 @@ def download(args):
                                             break
                                         except:
                                             pass
-                                    logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
                                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
                                     break
                                 except Exception, e:
