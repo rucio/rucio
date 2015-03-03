@@ -17,7 +17,7 @@ Conveyor is a daemon to manage file transfers.
 import argparse
 import signal
 
-from rucio.daemons.conveyor.poller import run, stop
+from rucio.daemons.conveyor.poller_latest import run, stop
 
 if __name__ == "__main__":
 
@@ -26,27 +26,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
-    parser.add_argument("--process", action="store", default=0, type=int,
-                        help='Concurrency control: current processes number')
-    parser.add_argument("--total-processes", action="store", default=1, type=int,
-                        help='Concurrency control: total number of processes')
     parser.add_argument("--total-threads", action="store", default=1, type=int,
                         help='Concurrency control: total number of threads per process')
-    parser.add_argument("--bulk", action="store", default=100, type=int,
-                        help='Bulk control: number of requests')
-    parser.add_argument("--older-than", action="store", default=60, type=int,
-                        help='Poll control: older request more than this value to poll')
-    parser.add_argument('--activity-shares', action='store', default=None, type=str,
-                        help='JSON-encoded string of an activity shares dictionary {"act_1": 0.2, "act_2": 0.4, ...}')
+    parser.add_argument("--last-nhours", action="store", default=1, type=int,
+                        help='Poll control: poll FTS jobs in last n hours with given state in "latest" mode')
+    parser.add_argument("--fts-wait", action="store", default=1800, type=int,
+                        help='Poll control: wait seconds to poll FTS server in "latest" mode')
+    parser.add_argument("--external-hosts",  nargs='+', type=str,
+                        help='Poll control: List of FTS hosts')
     args = parser.parse_args()
 
     try:
         run(once=args.run_once,
-            process=args.process,
-            total_processes=args.total_processes,
+            last_nhours=args.last_nhours,
+            fts_wait=args.fts_wait,
             total_threads=args.total_threads,
-            bulk=args.bulk,
-            older_than=args.older_than,
-            activity_shares=args.activity_shares)
+            external_hosts=args.external_hosts)
     except KeyboardInterrupt:
         stop()
