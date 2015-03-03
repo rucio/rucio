@@ -45,7 +45,7 @@ ACCOUNT_LIMITS
 RSE_COUNTERS
 RSE_LIMITS
 RSE_PROTOCOLS
-
+COLLECTION_REPLICAS
 
 
 -- ============================================== section TRANSIENT data  ==========================================================================
@@ -539,6 +539,38 @@ CREATE TABLE REPLICAS_HISTORY (
 
 
 COMMENT ON TABLE REPLICAS_HISTORY IS 'Recent history of deleted replicas';
+
+
+-- ========================================= COLLECTION_REPLICAS =========================================
+-- Description: Table to store dataset/container replicas
+-- Estimated volume: Hundreds of Million
+-- Access pattern:
+--                 - by scope, name
+--                 - by rse_id
+
+
+CREATE TABLE collection_replicas (
+    scope VARCHAR2(25 CHAR),
+    name VARCHAR2(255 CHAR),
+    did_type CHAR(1 CHAR), 
+    rse_id RAW(16),
+    bytes NUMBER(19),
+    state CHAR(1 CHAR),
+    accessed_at DATE,
+    updated_at DATE,
+    created_at DATE,
+    CONSTRAINT "COLLECTION_REPLICAS_PK" PRIMARY KEY (scope, name, rse_id),
+    CONSTRAINT "COLLECTION_REPLICAS_LFN_FK" FOREIGN KEY(scope, name) REFERENCES dids (scope, name),
+    CONSTRAINT "COLLECTION_REPLICAS_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
+    CONSTRAINT "COLLECTION_REPLICAS_RSE_ID_FK" FOREIGN KEY(rse_id) REFERENCES rses (id),
+    CONSTRAINT "COLLECTION_REPLICAS_STATE_NN" CHECK ("STATE" IS NOT NULL),
+    CONSTRAINT "COLLECTION_REPLICAS_BYTES_NN" CHECK (bytes IS NOT NULL),
+    CONSTRAINT "COLLECTION_REPLICAS_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+    CONSTRAINT "COLLECTION_REPLICAS_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL),
+    CONSTRAINT "COLLECTION_REPLICAS_STATE_CHK" CHECK (state IN ('A', 'C', 'B', 'U', 'D', 'S'))
+) ORGANIZATION INDEX COMPRESS 1 TABLESPACE ATLAS_RUCIO_FACT_DATA01;
+
+CREATE INDEX COLLECTION_REPLICAS_RSE_ID_IDX ON collection_replicas (rse_id) TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
 
 -- ========================================= RULES ==============================================

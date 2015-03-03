@@ -581,6 +581,26 @@ class RSEFileAssociation(BASE, ModelBase):
                    )
 
 
+class CollectionReplicas(BASE, ModelBase):
+    """Represents replicas for datasets/collections"""
+    __tablename__ = 'collection_replicas'
+    scope = Column(String(25))
+    name = Column(String(255))
+    did_type = Column(DIDType.db_type(name='COLLECTION_REPLICAS_DID_TYPE_CHK'))
+    rse_id = Column(GUID())
+    bytes = Column(BigInteger)
+    length = Column(BigInteger)
+    state = Column(ReplicaState.db_type(name='COLLECTION_REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE)
+    accessed_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', name='COLLECTION_REPLICAS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='COLLECTION_REPLICAS_LFN_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='COLLECTION_REPLICAS_RSE_ID_FK'),
+                   CheckConstraint('STATE IS NOT NULL', name='COLLECTION_REPLICAS_STATE_NN'),
+                   CheckConstraint('bytes IS NOT NULL', name='COLLECTION_REPLICAS_SIZE_NN'),
+                   Index('COLLECTION_REPLICAS_RSE_ID_IDX', 'rse_id'),
+                   )
+
+
 class RSEFileAssociationHistory(BASE, ModelBase):
     """Represents a short history of the deleted replicas"""
     __tablename__ = 'replicas_history'
@@ -917,7 +937,8 @@ def register_models(engine):
               Token,
               UpdatedAccountCounter,
               UpdatedDID,
-              UpdatedRSECounter)
+              UpdatedRSECounter,
+              CollectionReplicas)
 
     for model in models:
         model.metadata.create_all(engine)
@@ -961,7 +982,8 @@ def unregister_models(engine):
               Token,
               UpdatedAccountCounter,
               UpdatedDID,
-              UpdatedRSECounter)
+              UpdatedRSECounter,
+              CollectionReplicas)
 
     for model in models:
         model.metadata.drop_all(engine)
