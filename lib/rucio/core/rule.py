@@ -1707,11 +1707,11 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
 
         for replica_clause_chunk in replica_clause_chunks:
             if replicas_rse_clause:
-                tmp_replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause_chunk), or_(*replicas_rse_clause))\
+                tmp_replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause_chunk), or_(*replicas_rse_clause), models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)\
                     .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle')\
                     .with_for_update(nowait=nowait).all()
             else:
-                tmp_replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause_chunk))\
+                tmp_replicas = session.query(models.RSEFileAssociation).filter(or_(*replica_clause_chunk), models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)\
                     .with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle')\
                     .with_for_update(nowait=nowait).all()
             for replica in tmp_replicas:
