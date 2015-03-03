@@ -100,4 +100,4 @@ for line in sys.stdin:
         e[metric + '.lower'] = int(attr[keys.index(metric)]) if (e[metric + '.lower'] > attr[keys.index(metric)]) or (e[metric + '.lower'] is None) else e[metric + '.lower']
         e[metric + '.upper'] = int(attr[keys.index(metric)]) if (e[metric + '.upper'] < attr[keys.index(metric)]) else e[metric + '.upper']  # In case of None, True. Thus no None check
 
-print 'Macthed: %s\t Unknown accounts: %s\tFailed matching lines: %s\tFailed matching timestamp: %s' % (cnt_match, cnt_unkonwn_account, cnt_no_match, cnt_ts)
+print 'Matched: %s\t Unknown accounts: %s\tFailed matching lines: %s\tFailed matching timestamp: %s' % (cnt_match, cnt_unkonwn_account, cnt_no_match, cnt_ts)

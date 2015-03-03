@@ -24,7 +24,7 @@ import org.apache.pig.piggybank.storage.RegExLoader;
 public class RucioServerLogs20150211 extends RegExLoader {
 
 	private final static Pattern rucioLogPattern = Pattern
-		.compile("^\\[(.*?)\\]\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t\"(\\S+)\\s+(\\S+)\\s+(\\S+)\"\t\"(.*?)-/(.*?)\"\t\"(.*?)\"$");
+		.compile("^\\[(.*?)\\]\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t(\\S+)\t\"(\\S+)\\s+(\\S+)\\s+(\\S+)\"\t\"(.*?)-/(.*?)\"\t\"(.*?)\"\t?(.*)?$");
 		public Pattern getPattern() {
 			return rucioLogPattern;
 		}
