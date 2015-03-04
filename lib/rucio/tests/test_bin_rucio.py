@@ -339,7 +339,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         # search for the files with ls
-        cmd = 'ls /tmp/{0}'.format(self.user)   # search in /tmp/mock
+        cmd = 'ls /tmp/'    # search in /tmp/
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
