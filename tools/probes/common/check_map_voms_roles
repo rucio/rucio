@@ -72,7 +72,8 @@ if __name__ == '__main__':
                 sys.exit(CRITICAL)
         print '%i users extracted from VOMS with %s' % (nbusers, account)
 
-    account_list = ['phys-top', 'phys-higgs']
+    account_list = ['calib-muon', 'det-alfa', 'det-ibl', 'det-indet', 'det-larg', 'det-muon', 'det-slhc', 'det-tile', 'proj-sit', 'trig-daq', 'trig-hlt', 'perf-egamma', 'perf-flavtag', 'perf-idtracking', 'perf-jets', 'perf-muons', 'perf-tau',
+                    'phys-beauty', 'phys-exotics', 'phys-gener', 'phys-hi', 'phys-higgs', 'phys-sm', 'phys-susy', 'phys-top', 'phys-valid', 'dataprep']
     for account in account_list:
         nbusers = 0
         attempts = 0
