@@ -54,7 +54,7 @@ def upgrade():
                     sa.Column('ignore_availability', sa.Boolean()),
                     sa.Column('updated_at', sa.DateTime),
                     sa.Column('created_at', sa.DateTime))
-    op.create_table('rules_hist_longterm',
+    op.create_table('rules_history',
                     sa.Column('history_id', GUID()),
                     sa.Column('id', GUID()),
                     sa.Column('subscription_id', GUID()),
@@ -89,4 +89,4 @@ def downgrade():
     if context.get_context().dialect.name is 'postgresql':
         op.drop_index('RULES_HIST_RECENT_ID_IDX', 'rules_hist_recent')
     op.drop_table('rules_hist_recent')
-    op.drop_table('rules_hist_longterm')
+    op.drop_table('rules_history')
