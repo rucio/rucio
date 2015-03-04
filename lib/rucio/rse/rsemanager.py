@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
-# - Wen Guan, <wen.guan@cern.ch>, 2014
+# - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
 import copy
 import os
@@ -72,9 +72,12 @@ def select_protocol(rse_settings, operation, scheme=None):
     tbr = list()
     for protocol in candidates:
         # Check if scheme given and filter if so
-        if scheme and protocol['scheme'] != scheme:
-            tbr.append(protocol)
-            continue
+        if scheme:
+            if not isinstance(scheme, list):
+                scheme = scheme.split(',')
+            if protocol['scheme'] not in scheme:
+                tbr.append(protocol)
+                continue
         # Check if operation in domain is supported
         for d in rse_settings['domain']:
             if protocol['domains'][d][operation] == 0:
