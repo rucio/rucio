@@ -1160,7 +1160,7 @@ def list_rse_usage(args):
     for usage in usages:
         print '------'
         skip_free = False
-        if usage['source'] in ['rucio', 'reaper']:
+        if usage['source'] in ['rucio', 'expired']:
             skip_free = True
         for elem in usage:
             if not ((elem == 'free' or elem == 'total') and skip_free):
