@@ -273,7 +273,7 @@ def get_destinations(rse_info, scheme, req, naming_convention):
 
     ts = time.time()
     try:
-        pfn = rsemgr.lfns2pfns(rse_info, lfns=lfn, operation='write')
+        pfn = rsemgr.lfns2pfns(rse_info, lfns=lfn, operation='write', scheme=scheme)
     except RSEProtocolNotSupported:
         logging.error('Operation "write" not supported by %s' % (rse_info['rse']))
         return None, None
@@ -289,7 +289,7 @@ def get_destinations(rse_info, scheme, req, naming_convention):
 
     protocol = None
     try:
-        protocol = rsemgr.select_protocol(rse_info, 'write')
+        protocol = rsemgr.select_protocol(rse_info, 'write', scheme=scheme)
     except RSEProtocolNotSupported:
         logging.error('Operation "write" not supported by %s' % (rse_info['rse']))
         return None, None
