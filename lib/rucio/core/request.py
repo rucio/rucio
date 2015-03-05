@@ -463,19 +463,26 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
 
 @transactional_session
-def set_request_state(request_id, new_state, session=None):
+def set_request_state(request_id, new_state, transfer_id=None, session=None):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
 
     :param request_id: Request-ID as a 32 character hex string.
     :param new_state: New state as string.
+    :param transfer_id: external transfer job id as a string.
     :param session: Database session to use.
     """
 
     record_counter('core.request.set_request_state')
 
     try:
-        rowcount = session.query(models.Request).filter_by(id=request_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        if transfer_id:
+            rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        else:
+            if new_state in [RequestState.FAILED, RequestState.DONE]:
+                logging.error("Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
+            else:
+                rowcount = session.query(models.Request).filter_by(id=request_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 

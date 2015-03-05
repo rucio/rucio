@@ -64,9 +64,7 @@ def update_request_state(response, session=None):
             return False
         transfer_id = response['transfer_id'] if 'transfer_id' in response else None
         logging.debug('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
-        request_core.set_request_state(response['request_id'],
-                                       response['new_state'],
-                                       session=session)
+        request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, session=session)
 
         add_monitor_message(response, session=session)
         return True
