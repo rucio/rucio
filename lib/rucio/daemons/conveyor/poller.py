@@ -18,7 +18,9 @@ Conveyor is a daemon to manage file transfers.
 import datetime
 import json
 import logging
+import os
 import re
+import socket
 import sys
 import threading
 import time
@@ -29,7 +31,7 @@ from sqlalchemy.exc import DatabaseError
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.common.utils import chunks
-from rucio.core import request
+from rucio.core import request, heartbeat
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType
@@ -56,6 +58,11 @@ def poller(once=False,
                                                                                  thread, total_threads,
                                                                                  bulk))
 
+    executable = ' '.join(sys.argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+
     logging.info('poller started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
                                                                                 thread, total_threads,
                                                                                 bulk))
@@ -63,6 +70,8 @@ def poller(once=False,
     while not graceful_stop.is_set():
 
         try:
+            heartbeat.live(executable, hostname, pid, hb_thread)
+
             ts = time.time()
 
             logging.debug('%i:%i - start to poll requests older than %i seconds' % (process, thread, older_than))
@@ -128,6 +137,8 @@ def poller(once=False,
             return
 
     logging.debug('%i:%i - graceful stop requests' % (process, thread))
+
+    heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.debug('%i:%i - graceful stop done' % (process, thread))
 

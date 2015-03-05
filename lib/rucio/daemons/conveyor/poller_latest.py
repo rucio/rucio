@@ -17,14 +17,16 @@ Conveyor is a daemon to manage file transfers.
 
 import datetime
 import logging
+import os
 import sys
+import socket
 import threading
 import time
 import traceback
 
 
 from rucio.common.config import config_get
-from rucio.core import request
+from rucio.core import request, heartbeat
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import FTSState
@@ -45,6 +47,11 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
+    executable = ' '.join(sys.argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+
     logging.info('polling latest %s hours on hosts: %s' % (last_nhours, external_hosts))
     if external_hosts:
         if type(external_hosts) == str:
@@ -53,6 +60,8 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
     while not graceful_stop.is_set():
 
         try:
+            heartbeat.live(executable, hostname, pid, hb_thread)
+
             start_time = time.time()
             for external_host in external_hosts:
                 logging.debug('polling latest %s hours on host: %s' % (last_nhours, external_host))
@@ -97,6 +106,8 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
             return
 
     logging.debug('poller_latest - graceful stop requests')
+
+    heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.debug('poller_latest - graceful stop done')
 
