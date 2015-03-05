@@ -19,6 +19,7 @@ import json
 import re
 import requests
 import sys
+import traceback
 
 from rucio.api import rse
 from rucio.api.account import list_accounts, list_account_attributes
@@ -138,91 +139,93 @@ def set_user_quotas(name, accs):
 
 # Takes DDM endpoint quota information from AGIS and sets rucio account quotas
 if __name__ == '__main__':
-
-    global result
-    url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
     try:
-        resp = requests.get(url=url)
-        data = json.loads(resp.content)
-    except Exception as e:
-        print "Failed to load info from AGIS: %s" % str(e)
-        sys.exit(CRITICAL)
-
-    # Read capacity information from cached file
-    try:
-        with open(rse_capacity_cache) as f:
-            rse_capacity = json.load(f)
-    except:
-        print "No cached RSE capacity info, will set all quotas"
-
-    # Read accounts from cached file
-    try:
-        with open(accounts_cache) as f:
-            done_accounts = json.load(f)
-    except:
-        print "No cached accounts, will set quotas for all accounts"
-
-    # Get all rucio accounts and country attributes
-    try:
-        accounts = list_accounts()
-        all_accounts = [a['account'] for a in accounts]
-        for account in all_accounts[:]:
-            attrs = list_account_attributes(account)
-            for attr in attrs:
-                if attr['key'] == 'admin' and attr['value'] == 1:
-                    all_accounts.remove(account)
-                    continue
-                if attr['key'].startswith('country-'):
-                    country = attr['key'].split('-')[1]
-                    try:
-                        country_accounts[country].append(account)
-                    except:
-                        country_accounts[country] = [account]
-    except RucioException as e:
-        print "Failed to list Rucio accounts or attributes: %s" % str(e)
-        sys.exit(CRITICAL)
-
-    for ddmendpoint in data:
-
-        # Check if RSE exists
-        name = ddmendpoint['name']
+        url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json&state=ACTIVE&site_state=ACTIVE'
         try:
-            rse.get_rse(name)
-        except RSENotFound:
-            print "WARNING: RSE %s missing in Rucio" % name
-            result = WARNING
-            continue
+            resp = requests.get(url=url)
+            data = json.loads(resp.content)
+        except Exception as e:
+            print "Failed to load info from AGIS: %s" % str(e)
+            sys.exit(CRITICAL)
 
-        if ddmendpoint['phys_groups']:
-            set_group_quotas(ddmendpoint['quotas'])
+        # Read capacity information from cached file
+        try:
+            with open(rse_capacity_cache) as f:
+                rse_capacity = json.load(f)
+        except:
+            print "No cached RSE capacity info, will set all quotas"
 
-        if name.endswith('_LOCALGROUPDISK') or ddmendpoint['token'] == 'ATLASLOCALGROUPDISK':
+        # Read accounts from cached file
+        try:
+            with open(accounts_cache) as f:
+                done_accounts = json.load(f)
+        except:
+            print "No cached accounts, will set quotas for all accounts"
+
+        # Get all rucio accounts and country attributes
+        try:
+            accounts = list_accounts()
+            all_accounts = [a['account'] for a in accounts]
+            for account in all_accounts[:]:
+                attrs = list_account_attributes(account)
+                for attr in attrs:
+                    if attr['key'] == 'admin' and attr['value'] == 1:
+                        all_accounts.remove(account)
+                        continue
+                    if attr['key'].startswith('country-'):
+                        country = attr['key'].split('-')[1]
+                        try:
+                            country_accounts[country].append(account)
+                        except:
+                            country_accounts[country] = [account]
+        except RucioException as e:
+            print "Failed to list Rucio accounts or attributes: %s" % str(e)
+            sys.exit(CRITICAL)
+
+        for ddmendpoint in data:
+
+            # Check if RSE exists
+            name = ddmendpoint['name']
             try:
-                country = rse.list_rse_attributes(name)['country']
-            except:
-                print "WARNING: No country defined for %s" % name
+                rse.get_rse(name)
+            except RSENotFound:
+                print "WARNING: RSE %s missing in Rucio" % name
                 result = WARNING
                 continue
 
-            if country not in country_accounts:
-                print "No accounts in country %s" % country
-            else:
-                set_user_quotas(name, country_accounts[country])
+            if ddmendpoint['phys_groups']:
+                set_group_quotas(ddmendpoint['quotas'])
 
-        if name.endswith('_SCRATCHDISK') or name.endswith('_USERDISK'):
-            set_user_quotas(name, all_accounts)
+            if name.endswith('_LOCALGROUPDISK') or ddmendpoint['token'] == 'ATLASLOCALGROUPDISK':
+                try:
+                    country = rse.list_rse_attributes(name)['country']
+                except:
+                    print "WARNING: No country defined for %s" % name
+                    result = WARNING
+                    continue
 
-    # Write back cache files
-    try:
-        with open(accounts_cache, 'w') as f:
-            json.dump(all_accounts, f)
-    except:
-        print "Failed to write accounts cache"
+                if country not in country_accounts:
+                    print "No accounts in country %s" % country
+                else:
+                    set_user_quotas(name, country_accounts[country])
 
-    try:
-        with open(rse_capacity_cache, 'w') as f:
-            json.dump(rse_capacity, f)
-    except:
-        print "Failed to write RSE capacity cache"
+            if name.endswith('_SCRATCHDISK') or name.endswith('_USERDISK'):
+                set_user_quotas(name, all_accounts)
+
+        # Write back cache files
+        try:
+            with open(accounts_cache, 'w') as f:
+                json.dump(all_accounts, f)
+        except:
+            print "Failed to write accounts cache"
+
+        try:
+            with open(rse_capacity_cache, 'w') as f:
+                json.dump(rse_capacity, f)
+        except:
+            print "Failed to write RSE capacity cache"
+    except Exception as e:
+        print traceback.format_exc()
+        result = CRITICAL
 
     sys.exit(result)
