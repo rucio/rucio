@@ -15,20 +15,20 @@ Conveyor is a daemon to manage file transfers.
 """
 
 import logging
+import os
+import socket
 import ssl
 import sys
 import threading
 import time
 import traceback
 
-import Queue
-
 import dns.resolver
 import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
-from rucio.core import request as request_core
+from rucio.core import request as request_core, heartbeat
 from rucio.core.monitor import record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, FTSCompleteState
@@ -45,11 +45,10 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id, total_threads, queue):
+    def __init__(self, broker, id, total_threads):
         self.__broker = broker
         self.__id = id
         self.__total_threads = total_threads
-        self.__msg_queue = queue
 
     def on_error(self, headers, message):
         record_counter('daemons.conveyor.receiver.error')
@@ -112,18 +111,26 @@ class Receiver(object):
                             logging.warn("Cannot get request with request_id(%s): %s" % (response['request_id'], traceback.format_exc()))
                         if request:
                             response['external_host'] = request['external_host']
-                            self.__msg_queue.put(response)
-                            record_counter('daemons.conveyor.receiver.queue_message')
+                            ret = common.update_request_state(response)
+                            record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
+                        else:
+                            logging.warn("request with request_id(%s) doesn't exist, will not update" % (response['request_id']))
+                            record_counter('daemons.conveyor.receiver.update_request_state.False')
                 except:
                     logging.critical(traceback.format_exc())
 
 
-def receiver(id, queue, total_threads=1):
+def receiver(id, total_threads=1):
     """
     Main loop to consume messages from the FTS3 producer.
     """
 
     logging.info('receiver starting')
+
+    executable = ' '.join(sys.argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
 
     brokers_alias = []
     brokers_resolved = []
@@ -154,13 +161,15 @@ def receiver(id, queue, total_threads=1):
 
     while not graceful_stop.is_set():
 
+        heartbeat.live(executable, hostname, pid, hb_thread)
+
         for conn in conns:
 
             if not conn.is_connected():
                 logging.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                 record_counter('daemons.messaging.fts3.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
 
-                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, queue=queue))
+                conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads))
                 conn.start()
                 conn.connect()
                 conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
@@ -177,45 +186,9 @@ def receiver(id, queue, total_threads=1):
         except:
             pass
 
+    heartbeat.die(executable, hostname, pid, hb_thread)
+
     logging.info('receiver graceful stop done')
-
-
-def updater(queue, bulk=10):
-    """
-    Main loop to update the rucio request status.
-    """
-    logging.info('updater starting')
-
-    timeout = 1
-    responses = []
-    stop = False
-
-    while True:
-        try:
-            response = queue.get(True, timeout)
-            responses.append(response)
-            queue.task_done()
-        except Queue.Empty:
-            if stop:
-                break
-            # queue is empty and stop signal is set, return
-            if graceful_stop.is_set():
-                logging.info("updater graceful stop requested, sleep 2 seconds to wait for receiver to finish")
-                time.sleep(2)
-                stop = True
-            else:
-                continue
-        # if stop is True, no matter how many responses, just update.
-        if len(responses) >= bulk or stop:
-            try:
-                ret = common.update_requests_states(responses)
-                logging.debug("UPDATED %s REQUESTS" % len(responses))
-                record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret, len(responses))
-                responses = []
-            except:
-                logging.critical(traceback.format_exc())
-
-    logging.info('updater graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -226,20 +199,14 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1, bulk=10):
+def run(once=False, total_threads=1):
     """
     Starts up the receiver thread
     """
-    msg_queue = Queue.Queue()
 
     logging.info('starting receiver thread')
     threads = [threading.Thread(target=receiver, kwargs={'id': i,
-                                                         'total_threads': total_threads,
-                                                         'queue': msg_queue}) for i in xrange(0, total_threads)]
-
-    logging.info('starting updater thread')
-    threads.append(threading.Thread(target=updater, kwargs={'queue': msg_queue,
-                                                            'bulk': bulk}))
+                                                         'total_threads': total_threads}) for i in xrange(0, total_threads)]
 
     [t.start() for t in threads]
 
