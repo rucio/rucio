@@ -36,6 +36,7 @@ urls = (
     '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
     '/rules', 'Rules',
+    '/request_rule', 'RequestRule',
     '/rule_backlog_monitor', 'BacklogMon',
     '/search', 'Search',
     '/subscriptions/rules', 'SubscriptionRules',
@@ -112,6 +113,12 @@ class Rule():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rule())
+
+
+class RequestRule():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.request_rule())
 
 
 class Subscription():
