@@ -109,7 +109,7 @@ class Receiver(object):
                             request = request_core.get_request(response['request_id'])
                         except:
                             logging.warn("Cannot get request with request_id(%s): %s" % (response['request_id'], traceback.format_exc()))
-                        if request:
+                        if request and request['external_id'] == response['transfer_id']:
                             response['external_host'] = request['external_host']
                             ret = common.update_request_state(response)
                             record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
