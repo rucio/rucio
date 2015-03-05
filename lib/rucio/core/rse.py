@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
@@ -23,6 +23,7 @@ import sqlalchemy.orm
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
+from sqlalchemy.sql.expression import or_
 
 import rucio.core.account_counter
 
@@ -82,6 +83,29 @@ def rse_exists(rse, session=None):
     :returns: True if found, otherwise false.
     """
     return True if session.query(models.RSE).filter_by(rse=rse).first() else False
+
+
+@read_session
+def sort_rses(rses, session=None):
+    """
+    Sort a list of RSES by srm free space (ascending order).
+
+    :param rses: List of RSEs.
+    :param session: The database session in use.
+
+    :returns: Sorted list of RSEs
+    """
+    false_value = False
+    query = session.query(models.RSE.rse, models.RSE.staging_area, models.RSEUsage.rse_id).\
+        filter(models.RSEUsage.source == 'srm').\
+        filter(models.RSEUsage.rse_id == models.RSE.id).\
+        filter(models.RSE.deleted == false_value)
+    condition = []
+    for rse in rses:
+        condition.append(models.RSE.id == rse['id'])
+    query = query.filter(or_(*condition)).order_by(models.RSEUsage.free.asc())
+    return [{'rse': rse, 'staging_area': staging_area, 'id': rse_id} for rse, staging_area, rse_id in query]
+    # return sample(rses, len(rses))
 
 
 @transactional_session
