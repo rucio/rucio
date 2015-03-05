@@ -17,7 +17,6 @@ Reaper is a daemon to manage file deletion.
 import logging
 import math
 import os
-import random
 import socket
 import sys
 import threading
@@ -35,6 +34,7 @@ from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die
 from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
+from rucio.core.rse import sort_rses
 from rucio.core.rse_counter import get_counter
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
@@ -115,7 +115,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
         try:
             max_deleting_rate = 0
 
-            for rse in random.sample(rses, len(rses)):
+            for rse in sort_rses(rses):
                 try:
 
                     # heartbeat
@@ -146,7 +146,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                     s = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                        replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'], bytes=needed_free_space, limit=10000, worker_number=child_number, total_workers=total_children, delay_seconds=delay_seconds)
+                        replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'], bytes=needed_free_space, limit=max_being_deleted_files, worker_number=child_number, total_workers=total_children, delay_seconds=delay_seconds)
                     logging.debug('Reaper %s-%s: list_unlocked_replicas %s %s %s' % (worker_number, child_number, rse['rse'], time.time() - s, len(replicas)))
 
                     if not replicas:
