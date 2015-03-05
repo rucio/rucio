@@ -364,10 +364,20 @@ class TestReplicaClients:
             if line != '':
                 tot_bad_files.append(dumps(line))
         nb_tot_bad_files = len(tot_bad_files)
-        assert_equal(nb_tot_files, nb_tot_bad_files)
+
+        data = dumps({'state': 'S'})
+        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 200)
+        tot_suspicious_files = []
+        for line in r2.body.split('\n'):
+            if line != '':
+                tot_suspicious_files.append(dumps(line))
+        nb_tot_suspicious_files = len(tot_suspicious_files)
+
+        assert_equal(nb_tot_files, nb_tot_bad_files + nb_tot_suspicious_files)
 
         tomorrow = datetime.utcnow() + timedelta(2)
-        data = dumps({'state': 'B', 'younger_than': str(tomorrow)})
+        data = dumps({'state': 'B', 'younger_than': tomorrow.isoformat()})
         r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(r2.status, 200)
         tot_bad_files = []
