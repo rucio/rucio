@@ -11,6 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
+from datetime import datetime
 from json import dumps, loads
 from traceback import format_exc
 from urllib import unquote
@@ -513,13 +514,18 @@ class BadReplicasStates(RucioController):
                 params = loads(unquote(ctx.query[1:]))
             except ValueError:
                 params = parse_qs(ctx.query[1:])
-            state = params.get('state', BadFilesStatus.BAD)
+            if 'state' in params:
+                state = params['state'][0]
             if type(state) is str or type(state) is unicode:
                 state = BadFilesStatus.from_string(state)
-            rse = params.get('rse', None)
-            younger_than = params.get('younger_than', None)
-            older_than = params.get('older_than', None)
-            limit = params.get('limit', None)
+            if 'rse' in params:
+                rse = params['rse'][0]
+            if 'younger_than' in params:
+                younger_than = datetime.strptime(params['younger_than'], "%Y-%m-%dT%H:%M:%S.%f")
+            if 'older_than' in params:
+                older_than = datetime.strptime(params['older_than'], "%Y-%m-%dT%H:%M:%S.%f")
+            if 'limit' in params:
+                limit = int(params['limit'][0])
 
         try:
             result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit)
