@@ -1,0 +1,136 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+-->
+
+$var title: Request Rule
+$var script: <script src="/static/request_rule.js"></script>
+
+<div id="main">
+  <dl class="accordion" data-accordion>
+    <dd class="accordion-navigation large-8">
+      <a href="#panel1b">Select DIDs</a>
+      <div id="panel1b" class="content active">
+        <div class="row">
+          <p>Please start by entering a DID or DID wildcard and search for either containers or datasets. Then select the requested DIDs.</p>
+        </div>
+        <div class="row">
+          <div class="large-12 columns">
+            <form id="did_form">
+              <div class="row collapse">
+                <div class="large-2 columns">
+                  <label for="pattern-label" class="left inline">Data pattern</label>
+                </div>
+                <div class="large-5 columns">
+                  <input type="text" id="pattern_input" placeholder="scope:name...">
+                </div>
+                <div class="large-2 columns">
+                  <a class="button postfix" id="search_did_button">Search</a>
+                </div>
+                <div class="large-3 columns inline">
+                  <input type="radio" name="didtype" value="container" id="container_type" checked>
+                  <label for="grouping_all">Container</label>
+                  <input type="radio" name="didtype" value="dataset" id="dataset_type">
+                  <label for="grouping_dataset">Dataset</label>
+                </div>
+              </div>
+              <form>
+          </div>
+        </div>
+        <div id="did_search">
+        </div>
+    </dd>
+    <dd class="accordion-navigation large-8">
+      <a href="#panel2b">Selects RSEs</a>
+      <div id="panel2b" class="content">
+        <div class="row">
+          <p>Please enter an RSE.</p>
+        </div>
+        <div class="row">
+          <div class="large-12 columns">
+            <div class="row collapse">
+              <div class="small-2 columns">
+                <label for="rse-label" class="left inline">RSE</label>
+              </div>
+              <div class="small-8 columns">
+                <input type="text" id="rse_input" placeholder="RSE">
+              </div>
+              <!--<div class="small-2 columns">
+                  <a class="button postfix" id="search_rse_button">Search</a>
+              </div>-->
+              <div class="small-2 columns">
+                <a class="button postfix" id="continue_rse_button">Continue</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div id="rse_table" class="large-8 columns">
+          </div>
+        </div>
+        <div class="row" id="rse_continue">
+        </div>
+      </div>
+    </dd>
+    <dd class="accordion-navigation large-8">
+      <a href="#panel3b">Options</a>
+      <div id="panel3b" class="content">
+        <div class="row">
+          <p>Please select/enter your wanted options and then click "check".</p>
+        </div>
+        <div class="row">
+          <form id="grouping_form">
+            <div class="large-3 columns">
+              <label>Grouping</label>
+              <input type="radio" name="grouping" value="ALL" id="grouping_all">
+              <label for="grouping_all">All</label>
+              <input type="radio" name="grouping" value="DATASET" id="grouping_dataset" checked>
+              <label for="grouping_dataset">Dataset</label>
+              <input type="radio" name="grouping" value="NONE" id="grouping_none">
+              <label for="grouping_none">None</label>
+            </div>
+          </form>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
+            <label>Lifetime
+              <input type="text" placeholder="e.g.: 4d;2w" id="lifetime" />
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
+            <label>Copies
+              <input type="text" placeholder="" id="copies" value="1"/ >
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-6 columns">
+            <label>Comments
+              <textarea placeholder="" id="comment"></textarea>
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
+            <label style="visibility: hidden;">.</label>
+            <div class="button postfix" id="options_submit">Submit Rule Request</div>
+          </div>
+          <div class="large-6 columns">
+            <label style="visibility: hidden;">.</label>
+            <div id="check_text"></div>
+          </div>
+          <div class="large-4 columns">
+          </div>
+        </div>
+    </dd>
+  </dl>
+</div>
