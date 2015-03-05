@@ -92,23 +92,6 @@ def submit_transfers(transfers, job_metadata):
         if 'previous_attempt_id' in transfer.keys():
             job_metadata['previous_attempt_id'] = transfer['previous_attempt_id']
 
-        # ~~~ HARDCODED UNTIL FTS SHARES ARE IN PLACE ~~~
-
-        if transfer['activity'].startswith('T0'):
-            transfer['priority'] = 5
-        elif transfer['activity'] == 'Production':
-            transfer['priority'] = 4
-        elif transfer['activity'] == 'Staging':
-            transfer['priority'] = 4
-        elif transfer['activity'].startswith('Data'):
-            transfer['priority'] = 3
-        elif transfer['activity'].startswith('User'):
-            transfer['priority'] = 1
-        else:
-            transfer['priority'] = 2
-
-        # ~~~ HARDCODED UNTIL FTS SHARES ARE IN PLACE ~~~
-
         params_dict = {'files': [{'sources': transfer['src_urls'],
                                   'destinations': transfer['dest_urls'],
                                   'metadata': {'issuer': 'rucio'},
@@ -122,7 +105,7 @@ def submit_transfers(transfers, job_metadata):
                                   'job_metadata': job_metadata,
                                   'source_spacetoken': transfer['src_spacetoken'] if transfer['src_spacetoken'] else None,
                                   'overwrite': transfer['overwrite'],
-                                  'priority': transfer['priority']}}
+                                  'priority': 3}}
 
         r = None
         params_str = json.dumps(params_dict)

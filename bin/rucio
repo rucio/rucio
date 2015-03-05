@@ -471,7 +471,7 @@ def list_files(args):
         print 'Total files : %s' % totfiles
         print 'Total size : %s' % totsize
         if totevents:
-           print 'Total events : %s' % totevents
+            print 'Total events : %s' % totevents
     return SUCCESS
 
 
