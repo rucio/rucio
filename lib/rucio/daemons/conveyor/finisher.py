@@ -14,13 +14,15 @@ Conveyor finisher is a daemon to update replicas and rules based on requests.
 """
 
 import logging
+import os
+import socket
 import sys
 import threading
 import time
 import traceback
 
 from rucio.common.config import config_get
-from rucio.core import request
+from rucio.core import request, heartbeat
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, RequestType
@@ -41,6 +43,10 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
     logging.info('finisher starting - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
                                                                                    thread, total_threads,
                                                                                    bulk))
+    executable = ' '.join(sys.argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
 
     logging.info('finisher started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
                                                                                   thread, total_threads,
@@ -49,6 +55,8 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
     while not graceful_stop.is_set():
 
         try:
+            heartbeat.live(executable, hostname, pid, hb_thread)
+
             ts = time.time()
 
             logging.debug('%i:%i - start to update %s finished requests' % (process, thread, bulk))
@@ -80,6 +88,8 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
             return
 
     logging.debug('%i:%i - graceful stop requests' % (process, thread))
+
+    heartbeat.die(executable, hostname, pid, hb_thread)
 
     logging.debug('%i:%i - graceful stop done' % (process, thread))
 
