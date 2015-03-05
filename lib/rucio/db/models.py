@@ -586,7 +586,7 @@ class CollectionReplicas(BASE, ModelBase):
     __tablename__ = 'collection_replicas'
     scope = Column(String(25))
     name = Column(String(255))
-    did_type = Column(DIDType.db_type(name='COLLECTION_REPLICAS_DID_TYPE_CHK'))
+    did_type = Column(DIDType.db_type(name='COLLECTION_REPLICAS_TYPE_CHK'))
     rse_id = Column(GUID())
     bytes = Column(BigInteger)
     length = Column(BigInteger)

@@ -44,7 +44,7 @@ def upgrade():
         op.create_foreign_key('COLLECTION_REPLICAS_RSE_ID_FK', 'collection_replicas', 'rses', ['rse_id'], ['id'])
         op.create_check_constraint('COLLECTION_REPLICAS_SIZE_NN', 'collection_replicas', 'bytes IS NOT NULL')
         op.create_check_constraint('COLLECTION_REPLICAS_STATE_NN', 'collection_replicas', 'state IS NOT NULL')
-        op.create_index('COLLECTION_REPLICAS_RSE_ID_IDX', 'rse_id')
+        op.create_index('COLLECTION_REPLICAS_RSE_ID_IDX', 'collection_replicas', ['rse_id'])
 
 
 def downgrade():
