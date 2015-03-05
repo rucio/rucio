@@ -10,6 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 
 from os.path import dirname, join
 
@@ -24,6 +25,7 @@ urls = (
     '/account_usage', 'AccountUsage',
     '/auth', 'Auth',
     '/accounting', 'Accounting',
+    '/bad_replicas', 'BadReplicas',
     '/did', 'DID',
     '/dumps', 'Dumps',
     '/infrastructure', 'Infrastructure',
@@ -63,6 +65,12 @@ class Accounting():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.accounting())
+
+
+class BadReplicas():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.bad_replicas())
 
 
 class BacklogMon():
