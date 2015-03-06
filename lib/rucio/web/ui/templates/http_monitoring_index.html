@@ -1,0 +1,29 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Ralph Vigne <ralph.vigne@cern.ch> 2015
+-->
+
+$var title: HTTP Monitoring Accounts
+$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_index.js"></script>
+
+<table>
+  <tr>
+    <td>
+      <div style="width:100%; text-align: center" id="datepicker"></div>
+    </td>
+    <td>
+      <ul>
+        <li><a id="accounts" href="/webstats/accounts">Accounts</a>: Shows number of requests and recource consumption of each account</li>
+        <li><a id="resources" href="/webstats/resources">Resources</a>: Shows number of requests and resource consumption per resource</li>
+        <li><a id="apiclasses" href="/webstats/apiclasses">API Classes</a>: Shows number of requests and resource consumption per API class and per Account</li>
+      </ul>
+    </td>
+  </tr>
+</table>

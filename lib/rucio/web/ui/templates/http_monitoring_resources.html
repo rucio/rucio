@@ -14,18 +14,19 @@ Authors:
 $var title: HTTP Monitoring Resources
 $var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_resources.js"></script>
 
-<div>
-  <div class="row">
-    <div class="large-2 columns">
-      <p>Date: <input type="text" id="datepicker"></p>
-    </div>
-  </div>
-  <div id="chart">
-  </div>
-  <div style="width:99%; align: center">
-    <table id="table_resources" class="hover" style="word-wrap: break-word;">
-      <thead><tr><th>Resource</th><th>Hits</th><th>Bandwidth in MB</th><th>Seconds</th></tr></thead>
-      <tfoot><tr><th>Resource</th><th>Hits</th><th>Bandwidth in MB</th><th>Seconds</th></tr></tfoot>
-    </table>
-  </div>
-</div>
+<div id="load"></div>
+<table>
+  <tr>
+    <td style="vertical-align: top">
+      <div id="apiclass"></div>
+      <div id="hits"></div>
+    </td>
+    <td style="vertical-align: top; width: 60%">
+      <div id="datepicker"></div>
+      <table id="table_resources" class="hover compact stripe order-column" style="word-wrap: break-word;">
+        <thead><tr><th>Resource</th><th>Hits</th><th>MB</th><th>Sec.</th></tr></thead>
+        <tfoot><tr><th>Resource</th><th>Hits</th><th>MB</th><th>Sec.</th></tr></tfoot>
+      </table>
+    </td>
+  </tr>
+</table>

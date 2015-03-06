@@ -1,0 +1,53 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Ralph Vigne <ralph.vigne@cern.ch> 2015
+ - Thomas Beermann <thomas.beermann@cern.ch> 2015
+-->
+
+$var title: HTTP Monitoring Accounts
+$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_apiclasses.js"></script>
+
+<div id="load"></div>
+<div>
+  <table border="0">
+    <tr>
+      <td><div id="api_hits" title="Hits per API Class" style="width:100%"></div></td>
+      <td><div id="api_mb" title="Aggr. Bandwidth per API Class" style="width:100%"></div></td>
+      <td><div id="api_sec" title="Aggr. Response Time per API Class" style="width:100%"></div></td>
+    </tr>
+
+    <tr>
+      <td style="align: center;">
+        <table>
+          <tr>
+            <td><div id="account_hits" title="Hits per Accounts" style="width:100%"></div></td>
+          </tr>
+          <tr>
+            <td><div id="account_mb" title="Aggr. Bandwidth per Accounts" style="width:100%"></div></td>
+          </tr>
+          <tr>
+            <td><div id="account_sec" title="Aggr. Response Time per Accounts" style="width:100%"></div></td>
+          </tr>
+        </table>
+      </td>
+      <td colspan="2" style="vertical-align: top">
+        <div>
+          <div style="width:100%; text-align: center" id="datepicker"></div>
+        </div>
+        <div>
+          <table id="api_activity" class="hover" style="word-wrap: break-word;">
+            <thead><tr><th>API Class</th><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></thead>
+            <tfoot><tr><th>API Class</th><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></tfoot>
+          </table>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
