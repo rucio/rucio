@@ -12,8 +12,9 @@
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
-from os import remove
+from os import remove, unlink, listdir, rmdir
 
 import nose.tools
 import re
@@ -344,6 +345,12 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print out, err
         nose.tools.assert_not_equal(re.search(tmp_file1[5:], out), None)
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except:
+            pass
 
     def test_download_dataset(self):
         """CLIENT(USER): Rucio download dataset"""
@@ -481,7 +488,7 @@ class TestBinRucio():
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out, err
-        nose.tools.assert_equal(2, len(out.splitlines()))
+        nose.tools.assert_equal(3, len(out.splitlines()))
 
     def test_add_file_twice(self):
         """CLIENT(USER): Add file twice"""
