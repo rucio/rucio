@@ -16,6 +16,8 @@ Automatix is a Data Generator daemon to generate fake data and upload it on a RS
 '''
 
 import logging
+import os
+import socket
 import random
 import tempfile
 import threading
@@ -24,13 +26,13 @@ from datetime import datetime
 from json import load
 from math import exp
 from os import remove, rmdir, stat
-from sys import stdout
+from sys import stdout, argv
 from time import sleep, time
 
 from rucio.client import Client
 from rucio.common.config import config_get, config_get_int
 from rucio.common.utils import adler32
-from rucio.core import monitor
+from rucio.core import monitor, heartbeat
 from rucio.rse import rsemanager as rsemgr
 
 from rucio.common.utils import execute, generate_uuid
@@ -153,7 +155,14 @@ def generate_file(fname, size):
 
 def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, once=False, dataset_lifetime=None):
     sleep(sleep_time * (total_workers - worker_number) / total_workers)
+
+    executable = ' '.join(argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+
     while not graceful_stop.is_set():
+        heartbeat.live(executable, hostname, pid, hb_thread)
         starttime = time()
         logging.info('Thread [%i/%i] : Getting data distribution' % (worker_number, total_workers))
         probabilities, data = get_data_distribution(inputfile)
@@ -219,6 +228,9 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                 sleep(sleep_time - tottime)
         else:
             logging.info('Thread [%i/%i] : Retrying a new upload' % (worker_number, total_workers))
+    heartbeat.die(executable, hostname, pid, hb_thread)
+    logging.info('Thread [%i/%i] : Graceful stop requested' % (worker_number, total_workers))
+    logging.info('Thread [%i/%i] : Graceful stop done' % (worker_number, total_workers))
 
 
 def run(total_workers=1, once=False, inputfile=None):
