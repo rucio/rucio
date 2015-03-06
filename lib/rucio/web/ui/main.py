@@ -39,9 +39,12 @@ urls = (
     '/subscriptions/rules', 'SubscriptionRules',
     '/subscription', 'Subscription',
     '/subscriptions', 'Subscriptions',
+    '/webstats', 'HTTPMonitoringIndex',
     '/webstats/accounts', 'HTTPMonitoringAccounts',
-    '/webstats/resources', 'HTTPMonitoringResources',
     '/webstats/accounts/(.*)', 'HTTPMonitoringAccountDetails',
+    '/webstats/apiclasses', 'HTTPMonitoringApiClasses',
+    '/webstats/apiclasses/(.*)', 'HTTPMonitoringApiClassDetailes',
+    '/webstats/resources', 'HTTPMonitoringResources',
 )
 
 
@@ -157,16 +160,16 @@ class Subscriptions():
         return check_token(render.subscriptions())
 
 
+class HTTPMonitoringIndex():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_index())
+
+
 class HTTPMonitoringAccounts():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return render.base("", "", "", render.http_monitoring_accounts())
-
-
-class HTTPMonitoringResources():
-    def GET(self):
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return render.base("", "", "", render.http_monitoring_resources())
 
 
 class HTTPMonitoringAccountDetails():
@@ -174,6 +177,23 @@ class HTTPMonitoringAccountDetails():
         render = template.render(join(dirname(__file__), 'templates/'))
         return render.base("", "", "", render.http_monitoring_account_details())
 
+
+class HTTPMonitoringApiClasses():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_apiclasses())
+
+
+class HTTPMonitoringApiClassDetails():
+    def GET(self, account):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_apiclass_details())
+
+
+class HTTPMonitoringResources():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_resources())
 
 """----------------------
    Web service startup

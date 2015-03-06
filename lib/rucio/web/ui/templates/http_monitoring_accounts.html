@@ -14,27 +14,31 @@
 $var title: HTTP Monitoring Accounts
 $var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_accounts.js"></script>
 
+<div id="load"></div>
 <div>
-  <div class="row">
-    <div class="large-2 columns">
-      <p>Date: <input type="text" id="datepicker"></p>
-    </div>
-  </div>
-
-  <div>
-    <table><tr><td style="text-align: center"><a id="resources" href="">Show Resources</a></td><td style="text-align: center"><a href="http://rucio-graphite-int.cern.ch/grafana/#/dashboard/db/requests-overview" target="_blank">Overview as Timeseries</a></td></tr></table>
-  </div>
-  <div>
-    <div id="charts" style="overflow: auto; width: 100%"></div>
-    <div id="hits" style="width: 30%; float: left;"></div>
-    <div id="bandwidth" style="width: 30%; float: left"></div>
-    <div id="duration" style="width: 30%; float: right"></div>
-    <div style="clear: both"></div>
-  </div>
-  <div style="width:99%; align: center">
-    <table id="account_activity" class="hover" style="word-wrap: break-word;">
-      <thead><tr><th>Account</th><th>Hits</th><th>Bandwidth in MB</th><th>Seconds</th></tr></thead>
-      <tfoot><tr><th>Account</th><th>Hits</th><th>Bandwidth in MB</th><th>Seconds</th></tr></tfoot>
-    </table>
-  </div>
+  <table border="0">
+    <tr>
+      <td style="align: center">
+        <div id="hits"></div>
+        <div id="bandwidth"></div>
+        <div id="duration"></div>
+        <div>
+          <table><tr><td style="text-align: center"><a href="http://rucio-graphite-int.cern.ch/grafana/#/dashboard/db/requests-overview" target="_blank">Overview as Timeseries</a></td></tr></table>
+        </div>
+      </td>
+      <td style="width: 60%;vertical-align: top">
+        <div>
+          <div style="width:100%; text-align: center" id="datepicker"></div>
+        </div>
+        <div>
+          <table id="account_activity" class="hover" style="word-wrap: break-word;">
+            <thead><tr><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></thead>
+            <tfoot><tr><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></tfoot>
+          </table>
+        </div>
+        </br>
+        </br>
+      </td>
+    </tr>
+  </table>
 </div>
