@@ -38,7 +38,8 @@ from functools import wraps
 from rucio.client import Client
 from rucio import version
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
-                                    DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported)
+                                    DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
+                                    RuleNotFound)
 from rucio.common.utils import adler32, generate_uuid, execute
 from rucio.rse import rsemanager as rsemgr
 
@@ -58,20 +59,23 @@ def setup_logger(logger):
 
     def emit_decorator(fn):
         def func(*args):
-            levelno = args[0].levelno
-            if(levelno >= logging.CRITICAL):
-                color = '\033[31;1m'
-            elif(levelno >= logging.ERROR):
-                color = '\033[31;1m'
-            elif(levelno >= logging.WARNING):
-                color = '\033[33;1m'
-            elif(levelno >= logging.INFO):
-                color = '\033[32;1m'
-            elif(levelno >= logging.DEBUG):
-                color = '\033[36;1m'
+            if 'RUCIO_LOGGING_FORMAT' not in os.environ:
+                levelno = args[0].levelno
+                if(levelno >= logging.CRITICAL):
+                    color = '\033[31;1m'
+                elif(levelno >= logging.ERROR):
+                    color = '\033[31;1m'
+                elif(levelno >= logging.WARNING):
+                    color = '\033[33;1m'
+                elif(levelno >= logging.INFO):
+                    color = '\033[32;1m'
+                elif(levelno >= logging.DEBUG):
+                    color = '\033[36;1m'
+                else:
+                    color = '\033[0m'
+                formatter = logging.Formatter('{0}%(asctime)s %(levelname)s [%(message)s]\033[0m'.format(color))
             else:
-                color = '\033[0m'
-            formatter = logging.Formatter('{0}%(asctime)s %(levelname)s [%(message)s]\033[0m'.format(color))
+                formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
             hdlr.setFormatter(formatter)
             return fn(*args)
         return func
@@ -134,6 +138,10 @@ def exception_handler(function):
         except TypeError, e:
             logger.error(e)
             logger.debug('This means the parameter you passed has a wrong type.')
+            return FAILURE
+        except RuleNotFound, e:
+            logger.error(e)
+            logger.debug('This means the rule you specified does not exist.')
             return FAILURE
         except Exception, e:
             logger.error(e)
@@ -407,7 +415,7 @@ def list_dids(args):
     if scope not in client.list_scopes():
         logger.error('Scope not found')
         return FAILURE
-    print '{0:^20}{1:^80}{2:^10}'.format('SCOPE', 'NAME', '[DID TYPE]')
+    print '{0:^100}{1:^10}'.format('SCOPE:NAME', '[DID TYPE]')
     print '{0:-<110}'.format('')
     if name.find('*') > -1:
         if args.recursive:
@@ -421,11 +429,15 @@ def list_dids(args):
             print '{0:}:{1:90}[{2:^10}]'.format(scope, did, type.upper())
     else:
         dids = client.scope_list(scope=scope, name=name, recursive=args.recursive)
+        no_result = True
         for d in dids:
             if d['level'] == 0:
                 print '{0:}:{1:90}[{2:^10}]'.format(d['scope'], d['name'], d['type'].upper())
             else:
                 print '{0:}:{1:90}[{2:^10}]'.format(d['scope'], d['name'], d['type'].upper())
+        if no_result:
+            did_info = client.get_did(scope=scope, name=name)
+            print '{0:}:{1:90}[{2:^10}]'.format(did_info['scope'], did_info['name'], did_info['type'].upper())
     return SUCCESS
 
 
@@ -783,6 +795,20 @@ def download(args):
     trace_uuid = generate_uuid()
     trace['hostname'] = socket.getfqdn()
     nbfiles_to_download = {}
+    files_on_tape = False
+    try:
+        tape_endpoints = [str(i['rse']) for i in client.list_rses('istape=True')]
+    except InvalidRSEExpression, e:
+        logger.warning(e)
+        tape_endpoints = []
+    logger.debug('Here')
+    account_attributes = [i for i in client.list_account_attributes(client.account)]
+    is_admin = False
+    for attr in account_attributes[0]:
+        logger.debug(attr)
+        if attr['key'] == 'admin' and attr['value'] is True:
+            is_admin = True
+            break
     for did in args.dids:
         try:
             scope, name = extract_scope(did)
@@ -803,19 +829,6 @@ def download(args):
                 files_to_download = files
             last_chosen_rse = None
             for file in files_to_download:
-                trace['account'] = client.account
-                trace['scope'] = file['scope']
-                trace['filename'] = file['name']
-                trace['uuid'] = trace_uuid
-                if scope == file['scope'] and name == file['name']:
-                    trace['dataset'] = ''
-                    trace['datasetScope'] = ''
-                else:
-                    trace['dataset'] = name
-                    trace['datasetScope'] = scope
-                trace['filesize'] = file['bytes']
-                trace['eventType'] = 'download'
-                trace['eventVersion'] = version.RUCIO_VERSION[0]
                 dest_dir = None
                 file_exists = False
                 if did_info['type'] != 'FILE':
@@ -829,15 +842,40 @@ def download(args):
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
                 else:
+                    trace['account'] = client.account
+                    trace['scope'] = file['scope']
+                    trace['filename'] = file['name']
+                    trace['uuid'] = trace_uuid
+                    if scope == file['scope'] and name == file['name']:
+                        trace['dataset'] = ''
+                        trace['datasetScope'] = ''
+                    else:
+                        trace['dataset'] = name
+                        trace['datasetScope'] = scope
+                    trace['filesize'] = file['bytes']
+                    trace['eventType'] = 'download'
+                    trace['eventVersion'] = version.RUCIO_VERSION[0]
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 0
                     list_rses = file['rses'].keys()
+                    if list_rses == []:
+                        logger.warning('File %s:%s has no available replicas. Cannot be downloaded.' % (file['scope'], file['name']))
+                    rse_to_remove = []
+                    for rse in list_rses:
+                        if str(rse) in tape_endpoints:
+                            rse_to_remove.append(rse)
+                    if len(list_rses) == len(rse_to_remove):
+                        files_on_tape = True
+                        if not is_admin:
+                            logger.warning('File %s:%s has no replicas available on disk endpoints. Cannot be downloaded.' % (file['scope'], file['name']))
+                            continue
+                        else:
+                            logger.warning('File %s:%s has no replicas available on disk endpoints. Will be downloaded from TAPE.' % (file['scope'], file['name']))
                     if last_chosen_rse and last_chosen_rse in list_rses:
                         idx = list_rses.index(last_chosen_rse)
                         list_rses[idx], list_rses[0] = list_rses[0], list_rses[idx]
                     else:
                         random.shuffle(list_rses)
                     logger.debug('Choosing RSE')
-                    logger.debug(list_rses)
                     index = 0
                     if args.rse:
                         if args.rse in list_rses:
@@ -883,7 +921,6 @@ def download(args):
                                             break
                                         except:
                                             pass
-                                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
                                     break
                                 except Exception, e:
                                     trace['transferEnd'] = time.time()
@@ -914,6 +951,8 @@ def download(args):
             logger.error(e)
     print '----------------------------------'
     print 'Download summary'
+    if files_on_tape:
+        logger.warning('One or more files are only located on TAPE and cannot be dowloaded. Please ask a replication to a disk endpoint')
     for did in summary:
         print '-' * 40
         print 'DID %s' % (did)
