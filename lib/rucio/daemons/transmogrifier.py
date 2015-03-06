@@ -9,13 +9,15 @@
 
 
 import logging
+import os
 import re
+import socket
 import threading
 import time
 
 from json import loads
 from math import exp
-from sys import exc_info, stdout
+from sys import exc_info, stdout, argv
 from traceback import format_exception
 
 
@@ -28,7 +30,7 @@ from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, I
 from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
-from rucio.core import monitor
+from rucio.core import monitor, heartbeat
 from rucio.core.rule import add_rule
 
 logging.getLogger("transmogrifier").setLevel(logging.CRITICAL)
@@ -109,7 +111,14 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
     chunk_size: The chunk of the size to process.
     once: To run only once
     """
+
+    executable = ' '.join(argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+
     while not graceful_stop.is_set():
+        heartbeat.live(executable, hostname, pid, hb_thread)
         dids, subscriptions = [], []
         tottime = 0
         try:
@@ -231,6 +240,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
             break
         if tottime < 10:
             time.sleep(10-tottime)
+    heartbeat.die(executable, hostname, pid, hb_thread)
     logging.info('Thread %i : Graceful stop requested' % (worker_number))
     logging.info('Thread %i : Graceful stop done' % (worker_number))
 
