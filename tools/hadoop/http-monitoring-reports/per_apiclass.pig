@@ -33,10 +33,13 @@ logs = LOAD '/user/rucio01/logs/server/access*$date*' USING rucioudfs.RucioServe
   app_id
 );
 
+
 reduced_cols = FOREACH logs GENERATE REGEX_EXTRACT(timestamp, '^(.*?) (.*)$', 1) as time,
   account,
-  rucioudfs.APIMAPPER((chararray)resource) as api,
-  REGEX_EXTRACT(useragent, '^(.*?)(\\s+.*)?$', 1) as ua;
+  CONCAT(CONCAT(rucioudfs.APIMAPPER((chararray)resource), '.'), http_verb) as api,
+  REGEX_EXTRACT(useragent, '^(.*?)(\\s+.*)?$', 1) as ua,
+  response_bytes,
+  response_time;
 
 grouped = GROUP reduced_cols BY (time, account, api, ua);
 
@@ -44,7 +47,9 @@ report = FOREACH grouped GENERATE  group.time,
   group.account,
   group.api,
   group.ua,
-  COUNT(reduced_cols) as nb;
+  COUNT(reduced_cols) as nb,
+  (long)SUM(reduced_cols.response_bytes) as sum_resp_bytes,
+  (long)SUM(reduced_cols.response_time) as sum_resp_time;
 
 final_results = ORDER report BY time desc, nb desc;
 
