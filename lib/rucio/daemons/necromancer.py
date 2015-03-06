@@ -9,15 +9,17 @@
 
 
 import logging
+import os
+import socket
 import threading
 import time
 
-from sys import exc_info, stdout
+from sys import exc_info, stdout, argv
 from traceback import format_exception
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
-from rucio.core import monitor
+from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, list_replicas, list_bad_replicas_history, update_bad_replicas_history
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica
 
@@ -42,7 +44,14 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
     sleep_time = 60
     update_history_threshold = 3600
     update_history_time = time.time()
+
+    executable = ' '.join(argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+
     while not graceful_stop.is_set():
+        heartbeat.live(executable, hostname, pid, hb_thread)
         stime = time.time()
         try:
             replicas = list_bad_replicas(limit=chunk_size, worker_number=worker_number, total_workers=total_workers)
@@ -84,6 +93,9 @@ def necromancer(worker_number=1, total_workers=1, chunk_size=5, once=False):
                 logging.info('Thread [%i/%i] : Will sleep for %s seconds' % (worker_number, total_workers, str(sleep_time - tottime)))
                 time.sleep(sleep_time - tottime)
                 continue
+    heartbeat.die(executable, hostname, pid, hb_thread)
+    logging.info('Thread [%i/%i] : Graceful stop requested' % (worker_number, total_workers))
+    logging.info('Thread [%i/%i] : Graceful stop done' % (worker_number, total_workers))
 
 
 def run(total_workers=1, chunk_size=100, once=False):
