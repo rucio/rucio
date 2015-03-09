@@ -51,6 +51,7 @@ def downgrade():
     if context.get_context().dialect.name == 'postgresql':
         op.drop_constraint('COLLECTION_REPLICAS_PK', 'collection_replicas', type_='primary')
         op.drop_constraint('COLLECTION_REPLICAS_TYPE_CHK', 'collection_replicas')
+        op.drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
         op.drop_constraint('COLLECTION_REPLICAS_LFN_FK', 'collection_replicas')
         op.drop_constraint('COLLECTION_REPLICAS_RSE_ID_FK', 'collection_replicas')
         op.drop_constraint('COLLECTION_REPLICAS_SIZE_NN', 'collection_replicas')
