@@ -25,6 +25,7 @@ import time
 import traceback
 
 from ConfigParser import NoOptionError
+from requests.exceptions import RequestException
 
 from rucio.common.closeness_sorter import sort_sources
 from rucio.common.config import config_get
@@ -618,6 +619,8 @@ def submitter(once=False, rses=[],
                                 request.cancel_request_did(req['scope'], req['name'], transfer['dest_urls'][0])
                             except Exception, e:
                                 logging.warning('Cannot cancel request: %s' % str(e))
+                        except RequestException, e:
+                            logging.error("Failed to submit request %s: %s" % (req['request_id'], str(e)))
         except:
             logging.critical(traceback.format_exc())
 

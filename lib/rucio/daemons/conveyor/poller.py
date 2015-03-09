@@ -26,6 +26,7 @@ import threading
 import time
 import traceback
 
+from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
@@ -128,6 +129,8 @@ def poller(once=False,
                         logging.warn("Lock detected when handling request %s - skipping" % request_id)
                     else:
                         logging.critical(traceback.format_exc())
+                except RequestException, e:
+                    logging.error("Failed to contact FTS server: %s" % (str(e)))
                 except:
                     logging.critical(traceback.format_exc())
         except:
