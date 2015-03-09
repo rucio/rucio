@@ -1244,11 +1244,10 @@ def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, rseselec
         for file in ds['files']:
             files[(file['scope'], file['name'])] = True
 
-    iter_locks = deepcopy(locks)
-    for key in iter_locks:
+    for key in locks:
         if key not in files:
             # The lock needs to be removed
-            for lock in locks[key]:
+            for lock in deepcopy(locks[key]):
                 if lock.rule_id == rule.id:
                     __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=True, session=session)
                     if lock.rse_id not in account_counter_decreases:
