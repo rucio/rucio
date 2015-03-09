@@ -24,6 +24,7 @@ import threading
 import time
 import traceback
 
+from requests.exceptions import RequestException
 
 from rucio.common.config import config_get
 from rucio.core import request, heartbeat
@@ -98,7 +99,8 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
             if time_left > 0:
                 logging.warning("Waiting %s seconds until next FTS terminal state retrieval" % time_left)
                 time.sleep(time_left)
-
+        except RequestException, e:
+            logging.error("Failed to contact FTS server: %s" % (str(e)))
         except:
             logging.critical(traceback.format_exc())
 
