@@ -31,10 +31,7 @@ public class GETPATH extends EvalFunc<String>
             String md5_1 = String.format("%02x", digest[0] & 0xff);
             String md5_2 = String.format("%02x", digest[1] & 0xff);
 
-            String corrected_scope = scope;
-            if (corrected_scope.startsWith("user") || corrected_scope.startsWith("group")) {
-                corrected_scope.replace(".", "/");
-            }
+            String corrected_scope = scope.replace(".", "/");
 
             return corrected_scope.concat("/").concat(md5_1).concat("/").concat(md5_2).concat("/").concat(name);
         }catch(Exception e){
