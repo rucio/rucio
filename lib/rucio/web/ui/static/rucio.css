@@ -36,7 +36,7 @@ footer {
     position: relative;
     margin-top: -24px;
     clear: both;
-    height: 24px;
+    min-height: 24px;
 }
 
 .row {
