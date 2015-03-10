@@ -65,8 +65,16 @@ public class HttpMonitoring extends HttpServlet {
 		final String fileName = "http_monitoring_"+request.getParameter("report")+".csv";
 		String date = request.getParameter("date");
 		String filter = null;
+		int requestTopN = -1;
+		int counter = 0;
+    ArrayList<Integer> othersColIndex = new ArrayList<Integer>();
+    boolean filledOthers = false;
 
-		response.setContentType("text/csv");
+    if (!request.getParameterMap().containsKey("raw")) {
+      response.setContentType("text/csv");
+    } else {
+      response.setContentType("text/plain");
+		}
 		if (!request.getParameterMap().containsKey("date")) {
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 			date = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
@@ -76,7 +84,6 @@ public class HttpMonitoring extends HttpServlet {
 			filter = ".*?\t"+request.getParameter("account")+"\t.*$";
 		}
 
-		int requestTopN = -1;
 		try {
 			requestTopN = Integer.parseInt(request.getParameter("top"));
 		} catch(NumberFormatException e) {;} catch(Exception e) {System.out.println(e);}
@@ -85,18 +92,44 @@ public class HttpMonitoring extends HttpServlet {
 		BufferedReader br=new BufferedReader(new InputStreamReader(fs.open(new Path("/user/rucio01/reports/" + date + "/" + fileName))));
 
 		String line=br.readLine();
-		int counter = 0;
+    // First line is the header.
+    String[] cols = line.split("\\t");
+    for(int i=0; i < cols.length; i++)  //  Every col not starting with group is considered a number
+      if(!cols[i].matches("^group\\.*$"))
+        othersColIndex.add(new Integer(i));
+
+    double[] others = new double[cols.length];
+    for(int i = 0; i < others.length; i++) {
+      others[i] = 0.0;
+    }
+
 		while (line != null){
-			if ((requestTopN == -1) || (counter < requestTopN)) {
-				if ((filter == null) || (line.matches(filter))) {
+      if ((filter == null) || (line.matches(filter))) {
+        counter++;
+        if ((requestTopN == -1) || (counter < requestTopN)) {
 					out.write(line+"\n");
-					counter++;
+        } else { // Aggregate numbers
+          if(!filledOthers) {
+            filledOthers = true;
+          }
+          cols = line.split("\\t");
+          for(Integer index: othersColIndex) {
+            try {
+              others[index] += Double.parseDouble(cols[index]); 
+            } catch(NumberFormatException e) {;} catch(Exception e) {System.out.println(e);}
+          }
 				}
-			}
+      }
 			// Read next line
 			line=br.readLine();
 		}
-
+    if(filledOthers) {
+      line = date;
+      for(int i = 1; i <  others.length; i++) {
+        line += new String("\t" + ((others[i] == 0) ? "Others (Pos: "+requestTopN+" - "+counter+")" : String.format("%d", (long)others[i])));
+      }
+      out.write(line+"\n");
+    }
 	}
 
 	/**

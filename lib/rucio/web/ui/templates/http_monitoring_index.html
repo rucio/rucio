@@ -10,20 +10,108 @@
  - Ralph Vigne <ralph.vigne@cern.ch> 2015
 -->
 
-$var title: HTTP Monitoring Accounts
-$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_index.js"></script>
+$var title: HTTP Monitoring Overview
+$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_index.js"></script><link rel="stylesheet" href="/static/http_monitoring.css"></link>
 
-<table>
-  <tr>
-    <td>
-      <div style="width:100%; text-align: center" id="datepicker"></div>
-    </td>
-    <td>
-      <ul>
-        <li><a id="accounts" href="/webstats/accounts">Accounts</a>: Shows number of requests and recource consumption of each account</li>
-        <li><a id="resources" href="/webstats/resources">Resources</a>: Shows number of requests and resource consumption per resource</li>
-        <li><a id="apiclasses" href="/webstats/apiclasses">API Classes</a>: Shows number of requests and resource consumption per API class and per Account</li>
+
+<ul class="example-orbit" data-orbit data-options="timer_speed: 5000">
+  <li>
+    <div class="row">
+      <div class="large-12 column rucio-slider-header">Hits</div>
+    </div>
+    <div class="row">
+      <ul class="small-block-grid-1 large-block-grid-2">
+        <li>
+          <div class="chart-wrapper" id="accounts">
+              <div class="chart hits">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        </li>
+        <li>
+          <div class="chart-wrapper" id="resources">
+              <div class="chart hits">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        </li>
+        <li>
+          <div class="chart-wrapper" id="apiclasses">
+              <div class="chart hits">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        <li>
       </ul>
-    </td>
-  </tr>
-</table>
+    </div>
+  </li>
+  <li>
+    <div class="row">
+      <div class="large-12 column rucio-slider-header">Bandwidth</div>
+    </div>
+    <div class="row">
+      <ul class="small-block-grid-1 large-block-grid-2">
+        <li>
+          <div class="chart-wrapper" id="accounts">
+              <div class="chart mb">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        </li>
+        <li>
+          <div class="chart-wrapper" id="resources">
+              <div class="chart mb">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        </li>
+        <li>
+          <div class="chart-wrapper" id="apiclasses">
+              <div class="chart mb">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        <li>
+      </ul>
+    </div>
+  </li>
+  <li>
+    <div class="row">
+      <div class="large-12 column rucio-slider-header">Response time</div>
+    </div>
+    <div class="row">
+      <ul class="small-block-grid-1 large-block-grid-2">
+        <li>
+          <div class="chart-wrapper" id="accounts">
+              <div class="chart sec">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        </li>
+        <li>
+          <div class="chart-wrapper" id="resources">
+              <div class="chart sec">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        </li>
+        <li>
+          <div class="chart-wrapper" id="apiclasses">
+              <div class="chart sec">
+                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+              </div>
+              <a href="/webstats/accounts" class="button expand show-details">Details</a>
+          </div>
+        <li>
+      </ul>
+    </div>
+  </li>
+</ul>
