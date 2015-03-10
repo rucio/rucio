@@ -52,16 +52,14 @@ $def with (token, account, rucio_ui_version, content)
     <div id="wrap">
       <div id="warning_header"></div>
       <nav class="top-bar" data-topbar role="navigation">
+        <ul class="title-area">
+          <li class="name">
+            <h1><a href="/">ATLAS Rucio UI</a></h1>
+          </li>
+          <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
+        </ul>
         <section class="top-bar-section">
-
-          <ul class="title-area">
-            <li class="name">
-              <h1><a href="/">ATLAS Rucio UI</a></h1>
-            </li>
-          </ul>
-
           <ul class="left">
-
             <li class="has-dropdown">
               <a>Monitoring</a>
               <ul class="dropdown">
@@ -101,7 +99,7 @@ $def with (token, account, rucio_ui_version, content)
             </li>
           </ul>
 
-          <ul class="right hide-for-small">
+          <ul class="right">
             <li class="has-dropdown">
               <a>Using account: <span id="current_account">[loading]</span></a>
               <ul id="accountselecter" class="dropdown">
@@ -130,11 +128,10 @@ $def with (token, account, rucio_ui_version, content)
               </ul>
             </li>
           </ul>
-
         </section>
       </nav>
 
-      <div class="top-subbar">
+      <div class="top-subbar row">
         <div class="left" id="div-subtitle" style="padding-left: 1em;">
           You are here: $:content.title <span id="subbar-details"></span>
         </div>
@@ -149,8 +146,10 @@ $def with (token, account, rucio_ui_version, content)
     </div>
 
     <footer>
-      <div class="left" style="padding-left: 1em;">&copy; 2012-2015 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
-      <div class="right" style="padding-right: 1em;"><script>document.write(new Date());</script></div>
+      <div class="row">
+        <div class="left" style="padding-left: 1em;">&copy; 2012-2015 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
+        <div class="right" style="padding-right: 1em;"><script>document.write(new Date());</script></div>
+      </div>
     </footer>
 
     <script>jQuery(document).foundation();</script>
