@@ -84,6 +84,15 @@ def list_replication_rules(filters={}):
     return rule.list_rules(filters)
 
 
+def list_replication_rule_history(rule_id):
+    """
+    Lists replication rule history..
+
+    :param rule_id: The rule_id to list.
+    """
+    return rule.list_rule_history(rule_id)
+
+
 def list_associated_replication_rules_for_file(scope, name):
     """
     Lists associated replication rules by file.
