@@ -20,7 +20,7 @@ from web import application, ctx, Created, data, header, InternalError, loadhook
 
 from geoip2.errors import AddressNotFoundError
 
-from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, declare_suspicious_file_replicas, list_bad_replicas_status
+from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, declare_suspicious_file_replicas, list_bad_replicas_status, get_bad_replicas_summary
 from rucio.db.constants import BadFilesStatus
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, ResourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
 from rucio.common.replicas_selector import random_order, geoIP_order
@@ -32,6 +32,7 @@ from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioControl
 urls = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
         '/bad/states/?$', 'BadReplicasStates',
+        '/bad/summary/?$', 'BadReplicasSummary',
         '/(.*)/(.*)/?$', 'Replicas',
         '/bad/?$', 'BadReplicas',
         '/suspicious/?$', 'SuspiciousReplicas',
@@ -497,7 +498,7 @@ class BadReplicasStates(RucioController):
 
     def GET(self):
         """
-        Declare a list of bad or suspicious replicas.
+        List the bad or suspicious replicas by states.
 
         HTTP Success:
             200 OK
@@ -537,6 +538,45 @@ class BadReplicasStates(RucioController):
         for row in result:
             yield dumps(row, cls=APIEncoder) + '\n'
 
+
+class BadReplicasSummary(RucioController):
+
+    def GET(self):
+        """
+        Return a summary of the bad replicas by incident.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            500 InternalError
+
+        """
+        header('Content-Type', 'application/x-json-stream')
+        result = []
+        rse_expression, from_date, to_date = None, None, None
+        if ctx.query:
+            try:
+                params = loads(unquote(ctx.query[1:]))
+            except ValueError:
+                params = parse_qs(ctx.query[1:])
+            if 'rse_expression' in params:
+                rse_expression = params['rse_expression'][0]
+            if 'from_date' in params:
+                from_date = datetime.strptime(params['from_date'], "%Y-%m-%dT%H:%M:%S.%f")
+            if 'to_date' in params:
+                to_date = datetime.strptime(params['to_date'], "%Y-%m-%dT%H:%M:%S.%f")
+
+        result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
+        try:
+            result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+        for row in result:
+            yield dumps(row, cls=APIEncoder) + '\n'
 
 """----------------------
    Web service startup

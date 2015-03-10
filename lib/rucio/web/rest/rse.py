@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 
 from json import dumps, loads
@@ -17,6 +17,7 @@ from traceback import format_exc
 from urlparse import parse_qs
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, input, loadhook
 
+from rucio.api.account_limit import get_rse_account_usage
 from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attribute,
                            list_rse_attributes, del_rse_attribute,
                            add_protocol, get_rse_protocols, del_protocols,
@@ -35,6 +36,7 @@ urls = (
     '/(.+)/protocols/(.+)/(.+)', 'Protocol',  # delete (DELETE) all protocols with the same identifier and the same hostname
     '/(.+)/protocols/(.+)', 'Protocol',  # List (GET), create (POST), update (PUT), or delete (DELETE) a all protocols with the same identifier
     '/(.+)/protocols', 'Protocols',  # List all supported protocols (GET)
+    '/(.+)/accounts/usage', 'RSEAccountUsageLimit',
     '/(.+)/usage', 'Usage',  # Update RSE usage information
     '/(.+)/usage/history', 'UsageHistory',  # Get RSE usage history information
     '/(.+)/limits', 'Limits',  # Update/List RSE limits
@@ -642,6 +644,28 @@ class Limits:
     def DELETE(self, rse):
         """ Not supported. """
         raise BadRequest()
+
+
+class RSEAccountUsageLimit:
+
+    def GET(self, rse):
+        """
+        Get account usage and limit for one RSE.
+
+        :param rse: the RSE name.
+        """
+        header('Content-Type', 'application/json')
+        try:
+            usage = get_rse_account_usage(rse=rse)
+            return usage
+        except RSENotFound, e:
+            raise generate_http_error(404, 'RSENotFound', e[0][0])
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
 
 """----------------------
    Web service startup

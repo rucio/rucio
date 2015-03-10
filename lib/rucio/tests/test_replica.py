@@ -14,7 +14,7 @@
 import xmltodict
 
 from datetime import datetime, timedelta
-from json import dumps
+from json import dumps, loads
 from nose.tools import assert_equal, assert_in, assert_raises
 from paste.fixture import TestApp
 
@@ -363,7 +363,7 @@ class TestReplicaClients:
         for line in r2.body.split('\n'):
             if line != '':
                 tot_bad_files.append(dumps(line))
-        nb_tot_bad_files = len(tot_bad_files)
+        nb_tot_bad_files1 = len(tot_bad_files)
 
         data = dumps({'state': 'S'})
         r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
@@ -374,7 +374,7 @@ class TestReplicaClients:
                 tot_suspicious_files.append(dumps(line))
         nb_tot_suspicious_files = len(tot_suspicious_files)
 
-        assert_equal(nb_tot_files, nb_tot_bad_files + nb_tot_suspicious_files)
+        assert_equal(nb_tot_files, nb_tot_bad_files1 + nb_tot_suspicious_files)
 
         tomorrow = datetime.utcnow() + timedelta(2)
         data = dumps({'state': 'B', 'younger_than': tomorrow.isoformat()})
@@ -386,6 +386,16 @@ class TestReplicaClients:
                 tot_bad_files.append(dumps(line))
         nb_tot_bad_files = len(tot_bad_files)
         assert_equal(nb_tot_bad_files, 0)
+
+        data = dumps({})
+        r2 = TestApp(rep_app.wsgifunc(*mw)).get('/bad/summary', headers=headers2, params=data, expect_errors=True)
+        assert_equal(r2.status, 200)
+        nb_tot_bad_files2 = 0
+        for line in r2.body.split('\n'):
+            if line != '':
+                line = loads(line)
+                nb_tot_bad_files2 += int(line['BAD'])
+        assert_equal(nb_tot_bad_files1, nb_tot_bad_files2)
 
     def test_add_list_replicas(self):
         """ REPLICA (CLIENT): Add, change state and list file replicas """

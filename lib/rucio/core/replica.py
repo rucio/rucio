@@ -29,11 +29,55 @@ from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db import models
 from rucio.db.constants import DIDType, ReplicaState, OBSOLETE, DIDAvailability, BadFilesStatus
 from rucio.db.session import (read_session, stream_session, transactional_session,
                               default_schema_name)
 from rucio.rse import rsemanager as rsemgr
+
+
+@read_session
+def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, session=None):
+    """
+    List the bad file replicas summary. Method used by the rucio-ui.
+    :param rse_expression: The RSE expression.
+    :param from_date: The start date.
+    :param to_date: The end date.
+    :param session: The database session in use.
+    """
+    result = []
+    incidents = {}
+    rse_clause = []
+    if rse_expression:
+        for rse in parse_expression(expression=rse_expression, session=session):
+            rse_clause.append(models.RSE.rse == rse['rse'])
+
+    if session.bind.dialect.name == 'oracle':
+        to_days = func.trunc(models.BadReplicas.created_at, 'DD')
+    # Missing mySQL support
+    else:
+        to_days = func.strftime(models.BadReplicas.created_at, '%Y-%m-%d')
+    query = session.query(func.count(), to_days, models.RSE.rse, models.BadReplicas.state, models.BadReplicas.reason).filter(models.RSE.id == models.BadReplicas.rse_id)
+    # To be added : HINTS
+    if rse_clause != []:
+        query = query.filter(or_(*rse_clause))
+    if from_date:
+        query = query.filter(models.BadReplicas.created_at > from_date)
+    if to_date:
+        query = query.filter(models.BadReplicas.created_at < to_date)
+    summary = query.group_by(to_days, models.RSE.rse, models.BadReplicas.reason, models.BadReplicas.state).all()
+    for row in summary:
+        if (row[2], row[1], row[4]) not in incidents:
+            incidents[(row[2], row[1], row[4])] = {}
+        incidents[(row[2], row[1], row[4])][str(row[3])] = row[0]
+    for incident in incidents:
+        r = incidents[incident]
+        r['rse'] = incident[0]
+        r['created_at'] = incident[1]
+        r['reason'] = incident[2]
+        result.append(r)
+    return result
 
 
 @read_session
@@ -248,7 +292,6 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     hint = None
     for surl in surls:
         if hint and surl.find(protocols[hint]) > -1:
-            print '%s at %s' % (surl, hint)
             files_to_declare[hint].append(surl)
         else:
             multipleRSEmatch = 0

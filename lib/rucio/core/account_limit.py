@@ -7,13 +7,33 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db import models
 from rucio.db.session import read_session, transactional_session
+
+
+@read_session
+def get_rse_account_usage(rse, session=None):
+    """
+    Returns the account limit and usage for all for all accounts on a RSE.
+
+    :param rse:      The RSE name.
+    :param session:  Database session in use.
+    :return:         List of dictionnaries.
+    """
+    result = []
+    rse_id = get_rse_id(rse=rse, session=session)
+    query = session.query(models.AccountUsage.account, models.AccountUsage.files, models.AccountUsage.bytes, models.AccountLimit.bytes)
+    query = query.join(models.AccountLimit, and_(models.AccountUsage.account == models.AccountLimit.account, models.AccountUsage.rse_id == models.AccountLimit.rse_id)).filter(models.AccountUsage.rse_id == rse_id)
+    account_limits_tmp = query.all()
+    for row in account_limits_tmp:
+        result.append({'rse': rse, 'account': row[0], 'used_files': row[1], 'used_bytes': row[2],  'quota_bytes': row[3]})
+    return result
 
 
 @read_session

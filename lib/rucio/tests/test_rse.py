@@ -14,7 +14,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 
-from json import dumps
+from json import dumps, loads
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
 
@@ -132,6 +132,19 @@ class TestRSE():
         headers4 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r4 = TestApp(rse_app.wsgifunc(*mw)).get('/MOCK/tags', headers=headers4, expect_errors=True)
         assert_equal(r4.status, 200)
+
+    def test_get_rse_account_usage(self):
+        """ RSE (REST): Test of RSE account usage and limit """
+        mw = []
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(r1.status, 200)
+        token = str(r1.header('X-Rucio-Auth-Token'))
+
+        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
+        r2 = TestApp(rse_app.wsgifunc(*mw)).get('/MOCK/accounts/usage', headers=headers2, expect_errors=True)
+        assert_equal(r2.status, 200)
+        assert_equal(type(loads(r2.body)), list)
 
 
 class TestRSEClient():
