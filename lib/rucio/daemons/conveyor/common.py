@@ -25,7 +25,7 @@ from re import match
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common import exception
-from rucio.common.exception import DatabaseException, UnsupportedOperation
+from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound
 from rucio.core import replica as replica_core, request as request_core, rse as rse_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
@@ -135,7 +135,7 @@ def handle_terminated_replicas(replicas):
         for rule_id in replicas[req_type]:
             try:
                 handle_bulk_replicas(replicas[req_type][rule_id], req_type, rule_id)
-            except UnsupportedOperation:
+            except (UnsupportedOperation, ReplicaNotFound):
                 # one replica in the bulk cannot be found. register it one by one
                 for replica in replicas[req_type][rule_id]:
                     try:
@@ -170,8 +170,12 @@ def handle_bulk_replicas(replicas, req_type, rule_id, session=None):
     :param session: The database session to use.
     :returns commit_or_rollback: Boolean.
     """
+    try:
+        replica_core.update_replicas_states(replicas, nowait=True, session=session)
+    except ReplicaNotFound, ex:
+        logging.warn('Failed to bulk update replicas, will do it one by one: %s' % str(ex))
+        raise ReplicaNotFound(ex)
 
-    replica_core.update_replicas_states(replicas, nowait=True, session=session)
     for replica in replicas:
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
@@ -196,7 +200,8 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
         logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state'])))
-    except UnsupportedOperation:
+    except (UnsupportedOperation, ReplicaNotFound), ex:
+        logging.warn("ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s" % (replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(ex)))
         # replica cannot be found. register it and schedule it for deletion
         try:
             if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
