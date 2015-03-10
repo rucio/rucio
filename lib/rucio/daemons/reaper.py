@@ -315,7 +315,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
 
     threads = []
-    nb_rses_per_worker = int(math.ceil(len(rses) / float(total_workers))) or 1.0
+    nb_rses_per_worker = int(math.floor(len(rses) / float(total_workers))) or 1.0
     for worker in xrange(total_workers):
         for child in xrange(threads_per_worker or 1):
             kwargs = {'worker_number': worker,
