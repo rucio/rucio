@@ -15,7 +15,7 @@ from rucio.common.schema import validate_schema
 from rucio.core import rule
 
 
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, issuer):
+def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment, issuer):
     """
     Adds a replication rule.
 
@@ -35,6 +35,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param notify:                     Notification setting of the rule.
     :purge purge_replicas:             The purge setting to delete replicas immediately after rule deletion.
     :param ignore_availability:        Option to ignore the availability of RSEs.
+    :param comment:                    Comment about the rule.
     :param issuer:                     The issuing account of this operation.
     :returns:                          List of created replication rules.
     """
@@ -47,7 +48,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
               'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity,
-              'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability}
+              'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability, 'comment': comment}
 
     validate_schema(name='rule', obj=kwargs)
 
@@ -66,7 +67,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          activity=activity,
                          notify=notify,
                          purge_replicas=purge_replicas,
-                         ignore_availability=ignore_availability)
+                         ignore_availability=ignore_availability,
+                         comment=comment)
 
 
 def get_replication_rule(rule_id):
