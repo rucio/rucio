@@ -109,7 +109,7 @@ class Rule:
         """
         json_data = data()
         try:
-            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability = 'DATASET', None, None, False, None, None, None, None, False, False
+            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify, purge_replicas, ignore_availability, comment = 'DATASET', None, None, False, None, None, None, None, False, False, None
             params = loads(json_data)
             dids = params['dids']
             account = params['account']
@@ -135,6 +135,8 @@ class Rule:
                 purge_replicas = params['purge_replicas']
             if 'ignore_availability' in params:
                 ignore_availability = params['ignore_availability']
+            if 'comment' in params:
+                comment = params['comment']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -153,6 +155,7 @@ class Rule:
                                             notify=notify,
                                             purge_replicas=purge_replicas,
                                             ignore_availability=ignore_availability,
+                                            comment=comment,
                                             issuer=ctx.env.get('issuer'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule, e:
