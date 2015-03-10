@@ -51,7 +51,7 @@ logging.basicConfig(stream=sys.stdout,
 
 
 @transactional_session
-def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity='default', notify=None, purge_replicas=False, ignore_availability=False, session=None):
+def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id, source_replica_expression=None, activity='default', notify=None, purge_replicas=False, ignore_availability=False, comment=None, session=None):
     """
     Adds a replication rule for every did in dids
 
@@ -71,6 +71,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param notify:                     Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
     :param purge_replicas:             Purge setting if a replica should be directly deleted after the rule is deleted.
     :param ignore_availability:        Option to ignore the availability of RSEs.
+    :param comment:                    Comment about the rule.
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted
@@ -142,7 +143,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   subscription_id=subscription_id,
                                                   notification=notify,
                                                   purge_replicas=purge_replicas,
-                                                  ignore_availability=ignore_availability)
+                                                  ignore_availability=ignore_availability,
+                                                  comment=comment)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -305,7 +307,8 @@ def add_rules(dids, rules, session=None):
                                                           subscription_id=rule.get('subscription_id'),
                                                           notification=notify,
                                                           purge_replicas=rule.get('purge_replicas', False),
-                                                          ignore_availability=rule.get('ignore_availability', False))
+                                                          ignore_availability=rule.get('ignore_availability', False),
+                                                          comment=rule.get('comment', None))
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
@@ -1187,14 +1190,16 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                             expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
                                             locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                             activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                            ignore_availability=rule.ignore_availability, created_at=rule.created_at, updated_at=rule.updated_at).save(session=session)
+                                            ignore_availability=rule.ignore_availability, comment=rule.comment, created_at=rule.created_at,
+                                            updated_at=rule.updated_at).save(session=session)
     if longterm:
         models.ReplicationRuleHistory(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
                                       did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
                                       expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
                                       locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                       activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                      ignore_availability=rule.ignore_availability, created_at=rule.created_at, updated_at=rule.updated_at).save(session=session)
+                                      ignore_availability=rule.ignore_availability, comment=rule.comment, created_at=rule.created_at,
+                                      updated_at=rule.updated_at).save(session=session)
 
 
 @transactional_session

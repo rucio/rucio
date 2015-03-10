@@ -27,7 +27,9 @@ class RuleClient(BaseClient):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=None, dq2_wrapper=False):
         super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, dq2_wrapper)
 
-    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None, locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False, ignore_availability=False):
+    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
+                             locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,
+                             ignore_availability=False, comment=None):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
@@ -44,6 +46,7 @@ class RuleClient(BaseClient):
         :param notify:                     Notification setting for the rule (Y, N, C).
         :param purge_replicas:             When the rule gets deleted purge the associated replicas immediately.
         :param ignore_availability:        Option to ignore the availability of RSEs.
+        :param comment:                    Comment about the rule.
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
@@ -52,7 +55,7 @@ class RuleClient(BaseClient):
                       'weight': weight, 'lifetime': lifetime, 'grouping': grouping,
                       'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression,
                       'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas,
-                      'ignore_availability': ignore_availability})
+                      'ignore_availability': ignore_availability, 'comment': comment})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return loads(r.text)

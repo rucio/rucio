@@ -1053,7 +1053,8 @@ def add_rule(args):
                                            locked=args.locked,
                                            source_replica_expression=args.source_replica_expression,
                                            notify=args.notify,
-                                           activity=args.activity)
+                                           activity=args.activity,
+                                           comment=args.comment)
     for rule in rule_ids:
         print rule
     return SUCCESS
@@ -1128,6 +1129,7 @@ def info_rule(args):
     print "Subscription Id:            %s" % rule['subscription_id']
     print "Source replica expression:  %s" % rule['source_replica_expression']
     print "Activity:                   %s" % rule['activity']
+    print "Comment:                    %s" % rule['comment']
     return SUCCESS
 
 
@@ -1490,6 +1492,7 @@ Commands:
     add_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='Source Replica Expression')
     add_rule_parser.add_argument('--notify', dest='notify', action='store', help='Notification strategy : Y (Yes), N (No), C (Close)')
     add_rule_parser.add_argument('--activity', dest='activity', action='store', help='Activity to be used (e.g. User, Data Consolidation')
+    add_rule_parser.add_argument('--comment', dest='comment', action='store', help='Comment about the replication rule')
 
     # Delete replication rule subparser
     delete_rule_parser = subparsers.add_parser('delete-rule', help='Delete replication rule')
