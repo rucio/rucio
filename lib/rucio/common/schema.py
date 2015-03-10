@@ -47,6 +47,15 @@ r_name = {"description": "Data Identifier name",
           "type": "string",
           "pattern": "\w"}
 
+locked = {"description": "Rule locked status",
+          "type": ["boolean", "null"]}
+
+purge_replicas = {"description": "Rule purge replica status",
+                  "type": "boolean"}
+
+ignore_availability = {"description": "Rule ignore availability status",
+                       "type": "boolean"}
+
 rse = {"description": "RSE name",
        "type": "string",
        "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
@@ -71,12 +80,26 @@ did_type = {"description": "DID type",
             "type": "string",
             "enum": ["DATASET", "CONTAINER", "FILE", "F"]}
 
+grouping = {"description": "Rule grouping",
+            "type": ["string", "null"],
+            "enum": ["DATASET", "NONE", "ALL", None]}
+
+notify = {"description": "Rule notification setting",
+          "type": ["string", "null"],
+          "enum": ["Y", "C", "N", None]}
+
+comment = {"description": "Rule comment",
+           "type": "string"}
+
 bytes = {"description": "Size in bytes",
          "type": "integer"}
 
 adler32 = {"description": "adler32",
            "type": "string",
            "pattern": "^[a-fA-F\d]{8}$"}
+
+weight = {"description": "Rule weight",
+          "type": ["string", "null"]}
 
 md5 = {"description": "md5",
        "type": "string",
@@ -97,14 +120,32 @@ copies = {"description": "Number of replica copies", "type": "integer"}
 
 rse_expression = {"description": "RSE expression", "type": "string"}
 
+source_replica_expression = {"description": "RSE expression", "type": ["string", "null"]}
+
 lifetime = {"description": "Lifetime", "type": "number"}
+
+rule_lifetime = {"description": "Rule lifetime", "type": ["number", "null"]}
+
+subscription_id = {"description": "Rule Subscription id", "type": ["string", "null"]}
 
 rule = {"description": "Replication rule",
         "type": "object",
-        "properties": {"copies": copies,
+        "properties": {"dids": {"type": "array"},
+                       "account": account,
+                       "copies": copies,
                        "rse_expression": rse_expression,
-                       "lifetime": lifetime},
-        "required": ["copies", "rse_expression"],
+                       "grouping": grouping,
+                       "weight": weight,
+                       "lifetime": rule_lifetime,
+                       "locked": locked,
+                       "subscription_id": subscription_id,
+                       "source_replica_expression": source_replica_expression,
+                       "activity": activity,
+                       "notify": notify,
+                       "purge_replicas": purge_replicas,
+                       "ignore_availability": ignore_availability,
+                       "comment": comment},
+        "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
 rules = {"description": "Array of replication rules",
@@ -272,6 +313,7 @@ schemas = {'account': account,
            'did_filters': did_filters,
            'r_did': r_did,
            'dids': dids,
+           'rule': rule,
            'r_dids': r_dids,
            'collection': collection,
            'collections': collections,

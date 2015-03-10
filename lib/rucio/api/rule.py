@@ -41,12 +41,15 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     if account is None:
         account = issuer
 
+    if activity is None:
+        activity = 'default'
+
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
               'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity,
               'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability}
 
-    validate_schema(name='activity', obj=kwargs['activity'])
+    validate_schema(name='rule', obj=kwargs)
 
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
