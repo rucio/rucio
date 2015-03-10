@@ -1247,8 +1247,8 @@ def list_account_usage(args):
     print "RSE                                USAGE (TB), LIMIT (TB), QUOTA LEFT (TB)"
     print '{0:-<130}'.format('')
     for item in usage:
-        print "{0:30} {1:>10.4f} {2:>10.4f} {3:>10.4f}".format(item['rse'], int(item['bytes'])/1000000000000.0,
-                                                               int(item['bytes_limit'])/1000000000000.0, int(item['bytes_remaining'])/1000000000000.0)
+        print "{0:30} {1:>10.4f} {2:>10.4f} {3:>10.4f}".format(item['rse'], float(item['bytes'])/1000000000000.0,
+                                                               float(item['bytes_limit'])/1000000000000.0, float(item['bytes_remaining'])/1000000000000.0)
     return SUCCESS
 
 
