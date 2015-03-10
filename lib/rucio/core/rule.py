@@ -423,7 +423,7 @@ def list_associated_rules_for_file(scope, name, session=None):
     query = session.query(models.ReplicationRule).\
         with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
         join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id).\
-        filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name)
+        filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name).distinct()
     try:
         for rule in query.yield_per(5):
             d = {}
