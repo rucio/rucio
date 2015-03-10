@@ -12,6 +12,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+# - Wen Guan, <wen.guan@cern.ch>, 2015
 
 from datetime import datetime, timedelta
 from re import match
@@ -19,7 +20,7 @@ from traceback import format_exc
 
 from sqlalchemy import func, and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm.exc import FlushError
+from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql.expression import case, bindparam, select, text
 
 import rucio.core.lock
@@ -895,8 +896,12 @@ def update_replicas_states(replicas, nowait=False, session=None):
 
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
 
-        if nowait:
-            query.with_for_update(nowait=True).one()
+        try:
+            if nowait:
+                query.with_for_update(nowait=True).one()
+        except NoResultFound:
+            # remember scope, name and rse_id
+            raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse_id: %s" % (replica['scope'], replica['name'], replica['rse_id']))
 
         if isinstance(replica['state'], str) or isinstance(replica['state'], unicode):
             replica['state'] = ReplicaState.from_string(replica['state'])
