@@ -17,6 +17,17 @@ from rucio.common import exception
 from rucio.common.schema import validate_schema
 
 
+def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None):
+    """
+    List the bad file replicas summary. Method used by the rucio-ui.
+    :param rse_expression: The RSE expression.
+    :param from_date: The start date.
+    :param to_date: The end date.
+    :param session: The database session in use.
+    """
+    return replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
+
+
 def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None):
     """
     List the bad file replicas history states. Method used by the rucio-ui.

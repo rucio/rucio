@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 import rucio.api.permission
 import rucio.common.exception
@@ -13,6 +14,16 @@ import rucio.common.exception
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
 from rucio.core.rse import get_rse_id, get_rse_name
+
+
+def get_rse_account_usage(rse):
+    """
+    Returns the account limit and usage for all for all accounts on a RSE.
+
+    :param rse:      The RSE name.
+    :return:         List of dictionnaries.
+    """
+    return account_limit_core.get_rse_account_usage(rse=rse)
 
 
 def get_account_limits(account):
