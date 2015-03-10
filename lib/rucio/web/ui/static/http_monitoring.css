@@ -1,0 +1,26 @@
+.ui-datepicker-inline { min-width: 100%; }
+
+td.align-right {
+  text-align: right;
+}
+
+.chart-wrapper {
+  padding-top: 20px;
+  padding-bottom: 0px;
+  border: 2px solid #efefef;
+  border-radius: 7px;
+  min-height: 500px;
+}
+
+.rucio-slider-header {
+  color: #888;
+  font-size: 3em;
+  margin-bottom: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.chart > img {
+  height: 100px;
+  width: 100px;
+}
