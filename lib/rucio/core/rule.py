@@ -387,6 +387,29 @@ def list_rules(filters={}, session=None):
 
 
 @stream_session
+def list_rule_history(rule_id, session=None):
+    """
+    List the rule history of a rule.
+
+    :param rule_id: The id of the rule.
+    :param session: The database session in use.
+    :raises:        RucioException
+    """
+
+    query = session.query(models.ReplicationRuleHistoryRecent.updated_at,
+                          models.ReplicationRuleHistoryRecent.state,
+                          models.ReplicationRuleHistoryRecent.locks_ok_cnt,
+                          models.ReplicationRuleHistoryRecent.locks_stuck_cnt,
+                          models.ReplicationRuleHistoryRecent.locks_replicating_cnt).filter_by(id=rule_id).order_by(models.ReplicationRuleHistoryRecent.updated_at)
+
+    try:
+        for rule in query.yield_per(5):
+            yield {'updated_at': rule[0], 'state': rule[1], 'locks_ok_cnt': rule[2], 'locks_stuck_cnt': rule[3], 'locks_replicating_cnt': rule[4]}
+    except StatementError:
+        raise RucioException('Badly formatted input (IDs?)')
+
+
+@stream_session
 def list_associated_rules_for_file(scope, name, session=None):
     """
     List replication rules a file is affected from.

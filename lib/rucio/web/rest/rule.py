@@ -16,7 +16,7 @@ from traceback import format_exc
 from web import application, ctx, data, header, Created, InternalError, OK, loadhook
 
 from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule, reduce_replication_rule, list_replication_rule_history
 from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
                                     InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
@@ -31,6 +31,7 @@ logger.addHandler(sh)
 
 urls = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
+        '/(.+)/history', 'RuleHistory',
         '/', 'Rule',
         '/(.+)', 'Rule',)
 
@@ -288,6 +289,33 @@ class ReduceRule:
             raise InternalError(e)
 
         raise Created(dumps(rule_ids))
+
+
+class RuleHistory:
+    """ REST APIs for rule history. """
+
+    def GET(self, rule_id):
+        """ get history for a given rule_id.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+
+        :returns: JSON dict containing informations about the requested user.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            history = list_replication_rule_history(rule_id)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            raise InternalError(e)
+
+        for hist in history:
+            yield dumps(hist, cls=APIEncoder) + '\n'
 
 """----------------------
    Web service startup
