@@ -33,13 +33,15 @@ import sys
 import time
 import traceback
 
+from ConfigParser import NoOptionError, NoSectionError
 from functools import wraps
 
 from rucio.client import Client
 from rucio import version
+from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, Duplicate, FileAlreadyExists, AccessDenied, ResourceTemporaryUnavailable,
                                     DataIdentifierNotFound, InvalidObject, RSENotFound, InvalidRSEExpression, DuplicateContent, RSEProtocolNotSupported,
-                                    RuleNotFound)
+                                    RuleNotFound, CannotAuthenticate)
 from rucio.common.utils import adler32, generate_uuid, execute
 from rucio.rse import rsemanager as rsemgr
 
@@ -160,10 +162,25 @@ def get_client(args):
     else:
         creds = None
 
-    client = Client(rucio_host=args.host, auth_host=args.auth_host,
-                    account=args.account,
-                    auth_type=args.auth_strategy, creds=creds,
-                    ca_cert=args.ca_certificate, timeout=args.timeout)
+    try:
+        client = Client(rucio_host=args.host, auth_host=args.auth_host,
+                        account=args.account,
+                        auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    except CannotAuthenticate, e:
+        logger.error(e)
+        if not args.auth_strategy:
+            if 'RUCIO_AUTH_TYPE' in os.environ:
+                auth_type = os.environ['RUCIO_AUTH_TYPE']
+            else:
+                try:
+                    auth_type = config_get('client', 'auth_type')
+                except (NoOptionError, NoSectionError):
+                    logger.error('Cannot get AUTH_TYPE')
+                    sys.exit(FAILURE)
+        if auth_type == 'x509_proxy':
+            logger.error('Please verify that your proxy is still valid and renew it if needed.')
+        sys.exit(FAILURE)
     return client
 
 
@@ -801,7 +818,6 @@ def download(args):
     except InvalidRSEExpression, e:
         logger.warning(e)
         tape_endpoints = []
-    logger.debug('Here')
     account_attributes = [i for i in client.list_account_attributes(client.account)]
     is_admin = False
     for attr in account_attributes[0]:
