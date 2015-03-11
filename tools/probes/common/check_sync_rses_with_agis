@@ -48,6 +48,8 @@ if __name__ == '__main__':
             special_accounts = get_special_accounts()
             for account in special_accounts:
                 set_account_limit(account, rse['name'], -1, 'root')
+                if not rse['is_tape']:
+                    set_account_limit('sonar', rse['name'], 10000000000000, 'root')
         except Duplicate, e:
             pass
         except:
