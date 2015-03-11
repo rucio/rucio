@@ -7,7 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 
 
@@ -333,7 +333,7 @@ class BaseClient(object):
             try:
                 r = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
             except SSLError, e:
-                if 'alert certificate expired' in str(e.message):
+                if 'alert certificate expired' in str(e):
                     raise CannotAuthenticate(str(e))
                 LOG.warning('SSLError: ' + str(e))
                 self.ca_cert = False
