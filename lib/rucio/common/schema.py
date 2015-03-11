@@ -26,9 +26,10 @@ account_type = {"description": "Account type",
 
 activity = {"description": "Activity name",
             "type": "string",
-            "enum": ["default", "Data Brokering", "Data Consolidation", "Debug",
+            "enum": ["default", "Data Brokering", "Data Consolidation", "Debug", "Express",
                      "Functional Test", "Group Subscriptions", "Production", "Staging",
-                     "T0 Export", "Upload/Download (Job)", "Upload/Download (User)", "User Subscriptions"]}
+                     "T0 Export", "T0 Tape", "Upload/Download (Job)",
+                     "Upload/Download (User)", "User Subscriptions"]}
 
 scope = {"description": "Scope name",
          "type": "string",
