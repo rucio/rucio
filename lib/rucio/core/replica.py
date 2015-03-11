@@ -949,19 +949,19 @@ def update_replicas_states(replicas, nowait=False, session=None):
         if isinstance(replica['state'], str) or isinstance(replica['state'], unicode):
             replica['state'] = ReplicaState.from_string(replica['state'])
 
+        values = {'state': replica['state']}
         if replica['state'] == ReplicaState.BEING_DELETED:
             query = query.filter_by(lock_cnt=0)
+            values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
 
         if 'path' in replica and replica['path']:
-            rowcount = query.update({'state': replica['state'], 'path': replica['path']}, synchronize_session=False)
-        else:
-            rowcount = query.update({'state': replica['state']}, synchronize_session=False)
+            values['path'] = replica['path']
 
-        if not rowcount:
+        if not query.update(values, synchronize_session=False):
             raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s cannot be updated' % replica)
     return True
 
