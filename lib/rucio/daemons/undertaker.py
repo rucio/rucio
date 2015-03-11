@@ -5,14 +5,16 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 
 '''
 Undertaker is a daemon to manage expired did.
 '''
 
 import logging
+import os
 import sys
+import socket
 import threading
 import time
 import traceback
@@ -21,6 +23,7 @@ import traceback
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.common.utils import chunks
+from rucio.core.heartbeat import live, die
 from rucio.core.monitor import record_counter
 from rucio.core.did import list_expired_dids, delete_dids
 
@@ -39,8 +42,14 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
     """
     logging.info('Undertaker(%s): starting' % worker_number)
     logging.info('Undertaker(%s): started' % worker_number)
+    hostname = socket.gethostname()
+    pid = os.getpid()
+    thread = threading.current_thread()
     while not graceful_stop.is_set():
         try:
+            # heartbeat
+            live(executable='rucio-undertaker', hostname=hostname, pid=pid, thread=thread)
+
             dids = list_expired_dids(worker_number=worker_number, total_workers=total_workers, limit=10000)
             if not dids and not once:
                 logging.info('Undertaker(%s): Nothing to do. sleep 60.' % worker_number)
@@ -62,6 +71,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
         if once:
             break
 
+    die(executable='rucio-undertaker', hostname=hostname, pid=pid, thread=thread)
     logging.info('Undertaker(%s): graceful stop requested' % worker_number)
     logging.info('Undertaker(%s): graceful stop done' % worker_number)
 
