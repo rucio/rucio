@@ -26,6 +26,7 @@ urls = (
     '/auth', 'Auth',
     '/accounting', 'Accounting',
     '/bad_replicas', 'BadReplicas',
+    '/bad_replicas/summary', 'BadReplicasSummary',
     '/did', 'DID',
     '/dumps', 'Dumps',
     '/infrastructure', 'Infrastructure',
@@ -75,6 +76,12 @@ class BadReplicas():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.bad_replicas())
+
+
+class BadReplicasSummary():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.bad_replicas_summary())
 
 
 class BacklogMon():

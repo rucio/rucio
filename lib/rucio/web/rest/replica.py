@@ -563,9 +563,9 @@ class BadReplicasSummary(RucioController):
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression'][0]
             if 'from_date' in params:
-                from_date = datetime.strptime(params['from_date'], "%Y-%m-%dT%H:%M:%S.%f")
+                from_date = datetime.strptime(params['from_date'][0], "%Y-%m-%d")
             if 'to_date' in params:
-                to_date = datetime.strptime(params['to_date'], "%Y-%m-%dT%H:%M:%S.%f")
+                to_date = datetime.strptime(params['to_date'][0], "%Y-%m-%d")
 
         result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
         try:
