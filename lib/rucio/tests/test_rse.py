@@ -15,7 +15,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 
 
-from json import dumps, loads
+from json import dumps
 from nose.tools import raises, assert_equal, assert_true, assert_in, assert_raises
 from paste.fixture import TestApp
 
@@ -145,7 +145,6 @@ class TestRSE():
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).get('/MOCK/accounts/usage', headers=headers2, expect_errors=True)
         assert_equal(r2.status, 200)
-        assert_equal(type(loads(r2.body)), list)
 
 
 class TestRSEClient():
