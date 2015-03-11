@@ -98,6 +98,9 @@ def sort_rses(rses, session=None):
     if not rses:
         raise exception.InputValidationError('The list rses should not be empty!')
 
+    if len(rses) == 1:
+        return rses
+
     false_value = False
     query = session.query(models.RSE.rse, models.RSE.staging_area, models.RSEUsage.rse_id).\
         filter(models.RSEUsage.source == 'srm').\
