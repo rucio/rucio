@@ -89,7 +89,7 @@ notify = {"description": "Rule notification setting",
           "enum": ["Y", "C", "N", None]}
 
 comment = {"description": "Rule comment",
-           "type": "string"}
+           "type": ["string", "null"]}
 
 bytes = {"description": "Size in bytes",
          "type": "integer"}
