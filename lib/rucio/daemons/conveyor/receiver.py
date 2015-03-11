@@ -69,27 +69,52 @@ class Receiver(object):
             if 'job_m_replica' in msg.keys() and 'job_state' in msg.keys() \
                and (str(msg['job_m_replica']) == str('false') or (str(msg['job_m_replica']) == str('true') and str(msg['job_state']) != str('ACTIVE'))):
 
-                response = {'new_state': None,
-                            'transfer_id': msg.get('tr_id').split("__")[-1],
-                            'job_state': msg.get('t_final_transfer_state', None),
-                            'src_url': msg.get('src_url', None),
-                            'dst_url': msg.get('dst_url', None),
-                            'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0)))/1000,
-                            'reason': msg.get('t__error_message', None),
-                            'scope': msg['job_metadata'].get('scope', None),
-                            'name': msg['job_metadata'].get('name', None),
-                            'src_rse': msg['job_metadata'].get('src_rse', None),
-                            'dst_rse': msg['job_metadata'].get('dst_rse', None),
-                            'request_id': msg['job_metadata'].get('request_id', None),
-                            'activity': msg['job_metadata'].get('activity', None),
-                            'dest_rse_id': msg['job_metadata'].get('dest_rse_id', None),
-                            'previous_attempt_id': msg['job_metadata'].get('previous_attempt_id', None),
-                            'adler32': msg['job_metadata'].get('adler32', None),
-                            'md5': msg['job_metadata'].get('md5', None),
-                            'filesize': msg['job_metadata'].get('filesize', None),
-                            'external_host': msg.get('endpnt', None),
-                            'job_m_replica': msg.get('job_m_replica', None),
-                            'details': {'files': msg['job_metadata']}}
+                if 'request_id' in msg['job_metadata']:
+                    # submitted by old submitter
+                    response = {'new_state': None,
+                                'transfer_id': msg.get('tr_id').split("__")[-1],
+                                'job_state': msg.get('t_final_transfer_state', None),
+                                'src_url': msg.get('src_url', None),
+                                'dst_url': msg.get('dst_url', None),
+                                'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0)))/1000,
+                                'reason': msg.get('t__error_message', None),
+                                'scope': msg['job_metadata'].get('scope', None),
+                                'name': msg['job_metadata'].get('name', None),
+                                'src_rse': msg['job_metadata'].get('src_rse', None),
+                                'dst_rse': msg['job_metadata'].get('dst_rse', None),
+                                'request_id': msg['job_metadata'].get('request_id', None),
+                                'activity': msg['job_metadata'].get('activity', None),
+                                'dest_rse_id': msg['job_metadata'].get('dest_rse_id', None),
+                                'previous_attempt_id': msg['job_metadata'].get('previous_attempt_id', None),
+                                'adler32': msg['job_metadata'].get('adler32', None),
+                                'md5': msg['job_metadata'].get('md5', None),
+                                'filesize': msg['job_metadata'].get('filesize', None),
+                                'external_host': msg.get('endpnt', None),
+                                'job_m_replica': msg.get('job_m_replica', None),
+                                'details': {'files': msg['job_metadata']}}
+                else:
+                    # for new submitter, file_metadata replace the job_metadata
+                    response = {'new_state': None,
+                                'transfer_id': msg.get('tr_id').split("__")[-1],
+                                'job_state': msg.get('t_final_transfer_state', None),
+                                'src_url': msg.get('src_url', None),
+                                'dst_url': msg.get('dst_url', None),
+                                'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0)))/1000,
+                                'reason': msg.get('t__error_message', None),
+                                'scope': msg['file_metadata'].get('scope', None),
+                                'name': msg['file_metadata'].get('name', None),
+                                'src_rse': msg['file_metadata'].get('src_rse', None),
+                                'dst_rse': msg['file_metadata'].get('dst_rse', None),
+                                'request_id': msg['file_metadata'].get('request_id', None),
+                                'activity': msg['file_metadata'].get('activity', None),
+                                'dest_rse_id': msg['file_metadata'].get('dest_rse_id', None),
+                                'previous_attempt_id': msg['file_metadata'].get('previous_attempt_id', None),
+                                'adler32': msg['file_metadata'].get('adler32', None),
+                                'md5': msg['file_metadata'].get('md5', None),
+                                'filesize': msg['file_metadata'].get('filesize', None),
+                                'external_host': msg.get('endpnt', None),
+                                'job_m_replica': msg.get('job_m_replica', None),
+                                'details': {'files': msg['file_metadata']}}
 
                 record_counter('daemons.conveyor.receiver.message_rucio')
                 if str(msg['t_final_transfer_state']) == str(FTSCompleteState.OK):
@@ -99,10 +124,10 @@ class Receiver(object):
 
                 try:
                     if response['new_state']:
-                        logging.debug('RECEIVED DID %s:%s FROM %s TO %s STATE %s' % (msg['job_metadata']['scope'],
-                                                                                     msg['job_metadata']['name'],
-                                                                                     msg['job_metadata']['src_rse'],
-                                                                                     msg['job_metadata']['dst_rse'],
+                        logging.debug('RECEIVED DID %s:%s FROM %s TO %s STATE %s' % (response['scope'],
+                                                                                     response['name'],
+                                                                                     response['src_rse'],
+                                                                                     response['dst_rse'],
                                                                                      response['new_state']))
 
                         try:
