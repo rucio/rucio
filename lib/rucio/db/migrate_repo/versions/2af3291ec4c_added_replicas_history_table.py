@@ -33,7 +33,7 @@ def upgrade():
                     sa.Column('bytes', sa.BigInteger))
     if context.get_context().dialect.name != 'sqlite':
         op.create_primary_key('REPLICAS_HIST_PK', 'replicas_history', ['rse_id', 'scope', 'name'])
-        op.create_foreign_key('REPLICAS_HIST_LFN_FK', 'replicas_history', 'dids', ['scope', 'name'], ['scope', 'name'])
+        # op.create_foreign_key('REPLICAS_HIST_LFN_FK', 'replicas_history', 'dids', ['scope', 'name'], ['scope', 'name'])
         op.create_foreign_key('REPLICAS_HIST_RSE_ID_FK', 'replicas_history', 'rses', ['rse_id'], ['id'])
         op.create_check_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history', 'bytes IS NOT NULL')
 
@@ -41,7 +41,7 @@ def upgrade():
 def downgrade():
     if context.get_context().dialect.name == 'postgresql':
         op.drop_constraint('REPLICAS_HIST_PK', 'replicas_history', type_='primary')
-        op.drop_constraint('REPLICAS_HIST_LFN_FK', 'replicas_history')
+        # op.drop_constraint('REPLICAS_HIST_LFN_FK', 'replicas_history')
         op.drop_constraint('REPLICAS_HIST_RSE_ID_FK', 'replicas_history')
         op.drop_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history')
     op.drop_table('replicas_history')

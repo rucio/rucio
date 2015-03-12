@@ -13,6 +13,8 @@ Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
 """
 
 import logging
+import os
+import socket
 import sys
 import threading
 import time
@@ -28,7 +30,8 @@ from sqlalchemy.orm.exc import FlushError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
-from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did  # , delete_duplicate_updated_dids
+from rucio.core.heartbeat import live, die
+from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did, delete_duplicate_updated_dids
 from rucio.core.monitor import record_gauge, record_counter
 
 graceful_stop = threading.Event()
@@ -47,15 +50,22 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
 
     logging.info('re_evaluator: started')
 
+    hostname = socket.gethostname()
+    pid = os.getpid()
+    current_thread = threading.current_thread()
+
     paused_dids = {}  # {(scope, name): datetime}
 
     while not graceful_stop.is_set():
         try:
+            # heartbeat
+            live(executable='rucio-judge-evaluator', hostname=hostname, pid=pid, thread=current_thread)
+
             # Select a bunch of dids for re evaluation for this worker
             start = time.time()  # NOQA
             dids = get_updated_dids(total_workers=total_processes*threads_per_process-1,
                                     worker_number=process*threads_per_process+thread,
-                                    limit=1000)
+                                    limit=100)
             logging.debug('Re-Evaluation index query time %f fetch size is %d' % (time.time() - start, len(dids)))
 
             # Refresh paused dids
@@ -80,7 +90,7 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
                         break
 
                     # Try to delete all duplicate dids
-                    # delete_duplicate_updated_dids(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, id=did.id)
+                    delete_duplicate_updated_dids(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, id=did.id)
 
                     # Check if this did has already been operated on
                     if '%s:%s' % (did.scope, did.name) in done_dids:
@@ -123,6 +133,8 @@ def re_evaluator(once=False, process=0, total_processes=1, thread=0, threads_per
             logging.critical(traceback.format_exc())
         if once:
             break
+
+    die(executable='rucio-judge-evaluator', hostname=hostname, pid=pid, thread=current_thread)
 
     logging.info('re_evaluator: graceful stop requested')
     record_gauge('rule.judge.re_evaluate.threads.%d' % (process*threads_per_process+thread), 0)
