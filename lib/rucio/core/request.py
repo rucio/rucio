@@ -326,7 +326,16 @@ def query_latest(external_host, state, last_nhours=1, session=None):
 
     ret_resps = []
     for resp in resps:
-        if 'job_metadata' not in resp or 'issuer' not in resp['job_metadata'] or resp['job_metadata']['issuer'] != 'rucio':
+        if 'job_metadata' not in resp or resp['job_metadata'] is None or 'issuer' not in resp['job_metadata'] or resp['job_metadata']['issuer'] != 'rucio':
+            continue
+
+        if 'request_id' not in resp['job_metadata']:
+            # submitted by new submitter
+            try:
+                logging.info("Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
+                set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
+            except Exception, e:
+                logging.warn("Exception happened when updating transfer updatetime: %s" % str(e).replace('\n', ''))
             continue
 
         request_id = resp['job_metadata']['request_id']
@@ -488,6 +497,28 @@ def set_request_state(request_id, new_state, transfer_id=None, session=None):
 
     if not rowcount:
         raise UnsupportedOperation("Request %s state cannot be updated." % request_id)
+
+
+@transactional_session
+def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), session=None):
+    """
+    Update the state of a request. Fails silently if the transfer_id does not exist.
+
+    :param external_host: Selected external host as string in format protocol://fqdn:port
+    :param transfer_id: external transfer job id as a string.
+    :param update_time: time stamp.
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.set_transfer_update_time')
+
+    try:
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).update({'updated_at': update_time}, synchronize_session=False)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+    if not rowcount:
+        raise UnsupportedOperation("Transfer %s on %s cannot be updated." % (transfer_id, external_host))
 
 
 @transactional_session
