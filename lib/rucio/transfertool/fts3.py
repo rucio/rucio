@@ -118,7 +118,8 @@ def submit_transfers(transfers, job_metadata):
                                   verify=False,
                                   cert=(__USERCERT, __USERCERT),
                                   data=params_str,
-                                  headers={'Content-Type': 'application/json'})
+                                  headers={'Content-Type': 'application/json'},
+                                  timeout=5)
                 record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(transfer_host), (time.time() - ts) * 1000)
             except:
                 logging.warn('Could not submit transfer to %s' % transfer_host)
@@ -127,7 +128,8 @@ def submit_transfers(transfers, job_metadata):
                 ts = time.time()
                 r = requests.post('%s/jobs' % transfer_host,
                                   data=params_str,
-                                  headers={'Content-Type': 'application/json'})
+                                  headers={'Content-Type': 'application/json'},
+                                  timeout=5)
                 record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(transfer_host), (time.time() - ts) * 1000)
             except:
                 logging.warn('Could not submit transfer to %s' % transfer_host)
@@ -159,10 +161,12 @@ def query(transfer_id, transfer_host):
         job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
                            verify=False,
                            cert=(__USERCERT, __USERCERT),
-                           headers={'Content-Type': 'application/json'})
+                           headers={'Content-Type': 'application/json'},
+                           timeout=5)
     else:
         job = requests.get('%s/jobs/%s' % (transfer_host, transfer_id),
-                           headers={'Content-Type': 'application/json'})
+                           headers={'Content-Type': 'application/json'},
+                           timeout=5)
     if job and job.status_code == 200:
         record_counter('transfertool.fts3.%s.query.success' % __extract_host(transfer_host))
         return job.json()
@@ -241,10 +245,12 @@ def query_details(transfer_id, transfer_host):
         files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                              verify=False,
                              cert=(__USERCERT, __USERCERT),
-                             headers={'Content-Type': 'application/json'})
+                             headers={'Content-Type': 'application/json'},
+                             timeout=5)
     else:
         files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
-                             headers={'Content-Type': 'application/json'})
+                             headers={'Content-Type': 'application/json'},
+                             timeout=5)
     if files and files.status_code == 200:
         record_counter('transfertool.fts3.%s.query_details.success' % __extract_host(transfer_host))
         return files.json()
