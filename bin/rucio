@@ -1129,7 +1129,7 @@ def info_rule(args):
     print "Subscription Id:            %s" % rule['subscription_id']
     print "Source replica expression:  %s" % rule['source_replica_expression']
     print "Activity:                   %s" % rule['activity']
-    print "Comment:                    %s" % rule['comment']
+    print "Comment:                    %s" % rule['comments']
     return SUCCESS
 
 

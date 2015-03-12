@@ -144,7 +144,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   notification=notify,
                                                   purge_replicas=purge_replicas,
                                                   ignore_availability=ignore_availability,
-                                                  comment=comment)
+                                                  comments=comment)
                 try:
                     new_rule.save(session=session)
                 except IntegrityError, e:
@@ -308,7 +308,7 @@ def add_rules(dids, rules, session=None):
                                                           notification=notify,
                                                           purge_replicas=rule.get('purge_replicas', False),
                                                           ignore_availability=rule.get('ignore_availability', False),
-                                                          comment=rule.get('comment', None))
+                                                          comments=rule.get('comment', None))
                         try:
                             new_rule.save(session=session)
                         except IntegrityError, e:
@@ -1190,7 +1190,7 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                             expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
                                             locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                             activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                            ignore_availability=rule.ignore_availability, comment=rule.comment, created_at=rule.created_at,
+                                            ignore_availability=rule.ignore_availability, comments=rule.comments, created_at=rule.created_at,
                                             updated_at=rule.updated_at).save(session=session)
     if longterm:
         models.ReplicationRuleHistory(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
@@ -1198,7 +1198,7 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
                                       expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
                                       locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
                                       activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                      ignore_availability=rule.ignore_availability, comment=rule.comment, created_at=rule.created_at,
+                                      ignore_availability=rule.ignore_availability, comments=rule.comments, created_at=rule.created_at,
                                       updated_at=rule.updated_at).save(session=session)
 
 
