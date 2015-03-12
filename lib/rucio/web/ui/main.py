@@ -30,6 +30,7 @@ urls = (
     '/dumps', 'Dumps',
     '/infrastructure', 'Infrastructure',
     '/list_rules', 'ListRules',
+    '/rse_account_usage', 'RSEAccountUsage',
     '/rse_usage', 'RSEUsage',
     '/rse_locks', 'RSELocks',
     '/rule', 'Rule',
@@ -140,6 +141,12 @@ class RSEUsage():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.rse_usage())
+
+
+class RSEAccountUsage():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.rse_account_usage())
 
 
 class RSELocks():
