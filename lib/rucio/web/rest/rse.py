@@ -25,7 +25,7 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
                            get_rse_usage, list_rse_usage_history,
                            set_rse_limits, get_rse_limits, parse_rse_expression)
 from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RucioException, RSEOperationNotSupported, RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, InvalidRSEExpression
-from rucio.common.utils import generate_http_error, render_json
+from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController
 
 urls = (
@@ -657,7 +657,8 @@ class RSEAccountUsageLimit:
         header('Content-Type', 'application/json')
         try:
             usage = get_rse_account_usage(rse=rse)
-            return usage
+            for row in usage:
+                yield dumps(row, cls=APIEncoder) + '\n'
         except RSENotFound, e:
             raise generate_http_error(404, 'RSENotFound', e[0][0])
         except RucioException, e:
