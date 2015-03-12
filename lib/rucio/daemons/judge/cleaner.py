@@ -14,6 +14,8 @@ Judge-Cleaner is a daemon to clean expired replication rules.
 
 import logging
 import ntplib
+import os
+import socket
 import sys
 import threading
 import time
@@ -28,6 +30,7 @@ from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, AccessDenied, RuleNotFound
+from rucio.core.heartbeat import live, die
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.core.monitor import record_gauge, record_counter
 
@@ -47,10 +50,17 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
 
     logging.info('rule_cleaner: started')
 
+    hostname = socket.gethostname()
+    pid = os.getpid()
+    current_thread = threading.current_thread()
+
     paused_rules = {}  # {rule_id: datetime}
 
     while not graceful_stop.is_set():
         try:
+            # heartbeat
+            live(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
+
             start = time.time()
             rules = get_expired_rules(total_workers=total_processes*threads_per_process-1,
                                       worker_number=process*threads_per_process+thread,
@@ -102,6 +112,8 @@ def rule_cleaner(once=False, process=0, total_processes=1, thread=0, threads_per
             logging.critical(traceback.format_exc())
         if once:
             return
+
+    die(executable='rucio-judge-cleaner', hostname=hostname, pid=pid, thread=current_thread)
 
     logging.info('rule_cleaner: graceful stop requested')
     record_gauge('rule.judge.cleaner.threads.%d' % (process*threads_per_process+thread), 0)

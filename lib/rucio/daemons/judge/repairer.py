@@ -12,6 +12,8 @@ Judge-Repairer is a daemon to repair stuck replication rules.
 """
 
 import logging
+import os
+import socket
 import threading
 import time
 import traceback
@@ -25,6 +27,7 @@ from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
+from rucio.core.heartbeat import live, die
 from rucio.core.rule import repair_rule, get_stuck_rules
 from rucio.core.monitor import record_gauge, record_counter
 
@@ -44,10 +47,17 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
 
     logging.info('rule_repairer: started')
 
+    hostname = socket.gethostname()
+    pid = os.getpid()
+    current_thread = threading.current_thread()
+
     paused_rules = {}  # {rule_id: datetime}
 
     while not graceful_stop.is_set():
         try:
+            # heartbeat
+            live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread)
+
             # Select a bunch of rules for this worker to repair
             start = time.time()
             rules = get_stuck_rules(total_workers=total_processes*threads_per_process-1,
@@ -96,6 +106,8 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
             return
         else:
             time.sleep(30)
+
+    die(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread)
 
     logging.info('rule_repairer: graceful stop requested')
     record_gauge('rule.judge.repairer.threads.%d' % (process*threads_per_process+thread), 0)
