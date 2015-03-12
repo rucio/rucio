@@ -144,9 +144,18 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             needed_free_space = 0
                             logging.info('Reaper %s-%s: free space is above minimum limit for %s' % (worker_number, child_number, rse['rse']))
 
+                    needed_free_space_per_child = None
+                    if needed_free_space and needed_free_space > 0 and total_children and total_children > 0:
+                        needed_free_space_per_child = needed_free_space/float(total_children)
+
                     s = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                        replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'], bytes=needed_free_space/total_children, limit=max_being_deleted_files, worker_number=child_number, total_workers=total_children, delay_seconds=delay_seconds)
+                        replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'],
+                                                          bytes=needed_free_space_per_child,
+                                                          limit=max_being_deleted_files,
+                                                          worker_number=child_number,
+                                                          total_workers=total_children,
+                                                          delay_seconds=delay_seconds)
                     logging.debug('Reaper %s-%s: list_unlocked_replicas %s %s %s' % (worker_number, child_number, rse['rse'], time.time() - s, len(replicas)))
 
                     if not replicas:
