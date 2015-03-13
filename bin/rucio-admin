@@ -13,7 +13,7 @@
 # - Wen Guan, <wguan@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - David Cameron, <david.cameron@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
 
@@ -24,19 +24,25 @@ Rucio Administration Utility
 import argcomplete
 import argparse
 import json
+import logging
 import os
 import pprint
+import signal
 import sys
 import time
+import traceback
 
-from rucio.client.accountclient import AccountClient
-from rucio.client.accountlimitclient import AccountLimitClient
-from rucio.client.configclient import ConfigClient
-from rucio.client.rseclient import RSEClient
-from rucio.client.scopeclient import ScopeClient
-from rucio.client.subscriptionclient import SubscriptionClient
+from ConfigParser import NoOptionError, NoSectionError
+from functools import wraps
 
+
+from rucio.client import Client
+from rucio.common.config import config_get
+from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
+                                    RSENotFound, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate)
+from rucio.common.utils import chunks
 from rucio import version
+
 
 # If ../lib/rucio/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -54,6 +60,132 @@ DEFAULT_PORT = 443
 pp = pprint.PrettyPrinter(indent=4)
 
 
+logger = logging.getLogger("user")
+
+
+def setup_logger(logger):
+    logger.setLevel(logging.DEBUG)
+    hdlr = logging.StreamHandler()
+
+    def emit_decorator(fn):
+        def func(*args):
+            if True:
+                formatter = logging.Formatter("%(message)s")
+            else:
+                levelno = args[0].levelno
+                if(levelno >= logging.CRITICAL):
+                    color = '\033[31;1m'
+                elif(levelno >= logging.ERROR):
+                    color = '\033[31;1m'
+                elif(levelno >= logging.WARNING):
+                    color = '\033[33;1m'
+                elif(levelno >= logging.INFO):
+                    color = '\033[32;1m'
+                elif(levelno >= logging.DEBUG):
+                    color = '\033[36;1m'
+                else:
+                    color = '\033[0m'
+                formatter = logging.Formatter('{0}%(asctime)s %(levelname)s [%(message)s]\033[0m'.format(color))
+            hdlr.setFormatter(formatter)
+            return fn(*args)
+        return func
+    hdlr.emit = emit_decorator(hdlr.emit)
+    logger.addHandler(hdlr)
+
+setup_logger(logger)
+
+
+def signal_handler(signal, frame):
+    logger.warning('You pressed Ctrl+C! Exiting gracefully')
+    sys.exit(1)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+
+def exception_handler(function):
+    @wraps(function)
+    def new_funct(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except InvalidObject, e:
+            logger.error(e)
+            return FAILURE
+        except DataIdentifierNotFound, e:
+            logger.error(e)
+            logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
+            return FAILURE
+        except AccessDenied, e:
+            logger.error(e)
+            logger.debug('This error is a permission issue. You cannot run this command with your account.')
+            return FAILURE
+        except DataIdentifierAlreadyExists, e:
+            logger.error(e)
+            logger.debug('This means that the data IDentifier you try to add is already registered in Rucio.')
+            return FAILURE
+        except RSENotFound, e:
+            logger.error(e)
+            logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
+            return FAILURE
+        except InvalidRSEExpression, e:
+            logger.error(e)
+            logger.debug('This means the RSE expression you provided is not syntactically correct.')
+            return FAILURE
+        except DuplicateContent, e:
+            logger.error(e)
+            logger.debug('This means that the DID you want to attach is already in the target DID.')
+            return FAILURE
+        except TypeError, e:
+            logger.error(e)
+            logger.debug('This means the parameter you passed has a wrong type.')
+            return FAILURE
+        except RuleNotFound, e:
+            logger.error(e)
+            logger.debug('This means the rule you specified does not exist.')
+            return FAILURE
+        except NotImplementedError, e:
+            logger.error(e)
+            logger.debug('This means that the method is not implemented yet.')
+            return FAILURE
+        except Exception, e:
+            logger.error(e)
+            logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
+            logger.debug(traceback.format_exc())
+            return FAILURE
+    return new_funct
+
+
+def get_client(args):
+    """
+    Returns a new client object.
+    """
+    if args.auth_strategy == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    else:
+        creds = None
+
+    try:
+        client = Client(rucio_host=args.host, auth_host=args.auth_host,
+                        account=args.issuer,
+                        auth_type=args.auth_strategy, creds=creds,
+                        ca_cert=args.ca_certificate, timeout=args.timeout)
+    except CannotAuthenticate, e:
+        logger.error(e)
+        if not args.auth_strategy:
+            if 'RUCIO_AUTH_TYPE' in os.environ:
+                auth_type = os.environ['RUCIO_AUTH_TYPE']
+            else:
+                try:
+                    auth_type = config_get('client', 'auth_type')
+                except (NoOptionError, NoSectionError):
+                    logger.error('Cannot get AUTH_TYPE')
+                    sys.exit(FAILURE)
+        if auth_type == 'x509_proxy':
+            logger.error('Please verify that your proxy is still valid and renew it if needed.')
+        sys.exit(FAILURE)
+    return client
+
+
+@exception_handler
 def add_account(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
@@ -61,26 +193,13 @@ def add_account(args):
     Adds a new account. Specify metadata fields as arguments.
 
     """
-    # For the moment...
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.issuer,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        accountClient.add_account(account=args.account, type=args.accounttype)
-        print 'Added new account: %s' % args.account
-    except Exception, e:
-            print 'Failed to add account %s' % args.account
-            print e
-            return FAILURE
+    client = get_client(args)
+    client.add_account(account=args.account, type=args.accounttype)
+    print 'Added new account: %s' % args.account
     return SUCCESS
 
 
+@exception_handler
 def delete_account(args):
     """
     %(prog)s disable [options] <field1=value1 field2=value2 ...>
@@ -88,26 +207,13 @@ def delete_account(args):
     Delete account.
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.issuer,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        accountClient.delete_account(args.acnt)
-        print 'Deleted account: %s' % args.acnt
-    except Exception, e:
-            print 'Failed to disable account %s' % args.acnt
-            print e
-            return FAILURE
+    client = get_client(args)
+    client.delete_account(args.acnt)
+    print 'Deleted account: %s' % args.acnt
     return SUCCESS
 
 
+@exception_handler
 def ban_account(args):
     """
     %(prog)s ban [options] <field1=value1 field2=value2 ...>
@@ -117,27 +223,11 @@ def ban_account(args):
     """
 
     raise NotImplementedError('This method is not implemented yet')
-
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        accountClient.ban_account(args.account)
-        print 'Banned account: %s' % args.account
-    except Exception, e:
-            print 'Failed to ban account %s' % args.acnt
-            print e
-            return FAILURE
-    return SUCCESS
+    # client = get_client(args)
+    # client.ban_account(args.account)
 
 
+@exception_handler
 def unban_account(args):
     """
     %(prog)s unban [options] <field1=value1 field2=value2 ...>
@@ -147,27 +237,11 @@ def unban_account(args):
     """
 
     raise NotImplementedError('This method is not implemented yet')
-
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.account,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        accountClient.unban_account(args.account)
-        print 'Unbanned account: %s' % args.account
-    except Exception, e:
-            print 'Failed to unban account %s' % args.acnt
-            print e
-            return FAILURE
-    return SUCCESS
+    # client = get_client(args)
+    # client.unban_account(args.account)
 
 
+@exception_handler
 def list_accounts(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -175,28 +249,14 @@ def list_accounts(args):
     List accounts.
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.issuer,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        accounts = accountClient.list_accounts(identity=args.identity, account_type=args.account_type)
-    except Exception, e:
-            print 'Failed to list accounts'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    accounts = client.list_accounts(identity=args.identity, account_type=args.account_type)
     for account in accounts:
         print account['account']
-
     return SUCCESS
 
 
+@exception_handler
 def info_account(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
@@ -204,86 +264,41 @@ def info_account(args):
     Show extended information of a given account
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.issuer,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        info = accountClient.get_account(account=args.account)
-    except Exception, e:
-            print 'Failed to show account information'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    info = client.get_account(account=args.account)
     for k in info:
         print k.ljust(10) + ' : ' + str(info[k])
-
     return SUCCESS
 
 
+@exception_handler
 def list_identities(args):
     """
     %(prog)s list-identities [options] <field1=value1 field2=value2 ...>
 
     List all identities on an account.
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.issuer,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        identities = accountClient.list_identities(account=args.account)
-    except Exception, e:
-            print 'Failed to list identities for account %s' % args.account
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    identities = client.list_identities(account=args.account)
     for identity in identities:
         print 'Identity: %(identity)s,\ttype: %(type)s' % identity
-
     return SUCCESS
 
 
+@exception_handler
 def set_limits(args):
     """
-    %(prog)s set-limits [options] <field1=value1 field2=value2 ...>
+    %(prog)s set [options] <field1=value1 field2=value2 ...>
 
-    Grant an identity access to an account.
-
+    Set account limit for an account and rse.
     """
-    raise NotImplementedError('This method is not implemented yet')
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                  account=args.issuer,
-                  auth_type=args.auth_strategy, creds=creds,
-                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        print 'Added new limits to account: %s' % (args.account)
-    except Exception, e:
-        print 'Failed add limits to an account'
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    client.set_account_limit(account=args.account, rse=args.rse, bytes=args.bytes)
+    print 'Set account limit for account %s on RSE %s: %s TB' % (args.account, args.rse, args.bytes/1000./1000./1000./1000.)
     return SUCCESS
 
 
+@exception_handler
 def get_limits(args):
     """
     %(prog)s get-limits [options] <field1=value1 field2=value2 ...>
@@ -291,55 +306,27 @@ def get_limits(args):
     Grant an identity access to an account.
 
     """
-    raise NotImplementedError('This method is not implemented yet')
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                  account=args.account,
-                  auth_type=args.auth_strategy, creds=creds,
-                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        print 'Added new limits to account: %s' % (args.account)
-    except Exception, e:
-        print 'Failed add limits to an account'
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    limits = client.get_account_limit(account=args.account, rse=args.rse)
+    for rse in limits:
+        print 'Quota on %s for %s : %s TB' % (rse, args.account, limits[rse]/1000./1000./1000./1000.)
     return SUCCESS
 
 
+@exception_handler
 def delete_limits(args):
     """
-    %(prog)s delete-limits [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
-    Grant an identity access to an account.
-
+    Delete account limit for an account and rse.
     """
-    raise NotImplementedError('This method is not implemented yet')
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                  account=args.issuer,
-                  auth_type=args.auth_strategy, creds=creds,
-                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        print 'Added new limits to account: %s' % (args.account)
-    except Exception, e:
-        print 'Failed add limits to an account'
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    client.delete_account_limit(account=args.account, rse=args.rse)
+    print 'Deleted account limit for account %s and RSE %s' % (args.account, args.rse)
     return SUCCESS
 
 
+@exception_handler
 def identity_add(args):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
@@ -347,29 +334,16 @@ def identity_add(args):
     Grant an identity access to an account.
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.issuer,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
+    client = get_client(args)
     if args.email == "":
         print 'Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account'
         return FAILURE
-    try:
-        accountClient.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email)
-        print 'Added new identity to account: %s-%s' % (args.identity, args.account)
-    except Exception, e:
-            print 'Failed to grant an identity access to an account'
-            print e
-            return FAILURE
-
+    client.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email)
+    print 'Added new identity to account: %s-%s' % (args.identity, args.account)
     return SUCCESS
 
 
+@exception_handler
 def identity_delete(args):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
@@ -377,26 +351,13 @@ def identity_delete(args):
     Revoke an identity's access to an account.
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-    accountClient = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                                  account=args.issuer,
-                                  auth_type=args.auth_strategy, creds=creds,
-                                  ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        print 'Deleted identity: %s' % args.identity
-        accountClient.del_identity(args.account, args.identity, authtype=args.authtype)
-
-    except Exception, e:
-            print 'Failed to disable identity %s' % args.identity
-            print e
-            return FAILURE
+    client = get_client(args)
+    client.del_identity(args.account, args.identity, authtype=args.authtype)
+    print 'Deleted identity: %s' % args.identity
     return SUCCESS
 
 
+@exception_handler
 def add_rse(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
@@ -404,26 +365,13 @@ def add_rse(args):
     Adds a new rse. Specify metadata fields as arguments.
 
     """
-    # For the moment...
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.issuer,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.add_rse(args.rse)
-        print 'Added new RSE: %s' % args.rse
-    except Exception, e:
-            print 'Failed to add rse %s' % args.rse
-            print e
-            return FAILURE
+    client = get_client(args)
+    client.add_rse(args.rse)
+    print 'Added new RSE: %s' % args.rse
     return SUCCESS
 
 
+@exception_handler
 def disable_rse(args):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
@@ -431,25 +379,12 @@ def disable_rse(args):
     Disable rse.
 
     """
-    # For the moment...
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.issuer,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.delete_rse(args.rse)
-    except Exception, e:
-            print 'Failed to delete RSE %s' % args.rse
-            print e
-            return FAILURE
+    client = get_client(args)
+    client.delete_rse(args.rse)
     return SUCCESS
 
 
+@exception_handler
 def list_rses(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -457,29 +392,14 @@ def list_rses(args):
     List rses.
 
     """
-    # For the moment...
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.issuer,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        rses = client.list_rses()
-    except Exception, e:
-            print 'Failed to list RSEs'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    rses = client.list_rses()
     for rse in rses:
         print '%(rse)s' % rse
-
     return SUCCESS
 
 
+@exception_handler
 def info_rse(args):
     """
     %(prog)s info [options] <field1=value1 field2=value2 ...>
@@ -487,25 +407,10 @@ def info_rse(args):
     Show extended information of a given rse
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    rseclient = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                          account=args.issuer,
-                          auth_type=args.auth_strategy, creds=creds,
-                          ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        rseinfo = rseclient.get_rse(rse=args.rse)
-        attributes = rseclient.list_rse_attributes(rse=args.rse)
-        usage = rseclient.get_rse_usage(rse=args.rse)
-    except Exception, e:
-        print 'Failed to get RSE info'
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    rseinfo = client.get_rse(rse=args.rse)
+    attributes = client.list_rse_attributes(rse=args.rse)
+    usage = client.get_rse_usage(rse=args.rse)
     print 'Settings:'
     print '========='
     for key in rseinfo:
@@ -531,6 +436,7 @@ def info_rse(args):
     return SUCCESS
 
 
+@exception_handler
 def set_attribute_rse(args):
     """
     %(prog)s set-attribute [options] <field1=value1 field2=value2 ...>
@@ -538,28 +444,13 @@ def set_attribute_rse(args):
     setattr RSE.
 
     """
-    # For the moment...
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.issuer,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.add_rse_attribute(rse=args.rse, key=args.key, value=args.value)
-        print 'Added new RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
-    except Exception, e:
-            print 'Failed to add RSE attribute'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    client.add_rse_attribute(rse=args.rse, key=args.key, value=args.value)
+    print 'Added new RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
     return SUCCESS
 
 
+@exception_handler
 def get_attribute_rse(args):
     """
     %(prog)s get-attribute [options] <field1=value1 field2=value2 ...>
@@ -567,30 +458,15 @@ def get_attribute_rse(args):
     getattr RSE.
 
     """
-    # For the moment...
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.issuer,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        attributes = client.list_rse_attributes(rse=args.rse)
-    except Exception, e:
-            print 'Failed to get RSE attributes'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    attributes = client.list_rse_attributes(rse=args.rse)
     for k in attributes:
         print k + ': ' + str(attributes[k])
 
     return SUCCESS
 
 
+@exception_handler
 def delete_attribute_rse(args):
     """
     %(prog)s delete-attribute [options] <field1=value1 field2=value2 ...>
@@ -598,28 +474,13 @@ def delete_attribute_rse(args):
     setattr RSE.
 
     """
-    # For the moment...
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = RSEClient(rucio_host=args.host, auth_host=args.auth_host,
-                       account=args.issuer,
-                       auth_type=args.auth_strategy, creds=creds,
-                       ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.delete_rse_attribute(rse=args.rse, key=args.key)
-        print 'Deleted RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
-    except Exception, e:
-            print 'Failed to delete RSE attribute'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    client.delete_rse_attribute(rse=args.rse, key=args.key)
+    print 'Deleted RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value)
     return SUCCESS
 
 
+@exception_handler
 def add_scope(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
@@ -627,25 +488,13 @@ def add_scope(args):
     Add scope.
 
     """
-    # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.issuer,
-                         auth_type=args.auth_strategy, creds=creds,
-                         ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.add_scope(account=args.account, scope=args.scope)
-        print 'Added new scope to account: %s-%s' % (args.scope, args.account)
-    except Exception, e:
-            print 'Failed to add scope'
-            print e
-            return FAILURE
+    client = get_client(args)
+    client.add_scope(account=args.account, scope=args.scope)
+    print 'Added new scope to account: %s-%s' % (args.scope, args.account)
     return SUCCESS
 
 
+@exception_handler
 def list_scopes(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -653,176 +502,70 @@ def list_scopes(args):
     List scopes.
 
     """
-    # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = ScopeClient(rucio_host=args.host, auth_host=args.auth_host,
-                         account=args.issuer,
-                         auth_type=args.auth_strategy, creds=creds,
-                         ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        scopes = client.list_scopes()
-    except Exception, e:
-            print 'Failed to list scopes'
-            print e
-            return FAILURE
-
+    client = get_client(args)
+    scopes = client.list_scopes()
     for scope in scopes:
         print scope
-
     return SUCCESS
 
 
-def set_account_limit(args):
-    """
-    %(prog)s set [options] <field1=value1 field2=value2 ...>
-
-    Set account limit for an account and rse.
-    """
-
-    # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = AccountLimitClient(rucio_host=args.host, auth_host=args.auth_host,
-                                account=args.issuer,
-                                auth_type=args.auth_strategy, creds=creds,
-                                ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.set_account_limit(account=args.limit_account, rse=args.rse, bytes=args.bytes)
-        print 'Set account limit for account %s on RSE %s: %s' % (args.limit_account, args.rse, args.bytes)
-    except Exception, e:
-            print 'Failed to set account limit'
-            print e
-            return FAILURE
-    return SUCCESS
-
-
-def delete_account_limit(args):
-    """
-    %(prog)s delete [options] <field1=value1 field2=value2 ...>
-
-    Delete account limit for an account and rse.
-    """
-
-    # For the moment..
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = AccountLimitClient(rucio_host=args.host, auth_host=args.auth_host,
-                                account=args.issuer,
-                                auth_type=args.auth_strategy, creds=creds,
-                                ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.delete_account_limit(account=args.limit_account, rse=args.rse)
-        print 'Deleted account limit for account %s and RSE %s' % (args.limit_account, args.rse)
-    except Exception, e:
-            print 'Failed to delete account limit'
-            print e
-            return FAILURE
-    return SUCCESS
-
-
+@exception_handler
 def get_config(args):
     """
     %(prog)s get [options] <field1=value1 field2=value2 ...>
 
     Get the configuration. Either everything, or matching the given section/option.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = ConfigClient(rucio_host=args.host, auth_host=args.auth_host,
-                          account=args.issuer,
-                          auth_type=args.auth_strategy, creds=creds,
-                          ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        res = client.get_config(section=args.section, option=args.option)
-        if not isinstance(res, dict):
-            print '[%s]\n%s=%s' % (args.section, args.option, str(res))
-        else:
-            print_header = True
-            for i in res.keys():
-                if print_header:
-                    if args.section is not None:
-                        print '[%s]' % args.section
-                    else:
-                        print '[%s]' % i
-                if not isinstance(res[i], dict):
-                    print '%s=%s' % (i, str(res[i]))
-                    print_header = False
+    client = get_client(args)
+    res = client.get_config(section=args.section, option=args.option)
+    if not isinstance(res, dict):
+        print '[%s]\n%s=%s' % (args.section, args.option, str(res))
+    else:
+        print_header = True
+        for i in res.keys():
+            if print_header:
+                if args.section is not None:
+                    print '[%s]' % args.section
                 else:
-                    for j in res[i].keys():
-                        print '%s=%s' % (j, str(res[i][j]))
-    except Exception, e:
-            print 'Failed to get configuration:', e
-            return FAILURE
+                    print '[%s]' % i
+            if not isinstance(res[i], dict):
+                print '%s=%s' % (i, str(res[i]))
+                print_header = False
+            else:
+                for j in res[i].keys():
+                    print '%s=%s' % (j, str(res[i][j]))
     return SUCCESS
 
 
+@exception_handler
 def set_config_option(args):
     """
     %(prog)s set [options] <field1=value1 field2=value2 ...>
 
     Set the configuration value for a matching section/option. Missing section/option will be created.
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = ConfigClient(rucio_host=args.host, auth_host=args.auth_host,
-                          account=args.issuer,
-                          auth_type=args.auth_strategy, creds=creds,
-                          ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.set_config_option(section=args.section, option=args.option, value=args.value)
-        print 'Set configuration: %s.%s=%s' % (args.section, args.option, args.value)
-    except Exception, e:
-            print 'Failed to set configuration'
-            print e
-            return FAILURE
+    client = get_client(args)
+    client.set_config_option(section=args.section, option=args.option, value=args.value)
+    print 'Set configuration: %s.%s=%s' % (args.section, args.option, args.value)
     return SUCCESS
 
 
+@exception_handler
 def delete_config_option(args):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
     Delete a configuration option from a section
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = ConfigClient(rucio_host=args.host, auth_host=args.auth_host,
-                          account=args.issuer,
-                          auth_type=args.auth_strategy, creds=creds,
-                          ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        if client.delete_config_option(section=args.section, option=args.option):
-            print 'Deleted section \'%s\' option \'%s\'' % (args.section, args.option)
-        else:
-            print 'Section \'%s\' option \'%s\' not found' % (args.section, args.option)
-    except Exception, e:
-            print 'Failed to delete option'
-            print e
-            return FAILURE
+    client = get_client(args)
+    if client.delete_config_option(section=args.section, option=args.option):
+        print 'Deleted section \'%s\' option \'%s\'' % (args.section, args.option)
+    else:
+        print 'Section \'%s\' option \'%s\' not found' % (args.section, args.option)
     return SUCCESS
 
 
+@exception_handler
 def add_subscription(args):
     """
     %(prog)s add [options] name filter replication_rules
@@ -830,32 +573,18 @@ def add_subscription(args):
     Add subscription.
 
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
+    client = get_client(args)
     if args.subs_account:
         account = args.subs_account
     else:
         account = args.issuer
-    client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
-                                account=args.issuer,
-                                auth_type=args.auth_strategy, creds=creds,
-                                ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        subscription_id = client.add_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
-                                                  comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
-        print 'Subscription added %s' % (subscription_id)
-    except Exception, e:
-        print 'Failed to add subscription'
-        print e
-        return FAILURE
-
+    subscription_id = client.add_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
+                                              comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
+    print 'Subscription added %s' % (subscription_id)
     return SUCCESS
 
 
+@exception_handler
 def list_subscriptions(args):
     """
     %(prog)s list [options] [name]
@@ -863,31 +592,18 @@ def list_subscriptions(args):
     List subscriptions.
 
     """
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
-    client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
-                                account=args.issuer,
-                                auth_type=args.auth_strategy, creds=creds,
-                                ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        subs = client.list_subscriptions(name=args.name, account=args.subs_account)
-        for sub in subs:
-            if (args.long):
-                print '\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items())
-                print
-            else:
-                print "%s: %s %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['filter'], sub['replication_rules'], sub.get('comments', ''))
-    except Exception, e:
-        print 'Failed to list subscription'
-        print e
-        return FAILURE
-
+    client = get_client(args)
+    subs = client.list_subscriptions(name=args.name, account=args.subs_account)
+    for sub in subs:
+        if (args.long):
+            print '\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in sub.items())
+            print
+        else:
+            print "%s: %s %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['filter'], sub['replication_rules'], sub.get('comments', ''))
     return SUCCESS
 
 
+@exception_handler
 def update_subscription(args):
     """
     %(prog)s update [options] name filter replication_rules
@@ -895,33 +611,17 @@ def update_subscription(args):
     Update a subscription.
 
     """
-
-    creds = None
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-
+    client = get_client(args)
     if args.subs_account:
         account = args.subs_account
     else:
         account = args.issuer
-
-    client = SubscriptionClient(rucio_host=args.host, auth_host=args.auth_host,
-                                account=args.issuer,
-                                auth_type=args.auth_strategy, creds=creds,
-                                ca_cert=args.ca_certificate, timeout=args.timeout)
-
-    try:
-        client.update_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
-                                   comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
-        print 'Subscription updated'
-    except Exception, e:
-        print 'Failed to update subscription'
-        print e
-        return FAILURE
-
+    client.update_subscription(name=args.name, account=account, filter=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
+                               comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False)
     return SUCCESS
 
 
+@exception_handler
 def list_account_attributes(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
@@ -929,26 +629,14 @@ def list_account_attributes(args):
     List the attributes for an account.
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.issuer,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        attributes = client.list_account_attributes(account=args.account).next()
-    except Exception, e:
-        print 'Failed get attributes for account {0}'.format(args.account)
-        print e
-        return FAILURE
+    client = get_client(args)
+    attributes = client.list_account_attributes(account=args.account).next()
     for attr in attributes:
         print "{0}: {1}".format(attr['key'], attr['value'])
     return SUCCESS
 
 
+@exception_handler
 def add_account_attribute(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
@@ -956,24 +644,12 @@ def add_account_attribute(args):
     Add attribute for an account.
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
-
-    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.issuer,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.add_account_attribute(account=args.account, key=args.key, value=args.value)
-    except Exception, e:
-        print 'Failed add attributes for account {0}'.format(args.account)
-        print e
-        return FAILURE
+    client = get_client(args)
+    client.add_account_attribute(account=args.account, key=args.key, value=args.value)
     return SUCCESS
 
 
+@exception_handler
 def delete_account_attribute(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
@@ -981,21 +657,32 @@ def delete_account_attribute(args):
     Delete attribute for an account.
 
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
-    else:
-        creds = None
+    client = get_client(args)
+    client.delete_account_attribute(account=args.account, key=args.key)
+    return SUCCESS
 
-    client = AccountClient(rucio_host=args.host, auth_host=args.auth_host,
-                           account=args.issuer,
-                           auth_type=args.auth_strategy, creds=creds,
-                           ca_cert=args.ca_certificate, timeout=args.timeout)
-    try:
-        client.delete_account_attribute(account=args.account, key=args.key)
-    except Exception, e:
-        print 'Failed add attributes for account {0}'.format(args.account)
-        print e
-        return FAILURE
+
+@exception_handler
+def declare_bad_file_replicas(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Declare a list of bad replicas.
+
+    """
+    client = get_client(args)
+    bad_files = []
+    if args.inputfile:
+        with open(args.inputfile) as infile:
+            for line in infile:
+                bad_files.append(line.rstrip('\n'))
+    else:
+        bad_files = args.listbadfiles
+    for chunk in chunks(bad_files, 500):
+        non_declared = client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
+        for rse in non_declared:
+            for pfn in non_declared[rse]:
+                print '%s : PFN %s cannot be declared.' % (rse, pfn)
     return SUCCESS
 
 
@@ -1080,12 +767,26 @@ Commands:
     list_account_identities_parser.set_defaults(which='list_identities')
     list_account_identities_parser.add_argument('account', action='store', help='Account name')
 
+    # The set-limits command
     set_account_limits_parser = account_subparser.add_parser('set-limits', help='Set the limits for the provided account')
     set_account_limits_parser.set_defaults(which='set_limits')
-    set_account_limits_parser.add_argument('--account', dest='acnt', action='store', help='Account name', required=True)
-    set_account_limits_parser.add_argument('--rse-expr', dest='rse_expre', action='store', help='RSE boolean expression', required=True)
-    set_account_limits_parser.add_argument('--value', dest='value', action='store', help='The total number of bytes that can be stored', required=True)
+    set_account_limits_parser.add_argument('account', action='store', help='Account name')
+    set_account_limits_parser.add_argument('rse', action='store', help='RSE boolean expression')
+    set_account_limits_parser.add_argument('bytes', action='store', type=int, help='The total number of bytes that can be stored')
 
+    # The account-limit subparser
+    get_account_limits_parser = account_subparser.add_parser('get-limits', help='To get the account limits on an RSE')
+    get_account_limits_parser.set_defaults(which='get_limits')
+    get_account_limits_parser.add_argument('account', action='store', help='Account name')
+    get_account_limits_parser.add_argument('rse', action='store', help='The RSE name')
+
+    # The delete_quota command
+    delete_account_limits_parser = account_subparser.add_parser('delete-limits', help='Delete quota for an account')
+    delete_account_limits_parser.set_defaults(which='delete_limits')
+    delete_account_limits_parser.add_argument('account', action='store', help='Account name')
+    delete_account_limits_parser.add_argument('rse', action='store', help='RSE name')
+
+    # Ban/unban operations not implemented yet
     ban_account_limits_parser = account_subparser.add_parser('ban', help='Ban an account')
     ban_account_limits_parser.set_defaults(which='ban_account')
     ban_account_limits_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
@@ -1170,23 +871,6 @@ Commands:
     list_scope_parser.set_defaults(which='list_scopes')
     list_scope_parser.add_argument('--account', dest='account', action='store', help='Account name')
 
-    # The account-limit subparser
-    account_limit_parser = subparsers.add_parser('account-limit', help='Account limits')
-    account_limit_subparser = account_limit_parser.add_subparsers()
-
-    # The set_account_limit command
-    set_account_limit_parser = account_limit_subparser.add_parser('set', help='Set account limit for an account and rse.')
-    set_account_limit_parser.set_defaults(which='set_account_limit')
-    set_account_limit_parser.add_argument('limit_account', action='store', help='Account name')
-    set_account_limit_parser.add_argument('rse', action='store', help='RSE name')
-    set_account_limit_parser.add_argument('bytes', action='store', help='Account limit in bytes')
-
-    # The delete_quota command
-    delete_account_limit_parser = account_limit_subparser.add_parser('delete', help='Delete quota for an account')
-    delete_account_limit_parser.set_defaults(which='delete_account_limit')
-    delete_account_limit_parser.add_argument('limit_account', action='store', help='Account name')
-    delete_account_limit_parser.add_argument('rse', action='store', help='RSE name')
-
     # The config subparser
     config_parser = subparsers.add_parser('config', help='Configuration methods')
     config_subparser = config_parser.add_subparsers()
@@ -1243,6 +927,17 @@ Commands:
     update_sub_parser.add_argument('--account', dest='subs_account', action='store', help='Account name')
     # subscription policy, retroactive and dry_run hard-coded for now
 
+    # The replica parser
+    rep_parser = subparsers.add_parser('replicas', help='Replica methods')
+    rep_subparser = rep_parser.add_subparsers()
+
+    # The declare-bad command
+    declare_bad_file_replicas_parser = rep_subparser.add_parser('declare-bad', help='Declare bad file replicas')
+    declare_bad_file_replicas_parser.set_defaults(which='declare_bad_file_replicas')
+    declare_bad_file_replicas_parser.add_argument(dest='listbadfiles', action='store', nargs='*', help='The list of bad files')
+    declare_bad_file_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
+    declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='Reason')
+
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
                 'list_account_attributes': list_account_attributes,
@@ -1252,8 +947,8 @@ Commands:
                 'info_account': info_account,
                 'ban_account': ban_account,
                 'unban_account': unban_account,
-                'set_limits': set_limits,
                 'get_limits': get_limits,
+                'set_limits': set_limits,
                 'delete_limits': delete_limits,
                 'list_identities': list_identities,
                 'identity_add': identity_add,
@@ -1266,8 +961,6 @@ Commands:
                 'disable_rse': disable_rse,
                 'add_scope': add_scope,
                 'list_scopes': list_scopes,
-                'set_account_limit': set_account_limit,
-                'delete_account_limit': delete_account_limit,
                 'info_rse': info_rse,
                 'info_rse': info_rse,
                 'get_config': get_config,
@@ -1275,7 +968,8 @@ Commands:
                 'delete_config_option': delete_config_option,
                 'add_subscription': add_subscription,
                 'list_subscriptions': list_subscriptions,
-                'update_subscription': update_subscription
+                'update_subscription': update_subscription,
+                'declare_bad_file_replicas': declare_bad_file_replicas
                 }
 
     argcomplete.autocomplete(oparser)
