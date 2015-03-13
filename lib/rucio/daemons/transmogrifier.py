@@ -173,9 +173,10 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                         attemptnr = attempt
                                         try:
                                             rse_expression = str(rule['rse_expression']).encode('string-escape')
+                                            comment = str(subscription['comments'])
                                             add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rse_expression,
                                                      grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription['id'], source_replica_expression=source_replica_expression, activity=activity,
-                                                     purge_replicas=purge_replicas)
+                                                     purge_replicas=purge_replicas, comment=comment)
                                             monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
                                             if subscription['name'].find('test') > -1:
                                                 monitor.record_counter(counters='transmogrifier.addnewrule.activity.test', delta=1)
