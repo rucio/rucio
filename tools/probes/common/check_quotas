@@ -78,15 +78,17 @@ def set_group_quotas(quotas):
         return
 
     for quota, value in quotas.iteritems():
-        # in AGIS quota 999999 means no limit, so skip these
-        if value == 999999:
-            continue
 
         physgroup = re.match('/atlas/(.*)/', quota)
         if not physgroup:
             continue
         physgroup = physgroup.group(1)
-        size = value * 1024**4  # AGIS numbers are in TiB
+
+        # in AGIS quota 999999 means no limit, so set infinite
+        if value == 999999:
+            size = -1
+        else:
+            size = value * 1024**4  # AGIS numbers are in TiB
 
         try:
             usage = rse.get_rse_usage(name, 'root', source='rucio')
@@ -96,7 +98,7 @@ def set_group_quotas(quotas):
             except:
                 account_used = 0
             print "Set quota for %s on RSE %s to %dTB (used RSE %dTB, used account %dTB)" % \
-                (physgroup, name, size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
+                (physgroup, name, 'inf ' if size == -1 else size / 1000**4, usage[0]['used'] / 1000**4, account_used / 1000**4)
             set_account_limit(physgroup, name, size, 'root')
         except AccountNotFound:
             print "Account %s does not exist" % physgroup
