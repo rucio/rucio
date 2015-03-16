@@ -15,9 +15,11 @@ This daemon consumes tracer messages from ActiveMQ and updates the atime for rep
 from datetime import datetime
 from dns import resolver
 import logging
+from os import getpid
+from socket import gethostname
 from ssl import PROTOCOL_TLSv1
 from sys import stdout
-from threading import Event, Thread
+from threading import Event, Thread, current_thread
 from time import sleep, time
 from traceback import format_exc
 from Queue import Queue
@@ -28,6 +30,7 @@ from stomp import Connection
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.did import touch_dids, list_parent_dids
+from rucio.core.heartbeat import live, die
 from rucio.core.lock import touch_dataset_locks
 from rucio.core.replica import touch_replica_no_wait
 from rucio.db.constants import DIDType
@@ -177,6 +180,10 @@ def kronos_file(once=False, process=0, total_processes=1, thread=0, total_thread
 
     logging.info('tracer consumer starting')
 
+    hostname = gethostname()
+    pid = getpid()
+    thread = current_thread()
+
     chunksize = config_get_int('tracer-kronos', 'chunksize')
     prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
     subscription_id = config_get('tracer-kronos', 'subscription_id')
@@ -210,6 +217,7 @@ def kronos_file(once=False, process=0, total_processes=1, thread=0, total_thread
     logging.info('(kronos_file) tracer consumer started')
 
     while not graceful_stop.is_set():
+        live(executable='kronos-file', hostname=hostname, pid=pid, thread=thread)
         for conn in conns:
             if not conn.is_connected():
                 logging.info('(kronos_file) connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
@@ -237,19 +245,28 @@ def kronos_file(once=False, process=0, total_processes=1, thread=0, total_thread
         except:
             pass
 
+    die(executable='rucio-file', hostname=hostname, pid=pid, thread=thread)
     logging.info('(kronos_file) graceful stop done')
 
 
 def kronos_dataset(once=False, process=0, total_processes=1, thread=0, total_threads=1, dataset_queue=None):
+    logging.info('(kronos_dataset) starting')
+
+    hostname = gethostname()
+    pid = getpid()
+    thread = current_thread()
+
     dataset_wait = config_get_int('tracer-kronos', 'dataset_wait')
     start = datetime.now()
     while not graceful_stop.is_set():
+        live(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
         if (datetime.now() - start).seconds > dataset_wait:
             __update_datasets(dataset_queue)
             start = datetime.now()
         sleep(10)
     # once again for the backlog
-    logging.info('cleaning dataset backlog before shutdown...')
+    die(executable='rucio-dataset', hostname=hostname, pid=pid, thread=thread)
+    logging.info('(kronos_dataset) cleaning dataset backlog before shutdown...')
     __update_datasets(dataset_queue)
 
 
