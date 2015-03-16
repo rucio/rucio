@@ -7,47 +7,64 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
+import random
 import threading
+
+from nose.tools import assert_equal
 
 from rucio.core.heartbeat import live, die, cardiac_arrest
 
 
 class TestHeartbeat:
 
-    @classmethod
-    def setupClass(self):
+    def __pid(self):
+        return random.randint(0, 2**16)
+
+    def __thread(self):
+        thread = threading.Thread()
+        thread.start()
+        return thread
+
+    def setup(self):
         cardiac_arrest()
 
-    def test_heartbeat(self):
-        """ HEARTBEAT (CORE): Test thread assignment via heartbeat for services """
+    def test_heartbeat_0(self):
+        """ HEARTBEAT (CORE): Single instace """
 
-        thread_0 = threading.Thread()
-        thread_1 = threading.Thread()
-        thread_2 = threading.Thread()
-        thread_0.start()
-        thread_1.start()
-        thread_2.start()
+        p = self.__pid()
+        t = self.__thread()
+        assert_equal(live('test0', 'host0', p, t), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host0', p, t), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host0', p, t), {'assign_thread': 0, 'nr_threads': 1})
 
-        live('rucio-test-program', 'rucio-test-host.cern.ch', 0, thread_0)       # 1
-        live('rucio-test-program', 'rucio-test-host.cern.ch', 0, thread_0)       # 1
-        live('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_0)   # 1,1
-        live('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_1)   # 1,2
-        live('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_2)   # 1,3
-        live('rucio-test-program', 'rucio-test-host.cern.ch', 1, thread_0)       # 2,3
+    def test_heartbeat_1(self):
+        """ HEARTBEAT (CORE): Multiple instance """
 
-        die('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_0)  # 2,2
-        die('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_1)  # 2,1
-        die('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_2)  # 2
-        die('rucio-test-program', 'rucio-test-host.cern.ch', 0, thread_0)      # 1
+        p = [self.__pid() for tmp in xrange(4)]
+        t = [self.__thread() for tmp in xrange(4)]
+        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 1, 'nr_threads': 2})
+        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 2})
+        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 2, 'nr_threads': 3})
+        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 3})
+        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 3, 'nr_threads': 4})
+        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 1, 'nr_threads': 4})
+        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 2, 'nr_threads': 4})
+        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 3, 'nr_threads': 4})
 
-        live('rucio-test-program', 'rucio-test-host.cern.ch', 0, thread_0)       # 2
-        live('rucio-test-program', 'rucio-test-host.cern.ch', 1, thread_0)       # 2
-        live('rucio-test-program', 'rucio-test-host.cern.ch', 2, thread_0)       # 3
-        live('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_0)   # 3,1
-        live('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_0)   # 3,1,1
+    def test_heartbeat_2(self):
+        """ HEARTBEAT (CORE): Multiple instance with removal"""
 
-        die('rucio-test-program', 'rucio-test-host-dev.cern.ch', 0, thread_0)  # 3, ,1
-        die('rucio-test-program', 'rucio-test-host.cern.ch', 0, thread_0)      # 3
-        die('rucio-test-program', 'rucio-test-host.cern.ch', 0, thread_0)      # 2
-
-        # TODO: Test thread-assignment - for later
+        p = [self.__pid() for tmp in xrange(4)]
+        t = [self.__thread() for tmp in xrange(4)]
+        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 1})
+        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 1, 'nr_threads': 2})
+        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 2})
+        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 2, 'nr_threads': 3})
+        assert_equal(live('test0', 'host0', p[0], t[0]), {'assign_thread': 0, 'nr_threads': 3})
+        die('test0', 'host0', p[0], t[0])
+        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 2, 'nr_threads': 3})
+        assert_equal(live('test0', 'host1', p[1], t[1]), {'assign_thread': 0, 'nr_threads': 3})
+        assert_equal(live('test0', 'host2', p[2], t[2]), {'assign_thread': 1, 'nr_threads': 3})
+        die('test0', 'host2', p[2], t[2])
+        assert_equal(live('test0', 'host3', p[3], t[3]), {'assign_thread': 1, 'nr_threads': 2})
