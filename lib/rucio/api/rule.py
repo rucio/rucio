@@ -119,7 +119,7 @@ def delete_replication_rule(rule_id, purge_replicas, issuer):
     kwargs = {'rule_id': rule_id, 'purge_replicas': purge_replicas}
     if not has_permission(issuer=issuer, action='del_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not remove this replication rule.' % (issuer))
-    rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas)
+    rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True)
 
 
 def update_replication_rule(rule_id, options, issuer):
