@@ -522,6 +522,23 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
 
 
 @transactional_session
+def touch_requests_by_rule(rule_id, session=None):
+    """
+    Update the update time of requests in a rule. Fails silently if no requests on this rule.
+
+    :param rule_id: Rule-ID as a 32 character hex string.
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.touch_requests_by_rule')
+
+    try:
+        session.query(models.Request).filter_by(rule_id=rule_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@transactional_session
 def set_external_host(request_id, external_host, session=None):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
