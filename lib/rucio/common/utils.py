@@ -385,7 +385,7 @@ def __strip_tag(tag):
 def clean_surls(surls):
     res = []
     for surl in surls:
-        if surl.starswith('srm'):
+        if surl.startswith('srm'):
             surl = re.sub(':[0-9]+/', '/', surl)
             surl = re.sub('/srm/managerv1\?SFN=', '', surl)
             surl = re.sub('/srm/v2/server\?SFN=', '', surl)
