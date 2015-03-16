@@ -7,11 +7,28 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
 import datetime
 
+from sqlalchemy import distinct
+
 from rucio.db.models import Heartbeats
 from rucio.db.session import transactional_session
+from rucio.common.utils import pid_exists
+
+
+@transactional_session
+def sanity_check(executable, hostname, session=None):
+    """
+    Check if processes on the host are still running.
+
+    :param executable: Executable name as a string, e.g., conveyor-submitter
+    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch
+    """
+    for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=executable, hostname=hostname):
+        if not pid_exists(pid):
+            session.query(Heartbeats).filter_by(executable=executable, hostname=hostname, pid=pid).delete()
 
 
 @transactional_session

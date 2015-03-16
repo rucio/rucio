@@ -23,7 +23,7 @@ import traceback
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.common.utils import chunks
-from rucio.core.heartbeat import live, die
+from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.did import list_expired_dids, delete_dids
 
@@ -45,6 +45,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
     hostname = socket.gethostname()
     pid = os.getpid()
     thread = threading.current_thread()
+    sanity_check(executable='rucio-undertaker', hostname=hostname)
     while not graceful_stop.is_set():
         try:
             heartbeat = live(executable='rucio-undertaker', hostname=hostname, pid=pid, thread=thread)
@@ -52,7 +53,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
 
             # ToDo: replace worker_number by heartbeat['assign_thread'] once live working
             # (worker_number=heartbeat['assign_thread'], total_workers=heartbeat['nr_threads']
-            dids = list_expired_dids(worker_number=worker_number, total_workers=total_workers, limit=10000)
+            dids = list_expired_dids(worker_number=worker_number, total_workers=heartbeat['nr_threads'], limit=10000)
             if not dids and not once:
                 logging.info('Undertaker(%s): Nothing to do. sleep 60.' % worker_number)
                 time.sleep(60)
