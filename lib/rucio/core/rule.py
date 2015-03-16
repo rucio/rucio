@@ -438,12 +438,13 @@ def list_associated_rules_for_file(scope, name, session=None):
 
 
 @transactional_session
-def delete_rule(rule_id, purge_replicas=None, nowait=False, session=None):
+def delete_rule(rule_id, purge_replicas=None, soft=False, nowait=False, session=None):
     """
     Delete a replication rule.
 
     :param rule_id:         The rule to delete.
     :param purge_replicas:  Purge the replicas immediately.
+    :param soft:            Only perform a soft deletion.
     :param nowait:          Nowait parameter for the FOR UPDATE statement.
     :param session:         The database session in use.
     :raises:                RuleNotFound if no Rule can be found.
@@ -460,6 +461,11 @@ def delete_rule(rule_id, purge_replicas=None, nowait=False, session=None):
 
         if purge_replicas is not None:
             rule.purge_replicas = purge_replicas
+
+        if soft:
+            rule.expires_at = datetime.utcnow() + timedelta(seconds=3600)
+            insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+            return
 
         locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == rule_id).with_for_update(nowait=nowait).all()
 

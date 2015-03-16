@@ -777,7 +777,8 @@ class TestReplicationRuleClient():
 
         ret = self.rule_client.delete_replication_rule(rule_id=rule_id)
         assert(ret is True)
-        assert_raises(RuleNotFound, self.rule_client.delete_replication_rule, rule_id)
+        get = self.rule_client.get_replication_rule(rule_id)
+        assert(get['expires_at'] is not None)
 
     def test_list_rules_by_did(self):
         """ DID (CLIENT): List Replication Rules per DID """
