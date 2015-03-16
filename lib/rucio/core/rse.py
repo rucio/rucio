@@ -8,7 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -662,6 +662,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
             for op in utils.rse_supported_protocol_operations():
                 op_name = ''.join([op, '_', domain])
                 if op_name in data:
+                    prots = []
                     if (not getattr(up, op_name)) and data[op_name]:  # reactivate protocol e.g. from 0 to 1
                         prots = session.query(models.RSEProtocols).filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
                                                                                           getattr(models.RSEProtocols, op_name) >= data[op_name]

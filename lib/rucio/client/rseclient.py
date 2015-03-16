@@ -334,6 +334,38 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)
 
+    def swap_protocols(self, rse, domain, operation, scheme_a, scheme_b):
+        """
+        Swaps the priorities of the provided operation.
+
+        :param rse: the RSE name.
+        :param domain: the domain in which priorities should be swapped i.e. wan or lan.
+        :param operation: the operation that should be swapped i.e. read, write, or delete.
+        :param scheme_a: the scheme of one of the two protocols to be swapped, e.g. srm.
+        :param scheme_b: the scheme of the other of the two protocols to be swapped, e.g. http.
+
+        :returns: True if success.
+
+        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
+        :raises RSENotFound: if the RSE doesn't exist.
+        :raises KeyNotFound: if invalid data was provided for update.
+        :raises AccessDenied: if not authorized.
+        """
+        protocol_a = protocol_b = None
+        protocols = self.get_protocols(rse, domain, operation, False, scheme_a)['protocols']
+        for p in protocols:
+            if p['scheme'] == scheme_a:
+                protocol_a = p
+            if p['scheme'] == scheme_b:
+                protocol_b = p
+        if (protocol_a or protocol_b) is None:
+            return False
+        priority_a = protocol_a['domains'][domain][operation]
+        priority_b = protocol_b['domains'][domain][operation]
+        self.update_protocols(rse, protocol_a['scheme'], {'domains': {domain: {operation: priority_b}}}, protocol_a['hostname'], protocol_a['port'])
+        self.update_protocols(rse, protocol_b['scheme'], {'domains': {domain: {operation: priority_a}}}, protocol_b['hostname'], protocol_b['port'])
+        return True
+
     def set_rse_usage(self, rse, source, used, free):
         """
         Set RSE usage information.
