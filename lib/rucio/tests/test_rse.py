@@ -12,6 +12,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 
 
 from json import dumps, loads
@@ -1089,6 +1090,68 @@ class TestRSEClient():
             raise Exception('Update gave unexpected results: %s' % p)
         self.client.delete_protocols(protocol_rse, 'MOCK')
         self.client.delete_rse(protocol_rse)
+
+    def test_swap_protocol(self):
+        """ RSE (CLIENTS): swaps the priority of two protocols by scheme. """
+        protocol_rse = rse_name_generator()
+        self.client.add_rse(protocol_rse)
+        protocols = [{'scheme': 'MOCKA',
+                      'hostname': 'localhost',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'lan': {'read': 1,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCKB',
+                      'hostname': 'localhost',
+                      'port': 42,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'lan': {'read': 2,
+                                  'write': 1,
+                                  'delete': 0
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     {'scheme': 'MOCKC',
+                      'hostname': 'localhost',
+                      'port': 19,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'lan': {'read': 3,
+                                  'write': 0,
+                                  'delete': 1
+                                  }
+                      },
+                      'extended_attributes': 'TheOneWithAllTheRest'
+                      },
+                     ]
+        for p in protocols:
+            self.client.add_protocol(protocol_rse, p)
+
+        self.client.swap_protocols(protocol_rse, 'lan', 'read', 'MOCKA', 'MOCKC')
+        prots = self.client.get_protocols(protocol_rse)
+        for p in prots:
+            if p['scheme'] == 'MOCKA':
+                if p['domains']['lan']['read'] != 3:
+                    print 'MOCKA with unexpected priority'
+                    print prots
+                    assert(False)
+            if p['scheme'] == 'MOCKC':
+                if p['domains']['lan']['read'] != 1:
+                    print 'MOCKC with unexpected priority'
+                    print prots
+                    assert(False)
+        assert(True)
 
     # To make this test work again the dogpile.cache must be maintained. A lot of work for a very artificial use case?
     # def test_update_protocols_enable_new_default(self):
