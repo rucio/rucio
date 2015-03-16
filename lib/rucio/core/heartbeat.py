@@ -11,7 +11,7 @@
 
 import datetime
 
-from sqlalchemy import distinct
+from sqlalchemy.sql import distinct
 
 from rucio.db.models import Heartbeats
 from rucio.db.session import transactional_session
@@ -49,12 +49,11 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
 
-    # first, delete old ones
-    query = session.query(Heartbeats).filter_by(executable=executable)
-
+    # first, delete the old ones (assume same executable, but different args)
+    query = session.query(Heartbeats).filter(Heartbeats.executable.like('%s%%' % executable.split()[0]))
     if older_than:
         query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than))
-    query.delete()
+    query.delete(synchronize_session=False)
 
     # upsert the heartbeat
     tmp_hb = Heartbeats(executable=executable,
@@ -65,11 +64,31 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
     tmp_hb = session.merge(tmp_hb)
     tmp_hb.save(session=session)
 
-    # query new nr_threads
-    nr_threads = session.query(Heartbeats).filter_by(executable=executable).count()
+    # assign thread identifier
+    query = session.query(Heartbeats.hostname,
+                          Heartbeats.pid,
+                          Heartbeats.thread_id)\
+                   .filter(Heartbeats.executable.like('%s%%' % executable.split()[0]))\
+                   .group_by(Heartbeats.executable,
+                             Heartbeats.hostname,
+                             Heartbeats.pid,
+                             Heartbeats.thread_id)\
+                   .order_by(Heartbeats.executable,
+                             Heartbeats.hostname,
+                             Heartbeats.pid,
+                             Heartbeats.thread_id)
+    result = query.all()
 
-    return {'assign_thread': 0,
-            'nr_threads': nr_threads}
+    # there is no universally applicable rownumber in SQLAlchemy
+    # so we have to do it in Python
+    assign_thread = None
+    for r in xrange(len(result)):
+        if result[r][0] == hostname and result[r][1] == pid and result[r][2] == thread.ident:
+            assign_thread = r
+            break
+
+    return {'assign_thread': assign_thread,
+            'nr_threads': len(result)}
 
 
 @transactional_session
