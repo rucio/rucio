@@ -363,6 +363,15 @@ def perm_update_rule(issuer, kwargs):
         return False  # Only priv accounts are allowed to change state
     if get_rule(kwargs['rule_id'])['account'] == issuer:
         return True
+    # Check if user is a country admin
+    admin_in_country = []
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.append(kv['key'].rpartition('-')[2])
+    if admin_in_country:
+        for rse in get_replica_locks_for_rule_id_per_rse(rule_id=kwargs['rule_id']):
+            if list_rse_attributes(rse=None, rse_id=rse['rse_id']).get('country') in admin_in_country:
+                return True
     return False
 
 
