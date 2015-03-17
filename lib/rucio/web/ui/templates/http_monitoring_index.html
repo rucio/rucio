@@ -11,8 +11,18 @@
 -->
 
 $var title: HTTP Monitoring Overview
-$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_index.js"></script><link rel="stylesheet" href="/static/http_monitoring.css"></link>
+$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_index.js"></script><link rel="stylesheet" href="/static/http_monitoring.css"></link><script src="/static/http_monitoring_utils.js"></script>
 
+<!-- div class="row">
+  <ul class="tabs top-menu" data-tab>
+    <li class="tab-title mall-2 large-2 columns active"><a href="https://rucio-ui-dev.cern.ch/webstats"     tabindex="0">Overview</a></li>
+    <li class="tab-title large-2 columns"><a href="https://rucio-ui-dev.cern.ch/webstats/accounts"   tabindex="1">Accounts Summary</a></li>
+    <li class="tab-title small-2 large-2 columns"><a href="https://rucio-ui-dev.cern.ch/webstats/resources"  tabindex="2">Resources Summary</a></li>
+    <li class="tab-title small-2 large-2 columns"><a href="https://rucio-ui-dev.cern.ch/webstats/usiapiclasses" tabindex="3">API Classes Summary</a></li>
+    <li class="tab-title small-2 large-2 columns"><a href="https://rucio-ui-dev.cern.ch/webstats/useragents" tabindex="3">User Agents Summary</a></li>
+    <li class="tab-title small-2 large-2 columns"><a href="https://rucio-ui-dev.cern.ch/webstats/scripts"    tabindex="4">Scripts Summary</a></li>
+  </ul>
+</div>
 
 <ul class="example-orbit" data-orbit data-options="timer_speed: 5000">
   <li>
@@ -24,7 +34,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="accounts">
               <div class="chart hits">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -32,7 +42,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="resources">
               <div class="chart hits">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -40,7 +50,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="apiclasses">
               <div class="chart hits">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -57,7 +67,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="accounts">
               <div class="chart mb">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -65,7 +75,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="resources">
               <div class="chart mb">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -73,7 +83,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="apiclasses">
               <div class="chart mb">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -90,7 +100,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="accounts">
               <div class="chart sec">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -98,7 +108,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="resources">
               <div class="chart sec">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -106,7 +116,7 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
         <li>
           <div class="chart-wrapper" id="apiclasses">
               <div class="chart sec">
-                <img id='spinner' alt="Loading" src="/media/spinner.gif"/>
+                <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
               </div>
               <a href="/webstats/accounts" class="button expand show-details">Details</a>
           </div>
@@ -114,4 +124,4 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
       </ul>
     </div>
   </li>
-</ul>
+</ul -->
