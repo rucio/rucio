@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -30,7 +31,7 @@ from stomp import Connection
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.did import touch_dids, list_parent_dids
-from rucio.core.heartbeat import live, die
+from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.lock import touch_dataset_locks
 from rucio.core.replica import touch_replica_no_wait
 from rucio.db.constants import DIDType
@@ -216,6 +217,7 @@ def kronos_file(once=False, process=0, total_processes=1, thread=0, total_thread
 
     logging.info('(kronos_file) tracer consumer started')
 
+    sanity_check(executable='kronos-file', hostname=hostname)
     while not graceful_stop.is_set():
         live(executable='kronos-file', hostname=hostname, pid=pid, thread=thread)
         for conn in conns:
