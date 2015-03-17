@@ -48,12 +48,10 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
     sanity_check(executable='rucio-undertaker', hostname=hostname)
     while not graceful_stop.is_set():
         try:
-            heartbeat = live(executable='rucio-undertaker', hostname=hostname, pid=pid, thread=thread)
+            heartbeat = live(executable='rucio-undertaker', hostname=hostname, pid=pid, thread=thread, older_than=6000)
             logging.info('Undertaker({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
 
-            # ToDo: replace worker_number by heartbeat['assign_thread'] once live working
-            # (worker_number=heartbeat['assign_thread'], total_workers=heartbeat['nr_threads']
-            dids = list_expired_dids(worker_number=worker_number, total_workers=heartbeat['nr_threads'], limit=10000)
+            dids = list_expired_dids(worker_number=heartbeat['assign_thread'] + 1, total_workers=heartbeat['nr_threads'], limit=10000)
             if not dids and not once:
                 logging.info('Undertaker(%s): Nothing to do. sleep 60.' % worker_number)
                 time.sleep(60)
