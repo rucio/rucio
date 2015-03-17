@@ -153,7 +153,10 @@ def handle_terminated_replicas(replicas):
             except (DatabaseException, DatabaseError), e:
                 if isinstance(e.args[0], tuple) and (match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
                     logging.warn("Locks detected when handling replicas on %s rule %s, update updated time." % (req_type, rule_id))
-                    request_core.touch_requests_by_rule(rule_id)
+                    try:
+                        request_core.touch_requests_by_rule(rule_id)
+                    except (DatabaseException, DatabaseError), e:
+                        logging.error("Failed to touch requests by rule(%s): %" % (rule_id, traceback.format_exc()))
                 else:
                     logging.error("Could not finish handling replicas on %s rule %s: %s" % (req_type, rule_id, traceback.format_exc()))
             except:
