@@ -62,6 +62,7 @@ UPDATED_DIDS
 UPDATED_RSE_COUNTERS
 UPDATED_ACCOUNT_COUNTERS
 REPLICAS_HISTORY
+UPDATED_COL_REP
 
 
 -- ============================================== section HISTORICAL data =========================================================================
@@ -555,6 +556,7 @@ CREATE TABLE collection_replicas (
     did_type CHAR(1 CHAR),
     rse_id RAW(16),
     bytes NUMBER(19),
+    available_replicas_cnt NUMBER(19),
     state CHAR(1 CHAR),
     accessed_at DATE,
     updated_at DATE,
@@ -572,6 +574,33 @@ CREATE TABLE collection_replicas (
 
 CREATE INDEX COLLECTION_REPLICAS_RSE_ID_IDX ON collection_replicas (rse_id) TABLESPACE ATLAS_RUCIO_FACT_DATA01;
 
+
+-- ========================================= UPDATED_COLLECTION_REPLICAS =========================================
+-- Description: Table to store updates on dataset/container replicas
+-- Estimated volume: Small, used as a queue table
+-- Access pattern:
+--                 - by scope, name, rse_id
+--                 - by id
+
+
+CREATE TABLE updated_col_rep (
+    id RAW(16),
+    "scope" VARCHAR2(25 CHAR),
+    name VARCHAR2(255 CHAR),
+    did_type CHAR(1 CHAR),
+    rse_id RAW(16),
+    updated_at DATE,
+    created_at DATE,
+    CONSTRAINT "UPDATED_COL_REP_PK" PRIMARY KEY (id),
+    CONSTRAINT "UPDATED_COL_REP_TYPE_CHK" CHECK (did_type IN ('C', 'D', 'F')),
+    CONSTRAINT "UPDATED_COL_REP_SCOPE_NN" CHECK ("scope" IS NOT NULL),
+    CONSTRAINT "UPDATED_COL_REP_NAME_NN" CHECK (name IS NOT NULL),
+    CONSTRAINT "UPDATED_COL_REP_CREATED_NN" CHECK ("CREATED_AT" IS NOT NULL),
+    CONSTRAINT "UPDATED_COL_REP_UPDATED_NN" CHECK ("UPDATED_AT" IS NOT NULL)
+) ORGANIZATION INDEX TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
+
+
+CREATE INDEX UPDATED_COL_REP_SNR_IDX ON updated_col_rep ("scope", name, rse_id) COMPRESS 1 TABLESPACE ATLAS_RUCIO_TRANSIENT_DATA01;
 
 -- ========================================= RULES ==============================================
 -- Description: Table to store rules
