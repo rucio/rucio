@@ -115,7 +115,7 @@ class RSEClient(BaseClient):
         :return:         a list containing the names of all rucio locations.
         """
         if rse_expression:
-            path = ['rses/', "?expression=" + quote(rse_expression)]
+            path = ['rses', "?expression=" + quote(rse_expression)]
             path = '/'.join(path)
         else:
             path = 'rses/'
