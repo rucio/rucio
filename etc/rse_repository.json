@@ -106,7 +106,7 @@
               "delete": 1
             }
           },
-          "hostname": "mock.lxplus.cern.ch"
+          "hostname": "lxplus.cern.ch"
         }
       }
     },
