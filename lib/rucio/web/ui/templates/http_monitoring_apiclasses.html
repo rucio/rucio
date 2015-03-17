@@ -11,43 +11,64 @@
  - Thomas Beermann <thomas.beermann@cern.ch> 2015
 -->
 
-$var title: HTTP Monitoring Accounts
-$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_apiclasses.js"></script>
+$var title: HTTP Monitoring API Classes Summary
+$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_apiclasses.js"></script><link rel="stylesheet" href="/static/http_monitoring.css"></link><script src="/static/http_monitoring_utils.js"></script>
 
-<div id="load"></div>
-<div>
-  <table border="0">
-    <tr>
-      <td><div id="api_hits" title="Hits per API Class" style="width:100%"></div></td>
-      <td><div id="api_mb" title="Aggr. Bandwidth per API Class" style="width:100%"></div></td>
-      <td><div id="api_sec" title="Aggr. Response Time per API Class" style="width:100%"></div></td>
-    </tr>
+<div class="row">
+  <div class="small-2 large-2 columns" style="margin-left: auto; margin-right: auto;">
+    <a class="button round" style="width: 100%; " data-dropdown="drop1" aria-controls="drop1" aria-expanded="false">Reports</a>
+    <ul id="drop1" class="f-dropdown" data-dropdown-content aria-hidden="true" tabindex="-1">
+      <li><a href="/webstats/accounts">Accounts</a></li>
+      <li><a href="/webstats/apiclasses">API Classes</a></li>
+      <li><a href="/webstats/resources">Resources</a></li>
+      <li><a href="/webstats/scriptids">Scripts</a></li>
+      <!-- li><a href="/webstats/useragents">User Agent</a></li -->
+    </ul>
+  </div>
+  <div class="small-12 large-12 report-header">API Classes  Overview </div>
+</div>
 
-    <tr>
-      <td style="align: center;">
-        <table>
-          <tr>
-            <td><div id="account_hits" title="Hits per Accounts" style="width:100%"></div></td>
-          </tr>
-          <tr>
-            <td><div id="account_mb" title="Aggr. Bandwidth per Accounts" style="width:100%"></div></td>
-          </tr>
-          <tr>
-            <td><div id="account_sec" title="Aggr. Response Time per Accounts" style="width:100%"></div></td>
-          </tr>
-        </table>
-      </td>
-      <td colspan="2" style="vertical-align: top">
-        <div>
-          <div style="width:100%; text-align: center" id="datepicker"></div>
+
+<div class="row">
+  <div class="small-2 large-2 columns vertical-menu"><!--- Left col for date picker and three charts -->
+    <ul class="tabs vertical" data-tab>
+      <li class="tab-title active" ><a href="#panel-apiclasses-hits" tabindex="0" controls="panel-apiclasses-hits">Hits</a></li>
+      <li class="tab-title" ><a href="#panel-apiclasses-mb"   tabindex="1"  controls="panel-apiclasses-mb">Bandwidth</a></li>
+      <li class="tab-title" ><a href="#panel-apiclasses-sec"  tabindex="2"  controls="panel-apiclasses-sec">Response time</a></li>
+      <li class="tab-title" ><a href="" tabindex="3"  controls=""><input type="text" class="datepicker-tab"></a></li>
+    </ul>
+  </div>
+
+  <div class="small-10 large-5 columns"><!--- Left col for date picker and three charts -->
+    <div class="tabs-content">
+      <section  class="content active" id="panel-apiclasses-hits">
+        <div class="chart-wrapper-details small-12 large-12 columns" id="apiclasses">
+          <div class="chart hits">
+            <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
+          </div>
         </div>
-        <div>
-          <table id="api_activity" class="hover" style="word-wrap: break-word;">
-            <thead><tr><th>API Class</th><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></thead>
-            <tfoot><tr><th>API Class</th><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></tfoot>
-          </table>
+      </section>
+      <section class="content" id="panel-apiclasses-mb">
+        <div class="chart-wrapper-details small-12 large-12 columns" id="apiclasses">
+          <div class="chart mb">
+            <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
+          </div>
         </div>
-      </td>
-    </tr>
-  </table>
+      </section>
+      <section class="content" id="panel-apiclasses-sec">
+        <div class="chart-wrapper-details small-12 large-12 columns" id="apiclasses">
+          <div class="chart sec">
+            <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="small-10 large-5 columns"><!--- Left col for date picker and three charts -->
+    <table id="apiclass_activity" class="hover" style="word-wrap: break-word;">
+      <thead><tr><th>API Class</th><th>Hits</th><th>MB</th><th>Sec</th></tr></thead>
+      <tfoot><tr><th>API Class</th><th>Hits</th><th>MB</th><th>Sec</th></tr></tfoot>
+    </table>
+  </div>
 </div>
