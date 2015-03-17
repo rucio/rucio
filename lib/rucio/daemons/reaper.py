@@ -111,6 +111,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     hostname = socket.gethostname()
     pid = os.getpid()
     thread = threading.current_thread()
+    executable = ' '.join(sys.argv)
     while not graceful_stop.is_set():
         try:
             max_deleting_rate = 0
@@ -119,7 +120,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                 try:
 
                     # heartbeat
-                    live(executable='rucio-reaper', hostname=hostname, pid=pid, thread=thread)
+                    live(executable=executable, hostname=hostname, pid=pid, thread=thread)
 
                     deleting_rate = 0
                     rse_info = rsemgr.get_rse_info(rse['rse'])
@@ -279,7 +280,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
         except:
             logging.critical(traceback.format_exc())
 
-    die(executable='rucio-reaper', hostname=hostname, pid=pid, thread=thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=thread)
     logging.info('Graceful stop requested')
     logging.info('Graceful stop done')
 
