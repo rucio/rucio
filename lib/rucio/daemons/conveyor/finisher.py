@@ -15,13 +15,17 @@ Conveyor finisher is a daemon to update replicas and rules based on requests.
 
 import logging
 import os
+import re
 import socket
 import sys
 import threading
 import time
 import traceback
 
+from sqlalchemy.exc import DatabaseError
+
 from rucio.common.config import config_get
+from rucio.common.exception import DatabaseException
 from rucio.core import request, heartbeat
 from rucio.core.monitor import record_timer, record_counter
 from rucio.daemons.conveyor import common
@@ -81,6 +85,11 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
             common.handle_requests(reqs)
             record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/len(reqs))
             record_counter('daemons.conveyor.finisher.handle_requests', len(reqs))
+        except (DatabaseException, DatabaseError), e:
+            if isinstance(e.args[0], tuple) and (re.match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
+                logging.warn("Lock detected when handling request - skipping: %s" % str(e))
+            else:
+                logging.error(traceback.format_exc())
         except:
             logging.critical(traceback.format_exc())
 
