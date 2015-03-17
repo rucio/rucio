@@ -116,6 +116,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
         try:
             max_deleting_rate = 0
 
+            nothing_to_do = True
             for rse in sort_rses(rses):
                 try:
 
@@ -162,6 +163,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     if not replicas:
                         logging.info('Reaper %s-%s: nothing to do for %s' % (worker_number, child_number, rse['rse']))
                         continue
+                    nothing_to_do = False
 
                     p = rsemgr.create_protocol(rse_info, 'delete', scheme=None)
                     for files in chunks(replicas, chunk_size):
@@ -268,11 +270,17 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             logging.warning('Reaper %s-%s: DatabaseException %s' % (worker_number, child_number, str(e)))
                         except:
                             logging.critical(traceback.format_exc())
+
                     deleting_rate = deleting_rate * 1.0 / max_being_deleted_files
                     if deleting_rate > max_deleting_rate:
                         max_deleting_rate = deleting_rate
+
                 except:
                     logging.critical(traceback.format_exc())
+
+            if nothing_to_do:
+                logging.info('Reaper %s-%s: Nothing to do. I will sleep for 20s' % (worker_number, child_number))
+                time.sleep(20)
 
             if once:
                 break
