@@ -45,8 +45,10 @@ urls = (
     '/webstats', 'HTTPMonitoringIndex',
     '/webstats/accounts', 'HTTPMonitoringAccounts',
     '/webstats/accounts/(.*)', 'HTTPMonitoringAccountDetails',
+    '/webstats/scriptids', 'HTTPMonitoringScriptIDs',
+    '/webstats/scriptids/(.*)', 'HTTPMonitoringScriptIDDetails',
     '/webstats/apiclasses', 'HTTPMonitoringApiClasses',
-    '/webstats/apiclasses/(.*)', 'HTTPMonitoringApiClassDetailes',
+    '/webstats/apiclasses/(.*)', 'HTTPMonitoringApiClassDetails',
     '/webstats/resources', 'HTTPMonitoringResources',
 )
 
@@ -197,6 +199,18 @@ class HTTPMonitoringAccountDetails():
     def GET(self, account):
         render = template.render(join(dirname(__file__), 'templates/'))
         return render.base("", "", "", render.http_monitoring_account_details())
+
+
+class HTTPMonitoringScriptIDs():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_scriptids())
+
+
+class HTTPMonitoringScriptIDDetails():
+    def GET(self, account):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.base("", "", "", render.http_monitoring_scriptid_details())
 
 
 class HTTPMonitoringApiClasses():

@@ -11,8 +11,8 @@
  - Thomas Beermann <thomas.beermann@cern.ch> 2015
 -->
 
-$var title: HTTP Monitoring Resources Summary
-$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_resources.js"></script><link rel="stylesheet" href="/static/http_monitoring.css"></link><script src="/static/http_monitoring_utils.js"></script>
+$var title: HTTP Monitoring Scripts Summary
+$var script: <script src="//code.highcharts.com/highcharts.js"></script><script src="/static/http_monitoring_scriptids.js"></script><link rel="stylesheet" href="/static/http_monitoring.css"></link><script src="/static/http_monitoring_utils.js"></script>
 
 <div class="row">
   <div class="small-2 large-2 columns" style="margin-left: auto; margin-right: auto;">
@@ -25,38 +25,38 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
       <!-- li><a href="/webstats/useragents">User Agent</a></li -->
     </ul>
   </div>
-  <div class="small-12 large-12i report-header">Resources Overview </div>
+  <div class="small-12 large-12 report-header">Scripts Overview </div>
 </div>
 
 
 <div class="row">
   <div class="small-2 large-2 columns vertical-menu"><!--- Left col for date picker and three charts -->
     <ul class="tabs vertical" data-tab>
-      <li class="tab-title active" ><a href="#panel-resources-hits" tabindex="0" controls="panel-resources-hits">Hits</a></li>
-      <li class="tab-title" ><a href="#panel-resources-mb"   tabindex="1"  controls="panel-resources-mb">Bandwidth</a></li>
-      <li class="tab-title" ><a href="#panel-resources-sec"  tabindex="2"  controls="panel-resources-sec">Response time</a></li>
+      <li class="tab-title active" ><a href="#panel-scriptids-hits" tabindex="0" controls="panel-scriptids-hits">Hits</a></li>
+      <li class="tab-title" ><a href="#panel-scriptids-mb"   tabindex="1"  controls="panel-scriptids-mb">Bandwidth</a></li>
+      <li class="tab-title" ><a href="#panel-scriptids-sec"  tabindex="2"  controls="panel-scriptids-sec">Response time</a></li>
       <li class="tab-title" ><a href="" tabindex="3"  controls=""><input type="text" class="datepicker-tab"></a></li>
     </ul>
   </div>
 
   <div class="small-10 large-5 columns"><!--- Left col for date picker and three charts -->
     <div class="tabs-content">
-      <section  class="content active" id="panel-resources-hits">
-        <div class="chart-wrapper-details small-12 large-12 columns" id="resources">
+      <section  class="content active" id="panel-scriptids-hits">
+        <div class="chart-wrapper-details small-12 large-12 columns" id="scriptids">
           <div class="chart hits">
             <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
           </div>
         </div>
       </section>
-      <section class="content" id="panel-resources-mb">
-        <div class="chart-wrapper-details small-12 large-12 columns" id="resources">
+      <section class="content" id="panel-scriptids-mb">
+        <div class="chart-wrapper-details small-12 large-12 columns" id="scriptids">
           <div class="chart mb">
             <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
           </div>
         </div>
       </section>
-      <section class="content" id="panel-resources-sec">
-        <div class="chart-wrapper-details small-12 large-12 columns" id="resources">
+      <section class="content" id="panel-scriptids-sec">
+        <div class="chart-wrapper-details small-12 large-12 columns" id="scriptids">
           <div class="chart sec">
             <img class='spinner' alt="Loading" src="/media/spinner.gif"/>
           </div>
@@ -66,9 +66,9 @@ $var script: <script src="//code.highcharts.com/highcharts.js"></script><script 
   </div>
 
   <div class="small-10 large-5 columns"><!--- Left col for date picker and three charts -->
-    <table id="account_activity" class="hover" style="word-wrap: break-word;">
-      <thead><tr><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></thead>
-      <tfoot><tr><th>Account</th><th>Hits</th><th>MB</th><th>Sec</th></tr></tfoot>
+    <table id="script_activity" class="hover" style="word-wrap: break-word;">
+      <thead><tr><th>Script</th><th>Hits</th><th>MB</th><th>Sec</th></tr></thead>
+      <tfoot><tr><th>Script</th><th>Hits</th><th>MB</th><th>Sec</th></tr></tfoot>
     </table>
   </div>
 </div>
