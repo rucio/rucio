@@ -176,17 +176,19 @@ def add_dids(dids, account, session=None):
         session.flush()
 
     except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) UNIQUE constraint failed: dids.scope, dids.name" \
-                or match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
+                or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', e.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
-        if e.args[0] == "(IntegrityError) FOREIGN KEY constraint failed" \
+        if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
+                or match('.*IntegrityError.*FOREIGN KEY constraint failed.*', e.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
                 or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
+
         raise exception.RucioException(e.args)
     except DatabaseError, e:
         if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', e.args[0]):
