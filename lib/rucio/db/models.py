@@ -590,6 +590,7 @@ class CollectionReplicas(BASE, ModelBase):
     rse_id = Column(GUID())
     bytes = Column(BigInteger)
     length = Column(BigInteger)
+    available_replicas_cnt = Column(BigInteger)
     state = Column(ReplicaState.db_type(name='COLLECTION_REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE)
     accessed_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', name='COLLECTION_REPLICAS_PK'),
@@ -598,6 +599,21 @@ class CollectionReplicas(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='COLLECTION_REPLICAS_STATE_NN'),
                    CheckConstraint('bytes IS NOT NULL', name='COLLECTION_REPLICAS_SIZE_NN'),
                    Index('COLLECTION_REPLICAS_RSE_ID_IDX', 'rse_id'),
+                   )
+
+
+class UpdatedCollectionReplicas(BASE, ModelBase):
+    """Represents updates to replicas for datasets/collections"""
+    __tablename__ = 'updated_col_rep'
+    id = Column(GUID(), default=utils.generate_uuid)
+    scope = Column(String(25))
+    name = Column(String(255))
+    did_type = Column(DIDType.db_type(name='UPDATED_COL_REP_TYPE_CHK'))
+    rse_id = Column(GUID())
+    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_COL_REP_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_COL_REP_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='UPDATED_COL_REP_NAME_NN'),
+                   Index('UPDATED_COL_REP_SNR_IDX', 'scope', 'name', 'rse_id')
                    )
 
 
@@ -944,7 +960,8 @@ def register_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplicas)
+              CollectionReplicas,
+              UpdatedCollectionReplicas)
 
     for model in models:
         model.metadata.create_all(engine)
@@ -989,7 +1006,8 @@ def unregister_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplicas)
+              CollectionReplicas,
+              UpdatedCollectionReplicas)
 
     for model in models:
         model.metadata.drop_all(engine)
