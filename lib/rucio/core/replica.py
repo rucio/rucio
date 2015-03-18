@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 # - Wen Guan, <wen.guan@cern.ch>, 2015
@@ -55,7 +55,8 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
 
     if session.bind.dialect.name == 'oracle':
         to_days = func.trunc(models.BadReplicas.created_at, 'DD')
-    # Missing mySQL support
+    elif session.bind.dialect.name == 'mysql':
+        to_days = func.date(models.BadReplicas.created_at)
     else:
         to_days = func.strftime(models.BadReplicas.created_at, '%Y-%m-%d')
     query = session.query(func.count(), to_days, models.RSE.rse, models.BadReplicas.state, models.BadReplicas.reason).filter(models.RSE.id == models.BadReplicas.rse_id)
