@@ -887,20 +887,31 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
 
-    query = query.limit(limit)
+    # query = query.limit(limit)
 
+    needed_space = bytes
+    total_bytes, total_files = 0, 0
+    total_obsolete_files = 0
     rows = list()
-    neededSpace = bytes
-    totalbytes = 0
     for (scope, name, bytes, tombstone) in query.yield_per(1000):
 
-        if tombstone != OBSOLETE and neededSpace is not None and totalbytes >= neededSpace:
+        if tombstone != OBSOLETE and needed_space is not None and total_bytes >= needed_space:
             break
 
         d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
         if tombstone != OBSOLETE:
-            totalbytes += bytes
+            total_bytes += bytes
+            total_files += 1
+        else:
+            total_obsolete_files += 1
+
+        if total_files == limit:
+            break
+
+        if total_obsolete_files == 10000:
+            break
+
     return rows
 
 

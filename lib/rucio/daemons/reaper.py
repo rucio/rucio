@@ -17,6 +17,7 @@ Reaper is a daemon to manage file deletion.
 import logging
 import math
 import os
+import random
 import socket
 import sys
 import threading
@@ -87,7 +88,8 @@ def __check_rse_usage(rse, rse_id):
     # being_deleted = rse_core.get_sum_count_being_deleted(rse_id=rse_id)
 
     free = total - used
-    needed_free_space = min_free_space - free
+    if min_free_space:
+        needed_free_space = min_free_space - free
 
     return max_being_deleted_files, needed_free_space, used, free
 
@@ -219,7 +221,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                           'file-size': replica['bytes'],
                                                                           'url': replica['pfn'],
                                                                           'duration': duration})
-                                            logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse']))
+                                            logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration))
                                         except SourceNotFound:
                                             err_msg = 'Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                             logging.warning(err_msg)
@@ -334,6 +336,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
 
     threads = []
     nb_rses_per_worker = int(math.floor(len(rses) / float(total_workers))) or 1.0
+    rses = random.sample(rses, len(rses))
     for worker in xrange(total_workers):
         for child in xrange(threads_per_worker or 1):
             kwargs = {'worker_number': worker,
