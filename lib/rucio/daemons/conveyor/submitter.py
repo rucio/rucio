@@ -317,7 +317,6 @@ def get_transfer(rse, req, scheme, mock):
         else:
             sources, metadata = get_sources(rse, [scheme], req)
         record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
-        logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
         if sources is None:
             logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
                                                                                  req['scope'],
@@ -364,7 +363,7 @@ def get_transfer(rse, req, scheme, mock):
                 attr = json.loads(str(req['attributes']))
             copy_pin_lifetime = attr.get('lifetime')
         overwrite = False
-        bring_online = 21000
+        bring_online = 172800  # 48 hours
     else:
         # for normal transfer, get the destination at first, then use the destination scheme to get sources
 
@@ -375,7 +374,6 @@ def get_transfer(rse, req, scheme, mock):
         ts = time.time()
         destinations, dest_spacetoken = get_destinations(rse, scheme, req, naming_convention)
         record_timer('daemons.conveyor.submitter.get_destinations', (time.time() - ts) * 1000)
-        logging.debug('Destinations for request %s: %s' % (req['request_id'], destinations))
         if destinations is None:
             logging.error("Request %s DID %s:%s RSE %s failed to get destinations" % (req['request_id'],
                                                                                       req['scope'],
@@ -390,12 +388,10 @@ def get_transfer(rse, req, scheme, mock):
             schemes.append('gsiftp')
         if 'gsiftp' in schemes and 'srm' not in schemes:
             schemes.append('srm')
-        logging.debug('Schemes will be allowed for sources: %s' % (schemes))
 
         ts = time.time()
         sources, metadata = get_sources(rse, schemes, req)
         record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
-        logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
 
         if not sources:
             logging.error("Request %s DID %s:%s RSE %s failed to get sources" % (req['request_id'],
@@ -421,7 +417,7 @@ def get_transfer(rse, req, scheme, mock):
         # Extend the metadata dictionary with request attributes
         copy_pin_lifetime, overwrite, bring_online = -1, True, None
         if rse_core.get_rse(sources[0][0]).rse_type == RSEType.TAPE:
-            bring_online = 21000
+            bring_online = 172800  # 48 hours
         if rse_core.get_rse(None, rse_id=req['dest_rse_id']).rse_type == RSEType.TAPE:
             overwrite = False
         # make sure we only use one source when bring_online is needed
@@ -568,7 +564,6 @@ def submitter(once=False, rses=[],
                             ts = time.time()
                             transfer = get_transfer(rse_info, req, scheme, mock)
                             record_timer('daemons.conveyor.submitter.get_transfer', (time.time() - ts) * 1000)
-                            logging.debug('Transfer for request %s: %s' % (req['request_id'], transfer))
 
                             if transfer is None:
                                 logging.error("Request %s DID %s:%s RSE %s failed to get transfer" % (req['request_id'],
