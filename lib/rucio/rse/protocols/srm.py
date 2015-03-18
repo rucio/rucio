@@ -64,6 +64,8 @@ class Default(protocol.RSEProtocol):
                 scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')
                 if not path:
                     path = self._get_path(scope=scope, name=name)
+                if path.startswith('/'):
+                    path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
                                                          hostname, ':', str(self.attributes['port']),
                                                          web_service_path, prefix, path])
