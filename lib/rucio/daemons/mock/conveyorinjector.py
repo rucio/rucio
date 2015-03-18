@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 
 """
 ConveyorInjector is a daemon to queue file transfers for testing purposes.
@@ -14,21 +14,24 @@ ConveyorInjector is a daemon to queue file transfers for testing purposes.
 
 import logging
 import os
+import random
+import string
 import sys
 import threading
-import time
 import traceback
+
+import requests
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.utils import generate_uuid
-from rucio.core import did, rse, replica, rule
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core import account_limit, did, rse, replica, rule
 from rucio.db.constants import DIDType
 from rucio.db.session import get_session
 from rucio.rse import rsemanager
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 logging.getLogger("dogpile").setLevel(logging.CRITICAL)
+requests.packages.urllib3.disable_warnings()
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -37,69 +40,65 @@ logging.basicConfig(stream=sys.stdout,
 graceful_stop = threading.Event()
 
 
-def request_transfer(once=False, src=None, dst=None):
+def generate_rse(endpoint, token):
+
+    rse_name = 'RSE%s' % generate_uuid().upper()
+
+    scheme = 'https'
+    impl = 'rucio.rse.protocols.webdav.Default'
+    if not endpoint.startswith('https://'):
+        scheme = 'srm'
+        impl = 'rucio.rse.protocols.srm.Default'
+
+    tmp_proto = {
+        'impl': impl,
+        'scheme': scheme,
+        'domains': {
+            'lan': {'read': 1, 'write': 1, 'delete': 1},
+            'wan': {'read': 1, 'write': 1, 'delete': 1}}}
+
+    rse.add_rse(rse_name)
+    tmp_proto['hostname'] = endpoint.split(':')[1][2:]
+    tmp_proto['port'] = endpoint.split(':')[2].split('/')[0]
+    tmp_proto['prefix'] = '/'.join([''] + endpoint.split(':')[2].split('/')[1:])
+    if scheme == 'srm':
+        tmp_proto['extended_attributes'] = {'space_token': token,
+                                            'web_service_path': '/srm/managerv2?SFN='}
+    rse.add_protocol(rse_name, tmp_proto)
+    rse.add_rse_attribute(rse_name, key='fts', value='https://fts3-pilot.cern.ch:8446')
+
+    account_limit.set_account_limit(account='root', rse_id=rsemanager.get_rse_info(rse_name)['id'], bytes=-1)
+
+    return rsemanager.get_rse_info(rse_name)
+
+
+def request_transfer(loop=1, src=None, dst=None,
+                     upload=False, same_src=False, same_dst=False):
     """
     Main loop to request a new transfer.
     """
 
     logging.info('request: starting')
 
-    site_a = 'RSE%s' % generate_uuid().upper()
-    site_b = 'RSE%s' % generate_uuid().upper()
-
-    scheme = 'https'
-    impl = 'rucio.rse.protocols.webdav.Default'
-    if not src.startswith('https://'):
-        scheme = 'srm'
-        impl = 'rucio.rse.protocols.gfal.Default'
-        srctoken = src.split(':')[0]
-        dsttoken = dst.split(':')[0]
-
-    tmp_proto = {
-        'impl': impl,
-        'scheme': scheme,
-        'domains': {
-            'lan': {'read': 1, 'write': 1, 'delete': 1},
-            'wan': {'read': 1, 'write': 1, 'delete': 1}}}
-
-    rse.add_rse(site_a)
-    tmp_proto['hostname'] = src.split(':')[1][2:]
-    tmp_proto['port'] = src.split(':')[2].split('/')[0]
-    tmp_proto['prefix'] = '/'.join([''] + src.split(':')[2].split('/')[1:])
-    if scheme == 'srm':
-        tmp_proto['extended_attributes'] = {'space_token': srctoken,
-                                            'web_service_path': ''}
-    rse.add_protocol(site_a, tmp_proto)
-    rse.add_rse_attribute(site_a, key='fts', value='https://fts3-pilot.cern.ch:8446')
-
-    tmp_proto = {
-        'impl': impl,
-        'scheme': scheme,
-        'domains': {
-            'lan': {'read': 1, 'write': 1, 'delete': 1},
-            'wan': {'read': 1, 'write': 1, 'delete': 1}}}
-
-    rse.add_rse(site_b)
-    tmp_proto['hostname'] = dst.split(':')[1][2:]
-    tmp_proto['port'] = dst.split(':')[2].split('/')[0]
-    tmp_proto['prefix'] = '/'.join([''] + dst.split(':')[2].split('/')[1:])
-    if scheme == 'srm':
-        tmp_proto['extended_attributes'] = {'space_token': dsttoken,
-                                            'web_service_path': ''}
-    rse.add_protocol(site_b, tmp_proto)
-    rse.add_rse_attribute(site_b, key='fts', value='https://fts3-pilot.cern.ch:8446')
-
-    si = rsemanager.get_rse_info(site_a)
-
     session = get_session()
+    src_rse = generate_rse(src, ''.join(random.sample(string.letters.upper(), 8)))
+    dst_rse = generate_rse(dst, ''.join(random.sample(string.letters.upper(), 8)))
 
     logging.info('request: started')
 
+    i = 0
     while not graceful_stop.is_set():
+
+        if i >= loop:
+            return
 
         try:
 
-            ts = time.time()
+            if not same_src:
+                src_rse = generate_rse(src, ''.join(random.sample(string.letters.upper(), 8)))
+
+            if not same_dst:
+                dst_rse = generate_rse(dst, ''.join(random.sample(string.letters.upper(), 8)))
 
             tmp_name = generate_uuid()
 
@@ -108,32 +107,34 @@ def request_transfer(once=False, src=None, dst=None):
                         type=DIDType.DATASET, account='root', session=session)
 
             # construct PFN
-            pfn = rsemanager.lfns2pfns(si, lfns=[{'scope': 'mock', 'name': 'file-%s' % tmp_name}])['mock:file-%s' % tmp_name]
+            pfn = rsemanager.lfns2pfns(src_rse, lfns=[{'scope': 'mock', 'name': 'file-%s' % tmp_name}])['mock:file-%s' % tmp_name]
 
-            # create the directories if needed
-            p = rsemanager.create_protocol(si, operation='write', scheme=scheme)
-            p.connect()
-            try:
-                p.mkdir(pfn)
-            except:
-                pass
+            if upload:
+                # create the directories if needed
+                p = rsemanager.create_protocol(src_rse, operation='write', scheme='srm')
+                p.connect()
+                try:
+                    p.mkdir(pfn)
+                except:
+                    pass
 
-            # upload the test file
-            try:
-                fp = os.path.dirname(config_get('injector', 'file'))
-                fn = os.path.basename(config_get('injector', 'file'))
-                p.put(fn, pfn, source_dir=fp)
-            except:
-                logging.critical('Could not upload, removing temporary DID: %s' % str(sys.exc_info()))
-                did.delete_dids([{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}], account='root', session=session)
-                break
+                # upload the test file
+                try:
+                    fp = os.path.dirname(config_get('injector', 'file'))
+                    fn = os.path.basename(config_get('injector', 'file'))
+                    p.put(fn, pfn, source_dir=fp)
+                except:
+                    logging.critical('Could not upload, removing temporary DID: %s' % str(sys.exc_info()))
+                    did.delete_dids([{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}], account='root', session=session)
+                    break
 
             # add the replica
-            replica.add_replica(rse=site_a, scope='mock', name='file-%s' % tmp_name,
+            replica.add_replica(rse=src_rse['rse'], scope='mock', name='file-%s' % tmp_name,
                                 bytes=config_get_int('injector', 'bytes'),
                                 adler32=config_get('injector', 'adler32'),
                                 md5=config_get('injector', 'md5'),
                                 account='root', session=session)
+            logging.info('added replica on %s for DID mock:%s' % (src_rse['rse'], tmp_name))
 
             # to the dataset
             did.attach_dids(scope='mock', name='dataset-%s' % tmp_name, dids=[{'scope': 'mock',
@@ -142,12 +143,10 @@ def request_transfer(once=False, src=None, dst=None):
                             account='root', session=session)
 
             # add rule for the dataset
-            ts = time.time()
-
             rule.add_rule(dids=[{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}],
                           account='root',
                           copies=1,
-                          rse_expression=site_b,
+                          rse_expression=dst_rse['rse'],
                           grouping='ALL',
                           weight=None,
                           lifetime=None,
@@ -155,19 +154,14 @@ def request_transfer(once=False, src=None, dst=None):
                           subscription_id=None,
                           activity='mock-injector',
                           session=session)
-
-            logging.info('added rule for %s for DID mock:%s' % (site_b, tmp_name))
-            record_timer('daemons.mock.conveyorinjector.add_rule', (time.time()-ts)*1000)
-
-            record_counter('daemons.mock.conveyorinjector.request_transfer')
+            logging.info('added rule for %s for DID mock:%s' % (dst_rse['rse'], tmp_name))
 
             session.commit()
         except:
             session.rollback()
             logging.critical(traceback.format_exc())
 
-        if once:
-            return
+        i += 1
 
     logging.info('request: graceful stop requested')
 
@@ -182,22 +176,22 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, src=None, dst=None):
+def run(loop=1, src=None, dst=None,
+        upload=True, same_src=False, same_dst=False):
     """
     Starts up the conveyer threads.
     """
 
-    if once:
-        logging.info('executing one conveyorinjector iteration only')
-        request_transfer(once=True, src=src, dst=dst)
+    logging.info('starting conveyorinjector thread')
+    t = threading.Thread(target=request_transfer, kwargs={'loop': loop,
+                                                          'src': src,
+                                                          'dst': dst,
+                                                          'upload': upload,
+                                                          'same_src': same_src,
+                                                          'same_dst': same_dst})
+    t.start()
+    logging.info('waiting for interrupts')
 
-    else:
-
-        logging.info('starting conveyorinjector thread')
-        t = threading.Thread(target=request_transfer, kwargs={'src': src, 'dst': dst})
-        t.start()
-        logging.info('waiting for interrupts')
-
-        # Interruptible joins require a timeout.
-        while t.isAlive():
-            t.join(timeout=3.14)
+    # Interruptible joins require a timeout.
+    while t.isAlive():
+        t.join(timeout=3.14)

@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 
 """
 ConveyorInjector is a daemon to queue file transfers for testing purposes.
@@ -24,9 +24,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--src", action="store", default=None, help='(scheme or token)://host:port/path')
     parser.add_argument("--dst", action="store", default=None, help='(scheme or token)://host:port/path')
-    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--upload", action="store_true", default=False, help='Upload a file to source')
+    parser.add_argument("--same-src", action="store_true", default=False, help='Keep the same source')
+    parser.add_argument("--same-dst", action="store_true", default=False, help='Keep the same destination')
+    parser.add_argument("--loop", action="store", default=1, help='Number of requests to inject')
     args = parser.parse_args()
+
     try:
-        run(once=args.run_once, src=args.src, dst=args.dst)
+        run(loop=int(args.loop),
+            src=args.src,
+            dst=args.dst,
+            upload=args.upload,
+            same_src=args.same_src,
+            same_dst=args.same_dst)
     except KeyboardInterrupt:
         stop()
