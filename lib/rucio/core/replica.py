@@ -897,6 +897,10 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
         if tombstone != OBSOLETE and needed_space is not None and total_bytes >= needed_space:
             break
+        if tombstone != OBSOLETE and total_files > limit:
+            break
+        if total_obsolete_files > 10000:
+            break
 
         d = {'scope': scope, 'name': name, 'bytes': bytes}
         rows.append(d)
@@ -905,12 +909,6 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
             total_files += 1
         else:
             total_obsolete_files += 1
-
-        if total_files == limit:
-            break
-
-        if total_obsolete_files == 10000:
-            break
 
     return rows
 
