@@ -43,7 +43,7 @@ class TestReplicaCore:
         rse_info = rsemgr.get_rse_info('MOCK')
         files = [{'scope': tmp_scope,
                   'name': 'file_%s' % generate_uuid(),
-                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests//does/not/really/matter/where',
+                  'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where',
                   'bytes': 1L,
                   'adler32': '0cc737eb',
                   'meta': {'events': 10},
@@ -56,7 +56,7 @@ class TestReplicaCore:
                                             'type': DIDType.FILE} for f in files],
                                      schemes=['srm']):
             # force the changed string - if we look it up from the DB, then we're not testing anything :-D
-            assert_equal(replica['rses']['MOCK2'][0], 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests//does/not/really/matter/where')
+            assert_equal(replica['rses']['MOCK2'][0], 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where')
 
     def test_add_list_bad_replicas(self):
         """ REPLICA (CORE): Add bad replicas and list them"""
