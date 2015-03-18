@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Wen Guan, <wguan@cern.ch>, 2014
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 
@@ -55,6 +55,8 @@ class Default(protocol.RSEProtocol):
                 scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')
                 if not path:
                     path = self._get_path(scope=scope, name=name)
+                if path.startswith('/'):
+                    path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
                                                          hostname, web_service_path, prefix, path])
         else:
