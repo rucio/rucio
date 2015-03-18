@@ -36,7 +36,7 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
     """
     Register a heartbeat for a process/thread on a given node.
     The executable name is used for the calculation of thread assignments.
-    Removes all stale heartbeats for the given executable.
+    Removal of stale heartbeats is done as a scheduled database job.
 
     TODO: Returns an assignment dictionary for the given executable.
 
@@ -44,16 +44,10 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
     :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch
     :param pid: UNIX Process ID as a number, e.g., 1234
     :param thread: Python Thread Object
-    :param older_than: Removes specified heartbeats older than specified nr of seconds
+    :param older_than: Ignore specified heartbeats older than specified nr of seconds
 
     :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
-
-    # first, delete the old ones (assume same executable, but different args)
-    query = session.query(Heartbeats).filter(Heartbeats.executable.like('%s%%' % executable.split()[0]))
-    if older_than:
-        query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than))
-    query.delete(synchronize_session=False)
 
     # upsert the heartbeat
     tmp_hb = Heartbeats(executable=executable,
@@ -69,6 +63,7 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
                           Heartbeats.pid,
                           Heartbeats.thread_id)\
                    .filter(Heartbeats.executable.like('%s%%' % executable.split()[0]))\
+                   .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
                    .group_by(Heartbeats.executable,
                              Heartbeats.hostname,
                              Heartbeats.pid,
