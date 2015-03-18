@@ -25,7 +25,7 @@ if __name__ == "__main__":
         session = get_session()
         query = '''BEGIN
         FOR u in (SELECT /*+  INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX) */  rse_id, count(1) as files, sum(bytes) as bytes, sys_extract_utc(localtimestamp) as updated_at
-                  FROM  atlas_rucio.replicas@ADCR_ADG.CERN.CH
+                  FROM  atlas_rucio.replicas
                   WHERE (case when tombstone is not null then rse_id END) is not null and tombstone=to_date('1-1-1970 00:00:00','MM-DD-YYYY HH24:Mi:SS')
                   GROUP BY rse_id)
         LOOP
