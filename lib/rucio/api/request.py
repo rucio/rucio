@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 
 from rucio.api import permission
 from rucio.common import exception
@@ -27,44 +27,6 @@ def queue_requests(requests, issuer):
         raise exception.AccessDenied('%(issuer)s can not queue request' % locals())
 
     return request.queue_requests(requests)
-
-
-def submit_deletion(url, issuer, account):
-    """
-    Submit a deletion request to a deletiontool.
-
-    :param url: URL acceptable to deletiontool as a string.
-    :param issuer: Issuing account as a string.
-    :param account: Account identifier as a string.
-    :returns: Deletiontool external ID.
-    """
-
-    kwargs = {'account': account, 'issuer': issuer, 'url': url}
-    if not permission.has_permission(issuer=issuer, action='submit_deletion', kwargs=kwargs):
-        raise exception.AccessDenied('%(account)s can not delete' % locals())
-
-    return request.submit_deletion(url)
-
-
-def submit_transfer(request_id, src_urls, dest_urls, transfertool, issuer, account, metadata={}):
-    """
-    Submit a transfer request to a transfertool.
-
-    :param request_id: Associated request identifier as a string.
-    :param src_urls: Source URL acceptable to transfertool as a list of strings.
-    :param dest_urls: Destination URL acceptable to transfertool as a list of strings.
-    :param transfertool: Transfertool as a string.
-    :param issuer: Issuing account as a string.
-    :param account: Account identifier as a string.
-    :param metadata: Metadata key/value pairs as a dictionary.
-    :returns: Transfertool external ID.
-    """
-
-    kwargs = {'account': account, 'issuer': issuer, 'request_id': request_id, 'src_urls': src_urls, 'dest_urls': dest_urls, 'transfertool': transfertool, 'metadata': metadata}
-    if not permission.has_permission(issuer=issuer, action='submit_transfer', kwargs=kwargs):
-        raise exception.AccessDenied('%(account)s cannot submit a transfer with %s(transfertool)s from %(src_urls)s to %(dest_urls)s' % locals())
-
-    return request.submit_transfer(request_id, src_urls=src_urls, dest_urls=dest_urls, transfertool=transfertool, metadata=metadata)
 
 
 def query_request(request_id, issuer, account):
