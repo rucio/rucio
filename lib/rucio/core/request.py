@@ -387,8 +387,7 @@ def query_latest(external_host, state, last_nhours=1, session=None):
     return ret_resps
 
 
-@read_session
-def bulk_query_requests(request_host, request_ids, transfertool='fts3', session=None):
+def bulk_query_requests(request_host, request_ids, transfertool='fts3'):
     """
     Query the status of a request.
 

@@ -78,7 +78,7 @@ def poller(once=False,
             logging.debug('%i:%i - start to poll requests older than %i seconds' % (process, thread, older_than))
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=RequestState.SUBMITTED,
-                                    limit=bulk,
+                                    limit=10000,
                                     older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads,
