@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
@@ -28,6 +28,7 @@ from rucio.db import models
 from rucio.db.constants import RequestState, RequestType, FTSState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
+from rucio.rse import rsemanager as rsemgr
 
 
 @transactional_session
@@ -683,3 +684,107 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
             except Exception, e:
                 logging.warn('Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(e)))
         archive_request(request_id=req[0], session=session)
+
+
+@read_session
+def list_requests_and_source_replicas(thread=None, total_threads=None, session=None):
+    """
+    List requests with source replicas
+
+    Caveat: Transfers with no source files are silently excluded.
+
+    :param thread: Identifier of the caller thread as an integer.
+    :param total_threads: Maximum number of threads as an integer.
+    :param session: Database session to use.
+    :returns: List.
+    """
+    is_false = False  # For PEP8
+    query = session.query(models.Request.id,
+                          models.Request.rule_id,
+                          models.Request.scope,
+                          models.Request.name,
+                          models.Request.adler32,
+                          models.Request.bytes,
+                          models.Request.activity,
+                          models.Request.attributes,
+                          models.Request.dest_rse_id,
+                          models.RSEFileAssociation.rse_id,
+                          models.RSE.rse,
+                          models.RSE.deterministic,
+                          models.RSE.rse_type,
+                          models.RSEFileAssociation.path)\
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+        .filter(models.Request.state == RequestState.QUEUED)\
+        .filter(models.Request.request_type == RequestType.TRANSFER)\
+        .filter(models.Request.scope == models.RSEFileAssociation.scope)\
+        .filter(models.Request.name == models.RSEFileAssociation.name)\
+        .filter(models.Request.dest_rse_id != models.RSEFileAssociation.rse_id)\
+        .filter(models.RSE.id == models.RSEFileAssociation.rse_id)\
+        .filter(models.RSE.staging_area == is_false)
+
+    if (total_threads-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('thread', thread), bindparam('total_threads', total_threads - 1)]
+            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread', bindparams=bindparams))
+
+    transfers, rses_info, protocols = {}, {}, {}
+    for id, rule_id, scope, name, adler32, bytes, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path in query:
+
+        if id not in transfers:
+            # Get destination rse information and protocol
+            if dest_rse_id not in rses_info:
+                dest_rse = get_rse_name(rse_id=dest_rse_id, session=session)
+                rses_info[dest_rse_id] = rsemgr.get_rse_info(dest_rse, session=session)
+
+            # Get protocol
+            if dest_rse_id not in protocols:
+                protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write')
+
+            # Compute the destination url
+            if rses_info[dest_rse_id]['deterministic']:
+                dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values()[0]
+            else:
+                # compute dest url in case of non deterministic
+                # naming convention, etc.
+                dest_url = None
+
+            attr = None
+            if attributes:
+                if type(attributes) is dict:
+                    attr = json.loads(json.dumps(attributes))
+                else:
+                    attr = json.loads(str(attributes))
+
+            transfers[id] = {'dest_rse_id': dest_rse_id,
+                             'dest_rse': rses_info[dest_rse_id]['rse'],
+                             'scope': scope,
+                             'name': name,
+                             'bytes': bytes,
+                             'url': dest_url,
+                             'scheme':  protocols[dest_rse_id].attributes['scheme'],
+                             'adler32': adler32,
+                             'rule_id': rule_id,
+                             'activity': activity,
+                             'attributes': attr,
+                             'sources': []}
+
+            # ToDo: source_replica_expression, include_rses, exclude_rses ?
+
+            # Compute the sources: urls, etc
+            if source_rse_id not in rses_info:
+                source_rse = get_rse_name(rse_id=source_rse_id, session=session)
+                rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+
+            # Get protocol
+            if source_rse_id not in protocols:
+                # force the scheme to protocols[dest_rse_id].attributes['scheme'] ?
+                # Todo: check if scheme for source == dest, gsiftp
+                protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write')
+
+            source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+            source = {'source_rse_id': source_rse_id,
+                      'source_rse': rses_info[source_rse_id]['rse'],
+                      'rse_type': rses_info[source_rse_id]['rse_type'],
+                      'url': source_url}
+            transfers[id]['sources'].append(source)
+    return transfers
