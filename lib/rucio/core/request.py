@@ -123,52 +123,6 @@ def queue_requests(requests, session=None):
         raise
 
 
-@transactional_session
-def submit_deletion(url, session=None):
-    """
-    Submit a deletion request to a deletiontool.
-
-    :param url: URL acceptable to deletiontool as a string.
-    :param session: Database sesssion to use.
-    :returns: Deletiontool external ID.
-    """
-
-    record_counter('core.request.submit_deletion')
-
-
-@transactional_session
-def submit_transfers(transfers, transfertool='fts3', job_metadata={}, session=None):
-    """
-    Submit transfer request to a transfertool.
-
-    :param transfers: Dictionary containing request metadata.
-    :param transfertool: Transfertool as a string.
-    :param job_metadata: Metadata key/value pairs for all files as a dictionary.
-    :param session: Database session to use.
-    :returns: Transfertool external ID.
-    """
-
-    record_counter('core.request.submit_transfer')
-
-    transfer_ids = []
-
-    if transfertool == 'fts3':
-        ts = time.time()
-        transfer_ids = fts3.submit_transfers(transfers, job_metadata)
-        record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000)
-
-    for transfer_id in transfer_ids:
-        session.query(models.Request)\
-               .filter_by(id=transfer_id)\
-               .update({'state': RequestState.SUBMITTED,
-                        'external_id': transfer_ids[transfer_id]['external_id'],
-                        'external_host': transfer_ids[transfer_id]['external_host'],
-                        'dest_url': transfer_ids[transfer_id]['dest_urls'][0]},
-                       synchronize_session=False)
-
-    return transfer_ids
-
-
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None,
              process=None, total_processes=None, thread=None, total_threads=None,
@@ -468,6 +422,25 @@ def query_request_details(request_id, transfertool='fts3', session=None):
         return tmp
 
     raise NotImplementedError
+
+
+@transactional_session
+def set_requests_external(transfer_ids, session=None):
+    """
+    Update all requests with the according external id from the transfertool.
+
+    :param transfer_ids: Transfer data as returned by transfertool.
+    :param session: Database session to use.
+    """
+
+    for transfer_id in transfer_ids:
+        session.query(models.Request)\
+               .filter_by(id=transfer_id)\
+               .update({'state': RequestState.SUBMITTED,
+                        'external_id': transfer_ids[transfer_id]['external_id'],
+                        'external_host': transfer_ids[transfer_id]['external_host'],
+                        'dest_url': transfer_ids[transfer_id]['dest_urls'][0]},
+                       synchronize_session=False)
 
 
 @transactional_session
