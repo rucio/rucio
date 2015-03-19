@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+
+"""
+Conveyor is a daemon to manage file transfers.
+"""
+
+import argparse
+import signal
+
+from rucio.daemons.conveyor.submitter_strawman import run, stop
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-once", action="store_true", default=False,
+                        help='One iteration only')
+    parser.add_argument("--total-threads", action="store", default=1, type=int,
+                        help='Total number of threads')
+    args = parser.parse_args()
+
+    try:
+        run(once=args.run_once,
+            total_threads=args.total_threads)
+    except KeyboardInterrupt:
+        stop()
