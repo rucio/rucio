@@ -10,7 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
@@ -66,8 +66,6 @@ def has_permission(issuer, action, kwargs):
             'set_metadata': perm_set_metadata,
             'set_status': perm_set_status,
             'queue_requests': perm_queue_requests,
-            'submit_deletion': perm_submit_transfer,
-            'submit_transfer': perm_submit_transfer,
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
             'query_request': perm_query_request,
@@ -523,28 +521,6 @@ def perm_update_replicas_states(issuer, kwargs):
 def perm_queue_requests(issuer, kwargs):
     """
     Checks if an account can submit transfer or deletion requests on destination RSEs for data identifiers.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed, otherwise False
-    """
-    return issuer == 'root'
-
-
-def perm_submit_deletion(issuer, kwargs):
-    """
-    Checks if an account can submit a transfer request to a transfertool.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :returns: True if account is allowed, otherwise False
-    """
-    return issuer == 'root'
-
-
-def perm_submit_transfer(issuer, kwargs):
-    """
-    Checks if an account can submit a transfer request to a transfertool.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

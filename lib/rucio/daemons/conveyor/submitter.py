@@ -36,7 +36,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
 from rucio.rse import rsemanager as rsemgr
-
+from rucio.transfertool import fts3
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -576,32 +576,33 @@ def submitter(once=False, rses=[],
 
                             ts = time.time()
                             tmp_metadata = transfer['file_metadata']
-                            eids = request.submit_transfers(transfers=[transfer, ],
-                                                            transfertool='fts3',
-                                                            job_metadata=tmp_metadata)
+
+                            transfer_ids = fts3.submit_transfers([transfer, ], tmp_metadata)
+
+                            request.set_requests_external(transfer_ids)
 
                             record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                             ts = time.time()
                             if req['previous_attempt_id']:
-                                logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s with eid: %s' % (req['retry_count'],
-                                                                                                                                        req['request_id'],
-                                                                                                                                        req['previous_attempt_id'],
-                                                                                                                                        req['scope'],
-                                                                                                                                        req['name'],
-                                                                                                                                        transfer['src_urls'],
-                                                                                                                                        transfer['dest_urls'],
-                                                                                                                                        eids[req['request_id']]['external_host'] if req['request_id'] in eids else None,
-                                                                                                                                        eids[req['request_id']]['external_id'] if req['request_id'] in eids else None))
+                                logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s TRANSFERID: %s' % (req['retry_count'],
+                                                                                                                                          req['request_id'],
+                                                                                                                                          req['previous_attempt_id'],
+                                                                                                                                          req['scope'],
+                                                                                                                                          req['name'],
+                                                                                                                                          transfer['src_urls'],
+                                                                                                                                          transfer['dest_urls'],
+                                                                                                                                          transfer_ids[req['request_id']]['external_host'] if req['request_id'] in transfer_ids else None,
+                                                                                                                                          transfer_ids[req['request_id']]['external_id'] if req['request_id'] in transfer_ids else None))
                             else:
-                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s with eid: %s' % (req['request_id'],
-                                                                                                                   req['scope'],
-                                                                                                                   req['name'],
-                                                                                                                   transfer['src_urls'],
-                                                                                                                   transfer['dest_urls'],
-                                                                                                                   eids[req['request_id']]['external_host'] if req['request_id'] in eids else None,
-                                                                                                                   eids[req['request_id']]['external_id'] if req['request_id'] in eids else None))
-                            if not req['request_id'] in eids:
+                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s TRANSFERID: %s' % (req['request_id'],
+                                                                                                                     req['scope'],
+                                                                                                                     req['name'],
+                                                                                                                     transfer['src_urls'],
+                                                                                                                     transfer['dest_urls'],
+                                                                                                                     transfer_ids[req['request_id']]['external_host'] if req['request_id'] in transfer_ids else None,
+                                                                                                                     transfer_ids[req['request_id']]['external_id'] if req['request_id'] in transfer_ids else None))
+                            if not req['request_id'] in transfer_ids:
                                 request.set_request_state(req['request_id'], RequestState.LOST)
                                 logging.warn("Failed to submit request: %s, set request LOST" % (req['request_id']))
                             record_counter('daemons.conveyor.submitter.submit_request')
