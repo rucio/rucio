@@ -124,6 +124,49 @@ def queue_requests(requests, session=None):
         raise
 
 
+def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}):
+    """
+    Submit transfer request to a transfertool.
+
+    :param external_host: External host name as string
+    :param files: List of Dictionary containing request file.
+    :param transfertool: Transfertool as a string.
+    :param job_params: Metadata key/value pairs for all files as a dictionary.
+    :returns: Transfertool external ID.
+    """
+
+    record_counter('core.request.submit_transfer')
+
+    transfer_id = None
+
+    if transfertool == 'fts3':
+        ts = time.time()
+        transfer_id = fts3.submit_bulk_transfers(external_host, files, job_params)
+        record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000/len(files))
+    return transfer_id
+
+
+@transactional_session
+def set_request_transfers(transfers, session=None):
+    """
+    Update the transfer info of a request.
+
+    :param transfers: Dictionary containing request transfer info.
+    :param session: Database session to use.
+    """
+
+    try:
+        for request_id in transfers:
+            session.query(models.Request).filter_by(id=request_id)\
+                   .update({'state': transfers[request_id]['state'],
+                            'external_id': transfers[request_id]['external_id'],
+                            'external_host': transfers[request_id]['external_host'],
+                            'dest_url': transfers[request_id]['dest_url']},
+                           synchronize_session=False)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None,
              process=None, total_processes=None, thread=None, total_threads=None,
@@ -207,6 +250,91 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
                 t2.pop('_sa_instance_state')
                 t2['request_id'] = t2['id']
                 t2['attributes'] = json.loads(str(t2['attributes']))
+                result.append(t2)
+    return result
+
+
+@read_session
+def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None, activity=None,
+                       process=None, total_processes=None, thread=None, total_threads=None,
+                       activity_shares=None, session=None):
+    """
+    Retrieve the next requests matching the request type and state.
+    Workers are balanced via hashing to reduce concurrency on database.
+
+    :param request_type: Type of the request as a string or list of strings.
+    :param state: State of the request as a string or list of strings.
+    :param limit: Integer of requests to retrieve.
+    :param older_than: Only select requests older than this DateTime.
+    :param process: Identifier of the caller process as an integer.
+    :param total_processes: Maximum number of processes as an integer.
+    :param thread: Identifier of the caller thread as an integer.
+    :param total_threads: Maximum number of threads as an integer.
+    :param activity_shares: Activity shares dictionary, with number of requests
+    :param session: Database session to use.
+    :returns: List of a {external_host, external_id} dictionary.
+    """
+
+    record_counter('core.request.get_next_transfers.%s-%s' % (request_type, state))
+
+    # lists of one element are not allowed by SQLA, so just duplicate the item
+    if type(request_type) is not list:
+        request_type = [request_type, request_type]
+    elif len(request_type) == 1:
+        request_type = [request_type[0], request_type[0]]
+    if type(state) is not list:
+        state = [state, state]
+    elif len(state) == 1:
+        state = [state[0], state[0]]
+
+    result = []
+    if not activity_shares:
+        activity_shares = [None]
+
+    for share in activity_shares:
+
+        query = session.query(models.Request.external_host, models.Request.external_id).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+                                                                                       .distinct()\
+                                                                                       .filter(models.Request.state.in_(state))\
+                                                                                       .filter(models.Request.request_type.in_(request_type))\
+                                                                                       .order_by(asc(models.Request.updated_at))
+
+        if isinstance(older_than, datetime.datetime):
+            query = query.filter(models.Request.updated_at < older_than)
+
+        if rse:
+            query = query.filter(models.Request.dest_rse_id == rse)
+
+        if share:
+            query = query.filter(models.Request.activity == share)
+
+        if (total_processes-1) > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+                query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+
+        if (total_threads-1) > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+                query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+
+        if share:
+            query = query.limit(activity_shares[share])
+        else:
+            query = query.limit(limit)
+
+        tmp = query.all()
+        if tmp:
+            for t in tmp:
+                t2 = {'external_host': t[0], 'external_id': t[1]}
                 result.append(t2)
     return result
 
@@ -397,6 +525,44 @@ def bulk_query_requests(request_host, request_ids, transfertool='fts3'):
     return None
 
 
+def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3'):
+    """
+    Query the status of a request.
+
+    :param request_host: Name of the external host.
+    :param transfer_ids: List of (External-ID as a 32 character hex string)
+    :param transfertool: Transfertool name as a string.
+    :returns: Request status information as a dictionary.
+    """
+
+    record_counter('core.request.bulk_query_transfers')
+
+    if transfertool == 'fts3':
+        try:
+            ts = time.time()
+            fts_resps = fts3.bulk_query(transfer_ids, request_host)
+            record_timer('core.request.bulk_query_transfers', (time.time() - ts) * 1000 / len(transfer_ids))
+        except Exception:
+            raise
+
+        for transfer_id in transfer_ids:
+            if transfer_id not in fts_resps:
+                fts_resps[transfer_id] = Exception("Transfer id %s is not returned" % transfer_id)
+            if fts_resps[transfer_id] and not isinstance(fts_resps[transfer_id], Exception):
+                for request_id in fts_resps[transfer_id]:
+                    if fts_resps[transfer_id][request_id]['file_state'] in (str(FTSState.FAILED),
+                                                                            str(FTSState.FINISHEDDIRTY),
+                                                                            str(FTSState.CANCELED)):
+                        fts_resps[transfer_id][request_id]['new_state'] = RequestState.FAILED
+                    elif fts_resps[transfer_id][request_id]['file_state'] in str(FTSState.FINISHED):
+                        fts_resps[transfer_id][request_id]['new_state'] = RequestState.DONE
+        return fts_resps
+    else:
+        raise NotImplementedError
+
+    return None
+
+
 @read_session
 def query_request_details(request_id, transfertool='fts3', session=None):
     """
@@ -512,6 +678,28 @@ def touch_requests_by_rule(rule_id, session=None):
 
 
 @transactional_session
+def set_transfer_state(external_host, transfer_id, new_state, session=None):
+    """
+    Update the state of a request. Fails silently if the transfer_id does not exist.
+
+    :param external_host: Selected external host as string in format protocol://fqdn:port
+    :param transfer_id: external transfer job id as a string.
+    :param new_state: New state as string.
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.set_transfer_state')
+
+    try:
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+    if not rowcount:
+        raise UnsupportedOperation("Transfer %s on %s state %s cannot be updated." % (transfer_id, external_host, new_state))
+
+
+@transactional_session
 def set_external_host(request_id, external_host, session=None):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
@@ -548,6 +736,26 @@ def touch_request(request_id, session=None):
         raise UnsupportedOperation("Request %s cannot be touched." % request_id)
 
 
+@transactional_session
+def touch_transfer(external_host, transfer_id, session=None):
+    """
+    Update the timestamp of requests in a transfer. Fails silently if the transfer_id does not exist.
+
+    :param request_host: Name of the external host.
+    :param transfer_id: external transfer job id as a string.
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.touch_transfer')
+
+    try:
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+    if not rowcount:
+        raise UnsupportedOperation("Transfer %s  on %s cannot be touched." % (transfer_id, external_host))
+
+
 @read_session
 def get_request(request_id, session=None):
     """
@@ -560,6 +768,30 @@ def get_request(request_id, session=None):
 
     try:
         tmp = session.query(models.Request).filter_by(id=request_id).first()
+
+        if not tmp:
+            return
+        else:
+            tmp = dict(tmp)
+            tmp.pop('_sa_instance_state')
+            return tmp
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@read_session
+def get_requests_by_transfer(external_host, transfer_id, session=None):
+    """
+    Retrieve requests by its transfer ID.
+
+    :param request_host: Name of the external host.
+    :param transfer_id: external transfer job id as a string.
+    :param session: Database session to use.
+    :returns: List of Requests.
+    """
+
+    try:
+        tmp = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).all()
 
         if not tmp:
             return
