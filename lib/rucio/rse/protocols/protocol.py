@@ -84,7 +84,7 @@ class RSEProtocol(object):
         return pfns
 
     def __lfns2pfns_client(self, lfns):
-        """ Provides the path of a replica for non-detemernisic sites. Will be assigned to get path by the __init__ method if neccessary.
+        """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary.
 
             :param scope: list of DIDs
 
@@ -120,14 +120,14 @@ class RSEProtocol(object):
         return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
 
     def _get_path_nondeterministic_server(self, scope, name):
-        """ Provides the path of a replica for non-detemernisic sites. Will be assigned to get path by the __init__ method if neccessary. """
+        """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
         r = replica.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id'])
         if 'path' in r and r['path'] is not None:
             path = r['path']
         elif 'state' in r and (r['state'] is None or r['state'] == 'UNAVAILABLE'):
-            raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on none-determinstic storage named %s' % (scope, name, self.rse['rse']))
+            raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
         else:
-            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on none-determinstic storage named %s' % (scope, name, self.rse['rse']))
+            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-determinstic storage named %s' % (scope, name, self.rse['rse']))
         if path.startswith('/'):
             path = path[1:]
         if path.endswith('/'):

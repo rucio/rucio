@@ -140,7 +140,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                     logging.info('Reaper %s-%s: Running on RSE %s' % (worker_number, child_number, rse_info['rse']))
 
-                    needed_free_space, max_being_deleted_files = None, 10000
+                    needed_free_space, max_being_deleted_files = None, 100
                     if not greedy:
                         max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                         logging.info('Reaper %(worker_number)s-%(child_number)s: Space usage for RSE %(rse)s - max_being_deleted_files: %(max_being_deleted_files)s, needed_free_space: %(needed_free_space)s, used: %(used)s, free: %(free)s' % locals())
@@ -176,7 +176,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                             for replica in files:
                                 try:
-                                    replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name']}, ], operation='delete').values()[0])
+                                    replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info, lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}, ], operation='delete').values()[0])
                                 except ReplicaUnAvailable as e:
                                     err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(e))
                                     logging.warning('Reaper %s-%s: %s' % (worker_number, child_number, err_msg))

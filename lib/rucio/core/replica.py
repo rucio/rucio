@@ -870,7 +870,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
     # filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
     none_value = None  # Hack to get pep8 happy...
-    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.bytes, models.RSEFileAssociation.tombstone).\
+    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path, models.RSEFileAssociation.bytes, models.RSEFileAssociation.tombstone).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
@@ -894,7 +894,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     total_bytes, total_files = 0, 0
     total_obsolete_files = 0
     rows = list()
-    for (scope, name, bytes, tombstone) in query.yield_per(1000):
+    for (scope, name, path, bytes, tombstone) in query.yield_per(1000):
 
         if tombstone != OBSOLETE and needed_space is not None and total_bytes >= needed_space:
             break
@@ -903,7 +903,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         if total_obsolete_files > 10000:
             break
 
-        d = {'scope': scope, 'name': name, 'bytes': bytes}
+        d = {'scope': scope, 'name': name, 'path': path, 'bytes': bytes}
         rows.append(d)
         if tombstone != OBSOLETE:
             total_bytes += bytes
