@@ -73,6 +73,71 @@ def update_request_state(response, session=None):
         return False
 
 
+def touch_transfer(external_host, transfer_id):
+    """
+    Used by poller and consumer to update the internal state of requests,
+    after the response by the external transfertool.
+
+    :param request_host: Name of the external host.
+    :param transfer_id: external transfer job id as a string.
+    :returns commit_or_rollback: Boolean.
+    """
+
+    try:
+        request_core.touch_transfer(external_host, transfer_id)
+    except exception.UnsupportedOperation, e:
+        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(e).replace('\n', '')))
+        return False
+
+
+@transactional_session
+def set_transfer_state(external_host, transfer_id, state, session=None):
+    """
+    Used by poller to update the internal state of transfer,
+    after the response by the external transfertool.
+
+    :param request_host: Name of the external host.
+    :param transfer_id: external transfer job id as a string.
+    :param state: request state as a string.
+    :param session: The database session to use.
+    :returns commit_or_rollback: Boolean.
+    """
+
+    try:
+        request_core.set_transfer_state(external_host, transfer_id, state, session=session)
+        if state == RequestState.LOST:
+            reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
+            for req in reqs:
+                logging.debug('REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
+                response = {'new_state': state,
+                            'transfer_id': transfer_id,
+                            'job_state': state,
+                            'src_url': None,
+                            'dst_url': req['dest_url'],
+                            'duration': 0,
+                            'reason': "The FTS job lost",
+                            'scope': req.get('scope', None),
+                            'name': req.get('name', None),
+                            'src_rse': req.get('src_rse', None),  # Todo for multiple source replicas
+                            'dst_rse': req.get('dst_rse', None),
+                            'request_id': req.get('request_id', None),
+                            'activity': req.get('activity', None),
+                            'dest_rse_id': req.get('dest_rse_id', None),
+                            'previous_attempt_id': req.get('previous_attempt_id', None),
+                            'adler32': req.get('adler32', None),
+                            'md5': req.get('md5', None),
+                            'filesize': req.get('filesize', None),
+                            'external_host': external_host,
+                            'job_m_replica': None,
+                            'details': None}
+
+                add_monitor_message(response, session=session)
+        return True
+    except exception.UnsupportedOperation, e:
+        logging.warning("Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(e).replace('\n', '')))
+        return False
+
+
 def handle_requests(reqs):
     """
     used by finisher to handle terminated requests,
