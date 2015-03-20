@@ -691,7 +691,8 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     ignore_availability = Column(Boolean())
     comments = Column(String(255))
     _table_args = (PrimaryKeyConstraint('history_id', name='RULES_HIST_RECENT_PK'),  # This is only a fake PK needed by SQLAlchemy, it won't be in Oracle
-                   Index('RULES_HIST_RECENT_ID_IDX', 'id'))
+                   Index('RULES_HIST_RECENT_ID_IDX', 'id'),
+                   Index('RULES_HIST_RECENT_SC_NA_IDX', 'scope', 'name'))
 
 
 class ReplicationRuleHistory(BASE, ModelBase):
