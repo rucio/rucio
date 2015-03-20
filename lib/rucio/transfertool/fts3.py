@@ -146,6 +146,75 @@ def submit_transfers(transfers, job_metadata):
     return transfer_ids
 
 
+def submit_bulk_transfers(external_host, files, job_params):
+    """
+    Submit a transfer to FTS3 via JSON.
+
+    :param external_host: FTS server as a string.
+    :param files: List of dictionary which for a transfer.
+    :param job_params: Dictionary containing key/value pairs, for all transfers.
+    :returns: FTS transfer identifier.
+    """
+
+    # FTS3 expects 'davs' as the scheme identifier instead of https
+    for file in files:
+        if not file['sources'] or file['sources'] == []:
+            raise Exception('No sources defined')
+
+        new_src_urls = []
+        new_dst_urls = []
+        for url in file['sources']:
+            if url.startswith('https'):
+                new_src_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+            else:
+                new_src_urls.append(url)
+        for url in file['destinations']:
+            if url.startswith('https'):
+                new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+            else:
+                new_dst_urls.append(url)
+
+        file['sources'] = new_src_urls
+        file['destinations'] = new_dst_urls
+
+    transfer_id = None
+
+    # bulk submission
+    params_dict = {'files': files, 'params': job_params}
+    params_str = json.dumps(params_dict)
+
+    r = None
+    if external_host.startswith('https://'):
+        try:
+            ts = time.time()
+            r = requests.post('%s/jobs' % external_host,
+                              verify=False,
+                              cert=(__USERCERT, __USERCERT),
+                              data=params_str,
+                              headers={'Content-Type': 'application/json'})
+            record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
+        except:
+            logging.warn('Could not submit transfer to %s' % external_host)
+    else:
+        try:
+            ts = time.time()
+            r = requests.post('%s/jobs' % external_host,
+                              data=params_str,
+                              headers={'Content-Type': 'application/json'})
+            record_timer('transfertool.fts3.submit_transfer.%s' % __extract_host(external_host), (time.time() - ts) * 1000/len(files))
+        except:
+            logging.warn('Could not submit transfer to %s' % external_host)
+
+    if r and r.status_code == 200:
+        record_counter('transfertool.fts3.%s.submission.success' % __extract_host(external_host), len(files))
+        transfer_id = str(r.json()['job_id'])
+    else:
+        logging.warn("Failed to submit transfer to %s, error: %s" % (external_host, r.text if r is not None else r))
+        record_counter('transfertool.fts3.%s.submission.failure' % __extract_host(external_host), len(files))
+
+    return transfer_id
+
+
 def query(transfer_id, transfer_host):
     """
     Query the status of a transfer in FTS3 via JSON.
@@ -287,6 +356,7 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
     response = {'new_state': None,
                 'transfer_id': fts_job_response.get('job_id'),
                 'job_state': fts_job_response.get('job_state', None),
+                'file_state': fts_files_response[last_src_file].get('file_state', None),
                 'src_url': fts_files_response[last_src_file].get('source_surl', None),
                 'dst_url': fts_files_response[last_src_file].get('dest_surl', None),
                 'duration': duration,
@@ -308,6 +378,71 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
     return response
 
 
+def format_new_response(transfer_host, fts_job_response, fts_files_response):
+    """
+    Format the response format of FTS3 query.
+
+    :param fts_job_response: FTSs job query response.
+    :param fts_files_response: FTS3 files query response.
+    :returns: formatted response.
+    """
+
+    resps = {}
+    if 'request_id' in fts_job_response['job_metadata']:
+        # submitted by old submitter
+        request_id = fts_job_response['job_metadata']['request_id']
+        resps[request_id] = format_response(transfer_host, fts_job_response, fts_files_response)
+    else:
+        multi_sources = fts_job_response['job_metadata'].get('multi_sources', False)
+        last_src_file = -1
+        for file_resp in fts_files_response:
+            # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
+            # The next used file will overwrite the current used one. Only the last used file will return.
+            if file_resp['file_state'] == 'NOT_USED':
+                continue
+            if multi_sources:
+                last_src_file += 1
+
+            # not terminated job
+            if file_resp['file_state'] not in [str(FTSState.FAILED),
+                                               str(FTSState.FINISHEDDIRTY),
+                                               str(FTSState.CANCELED),
+                                               str(FTSState.FINISHED)]:
+                continue
+
+            if file_resp['start_time'] is None or file_resp['finish_time'] is None:
+                duration = 0
+            else:
+                duration = (datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') -
+                            datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
+
+            request_id = file_resp['file_metadata']['request_id']
+            resps[request_id] = {'new_state': None,
+                                 'transfer_id': fts_job_response.get('job_id'),
+                                 'job_state': fts_job_response.get('job_state', None),
+                                 'file_state': file_resp.get('file_state', None),
+                                 'src_url': file_resp.get('source_surl', None),
+                                 'dst_url': file_resp.get('dest_surl', None),
+                                 'duration': duration,
+                                 'reason': file_resp.get('reason', None),
+                                 'scope': file_resp['file_metadata'].get('scope', None),
+                                 'name': file_resp['file_metadata'].get('name', None),
+                                 'src_rse': file_resp['file_metadata'].get('src_rse', None),
+                                 'dst_rse': file_resp['file_metadata'].get('dst_rse', None),
+                                 'request_id': file_resp['file_metadata'].get('request_id', None),
+                                 'activity': file_resp['file_metadata'].get('activity', None),
+                                 'dest_rse_id': file_resp['file_metadata'].get('dest_rse_id', None),
+                                 'previous_attempt_id': file_resp['file_metadata'].get('previous_attempt_id', None),
+                                 'adler32': file_resp['file_metadata'].get('adler32', None),
+                                 'md5': file_resp['file_metadata'].get('md5', None),
+                                 'filesize': file_resp['file_metadata'].get('filesize', None),
+                                 'external_host': transfer_host,
+                                 'job_m_replica': True if last_src_file > 0 else False,
+                                 'details': {'files': file_resp['file_metadata']}}
+
+    return resps
+
+
 def bulk_query_responses(jobs_response, transfer_host):
     if type(jobs_response) is not list:
         jobs_response = [jobs_response]
@@ -317,8 +452,17 @@ def bulk_query_responses(jobs_response, transfer_host):
         transfer_id = job_response['job_id']
         if job_response['http_status'] == '200 Ok':
             files_response = job_response['files']
-            response = format_response(transfer_host, job_response, files_response)
-            responses[transfer_id] = response
+            multi_sources = job_response['job_metadata'].get('multi_sources', False)
+            if multi_sources and job_response['job_state'] not in [str(FTSState.FAILED),
+                                                                   str(FTSState.FINISHEDDIRTY),
+                                                                   str(FTSState.CANCELED),
+                                                                   str(FTSState.FINISHED)]:
+                # multipe source replicas jobs is still running. should wait
+                responses[transfer_id] = {}
+                continue
+
+            resps = format_new_response(transfer_host, job_response, files_response)
+            responses[transfer_id] = resps
         elif job_response['http_status'] == '404 Not Found':
             # Lost transfer
             responses[transfer_id] = None
@@ -349,12 +493,12 @@ def bulk_query(transfer_ids, transfer_host):
     fts_session = requests.Session()
     xfer_ids = ','.join(transfer_ids)
     if transfer_host.startswith('https://'):
-        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl' % (transfer_host, xfer_ids),
+        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl,file_metadata' % (transfer_host, xfer_ids),
                                verify=False,
                                cert=(__USERCERT, __USERCERT),
                                headers={'Content-Type': 'application/json'})
     else:
-        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl' % (transfer_host, xfer_ids),
+        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl,file_metadata' % (transfer_host, xfer_ids),
                                headers={'Content-Type': 'application/json'})
 
     if not jobs:

@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2015
 
 """
@@ -17,7 +18,7 @@ Conveyor is a daemon to manage file transfers.
 import argparse
 import signal
 
-from rucio.daemons.conveyor.poller import run, stop
+from rucio.daemons.conveyor.bulk_submitter import run, stop
 
 if __name__ == "__main__":
 
@@ -32,12 +33,22 @@ if __name__ == "__main__":
                         help='Concurrency control: total number of processes')
     parser.add_argument("--total-threads", action="store", default=1, type=int,
                         help='Concurrency control: total number of threads per process')
-    parser.add_argument("--fts-bulk", action="store", default=100, type=int,
-                        help='Bulk control: number of transfers per FTS query')
-    parser.add_argument("--db-bulk", action="store", default=1000, type=int,
-                        help='Bulk control: number of transfers per db query')
-    parser.add_argument("--older-than", action="store", default=60, type=int,
-                        help='Poll control: older request more than this value to poll')
+    parser.add_argument("--bulk", action="store", default=100, type=int,
+                        help='Bulk control: number of requests')
+    parser.add_argument("--group-bulk", action="store", default=1, type=int,
+                        help='Group control: number of requests per group')
+    parser.add_argument("--group-policy", action="store", default='rule', type=str,
+                        help='Group control: policy used to group. enum{rule, dest, src_dest}')
+    parser.add_argument("--mock", action="store_true", default=False,
+                        help='Fake source replicas for requests')
+    parser.add_argument('--exclude-rses', action="store", default=None, type=str,
+                        help='RSE expression to exclude')
+    parser.add_argument('--include-rses', action="store", default=None, type=str,
+                        help='RSE expression to include')
+    parser.add_argument('--rses', nargs='+', type=str,
+                        help='Explicit list of RSEs to include')
+    parser.add_argument('--activities', nargs='+', type=str,
+                        help='Explicit list of activities to include')
     parser.add_argument('--activity-shares', action='store', default=None, type=str,
                         help='JSON-encoded string of an activity shares dictionary {"act_1": 0.2, "act_2": 0.4, ...}')
     args = parser.parse_args()
@@ -47,9 +58,13 @@ if __name__ == "__main__":
             process=args.process,
             total_processes=args.total_processes,
             total_threads=args.total_threads,
-            fts_bulk=args.fts_bulk,
-            db_bulk=args.db_bulk,
-            older_than=args.older_than,
+            bulk=args.bulk,
+            group_bulk=args.group_bulk,
+            mock=args.mock,
+            include_rses=args.include_rses,
+            exclude_rses=args.exclude_rses,
+            rses=args.rses,
+            activities=args.activities,
             activity_shares=args.activity_shares)
     except KeyboardInterrupt:
         stop()
