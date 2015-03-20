@@ -340,7 +340,7 @@ def add_dataset(args):
     """
     client = get_client(args)
     scope, name = extract_scope(args.did)
-    client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic})
+    client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic}, lifetime=args.lifetime)
     print 'Added %s:%s' % (scope, name)
     return SUCCESS
 
@@ -354,7 +354,7 @@ def add_container(args):
     """
     client = get_client(args)
     scope, name = extract_scope(args.did)
-    client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic})
+    client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic}, lifetime=args.lifetime)
     print 'Added %s:%s' % (scope, name)
     return SUCCESS
 
@@ -687,7 +687,7 @@ def upload(args):
             logger.error('scope:name for the files must be different from scope:name for the destination dataset. {0}:{1}'.format(dsscope, dsname))
             return FAILURE
         try:
-            client.add_dataset(scope=dsscope, name=dsname, rules=[{'account': client.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET'}])
+            client.add_dataset(scope=dsscope, name=dsname, rules=[{'account': client.account, 'copies': 1, 'rse_expression': args.rse, 'grouping': 'DATASET', 'lifetime': args.lifetime}])
             logger.info('Dataset successfully created')
             trace['dataset'] = dsname
             trace['datasetScope'] = dsscope
@@ -697,7 +697,7 @@ def upload(args):
 
     # Adding files to the catalog
     for f in list_files:
-        try:  # If the did already exist in the catalog, only shold be upload if the checksum is the same
+        try:  # If the did already exist in the catalog, only should be upload if the checksum is the same
             meta = client.get_metadata(f['scope'], f['name'])
             replicastate = [rep for rep in client.list_replicas([{'scope': f['scope'], 'name': f['name']}], all_states=True)]
             if args.rse not in replicastate[0]['rses']:
@@ -740,7 +740,7 @@ def upload(args):
                 if not dsscope:
                     # only need to add rules for files if no dataset is given
                     logger.info('Adding replication rule on RSE {0} for the file {1}:{2}'.format(args.rse, f['scope'], f['name']))
-                    client.add_replication_rule([f], copies=1, rse_expression=args.rse)
+                    client.add_replication_rule([f], copies=1, rse_expression=args.rse, lifetime=args.lifetime)
                 directory = revert_dict[f['scope'], f['name']]
                 trace['remoteSite'] = rse_settings['rse']
                 trace['protocol'] = rse_settings['protocols'][0]['scheme']
@@ -1358,12 +1358,14 @@ Commands:
     add_dataset_parser.set_defaults(which='add_dataset')
     add_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
     add_dataset_parser.add_argument(dest='did', action='store', help='Dataset name to add')
+    add_dataset_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
 
     # The add-container command
     add_container_parser = subparsers.add_parser('add-container', help='Add container')
     add_container_parser.set_defaults(which='add_container')
     add_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True')
     add_container_parser.add_argument(dest='did', action='store', help='Container name to add')
+    add_container_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
 
     # TODO:
     # delete
@@ -1433,6 +1435,7 @@ Commands:
     upload_parser = subparsers.add_parser('upload', help='Upload method')
     upload_parser.set_defaults(which='upload')
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name', required=True)
+    upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name')  # to be optional after
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets')
 

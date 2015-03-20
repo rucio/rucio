@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 import nose.tools
 import subprocess
@@ -67,7 +68,7 @@ class TestRucioClient():
     def setup(self):
         self.marker = '$ > '
         self.scope = 'mock'
-        self.rse = 'MOCK'
+        self.rse = 'MOCK-POSIX'
         self.generated_dids = []
 
     def tearDown(self):
@@ -97,8 +98,9 @@ class TestRucioClient():
         tmp_file2 = file_generator()
         tmp_file3 = file_generator()
         tmp_dsn = 'tests.rucio_client_test_server_' + uuid()
+
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} --did {1}:{5}'.format(self.rse, self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {1}:{5}'.format(self.rse, self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print out
@@ -107,6 +109,23 @@ class TestRucioClient():
         remove(tmp_file2)
         remove(tmp_file3)
         nose.tools.assert_equal(0, exitcode)
+
+        # List the files
+        cmd = 'rucio list-files {0}:{1}'.format(self.scope, tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_equal(0, exitcode)
+
+        # List the replicas
+        cmd = 'rucio list-file-replicas {0}:{1}'.format(self.scope, tmp_dsn)
+        print self.marker + cmd
+        exitcode, out, err = execute(cmd)
+        print out
+        print err
+        nose.tools.assert_equal(0, exitcode)
+
         # Downloading dataset
         cmd = 'rucio download --dir /tmp/ {0}:{1}'.format(self.scope, tmp_dsn)
         print self.marker + cmd
@@ -115,12 +134,13 @@ class TestRucioClient():
         print err
         # The files should be there
         cmd = 'ls /tmp/{0}/rucio_testfile_*'.format(self.scope)
+        cmd = 'ls /tmp/{0}/rucio_testfile_*'.format(tmp_dsn)
         print self.marker + cmd
         exitcode, out, err = execute(cmd)
         print err, out
         nose.tools.assert_equal(0, exitcode)
         # cleaning
-        remove('/tmp/{0}/'.format(self.scope) + tmp_file1[5:])
-        remove('/tmp/{0}/'.format(self.scope) + tmp_file2[5:])
-        remove('/tmp/{0}/'.format(self.scope) + tmp_file3[5:])
+        remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file1[5:])
+        remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file2[5:])
+        remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file3[5:])
         self.generated_dids + '{0}:{1} {0}:{2} {0}:{3} {0}:{4}'.format(self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn).split(' ')
