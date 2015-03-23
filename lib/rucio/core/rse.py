@@ -10,7 +10,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
 from re import match
@@ -311,6 +311,22 @@ def list_rse_attributes(rse, rse_id=None, session=None):
     for attr in query:
         rse_attrs[attr.key] = attr.value
     return rse_attrs
+
+
+@read_session
+def has_rse_attribute(rse_id, key, session=None):
+    """
+    Indicates whether the named key is present for the RSE.
+
+    :param rse_id: The RSE id.
+    :param key: The key for the attribute.
+    :param session: The database session in use.
+
+    :returns: True or False
+    """
+    if session.query(models.RSEAttrAssociation.value).filter_by(rse_id=rse_id, key=key).first():
+        return True
+    return False
 
 
 @transactional_session

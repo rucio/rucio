@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 from random import uniform, shuffle
 
@@ -14,7 +15,7 @@ from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetR
 from rucio.core.account import has_account_attribute
 from rucio.core.account_counter import get_counter
 from rucio.core.account_limit import get_account_limit
-from rucio.core.rse import list_rse_attributes
+from rucio.core.rse import list_rse_attributes, has_rse_attribute
 from rucio.db.session import read_session
 
 
@@ -46,26 +47,32 @@ class RSESelector():
                 try:
                     self.rses.append({'rse_id': rse['id'],
                                       'weight': float(attributes[weight]),
+                                      'mock_rse': attributes.get('mock', False),
                                       'staging_area': rse['staging_area']})
                 except ValueError:
                     raise InvalidRuleWeight('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse['id'], weight))
         else:
             for rse in rses:
+                mock_rse = has_rse_attribute(rse['id'], 'mock', session=session)
                 self.rses.append({'rse_id': rse['id'],
                                   'weight': 1,
+                                  'mock_rse': mock_rse,
                                   'staging_area': rse['staging_area']})
 
         if len(self.rses) < self.copies:
             raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
-        if has_account_attribute(account=account, key='admin'):
+        if has_account_attribute(account=account, key='admin', session=session):
             for rse in self.rses:
                 rse['quota_left'] = float('inf')
         else:
             for rse in self.rses:
-                # TODO: Add RSE-space-left here!
-                rse['quota_left'] = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)\
-                    - get_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+                if rse['mock_rse']:
+                    rse['quota_left'] = float('inf')
+                else:
+                    # TODO: Add RSE-space-left here!
+                    rse['quota_left'] = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)\
+                        - get_counter(rse_id=rse['rse_id'], account=account, session=session)['bytes']
 
         self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
 
