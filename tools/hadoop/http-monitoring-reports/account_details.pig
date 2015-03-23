@@ -35,15 +35,18 @@ logs = LOAD '/user/rucio01/logs/server/access*$date*' USING rucioudfs.RucioServe
 
 reduced_cols = FOREACH logs GENERATE REGEX_EXTRACT(timestamp, '^(.*?) (.*)$', 1) as time,
   account,
-  CONCAT(CONCAT(http_verb,' '), resource) as request,
+  http_verb,
+  resource,
   response_time,
   response_bytes;
 
-dids = FILTER reduced_cols BY REGEX_EXTRACT(request, '(.*?)\\/(.*?)($|(\\/.*?$))', 2) == 'dids' AND account != '' AND time =='$date';
-rest = FILTER reduced_cols BY REGEX_EXTRACT(request, '(.*?)\\/(.*?)($|(\\/.*?$))', 2) != 'dids' AND account != '' AND time =='$date';
+dids = FILTER reduced_cols BY (REGEX_EXTRACT(resource, '.*?/(dids|locks|replicas)/.*', 1) is not null) AND account != '' AND time =='$date';
+rest = FILTER reduced_cols BY (REGEX_EXTRACT(resource, '.*?/(dids|locks|replicas)/.*', 1) is null) AND account != '' AND time =='$date';
 
-matched_dids = FOREACH dids GENERATE time, account, REGEX_EXTRACT(request, '^(\\S+\\s+(\\/[^\\/]*){0,3})(.*)$', 1) as grp_uri, response_time, response_bytes;
-matched_rest = FOREACH rest GENERATE time, account, REGEX_EXTRACT(request, '^(\\S+\\s+(\\/[^\\/]*){0,2})(.*)$', 1) as grp_uri, response_time, response_bytes;
+
+matched_dids = FOREACH dids GENERATE time, account, CONCAT(CONCAT(http_verb,' '), REGEX_EXTRACT(resource, '^(https?://[^/]+)?((/[^/]+){1,3})', 2)) as grp_uri, response_time, response_bytes;
+matched_rest = FOREACH rest GENERATE time, account, CONCAT(CONCAT(http_verb,' '), REGEX_EXTRACT(resource, '^(https?://[^/]+)?((/[^/]+){1,2})', 2)) as grp_uri, response_time, response_bytes;
+
 
 unioned = UNION matched_dids, matched_rest;
 
