@@ -77,14 +77,18 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
             if not reqs or reqs == []:
                 if once:
                     break
-                logging.debug("no requests found. will sleep 10 seconds")
-                time.sleep(10)  # Only sleep if there is nothing to do
+                logging.debug("no requests found. will sleep 60 seconds")
+                time.sleep(60)  # Only sleep if there is nothing to do
                 continue
 
             ts = time.time()
             common.handle_requests(reqs)
             record_timer('daemons.conveyor.finisher.handle_requests', (time.time()-ts)*1000/len(reqs))
             record_counter('daemons.conveyor.finisher.handle_requests', len(reqs))
+
+            if len(reqs) < 100:
+                logging.debug("not enough requests found. will sleep 60 seconds")
+                time.sleep(60)
         except (DatabaseException, DatabaseError), e:
             if isinstance(e.args[0], tuple) and (re.match('.*ORA-00054.*', e.args[0][0]) or ('ERROR 1205 (HY000)' in e.args[0][0])):
                 logging.warn("Lock detected when handling request - skipping: %s" % str(e))
