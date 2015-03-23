@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
@@ -62,7 +62,7 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
             start = time.time()
             rules = get_stuck_rules(total_workers=total_processes*threads_per_process-1,
                                     worker_number=process*threads_per_process+thread,
-                                    delta=-1 if once else 600)
+                                    delta=-1 if once else 1200)
             logging.debug('rule_repairer index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
             # Refresh paused rules
