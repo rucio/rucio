@@ -819,7 +819,9 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
     """
     if key == 'lifetime':
         try:
-            expired_at = datetime.utcnow() + timedelta(seconds=value)
+            expired_at = None
+            if value:
+                expired_at = datetime.utcnow() + timedelta(seconds=value)
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
         except TypeError, e:
             raise exception.InvalidValueForKey(e)
