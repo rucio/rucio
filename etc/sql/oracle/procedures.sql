@@ -47,3 +47,37 @@ BEGIN
 COMMIT;
 END;
 /
+
+
+
+
+
+-- 23th Mar 2015, Vincent Garone
+-- a PLSQL procedure to write datasets which had replicas deleted into the updated_collection_replicas table
+
+--/
+CREATE OR REPLACE PROCEDURE "ATLAS_RUCIO"."REAPER_FINISHER" AS
+    type array_raw is table of RAW(16) index by binary_integer;
+    type array_scope is table of VARCHAR2(30) index by binary_integer;
+    type array_name  is table of VARCHAR2(255) index by binary_integer;
+
+    rse_ids array_raw;
+    scopes  array_scope;
+    names   array_name;
+
+BEGIN
+        DELETE FROM ATLAS_RUCIO.REPLICAS_HISTORY
+        RETURNING RSE_ID, SCOPE, NAME BULK COLLECT INTO RSE_IDS, SCOPES, NAMES;
+
+        FORALL i IN rse_ids.first .. rse_ids.last
+                MERGE INTO ATLAS_RUCIO.UPDATED_COL_REP T
+                USING (SELECT /*+ INDEX(C CONTENTS_CHILD_SCOPE_NAME_IDX) */ c.scope as s, c.name as n, rse_ids(i) as rse_id
+                       FROM atlas_rucio.contents c
+                       WHERE c.child_scope = scopes(i) and c.child_name = names(i)) e
+                ON  (T.name = e.n and T."scope" = e.s and t.rse_id = e.rse_id)
+                WHEN NOT MATCHED THEN
+                INSERT (ID, "scope", NAME, DID_TYPE, RSE_ID, UPDATED_AT, CREATED_AT)
+                VALUES (sys_guid, e.s, e.n, 'D', e.rse_id, sys_extract_utc(systimestamp), sys_extract_utc(systimestamp));
+        COMMIT;
+END;
+/
