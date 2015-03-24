@@ -97,7 +97,8 @@ def submit_transfers(transfers, job_metadata):
                                   'metadata': {'issuer': 'rucio'},
                                   'filesize': int(transfer['filesize']),
                                   'checksum': str(transfer['checksum']),
-                                  'activity': str(transfer['activity'])}],
+                                  'activity': str(transfer['activity']),
+                                  'selection_strategy': transfer.get('selection_strategy', 'auto')}],
                        'params': {'verify_checksum': True if transfer['checksum'] else False,
                                   'spacetoken': transfer['dest_spacetoken'] if transfer['dest_spacetoken'] else 'null',
                                   'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
@@ -338,6 +339,9 @@ def format_response(transfer_host, fts_job_response, fts_files_response):
     """
     last_src_file = 0
     for i in range(len(fts_files_response)):
+        if fts_files_response[i]['file_state'] in [str(FTSState.FINISHED)]:
+            last_src_file = i
+            break
         if fts_files_response[i]['file_state'] != 'NOT_USED':
             last_src_file = i
 
@@ -394,14 +398,11 @@ def format_new_response(transfer_host, fts_job_response, fts_files_response):
         resps[request_id] = format_response(transfer_host, fts_job_response, fts_files_response)
     else:
         multi_sources = fts_job_response['job_metadata'].get('multi_sources', False)
-        last_src_file = -1
         for file_resp in fts_files_response:
             # for multiple source replicas jobs, the file_metadata(request_id) will be the same.
             # The next used file will overwrite the current used one. Only the last used file will return.
             if file_resp['file_state'] == 'NOT_USED':
                 continue
-            if multi_sources:
-                last_src_file += 1
 
             # not terminated job
             if file_resp['file_state'] not in [str(FTSState.FAILED),
@@ -437,9 +438,12 @@ def format_new_response(transfer_host, fts_job_response, fts_files_response):
                                  'md5': file_resp['file_metadata'].get('md5', None),
                                  'filesize': file_resp['file_metadata'].get('filesize', None),
                                  'external_host': transfer_host,
-                                 'job_m_replica': True if last_src_file > 0 else False,
+                                 'job_m_replica': multi_sources,
                                  'details': {'files': file_resp['file_metadata']}}
 
+            # multiple source replicas jobs and we found the successful one, it's the final state.
+            if multi_sources and file_resp['file_state'] in [str(FTSState.FINISHED)]:
+                break
     return resps
 
 
