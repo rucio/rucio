@@ -585,7 +585,7 @@ CREATE INDEX COLLECTION_REPLICAS_RSE_ID_IDX ON collection_replicas (rse_id) TABL
 
 CREATE TABLE updated_col_rep (
     id RAW(16),
-    "scope" VARCHAR2(25 CHAR),
+    scope VARCHAR2(25 CHAR),
     name VARCHAR2(255 CHAR),
     did_type CHAR(1 CHAR),
     rse_id RAW(16),
