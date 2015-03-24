@@ -59,16 +59,20 @@ $var script: <script src="/static/request_rule.js"></script>
               <div class="small-2 columns">
                 <label for="rse-label" class="left inline">RSE</label>
               </div>
-              <div class="small-8 columns">
+              <div class="small-6 columns">
                 <input type="text" id="rse_input" placeholder="RSE">
               </div>
-              <!--<div class="small-2 columns">
-                  <a class="button postfix" id="search_rse_button">Search</a>
-              </div>-->
+              <div class="small-2 columns">
+                  <a class="button postfix" id="check_quota_button">Check Quota</a>
+              </div>
               <div class="small-2 columns">
                 <a class="button postfix" id="continue_rse_button">Continue</a>
               </div>
             </div>
+          </div>
+        </div>
+        <div class="row">
+          <div id="quota_details" class="large-8 columns">
           </div>
         </div>
         <div class="row">
@@ -83,7 +87,7 @@ $var script: <script src="/static/request_rule.js"></script>
       <a href="#panel3b">Options</a>
       <div id="panel3b" class="content">
         <div class="row">
-          <p>Please select/enter your wanted options and then click "check".</p>
+          <p>Please select/enter your wanted options and then submit your rule request.</p>
         </div>
         <div class="row">
           <form id="grouping_form">
@@ -100,18 +104,18 @@ $var script: <script src="/static/request_rule.js"></script>
         </div>
         <div class="row">
           <div class="large-2 columns">
-            <label>Lifetime
-              <input type="text" placeholder="e.g.: 4d;2w" id="lifetime" />
+            <label>Lifetime (in days)
+              <input type="text" placeholder="15" id="lifetime" ></input>
             </label>
           </div>
         </div>
-        <div class="row">
+<!--        <div class="row">
           <div class="large-2 columns">
             <label>Copies
               <input type="text" placeholder="" id="copies" value="1"/ >
             </label>
           </div>
-        </div>
+        </div>-->
         <div class="row">
           <div class="large-6 columns">
             <label>Comments
