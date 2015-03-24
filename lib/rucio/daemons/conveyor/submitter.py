@@ -219,6 +219,8 @@ def get_sources(dest_rse, schemes, req):
 
     if len(sources) > 1:
         sources = sort_sources(sources, dest_rse['rse'])
+    if len(sources) > 4:
+        sources = sources[:4]
     return sources, metadata
 
 
@@ -303,7 +305,7 @@ def get_destinations(rse_info, scheme, req, naming_convention):
     return destinations, dest_spacetoken
 
 
-def get_transfer(rse, req, scheme, mock):
+def get_transfer(rse, req, scheme, mock, fts_source_strategy='auto'):
     src_spacetoken = None
 
     if req['request_type'] == RequestType.STAGEIN:
@@ -474,13 +476,14 @@ def get_transfer(rse, req, scheme, mock):
                 'bring_online': bring_online,
                 'copy_pin_lifetime': copy_pin_lifetime,
                 'external_host': external_host,
+                'selection_strategy': fts_source_strategy,
                 'file_metadata': tmp_metadata}
     return transfer
 
 
 def submitter(once=False, rses=[],
               process=0, total_processes=1, thread=0, total_threads=1,
-              mock=False, bulk=100,
+              mock=False, bulk=100, fts_source_strategy='auto',
               activities=None, activity_shares=None):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -562,7 +565,7 @@ def submitter(once=False, rses=[],
                                 rse_info = rsemgr.get_rse_info(dest_rse['rse'])
 
                             ts = time.time()
-                            transfer = get_transfer(rse_info, req, scheme, mock)
+                            transfer = get_transfer(rse_info, req, scheme, mock, fts_source_strategy)
                             record_timer('daemons.conveyor.submitter.get_transfer', (time.time() - ts) * 1000)
 
                             if transfer is None:
@@ -585,23 +588,25 @@ def submitter(once=False, rses=[],
 
                             ts = time.time()
                             if req['previous_attempt_id']:
-                                logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s FROM %s TO %s USING %s TRANSFERID: %s' % (req['retry_count'],
-                                                                                                                                          req['request_id'],
-                                                                                                                                          req['previous_attempt_id'],
-                                                                                                                                          req['scope'],
-                                                                                                                                          req['name'],
-                                                                                                                                          transfer['src_urls'],
-                                                                                                                                          transfer['dest_urls'],
-                                                                                                                                          transfer_ids[req['request_id']]['external_host'] if req['request_id'] in transfer_ids else None,
-                                                                                                                                          transfer_ids[req['request_id']]['external_id'] if req['request_id'] in transfer_ids else None))
+                                logging.info('COPYING RETRY %s REQUEST %s PREVIOUS %s DID %s:%s selection_strategy %s FROM %s TO %s USING %s TRANSFERID: %s' % (req['retry_count'],
+                                                                                                                                                                req['request_id'],
+                                                                                                                                                                req['previous_attempt_id'],
+                                                                                                                                                                req['scope'],
+                                                                                                                                                                req['name'],
+                                                                                                                                                                fts_source_strategy,
+                                                                                                                                                                transfer['src_urls'],
+                                                                                                                                                                transfer['dest_urls'],
+                                                                                                                                                                transfer_ids[req['request_id']]['external_host'] if req['request_id'] in transfer_ids else None,
+                                                                                                                                                                transfer_ids[req['request_id']]['external_id'] if req['request_id'] in transfer_ids else None))
                             else:
-                                logging.info('COPYING REQUEST %s DID %s:%s FROM %s TO %s USING %s TRANSFERID: %s' % (req['request_id'],
-                                                                                                                     req['scope'],
-                                                                                                                     req['name'],
-                                                                                                                     transfer['src_urls'],
-                                                                                                                     transfer['dest_urls'],
-                                                                                                                     transfer_ids[req['request_id']]['external_host'] if req['request_id'] in transfer_ids else None,
-                                                                                                                     transfer_ids[req['request_id']]['external_id'] if req['request_id'] in transfer_ids else None))
+                                logging.info('COPYING REQUEST %s DID %s:%s selection_strategy %s FROM %s TO %s USING %s TRANSFERID: %s' % (req['request_id'],
+                                                                                                                                           req['scope'],
+                                                                                                                                           req['name'],
+                                                                                                                                           fts_source_strategy,
+                                                                                                                                           transfer['src_urls'],
+                                                                                                                                           transfer['dest_urls'],
+                                                                                                                                           transfer_ids[req['request_id']]['external_host'] if req['request_id'] in transfer_ids else None,
+                                                                                                                                           transfer_ids[req['request_id']]['external_id'] if req['request_id'] in transfer_ids else None))
                             if not req['request_id'] in transfer_ids:
                                 request.set_request_state(req['request_id'], RequestState.LOST)
                                 logging.warn("Failed to submit request: %s, set request LOST" % (req['request_id']))
@@ -639,7 +644,7 @@ def stop(signum=None, frame=None):
 
 
 def run(once=False,
-        process=0, total_processes=1, total_threads=1,
+        process=0, total_processes=1, total_threads=1, fts_source_strategy='auto',
         mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100,
         activities=[], activity_shares=None):
     """
@@ -683,6 +688,7 @@ def run(once=False,
                   rses=working_rses,
                   mock=mock,
                   bulk=bulk,
+                  fts_source_strategy=fts_source_strategy,
                   activities=activities,
                   activity_shares=activity_shares)
 
@@ -696,6 +702,7 @@ def run(once=False,
                                                               'bulk': bulk,
                                                               'activities': activities,
                                                               'mock': mock,
+                                                              'fts_source_strategy': fts_source_strategy,
                                                               'activity_shares': activity_shares}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]

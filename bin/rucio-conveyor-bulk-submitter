@@ -41,6 +41,8 @@ if __name__ == "__main__":
                         help='Group control: policy used to group. enum{rule, dest, src_dest}')
     parser.add_argument("--mock", action="store_true", default=False,
                         help='Fake source replicas for requests')
+    parser.add_argument('--fts-source-strategy', action="store", default='auto', type=str,
+                        help='FTS source strategy')
     parser.add_argument('--exclude-rses', action="store", default=None, type=str,
                         help='RSE expression to exclude')
     parser.add_argument('--include-rses', action="store", default=None, type=str,
@@ -64,6 +66,7 @@ if __name__ == "__main__":
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
             rses=args.rses,
+            fts_source_strategy=args.fts_source_strategy,
             activities=args.activities,
             activity_shares=args.activity_shares)
     except KeyboardInterrupt:
