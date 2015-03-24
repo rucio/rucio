@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
@@ -23,9 +23,10 @@ from sqlalchemy.sql.expression import and_, or_
 import rucio.core.rule
 
 from rucio.common.config import config_get
+from rucio.core.did import list_child_datasets
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db import models
-from rucio.db.constants import LockState, RuleState, RuleGrouping
+from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDType
 from rucio.db.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
@@ -237,6 +238,20 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
         rule.locks_ok_cnt += 1
         logging.debug('Finished updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
+        # Insert UpdatedCollectionReplica
+        if rule.did_type == DIDType.DATASET:
+            models.UpdatedCollectionReplicas(scope=rule.scope,
+                                             name=rule.name,
+                                             did_type=rule.did_type,
+                                             rse_id=rse_id).save(flush=False, session=session)
+        elif rule.did_type == DIDType.CONTAINER:
+            # Resolve to all child datasets
+            for dataset in list_child_datasets(scope=rule.scope, name=rule.name, session=session):
+                models.UpdatedCollectionReplicas(scope=dataset['scope'],
+                                                 name=dataset['name'],
+                                                 did_type=dataset['type'],
+                                                 rse_id=rse_id).save(flush=False, session=session)
+
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
             pass
@@ -256,6 +271,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
 
         # Insert rule history
         rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+        session.flush()
 
 
 @transactional_session
