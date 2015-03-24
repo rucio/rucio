@@ -38,6 +38,12 @@ if [[ $? != 0 ]]; then
 	exit 1
 fi
 
+if [[ $script_name == 'per_country' ]]; then
+	echo "[`date`] INFO: Resolving client ip to country ISO code"
+	python ${DIR}/subs_ip_by_country.py ${DIR}/tmp_http_report_${script_name}.csv ${DIR}/tmp_http_report_${script_name}.substituted.csv
+	mv ${DIR}/tmp_http_report_${script_name}.substituted.csv ${DIR}/tmp_http_report_${script_name}.csv
+fi
+
 echo "[`date`] INFO: Prepend schema (column names)"
 cat ${DIR}/${script_name}.schema ${DIR}/tmp_http_report_${script_name}.csv > ${DIR}/tmp_http_report_${script_name}_w_header.csv
 if [[ $? != 0 ]]; then
