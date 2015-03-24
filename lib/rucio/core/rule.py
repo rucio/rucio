@@ -892,9 +892,10 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
         __evaluate_did_detach(did, session=session)
 
     # Add an updated_col_rep
-    models.UpdatedCollectionReplicas(scope=scope,
-                                     name=name,
-                                     did_type=did.did_type).save(session=session)
+    if did.did_type == DIDType.DATASET:
+        models.UpdatedCollectionReplicas(scope=scope,
+                                         name=name,
+                                         did_type=did.did_type).save(session=session)
 
 
 @read_session
