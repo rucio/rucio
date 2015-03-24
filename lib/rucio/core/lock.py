@@ -21,9 +21,9 @@ from sqlalchemy.exc import DatabaseError
 from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.rule
+import rucio.core.did
 
 from rucio.common.config import config_get
-from rucio.core.did import list_child_datasets
 from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db import models
 from rucio.db.constants import LockState, RuleState, RuleGrouping, DIDType
@@ -246,7 +246,7 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                                              rse_id=rse_id).save(flush=False, session=session)
         elif rule.did_type == DIDType.CONTAINER:
             # Resolve to all child datasets
-            for dataset in list_child_datasets(scope=rule.scope, name=rule.name, session=session):
+            for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session):
                 models.UpdatedCollectionReplicas(scope=dataset['scope'],
                                                  name=dataset['name'],
                                                  did_type=dataset['type'],
