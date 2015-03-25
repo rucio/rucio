@@ -76,7 +76,7 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
 
     # there is no universally applicable rownumber in SQLAlchemy
     # so we have to do it in Python
-    assign_thread = None
+    assign_thread = 0
     for r in xrange(len(result)):
         if result[r][0] == hostname and result[r][1] == pid and result[r][2] == thread.ident:
             assign_thread = r
