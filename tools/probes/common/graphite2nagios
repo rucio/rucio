@@ -55,14 +55,13 @@ def parse_options():
     if options.debug:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     else:
-        logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+        logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 
     if not options.period:
-        logging.info('No timer period provided. Using the last 60 minites as default period')
+        logging.debug('No timer period provided. Using the last 60 minites as default period')
         options.period = 60
     if not options.warning:
-        logging.info('No threshold for warning message provided. Warningsd will not be printed.')
-        logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
+        logging.debug('No threshold for warning message provided. Warningsd will not be printed.')
         options.warning = options.critical
     return options
 
@@ -74,7 +73,7 @@ if __name__ == "__main__":
     logging.debug('Requesting metric: %s' % url)
     r = requests.get(url)
     if r.status_code != 200:
-        logging.error('Failed requesting data from Graphite with: %s. Use --verbose for details.' % r.status_code)
+        logging.debug('Failed requesting data from Graphite with: %s. Use --verbose for details.' % r.status_code)
     json = r.json()
     if options.debug:
         pp.pprint(json)
@@ -84,15 +83,14 @@ if __name__ == "__main__":
             if db[0] is not None:
                 counter += 1
         if (int(options.warning) < counter) and (counter < int(options.critical)):
-            logging.warning('%s with %s observed incidents in the last %s minutes.' % (target['target'], counter, options.period))
+            print '%s INCIDENTS %s INTERVAL %s min.' % (target['target'], counter, options.period)
             if exit_code in [OK]:
                 exit_code = WARNING
         if (int(options.critical) <= counter):
-            logging.critical('%s with %s observed incidents in the last %s minutes.' % (target['target'], counter, options.period))
+            print '%s INCIDENTS %s INTERVAL %s min.' % (target['target'], counter, options.period)
             if exit_code in [OK, WARNING]:
                 exit_code = CRITICAL
         logging.debug('%s incidents observed for target %s.' % (counter, target['target']))
     if exit_code != OK:
-        print "\nTest Settings: %s" % options
-        pp.pprint(json)
+        print 'Details: http://%s/render?from=-%smin&target=%s' % (GRAPHITE_URL, int((int(options.period)*1.2)+1), options.target)  # Adding 20% of time to make plot more comprehensive
     sys.exit(exit_code)
