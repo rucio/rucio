@@ -16,7 +16,9 @@ Hermes is a daemon to deliver messages to an asynchronous broker.
 
 import json
 import logging
+import os
 import random
+import socket
 import ssl
 import sys
 import threading
@@ -27,6 +29,7 @@ import dns.resolver
 import stomp
 
 from rucio.common.config import config_get, config_get_int
+from rucio.core.heartbeat import live, die
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
 from rucio.db.session import get_session
@@ -66,11 +69,22 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                                       reconnect_attempts_max=9999))
     destination = config_get('messaging-hermes', 'destination')
 
+    executable = ' '.join(sys.argv)
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+
     logging.info('hermes started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
                                                                                 thread, total_threads,
                                                                                 bulk))
 
     while not graceful_stop.is_set():
+
+        hb = live(executable, hostname, pid, hb_thread)
+        logging.debug('hermes - process (%i/%i) thread (%i/%i) heartbeat (%i/%i)' % (process, total_processes,
+                                                                                     thread, total_threads,
+                                                                                     hb['assign_thread'],
+                                                                                     hb['nr_threads']))
 
         try:
             for conn in conns:
@@ -152,6 +166,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
             conn.disconnect()
         except:
             pass
+
+    die(executable, hostname, pid, hb_thread)
 
     logging.debug('%i:%i - graceful stop done' % (process, thread))
 
