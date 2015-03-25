@@ -15,8 +15,8 @@
 Client class for callers of the Rucio system
 """
 
-import __main__ as main
 import random
+import sys
 
 from getpass import getuser
 from logging import getLogger, StreamHandler, ERROR
@@ -87,10 +87,10 @@ class BaseClient(object):
         self.auth_host = auth_host
         self.session = session()
         self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
-        try:
-            self.script_id = main.__file__.split('/')[-1]
-        except AttributeError:
-            self.script_id = "python"
+        sys.argv[0] = sys.argv[0].split('/')[-1]
+        self.script_id = '::'.join(sys.argv[0:2])
+        if (self.script_id == ''):  # Python interpreter used
+            self.script_id = 'python'
         try:
             if self.host is None:
                 self.host = config_get('client', 'rucio_host')
