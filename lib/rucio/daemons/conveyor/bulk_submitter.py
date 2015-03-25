@@ -482,7 +482,7 @@ def get_transfer(rse, req, scheme, mock):
     return transfer
 
 
-def bulk_group_transfer(transfers, policy='rule', fts_source_strategey='auto'):
+def bulk_group_transfer(transfers, policy='rule', fts_source_strategy='auto'):
     grouped_transfers = {}
     for transfer in transfers:
         external_host = transfer['external_host']
@@ -494,7 +494,7 @@ def bulk_group_transfer(transfers, policy='rule', fts_source_strategey='auto'):
                 'metadata': transfer['file_metadata'],
                 'filesize': int(transfer['filesize']),
                 'checksum': None,
-                'selection_strategy': fts_source_strategey,
+                'selection_strategy': fts_source_strategy,
                 'activity': str(transfer['activity'])}
         if 'md5' in file['metadata'].keys() and file['metadata']['md5']:
             file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
@@ -536,7 +536,7 @@ def bulk_group_transfer(transfers, policy='rule', fts_source_strategey='auto'):
 
 def submitter(once=False, rses=[],
               process=0, total_processes=1, thread=0, total_threads=1,
-              mock=False, bulk=100, group_bulk=1, group_policy='rule', fts_source_strategey='auto',
+              mock=False, bulk=100, group_bulk=1, group_policy='rule', fts_source_strategy='auto',
               activities=None, activity_shares=None):
     """
     Main loop to submit a new transfer primitive to a transfertool.
@@ -606,7 +606,8 @@ def submitter(once=False, rses=[],
                     if reqs:
                         logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
 
-                    if not reqs or reqs == []:
+                    if not rse and (not reqs or reqs == []):
+                        # in RSE list mode, don't sleep
                         time.sleep(60)
                         continue
 
@@ -638,7 +639,7 @@ def submitter(once=False, rses=[],
                             logging.error("Failed to get transfer for request(%s): %s " % (req['request_id'], str(e)))
 
                     # group transfers
-                    grouped_transfers = bulk_group_transfer(transfers, group_policy, fts_source_strategey)
+                    grouped_transfers = bulk_group_transfer(transfers, group_policy, fts_source_strategy)
 
                     # submit transfers
                     for external_host in grouped_transfers:
@@ -680,6 +681,10 @@ def submitter(once=False, rses=[],
                                 except Exception, ex:
                                     logging.error("Failed to register transfer state with error %s: %s" % (str(ex), traceback.format_exc()))
                                 record_counter('daemons.conveyor.submitter.submit_request', len(xfers_files))
+
+                    if not rse and len(reqs) < group_bulk:
+                        logging.debug('%i:%i - only %s requests which is less than group bulk %s, sleep 60 seconds' % (process, thread, len(reqs), group_bulk))
+                        time.sleep(60)
         except:
             logging.critical(traceback.format_exc())
 
@@ -703,7 +708,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False,
         process=0, total_processes=1, total_threads=1, group_bulk=1, group_policy='rule',
-        mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, fts_source_strategey='auto',
+        mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
         activities=[], activity_shares=None):
     """
     Starts up the conveyer threads.
@@ -748,7 +753,7 @@ def run(once=False,
                   bulk=bulk,
                   group_bulk=group_bulk,
                   group_policy=group_policy,
-                  fts_source_strategey=fts_source_strategey,
+                  fts_source_strategy=fts_source_strategy,
                   activities=activities,
                   activity_shares=activity_shares)
 
@@ -763,7 +768,7 @@ def run(once=False,
                                                               'group_bulk': group_bulk,
                                                               'group_policy': group_policy,
                                                               'activities': activities,
-                                                              'fts_source_strategey': fts_source_strategey,
+                                                              'fts_source_strategy': fts_source_strategy,
                                                               'mock': mock,
                                                               'activity_shares': activity_shares}) for i in xrange(0, total_threads)]
 
