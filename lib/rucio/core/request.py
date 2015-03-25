@@ -652,7 +652,7 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
     record_counter('core.request.set_transfer_update_time')
 
     try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).update({'updated_at': update_time}, synchronize_session=False)
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'updated_at': update_time}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -691,7 +691,7 @@ def set_transfer_state(external_host, transfer_id, new_state, session=None):
     record_counter('core.request.set_transfer_state')
 
     try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -749,7 +749,7 @@ def touch_transfer(external_host, transfer_id, session=None):
     record_counter('core.request.touch_transfer')
 
     try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
     if not rowcount:
@@ -791,7 +791,7 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
     """
 
     try:
-        tmp = session.query(models.Request).filter_by(external_id=transfer_id, external_host=external_host).all()
+        tmp = session.query(models.Request).filter_by(external_id=transfer_id).all()
 
         if not tmp:
             return
