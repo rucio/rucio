@@ -581,7 +581,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    )
 
 
-class CollectionReplicas(BASE, ModelBase):
+class CollectionReplica(BASE, ModelBase):
     """Represents replicas for datasets/collections"""
     __tablename__ = 'collection_replicas'
     scope = Column(String(25))
@@ -602,7 +602,7 @@ class CollectionReplicas(BASE, ModelBase):
                    )
 
 
-class UpdatedCollectionReplicas(BASE, ModelBase):
+class UpdatedCollectionReplica(BASE, ModelBase):
     """Represents updates to replicas for datasets/collections"""
     __tablename__ = 'updated_col_rep'
     id = Column(GUID(), default=utils.generate_uuid)
@@ -960,8 +960,8 @@ def register_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplicas,
-              UpdatedCollectionReplicas)
+              CollectionReplica,
+              UpdatedCollectionReplica)
 
     for model in models:
         model.metadata.create_all(engine)
@@ -1006,8 +1006,8 @@ def unregister_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              CollectionReplicas,
-              UpdatedCollectionReplicas)
+              CollectionReplica,
+              UpdatedCollectionReplica)
 
     for model in models:
         model.metadata.drop_all(engine)
