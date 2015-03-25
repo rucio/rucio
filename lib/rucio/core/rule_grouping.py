@@ -22,7 +22,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.core.rse import get_rse
 from rucio.db import models
-from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType
+from rucio.db.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType
 from rucio.db.session import transactional_session
 
 logging.basicConfig(stream=sys.stdout,
@@ -299,7 +299,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                                              models.DatasetLock.rse_id == rse_tuple[0]).one()
                 except NoResultFound:
                     # Get dataset Information
-                    is_open, bytes, length = True, None, None
+                    is_open, bytes, length = True, 0, 0
                     try:
                         is_open, bytes, length = session.query(models.DataIdentifier.is_open,
                                                                models.DataIdentifier.bytes,
@@ -315,6 +315,24 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                        account=rule.account,
                                        length=length if not is_open else None,
                                        bytes=bytes if not is_open else None).save(flush=False, session=session)
+            # Add a Dataset Replica to the DB
+            if dataset['scope'] is not None:
+                try:
+                    session.query(models.CollectionReplica).filter(models.CollectionReplica.scope == dataset['scope'],
+                                                                   models.CollectionReplica.name == dataset['name'],
+                                                                   models.CollectionReplica.rse_id == rse_tuple[0]).one()
+                except NoResultFound:
+                    models.CollectionReplica(scope=dataset['scope'],
+                                             name=dataset['name'],
+                                             did_type=DIDType.DATASET,
+                                             rse_id=rse_tuple[0],
+                                             bytes=0,
+                                             length=0,
+                                             state=ReplicaState.UNAVAILABLE).save(session=session)
+                    models.UpdatedCollectionReplica(scope=dataset['scope'],
+                                                    name=dataset['name'],
+                                                    rse_id=rse_tuple[0],
+                                                    did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
@@ -406,6 +424,25 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                                        account=rule.account,
                                        length=length if not is_open else None,
                                        bytes=bytes if not is_open else None).save(flush=False, session=session)
+
+            # Add a Dataset Replica to the DB
+            if dataset['scope'] is not None:
+                try:
+                    session.query(models.CollectionReplica).filter(models.CollectionReplica.scope == dataset['scope'],
+                                                                   models.CollectionReplica.name == dataset['name'],
+                                                                   models.CollectionReplica.rse_id == rse_tuple[0]).one()
+                except NoResultFound:
+                    models.CollectionReplica(scope=dataset['scope'],
+                                             name=dataset['name'],
+                                             did_type=DIDType.DATASET,
+                                             rse_id=rse_tuple[0],
+                                             bytes=0,
+                                             length=0,
+                                             state=ReplicaState.UNAVAILABLE).save(session=session)
+                    models.UpdatedCollectionReplica(scope=dataset['scope'],
+                                                    name=dataset['name'],
+                                                    rse_id=rse_tuple[0],
+                                                    did_type=DIDType.DATASET).save(flush=False, session=session)
 
     return replicas_to_create, locks_to_create, transfers_to_create
 
