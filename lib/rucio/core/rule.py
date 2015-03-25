@@ -893,9 +893,9 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
 
     # Add an updated_col_rep
     if did.did_type == DIDType.DATASET:
-        models.UpdatedCollectionReplicas(scope=scope,
-                                         name=name,
-                                         did_type=did.did_type).save(session=session)
+        models.UpdatedCollectionReplica(scope=scope,
+                                        name=name,
+                                        did_type=did.did_type).save(session=session)
 
 
 @read_session

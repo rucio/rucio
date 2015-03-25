@@ -396,12 +396,15 @@ def delete_dids(dids, account, session=None):
     content_clause = []
     parent_content_clause = []
     did_clause = []
+    collection_replica_clause = []
     for did in dids:
         logging.info('Removing did %s:%s' % (did['scope'], did['name']))
         did_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
         content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
+        collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
+                                              models.CollectionReplica.name == did['name']))
 
         # Send message for AMI
         add_message('ERASE', {'account': account,
@@ -433,6 +436,11 @@ def delete_dids(dids, account, session=None):
             rowcount = session.query(models.DataIdentifierAssociation).filter(or_(*content_clause)).\
                 delete(synchronize_session=False)
         record_counter(counters='undertaker.content.rowcount',  delta=rowcount)
+
+    # Remove CollectionReplica
+    with record_timer_block('undertaker.dids'):
+        rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_clause)).\
+            delete(synchronize_session=False)
 
     # remove data identifier
     if existing_parent_dids:

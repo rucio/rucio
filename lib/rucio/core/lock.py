@@ -240,17 +240,17 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
 
         # Insert UpdatedCollectionReplica
         if rule.did_type == DIDType.DATASET:
-            models.UpdatedCollectionReplicas(scope=rule.scope,
-                                             name=rule.name,
-                                             did_type=rule.did_type,
-                                             rse_id=rse_id).save(flush=False, session=session)
+            models.UpdatedCollectionReplica(scope=rule.scope,
+                                            name=rule.name,
+                                            did_type=rule.did_type,
+                                            rse_id=rse_id).save(flush=False, session=session)
         elif rule.did_type == DIDType.CONTAINER:
             # Resolve to all child datasets
             for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session):
-                models.UpdatedCollectionReplicas(scope=dataset['scope'],
-                                                 name=dataset['name'],
-                                                 did_type=dataset['type'],
-                                                 rse_id=rse_id).save(flush=False, session=session)
+                models.UpdatedCollectionReplica(scope=dataset['scope'],
+                                                name=dataset['name'],
+                                                did_type=dataset['type'],
+                                                rse_id=rse_id).save(flush=False, session=session)
 
         # Update the rule state
         if (rule.state == RuleState.SUSPENDED):
