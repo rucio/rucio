@@ -16,8 +16,8 @@ $var script: <script src="/static/request_rule.js"></script>
 <div id="main">
   <dl class="accordion" data-accordion>
     <dd class="accordion-navigation large-8">
-      <a href="#panel1b">Select DIDs</a>
-      <div id="panel1b" class="content active">
+      <a href="#did_panel">Select DIDs</a>
+      <div id="did_panel" class="content active">
         <div class="row">
           <p>Please start by entering a DID or DID wildcard and search for either containers or datasets. Then select the requested DIDs.</p>
         </div>
@@ -34,7 +34,7 @@ $var script: <script src="/static/request_rule.js"></script>
                 <div class="large-2 columns">
                   <a class="button postfix" id="search_did_button">Search</a>
                 </div>
-                <div class="large-3 columns inline">
+                <div class="large-3 columns inline" style="padding-left: 15px;">
                   <input type="radio" name="didtype" value="container" id="container_type" checked>
                   <label for="grouping_all">Container</label>
                   <input type="radio" name="didtype" value="dataset" id="dataset_type">
@@ -44,12 +44,17 @@ $var script: <script src="/static/request_rule.js"></script>
               <form>
           </div>
         </div>
+        <div class="row">
+          <div class="large-12 columns">
+            <div id="did_message"></div>
+          </div>
+        </div>
         <div id="did_search">
         </div>
     </dd>
     <dd class="accordion-navigation large-8">
-      <a href="#panel2b">Selects RSEs</a>
-      <div id="panel2b" class="content">
+      <a href="#rse_panel">Selects RSEs</a>
+      <div id="rse_panel" class="content">
         <div class="row">
           <p>Please enter an RSE.</p>
         </div>
@@ -84,28 +89,28 @@ $var script: <script src="/static/request_rule.js"></script>
       </div>
     </dd>
     <dd class="accordion-navigation large-8">
-      <a href="#panel3b">Options</a>
-      <div id="panel3b" class="content">
+      <a href="#options_panel">Options</a>
+      <div id="options_panel" class="content">
         <div class="row">
           <p>Please select/enter your wanted options and then submit your rule request.</p>
         </div>
         <div class="row">
-          <form id="grouping_form">
             <div class="large-3 columns">
               <label>Grouping</label>
+              <form id="grouping_form">
               <input type="radio" name="grouping" value="ALL" id="grouping_all">
               <label for="grouping_all">All</label>
               <input type="radio" name="grouping" value="DATASET" id="grouping_dataset" checked>
               <label for="grouping_dataset">Dataset</label>
               <input type="radio" name="grouping" value="NONE" id="grouping_none">
               <label for="grouping_none">None</label>
+              </form>
             </div>
-          </form>
         </div>
         <div class="row">
-          <div class="large-2 columns">
-            <label>Lifetime (in days)
-              <input type="text" placeholder="15" id="lifetime" ></input>
+          <div class="large-4 columns">
+            <label>Lifetime (in days). Leave empty for infinite lifetime.
+              <input type="text" id="lifetime" ></input>
             </label>
           </div>
         </div>
@@ -117,8 +122,8 @@ $var script: <script src="/static/request_rule.js"></script>
           </div>
         </div>-->
         <div class="row">
-          <div class="large-6 columns">
-            <label>Comments
+          <div class="large-4 columns">
+            <label>Comment
               <textarea placeholder="" id="comment"></textarea>
             </label>
           </div>
