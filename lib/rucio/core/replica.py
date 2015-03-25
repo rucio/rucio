@@ -801,13 +801,19 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     # Delete did from the content for the last did
     while parent_condition:
-        child_did_condition, tmp_parent_condition = [], []
+        child_did_condition, tmp_parent_condition, collection_replica_condition = [], [], []
         for c in chunks(parent_condition, 10):
 
             query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name,
+                                  models.DataIdentifierAssociation.did_type,
                                   models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.child_name).\
                 filter(or_(*c))
-            for parent_scope, parent_name, child_scope, child_name in query:
+            for parent_scope, parent_name, did_type, child_scope, child_name in query:
+                if did_type == DIDType.DATASET:
+                    collection_replica_condition.append(and_(models.CollectionReplicas.scope == parent_scope,
+                                                             models.CollectionReplicas.name == parent_name,
+                                                             models.CollectionReplicas.rse_id == replica_rse.id))
+
                 child_did_condition.append(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name,
                                                 models.DataIdentifierAssociation.child_scope == child_scope, models.DataIdentifierAssociation.child_name == child_name))
                 tmp_parent_condition.append(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name,
@@ -816,6 +822,9 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                 did_condition.append(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False,
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
+
+        if collection_replica_condition:
+            rowcount = session.query(models.CollectionReplicas).filter(or_(*collection_replica_condition)).delete(synchronize_session=False)
 
         if child_did_condition:
             for c in chunks(child_did_condition, 10):
