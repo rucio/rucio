@@ -553,7 +553,8 @@ def submitter(once=False, rses=[],
                     if reqs:
                         logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
 
-                    if not reqs or reqs == []:
+                    if not rse and (not reqs or reqs == []):
+                        # in RSE list mode, don't sleep
                         time.sleep(60)
                         continue
 

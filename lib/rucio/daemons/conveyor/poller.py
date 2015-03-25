@@ -127,6 +127,8 @@ def poller(once=False,
                                     record_counter('daemons.conveyor.poller.query_transfer_exception')
                                     common.touch_transfer(external_host, transfer_id)
                                 else:
+                                    # should touch transfers. Otherwise the updated_at is not renewed if the request is not terminated.
+                                    common.touch_transfer(external_host, transfer_id)
                                     for request_id in transf_resp:
                                         ret = common.update_request_state(transf_resp[request_id])
                                         # if True, really update request content; if False, only touch request
