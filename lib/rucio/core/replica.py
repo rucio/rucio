@@ -905,20 +905,19 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     rows = list()
     for (scope, name, path, bytes, tombstone) in query.yield_per(1000):
 
-        if tombstone != OBSOLETE and needed_space is not None and total_bytes >= needed_space:
-            break
-        if tombstone != OBSOLETE and total_files > limit:
-            break
-        if total_obsolete_files > 10000:
-            break
-
-        d = {'scope': scope, 'name': name, 'path': path, 'bytes': bytes}
-        rows.append(d)
         if tombstone != OBSOLETE:
+            if needed_space is not None and total_bytes >= needed_space:
+                break
+            if total_files >= limit:
+                break
             total_bytes += bytes
             total_files += 1
         else:
             total_obsolete_files += 1
+            if total_obsolete_files >= 10000:
+                break
+        rows.append({'scope': scope, 'name': name, 'path': path,
+                     'bytes': bytes, 'tombstone': tombstone})
 
     return rows
 
