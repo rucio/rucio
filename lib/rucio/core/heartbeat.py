@@ -50,13 +50,18 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
     """
 
     # upsert the heartbeat
-    tmp_hb = Heartbeats(executable=executable,
-                        hostname=hostname,
-                        pid=pid,
-                        thread_id=thread.ident,
-                        thread_name=thread.name)
-    tmp_hb = session.merge(tmp_hb)
-    tmp_hb.save(session=session)
+    rowcount = session.query(Heartbeats)\
+        .filter_by(executable=executable,
+                   hostname=hostname,
+                   pid=pid,
+                   thread_id=thread.ident)\
+        .update({'updated_at': datetime.datetime.utcnow()})
+    if not rowcount:
+        Heartbeats(executable=executable,
+                   hostname=hostname,
+                   pid=pid,
+                   thread_id=thread.ident,
+                   thread_name=thread.name).save(session=session)
 
     # assign thread identifier
     query = session.query(Heartbeats.hostname,
