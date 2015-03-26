@@ -141,16 +141,16 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     logging.info('Reaper %s-%s: Running on RSE %s' % (worker_number, child_number, rse_info['rse']))
 
                     needed_free_space, max_being_deleted_files = None, 100
+                    needed_free_space_per_child = None
                     if not greedy:
                         max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                         logging.info('Reaper %(worker_number)s-%(child_number)s: Space usage for RSE %(rse)s - max_being_deleted_files: %(max_being_deleted_files)s, needed_free_space: %(needed_free_space)s, used: %(used)s, free: %(free)s' % locals())
                         if needed_free_space <= 0:
-                            needed_free_space = 0
+                            needed_free_space, needed_free_space_per_child = 0, 0
                             logging.info('Reaper %s-%s: free space is above minimum limit for %s' % (worker_number, child_number, rse['rse']))
-
-                    needed_free_space_per_child = None
-                    if needed_free_space and needed_free_space > 0 and total_children and total_children > 0:
-                        needed_free_space_per_child = needed_free_space/float(total_children)
+                        else:
+                            if total_children and total_children > 0:
+                                needed_free_space_per_child = needed_free_space/float(total_children)
 
                     s = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
@@ -160,7 +160,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                           worker_number=child_number,
                                                           total_workers=total_children,
                                                           delay_seconds=delay_seconds)
-                    logging.debug('Reaper %s-%s: list_unlocked_replicas %s %s %s' % (worker_number, child_number, rse['rse'], time.time() - s, len(replicas)))
+                    logging.debug('Reaper %s-%s: list_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas' % (worker_number, child_number, rse['rse'], needed_free_space_per_child, time.time() - s, len(replicas)))
 
                     if not replicas:
                         logging.info('Reaper %s-%s: nothing to do for %s' % (worker_number, child_number, rse['rse']))
