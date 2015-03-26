@@ -1225,3 +1225,30 @@ def get_replica_atime(replica, session=None):
 
     return session.query(models.RSEFileAssociation.accessed_at).filter_by(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id']).\
         with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').one()[0]
+
+
+@transactional_session
+def touch_collection_replicas(collection_replicas, session=None):
+    """
+    Update the accessed_at timestamp of the given collection replicas.
+
+    :param collection_replicas: the list of collection replicas.
+    :param session: The database session in use.
+
+    :returns: True, if successful, False otherwise.
+    """
+
+    rse_ids, now = {}, datetime.utcnow()
+    for collection_replica in collection_replicas:
+        if 'rse_id' not in collection_replica:
+            if collection_replica['rse'] not in rse_ids:
+                rse_ids[collection_replica['rse']] = get_rse_id(rse=collection_replica['rse'], session=session)
+            collection_replica['rse_id'] = rse_ids[collection_replica['rse']]
+
+        try:
+            session.query(models.CollectionReplica).filter_by(scope=collection_replica['scope'], name=collection_replica['name'], rse_id=collection_replica['rse_id']).\
+                update({'accessed_at': collection_replica.get('accessed_at') or now}, synchronize_session=False)
+        except DatabaseError:
+            return False
+
+    return True

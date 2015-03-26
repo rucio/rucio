@@ -33,7 +33,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.lock import touch_dataset_locks
-from rucio.core.replica import touch_replica_no_wait
+from rucio.core.replica import touch_replica_no_wait, touch_collection_replicas
 from rucio.db.constants import DIDType
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -319,6 +319,18 @@ def __update_datasets(dataset_queue):
                 failed += 1
             total += 1
     logging.info('(kronos_dataset) did update for %d locks, %d failed (%ds)' % (total, failed, time() - start))
+
+    total, failed, start = 0, 0, time()
+    for did, rses in dslocks.items():
+        scope, name = did.split(':')
+        for rse, accessed_at in rses.items():
+            update_dslock = {'scope': scope, 'name': name, 'rse': rse, 'accessed_at': accessed_at}
+            # if update fails, put back in queue and retry next time
+            if not touch_collection_replicas((update_dslock,)):
+                dataset_queue.put(update_dslock)
+                failed += 1
+            total += 1
+    logging.info('(kronos_dataset) did update for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
 
 
 def stop(signum=None, frame=None):
