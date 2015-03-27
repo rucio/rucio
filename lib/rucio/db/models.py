@@ -590,6 +590,7 @@ class CollectionReplica(BASE, ModelBase):
     rse_id = Column(GUID())
     bytes = Column(BigInteger)
     length = Column(BigInteger)
+    available_bytes = Column(BigInteger)
     available_replicas_cnt = Column(BigInteger)
     state = Column(ReplicaState.db_type(name='COLLECTION_REPLICAS_STATE_CHK'), default=ReplicaState.UNAVAILABLE)
     accessed_at = Column(DateTime)
