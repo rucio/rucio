@@ -328,6 +328,8 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, rseselecto
                                              rse_id=rse_tuple[0],
                                              bytes=0,
                                              length=0,
+                                             available_bytes=0,
+                                             available_replicas_cnt=0,
                                              state=ReplicaState.UNAVAILABLE).save(session=session)
                     models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                     name=dataset['name'],
@@ -438,6 +440,8 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, rsesel
                                              rse_id=rse_tuple[0],
                                              bytes=0,
                                              length=0,
+                                             available_bytes=0,
+                                             available_replicas_cnt=0,
                                              state=ReplicaState.UNAVAILABLE).save(session=session)
                     models.UpdatedCollectionReplica(scope=dataset['scope'],
                                                     name=dataset['name'],

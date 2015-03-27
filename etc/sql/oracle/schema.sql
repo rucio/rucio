@@ -557,6 +557,7 @@ CREATE TABLE collection_replicas (
     rse_id RAW(16),
     bytes NUMBER(19),
     length NUMBER(19),
+    available_bytes NUMBER(19),
     available_replicas_cnt NUMBER(19),
     state CHAR(1 CHAR),
     accessed_at DATE,
