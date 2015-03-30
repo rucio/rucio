@@ -23,7 +23,7 @@ OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3
 if __name__ == "__main__":
     try:
         session = get_session()
-        result = session.execute('select count(*) from atlas_rucio.dids where expired_at < sysdate - 1/24').fetchone()[0]
+        result = session.execute('select count(*) from atlas_rucio.dids where expired_at is not null and expired_at < sys_extract_utc(localtimestamp)').fetchone()[0]
         # Possible check against a threshold. If result > max_value then sys.exit(CRITICAL)
         monitor.record_gauge(stat='undertaker.expired_dids', value=result)
         print result
