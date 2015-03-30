@@ -482,12 +482,14 @@ def get_transfer(rse, req, scheme, mock):
     return transfer
 
 
-def bulk_group_transfer(transfers, policy='rule', fts_source_strategy='auto'):
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_strategy='auto'):
     grouped_transfers = {}
+    grouped_jobs = {}
     for transfer in transfers:
         external_host = transfer['external_host']
         if external_host not in grouped_transfers:
             grouped_transfers[external_host] = {}
+            grouped_jobs[external_host] = []
 
         file = {'sources': transfer['src_urls'],
                 'destinations': transfer['dest_urls'],
@@ -513,25 +515,53 @@ def bulk_group_transfer(transfers, policy='rule', fts_source_strategy='auto'):
         # for multiple source replicas, no bulk submission
         if len(transfer['src_urls']) > 1:
             job_params['job_metadata']['multi_sources'] = True
-            grouped_transfers[external_host][transfer['request_id']] = {'files': [file], 'job_params': job_params}
+            grouped_jobs[external_host].append({'files': [file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
-            key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params['spacetoken'], job_params['copy_pin_lifetime'],
-                                               job_params['bring_online'], job_params['job_metadata'], job_params['source_spacetoken'],
-                                               job_params['overwrite'], job_params['priority'])
+            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params['spacetoken'], job_params['copy_pin_lifetime'],
+                                                   job_params['bring_online'], job_params['job_metadata'], job_params['source_spacetoken'],
+                                                   job_params['overwrite'], job_params['priority'])
+            if job_key not in grouped_transfers[external_host]:
+                grouped_transfers[external_host][job_key] = {}
+
             if policy == 'rule':
-                key = '%s,%s' % (transfer['rule_id'], key)
+                policy_key = '%s' % (transfer['rule_id'])
             if policy == 'dest':
-                key = '%s,%s' % (file['metadata']['dst_rse'], key)
+                policy_key = '%s' % (file['metadata']['dst_rse'])
             if policy == 'src_dest':
-                key = '%s,%s,%s' % (file['metadata']['src_rse'], file['metadata']['dst_rse'], key)
+                policy_key = '%s,%s' % (file['metadata']['src_rse'], file['metadata']['dst_rse'])
             # maybe here we need to hash the key if it's too long
 
-            if key not in grouped_transfers[external_host]:
-                grouped_transfers[external_host][key] = {'files': [file], 'job_params': job_params}
+            if policy_key not in grouped_transfers[external_host][job_key]:
+                grouped_transfers[external_host][job_key][policy_key] = {'files': [file], 'job_params': job_params}
             else:
-                grouped_transfers[external_host][key]['files'].append(file)
-    return grouped_transfers
+                grouped_transfers[external_host][job_key][policy_key]['files'].append(file)
+
+    # for jobs with different job_key, we cannot put in one job.
+    # but for jobs with the same job_key, we can put them in one job if there are not many 'files' in one policy_key(rule, dest or scr_dest)
+    for external_host in grouped_transfers:
+        for job_key in grouped_transfers[external_host]:
+            # for all policy groups in job_key, the job_params is the same.
+            current_job = {'files': []}
+            for policy_key in grouped_transfers[external_host][job_key]:
+                job_params = grouped_transfers[external_host][job_key][policy_key]['job_params']
+                if len(grouped_transfers[external_host][job_key][policy_key]['files']) > group_bulk:
+                    for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
+                        # for the last small piece, just submit it.
+                        grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
+                else:
+                    if len(current_job['files']) + len(grouped_transfers[external_host][job_key][policy_key]['files']) < group_bulk:
+                        current_job['files'] += grouped_transfers[external_host][job_key][policy_key]['files']
+                    else:
+                        if len(current_job['files']) > group_bulk / 2:
+                            grouped_jobs[external_host].append({'files': current_job['files'], 'job_params': job_params})
+                            current_job['files'] = grouped_transfers[external_host][job_key][policy_key]['files']
+                        else:
+                            grouped_jobs[external_host].append({'files': grouped_transfers[external_host][job_key][policy_key]['files'], 'job_params': job_params})
+            if len(current_job['files']) > 0:
+                grouped_jobs[external_host].append({'files': current_job['files'], 'job_params': job_params})
+
+    return grouped_jobs
 
 
 def submitter(once=False, rses=[],
@@ -638,49 +668,47 @@ def submitter(once=False, rses=[],
                         except Exception, e:
                             logging.error("Failed to get transfer for request(%s): %s " % (req['request_id'], str(e)))
 
-                    # group transfers
-                    grouped_transfers = bulk_group_transfer(transfers, group_policy, fts_source_strategy)
+                    # group jobs
+                    grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, fts_source_strategy)
 
                     # submit transfers
-                    for external_host in grouped_transfers:
-                        for key in grouped_transfers[external_host]:
-                            job_params = grouped_transfers[external_host][key]['job_params']
-                            for xfers_files in chunks(grouped_transfers[external_host][key]['files'], group_bulk):
-                                # submit transfers
-                                eid = None
-                                try:
-                                    ts = time.time()
-                                    eid = request.submit_bulk_transfers(external_host, files=xfers_files, transfertool='fts3', job_params=job_params)
-                                    logging.debug("Submit job %s to %s" % (eid, external_host))
-                                    record_timer('daemons.conveyor.submitter.submit_bulk_transfer', (time.time() - ts) * 1000/len(xfers_files))
-                                except Exception, ex:
-                                    logging.error("Failed to submit a job with error %s: %s" % (str(ex), traceback.format_exc()))
+                    for external_host in grouped_jobs:
+                        for job in grouped_jobs[external_host]:
+                            # submit transfers
+                            eid = None
+                            try:
+                                ts = time.time()
+                                eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'])
+                                logging.debug("Submit job %s to %s" % (eid, external_host))
+                                record_timer('daemons.conveyor.submitter.submit_bulk_transfer', (time.time() - ts) * 1000/len(job['files']))
+                            except Exception, ex:
+                                logging.error("Failed to submit a job with error %s: %s" % (str(ex), traceback.format_exc()))
 
-                                # register transfer returns
-                                try:
-                                    xfers_ret = {}
-                                    for file in xfers_files:
-                                        file_metadata = file['metadata']
-                                        request_id = file_metadata['request_id']
-                                        log_str = 'COPYING REQUEST %s DID %s:%s PREVIOUS %s FROM %s TO %s USING %s ' % (file_metadata['request_id'],
-                                                                                                                        file_metadata['scope'],
-                                                                                                                        file_metadata['name'],
-                                                                                                                        file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
-                                                                                                                        file['sources'],
-                                                                                                                        file['destinations'],
-                                                                                                                        external_host)
-                                        if eid:
-                                            xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid, 'dest_url':  file['destinations'][0]}
-                                            log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
-                                            logging.info(log_str)
-                                        else:
-                                            xfers_ret[request_id] = {'state': RequestState.LOST, 'external_host': external_host, 'external_id': None, 'dest_url': None}
-                                            log_str += 'with state(%s) with eid(%s)' % (RequestState.LOST, None)
-                                            logging.warn(log_str)
-                                    request.set_request_transfers(xfers_ret)
-                                except Exception, ex:
-                                    logging.error("Failed to register transfer state with error %s: %s" % (str(ex), traceback.format_exc()))
-                                record_counter('daemons.conveyor.submitter.submit_request', len(xfers_files))
+                            # register transfer returns
+                            try:
+                                xfers_ret = {}
+                                for file in job['files']:
+                                    file_metadata = file['metadata']
+                                    request_id = file_metadata['request_id']
+                                    log_str = 'COPYING REQUEST %s DID %s:%s PREVIOUS %s FROM %s TO %s USING %s ' % (file_metadata['request_id'],
+                                                                                                                    file_metadata['scope'],
+                                                                                                                    file_metadata['name'],
+                                                                                                                    file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
+                                                                                                                    file['sources'],
+                                                                                                                    file['destinations'],
+                                                                                                                    external_host)
+                                    if eid:
+                                        xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid, 'dest_url':  file['destinations'][0]}
+                                        log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
+                                        logging.info(log_str)
+                                    else:
+                                        xfers_ret[request_id] = {'state': RequestState.LOST, 'external_host': external_host, 'external_id': None, 'dest_url': None}
+                                        log_str += 'with state(%s) with eid(%s)' % (RequestState.LOST, None)
+                                        logging.warn(log_str)
+                                request.set_request_transfers(xfers_ret)
+                            except Exception, ex:
+                                logging.error("Failed to register transfer state with error %s: %s" % (str(ex), traceback.format_exc()))
+                            record_counter('daemons.conveyor.submitter.submit_request', len(job['files']))
 
                     if not rse and len(reqs) < group_bulk:
                         logging.debug('%i:%i - only %s requests which is less than group bulk %s, sleep 60 seconds' % (process, thread, len(reqs), group_bulk))
