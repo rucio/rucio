@@ -114,6 +114,19 @@ def queue_requests(requests, session=None):
                                              bytes=req['attributes']['bytes'],
                                              md5=req['attributes']['md5'],
                                              adler32=req['attributes']['adler32'])
+
+            if 'sources' in req and req['sources']:
+                for source in req['sources']:
+                    models.Source(request_id=req['request_id'],
+                                  scope=req['scope'],
+                                  name=req['name'],
+                                  rse_id=req['src_rse_id'],
+                                  dest_rse_id=req['dest_rse_id'],
+                                  ranking=req.get('ranking'),
+                                  bytes=req['attributes']['bytes'],
+                                  url=req.get('url')).\
+                        save(session=session, flush=False)
+
             new_request.save(session=session, flush=False)
         session.flush()
     except IntegrityError:
@@ -876,7 +889,7 @@ def archive_request(request_id, session=None):
         hist_request.save(session=session)
         try:
             session.query(models.Request).filter_by(id=request_id).delete()
-            session.commit()
+            session.query(models.Source).filter_by(request_id=request_id).delete()
         except IntegrityError, e:
             raise RucioException(e.args)
 

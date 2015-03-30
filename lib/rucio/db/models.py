@@ -847,6 +847,27 @@ class Request(BASE, ModelBase, Versioned):
                    )
 
 
+class Source(BASE, ModelBase):
+    """Represents source files for transfers"""
+    __tablename__ = 'sources'
+    request_id = Column(GUID())
+    scope = Column(String(25))
+    name = Column(String(255))
+    rse_id = Column(GUID())
+    dest_rse_id = Column(GUID())
+    url = Column(String(2048))
+    bytes = Column(BigInteger)
+    ranking = Column(Integer())
+    _table_args = (PrimaryKeyConstraint('request_id', 'rse_id', 'scope', 'name', name='SOURCES_PK'),
+                   ForeignKeyConstraint(['request_id'], ['requests.id'], name='SOURCES_REQ_ID_FK'),
+                   ForeignKeyConstraint(['scope', 'name', 'rse_id'], ['replicas.scope', 'replicas.name', 'replicas.rse_id'], name='SOURCES_REPLICA_FK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='SOURCES_RSES_FK'),
+                   ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='SOURCES_DEST_RSES_FK'),
+                   Index('SOURCES_SRC_DST_IDX', 'rse_id', 'dest_rse_id'),
+                   Index('SOURCES_SC_NM_DST_IDX', 'scope', 'rse_id', 'name'),
+                   Index('SOURCES_DEST_RSEID_IDX', 'dest_rse_id'))
+
+
 class Subscription(BASE, ModelBase, Versioned):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
@@ -956,6 +977,7 @@ def register_models(engine):
               ReplicationRuleHistoryRecent,
               Request,
               Scope,
+              Source,
               Subscription,
               Token,
               UpdatedAccountCounter,
@@ -1002,6 +1024,7 @@ def unregister_models(engine):
               ReplicationRuleHistoryRecent,
               Request,
               Scope,
+              Source,
               Subscription,
               Token,
               UpdatedAccountCounter,
