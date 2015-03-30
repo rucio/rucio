@@ -26,6 +26,7 @@ import time
 import traceback
 import urlparse
 
+from collections import defaultdict
 from ConfigParser import NoOptionError
 from requests.exceptions import RequestException
 
@@ -511,6 +512,8 @@ def submitter(once=False, rses=[],
                                                                          thread,
                                                                          total_threads))
 
+    activity_next_exe_time = defaultdict(time.time)
+
     while not graceful_stop.is_set():
 
         heartbeat.live(executable, hostname, pid, hb_thread)
@@ -523,7 +526,13 @@ def submitter(once=False, rses=[],
                 rse_ids = [rse['id'] for rse in rses]
             else:
                 rse_ids = None
+
             for activity in activities:
+                if activity_next_exe_time[activity] > time.time():
+                    time.sleep(1)
+                    continue
+
+                logging.info("Starting submit jobs on activity: %s" % activity)
                 ts = time.time()
                 reqs = get_requests(process=process,
                                     total_processes=total_processes,
@@ -540,7 +549,8 @@ def submitter(once=False, rses=[],
 
                 if not reqs or reqs == []:
                     # in RSE list mode, don't sleep
-                    time.sleep(60)
+                    # time.sleep(60)
+                    activity_next_exe_time[activity] = time.time() + 60
                     continue
 
                 submitted_transfers = 0
@@ -613,9 +623,11 @@ def submitter(once=False, rses=[],
                             logging.warning('Cannot cancel request: %s' % str(e))
                     except RequestException, e:
                         logging.error("Failed to submit request %s: %s" % (req['request_id'], str(e)))
-                if submitted_transfers < bulk / 5:
-                    logging.info("Not enough requests, will sleep 10 seconds")
-                    time.sleep(10)
+                if submitted_transfers < bulk / 2:
+                    logging.info("Not enough requests, will sleep 60 seconds")
+                    # time.sleep(10)
+                    if activity_next_exe_time[activity] < time.time():
+                        activity_next_exe_time[activity] = time.time() + 60
         except:
             logging.critical(traceback.format_exc())
 
