@@ -18,11 +18,13 @@ Conveyor is a daemon to manage file transfers.
 import json
 import logging
 import os
+import random
 import socket
 import sys
 import threading
 import time
 import traceback
+import urlparse
 
 from ConfigParser import NoOptionError
 from requests.exceptions import RequestException
@@ -221,6 +223,7 @@ def get_sources(dest_rse, schemes, req):
         sources = sort_sources(sources, dest_rse['rse'])
     if len(sources) > 4:
         sources = sources[:4]
+        random.shuffle(sources)
     return sources, metadata
 
 
@@ -516,54 +519,40 @@ def submitter(once=False, rses=[],
 
             if activities is None:
                 activities = [None]
+            if rses:
+                rse_ids = [rse['id'] for rse in rses]
+            else:
+                rse_ids = None
             for activity in activities:
-                if rses is None:
-                    rses = [None]
+                ts = time.time()
+                reqs = get_requests(process=process,
+                                    total_processes=total_processes,
+                                    thread=thread,
+                                    total_threads=total_threads,
+                                    mock=mock,
+                                    bulk=bulk,
+                                    activity=activity,
+                                    activity_shares=activity_shares)
+                record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
 
-                for rse in rses:
-                    if rse:
-                        # run in rse list mode
-                        rse_info = rsemgr.get_rse_info(rse['rse'])
-                        logging.info("Working on RSE: %s" % rse['rse'])
-                        ts = time.time()
-                        reqs = get_requests(rse_id=rse['id'],
-                                            process=process,
-                                            total_processes=total_processes,
-                                            thread=thread,
-                                            total_threads=total_threads,
-                                            mock=mock,
-                                            bulk=bulk,
-                                            activity=activity,
-                                            activity_shares=activity_shares)
-                        record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
-                    else:
-                        # no rse list, run FIFO mode
-                        rse_info = None
-                        ts = time.time()
-                        reqs = get_requests(process=process,
-                                            total_processes=total_processes,
-                                            thread=thread,
-                                            total_threads=total_threads,
-                                            mock=mock,
-                                            bulk=bulk,
-                                            activity=activity,
-                                            activity_shares=activity_shares)
-                        record_timer('daemons.conveyor.submitter.get_requests', (time.time() - ts) * 1000)
+                if reqs:
+                    logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
 
-                    if reqs:
-                        logging.debug('%i:%i - submitting %i requests' % (process, thread, len(reqs)))
+                if not reqs or reqs == []:
+                    # in RSE list mode, don't sleep
+                    time.sleep(60)
+                    continue
 
-                    if not rse and (not reqs or reqs == []):
-                        # in RSE list mode, don't sleep
-                        time.sleep(60)
-                        continue
-
-                    for req in reqs:
-                        try:
-                            if not rse:
-                                # no rse list, in FIFO mode
-                                dest_rse = rse_core.get_rse(rse=None, rse_id=req['dest_rse_id'])
-                                rse_info = rsemgr.get_rse_info(dest_rse['rse'])
+                submitted_transfers = 0
+                for req in reqs:
+                    try:
+                        if rse_ids and req['dest_rse_id'] not in rse_ids:
+                            logging.info("Request dest %s is not in RSEs list, skip")
+                            continue
+                        else:
+                            submitted_transfers += 1
+                            dest_rse = rse_core.get_rse(rse=None, rse_id=req['dest_rse_id'])
+                            rse_info = rsemgr.get_rse_info(dest_rse['rse'])
 
                             ts = time.time()
                             transfer = get_transfer(rse_info, req, scheme, mock, fts_source_strategy)
@@ -610,19 +599,23 @@ def submitter(once=False, rses=[],
                                                                                                                                            transfer_ids[req['request_id']]['external_id'] if req['request_id'] in transfer_ids else None))
                             if not req['request_id'] in transfer_ids:
                                 request.set_request_state(req['request_id'], RequestState.LOST)
+                                record_counter('daemons.conveyor.submitter.lost_request.%s' % urlparse.urlparse(transfer['external_host']).hostname.replace('.', '_'))
                                 logging.warn("Failed to submit request: %s, set request LOST" % (req['request_id']))
                             record_counter('daemons.conveyor.submitter.submit_request')
-                        except UnsupportedOperation, e:
-                            # The replica doesn't exist, need to cancel the request
-                            logging.warning(e)
-                            logging.info('Cancelling transfer request %s' % req['request_id'])
-                            try:
-                                # TODO: for now, there is only ever one destination
-                                request.cancel_request_did(req['scope'], req['name'], transfer['dest_urls'][0])
-                            except Exception, e:
-                                logging.warning('Cannot cancel request: %s' % str(e))
-                        except RequestException, e:
-                            logging.error("Failed to submit request %s: %s" % (req['request_id'], str(e)))
+                    except UnsupportedOperation, e:
+                        # The replica doesn't exist, need to cancel the request
+                        logging.warning(e)
+                        logging.info('Cancelling transfer request %s' % req['request_id'])
+                        try:
+                            # TODO: for now, there is only ever one destination
+                            request.cancel_request_did(req['scope'], req['name'], transfer['dest_urls'][0])
+                        except Exception, e:
+                            logging.warning('Cannot cancel request: %s' % str(e))
+                    except RequestException, e:
+                        logging.error("Failed to submit request %s: %s" % (req['request_id'], str(e)))
+                if submitted_transfers < bulk / 5:
+                    logging.info("Not enough requests, will sleep 10 seconds")
+                    time.sleep(10)
         except:
             logging.critical(traceback.format_exc())
 
