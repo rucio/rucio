@@ -888,6 +888,9 @@ def archive_request(request_id, session=None):
                                                                 dest_url=req['dest_url'])
         hist_request.save(session=session)
         try:
+            time_diff = req['updated_at'] - req['created_at']
+            time_diff_s = time_diff.seconds + time_diff.days * 24 * 3600
+            record_timer('core.request.archive_request.%s' % req['activity'].replace(' ', '_'), time_diff_s)
             session.query(models.Request).filter_by(id=request_id).delete()
             session.query(models.Source).filter_by(request_id=request_id).delete()
         except IntegrityError, e:
