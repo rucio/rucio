@@ -788,8 +788,8 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
     for c in chunks(replica_condition, 10):
         for (scope, name, rse_id, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
                 with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == replica_rse.id).filter(or_(*c)):
-            deleted_replica = models.RSEFileAssociationHistory(rse_id=rse_id, scope=scope, name=name, bytes=replica_bytes)
-            deleted_replica.save(session=session, flush=False)
+            # deleted_replica = models.RSEFileAssociationHistory(rse_id=rse_id, scope=scope, name=name, bytes=replica_bytes)
+            # deleted_replica.save(session=session, flush=False)
 
             bytes += replica_bytes
             delta += 1
