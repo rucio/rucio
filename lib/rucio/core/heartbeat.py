@@ -67,6 +67,7 @@ def live(executable, hostname, pid, thread, older_than=600, session=None):
     query = session.query(Heartbeats.hostname,
                           Heartbeats.pid,
                           Heartbeats.thread_id)\
+                   .with_hint(Heartbeats, "index(HEARTBEATS HEARTBEATS_PK)", 'oracle')\
                    .filter(Heartbeats.executable.like('%s%%' % executable.split()[0]))\
                    .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
                    .group_by(Heartbeats.executable,
