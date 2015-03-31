@@ -888,6 +888,13 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         order_by(models.RSEFileAssociation.tombstone).\
         with_hint(models.RSEFileAssociation, "INDEX(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle')
 
+    # do no delete files used as sources
+    stmt = exists().where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                               models.RSEFileAssociation.name == models.Source.name,
+                               models.RSEFileAssociation.rse_id == models.Source.rse_id))
+    # to enable later
+    # query = query.filter(not_(stmt))
+
     if worker_number and total_workers and total_workers - 1 > 0:
         if session.bind.dialect.name == 'oracle':
             bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
