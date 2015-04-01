@@ -45,6 +45,7 @@ def requeue_and_archive(request_id, session=None):
     new_req = get_request(request_id, session=session)
 
     if new_req:
+        new_req['sources'] = get_sources(request_id, session=session)
         archive_request(request_id, session=session)
         new_req['request_id'] = generate_uuid()
         new_req['previous_attempt_id'] = request_id
@@ -120,11 +121,11 @@ def queue_requests(requests, session=None):
                     models.Source(request_id=req['request_id'],
                                   scope=req['scope'],
                                   name=req['name'],
-                                  rse_id=req['src_rse_id'],
+                                  rse_id=source['rse_id'],
                                   dest_rse_id=req['dest_rse_id'],
-                                  ranking=req.get('ranking'),
-                                  bytes=req['attributes']['bytes'],
-                                  url=req.get('url')).\
+                                  ranking=source['ranking'],
+                                  bytes=source['bytes'],
+                                  url=source['url']).\
                         save(session=session, flush=False)
 
             new_request.save(session=session, flush=False)
@@ -154,7 +155,19 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
 
     if transfertool == 'fts3':
         ts = time.time()
-        transfer_id = fts3.submit_bulk_transfers(external_host, files, job_params)
+        job_files = []
+        for file in files:
+            job_file = {}
+            for key in file:
+                if key == 'sources':
+                    # convert sources from (src_rse, url, src_rse_id, rank) to url
+                    job_file[key] = []
+                    for source in file[key]:
+                        job_file[key].append(source[1])
+                else:
+                    job_file[key] = file[key]
+            job_files.append(job_file)
+        transfer_id = fts3.submit_bulk_transfers(external_host, job_files, job_params)
         record_timer('core.request.submit_transfers_fts3', (time.time() - ts) * 1000/len(files))
     return transfer_id
 
@@ -176,6 +189,20 @@ def set_request_transfers(transfers, session=None):
                             'external_host': transfers[request_id]['external_host'],
                             'dest_url': transfers[request_id]['dest_url']},
                            synchronize_session=False)
+            if 'file' in transfers[request_id]:
+                file = transfers[request_id]['file']
+                for src_rse, src_url, src_rse_id, rank in file['sources']:
+                    if rank is None:
+                        models.Source(request_id=file['metadata']['request_id'],
+                                      scope=file['metadata']['scope'],
+                                      name=file['metadata']['name'],
+                                      rse_id=src_rse_id,
+                                      dest_rse_id=file['metadata']['dest_rse_id'],
+                                      ranking=rank if rank else 0,
+                                      bytes=file['metadata']['filesize'],
+                                      url=src_url).\
+                            save(session=session, flush=False)
+
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -322,6 +349,8 @@ def get_next_transfers(request_type, state, limit=100, older_than=None, rse=None
 
         if share:
             query = query.filter(models.Request.activity == share)
+        elif activity:
+            query = query.filter(models.Request.activity == activity)
 
         if (total_processes-1) > 0:
             if session.bind.dialect.name == 'oracle':
@@ -1038,3 +1067,30 @@ def list_requests_and_source_replicas(thread=None, total_threads=None, session=N
                       'url': source_url}
             transfers[id]['sources'].append(source)
     return transfers
+
+
+@read_session
+def get_sources(request_id, session=None):
+    """
+    Retrieve sources by its ID.
+
+    :param request_id: Request-ID as a 32 character hex string.
+    :param session: Database session to use.
+    :returns: Sources as a dictionary.
+    """
+
+    try:
+        tmp = session.query(models.Source).filter_by(request_id=request_id).all()
+
+        if not tmp:
+            return
+        else:
+            result = []
+            for t in tmp:
+                t2 = dict(t)
+                t2.pop('_sa_instance_state')
+                result.append(t2)
+
+            return result
+    except IntegrityError, e:
+        raise RucioException(e.args)

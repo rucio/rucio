@@ -145,18 +145,18 @@ def sort_rses(rses, dest_rse):
     return ret_rses if ret_rses else None
 
 
-def sort_sources(sources, dest_rse):
+def sort_sources_by_closeness(sources, dest_rse):
     """
     Pass a sources list and the destionation rse, return its closeness.
 
-    :param sources:       A list of sources, eg: [(rse_name, surl),...].
+    :param sources:       A list of sources, eg: [(rse_name, surl, ...),...].
     :param dest_rse:      Destination rse name.
     :returns:             Sorted sources list.
     """
 
     sources_dict = {}
     for source in sources:
-        src_rse, src_url = source
+        src_rse = source[0]
         if src_rse not in sources_dict:
             sources_dict[src_rse] = []
         sources_dict[src_rse].append(source)
@@ -172,4 +172,34 @@ def sort_sources(sources, dest_rse):
     for rse in closest_sorted_rses:
         ret_sources += sources_dict[rse]
     logging.debug("Dest: %s, sorted sources: %s" % (dest_rse, ret_sources))
+    return ret_sources
+
+
+def sort_sources(sources, dest_rse):
+    """
+    Pass a sources list and the destionation rse, return its closeness.
+
+    :param sources:       A list of sources, eg: [(rse_name, surl, rank),...].
+    :param dest_rse:      Destination rse name.
+    :returns:             Sorted sources list.
+    """
+
+    rank_dict = []
+    for source in sources:
+        src_rse, src_url, src_rse_id, rank = source
+        if rank not in rank_dict:
+            rank_dict[rank] = []
+        rank_dict[rank].append(source)
+
+    # sort ranks
+    ranks = rank_dict.keys()
+    ranks.sort(reverse=True)
+
+    ret_sources = []
+    for rank in ranks:
+        if len(rank_dict[rank]) > 1:
+            ret_sources += sort_sources_by_closeness(rank_dict[rank], dest_rse)
+        else:
+            ret_sources += rank_dict[rank]
+
     return ret_sources
