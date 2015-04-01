@@ -102,22 +102,23 @@ AFTER DELETE on DIDS
   FOR EACH ROW
 BEGIN
 
-	-- ver 1.0
-
-     IF :OLD.DID_TYPE !=  'F' THEN	 -- IF CLAUSE for the DQ2-RUCIO migration
-        INSERT INTO DELETED_DIDS (SCOPE, NAME, ACCOUNT, DID_TYPE,
-                                  IS_OPEN, MONOTONIC, HIDDEN, OBSOLETE, COMPLETE, IS_NEW,
-                                  AVAILABILITY, SUPPRESSED, BYTES, LENGTH, MD5, ADLER32,
-                                  EXPIRED_AT, DELETED_AT, UPDATED_AT, CREATED_AT, EVENTS, GUID, PROJECT,
-                                  DATATYPE, RUN_NUMBER, STREAM_NAME, PROD_STEP, VERSION, CAMPAIGN,
-                                  task_id, panda_id)
-                                  VALUES
-                                 (:OLD.SCOPE, :OLD.NAME, :OLD.ACCOUNT, :OLD.DID_TYPE,
-                                  :OLD.IS_OPEN, :OLD.MONOTONIC, :OLD.HIDDEN, :OLD.OBSOLETE, :OLD.COMPLETE, :OLD.IS_NEW,
-                                  :OLD.AVAILABILITY, :OLD.SUPPRESSED, :OLD.BYTES, :OLD.LENGTH, :OLD.MD5, :OLD.ADLER32,
-                                  :OLD.EXPIRED_AT, sys_extract_utc(systimestamp), :OLD.UPDATED_AT, :OLD.CREATED_AT, :OLD.EVENTS, :OLD.GUID, :OLD.PROJECT,
-                                  :OLD.DATATYPE, :OLD.RUN_NUMBER, :OLD.STREAM_NAME, :OLD.PROD_STEP, :OLD.VERSION, :OLD.CAMPAIGN,
-                                  :OLD.task_id, :OLD.panda_id);
+     IF :OLD.DID_TYPE != 'F' THEN
+        MERGE INTO ATLAS_RUCIO.DELETED_DIDS D
+        USING DUAL
+        ON (D.scope = :OLD.SCOPE and D.name = :OLD.NAME)
+        WHEN NOT MATCHED THEN
+        INSERT (SCOPE, NAME, ACCOUNT, DID_TYPE,
+                IS_OPEN, MONOTONIC, HIDDEN, OBSOLETE, COMPLETE, IS_NEW,
+                AVAILABILITY, SUPPRESSED, BYTES, LENGTH, MD5, ADLER32,
+                EXPIRED_AT, DELETED_AT, UPDATED_AT, CREATED_AT, EVENTS, GUID, PROJECT,
+                DATATYPE, RUN_NUMBER, STREAM_NAME, PROD_STEP, VERSION, CAMPAIGN,
+                task_id, panda_id) VALUES
+                (:OLD.SCOPE, :OLD.NAME, :OLD.ACCOUNT, :OLD.DID_TYPE,
+                 :OLD.IS_OPEN, :OLD.MONOTONIC, :OLD.HIDDEN, :OLD.OBSOLETE, :OLD.COMPLETE, :OLD.IS_NEW,
+                 :OLD.AVAILABILITY, :OLD.SUPPRESSED, :OLD.BYTES, :OLD.LENGTH, :OLD.MD5, :OLD.ADLER32,
+                 :OLD.EXPIRED_AT, sys_extract_utc(systimestamp), :OLD.UPDATED_AT, :OLD.CREATED_AT, :OLD.EVENTS, :OLD.GUID, :OLD.PROJECT,
+                 :OLD.DATATYPE, :OLD.RUN_NUMBER, :OLD.STREAM_NAME, :OLD.PROD_STEP, :OLD.VERSION, :OLD.CAMPAIGN,
+                 :OLD.task_id, :OLD.panda_id);
         END IF;
 END;
 /

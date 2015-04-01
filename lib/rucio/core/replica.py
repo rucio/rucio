@@ -800,6 +800,7 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
         raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
     # Delete did from the content for the last did
+    latest_dataset_replica_condition = []
     while parent_condition:
         child_did_condition, tmp_parent_condition, collection_replica_condition = [], [], []
         for c in chunks(parent_condition, 10):
@@ -823,6 +824,12 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
                                           ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
 
+                latest_dataset_replica_condition.append(and_(models.CollectionReplica.scope == parent_scope,
+                                                             models.CollectionReplica.name == parent_name,
+                                                             exists([1]).where(and_(models.DataIdentifier.scope == parent_scope, models.DataIdentifier.name == parent_name, models.DataIdentifier.is_open == False)),  # NOQA
+                                                             ~exists([1]).where(and_(models.DataIdentifierAssociation.child_scope == parent_scope, models.DataIdentifierAssociation.child_name == parent_name)),  # NOQA
+                                                             ~exists([1]).where(and_(models.DataIdentifierAssociation.scope == parent_scope, models.DataIdentifierAssociation.name == parent_name))))  # NOQA
+
         if collection_replica_condition:
             rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_condition)).delete(synchronize_session=False)
 
@@ -832,6 +839,9 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
             # update parent counters
 
         parent_condition = tmp_parent_condition
+
+    for c in chunks(latest_dataset_replica_condition, 10):
+        rowcount = session.query(models.CollectionReplica).filter(or_(*c)).delete(synchronize_session=False)
 
     for c in chunks(did_condition, 10):
         rowcount = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*c)).delete(synchronize_session=False)
