@@ -232,6 +232,8 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
 
         if share:
             query = query.filter(models.Request.activity == share)
+        elif activity:
+            query = query.filter(models.Request.activity == activity)
 
         if (total_processes-1) > 0:
             if session.bind.dialect.name == 'oracle':
