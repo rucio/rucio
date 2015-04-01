@@ -14,6 +14,7 @@
 Reaper is a daemon to manage file deletion.
 '''
 
+import datetime
 import logging
 import math
 import os
@@ -117,12 +118,19 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     sanity_check(executable=executable, hostname=hostname)
     while not graceful_stop.is_set():
         try:
+
             # heartbeat
             live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+            checkpoint_time = datetime.datetime.now()
 
             max_deleting_rate, nothing_to_do = 0, True
             for rse in sort_rses(rses):
                 try:
+                    if checkpoint_time + datetime.timedelta(minutes=1) < datetime.datetime.now():
+                        # heartbeat
+                        live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+                        checkpoint_time = datetime.datetime.now()
+
                     deleting_rate = 0
                     rse_info = rsemgr.get_rse_info(rse['rse'])
                     rse_protocol = rse_core.get_rse_protocols(rse['rse'])
