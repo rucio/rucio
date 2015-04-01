@@ -32,7 +32,7 @@ from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAcces
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core import rse as rse_core
-from rucio.core.heartbeat import live, die
+from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.replica import list_unlocked_replicas, update_replicas_states, delete_replicas
 from rucio.core.rse import sort_rses
@@ -114,17 +114,15 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     pid = os.getpid()
     thread = threading.current_thread()
     executable = ' '.join(sys.argv)
+    sanity_check(executable=executable, hostname=hostname)
     while not graceful_stop.is_set():
         try:
-            max_deleting_rate = 0
+            # heartbeat
+            live(executable=executable, hostname=hostname, pid=pid, thread=thread)
 
-            nothing_to_do = True
+            max_deleting_rate, nothing_to_do = 0, True
             for rse in sort_rses(rses):
                 try:
-
-                    # heartbeat
-                    live(executable=executable, hostname=hostname, pid=pid, thread=thread)
-
                     deleting_rate = 0
                     rse_info = rsemgr.get_rse_info(rse['rse'])
                     rse_protocol = rse_core.get_rse_protocols(rse['rse'])
