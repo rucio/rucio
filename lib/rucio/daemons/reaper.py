@@ -281,8 +281,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     logging.critical(traceback.format_exc())
 
             if nothing_to_do:
-                logging.info('Reaper %s-%s: Nothing to do. I will sleep for 20s' % (worker_number, child_number))
-                time.sleep(20)
+                logging.info('Reaper %s-%s: Nothing to do. I will sleep for 60s' % (worker_number, child_number))
+                time.sleep(60)
 
             if once:
                 break
