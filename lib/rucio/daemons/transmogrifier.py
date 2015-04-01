@@ -86,8 +86,9 @@ def is_matching_subscription(subscription, did, metadata):
             if not re.match(values, did['name']):
                 return False
         elif key == 'scope':
-            if not did['scope'] in values:
-                return False
+            for scope in values:
+                if not re.match(scope, did['scope']):
+                    return False
         else:
             if type(values) is str or type(values) is unicode:
                 values = [values, ]
@@ -95,7 +96,7 @@ def is_matching_subscription(subscription, did, metadata):
             for meta in metadata:
                 if str(meta) == str(key):
                     has_metadata = 1
-                    if not metadata[meta] in values:
+                    if metadata[meta] not in values:
                         return False
             if has_metadata == 0:
                 return False
@@ -153,6 +154,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                 for rule in loads(subscription['replication_rules']):
                                     grouping = rule.get('grouping', 'DATASET')
                                     lifetime = rule.get('lifetime', None)
+                                    ignore_availability = rule.get('ignore_availability', None)
                                     if lifetime:
                                         lifetime = int(lifetime)
                                     weight = rule.get('weight', None)
@@ -176,7 +178,7 @@ def transmogrifier(worker_number=1, total_workers=1, chunk_size=5, once=False):
                                             comment = str(subscription['comments'])
                                             add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=subscription['account'], copies=int(rule['copies']), rse_expression=rse_expression,
                                                      grouping=grouping, weight=weight, lifetime=lifetime, locked=locked, subscription_id=subscription['id'], source_replica_expression=source_replica_expression, activity=activity,
-                                                     purge_replicas=purge_replicas, comment=comment)
+                                                     purge_replicas=purge_replicas, ignore_availability=ignore_availability, comment=comment)
                                             monitor.record_counter(counters='transmogrifier.addnewrule.done',  delta=1)
                                             if subscription['name'].find('test') > -1:
                                                 monitor.record_counter(counters='transmogrifier.addnewrule.activity.test', delta=1)
