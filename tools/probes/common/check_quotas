@@ -35,6 +35,8 @@ result = OK
 
 # Map of country to list of accounts
 country_accounts = {}
+country_accounts_history = {}
+
 # List of all user accounts
 all_accounts = []
 # Accounts already handled
@@ -46,6 +48,8 @@ rse_capacity = {}
 accounts_cache = '/var/cache/nagios/rucio_quotas_accounts.json'
 # Cache file of RSE capacity
 rse_capacity_cache = '/var/cache/nagios/rucio_quotas_rse_capacity.json'
+# Cache file of accounts in given country
+country_accounts_cache = '/var/cache/nagios/rucio_quotas_country_accounts.json'
 
 
 def get_srm_total(name):
@@ -164,6 +168,13 @@ if __name__ == '__main__':
         except:
             print "No cached accounts, will set quotas for all accounts"
 
+        # Read accounts from cached file
+        try:
+            with open(country_accounts_cache) as f:
+                country_accounts_history = json.load(f)
+        except:
+            print "No cached countries with accounts, will set quotas for all accounts"
+
         # Get all rucio accounts and country attributes
         try:
             accounts = list_accounts()
@@ -183,6 +194,21 @@ if __name__ == '__main__':
         except RucioException as e:
             print "Failed to list Rucio accounts or attributes: %s" % str(e)
             sys.exit(CRITICAL)
+
+        # Get the accounts that changed their country membership and remove them from done_accounts
+        # -> this ensures their quota is reset for all RSEs even if the RSE size was not changed.
+        reset_accounts = set()
+        for country in country_accounts.keys():
+            if not country_accounts_history.has_key(country):
+                print "Country not in cache: %s - all quotas of their members will be reset: %s " % (country, str(",".join(country_accounts[country])))
+                reset_accounts.update(country_accounts[country])
+            else:
+                diff = set(country_accounts_history[country]).symmetric_difference(country_accounts[country])
+                if len(diff)>0:
+                    print "These accounts changed their country membership - their quotas will be reset: %s" % (str(",").join(diff))
+                    reset_accounts.update(diff)
+        for acc in reset_accounts:
+            done_accounts.remove(acc)
 
         for ddmendpoint in data:
 
@@ -226,6 +252,13 @@ if __name__ == '__main__':
                 json.dump(rse_capacity, f)
         except:
             print "Failed to write RSE capacity cache"
+
+        try:
+            with open(country_accounts_cache, 'w') as f:
+                json.dump(country_accounts, f)
+        except:
+            print "Failed to write country accounts cache"
+
     except Exception as e:
         print traceback.format_exc()
         result = CRITICAL
