@@ -64,6 +64,7 @@ def has_permission(issuer, action, kwargs):
             'attach_dids': perm_attach_dids,
             'detach_dids': perm_detach_dids,
             'attach_dids_to_dids': perm_attach_dids_to_dids,
+            'create_did_sample': perm_create_did_sample,
             'set_metadata': perm_set_metadata,
             'set_status': perm_set_status,
             'queue_requests': perm_queue_requests,
@@ -331,6 +332,20 @@ def perm_attach_dids_to_dids(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_create_did_sample(issuer, kwargs):
+    """
+    Checks if an account can create a sample of a data identifier collection.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root'\
+        or has_account_attribute(account=issuer, key='admin')\
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
+        or kwargs['scope'] == 'mock'
 
 
 def perm_del_rule(issuer, kwargs):
