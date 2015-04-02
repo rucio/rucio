@@ -17,6 +17,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 
 import logging
+import random
 import sys
 
 from datetime import datetime, timedelta
@@ -1073,3 +1074,23 @@ def touch_dids(dids, session=None):
         return False
 
     return True
+
+
+@transactional_session
+def create_did_sample(input_scope, input_name, output_scope, output_name, account, nbfiles, session=None):
+    """
+    Create a sample from an input collection.
+
+    :param input_scope: The scope of the input DID.
+    :param input_name: The name of the input DID.
+    :param output_scope: The scope of the output dataset.
+    :param output_name: The name of the output dataset.
+    :param account: The account.
+    :param nbfiles: The number of files to register in the output dataset.
+    :param session: The database session in use.
+    """
+    files = [f for f in list_files(scope=input_scope, name=input_name, long=False, session=session)]
+    random.shuffle(files)
+    output_files = files[:int(nbfiles)]
+    add_did(scope=output_scope, name=output_name, type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None, session=session)
+    __add_files_to_dataset(scope=output_scope, name=output_name, files=output_files, account=account, rse=None, ignore_duplicate=False, session=session)
