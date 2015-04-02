@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2013
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 
@@ -503,6 +503,28 @@ class DIDClient(BaseClient):
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
+    def create_did_sample(self, input_scope, input_name, output_scope, output_name, nbfiles):
+        """
+        Create a sample from an input collection.
+
+        :param input_scope: The scope of the input DID.
+        :param input_name: The name of the input DID.
+        :param output_scope: The scope of the output dataset.
+        :param output_name: The name of the output dataset.
+        :param account: The account.
+        :param nbfiles: The number of files to register in the output dataset.
+        :param session: The database session in use.
+        """
+        path = '/'.join([self.DIDS_BASEURL, input_scope, input_name, output_scope, output_name, str(nbfiles), 'sample'])
+        url = build_url(choice(self.list_hosts), path=path)
+        print url
+        r = self._send_request(url, type='POST', data=dumps({}))
+        if r.status_code == codes.created:
+            return True
         else:
             exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
             raise exc_cls(exc_msg)

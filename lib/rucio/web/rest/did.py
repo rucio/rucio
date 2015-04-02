@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Martin Baristis, <martin.barisits@cern.ch>, 2014-2015
 
 from json import dumps, loads
@@ -22,7 +22,8 @@ from web import application, ctx, data, Created, header, InternalError, OK, load
 from rucio.api.did import (add_did, add_dids, list_content, list_dids,
                            list_files, scope_list, get_did, set_metadata,
                            get_metadata, set_status, attach_dids, detach_dids,
-                           attach_dids_to_dids, get_dataset_by_guid, list_parent_dids)
+                           attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
+                           create_did_sample)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -46,6 +47,7 @@ urls = (
     '/(.*)/(.*)/rules', 'Rules',
     '/(.*)/(.*)/parents', 'Parents',
     '/(.*)/(.*)/associated_rules', 'AssociatedRules',
+    '/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'Sample',
     '/(.*)/(.*)', 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
@@ -640,6 +642,50 @@ class GUIDLookup(RucioController):
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception, e:
             raise InternalError(e)
+
+
+class Sample(RucioController):
+
+    def POST(self, input_scope, input_name, output_scope, output_name, nbfiles):
+        """
+        Return the file associated to a GUID.
+
+        HTTP Success:
+            201 Created
+
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param input_scope: The scope of the input DID.
+        :param input_name: The name of the input DID.
+        :param output_scope: The scope of the output dataset.
+        :param output_name: The name of the output dataset.
+        :param nbfiles: The number of files to register in the output dataset.
+        """
+        try:
+            create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, issuer=ctx.env.get('issuer'), nbfiles=nbfiles)
+        except DataIdentifierNotFound, e:
+            raise generate_http_error(404, 'DataIdentifierNotFound', e.args[0][0])
+        except DuplicateContent, e:
+            raise generate_http_error(409, 'DuplicateContent', e.args[0][0])
+        except DataIdentifierAlreadyExists, e:
+            raise generate_http_error(409, 'DataIdentifierAlreadyExists', e.args[0][0])
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except UnsupportedOperation, e:
+            raise generate_http_error(409, 'UnsupportedOperation', e.args[0][0])
+        except DatabaseException, e:
+            raise generate_http_error(500, 'DatabaseException', e.args)
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+        raise Created()
 
 
 """----------------------

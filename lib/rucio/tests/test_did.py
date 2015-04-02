@@ -11,7 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 
 from datetime import datetime, timedelta
 
@@ -227,7 +227,7 @@ class TestDIDClients:
             self.did_client.list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
 
     def test_add_did(self):
-        """ DATA IDENTIFIERS (CLIENT): Add, populate and list did content"""
+        """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content and create a sample"""
         tmp_scope = 'mock'
         tmp_rse = 'MOCK'
         tmp_dsn = 'dsn_%s' % generate_uuid()
@@ -287,8 +287,12 @@ class TestDIDClients:
                           'pfn': pfn, 'meta': file_meta})
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
-
         self.did_client.close(scope=tmp_scope, name=tmp_dsn)
+
+        tmp_dsn_output = 'dsn_%s' % generate_uuid()
+        self.did_client.create_did_sample(input_scope=tmp_scope, input_name=tmp_dsn, output_scope=tmp_scope, output_name=tmp_dsn_output, nbfiles=2)
+        files = [f for f in self.did_client.list_files(scope=tmp_scope, name=tmp_dsn_output)]
+        assert_equal(len(files), 2)
 
     def test_attach_dids_to_dids(self):
         """ DATA IDENTIFIERS (CLIENT): Attach dids to dids"""

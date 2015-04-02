@@ -256,3 +256,21 @@ def list_parent_dids(scope, name):
     """
 
     return did.list_parent_dids(scope=scope, name=name)
+
+
+def create_did_sample(input_scope, input_name, output_scope, output_name, issuer, nbfiles):
+    """
+    Create a sample from an input collection.
+
+    :param input_scope: The scope of the input DID.
+    :param input_name: The name of the input DID.
+    :param output_scope: The scope of the output dataset.
+    :param output_name: The name of the output dataset.
+    :param account: The account.
+    :param nbfiles: The number of files to register in the output dataset.
+    :param session: The database session in use.
+    """
+    kwargs = {'issuer': issuer, 'scope': output_scope}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='create_did_sample', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
+    return did.create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, account=issuer, nbfiles=nbfiles)
