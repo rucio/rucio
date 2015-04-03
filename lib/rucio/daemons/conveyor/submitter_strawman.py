@@ -18,7 +18,7 @@ import threading
 import time
 
 from rucio.common.config import config_get
-from rucio.core.request import list_requests_and_source_replicas
+from rucio.daemons.conveyor.submitter_utils import get_transfer_requests_and_source_replicas, get_stagein_requests_and_source_replicas
 
 
 logging.basicConfig(stream=sys.stdout,
@@ -28,14 +28,19 @@ logging.basicConfig(stream=sys.stdout,
 graceful_stop = threading.Event()
 
 
-def submitter(once=False, thread=1, total_threads=1):
+def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     # print '%(thread)s/%(total_threads)s: Submitter ' % locals()
     s = time.time()
-    requests = list_requests_and_source_replicas(thread=thread, total_threads=total_threads)
+    requests = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads)
     duration = time.time() - s
     nb_requests = len(requests)
     print '%(thread)s/%(total_threads)s: %(nb_requests)s xfers in %(duration)s seconds' % locals()
 
+    s = time.time()
+    requests = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads)
+    duration = time.time() - s
+    nb_requests = len(requests)
+    print '%(thread)s/%(total_threads)s: %(nb_requests)s xfers in %(duration)s seconds' % locals()
     # Grouping per rule_id, dest_rse_id
     # Order by activity
     # jobs = requests_to_jobs(requests)

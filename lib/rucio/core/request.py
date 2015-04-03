@@ -28,7 +28,6 @@ from rucio.db import models
 from rucio.db.constants import RequestState, RequestType, FTSState
 from rucio.db.session import read_session, transactional_session
 from rucio.transfertool import fts3
-from rucio.rse import rsemanager as rsemgr
 
 
 @transactional_session
@@ -966,14 +965,20 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
 
 
 @read_session
-def list_requests_and_source_replicas(thread=None, total_threads=None, session=None):
+def list_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+                                               activity=None, older_than=None, rses=None, session=None):
     """
     List requests with source replicas
 
     Caveat: Transfers with no source files are silently excluded.
 
+    :param process: Identifier of the caller process as an integer.
+    :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
+    :param activity: Activity to be selected.
+    :param older_than: Only select requests older than this DateTime.
+    :param rses: List of rse_id to select requests.
     :param session: Database session to use.
     :returns: List.
     """
@@ -982,10 +987,12 @@ def list_requests_and_source_replicas(thread=None, total_threads=None, session=N
                           models.Request.rule_id,
                           models.Request.scope,
                           models.Request.name,
+                          models.Request.md5,
                           models.Request.adler32,
                           models.Request.bytes,
                           models.Request.activity,
                           models.Request.attributes,
+                          models.Request.previous_attempt_id,
                           models.Request.dest_rse_id,
                           models.RSEFileAssociation.rse_id,
                           models.RSE.rse,
@@ -1001,72 +1008,104 @@ def list_requests_and_source_replicas(thread=None, total_threads=None, session=N
         .filter(models.RSE.id == models.RSEFileAssociation.rse_id)\
         .filter(models.RSE.staging_area == is_false)
 
+    if isinstance(older_than, datetime.datetime):
+        query = query.filter(models.Request.updated_at < older_than)
+
+    if activity:
+        query = query.filter(models.Request.activity == activity)
+
+    if (total_processes-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+            query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
+
     if (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread', bindparams=bindparams))
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
 
-    transfers, rses_info, protocols = {}, {}, {}
-    for id, rule_id, scope, name, adler32, bytes, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path in query:
+    return query.all()
 
-        if id not in transfers:
-            # Get destination rse information and protocol
-            if dest_rse_id not in rses_info:
-                dest_rse = get_rse_name(rse_id=dest_rse_id, session=session)
-                rses_info[dest_rse_id] = rsemgr.get_rse_info(dest_rse, session=session)
 
-            # Get protocol
-            if dest_rse_id not in protocols:
-                protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write')
+@read_session
+def list_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+                                              activity=None, older_than=None, rses=None, session=None):
+    """
+    List requests with source replicas
 
-            # Compute the destination url
-            if rses_info[dest_rse_id]['deterministic']:
-                dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values()[0]
-            else:
-                # compute dest url in case of non deterministic
-                # naming convention, etc.
-                dest_url = None
+    Caveat: Transfers with no source files are silently excluded.
 
-            attr = None
-            if attributes:
-                if type(attributes) is dict:
-                    attr = json.loads(json.dumps(attributes))
-                else:
-                    attr = json.loads(str(attributes))
+    :param process: Identifier of the caller process as an integer.
+    :param total_processes: Maximum number of processes as an integer.
+    :param thread: Identifier of the caller thread as an integer.
+    :param total_threads: Maximum number of threads as an integer.
+    :param activity: Activity to be selected.
+    :param older_than: Only select requests older than this DateTime.
+    :param rses: List of rse_id to select requests.
+    :param session: Database session to use.
+    :returns: List.
+    """
+    is_false = False  # For PEP8
+    query = session.query(models.Request.id,
+                          models.Request.rule_id,
+                          models.Request.scope,
+                          models.Request.name,
+                          models.Request.md5,
+                          models.Request.adler32,
+                          models.Request.bytes,
+                          models.Request.activity,
+                          models.Request.attributes,
+                          models.Request.dest_rse_id,
+                          models.RSEFileAssociation.rse_id,
+                          models.RSE.rse,
+                          models.RSE.deterministic,
+                          models.RSE.rse_type,
+                          models.RSEFileAssociation.path,
+                          models.RSEAttrAssociation.value)\
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+        .filter(models.Request.state == RequestState.QUEUED)\
+        .filter(models.Request.request_type == RequestType.STAGEIN)\
+        .filter(models.Request.scope == models.RSEFileAssociation.scope)\
+        .filter(models.Request.name == models.RSEFileAssociation.name)\
+        .filter(models.Request.dest_rse_id != models.RSEFileAssociation.rse_id)\
+        .filter(models.RSE.id == models.RSEFileAssociation.rse_id)\
+        .filter(models.RSE.staging_area == is_false)\
+        .filter(models.RSEAttrAssociation.rse_id == models.RSE.id)\
+        .filter(models.RSEAttrAssociation.key == 'staging_buffer')
 
-            transfers[id] = {'dest_rse_id': dest_rse_id,
-                             'dest_rse': rses_info[dest_rse_id]['rse'],
-                             'scope': scope,
-                             'name': name,
-                             'bytes': bytes,
-                             'url': dest_url,
-                             'scheme':  protocols[dest_rse_id].attributes['scheme'],
-                             'adler32': adler32,
-                             'rule_id': rule_id,
-                             'activity': activity,
-                             'attributes': attr,
-                             'sources': []}
+    if isinstance(older_than, datetime.datetime):
+        query = query.filter(models.Request.updated_at < older_than)
 
-            # ToDo: source_replica_expression, include_rses, exclude_rses ?
+    if activity:
+        query = query.filter(models.Request.activity == activity)
 
-            # Compute the sources: urls, etc
-            if source_rse_id not in rses_info:
-                source_rse = get_rse_name(rse_id=source_rse_id, session=session)
-                rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+    if (total_processes-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
+            query = query.filter(text('ORA_HASH(rule_id, :total_processes) = :process_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_processes-1, process))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
 
-            # Get protocol
-            if source_rse_id not in protocols:
-                # force the scheme to protocols[dest_rse_id].attributes['scheme'] ?
-                # Todo: check if scheme for source == dest, gsiftp
-                protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write')
+    if (total_threads-1) > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            query = query.filter(text('ORA_HASH(rule_id, :total_threads) = :thread_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter('mod(md5(rule_id), %s) = %s' % (total_threads-1, thread))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
 
-            source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
-            source = {'source_rse_id': source_rse_id,
-                      'source_rse': rses_info[source_rse_id]['rse'],
-                      'rse_type': rses_info[source_rse_id]['rse_type'],
-                      'url': source_url}
-            transfers[id]['sources'].append(source)
-    return transfers
+    return query.all()
 
 
 @read_session
