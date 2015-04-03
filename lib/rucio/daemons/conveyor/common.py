@@ -21,8 +21,12 @@ import sys
 import time
 import traceback
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NoValue
+
 from re import match
 from sqlalchemy.exc import DatabaseError
+from urlparse import urlparse
 
 from rucio.common import exception
 from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound
@@ -31,6 +35,9 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import DIDType, RequestState, ReplicaState, RequestType
 from rucio.db.session import transactional_session
+from rucio.rse import rsemanager
+
+region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
 
 
 @transactional_session
@@ -138,6 +145,19 @@ def set_transfer_state(external_host, transfer_id, state, session=None):
         return False
 
 
+def get_undeterministic_rses():
+    key = 'undeterministic_rses'
+    result = region.get(key)
+    if type(result) is NoValue:
+        rses_list = rse_core.list_rses(filters={'deterministic': 0})
+        result = [rse['id'] for rse in rses_list]
+        try:
+            region.set(key, result)
+        except:
+            logging.warning("Failed to set dogpile cache, error: %s" % (rse['id'], traceback.format_exc()))
+    return result
+
+
 def handle_requests(reqs):
     """
     used by finisher to handle terminated requests,
@@ -145,6 +165,8 @@ def handle_requests(reqs):
     :param reqs: List of requests.
     """
 
+    undeterministic_rses = get_undeterministic_rses()
+    rses_info, protocols = {}, {}
     replicas = {}
     for req in reqs:
         try:
@@ -162,6 +184,19 @@ def handle_requests(reqs):
                 replica['state'] = ReplicaState.AVAILABLE
                 replica['archived'] = False
                 replicas[req['request_type']][req['rule_id']].append(replica)
+
+                # for TAPE, replica path is needed
+                if req['request_type'] == RequestType.TRANSFER and req['dest_rse_id'] in undeterministic_rses:
+                    if req['dest_rse_id'] not in rses_info:
+                        dest_rse = rse_core.get_rse_name(rse_id=req['dest_rse_id'])
+                        rses_info[req['dest_rse_id']] = rsemanager.get_rse_info(dest_rse)
+                    pfn = req['dest_url']
+                    scheme = urlparse(pfn).scheme
+                    dest_rse_id_scheme = '%s_%s' % (req['dest_rse_id'], scheme)
+                    if dest_rse_id_scheme not in protocols:
+                        protocols[dest_rse_id_scheme] = rsemanager.create_protocol(rses_info[req['dest_rse_id']], 'write', scheme)
+                    path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
+                    replica['path'] = path
             elif req['state'] == RequestState.FAILED or req['state'] == RequestState.LOST:
                 tss = time.time()
                 new_req = request_core.requeue_and_archive(req['request_id'])

@@ -56,11 +56,13 @@ class Default(protocol.RSEProtocol):
         if self.attributes['port'] == 0:
             for lfn in lfns:
                 scope, name = lfn['scope'], lfn['name']
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, self._get_path(scope=scope, name=name)])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix,
+                                                         lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)])
         else:
             for lfn in lfns:
                 scope, name = lfn['scope'], lfn['name']
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, self._get_path(scope=scope, name=name)])
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix,
+                                                         lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)])
 
         return pfns
 
