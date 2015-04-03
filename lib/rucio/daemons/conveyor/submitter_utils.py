@@ -22,11 +22,13 @@ import traceback
 
 from rucio.common.closeness_sorter import sort_sources
 from rucio.common.exception import DataIdentifierNotFound, RSEProtocolNotSupported, InvalidRSEExpression, InvalidRequest
+from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl, chunks
 from rucio.core import did, replica, request, rse as rse_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.constants import DIDType, RequestType, RequestState, RSEType
+from rucio.db.session import read_session
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -610,3 +612,247 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 grouped_jobs[external_host].append({'files': current_job['files'], 'job_params': job_params})
 
     return grouped_jobs
+
+
+@read_session
+def get_transfer_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+                                              activity=None, older_than=None, rses=None, session=None):
+    req_sources = request.list_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
+                                                                     activity=activity, older_than=older_than, rses=rses, session=session)
+
+    transfers, rses_info, protocols, rse_attrs = {}, {}, {}, {}
+    for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path in req_sources:
+        try:
+            if rses and dest_rse_id not in rses:
+                continue
+
+            if id not in transfers:
+                # Get destination rse information and protocol
+                if dest_rse_id not in rses_info:
+                    dest_rse = rse_core.get_rse_name(rse_id=dest_rse_id, session=session)
+                    rses_info[dest_rse_id] = rsemgr.get_rse_info(dest_rse, session=session)
+                if dest_rse_id not in rse_attrs:
+                    rse_attrs[dest_rse_id] = get_rse_attributes(dest_rse_id, session=session)
+
+                attr = None
+                if attributes:
+                    if type(attributes) is dict:
+                        attr = json.loads(json.dumps(attributes))
+                    else:
+                        attr = json.loads(str(attributes))
+
+                # parse source expression
+                source_replica_expression = attr["source_replica_expression"]
+                if source_replica_expression:
+                    try:
+                        parsed_rses = parse_expression(source_replica_expression, session=session)
+                    except InvalidRSEExpression, e:
+                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                        continue
+                    else:
+                        allowed_rses = [x['rse'] for x in parsed_rses]
+                        if rse not in allowed_rses:
+                            continue
+
+                # Get protocol
+                if dest_rse_id not in protocols:
+                    protocols[dest_rse_id] = rsemgr.create_protocol(rses_info[dest_rse_id], 'write')
+
+                # get dest space token
+                dest_spacetoken = None
+                if protocols[dest_rse_id].attributes and \
+                   'extended_attributes' in protocols[dest_rse_id].attributes and \
+                   protocols[dest_rse_id].attributes['extended_attributes'] and \
+                   'space_token' in protocols[dest_rse_id].attributes['extended_attributes']:
+                    dest_spacetoken = protocols[dest_rse_id].attributes['extended_attributes']['space_token']
+
+                # Compute the destination url
+                if rses_info[dest_rse_id]['deterministic']:
+                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name}).values()[0]
+                else:
+                    # compute dest url in case of non deterministic
+                    # naming convention, etc.
+                    dsn = 'other'
+                    if attr and 'ds_name' in attr:
+                        dsn = attr["ds_name"]
+
+                    else:
+                        # select a containing dataset
+                        for parent in did.list_parent_dids(scope, name):
+                            if parent['type'] == DIDType.DATASET:
+                                dsn = parent['name']
+                                break
+                    # DQ2 path always starts with /, but prefix might not end with /
+                    naming_convention = rse_attrs[dest_rse_id].get('naming_convention', None)
+                    dest_path = construct_surl(dsn, name, naming_convention)
+                    if rses_info[dest_rse_id]['rse_type'] == 'TAPE':
+                        if previous_attempt_id or activity == 'Recovery':
+                            dest_path = '%s_%i' % (dest_path, int(time.time()))
+
+                    # replica cannot be imported. finisher will do it
+                    # update_replicas_paths([{'scope': req['scope'],
+                    #                                     'name': req['name'],
+                    #                                     'rse_id': req['dest_rse_id'],
+                    #                                     'path': dest_path}])
+                    dest_url = protocols[dest_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values()[0]
+
+                # get allowed source scheme
+                schemes = []
+                dest_scheme = dest_url.split("://")[0]
+                if dest_scheme in ['srm', 'gsiftp']:
+                    schemes = ['srm', 'gsiftp']
+                else:
+                    schemes = [dest_scheme]
+
+                # Compute the sources: urls, etc
+                if source_rse_id not in rses_info:
+                    source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+
+                # Get protocol
+                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(schemes))
+                if source_rse_id_key not in protocols:
+                    try:
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', schemes)
+                    except RSEProtocolNotSupported:
+                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], schemes))
+                        continue
+
+                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+
+                file_metadata = {'request_id': id,
+                                 'scope': scope,
+                                 'name': name,
+                                 'activity': activity,
+                                 'src_rse': rse,
+                                 'dst_rse': dest_rse,
+                                 'dest_rse_id': dest_rse_id,
+                                 'filesize': bytes,
+                                 'md5': md5,
+                                 'adler32': adler32}
+
+                transfers[id] = {'request_id': id,
+                                 'schemes': schemes,
+                                 'src_urls': [(source_rse_id, source_url)],
+                                 'dest_urls': [dest_url],
+                                 'src_spacetoken': None,
+                                 'dest_spacetoken': dest_spacetoken,
+                                 'overwrite': False,
+                                 'bring_online': 172800,  # 48 hours
+                                 'copy_pin_lifetime': attr.get('lifetime', -1),
+                                 'external_host': rse_attrs[dest_rse_id].get('fts', None),
+                                 'selection_strategy': 'auto',
+                                 'rule_id': rule_id,
+                                 'file_metadata': file_metadata}
+            else:
+                schemes = transfers[id]['schemes']
+
+                # Compute the sources: urls, etc
+                if source_rse_id not in rses_info:
+                    source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+
+                # Get protocol
+                source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(schemes))
+                if source_rse_id_key not in protocols:
+                    try:
+                        protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'read', schemes)
+                    except RSEProtocolNotSupported:
+                        logging.error('Operation "read" not supported by %s with schemes %s' % (rses_info[source_rse_id]['rse'], schemes))
+                        continue
+                source_url = protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                transfers[id]['src_urls'].append((source_rse_id, source_url))
+
+        except:
+            logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
+            break
+
+    return transfers
+
+
+@read_session
+def get_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
+                                             activity=None, older_than=None, rses=None, session=None):
+    req_sources = request.list_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
+                                                                    activity=activity, older_than=older_than, rses=rses, session=session)
+
+    transfers, rses_info, protocols, rse_attrs = {}, {}, {}, {}
+    for id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, staging_buffer in req_sources:
+        try:
+            if rses and dest_rse_id not in rses:
+                continue
+
+            if id not in transfers:
+                # Get destination rse information and protocol
+                if dest_rse_id not in rses_info:
+                    dest_rse = rse_core.get_rse_name(rse_id=dest_rse_id, session=session)
+                    rses_info[dest_rse_id] = rsemgr.get_rse_info(dest_rse, session=session)
+
+                if staging_buffer != rses_info[dest_rse_id]['rse']:
+                    continue
+
+                attr = None
+                if attributes:
+                    if type(attributes) is dict:
+                        attr = json.loads(json.dumps(attributes))
+                    else:
+                        attr = json.loads(str(attributes))
+
+                source_replica_expression = attr["source_replica_expression"]
+                if source_replica_expression:
+                    try:
+                        parsed_rses = parse_expression(source_replica_expression, session=None)
+                    except InvalidRSEExpression, e:
+                        logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, e))
+                        continue
+                    else:
+                        allowed_rses = [x['rse'] for x in parsed_rses]
+                        if rse not in allowed_rses:
+                            continue
+
+                if source_rse_id not in rses_info:
+                    source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                if source_rse_id not in rse_attrs:
+                    rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
+
+                if source_rse_id not in protocols:
+                    protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write')
+
+                # we need to set the spacetoken if we use SRM
+                dest_spacetoken = None
+                if protocols[source_rse_id].attributes and \
+                   'extended_attributes' in protocols[source_rse_id].attributes and \
+                   protocols[source_rse_id].attributes['extended_attributes'] and \
+                   'space_token' in protocols[source_rse_id].attributes['extended_attributes']:
+                    dest_spacetoken = protocols[source_rse_id].attributes['extended_attributes']['space_token']
+
+                source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+
+                file_metadata = {'request_id': id,
+                                 'scope': scope,
+                                 'name': name,
+                                 'activity': activity,
+                                 'src_rse': rse,
+                                 'dst_rse': dest_rse,
+                                 'dest_rse_id': dest_rse_id,
+                                 'filesize': bytes,
+                                 'md5': md5,
+                                 'adler32': adler32}
+
+                transfers[id] = {'request_id': id,
+                                 'src_urls': [(source_rse_id, source_url)],
+                                 'dest_urls': [source_url],
+                                 'src_spacetoken': None,
+                                 'dest_spacetoken': dest_spacetoken,
+                                 'overwrite': False,
+                                 'bring_online': 172800,  # 48 hours
+                                 'copy_pin_lifetime': attr.get('lifetime', -1),
+                                 'external_host': rse_attrs[source_rse_id].get('fts', None),
+                                 'selection_strategy': 'auto',
+                                 'rule_id': rule_id,
+                                 'file_metadata': file_metadata}
+        except:
+            logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
+
+    return transfers
