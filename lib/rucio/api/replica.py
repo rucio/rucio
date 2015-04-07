@@ -28,7 +28,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None):
     return replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
 
 
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None):
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, list_pfns=False):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -37,7 +37,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
     :param older_than:  datetime object to select bad replicas older than this date.
     :param limit: The maximum number of replicas returned.
     """
-    return replica.list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit)
+    return replica.list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
 
 
 def declare_bad_file_replicas(pfns, reason, issuer):

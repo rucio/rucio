@@ -679,7 +679,9 @@ class DQ2Client:
             collection = 'dataset'
             filters = {'name': dsn}
             result = {}
-            scope, dataset = extract_scope(dsn)
+            mscope, dataset = extract_scope(dsn)
+            if not scope:
+                scope = mscope
             if dataset.endswith('/'):
                 dataset = dataset[:-1]
                 collection = 'container'
