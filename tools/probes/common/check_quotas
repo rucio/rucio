@@ -8,6 +8,8 @@
 #
 # Authors:
 # - David Cameron, <david.cameron@cern.ch>, 2015
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+
 #
 # Set quotas for physgroups
 # Set quotas for users on their country's localgroupdisk
@@ -109,6 +111,9 @@ def set_group_quotas(quotas):
         except RucioException as e:
             print 'WARNING: %s' % str(e)
             result = WARNING
+        except Exception as e:
+            print 'CRITICAL: %s' % traceback.format_exc()
+            result = CRITICAL
 
 
 def set_user_quotas(name, accs):
@@ -199,16 +204,17 @@ if __name__ == '__main__':
         # -> this ensures their quota is reset for all RSEs even if the RSE size was not changed.
         reset_accounts = set()
         for country in country_accounts.keys():
-            if not country_accounts_history.has_key(country):
+            if country not in country_accounts_history:
                 print "Country not in cache: %s - all quotas of their members will be reset: %s " % (country, str(",".join(country_accounts[country])))
                 reset_accounts.update(country_accounts[country])
             else:
                 diff = set(country_accounts_history[country]).symmetric_difference(country_accounts[country])
-                if len(diff)>0:
+                if len(diff) > 0:
                     print "These accounts changed their country membership - their quotas will be reset: %s" % (str(",").join(diff))
                     reset_accounts.update(diff)
         for acc in reset_accounts:
-            done_accounts.remove(acc)
+            if acc in done_accounts:
+                done_accounts.remove(acc)
 
         for ddmendpoint in data:
 
