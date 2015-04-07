@@ -4,6 +4,6 @@ version_info = {
     'final': True,
     'version': '0.3.2',
     'branch_nick': 'master',
-    'revision_id': 'fde74dd36727cfeb102760fbfbc8660aea907668',
-    'revno': 1977
+    'revision_id': '7d54ba641d0b7c282dde018774369791ec0f290f',
+    'revno': 2047
 }
