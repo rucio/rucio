@@ -99,7 +99,7 @@ def exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
 
 
 @read_session
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, session=None):
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, list_pfns=False, session=None):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -117,7 +117,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
     if state:
         query = query.filter(models.BadReplicas.state == state)
     if rse_id:
-        query = query.filter(rse_id == rse_id)
+        query = query.filter(models.BadReplicas.rse_id == rse_id)
     if younger_than:
         query = query.filter(models.BadReplicas.created_at >= younger_than)
     if older_than:
@@ -126,7 +126,22 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
     if limit:
         query = query.limit(limit)
     for badfile in query.yield_per(1000):
-        result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': badfile.rse, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
+        if list_pfns:
+            result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
+        else:
+            result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': badfile.rse, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
+    if list_pfns:
+        reps = []
+        for rep in list_replicas(result, schemes=['srm', ], unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
+            pfn = None
+            if rse in rep['rses'] and rep['rses'][rse]:
+                pfn = rep['rses'][rse][0]
+                if pfn and pfn not in reps:
+                    reps.append(pfn)
+            else:
+                reps.extend([item for row in rep['rses'].values() for item in row])
+        list(set(reps))
+        result = reps
     return result
 
 

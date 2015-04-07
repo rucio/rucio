@@ -509,7 +509,7 @@ class BadReplicasStates(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         result = []
-        state, rse, younger_than, older_than, limit = None, None, None, None, None
+        state, rse, younger_than, older_than, limit, list_pfns = None, None, None, None, None, None
         if ctx.query:
             try:
                 params = loads(unquote(ctx.query[1:]))
@@ -527,9 +527,11 @@ class BadReplicasStates(RucioController):
                 older_than = datetime.strptime(params['older_than'], "%Y-%m-%dT%H:%M:%S.%f")
             if 'limit' in params:
                 limit = int(params['limit'][0])
+            if 'list_pfns' in params:
+                list_pfns = bool(params['list_pfns'][0])
 
         try:
-            result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit)
+            result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
         except RucioException, e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
         except Exception, e:
