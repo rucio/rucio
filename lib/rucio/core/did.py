@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
@@ -179,14 +179,16 @@ def add_dids(dids, account, session=None):
         if match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', e.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
-                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]) \
+                or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
         if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
                 or match('.*IntegrityError.*FOREIGN KEY constraint failed.*', e.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
                 or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
-                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]):
+                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]) \
+                or match('.*sqlite3.IntegrityError.*foreign key constraint failed', e.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
 
         raise exception.RucioException(e.args)
@@ -249,7 +251,8 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', e.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', e.args[0])\
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', e.args[0]) \
-                or match('.*duplicate entry.*key.*PRIMARY.*', e.args[0]):
+                or match('.*duplicate entry.*key.*PRIMARY.*', e.args[0]) \
+                or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
             raise exception.FileAlreadyExists(e.args)
         else:
             raise exception.RucioException(e.args)
