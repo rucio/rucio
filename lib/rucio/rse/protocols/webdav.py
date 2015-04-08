@@ -229,22 +229,29 @@ class Default(protocol.RSEProtocol):
         try:
             result = self.session.get(path, verify=False, stream=True, timeout=self.timeout, cert=self.cert)
             if result and result.status_code in [200, ]:
-                length = int(result.headers['content-length'])
-                totnchunk = int(length / chunksize) + 1
-                nchunk = 0
-                try:
-                    pbar = ProgressBar(maxval=totnchunk).start()
-                    f = open(dest, 'wb')
-                    for chunk in result.iter_content(chunksize):
-                        nchunk += 1
-                        f.write(chunk)
-                        pbar.update(nchunk)
-                finally:
-                    pbar.finish()
-                f.close()
-            elif result.status_code in [404, 403]:
+                length = None
+                if 'content-length' in result.headers:
+                    length = int(result.headers['content-length'])
+                    totnchunk = int(length / chunksize) + 1
+                with open(dest, 'wb') as f:
+                    nchunk = 0
+                    try:
+                        if length:
+                            pbar = ProgressBar(maxval=totnchunk).start()
+                        else:
+                            print 'Malformed HTTP response (missing content-length header). Cannot show progress bar.'
+                        for chunk in result.iter_content(chunksize):
+                            f.write(chunk)
+                            if length:
+                                nchunk += 1
+                                pbar.update(nchunk)
+                    finally:
+                        if length:
+                            pbar.finish()
+
+            elif result.status_code in [404, ]:
                 raise exception.SourceNotFound()
-            elif result.status_code in [401, ]:
+            elif result.status_code in [401, 403]:
                 raise exception.RSEAccessDenied()
             else:
                 # catchall exception
