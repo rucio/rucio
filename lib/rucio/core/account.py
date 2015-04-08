@@ -11,7 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 from datetime import datetime
@@ -57,7 +57,7 @@ def account_exists(account, session=None):
     :returns: True if found, otherwise false.
     """
 
-    query = session.query(models.Account).filter_by(account=account)
+    query = session.query(models.Account).filter_by(account=account, status=AccountStatus.ACTIVE)
 
     return True if query.first() else False
 
@@ -119,7 +119,17 @@ def set_account_status(account, status, session=None):
     :param status: The status for the account.
     :param session: the database session in use.
     """
-    session.query(models.Account).filter_by(account=account).update({'status': status})
+    query = session.query(models.Account).filter_by(account=account)
+    try:
+        account = query.one()
+    except exc.NoResultFound:
+        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
+    if (isinstance(status, str) or isinstance(status, unicode)):
+        status = AccountStatus.from_sym(status)
+    if status == AccountStatus.SUSPENDED:
+        query.update({'status': status, 'suspended_at': datetime.utcnow()})
+    elif status == AccountStatus.ACTIVE:
+        query.update({'status': status, 'suspended_at': None})
 
 
 @stream_session

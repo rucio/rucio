@@ -91,6 +91,24 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
             raise exc_cls(exc_msg)
 
+    def set_account_status(self, account, status):
+        """ Set the status of an account.
+
+        :param account: Name of the account.
+        :param status: The status for the account.
+        """
+        data = dumps({'status': status})
+        path = '/'.join([self.ACCOUNTS_BASEURL, account])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, type='PUT', data=data)
+
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
+            raise exc_cls(exc_msg)
+
     def list_accounts(self, account_type=None, identity=None):
         """
         Sends the request to list all rucio accounts.
