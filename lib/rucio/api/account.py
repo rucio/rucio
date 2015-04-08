@@ -11,6 +11,8 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+
 
 import rucio.api.permission
 import rucio.common.exception
@@ -74,13 +76,17 @@ def get_account_status(account):
     return account_core.get_account_status(account)
 
 
-def set_account_status(account, status):
+def set_account_status(account, status, issuer='root'):
     """ Set the status of an account_core.
 
     :param account: Name of the account_core.
     :param status: The status for the account_core.
     """
-    account_core.set_account_status(account, status)
+    validate_schema(name='account', obj=account)
+    kwargs = {}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='set_account_status', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not change the status of the account' % (issuer))
+    return account_core.set_account_status(account, status)
 
 
 def list_accounts(filter={}):

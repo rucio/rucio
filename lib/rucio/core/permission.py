@@ -36,6 +36,7 @@ def has_permission(issuer, action, kwargs):
     """
     perm = {'add_account': perm_add_account,
             'del_account': perm_del_account,
+            'set_account_status': perm_set_account_status,
             'add_rule': perm_add_rule,
             'add_scope': perm_add_scope,
             'add_rse': perm_add_rse,
@@ -194,6 +195,17 @@ def perm_del_account(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return issuer == 'root'
+
+
+def perm_set_account_status(issuer, kwargs):
+    """
+    Checks if an account can ban/unban an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_add_scope(issuer, kwargs):
