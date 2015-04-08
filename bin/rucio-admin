@@ -221,10 +221,10 @@ def ban_account(args):
     Ban an account.
 
     """
-
-    raise NotImplementedError('This method is not implemented yet')
-    # client = get_client(args)
-    # client.ban_account(args.account)
+    client = get_client(args)
+    client.set_account_status(account=args.account, status='SUSPENDED')
+    print 'Account %s banned' % args.account
+    return SUCCESS
 
 
 @exception_handler
@@ -235,10 +235,10 @@ def unban_account(args):
     Unban a banned account.
 
     """
-
-    raise NotImplementedError('This method is not implemented yet')
-    # client = get_client(args)
-    # client.unban_account(args.account)
+    client = get_client(args)
+    client.set_account_status(account=args.account, status='ACTIVE')
+    print 'Account %s unbanned' % args.account
+    return SUCCESS
 
 
 @exception_handler

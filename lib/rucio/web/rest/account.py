@@ -8,7 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
@@ -20,7 +20,7 @@ from traceback import format_exc
 from urlparse import parse_qsl
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, loadhook, redirect, seeother
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, set_account_status
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
 from rucio.api.rule import list_replication_rules
@@ -266,8 +266,34 @@ class AccountParameter(RucioController):
         return render_json(**dict)
 
     def PUT(self, account):
-        """ update account informations for given account name """
-        raise BadRequest()
+        """ update the status for a given account name
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 InternalError
+
+        """
+        json_data = data()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+        status = parameter.get('status', 'ACTIVE')
+        try:
+            set_account_status(account, status=status, issuer=ctx.env.get('issuer'))
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Unknown status %s' % status)
+        except AccessDenied, e:
+            raise generate_http_error(401, 'AccessDenied', e.args[0][0])
+        except AccountNotFound, e:
+            raise generate_http_error(404, 'AccountNotFound', e.args[0][0])
+        except Exception, e:
+            raise InternalError(e)
+
+        raise OK()
 
     def POST(self, account):
         """ create account with given account name.

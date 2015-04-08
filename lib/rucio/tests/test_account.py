@@ -11,6 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 from json import dumps, loads
 
@@ -292,3 +293,16 @@ class TestAccountClient():
         svr_list = [a['account'] for a in self.client.list_accounts(account_type='USER')]
         for account in acc_list:
             assert_true(account in svr_list)
+
+    def test_ban_unban_account(self):
+        """ ACCOUNT (CLIENTS): create a new account and ban/unban it."""
+        account = account_name_generator()
+        type = 'USER'
+        ret = self.client.add_account(account, type)
+        assert_true(ret)
+        self.client.set_account_status(account=account, status='SUSPENDED')
+        status = self.client.get_account(account=account)['status']
+        assert_equal(status, 'SUSPENDED')
+        self.client.set_account_status(account=account, status='ACTIVE')
+        status = self.client.get_account(account=account)['status']
+        assert_equal(status, 'ACTIVE')
