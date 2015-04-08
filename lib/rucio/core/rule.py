@@ -150,7 +150,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 except IntegrityError, e:
                     if match('.*ORA-00001.*', str(e.args[0]))\
                        or match('.*IntegrityError.*UNIQUE constraint failed.*', str(e.args[0]))\
-                       or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0])):
+                       or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0]))\
+                       or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
                         raise DuplicateRule()
                     raise InvalidReplicationRule(e.args[0])
                 rule_ids.append(new_rule.id)
@@ -784,7 +785,8 @@ def update_rule(rule_id, options, session=None):
     except IntegrityError, e:
         if match('.*ORA-00001.*', str(e.args[0]))\
            or match('.*IntegrityError.*UNIQUE constraint failed.*', str(e.args[0]))\
-           or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0])):
+           or match('.*1062.*Duplicate entry.*for key.*', str(e.args[0]))\
+           or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
             raise DuplicateRule()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))

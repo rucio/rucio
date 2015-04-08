@@ -10,6 +10,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 
 from re import match
 from sqlalchemy.exc import IntegrityError
@@ -41,7 +42,8 @@ def add_scope(scope, account, session=None):
         if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]) \
            or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]) \
            or match('.*IntegrityError.*UNIQUE constraint failed: scopes.scope.*', e.args[0]) \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0])\
+           or match('.*sqlite3.IntegrityError.*is not unique.*', e.args[0]):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
     except:
         raise RucioException(str(format_exc()))
