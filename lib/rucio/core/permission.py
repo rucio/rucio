@@ -12,7 +12,7 @@
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 
 import rucio.core.authentication
@@ -603,7 +603,16 @@ def perm_set_account_limit(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+    # Check if user is a country admin
+    admin_in_country = []
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.append(kv['key'].rpartition('-')[2])
+    if admin_in_country and list_rse_attributes(rse=kwargs['rse'], rse_id=None).get('country') in admin_in_country:
+        return True
+    return False
 
 
 def perm_delete_account_limit(issuer, kwargs):
@@ -614,7 +623,16 @@ def perm_delete_account_limit(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+    if issuer == 'root' or has_account_attribute(account=issuer, key='admin'):
+        return True
+    # Check if user is a country admin
+    admin_in_country = []
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.append(kv['key'].rpartition('-')[2])
+    if admin_in_country and list_rse_attributes(rse=kwargs['rse'], rse_id=None).get('country') in admin_in_country:
+        return True
+    return False
 
 
 def perm_config(issuer, kwargs):
