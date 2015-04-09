@@ -325,6 +325,12 @@ class InvalidRequest(RucioException):
         self._message = "Request is considered invalid."
 
 
+class InvalidPath(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(InvalidPath, self).__init__(args, kwargs)
+        self._message = "The path provided is invalid."
+
+
 class KeyNotFound(RucioException):
     def __init__(self, *args, **kwargs):
         super(KeyNotFound, self).__init__(args, kwargs)
