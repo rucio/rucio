@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wguan@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
 
 import errno
 import json
@@ -309,6 +309,13 @@ class Default(protocol.RSEProtocol):
         if dest_spacetoken:
             params.dest_spacetoken = str(dest_spacetoken)
         params.timeout = 3600
+
+        dir_name = os.path.dirname(dest)
+        # This function will be removed soon. gfal2 will create parent dir automatically.
+        try:
+            ctx.mkdir(str(dir_name), 0775)
+        except:
+            pass
 
         try:
             ret = ctx.filecopy(params, str(src), str(dest))
