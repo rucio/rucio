@@ -27,8 +27,8 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     FileAlreadyExists, FileConsistencyMismatch,
-                                    KeyNotFound, UnsupportedOperation, UnsupportedStatus,
-                                    ScopeNotFound)
+                                    InvalidPath, KeyNotFound, UnsupportedOperation,
+                                    UnsupportedStatus, ScopeNotFound)
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids,
@@ -269,7 +269,11 @@ class TestDIDClients:
 
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2), 'account': 'root'}]
 
-        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files, rse=tmp_rse)
+        with assert_raises(InvalidPath):
+            self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files, rse=tmp_rse)
+
+        files_without_pfn = [{'scope': i['scope'], 'name': i['name'], 'bytes': i['bytes'], 'adler32': i['adler32'], 'meta': i['meta']} for i in files]
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files_without_pfn, rse=tmp_rse)
 
         with assert_raises(DataIdentifierAlreadyExists):
             self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
@@ -286,7 +290,12 @@ class TestDIDClients:
                           'bytes': 724963570L, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
-        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
+
+        with assert_raises(InvalidPath):
+            self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
+        files_without_pfn = [{'scope': i['scope'], 'name': i['name'], 'bytes': i['bytes'], 'adler32': i['adler32'], 'meta': i['meta']} for i in files]
+        self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files_without_pfn, rse=tmp_rse)
+
         self.did_client.close(scope=tmp_scope, name=tmp_dsn)
 
         tmp_dsn_output = 'dsn_%s' % generate_uuid()

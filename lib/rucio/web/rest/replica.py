@@ -22,7 +22,7 @@ from geoip2.errors import AddressNotFoundError
 
 from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, declare_suspicious_file_replicas, list_bad_replicas_status, get_bad_replicas_summary
 from rucio.db.constants import BadFilesStatus
-from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, ResourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, InvalidPath, ResourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
 from rucio.common.replicas_selector import random_order, geoIP_order
 
 
@@ -174,6 +174,8 @@ class Replicas(RucioController):
 
         try:
             add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
+        except InvalidPath, e:
+            raise generate_http_error(400, 'InvalidPath', e.args[0][0])
         except AccessDenied, e:
             raise generate_http_error(401, 'AccessDenied', e.args[0][0])
         except Duplicate, e:

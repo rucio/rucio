@@ -729,20 +729,30 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, ses
 
     replicas = __bulk_add_file_dids(files=files, account=account, session=session)
 
-    if not replica_rse.deterministic:
-        pfns, scheme = list(), None
-        for file in files:
-            if 'pfn' not in file:
+    pfns, scheme = [], None
+    for file in files:
+        if 'pfn' not in file:
+            if not replica_rse.deterministic:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse)s ' % locals())
-            else:
-                scheme = file['pfn'].split(':')[0]
+        else:
+            scheme = file['pfn'].split(':')[0]
             pfns.append(file['pfn'])
 
+    if pfns:
         p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse, session=session), operation='write', scheme=scheme)
-        pfns = p.parse_pfns(pfns=pfns)
-        for file in files:
-            tmp = pfns[file['pfn']]
-            file['path'] = ''.join([tmp['path'], tmp['name']])
+        if not replica_rse.deterministic:
+            pfns = p.parse_pfns(pfns=pfns)
+            for file in files:
+                tmp = pfns[file['pfn']]
+                file['path'] = ''.join([tmp['path'], tmp['name']])
+        else:
+            # Check that the pfns match to the expected pfns
+            lfns = [{'scope': i['scope'], 'name': i['name']} for i in files]
+            expected_pfns = p.lfns2pfns(lfns)
+            expected_pfns = clean_surls(expected_pfns)
+            pfns = clean_surls(pfns)
+            if pfns != expected_pfns:
+                raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)
     increase(rse_id=replica_rse.id, files=nbfiles, bytes=bytes, session=session)
@@ -769,7 +779,10 @@ def add_replica(rse, scope, name, bytes, account, adler32=None, md5=None, dsn=No
 
     :returns: True is successful.
     """
-    return add_replicas(rse=rse, files=[{'scope': scope, 'name': name, 'bytes': bytes, 'pfn': pfn, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone}, ], account=account, session=session)
+    file = {'scope': scope, 'name': name, 'bytes': bytes, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone}
+    if pfn:
+        file['pfn'] = pfn
+    return add_replicas(rse=rse, files=[file, ], account=account, session=session)
 
 
 @transactional_session
