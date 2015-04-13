@@ -188,3 +188,18 @@ class ReplicaClient(BaseClient):
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
         raise exc_cls(exc_msg)
+
+    def list_dataset_replicas(self, scope, name):
+        """
+        :param scope: The scope of the dataset.
+        :param name: The name of the dataset.
+
+        :returns: A list of dict dataset replicas
+        """
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, scope, name, 'datasets']))
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+        raise exc_cls(exc_msg)

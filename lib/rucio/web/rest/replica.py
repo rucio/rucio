@@ -20,9 +20,17 @@ from web import application, ctx, Created, data, header, InternalError, loadhook
 
 from geoip2.errors import AddressNotFoundError
 
-from rucio.api.replica import add_replicas, list_replicas, delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, declare_suspicious_file_replicas, list_bad_replicas_status, get_bad_replicas_summary
+from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
+                               delete_replicas,
+                               get_did_from_pfns, update_replicas_states,
+                               declare_bad_file_replicas,
+                               declare_suspicious_file_replicas, list_bad_replicas_status,
+                               get_bad_replicas_summary)
 from rucio.db.constants import BadFilesStatus
-from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, InvalidPath, ResourceTemporaryUnavailable, RucioException, RSENotFound, UnsupportedOperation, ReplicaNotFound
+from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
+                                    DataIdentifierNotFound, Duplicate,
+                                    ResourceTemporaryUnavailable, RucioException,
+                                    RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replicas_selector import random_order, geoIP_order
 
 
@@ -33,6 +41,7 @@ urls = ('/list/?$', 'ListReplicas',
         '/?$', 'Replicas',
         '/bad/states/?$', 'BadReplicasStates',
         '/bad/summary/?$', 'BadReplicasSummary',
+        '/(.*)/(.*)/datasets$', 'DatasetReplicas',
         '/(.*)/(.*)/?$', 'Replicas',
         '/bad/?$', 'BadReplicas',
         '/suspicious/?$', 'SuspiciousReplicas',
@@ -581,6 +590,33 @@ class BadReplicasSummary(RucioController):
             raise InternalError(e)
         for row in result:
             yield dumps(row, cls=APIEncoder) + '\n'
+
+
+class DatasetReplicas(RucioController):
+
+    def GET(self, scope, name):
+        """
+        List dataset replicas replicas.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :returns: A dictionary containing all replicas information.
+        :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
+        """
+        try:
+            for row in list_dataset_replicas(scope=scope, name=name):
+                yield dumps(row, cls=APIEncoder) + '\n'
+        except RucioException, e:
+            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
+        except Exception, e:
+            print format_exc()
+            raise InternalError(e)
+
 
 """----------------------
    Web service startup
