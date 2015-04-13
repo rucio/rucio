@@ -155,3 +155,13 @@ def update_replicas_states(rse, files, issuer):
         rep['rse'] = rse
         replicas.append(rep)
     replica.update_replicas_states(replicas=replicas)
+
+
+def list_dataset_replicas(scope, name):
+    """
+    :param scope: The scope of the dataset.
+    :param name: The name of the dataset.
+
+    :returns: A list of dict dataset replicas
+    """
+    return replica.list_dataset_replicas(scope=scope, name=name)
