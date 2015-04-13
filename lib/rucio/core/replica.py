@@ -1296,3 +1296,43 @@ def touch_collection_replicas(collection_replicas, session=None):
             return False
 
     return True
+
+
+@stream_session
+def list_dataset_replicas(scope, name, session=None):
+    """
+    :param scope: The scope of the dataset.
+    :param name: The name of the dataset.
+    :param session: Database session to use.
+
+    :returns: A list of dict dataset replicas
+    """
+    is_false = False
+    query = session.query(models.CollectionReplica.scope,
+                          models.CollectionReplica.name,
+                          models.RSE.rse,
+                          models.CollectionReplica.bytes,
+                          models.CollectionReplica.length,
+                          models.CollectionReplica.available_bytes,
+                          models.CollectionReplica.available_replicas_cnt,
+                          models.CollectionReplica.state,
+                          models.CollectionReplica.created_at,
+                          models.CollectionReplica.updated_at,
+                          models.CollectionReplica.accessed_at)\
+        .filter_by(scope=scope, name=name, did_type=DIDType.DATASET)\
+        .filter(models.CollectionReplica.rse_id == models.RSE.id)\
+        .filter(models.RSE.deleted == is_false)
+
+    for scope, name, rse, bytes, length, available_bytes, available_replicas_cnt,\
+            state, created_at, updated_at, accessed_at in query:
+        yield {'scope': scope,
+               'name': name,
+               'rse': rse,
+               'bytes': bytes,
+               'length': length,
+               'available_bytes': available_bytes,
+               'available_replicas_cnt': available_replicas_cnt,
+               'state': state,
+               'created_at': created_at,
+               'updated_at': updated_at,
+               'accessed_at': accessed_at}

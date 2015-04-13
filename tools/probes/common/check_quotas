@@ -113,6 +113,7 @@ def set_group_quotas(quotas):
             result = WARNING
         except Exception as e:
             print 'CRITICAL: %s' % traceback.format_exc()
+            print quota, value, physgroup, name
             result = CRITICAL
 
 
