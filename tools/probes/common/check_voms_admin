@@ -20,7 +20,7 @@ import sys
 import shlex
 import subprocess
 
-from rucio.api.account import list_accounts, add_account_attribute
+from rucio.api.account import list_accounts, add_account_attribute, del_account_attribute, list_account_attributes
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, Duplicate, AccountNotFound
 
@@ -53,7 +53,14 @@ def add_country_attributes(dns, country, role):
             if account not in accounts_done:
                 print 'Set %s role for country-%s for %s' % (role, country, account)
                 try:
-                    add_account_attribute('country-%s' % country, role, account, 'root')
+                    attrs = dict([(u['key'],u['value']) for u in list_account_attributes(account)]) 
+                    key = 'country-%s' % country
+                    if attrs.has_key(key) and attrs[key]==role:
+                       print 'Account %s already has the role %s' % (account, role)
+                        continue
+                    else:
+                        del_account_attribute(key, account, 'root')
+                    add_account_attribute(key, role, account, 'root')
                 except Duplicate:
                     pass
                 except RucioException, e:
@@ -122,13 +129,14 @@ if __name__ == '__main__':
         if country == 'usatlas':
             country = 'us'
 
-        # Get DNs with production role in each country
+        # Get DNs in country group
+        dns = admin.call_method('list-members', vomsgroup)
+        add_country_attributes(dns, country, 'user')
+
+        # Get DNs with production role in each country (upgrades the role from user to admin if applicable)
         dns = admin.call_method('list-users-with-role', vomsgroup, 'Role=production')
         add_country_attributes(dns, country, 'admin')
 
-        # Get DNs in country group (this won't overwite admin role)
-        dns = admin.call_method('list-members', vomsgroup)
-        add_country_attributes(dns, country, 'user')
 
     # Add cloud admins from ldap egroups
     add_cloud_admins()
