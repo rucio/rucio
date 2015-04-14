@@ -20,10 +20,10 @@ import traceback
 import urlparse
 
 
+from rucio.api.account import list_accounts, list_account_attributes
 from rucio.api.account_limit import set_account_limit
 from rucio.client import Client
 from rucio.common.exception import Duplicate, RSEProtocolPriorityError
-from rucio.core.permission import get_special_accounts
 
 
 UNKNOWN = 3
@@ -44,12 +44,13 @@ if __name__ == '__main__':
             deterministic = not rse['is_deterministic']
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
-            # Set infinite quotas for special accounts
-            special_accounts = get_special_accounts()
-            for account in special_accounts:
+            # Set infinite quotas for admin accounts
+            acc_attrs = [(a['account'],list_account_attributes(a['account'])) for a in list_accounts()]
+            admin_accounts = [x[0] for x in acc_attrs if {'key':'admin', 'value':True} in x[1]]
+            for account in admin_accounts:
                 set_account_limit(account, rse['name'], -1, 'root')
-                if not rse['is_tape']:
-                    set_account_limit('sonar', rse['name'], 10000000000000, 'root')
+            if not rse['is_tape']:
+                set_account_limit('sonar', rse['name'], 10000000000000, 'root')
         except Duplicate, e:
             pass
         except:
