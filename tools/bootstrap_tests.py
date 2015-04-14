@@ -23,6 +23,11 @@ if __name__ == '__main__':
         print 'Account jdoe already added' % locals()
 
     try:
+        add_account_attribute(account='root', key='admin', value=True)
+    except Exception, e:
+        print e
+
+    try:
         c.add_account('panda', 'SERVICE')
         add_account_attribute(account='panda', key='admin', value=True)
     except Duplicate:
