@@ -28,7 +28,7 @@ class TestDatasetReplicaCLient:
 
         did_client.add_dataset(scope=scope, name=dataset)
         rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}],
-                                         account='jdoe', copies=1, rse_expression='MOCK',
+                                         account='root', copies=1, rse_expression='MOCK',
                                          grouping='DATASET')
         replicas = [r for r in replica_client.list_dataset_replicas(scope=scope, name=dataset)]
         assert_equal(len(replicas), 1)
