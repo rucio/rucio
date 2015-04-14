@@ -836,6 +836,8 @@ class Request(BASE, ModelBase, Versioned):
     md5 = Column(String(32))
     adler32 = Column(String(8))
     dest_url = Column(String(2048))
+    submitted_at = Column(DateTime)
+    transferred_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),

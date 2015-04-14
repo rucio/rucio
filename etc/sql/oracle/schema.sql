@@ -1005,6 +1005,12 @@ CREATE INDEX "REQUESTS_RULEID_IDX" ON "REQUESTS" ("RULE_ID") COMPRESS 1 ONLINE t
 
 CREATE INDEX "REQUESTS_EXTERNALID_UQ" ON "REQUESTS" ("EXTERNAL_ID") ONLINE tablespace ATLAS_RUCIO_TRANSIENT_DATA01;
 
+ALTER TABLE REQUESTS ADD submitted_at DATE;
+ALTER TABLE REQUESTS ADD transferred_at  DATE;
+
+ALTER TABLE REQUESTS_HISTORY ADD submitted_at DATE;
+ALTER TABLE REQUESTS_HISTORY ADD transferred_at  DATE;
+
 
 -- ========================================= SOURCES =========================================
 -- Description: Table to store sources for transfers
