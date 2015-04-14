@@ -187,7 +187,8 @@ def set_request_transfers(transfers, session=None):
                    .update({'state': transfers[request_id]['state'],
                             'external_id': transfers[request_id]['external_id'],
                             'external_host': transfers[request_id]['external_host'],
-                            'dest_url': transfers[request_id]['dest_url']},
+                            'dest_url': transfers[request_id]['dest_url'],
+                            'submitted_at': datetime.datetime.utcnow()},
                            synchronize_session=False)
             if 'file' in transfers[request_id]:
                 file = transfers[request_id]['file']
@@ -493,6 +494,7 @@ def query_latest(external_host, state, last_nhours=1, session=None):
                         # for multiple source replicas, it will be None
                         'src_url': resp.get('source_se', None),
                         'dst_url': req['dest_url'],
+                        'transferred_at': datetime.datetime.strptime(resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if resp['finish_time'] else None,
                         # Todo, should be file start_time, not job start_time
                         'duration': duration,
                         'reason': resp.get('reason', None),
@@ -650,12 +652,13 @@ def set_requests_external(transfer_ids, session=None):
                .update({'state': RequestState.SUBMITTED,
                         'external_id': transfer_ids[transfer_id]['external_id'],
                         'external_host': transfer_ids[transfer_id]['external_host'],
-                        'dest_url': transfer_ids[transfer_id]['dest_urls'][0]},
+                        'dest_url': transfer_ids[transfer_id]['dest_urls'][0],
+                        'submitted_at': datetime.datetime.utcnow()},
                        synchronize_session=False)
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, session=None):
+def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, session=None):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
 
@@ -668,13 +671,17 @@ def set_request_state(request_id, new_state, transfer_id=None, session=None):
     record_counter('core.request.set_request_state')
 
     try:
+        update_items = {'state': new_state, 'updated_at': datetime.datetime.utcnow()}
+        if transferred_at:
+            update_items['transferred_at'] = transferred_at
+
         if transfer_id:
-            rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+            rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
         else:
             if new_state in [RequestState.FAILED, RequestState.DONE]:
                 logging.error("Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
             else:
-                rowcount = session.query(models.Request).filter_by(id=request_id).update({'state': new_state, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+                rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -935,14 +942,16 @@ def archive_request(request_id, session=None):
                                                                 bytes=req['bytes'],
                                                                 md5=req['md5'],
                                                                 adler32=req['adler32'],
-                                                                dest_url=req['dest_url'])
+                                                                dest_url=req['dest_url'],
+                                                                submitted_at=req['submitted_at'],
+                                                                transferred_at=req['transferred_at'])
         hist_request.save(session=session)
         try:
             time_diff = req['updated_at'] - req['created_at']
             time_diff_s = time_diff.seconds + time_diff.days * 24 * 3600
             record_timer('core.request.archive_request.%s' % req['activity'].replace(' ', '_'), time_diff_s)
-            session.query(models.Request).filter_by(id=request_id).delete()
             session.query(models.Source).filter_by(request_id=request_id).delete()
+            session.query(models.Request).filter_by(id=request_id).delete()
         except IntegrityError, e:
             raise RucioException(e.args)
 
