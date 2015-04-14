@@ -28,11 +28,10 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                get_bad_replicas_summary)
 from rucio.db.constants import BadFilesStatus
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists,
-                                    DataIdentifierNotFound, Duplicate,
+                                    DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replicas_selector import random_order, geoIP_order
-
 
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
