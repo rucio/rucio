@@ -71,15 +71,23 @@ def update_request_state(response, session=None):
             return False
         else:
             request = request_core.get_request(response['request_id'], session=session)
-            if request and request['external_id'] == response['transfer_id']:
+            if request and request['external_id'] == response['transfer_id'] and request['state'] != response['new_state']:
                 response['external_host'] = request['external_host']
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
                 logging.debug('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
-                request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, session=session)
+                request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, transferred_at=response.get('transferred_at', None), session=session)
 
                 add_monitor_message(response, session=session)
                 return True
-            return False
+            elif not request:
+                logging.debug("Request %s doesn't exist, will not update" % (response['request_id']))
+                return False
+            elif request['external_id'] != response['transfer_id']:
+                logging.debug("Reponse %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
+                return False
+            else:
+                logging.debug("Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
+                return False
     except exception.UnsupportedOperation, e:
         logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(e).replace('\n', '')))
         return False

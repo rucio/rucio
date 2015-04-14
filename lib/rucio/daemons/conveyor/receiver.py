@@ -14,6 +14,7 @@
 Conveyor is a daemon to manage file transfers.
 """
 
+import datetime
 import logging
 import os
 import socket
@@ -76,6 +77,7 @@ class Receiver(object):
                                 'job_state': msg.get('t_final_transfer_state', None),
                                 'src_url': msg.get('src_url', None),
                                 'dst_url': msg.get('dst_url', None),
+                                'transferred_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_complete', 0))/1000),
                                 'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0)))/1000,
                                 'reason': msg.get('t__error_message', None),
                                 'scope': msg['job_metadata'].get('scope', None),
@@ -99,6 +101,7 @@ class Receiver(object):
                                 'job_state': msg.get('t_final_transfer_state', None),
                                 'src_url': msg.get('src_url', None),
                                 'dst_url': msg.get('dst_url', None),
+                                'transferred_at': datetime.datetime.utcfromtimestamp(float(msg.get('tr_timestamp_complete', 0))/1000),
                                 'duration': (float(msg.get('tr_timestamp_complete', 0)) - float(msg.get('tr_timestamp_start', 0)))/1000,
                                 'reason': msg.get('t__error_message', None),
                                 'scope': msg['file_metadata'].get('scope', None),
