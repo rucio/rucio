@@ -94,7 +94,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
 
 @transactional_session
-def add_did(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None, session=None):
+def add_did(scope, name, type, account, statuses=None, meta=None, rules=None, lifetime=None, dids=None, rse=None, session=None):
     """
     Add data identifier.
 
@@ -110,7 +110,10 @@ def add_did(scope, name, type, account, statuses={}, meta=[], rules=[], lifetime
     :param rse: The RSE name when registering replicas.
     :param session: The database session in use.
     """
-    return add_dids(dids=[{'scope': scope, 'name': name, 'type': type, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime, 'dids': dids, 'rse': rse}],
+    return add_dids(dids=[{'scope': scope, 'name': name, 'type': type,
+                           'statuses': statuses or {}, 'meta': meta or {},
+                           'rules': rules, 'lifetime': lifetime,
+                           'dids': dids, 'rse': rse}],
                     account=account, session=session)
 
 
@@ -170,33 +173,33 @@ def add_dids(dids, account, session=None):
                                              'expires': str(expired_at)},
                                 session=session)
 
-            except KeyError, e:
+            except KeyError:
                 # ToDo
                 raise
 
         session.flush()
 
-    except IntegrityError, e:
-        if match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', e.args[0]) \
-                or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', e.args[0]) \
-                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]) \
-                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]) \
-                or match('.*sqlite3.IntegrityError.*are not unique.*', e.args[0]):
+    except IntegrityError as error:
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', error.args[0]) \
+                or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', error.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
-        if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
-                or match('.*IntegrityError.*FOREIGN KEY constraint failed.*', e.args[0]) \
-                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', e.args[0]) \
-                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', e.args[0]) \
-                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', e.args[0]) \
-                or match('.*sqlite3.IntegrityError.*foreign key constraint failed', e.args[0]):
+        if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
+                or match('.*IntegrityError.*FOREIGN KEY constraint failed.*', error.args[0]) \
+                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
+                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
+                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
+                or match('.*sqlite3.IntegrityError.*foreign key constraint failed', error.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
 
-        raise exception.RucioException(e.args)
-    except DatabaseError, e:
-        if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', e.args[0]):
+        raise exception.RucioException(error.args)
+    except DatabaseError as error:
+        if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', error.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
-        raise exception.RucioException(e.args)
+        raise exception.RucioException(error.args)
 
 
 @transactional_session
@@ -564,14 +567,14 @@ def set_new_dids(dids, new_flag, session=None):
             rowcount = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).update({'is_new': new_flag}, synchronize_session=False)
             if not rowcount:
                 raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
-        except DatabaseError, e:
-            raise exception.DatabaseException('%s : Cannot update %s:%s' % (e.args[0], did['scope'], did['name']))
+        except DatabaseError as error:
+            raise exception.DatabaseException('%s : Cannot update %s:%s' % (error.args[0], did['scope'], did['name']))
     try:
         session.flush()
-    except IntegrityError, e:
-        raise exception.RucioException(e.args[0])
-    except DatabaseError, e:
-        raise exception.RucioException(e.args[0])
+    except IntegrityError as error:
+        raise exception.RucioException(error.args[0])
+    except DatabaseError as error:
+        raise exception.RucioException(error.args[0])
     return True
 
 
@@ -835,46 +838,46 @@ def set_metadata(scope, name, key, value, type=None, did=None, session=None):
             if value:
                 expired_at = datetime.utcnow() + timedelta(seconds=value)
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
-        except TypeError, e:
-            raise exception.InvalidValueForKey(e)
+        except TypeError as error:
+            raise exception.InvalidValueForKey(error)
     elif key == 'adler32':
-            rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-            if not rowcount:
-                raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
-            session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-            session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
-            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        if not rowcount:
+            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+        session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
+        session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
     elif key == 'bytes':
-            rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-            if not rowcount:
-                raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
-            session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-            session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
+        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        if not rowcount:
+            raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+        session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
+        session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
 
-            for account, bytes, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id).filter_by(scope=scope, name=name):
-                session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rule_id=rule_id, rse_id=rse_id).update({key: value}, synchronize_session=False)
-                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=bytes, session=session)
-                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=value, session=session)
+        for account, bytes, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id).filter_by(scope=scope, name=name):
+            session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rule_id=rule_id, rse_id=rse_id).update({key: value}, synchronize_session=False)
+            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=bytes, session=session)
+            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=value, session=session)
 
-            for bytes, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
-                session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).update({key: value}, synchronize_session=False)
-                rse_counter.decrease(rse_id=rse_id, files=1, bytes=bytes, session=session)
-                rse_counter.increase(rse_id=rse_id, files=1, bytes=value, session=session)
+        for bytes, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
+            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).update({key: value}, synchronize_session=False)
+            rse_counter.decrease(rse_id=rse_id, files=1, bytes=bytes, session=session)
+            rse_counter.increase(rse_id=rse_id, files=1, bytes=value, session=session)
 
-            for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
+        for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
 
-                values = {}
-                values['length'], values['bytes'], values['events'] = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                                                    func.sum(models.DataIdentifierAssociation.bytes),
-                                                                                    func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()
-                session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update(values, synchronize_session=False)
-                session.query(models.DatasetLock).filter_by(scope=parent_scope, name=parent_name).update({'length': values['length'], 'bytes': values['bytes']}, synchronize_session=False)
+            values = {}
+            values['length'], values['bytes'], values['events'] = session.query(func.count(models.DataIdentifierAssociation.scope),
+                                                                                func.sum(models.DataIdentifierAssociation.bytes),
+                                                                                func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()
+            session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update(values, synchronize_session=False)
+            session.query(models.DatasetLock).filter_by(scope=parent_scope, name=parent_name).update({'length': values['length'], 'bytes': values['bytes']}, synchronize_session=False)
     else:
         try:
             session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({key: value}, synchronize_session='fetch')  # add DIDtype
-        except CompileError, e:
-            raise exception.InvalidMetadata(e)
+        except CompileError as error:
+            raise exception.InvalidMetadata(error)
 
 
 @read_session
@@ -1003,11 +1006,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).like(v.replace('*', '%'), escape='\\'))
         elif k == 'created_before':
-            dt = str_to_date(v)
-            query = query.filter(models.DataIdentifier.created_at <= dt)
+            created_before = str_to_date(v)
+            query = query.filter(models.DataIdentifier.created_at <= created_before)
         elif k == 'created_after':
-            dt = str_to_date(v)
-            query = query.filter(models.DataIdentifier.created_at >= dt)
+            created_after = str_to_date(v)
+            query = query.filter(models.DataIdentifier.created_at >= created_after)
         else:
             query = query.filter(getattr(models.DataIdentifier, k) == v)
 

@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Martin Barisits, <martin.barisits@cern.ch>, 2014
+'''
 
 from json import loads
 from logging import getLogger, StreamHandler, DEBUG
@@ -63,7 +65,7 @@ class AccountLimit(RucioController):
             if e.args[0] == 'type':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             set_account_limit(account=account, rse=rse, bytes=bytes, issuer=ctx.env.get('issuer'))

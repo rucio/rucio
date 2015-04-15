@@ -42,19 +42,25 @@ from rucio.common.utils import build_url, my_key_generator, parse_response
 from rucio import version
 
 LOG = getLogger(__name__)
-sh = StreamHandler()
-sh.setLevel(ERROR)
-LOG.addHandler(sh)
+SH = StreamHandler()
+SH.setLevel(ERROR)
+LOG.addHandler(SH)
 
 
-region = make_region(function_key_generator=my_key_generator).configure(
+REGION = make_region(function_key_generator=my_key_generator).configure(
     'dogpile.cache.memory',
     expiration_time=60,
 )
 
 
-@region.cache_on_arguments(namespace='host_to_choose')
+@REGION.cache_on_arguments(namespace='host_to_choose')
 def choice(hosts):
+    """
+    Select randomly a host
+
+    :param hosts: Lost of hosts
+    :return: A randomly selected host.
+    """
     return random.choice(hosts)
 
 
@@ -96,8 +102,8 @@ class BaseClient(object):
                 self.host = config_get('client', 'rucio_host')
             if self.auth_host is None:
                 self.auth_host = config_get('client', 'auth_host')
-        except (NoOptionError, NoSectionError), e:
-            raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % e.args[0])
+        except (NoOptionError, NoSectionError) as error:
+            raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
 
         self.account = account
         self.ca_cert = ca_cert
@@ -117,8 +123,8 @@ class BaseClient(object):
             else:
                 try:
                     self.auth_type = config_get('client', 'auth_type')
-                except (NoOptionError, NoSectionError), e:
-                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+                except (NoOptionError, NoSectionError) as error:
+                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
 
         if creds is None:
             LOG.debug('no creds passed. Trying to get it from the config file.')
@@ -132,9 +138,9 @@ class BaseClient(object):
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
                 elif self.auth_type == 'x509_proxy':
                     self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
-            except (NoOptionError, NoSectionError), e:
-                if e.args[0] != 'client_key':
-                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+            except (NoOptionError, NoSectionError) as error:
+                if error.args[0] != 'client_key':
+                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
 
         rucio_scheme = urlparse(self.host).scheme
         auth_scheme = urlparse(self.auth_host).scheme
@@ -149,8 +155,8 @@ class BaseClient(object):
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
-            except (NoOptionError, NoSectionError), e:
-                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % e.args[0])
+            except (NoOptionError, NoSectionError) as error:
+                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
 
         self.list_hosts = [self.host]
 
@@ -158,11 +164,15 @@ class BaseClient(object):
             LOG.debug('no account passed. Trying to get it from the config file.')
             try:
                 self.account = config_get('client', 'account')
-            except (NoOptionError, NoSectionError), e:
+            except (NoOptionError, NoSectionError):
                 try:
                     self.account = environ['RUCIO_ACCOUNT']
                 except KeyError:
                     raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
+
+        token_path = self.TOKEN_PATH_PREFIX + self.account
+        self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
+
         self.__authenticate()
 
         try:
@@ -181,7 +191,7 @@ class BaseClient(object):
         """
         if 'ExceptionClass' not in headers:
             if 'ExceptionMessage' not in headers:
-                human_http_code = _codes.get(status_code, None)  # NOQA
+                human_http_code = _codes.get(status_code, None)  # NOQA, pylint: disable-msg=W0612
                 return getattr(exception, 'RucioException'), 'no error information passed (http status code: %(status_code)s %(human_http_code)s)' % locals()
             return getattr(exception, 'RucioException'), headers['ExceptionMessage']
 
@@ -219,9 +229,10 @@ class BaseClient(object):
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :return: the HTTP return body.
         """
-        r = None
-        retry = 0
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'Connection': 'Keep-Alive', 'User-Agent': self.user_agent, 'X-Rucio-Script': self.script_id}
+        result, retry = None, 0
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account,
+               'Connection': 'Keep-Alive', 'User-Agent': self.user_agent,
+               'X-Rucio-Script': self.script_id}
 
         if headers is not None:
             hds.update(headers)
@@ -229,13 +240,13 @@ class BaseClient(object):
         while retry <= self.request_retries:
             try:
                 if type == 'GET':
-                    r = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
+                    result = self.session.get(url, headers=hds, verify=self.ca_cert, timeout=self.timeout, params=params, stream=True)
                 elif type == 'PUT':
-                    r = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    result = self.session.put(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 elif type == 'POST':
-                    r = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=True)
+                    result = self.session.post(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout, stream=True)
                 elif type == 'DEL':
-                    r = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
+                    result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
                     return
 #             except ConnectionError, e:
@@ -244,22 +255,21 @@ class BaseClient(object):
 #                 if retry > self.request_retries:
 #                     raise
 #                 continue
-            except SSLError, e:
-                LOG.warning('SSLError: ' + str(e))
+            except SSLError as error:
+                LOG.warning('SSLError: ' + str(error))
                 retry += 1
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
                 continue
 
-            if r is not None and r.status_code == codes.unauthorized:
+            if result is not None and result.status_code == codes.unauthorized:  # pylint: disable-msg=E1101
                 self.__get_token()
                 hds['X-Rucio-Auth-Token'] = self.auth_token
                 retry += 1
             else:
                 break
-
-        return r
+        return result
 
     def __get_token_userpass(self):
         """
@@ -274,9 +284,9 @@ class BaseClient(object):
         retry = 0
         while retry <= self.AUTH_RETRIES:
             try:
-                r = self.session.get(url, headers=headers, verify=self.ca_cert)
-            except SSLError, e:
-                LOG.warning('SSLError: ' + str(e))
+                result = self.session.get(url, headers=headers, verify=self.ca_cert)
+            except SSLError as error:
+                LOG.warning('SSLError: ' + str(error))
                 self.ca_cert = False
                 retry += 1
                 if retry > self.request_retries:
@@ -288,11 +298,12 @@ class BaseClient(object):
             LOG.error('cannot get auth_token')
             return False
 
-        if r.status_code != codes.ok:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+        if result.status_code != codes.ok:  # pylint: disable-msg=E1101
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code)
             raise exc_cls(exc_msg)
 
-        self.auth_token = r.headers['x-rucio-auth-token']
+        self.auth_token = result.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
@@ -331,11 +342,12 @@ class BaseClient(object):
 
         while retry <= self.AUTH_RETRIES:
             try:
-                r = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
-            except SSLError, e:
-                if 'alert certificate expired' in str(e):
-                    raise CannotAuthenticate(str(e))
-                LOG.warning('SSLError: ' + str(e))
+                result = self.session.get(url, headers=headers, cert=cert,
+                                          verify=self.ca_cert)
+            except SSLError as error:
+                if 'alert certificate expired' in str(error):
+                    raise CannotAuthenticate(str(error))
+                LOG.warning('SSLError: ' + str(error))
                 self.ca_cert = False
                 retry += 1
                 if retry > self.request_retries:
@@ -347,11 +359,12 @@ class BaseClient(object):
             LOG.error('cannot get auth_token')
             return False
 
-        if r.status_code != codes.ok:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+        if result.status_code != codes.ok:   # pylint: disable-msg=E1101
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code)
             raise exc_cls(exc_msg)
 
-        self.auth_token = r.headers['x-rucio-auth-token']
+        self.auth_token = result.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
@@ -368,9 +381,10 @@ class BaseClient(object):
         retry = 0
         while retry <= self.AUTH_RETRIES:
             try:
-                r = self.session.get(url, headers=headers, verify=self.ca_cert, auth=HTTPKerberosAuth())
-            except SSLError, e:
-                LOG.warning('SSLError: ' + str(e))
+                result = self.session.get(url, headers=headers,
+                                          verify=self.ca_cert, auth=HTTPKerberosAuth())
+            except SSLError as error:
+                LOG.warning('SSLError: ' + str(error))
                 self.ca_cert = False
                 retry += 1
                 if retry > self.request_retries:
@@ -382,11 +396,12 @@ class BaseClient(object):
             LOG.error('cannot get auth_token')
             return False
 
-        if r.status_code != codes.ok:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code)
+        if result.status_code != codes.ok:   # pylint: disable-msg=E1101
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code)
             raise exc_cls(exc_msg)
 
-        self.auth_token = r.headers['x-rucio-auth-token']
+        self.auth_token = result.headers['x-rucio-auth-token']
         LOG.debug('got new token \'%s\'' % self.auth_token)
         return True
 
@@ -426,10 +441,6 @@ class BaseClient(object):
 
         :return: True if a token could be read. False if no file exists.
         """
-
-        token_path = self.TOKEN_PATH_PREFIX + self.account
-        self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
-
         if not path.exists(self.token_file):
             return False
 
@@ -439,8 +450,8 @@ class BaseClient(object):
             self.headers['X-Rucio-Auth-Token'] = self.auth_token
         except IOError as (errno, strerror):  # NOQA
             print("I/O error({0}): {1}".format(errno, strerror))
-        except Exception, e:
-            raise e
+        except Exception:
+            raise
 
         LOG.debug('read token \'%s\' from file' % self.auth_token)
         return True
@@ -458,19 +469,19 @@ class BaseClient(object):
             try:
                 LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
                 makedirs(token_path, 0700)
-            except Exception, e:
-                raise e
+            except Exception:
+                raise
 
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
-            fd, fn = mkstemp(dir=token_path)
-            with fdopen(fd, "w") as f:
-                f.write(self.auth_token)
-            move(fn, self.token_file)
+            file_d, file_n = mkstemp(dir=token_path)
+            with fdopen(file_d, "w") as f_token:
+                f_token.write(self.auth_token)
+            move(file_n, self.token_file)
         except IOError as (errno, strerror):  # NOQA
             print("I/O error({0}): {1}".format(errno, strerror))
-        except Exception, e:
-            raise e
+        except Exception:
+            raise
 
     def __authenticate(self):
         """

@@ -107,11 +107,11 @@ class Default(protocol.RSEProtocol):
         try:
             self.__connection.put(sf, self.pfn2path(target))
         except IOError as e:
-                try:
-                    self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2path(target).split('/')[0:-1]))
-                    self.__connection.put(sf, self.pfn2path(target))
-                except Exception, e:
-                    raise exception.DestinationNotAccessible(e)
+            try:
+                self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2path(target).split('/')[0:-1]))
+                self.__connection.put(sf, self.pfn2path(target))
+            except Exception, e:
+                raise exception.DestinationNotAccessible(e)
         except OSError as e:
             if e.errno == 2:
                 raise exception.SourceNotFound(e)

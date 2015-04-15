@@ -68,7 +68,7 @@ class TestRseGFAL2():
             if protocol['scheme'] != "srm":
                 rse_settings['protocols'].remove(protocol)
         if len(rse_settings['protocols']) > 0:
-                rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gfal.Default'
+            rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gfal.Default'
 
         for f in MgrTestCases.files_remote:
             tmp = mgr.lfns2pfns(rse_settings, {'name': f, 'scope': 'user.%s' % cls.user}, scheme='srm').values()[0]

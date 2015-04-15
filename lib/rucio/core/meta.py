@@ -115,7 +115,7 @@ def add_value(key, value, session=None):
     # Check value type, if defined
     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
     if k.value_type and not isinstance(value, type_map.get(k.value_type)):
-            raise InvalidValueForKey("The value '%s' for the key '%s' does not match the required type '%s'" % (value, key, k.value_type))
+        raise InvalidValueForKey("The value '%s' for the key '%s' does not match the required type '%s'" % (value, key, k.value_type))
 
 
 @read_session
