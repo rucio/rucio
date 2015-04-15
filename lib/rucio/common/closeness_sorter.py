@@ -184,9 +184,11 @@ def sort_sources(sources, dest_rse):
     :returns:             Sorted sources list.
     """
 
-    rank_dict = []
+    rank_dict = {}
     for source in sources:
         src_rse, src_url, src_rse_id, rank = source
+        if rank is None:
+            rank = 0
         if rank not in rank_dict:
             rank_dict[rank] = []
         rank_dict[rank].append(source)

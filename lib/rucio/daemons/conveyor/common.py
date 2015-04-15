@@ -34,7 +34,7 @@ from rucio.core import replica as replica_core, request as request_core, rse as 
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer
 from rucio.db.constants import DIDType, RequestState, ReplicaState, RequestType
-from rucio.db.session import transactional_session
+from rucio.db.session import read_session, transactional_session
 from rucio.rse import rsemanager
 
 region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
@@ -69,12 +69,17 @@ def update_request_state(response, session=None):
         if not response['new_state']:
             request_core.touch_request(response['request_id'], session=session)
             return False
-        transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-        logging.debug('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
-        request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, session=session)
+        else:
+            request = request_core.get_request(response['request_id'], session=session)
+            if request and request['external_id'] == response['transfer_id']:
+                response['external_host'] = request['external_host']
+                transfer_id = response['transfer_id'] if 'transfer_id' in response else None
+                logging.debug('UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
+                request_core.set_request_state(response['request_id'], response['new_state'], transfer_id, session=session)
 
-        add_monitor_message(response, session=session)
-        return True
+                add_monitor_message(response, session=session)
+                return True
+            return False
     except exception.UnsupportedOperation, e:
         logging.warning("Request %s doesn't exist - Error: %s" % (response['request_id'], str(e).replace('\n', '')))
         return False
@@ -332,10 +337,11 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
     return True
 
 
-def get_source_rse(scope, name, src_url):
+@read_session
+def get_source_rse(scope, name, src_url, session=None):
     try:
         scheme = src_url.split(":")[0]
-        replications = replica_core.list_replicas([{'scope': scope, 'name': name, 'type': DIDType.FILE}], schemes=[scheme], unavailable=True)
+        replications = replica_core.list_replicas([{'scope': scope, 'name': name, 'type': DIDType.FILE}], schemes=[scheme], unavailable=True, session=session)
         for source in replications:
             for source_rse in source['rses']:
                 for pfn in source['rses'][source_rse]:
@@ -349,7 +355,7 @@ def get_source_rse(scope, name, src_url):
         return None
 
 
-@transactional_session
+@read_session
 def add_monitor_message(response, session=None):
     if response['new_state'] == RequestState.DONE:
         transfer_status = 'transfer-done'
@@ -374,7 +380,7 @@ def add_monitor_message(response, session=None):
     job_m_replica = response.get('job_m_replica', None)
     if job_m_replica and str(job_m_replica) == str('true') and src_url:
         try:
-            rse_name = get_source_rse(scope, name, src_url)
+            rse_name = get_source_rse(scope, name, src_url, session=session)
         except:
             logging.warn('Cannot get correct RSE for source url: %s(%s)' % (src_url, sys.exc_info()[1]))
             rse_name = None

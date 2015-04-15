@@ -28,7 +28,7 @@ import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
-from rucio.core import request as request_core, heartbeat
+from rucio.core import heartbeat
 from rucio.core.monitor import record_counter
 from rucio.daemons.conveyor import common
 from rucio.db.constants import RequestState, FTSCompleteState
@@ -130,17 +130,8 @@ class Receiver(object):
                                                                                      response['dst_rse'],
                                                                                      response['new_state']))
 
-                        try:
-                            request = request_core.get_request(response['request_id'])
-                        except:
-                            logging.warn("Cannot get request with request_id(%s): %s" % (response['request_id'], traceback.format_exc()))
-                        if request and request['external_id'] == response['transfer_id']:
-                            response['external_host'] = request['external_host']
-                            ret = common.update_request_state(response)
-                            record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
-                        else:
-                            logging.warn("request with request_id(%s) doesn't exist, will not update" % (response['request_id']))
-                            record_counter('daemons.conveyor.receiver.update_request_state.False')
+                        ret = common.update_request_state(response)
+                        record_counter('daemons.conveyor.receiver.update_request_state.%s' % ret)
                 except:
                     logging.critical(traceback.format_exc())
 
