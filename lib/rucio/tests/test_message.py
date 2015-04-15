@@ -28,9 +28,9 @@ class TestMessagesCore():
                                                    'type': 'file'})
 
         with assert_raises(InvalidObject):
-                add_message(event_type='NEW_DID', payload={'name': 'name',
-                                                           'name_Y': 'scope_X',
-                                                           'type':  int})
+            add_message(event_type='NEW_DID', payload={'name': 'name',
+                                                       'name_Y': 'scope_X',
+                                                       'type':  int})
 
     def test_pop_messages(self):
         """ MESSAGE (CORE): Test retrieve and delete messages """

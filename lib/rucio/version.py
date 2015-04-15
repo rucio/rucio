@@ -25,7 +25,7 @@ def canonical_version_string():
 
 
 def version_string():
-        return canonical_version_string()
+    return canonical_version_string()
 
 
 def vcs_version_string():

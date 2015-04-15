@@ -699,7 +699,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
            or match('.*IntegrityError.*1062.*Duplicate entry.*', e.args[0]) \
            or e.args[0] == '(IntegrityError) columns rse_id, scope, name are not unique' \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]):
-                raise exception.Duplicate("File replica already exists!")
+            raise exception.Duplicate("File replica already exists!")
         raise exception.RucioException(e.args)
     except DatabaseError, e:
         raise exception.RucioException(e.args)

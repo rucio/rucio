@@ -107,7 +107,7 @@ class Attributes(RucioController):
             if e.args[0] == 'key' or e.args[0] == 'value':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account_attribute(key=key, value=value, account=account, issuer=ctx.env.get('issuer'))
@@ -324,7 +324,7 @@ class AccountParameter(RucioController):
             if e.args[0] == 'type':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account(account, type, issuer=ctx.env.get('issuer'))
@@ -520,7 +520,7 @@ class Identities(RucioController):
             if e.args[0] == 'authtype' or e.args[0] == 'identity':
                 raise generate_http_error(400, 'KeyError', '%s not defined' % str(e))
         except TypeError:
-                raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
         try:
             del_account_identity(identity, authtype, account)
         except AccessDenied, e:

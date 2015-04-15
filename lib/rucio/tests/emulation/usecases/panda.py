@@ -556,29 +556,29 @@ class UseCaseDefinition(UCEmulator):
             success = False
             task_type = ''
             while not success:
-                    exit = False
-                    while not exit:
-                        tt = choice(ctx.task_distribution)
-                        exit = (tt.startswith(task_type.split('-')[0]) or (task_type is ''))
-                    # print '== PanDA [%s]: Selecting task from group %s' % (time.strftime('%D %H:%M:%S', time.localtime()), tt.split('-')[0])
-                    task_type = tt
-                    ret = {'input': ctx.tasks[task_type]['input'],
-                           'output': ctx.tasks[task_type]['output'],
-                           'task_type': task_type,
-                           'rses': [ctx.rses[i] for i in sample(xrange(len(ctx.rses)), 20)],
-                           'file_transfer_duration': ctx.file_transfer_duration,
-                           'safety_delay': ctx.safety_delay,
-                           }
-                    if ('meta' in ctx.tasks[task_type]['input'].keys()) and (len(ctx.tasks[task_type]['input']['meta'])):  # Task depends on input dataset
-                        ret['input']['dss'] = list()
-                        for i in range(10):
-                            input_ds = self.select_input_ds(task_type, ctx)
-                            if not input_ds:
-                                continue
-                            ret['input']['dss'].append(input_ds)
-                    else:  # Task activity is base on max_jobs
-                        ret['input']['dss'] = None
-                    success = True
+                exit = False
+                while not exit:
+                    tt = choice(ctx.task_distribution)
+                    exit = (tt.startswith(task_type.split('-')[0]) or (task_type is ''))
+                # print '== PanDA [%s]: Selecting task from group %s' % (time.strftime('%D %H:%M:%S', time.localtime()), tt.split('-')[0])
+                task_type = tt
+                ret = {'input': ctx.tasks[task_type]['input'],
+                       'output': ctx.tasks[task_type]['output'],
+                       'task_type': task_type,
+                       'rses': [ctx.rses[i] for i in sample(xrange(len(ctx.rses)), 20)],
+                       'file_transfer_duration': ctx.file_transfer_duration,
+                       'safety_delay': ctx.safety_delay,
+                       }
+                if ('meta' in ctx.tasks[task_type]['input'].keys()) and (len(ctx.tasks[task_type]['input']['meta'])):  # Task depends on input dataset
+                    ret['input']['dss'] = list()
+                    for i in range(10):
+                        input_ds = self.select_input_ds(task_type, ctx)
+                        if not input_ds:
+                            continue
+                        ret['input']['dss'].append(input_ds)
+                else:  # Task activity is base on max_jobs
+                    ret['input']['dss'] = None
+                success = True
             if task_type.split('.')[0] == 'user':
                 user = choice(ctx.users)
                 ret['output']['scope'] = 'user.%s' % user
@@ -1170,8 +1170,8 @@ class UseCaseDefinition(UCEmulator):
                     continue
                 ds = None
                 with open(path) as f:
-                        f.seek(randint(0, ctx.input_files[dist_file] - 1) * 287)
-                        ds = f.readline().split()
+                    f.seek(randint(0, ctx.input_files[dist_file] - 1) * 287)
+                    ds = f.readline().split()
                 success = True
             except Exception:  # , e:
                 ctx.input_files[dist_file] = False  # Remeber that this file doen't exist
