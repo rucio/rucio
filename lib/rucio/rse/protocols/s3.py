@@ -148,8 +148,8 @@ class Default(protocol.RSEProtocol):
                 raise exception.DestinationNotAccessible(e)
             else:
                 raise exception.ServiceUnavailable(e)
-        except InvalidFileError as e:
-                raise exception.SourceNotFound(e)
+        except InvalidFileError as error:
+            raise exception.SourceNotFound(error)
 
     def delete(self, pfn):
         """
