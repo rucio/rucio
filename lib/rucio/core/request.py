@@ -17,6 +17,7 @@ import logging
 import time
 import traceback
 
+from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
@@ -682,6 +683,25 @@ def set_request_state(request_id, new_state, transfer_id=None, session=None):
 
 
 @transactional_session
+def set_requests_state(request_ids, new_state, session=None):
+    """
+    Bulk update the state of requests. Fails silently if the request_id does not exist.
+
+    :param request_ids: List of (Request-ID as a 32 character hex string).
+    :param new_state: New state as string.
+    :param session: Database session to use.
+    """
+
+    record_counter('core.request.set_requests_state')
+
+    try:
+        for request_id in request_ids:
+            set_request_state(request_id, new_state, session=session)
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@transactional_session
 def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), session=None):
     """
     Update the state of a request. Fails silently if the transfer_id does not exist.
@@ -970,8 +990,6 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
     """
     List requests with source replicas
 
-    Caveat: Transfers with no source files are silently excluded.
-
     :param process: Identifier of the caller process as an integer.
     :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
@@ -998,15 +1016,20 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
                           models.RSE.rse,
                           models.RSE.deterministic,
                           models.RSE.rse_type,
-                          models.RSEFileAssociation.path)\
+                          models.RSEFileAssociation.path,
+                          models.Request.retry_count,
+                          models.Source.url,
+                          models.Source.ranking)\
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
         .filter(models.Request.state == RequestState.QUEUED)\
         .filter(models.Request.request_type == RequestType.TRANSFER)\
-        .filter(models.Request.scope == models.RSEFileAssociation.scope)\
-        .filter(models.Request.name == models.RSEFileAssociation.name)\
-        .filter(models.Request.dest_rse_id != models.RSEFileAssociation.rse_id)\
-        .filter(models.RSE.id == models.RSEFileAssociation.rse_id)\
-        .filter(models.RSE.staging_area == is_false)
+        .outerjoin(models.RSEFileAssociation, and_(models.Request.scope == models.RSEFileAssociation.scope,
+                                                   models.Request.name == models.RSEFileAssociation.name,
+                                                   models.Request.dest_rse_id != models.RSEFileAssociation.rse_id))\
+        .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
+                                    models.RSE.staging_area == is_false))\
+        .outerjoin(models.Source, and_(models.Request.id == models.Source.request_id,
+                                       models.RSE.id == models.Source.rse_id))
 
     if isinstance(older_than, datetime.datetime):
         query = query.filter(models.Request.updated_at < older_than)
@@ -1032,16 +1055,22 @@ def list_transfer_requests_and_source_replicas(process=None, total_processes=Non
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
 
-    return query.all()
+    if rses:
+        result = []
+        for item in query.all():
+            dest_rse_id = item[9]
+            if dest_rse_id in rses:
+                result.append(item)
+        return result
+    else:
+        return query.all()
 
 
 @read_session
 def list_stagein_requests_and_source_replicas(process=None, total_processes=None, thread=None, total_threads=None,
                                               activity=None, older_than=None, rses=None, session=None):
     """
-    List requests with source replicas
-
-    Caveat: Transfers with no source files are silently excluded.
+    List stagein requests with source replicas
 
     :param process: Identifier of the caller process as an integer.
     :param total_processes: Maximum number of processes as an integer.
@@ -1069,17 +1098,23 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
                           models.RSE.deterministic,
                           models.RSE.rse_type,
                           models.RSEFileAssociation.path,
-                          models.RSEAttrAssociation.value)\
+                          models.RSEAttrAssociation.value,
+                          models.Request.retry_count,
+                          models.Request.previous_attempt_id,
+                          models.Source.url,
+                          models.Source.ranking)\
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
         .filter(models.Request.state == RequestState.QUEUED)\
         .filter(models.Request.request_type == RequestType.STAGEIN)\
-        .filter(models.Request.scope == models.RSEFileAssociation.scope)\
-        .filter(models.Request.name == models.RSEFileAssociation.name)\
-        .filter(models.Request.dest_rse_id != models.RSEFileAssociation.rse_id)\
-        .filter(models.RSE.id == models.RSEFileAssociation.rse_id)\
-        .filter(models.RSE.staging_area == is_false)\
-        .filter(models.RSEAttrAssociation.rse_id == models.RSE.id)\
-        .filter(models.RSEAttrAssociation.key == 'staging_buffer')
+        .outerjoin(models.RSEFileAssociation, and_(models.Request.scope == models.RSEFileAssociation.scope,
+                                                   models.Request.name == models.RSEFileAssociation.name,
+                                                   models.Request.dest_rse_id != models.RSEFileAssociation.rse_id))\
+        .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
+                                    models.RSE.staging_area == is_false))\
+        .outerjoin(models.RSEAttrAssociation, and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
+                                                   models.RSEAttrAssociation.key == 'staging_buffer'))\
+        .outerjoin(models.Source, and_(models.Request.id == models.Source.request_id,
+                                       models.RSE.id == models.Source.rse_id))
 
     if isinstance(older_than, datetime.datetime):
         query = query.filter(models.Request.updated_at < older_than)
@@ -1105,7 +1140,15 @@ def list_stagein_requests_and_source_replicas(process=None, total_processes=None
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter('mod(abs((\'x\'||md5(rule_id))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
 
-    return query.all()
+    if rses:
+        result = []
+        for item in query.all():
+            dest_rse_id = item[9]
+            if dest_rse_id in rses:
+                result.append(item)
+        return result
+    else:
+        return query.all()
 
 
 @read_session

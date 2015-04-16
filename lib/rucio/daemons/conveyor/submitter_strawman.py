@@ -31,13 +31,18 @@ graceful_stop = threading.Event()
 def submitter(once=False, process=0, total_processes=1, thread=0, total_threads=1):
     # print '%(thread)s/%(total_threads)s: Submitter ' % locals()
     s = time.time()
-    requests = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads)
+    requests, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads)
     duration = time.time() - s
     nb_requests = len(requests)
     print '%(thread)s/%(total_threads)s: %(nb_requests)s xfers in %(duration)s seconds' % locals()
+    for id in requests:
+        print requests[id]
+        break
+    print reqs_no_source
+    print reqs_scheme_mismatch
 
     s = time.time()
-    requests = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads)
+    requests, reqs_no_source = get_stagein_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads)
     duration = time.time() - s
     nb_requests = len(requests)
     print '%(thread)s/%(total_threads)s: %(nb_requests)s xfers in %(duration)s seconds' % locals()
