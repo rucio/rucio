@@ -183,14 +183,14 @@ def set_request_transfers(transfers, session=None):
 
     try:
         for request_id in transfers:
-            session.query(models.Request).filter_by(id=request_id)\
-                   .update({'state': transfers[request_id]['state'],
-                            'external_id': transfers[request_id]['external_id'],
-                            'external_host': transfers[request_id]['external_host'],
-                            'dest_url': transfers[request_id]['dest_url'],
-                            'submitted_at': datetime.datetime.utcnow()},
-                           synchronize_session=False)
-            if 'file' in transfers[request_id]:
+            rowcount = session.query(models.Request).filter_by(id=request_id)\
+                              .update({'state': transfers[request_id]['state'],
+                                       'external_id': transfers[request_id]['external_id'],
+                                       'external_host': transfers[request_id]['external_host'],
+                                       'dest_url': transfers[request_id]['dest_url'],
+                                       'submitted_at': datetime.datetime.utcnow()},
+                                      synchronize_session=False)
+            if rowcount and 'file' in transfers[request_id]:
                 file = transfers[request_id]['file']
                 for src_rse, src_url, src_rse_id, rank in file['sources']:
                     if rank is None:
