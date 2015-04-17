@@ -53,6 +53,8 @@ if __name__ == "__main__":
                         help='Explicit list of activities to include')
     parser.add_argument('--activity-shares', action='store', default=None, type=str,
                         help='JSON-encoded string of an activity shares dictionary {"act_1": 0.2, "act_2": 0.4, ...}')
+    parser.add_argument('--sleep-time', action="store", default=600, type=int,
+                        help='Seconds to sleep if few requests')
     args = parser.parse_args()
 
     try:
@@ -68,6 +70,7 @@ if __name__ == "__main__":
             rses=args.rses,
             fts_source_strategy=args.fts_source_strategy,
             activities=args.activities,
-            activity_shares=args.activity_shares)
+            activity_shares=args.activity_shares,
+            sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()
