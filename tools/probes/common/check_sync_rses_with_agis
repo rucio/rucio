@@ -45,8 +45,8 @@ if __name__ == '__main__':
             volatile = False
             c.add_rse(rse=rse['name'], deterministic=deterministic, volatile=volatile)
             # Set infinite quotas for admin accounts
-            acc_attrs = [(a['account'],list_account_attributes(a['account'])) for a in list_accounts()]
-            admin_accounts = [x[0] for x in acc_attrs if {'key':'admin', 'value':True} in x[1]]
+            acc_attrs = [(a['account'], list_account_attributes(a['account'])) for a in list_accounts()]
+            admin_accounts = [x[0] for x in acc_attrs if {'key': 'admin', 'value': True} in x[1]]
             for account in admin_accounts:
                 set_account_limit(account, rse['name'], -1, 'root')
             if not rse['is_tape']:
