@@ -10,6 +10,8 @@
 
 from nose.tools import assert_equal
 
+from rucio.core.replica import list_datasets_per_rse
+
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
@@ -19,7 +21,7 @@ from rucio.common.utils import generate_uuid as uuid
 class TestDatasetReplicaCLient:
 
     def test_list_dataset_replicas(self):
-        """ REPLICA (CORE): List dataset replicas."""
+        """ REPLICA (CLIENT): List dataset replicas."""
         replica_client = ReplicaClient()
         rule_client = RuleClient()
         did_client = DIDClient()
@@ -32,3 +34,18 @@ class TestDatasetReplicaCLient:
                                          grouping='DATASET')
         replicas = [r for r in replica_client.list_dataset_replicas(scope=scope, name=dataset)]
         assert_equal(len(replicas), 1)
+
+    def test_list_datasets_per_rse(self):
+        """ REPLICA (CLIENT): List datasets in RSE."""
+        # replica_client = ReplicaClient()
+        rule_client = RuleClient()
+        did_client = DIDClient()
+        scope = 'mock'
+        dataset = 'dataset_' + str(uuid())
+
+        did_client.add_dataset(scope=scope, name=dataset)
+        rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}],
+                                         account='root', copies=1, rse_expression='MOCK',
+                                         grouping='DATASET')
+        replicas = [r for r in list_datasets_per_rse(rse='MOCK', filters={'scope': 'mock', 'name': 'data*'})]
+        print replicas
