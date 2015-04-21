@@ -1,18 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
-# - Wen Guan, <wen.guan@cern.ch>, 2015
+"""
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2014
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
+  - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
+  - Wen Guan, <wen.guan@cern.ch>, 2015
+"""
 
 from datetime import datetime, timedelta
 from re import match
@@ -26,7 +28,7 @@ from sqlalchemy.sql.expression import case, bindparam, select, text
 import rucio.core.lock
 
 from rucio.common import exception
-from rucio.common.utils import chunks, clean_surls
+from rucio.common.utils import chunks, clean_surls, str_to_date
 from rucio.core.rse import get_rse, get_rse_id, get_rse_name
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
@@ -1323,16 +1325,60 @@ def list_dataset_replicas(scope, name, session=None):
         .filter(models.CollectionReplica.rse_id == models.RSE.id)\
         .filter(models.RSE.deleted == is_false)
 
-    for scope, name, rse, bytes, length, available_bytes, available_replicas_cnt,\
-            state, created_at, updated_at, accessed_at in query:
-        yield {'scope': scope,
-               'name': name,
-               'rse': rse,
-               'bytes': bytes,
-               'length': length,
-               'available_bytes': available_bytes,
-               'available_replicas_cnt': available_replicas_cnt,
-               'state': state,
-               'created_at': created_at,
-               'updated_at': updated_at,
-               'accessed_at': accessed_at}
+    for row in query:
+        yield row._asdict()
+
+
+@stream_session
+def list_datasets_per_rse(rse, filters=None, limit=None, session=None):
+    """
+    List datasets at a RSE.
+
+    :param rse: the rse name.
+    :param filters: dictionary of attributes by which the results should be filtered.
+    :param limit: limit number.
+    :param session: Database session to use.
+
+    :returns: A list of dict dataset replicas
+    """
+    is_false = False
+    query = session.query(models.CollectionReplica.scope,
+                          models.CollectionReplica.name,
+                          models.RSE.rse,
+                          models.CollectionReplica.bytes,
+                          models.CollectionReplica.length,
+                          models.CollectionReplica.available_bytes,
+                          models.CollectionReplica.available_replicas_cnt,
+                          models.CollectionReplica.state,
+                          models.CollectionReplica.created_at,
+                          models.CollectionReplica.updated_at,
+                          models.CollectionReplica.accessed_at)\
+        .filter_by(did_type=DIDType.DATASET)\
+        .filter(models.CollectionReplica.rse_id == models.RSE.id)\
+        .filter(models.RSE.rse == rse)\
+        .filter(models.RSE.deleted == is_false)
+
+    for (k, v) in filters and filters.items() or []:
+        if k == 'name' or k == 'scope':
+            if '*' in v or '%' in v:
+                if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
+                    query = query.filter(getattr(models.CollectionReplica, k).like(v.replace('*', '%')))
+                else:
+                    query = query.filter(getattr(models.CollectionReplica, k).like(v.replace('*', '%'), escape='\\'))
+            else:
+                query = query.filter(getattr(models.CollectionReplica, k) == v)
+                # hints ?
+        elif k == 'created_before':
+            created_before = str_to_date(v)
+            query = query.filter(models.CollectionReplica.created_at <= created_before)
+        elif k == 'created_after':
+            created_after = str_to_date(v)
+            query = query.filter(models.CollectionReplica.created_at >= created_after)
+        else:
+            query = query.filter(getattr(models.CollectionReplica, k) == v)
+
+    if limit:
+        query = query.limit(limit)
+
+    for row in query:
+        yield row._asdict()
