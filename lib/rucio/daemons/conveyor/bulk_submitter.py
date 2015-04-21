@@ -124,8 +124,8 @@ def submitter(once=False, rses=[],
                                     log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
                                     logging.info(log_str)
                                 else:
-                                    xfers_ret[request_id] = {'state': RequestState.LOST, 'external_host': external_host, 'external_id': None, 'dest_url': None}
-                                    log_str += 'with state(%s) with eid(%s)' % (RequestState.LOST, None)
+                                    xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': None}
+                                    log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTING, None)
                                     logging.warn(log_str)
                                 xfers_ret[request_id]['file'] = file
                             request.set_request_transfers(xfers_ret)

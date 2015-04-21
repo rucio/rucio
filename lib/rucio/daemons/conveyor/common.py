@@ -337,6 +337,30 @@ def handle_one_replica(replica, req_type, rule_id, session=None):
     return True
 
 
+@transactional_session
+def handle_submitting_requests(older_than=1800, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+    """
+    used by finisher to handle submitting  requests
+
+    :param older_than: Only select requests older than this DateTime.
+    :param process: Identifier of the caller process as an integer.
+    :param total_processes: Maximum number of processes as an integer.
+    :param thread: Identifier of the caller thread as an integer.
+    :param total_threads: Maximum number of threads as an integer.
+    :param session: The database session to use.
+    """
+
+    reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                 state=RequestState.SUBMITTING,
+                                 older_than=datetime.datetime.utcnow()-datetime.timedelta(seconds=older_than),
+                                 process=process, total_processes=total_processes,
+                                 thread=thread, total_threads=total_threads,
+                                 session=session)
+    for req in reqs:
+        logging.info("Renew request %s from SUBMITTING to QUEUED" % (req['request_id']))
+        request_core.set_request_state(req['request_id'], RequestState.QUEUED, session=session)
+
+
 @read_session
 def get_source_rse(scope, name, src_url, session=None):
     try:
