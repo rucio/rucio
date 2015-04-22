@@ -72,6 +72,8 @@ class DIDReEvaluation(DeclEnum):
 class KeyType(DeclEnum):
     ALL = 'ALL', 'ALL'
     COLLECTION = 'COLLECTION', 'COLLECTION'
+    CONTAINER = 'CONTAINER', 'CONTAINER'
+    DATASET = 'DATASET', 'DATASET'
     FILE = 'FILE', 'FILE'
     DERIVED = 'DERIVED', 'DERIVED'
 

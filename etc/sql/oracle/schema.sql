@@ -1542,3 +1542,22 @@ UPDATED_AT DATE,
 CREATED_AT DATE,
 CONSTRAINT HEARTBEATS_PK PRIMARY KEY(EXECUTABLE, HOSTNAME, PID, THREAD_ID) using index COMPRESS 1
 ) PCTFREE 0 TABLESPACE  ATLAS_RUCIO_TRANSIENT_DATA01;
+
+
+-- ========================================= NAMING_CONVENTIONS =========================================
+-- Description: Table to regexp to valide name within scopes
+-- Estimated volume: Same order of magnitude than scopes ~5000
+-- Access pattern: By scope
+
+CREATE TABLE atlas_rucio.naming_conventions (
+	scope VARCHAR2(25 CHAR) NOT NULL,
+	regexp VARCHAR2(255 CHAR),
+	convention_type VARCHAR(10 CHAR),
+	updated_at DATE,
+	created_at DATE,
+	CONSTRAINT "NAMING_CONVENTIONS_PK" PRIMARY KEY (scope),
+	CONSTRAINT "NAMING_CONVENTIONS_SCOPE_FK" FOREIGN KEY(scope) REFERENCES atlas_rucio.scopes (scope),
+	CONSTRAINT "NAMING_CONVENTIONS_CREATED_NN" CHECK (CREATED_AT IS NOT NULL),
+	CONSTRAINT "NAMING_CONVENTIONS_UPDATED_NN" CHECK (UPDATED_AT IS NOT NULL),
+    CONSTRAINT "CVT_TYPE_CHK" CHECK (convention_type IN ('ALL', 'DATASET', 'CONTAINER', 'COLLECTION', 'FILE'))
+) PCTFREE 0 TABLESPACE ATLAS_RUCIO_ATTRIBUTE_DATA01;

@@ -945,6 +945,16 @@ class Heartbeats(BASE, ModelBase):
                    Index('HEARTBEATS_UPDATED_AT', 'updated_at'))
 
 
+class NamingConvention(BASE, ModelBase):
+    """Represents naming conventions for name within a scope"""
+    __tablename__ = 'naming_conventions'
+    scope = Column(String(25))
+    regexp = Column(String(255))
+    convention_type = Column(KeyType.db_type(name='CVT_TYPE_CHK'))
+    _table_args = (PrimaryKeyConstraint('scope', name='NAMING_CONVENTIONS_PK'),
+                   ForeignKeyConstraint(['scope'], ['scopes.scope'], name='NAMING_CONVENTIONS_SCOPE_FK'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -964,6 +974,7 @@ def register_models(engine):
               Identity,
               IdentityAccountAssociation,
               Message,
+              NamingConvention,
               RSE,
               RSEAttrAssociation,
               RSECounter,
@@ -1011,6 +1022,7 @@ def unregister_models(engine):
               Identity,
               IdentityAccountAssociation,
               Message,
+              NamingConvention,
               RSE,
               RSEAttrAssociation,
               RSECounter,
