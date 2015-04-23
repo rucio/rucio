@@ -240,7 +240,7 @@ class DIDs(RucioController):
         :param scope: Create the data identifier within this scope.
         :param name: Create the data identifier with this name.
         """
-        statuses, meta, rules, lifetime, dids, rse = {}, [], [], None, [], None
+        statuses, meta, rules, lifetime, dids, rse = {}, {}, [], None, [], None
         try:
             json_data = loads(data())
             type = json_data['type']

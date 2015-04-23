@@ -1,23 +1,27 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+'''
 
 from re import match
 
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
-from rucio.common.exception import Duplicate, RucioException, KeyNotFound, InvalidValueForKey, UnsupportedValueType
+from rucio.common.exception import (Duplicate, RucioException,
+                                    KeyNotFound, InvalidValueForKey, UnsupportedValueType,
+                                    InvalidObject)
 from rucio.db import models
+from rucio.db.constants import DIDType
 from rucio.db.session import read_session, transactional_session
 
 
@@ -40,18 +44,10 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
     new_key = models.DIDKey(key=key, value_type=value_type and str(value_type), value_regexp=value_regexp, key_type=key_type)
     try:
         new_key.save(session=session)
-    except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) column key is not unique":
+    except IntegrityError as error:
+        if error.args[0] == "(IntegrityError) column key is not unique":
             raise Duplicate('key \'%(key)s\' already exists!' % locals())
         raise
-
-    ctx = MigrationContext.configure(session.connection())
-    op = Operations(ctx)
-
-#    if key.upper() == 'GUID':
-#        op.add_column(models.DataIdentifier.__table__.name, Column(key, GUID()))
-#    else:
-#        op.add_column(models.DataIdentifier.__table__.name, Column(key, models.String(50)))
 
 
 @transactional_session
@@ -62,7 +58,7 @@ def del_key(key, session=None):
     :param key: the name for the key.
     :param session: The database session in use.
     """
-    pass
+    session.query(models.DIDKey).filter(key == key).delete()
 
 
 @read_session
@@ -76,8 +72,8 @@ def list_keys(session=None):
     """
     key_list = []
     query = session.query(models.DIDKey)
-    for s in query:
-        key_list.append(s.key)
+    for row in query:
+        key_list.append(row.key)
     return key_list
 
 
@@ -93,18 +89,18 @@ def add_value(key, value, session=None):
     new_value = models.DIDKeyValueAssociation(key=key, value=value)
     try:
         new_value.save(session=session)
-    except IntegrityError, e:
-        if e.args[0] == "(IntegrityError) columns key, value are not unique":
+    except IntegrityError as error:
+        if error.args[0] == "(IntegrityError) columns key, value are not unique":
             raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
 
-        if e.args[0] == "(IntegrityError) foreign key constraint failed":
+        if error.args[0] == "(IntegrityError) foreign key constraint failed":
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
-        if match('.*IntegrityError.*ORA-02291: integrity constraint.*DID_MAP_KEYS_FK.*violated.*', e.args[0]):
+        if match('.*IntegrityError.*ORA-02291: integrity constraint.*DID_MAP_KEYS_FK.*violated.*', error.args[0]):
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
-        if e.args[0] == "(IntegrityError) (1452, 'Cannot add or update a child row: a foreign key constraint fails (`rucio`.`did_key_map`, CONSTRAINT `DID_MAP_KEYS_FK` FOREIGN KEY (`key`) REFERENCES `did_keys` (`key`))')":
+        if error.args[0] == "(IntegrityError) (1452, 'Cannot add or update a child row: a foreign key constraint fails (`rucio`.`did_key_map`, CONSTRAINT `DID_MAP_KEYS_FK` FOREIGN KEY (`key`) REFERENCES `did_keys` (`key`))')":
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
 
-        raise RucioException(e.args)
+        raise RucioException(error.args)
 
     k = session.query(models.DIDKey).filter_by(key=key).one()
 
@@ -130,6 +126,29 @@ def list_values(key, session=None):
     """
     value_list = []
     query = session.query(models.DIDKeyValueAssociation).filter_by(key=key)
-    for s in query:
-        value_list.append(s.value)
+    for row in query:
+        value_list.append(row.value)
     return value_list
+
+
+@read_session
+def validate_meta(meta, did_type, session=None):
+    """
+    Validates metadata for a did.
+
+    :param meta: the dictionary of metadata.
+    :param meta: the type of the did, e.g, DATASET, CONTAINER, FILE.
+    :param session: The database session in use.
+
+    :returns: True
+    """
+    # For now only validate the datatype for datasets
+    key = 'datatype'
+    if did_type == DIDType.DATASET and key in meta:
+        try:
+            session.query(models.DIDKeyValueAssociation.value).\
+                filter_by(key=key).\
+                filter_by(value=meta[key]).\
+                one()
+        except NoResultFound:
+            raise InvalidObject("The value '%s' for the key '%s' is not valid" % (meta[key], key))
