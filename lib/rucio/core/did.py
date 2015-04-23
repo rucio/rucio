@@ -1,20 +1,22 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
-# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
-# - Wen Guan, <wen.guan@cern.ch>, 2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
+  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015
+  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2015
+  - Wen Guan, <wen.guan@cern.ch>, 2015
+'''
 
 import logging
 import random
@@ -32,7 +34,6 @@ from sqlalchemy.sql.expression import bindparam, text
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
-
 
 from rucio.common import exception
 from rucio.common.config import config_get
@@ -147,8 +148,6 @@ def add_dids(dids, account, session=None):
                                                 did_type=did['type'], monotonic=did.get('statuses', {}).get('monotonic', False),
                                                 is_open=True, expired_at=expired_at)
                 # Add metadata
-                # ToDo: metadata validation
-                # validate_meta(did.get('meta', {}))
                 for key in did.get('meta', {}):
                     new_did.update({key: did['meta'][key]})
 
@@ -898,18 +897,6 @@ def get_metadata(scope, name, session=None):
         return d
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-#    try:
-#        r = session.query(models.DataIdentifier.__table__).filter_by(scope=scope, name=name).one()   # remove deleted data
-#    except NoResultFound:
-#        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-#    for key in session.query(models.DIDKey):
-#        models.DataIdentifier.__table__.append_column(Column(key.key, models.String(50)))
-#    meta = {}
-#    for column in r._fields:
-#        meta[column] = getattr(r, column)
-
-    # if r.did_type == DIDType.FILE and r.guid:
-    #    meta['guid'] = r.guid
 
 
 @transactional_session

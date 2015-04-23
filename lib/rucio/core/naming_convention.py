@@ -67,12 +67,27 @@ def get_naming_convention(scope, convention_type, session=None):
 
     :returns: the regular expression.
     """
-
     query = session.query(models.NamingConvention.regexp).\
         filter(models.NamingConvention.scope == scope).\
         filter(models.NamingConvention.convention_type == convention_type)
     for row in query:
         return row[0]
+
+
+@transactional_session
+def delete_naming_convention(scope, regexp, convention_type, session=None):
+    """
+    delete a naming convention for a given scope
+
+    :param scope: the name for the scope.
+    :param regexp: the regular expression to validate the name.
+    :param convention_type: the did_type on which the regexp should apply.
+    :param session: The database session in use.
+    """
+    session.query(models.NamingConvention.regexp).\
+        filter(models.NamingConvention.scope == scope).\
+        filter(models.NamingConvention.convention_type == convention_type).\
+        delete()
 
 
 @read_session
@@ -104,17 +119,25 @@ def validate_name(scope, name, did_type, session=None):
     """
 
     # Check if naming convention can be found in cache region
-    regexp = REGION.get(scope)
+    regexp = REGION.get(str(scope))
     if regexp is NO_VALUE:  # no cached entry found
         regexp = get_naming_convention(scope=scope,
                                        convention_type=KeyType.DATASET,
                                        session=session)
-        regexp and REGION.set(scope, regexp)
+        regexp and REGION.set(str(scope), regexp)
 
     if not regexp:
         return
     # Valide with regexp
     groups = match(regexp, str(name))
     if groups:
-        return groups.groupdict()
+        meta = groups.groupdict()
+        # Hack to get task_id from version
+        if 'version' in meta:
+            matched = match('(?P<version>\w+)_tid(?P<task_id>\d+)_\w+$', meta['version'])
+            if matched:
+                meta['version'] = matched.dictgroup()['version']
+                meta['task_id'] = matched.dictgroup()['task_id']
+        return meta
+
     raise InvalidObject("Provided name %(name)s doesn't the naming convention %(regexp)s" % locals())

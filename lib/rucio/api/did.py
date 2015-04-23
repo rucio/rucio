@@ -1,20 +1,22 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the
-# License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+'''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the
+  License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+  - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+  - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
+'''
 
 import rucio.api.permission
 
-from rucio.core import did
+from rucio.core import did, naming_convention, meta as meta_core
 from rucio.common.constants import reserved_keys
 from rucio.common.schema import validate_schema
 from rucio.db.constants import DIDType
@@ -33,7 +35,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case, limit=limit, offset=offset)
 
 
-def add_did(scope, name, type, issuer, account=None, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None):
+def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None):
     """
     Add data did.
 
@@ -56,6 +58,20 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta=[], rules
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_did', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
+
+    if type == 'DATASET':
+        # naming_convention validation
+        extra_meta = naming_convention.validate_name(scope=scope, name=name, did_type='D')
+
+        # merge extra_meta with meta
+        for k in extra_meta or {}:
+            if k not in meta:
+                meta[k] = extra_meta[k]
+            elif meta[k] != extra_meta[k]:
+                raise rucio.common.exception.InvalidObject("Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k]))
+
+        # Validate metadata
+        meta_core.validate_meta(meta=meta, did_type=DIDType.from_sym(type))
 
     return did.add_did(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
