@@ -26,7 +26,7 @@ if __name__ == '__main__':
                  ('run_number', 'ALL', None, ['NoRunNumberDefined']),
                  ('stream_name', 'ALL', None, ['NoStreamNameDefined']),
                  ('prod_step', 'ALL', None, ['merge', 'recon', 'simul', 'evgen', 'NoProdstepDefined', 'user']),
-                 ('datatype', 'ALL', None, ['HITS', 'AOD', 'EVNT', 'NoDatatypeDefined', 'DPD']),
+                 ('datatype', 'ALL', None, ['HITS', 'AOD', 'EVNT', 'NTUP_TRIG', 'NTUP_SMWZ', 'NoDatatypeDefined', 'DPD']),
                  ('version', 'ALL', None, []),
                  ('campaign', 'ALL', None, []),
                  ('guid', 'FILE', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
