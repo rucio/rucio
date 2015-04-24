@@ -50,8 +50,12 @@ def submit_transfers(transfers, job_metadata):
 
     # Early sanity check
     for transfer in transfers:
-        if not transfer['src_urls'] or transfer['src_urls'] == []:
+        if not transfer['sources'] or transfer['sources'] == []:
             raise Exception('No sources defined')
+        transfer['src_urls'] = []
+        for source in transfer['sources']:
+            # # convert sources from (src_rse, url, src_rse_id, rank) to url
+            transfer['src_urls'].append(source[1])
 
     # FTS3 expects 'davs' as the scheme identifier instead of https
     new_src_urls = []

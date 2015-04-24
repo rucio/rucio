@@ -433,7 +433,7 @@ def get_transfer(rse, req, scheme, mock):
     if mock:
         tmp_sources = []
         for s in sources:
-            tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:])))
+            tmp_sources.append((s[0], ':'.join(['mock']+s[1].split(':')[1:]), s[2], s[3]))
         sources = tmp_sources
 
     source_surls = [s[1] for s in sources]
