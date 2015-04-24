@@ -491,7 +491,8 @@ def perm_declare_bad_file_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == 'root' or has_account_attribute(account=issuer, key='admin')
+    is_cloud_admin = bool(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'), list_account_attributes(account=issuer)))
+    return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
 
 
 def perm_add_replicas(issuer, kwargs):
