@@ -17,7 +17,7 @@ import logging
 import time
 import traceback
 
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
@@ -1188,5 +1188,32 @@ def get_sources(request_id, session=None):
                 result.append(t2)
 
             return result
+    except IntegrityError, e:
+        raise RucioException(e.args)
+
+
+@read_session
+def get_heavy_load_rses(threshold, session=None):
+    """
+    Retrieve heavy load rses.
+
+    :param threshold: threshold as an int.
+    :param session: Database session to use.
+    :returns: .
+    """
+
+    try:
+        results = session.query(models.Source.rse_id, func.count(models.Source.rse_id).label('load')).group_by(models.Source.rse_id).all()
+
+        if not results:
+            return
+
+        result = []
+        for t in results:
+            if t[1] >= threshold:
+                t2 = {'rse_id': t[0], 'load': t[1]}
+                result.append(t2)
+
+        return result
     except IntegrityError, e:
         raise RucioException(e.args)
