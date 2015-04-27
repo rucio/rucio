@@ -1,19 +1,19 @@
-# Copyright European Organization for Nuclear Research (CERN)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#
-# Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
-# - JingYa You, <jingya.you@twgrid.org>, 2014
-# - ChengHsi Chao, <chenghsi.chao@twgrid.org>, 2014
-# - Ookey Lai, <ookey.lai@twgird.org>, 2014
-# - HuoHao Ho, <luke.ho@twgrid.org>, 2014
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
-
 '''
+  Copyright European Organization for Nuclear Research (CERN)
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Authors:
+  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+  - JingYa You, <jingya.you@twgrid.org>, 2014
+  - ChengHsi Chao, <chenghsi.chao@twgrid.org>, 2014
+  - Ookey Lai, <ookey.lai@twgird.org>, 2014
+  - HuoHao Ho, <luke.ho@twgrid.org>, 2014
+  - Ralph Vigne, <ralph.vigne@cern.ch>, 2015
+
 Compatibility Wrapper for DQ2 and Rucio.
      http://svnweb.cern.ch/world/wsvn/dq2/trunk/dq2.clients/lib/dq2/clientapi/DQ2.py
 '''
@@ -1497,8 +1497,6 @@ class DQ2Client:
 
     def registerFilesInDataset(self, dsn, lfns=[], guids=[], sizes=[], checksums=[], ignore=False, scope=None, rse=None, pfns=[], events=[], lumiblocknrs=[]):
         """
-        ToDo-->KuoHao
-
         Add existing files to an existing dataset.(attach file to dataset)
 
         @param dsn: is the dataset name.
@@ -1616,8 +1614,11 @@ class DQ2Client:
                     events.append(file['events'])
                 if 'lumiblocknr' in file:
                     lumiblocknrs.append(file['lumiblocknr'])
-
-            result[vuid] = self.registerFilesInDataset(dsn, lfns=lfns, guids=guids, sizes=sizes, checksums=checksums, ignore=False, scope=scope, rse=rse, pfns=pfns, events=events, lumiblocknrs=lumiblocknrs)
+            result[vuid] = self.registerFilesInDataset(dsn, lfns=lfns, guids=guids,
+                                                       sizes=sizes, checksums=checksums,
+                                                       ignore=False, scope=scope, rse=rse,
+                                                       pfns=pfns, events=events,
+                                                       lumiblocknrs=lumiblocknrs)
         errorlist = []
         for vuid in result:
             for lfn in result[vuid]:

@@ -751,10 +751,11 @@ def add_replicas(rse, files, account, rse_id=None, ignore_availability=True, ses
             # Check that the pfns match to the expected pfns
             lfns = [{'scope': i['scope'], 'name': i['name']} for i in files]
             expected_pfns = p.lfns2pfns(lfns)
-            expected_pfns = clean_surls(expected_pfns)
+            expected_pfns = clean_surls(expected_pfns.values())
             pfns = clean_surls(pfns)
             if pfns != expected_pfns:
-                raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
+                print 'ALERT: One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns))
+                # raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : %s vs %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=replica_rse.id, files=files, account=account, session=session)
     increase(rse_id=replica_rse.id, files=nbfiles, bytes=bytes, session=session)

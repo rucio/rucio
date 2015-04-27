@@ -84,7 +84,8 @@ def delete_naming_convention(scope, regexp, convention_type, session=None):
     :param convention_type: the did_type on which the regexp should apply.
     :param session: The database session in use.
     """
-    session.query(models.NamingConvention.regexp).\
+    REGION.delete(str(scope))
+    return session.query(models.NamingConvention.regexp).\
         filter(models.NamingConvention.scope == scope).\
         filter(models.NamingConvention.convention_type == convention_type).\
         delete()
