@@ -55,6 +55,8 @@ if __name__ == "__main__":
                         help='JSON-encoded string of an activity shares dictionary {"act_1": 0.2, "act_2": 0.4, ...}')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
                         help='Seconds to sleep if few requests')
+    parser.add_argument('--max-sources', action="store", default=4, type=int,
+                        help='Maximum source replicas per FTS job')
     args = parser.parse_args()
 
     try:
@@ -71,6 +73,7 @@ if __name__ == "__main__":
             fts_source_strategy=args.fts_source_strategy,
             activities=args.activities,
             activity_shares=args.activity_shares,
-            sleep_time=args.sleep_time)
+            sleep_time=args.sleep_time,
+            max_sources=args.max_sources)
     except KeyboardInterrupt:
         stop()
