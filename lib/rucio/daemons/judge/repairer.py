@@ -76,7 +76,7 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
 
             if not rules and not once:
                 logging.info('rule_repairer[%s/%s] did not get any work' % (process*threads_per_process+thread, total_processes*threads_per_process-1))
-                time.sleep(10)
+                graceful_stop.wait(10)
             else:
                 record_gauge('rule.judge.repairer.threads.%d' % (process*threads_per_process+thread), 1)
                 for rule_id in rules:
