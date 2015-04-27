@@ -32,6 +32,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     AccessDenied, InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed)
+from rucio.common.schema import validate_schema
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_account
 from rucio.core.message import add_message
@@ -739,7 +740,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity']
 
     for key in options:
         if key not in valid_options:
@@ -750,6 +751,11 @@ def update_rule(rule_id, options, session=None):
         for key in options:
             if key == 'lifetime':
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=options['lifetime']) if options['lifetime'] is not None else None
+
+            if key == 'activity':
+                validate_schema('activity', options['activity'])
+                rule.activity = options['activity']
+
             elif key == 'account':
                 # Check if the account exists
                 get_account(options['account'], session=session)
