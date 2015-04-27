@@ -30,6 +30,7 @@ import requests
 import signal
 import socket
 import sys
+import tabulate
 import time
 import traceback
 
@@ -1160,13 +1161,16 @@ def list_rules(args):
         print 'At least one option has to be given. Use -h to list the options.'
         return FAILURE
 
-    print "ID                               (ACCOUNT) SCOPE:NAME                     STATE[OK/REPLICATING/STUCK], RSE_EXPRESSION, COPIES"
-    print '{0:-<130}'.format('')
+    table = []
     for rule in rules:
-        print "{0:32} ({1:}) {2:}:{3:40} {4:}[{5:}/{6:}/{7:}] \"{8:}\"  {9:}".format(rule['id'], rule['account'], rule['scope'],
-                                                                                     rule['name'], rule['state'], rule['locks_ok_cnt'],
-                                                                                     rule['locks_replicating_cnt'], rule['locks_stuck_cnt'],
-                                                                                     rule['rse_expression'], rule['copies'])
+        table.append([rule['id'],
+                      rule['account'],
+                      '%s:%s' % (rule['scope'], rule['name']),
+                      '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                      rule['rse_expression'],
+                      rule['copies'],
+                      rule['expires_at']])
+    print tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)'])
     return SUCCESS
 
 
