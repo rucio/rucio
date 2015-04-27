@@ -47,7 +47,7 @@ graceful_stop = threading.Event()
 def submitter(once=False, rses=[],
               process=0, total_processes=1, thread=0, total_threads=1,
               mock=False, bulk=100, fts_source_strategy='auto',
-              activities=None, activity_shares=None):
+              activities=None, activity_shares=None, sleep_time=300, max_sources=4):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -95,7 +95,7 @@ def submitter(once=False, rses=[],
 
                 logging.info("%s:%s Starting to get transfers" % (process, thread))
                 ts = time.time()
-                transfers = get_transfers_from_requests(process, total_processes, thread, total_threads, rse_ids, mock, bulk, activity, activity_shares, scheme)
+                transfers = get_transfers_from_requests(process, total_processes, thread, total_threads, rse_ids, mock, bulk, activity, activity_shares, scheme, max_sources=max_sources)
                 record_timer('daemons.conveyor.submitter.get_transfers_from_requests.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.submitter.get_transfers_from_requests', len(transfers))
 
@@ -144,10 +144,9 @@ def submitter(once=False, rses=[],
                     except RequestException, e:
                         logging.error("Failed to submit request %s: %s" % (transfer['request_id'], str(e)))
                 if len(transfers) < bulk / 2:
-                    logging.info("Not enough requests, will sleep 60 seconds")
-                    # time.sleep(10)
+                    logging.info("Not enough requests, will sleep % seconds" % sleep_time)
                     if activity_next_exe_time[activity] < time.time():
-                        activity_next_exe_time[activity] = time.time() + 60
+                        activity_next_exe_time[activity] = time.time() + sleep_time
         except:
             logging.critical(traceback.format_exc())
 
@@ -172,7 +171,7 @@ def stop(signum=None, frame=None):
 def run(once=False,
         process=0, total_processes=1, total_threads=1, fts_source_strategy='auto',
         mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100,
-        activities=[], activity_shares=None):
+        activities=[], activity_shares=None, sleep_time=300, max_sources=4):
     """
     Starts up the conveyer threads.
     """
@@ -214,6 +213,7 @@ def run(once=False,
                   rses=working_rses,
                   mock=mock,
                   bulk=bulk,
+                  max_sources=max_sources,
                   fts_source_strategy=fts_source_strategy,
                   activities=activities,
                   activity_shares=activity_shares)
@@ -228,6 +228,8 @@ def run(once=False,
                                                               'bulk': bulk,
                                                               'activities': activities,
                                                               'mock': mock,
+                                                              'sleep_time': sleep_time,
+                                                              'max_sources': max_sources,
                                                               'fts_source_strategy': fts_source_strategy,
                                                               'activity_shares': activity_shares}) for i in xrange(0, total_threads)]
 
