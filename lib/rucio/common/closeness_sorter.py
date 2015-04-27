@@ -22,9 +22,16 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from hashlib import sha256
 
-region = make_region().configure('dogpile.cache.memcached',
+from rucio.core import request as request_core
+
+REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
                                  arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+
+REGION_SHORT = make_region().configure('dogpile.cache.memcached',
+                                       expiration_time=600,
+                                       arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+
 
 # for local test
 # region = make_region().configure('dogpile.cache.memory',
@@ -42,7 +49,7 @@ def get_sitename(rse_name):
     """
 
     url = 'http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json'
-    result = region.get(sha256(url).hexdigest())
+    result = REGION.get(sha256(url).hexdigest())
     if type(result) is NoValue:
         try:
             logging.debug("Refresh rse site map: %s" % url)
@@ -54,7 +61,7 @@ def get_sitename(rse_name):
                 rse = item['name']
                 sitename = item['site'].upper()
                 result[rse] = sitename
-            region.set(sha256(url).hexdigest(), result)
+            REGION.set(sha256(url).hexdigest(), result)
         except:
             logging.warning("INFO: failed to load data from url=%s, error: %s" % (url, traceback.format_exc()))
     if result and rse_name in result:
@@ -70,7 +77,7 @@ def get_closeness(dest_rse):
     :returns:             Closeness dict.
     """
     url = 'http://atlas-agis-api.cern.ch/request/site/query/list_links/?json'
-    result = region.get(sha256(url).hexdigest())
+    result = REGION.get(sha256(url).hexdigest())
     if type(result) is NoValue:
         try:
             logging.debug("Refresh closeness: %s" % url)
@@ -91,7 +98,7 @@ def get_closeness(dest_rse):
                     if src not in result:
                         result[src] = {}
                     result[src][src] = -BIGGEST_DISTANCE
-            region.set(sha256(url).hexdigest(), result)
+            REGION.set(sha256(url).hexdigest(), result)
         except:
             logging.warning("INFO: failed to load data from url=%s, error: %s" % (url, traceback.format_exc()))
 
@@ -100,6 +107,29 @@ def get_closeness(dest_rse):
         if dest_site and dest_site in result:
             return result[dest_site]
     return None
+
+
+def get_heavy_load_rses(threshold=5000):
+    """
+    Get heavy load rses.
+
+    :param threshold: threshold as an int.
+    :returns:         Dictionary{'rse_id': load}.
+    """
+
+    key = 'heavy_load_rses'
+    result = REGION_SHORT.get(key)
+    if type(result) is NoValue:
+        try:
+            logging.debug("Refresh heavy load rses")
+            loads = request_core.get_heavy_load_rses(threshold=threshold)
+            result = {}
+            for load in loads:
+                result[load['rse_id']] = load['load']
+            REGION_SHORT.set(key, result)
+        except:
+            logging.warning("Failed to refresh heavy load rses, error: %s" % (traceback.format_exc()))
+    return result
 
 
 def sort_rses(rses, dest_rse):
@@ -113,7 +143,7 @@ def sort_rses(rses, dest_rse):
 
     rses.sort()
     key = str(dest_rse) + ":" + str(rses)
-    sorted_list = region.get(sha256(key).hexdigest())
+    sorted_list = REGION.get(sha256(key).hexdigest())
     if type(sorted_list) is NoValue:
         try:
             sorted_list = None
@@ -133,7 +163,7 @@ def sort_rses(rses, dest_rse):
                     close_dict[distance] = []
                 close_dict[distance].append(rse)
             sorted_list = sorted(close_dict.items())
-            region.set(sha256(key).hexdigest(), sorted_list)
+            REGION.set(sha256(key).hexdigest(), sorted_list)
         except:
             logging.warning("INFO: failed to sort rses with network distance, error: %s" % (traceback.format_exc()))
 
@@ -185,10 +215,14 @@ def sort_sources(sources, dest_rse):
     """
 
     rank_dict = {}
+    heavy_load_rses = get_heavy_load_rses()
+
     for source in sources:
         src_rse, src_url, src_rse_id, rank = source
         if rank is None:
             rank = 0
+        if src_rse_id in heavy_load_rses:
+            rank = - heavy_load_rses[src_rse_id]
         if rank not in rank_dict:
             rank_dict[rank] = []
         rank_dict[rank].append(source)
