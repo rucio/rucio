@@ -83,7 +83,7 @@ def get_requests(rse_id=None,
     return reqs
 
 
-def get_sources(dest_rse, schemes, req):
+def get_sources(dest_rse, schemes, req, max_sources=4):
     allowed_rses = []
     if req['request_type'] == RequestType.STAGEIN:
         rses = rse_core.list_rses(filters={'staging_buffer': dest_rse['rse']})
@@ -215,8 +215,8 @@ def get_sources(dest_rse, schemes, req):
 
     if len(sources) > 1:
         sources = sort_sources(sources, dest_rse['rse'])
-    if len(sources) > 4:
-        sources = sources[:4]
+    if len(sources) > max_sources:
+        sources = sources[:max_sources]
         random.shuffle(sources)
     return sources, metadata
 
@@ -302,7 +302,7 @@ def get_destinations(rse_info, scheme, req, naming_convention):
     return destinations, dest_spacetoken
 
 
-def get_transfer(rse, req, scheme, mock):
+def get_transfer(rse, req, scheme, mock, max_sources=4):
     src_spacetoken = None
 
     if req['request_type'] == RequestType.STAGEIN:
@@ -312,9 +312,9 @@ def get_transfer(rse, req, scheme, mock):
 
         ts = time.time()
         if scheme is None:
-            sources, metadata = get_sources(rse, None, req)
+            sources, metadata = get_sources(rse, None, req, max_sources=max_sources)
         else:
-            sources, metadata = get_sources(rse, [scheme], req)
+            sources, metadata = get_sources(rse, [scheme], req, max_sources=max_sources)
         record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
         logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
         if sources is None:
@@ -392,7 +392,7 @@ def get_transfer(rse, req, scheme, mock):
         logging.debug('Schemes will be allowed for sources: %s' % (schemes))
 
         ts = time.time()
-        sources, metadata = get_sources(rse, schemes, req)
+        sources, metadata = get_sources(rse, schemes, req, max_sources=max_sources)
         record_timer('daemons.conveyor.submitter.get_sources', (time.time() - ts) * 1000)
         logging.debug('Sources for request %s: %s' % (req['request_id'], sources))
 
@@ -484,7 +484,7 @@ def get_transfer(rse, req, scheme, mock):
 
 
 def get_transfers_from_requests(process=0, total_processes=1, thread=0, total_threads=1, rse_ids=None,
-                                mock=False, bulk=100, activity=None, activity_shares=None, scheme=None):
+                                mock=False, bulk=100, activity=None, activity_shares=None, scheme=None, max_sources=4):
     ts = time.time()
     reqs = get_requests(process=process,
                         total_processes=total_processes,
@@ -514,7 +514,7 @@ def get_transfers_from_requests(process=0, total_processes=1, thread=0, total_th
                 rse_info = rsemgr.get_rse_info(dest_rse['rse'])
 
                 ts = time.time()
-                transfer = get_transfer(rse_info, req, scheme, mock)
+                transfer = get_transfer(rse_info, req, scheme, mock, max_sources=max_sources)
                 record_timer('daemons.conveyor.submitter.get_transfer', (time.time() - ts) * 1000)
                 logging.debug('Transfer for request %s: %s' % (req['request_id'], transfer))
 
@@ -838,6 +838,7 @@ def get_transfer_requests_and_source_replicas(process=None, total_processes=None
 
         except:
             logging.error("Exception happened when trying to get transfer for request %s: %s" % (id, traceback.format_exc()))
+            break
 
     return transfers, reqs_no_source, reqs_scheme_mismatch
 
@@ -1008,10 +1009,16 @@ def handle_requests_with_scheme_mismatch(transfers=None, reqs_scheme_mismatch=No
 
 
 def get_transfer_transfers(process=None, total_processes=None, thread=None, total_threads=None,
-                           activity=None, older_than=None, rses=None, mock=False, session=None):
+                           activity=None, older_than=None, rses=None, mock=False, max_sources=4, session=None):
     transfers, reqs_no_source, reqs_scheme_mismatch = get_transfer_requests_and_source_replicas(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                                                                activity=activity, older_than=older_than, rses=rses, mock=mock, session=session)
+                                                                                                activity=activity, older_than=older_than, rses=rses, session=session)
     request.set_requests_state(reqs_no_source, RequestState.LOST)
     transfers = handle_requests_with_scheme_mismatch(transfers, reqs_scheme_mismatch)
 
+    for request_id in transfers:
+        sources = transfers[request_id]['sources']
+        sources = sort_sources(sources, transfers[request_id]['file_metadata']['dst_rse'])
+        if len(sources) > max_sources:
+            sources = sources[:max_sources]
+        transfers[request_id]['sources'] = sources
     return transfers

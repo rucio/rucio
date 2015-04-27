@@ -42,7 +42,7 @@ graceful_stop = threading.Event()
 def submitter(once=False, rses=[], mock=False,
               process=0, total_processes=1, thread=0, total_threads=1,
               bulk=100, group_bulk=1, group_policy='rule', fts_source_strategy='auto',
-              activities=None, sleep_time=600):
+              activities=None, sleep_time=600, max_sources=4):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -84,7 +84,7 @@ def submitter(once=False, rses=[], mock=False,
                 logging.info("%s:%s Starting to get transfer transfers" % (process, thread))
                 ts = time.time()
                 transfers = get_transfer_transfers(process=process, total_processes=total_processes, thread=thread, total_threads=total_threads,
-                                                   activity=activity, rses=rse_ids, mock=mock)
+                                                   activity=activity, rses=rse_ids, mock=mock, max_sources=max_sources)
                 record_timer('daemons.conveyor.transfer_submitter.get_stagein_transfers', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_stagein_transfers', len(transfers))
                 record_gauge('daemons.conveyor.transfer_submitter.get_stagein_transfers.gauge', len(transfers))
@@ -165,7 +165,7 @@ def stop(signum=None, frame=None):
 def run(once=False,
         process=0, total_processes=1, total_threads=1, group_bulk=1, group_policy='rule',
         mock=False, rses=[], include_rses=None, exclude_rses=None, bulk=100, fts_source_strategy='auto',
-        activities=[], sleep_time=600):
+        activities=[], sleep_time=600, max_sources=4):
     """
     Starts up the conveyer threads.
     """
@@ -190,6 +190,7 @@ def run(once=False,
                   bulk=bulk,
                   group_bulk=group_bulk,
                   group_policy=group_policy,
+                  max_sources=max_sources,
                   fts_source_strategy=fts_source_strategy,
                   activities=activities)
 
@@ -206,6 +207,7 @@ def run(once=False,
                                                               'activities': activities,
                                                               'mock': mock,
                                                               'sleep_time': sleep_time,
+                                                              'max_sources': max_sources,
                                                               'fts_source_strategy': fts_source_strategy}) for i in xrange(0, total_threads)]
 
         [t.start() for t in threads]
