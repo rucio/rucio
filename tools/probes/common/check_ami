@@ -45,7 +45,13 @@ VALUES ('project', S.value, sys_extract_utc(systimestamp), sys_extract_utc(systi
         session.commit()
 
         # Import scopes
-        # add_scope(scope=project, account='root')
+        query = '''select projecttag
+from ATLAS_AMI_PRODUCTION_01_R.projects@AMI_ATLR.CERN.CH
+where writestatus='valid'
+and not exists (select 1 from atlas_rucio.scopes where scope = projecttag)
+and projecttag not in ('user', 'group', 'group10', 'user10', 'user09', 'group', 'data', 'condR2')'''
+        for project, in session.execute(query):
+            add_scope(scope=project, account='root')
 
         # import naming convention
         query = '''select projecttag, nomenclaturetemplate
@@ -62,11 +68,10 @@ WHEN NOT MATCHED THEN INSERT(scope, regexp, convention_type, updated_at, created
 VALUES('%(project)s', '%(regexp)s', 'DATASET', sys_extract_utc(systimestamp), sys_extract_utc(systimestamp))''' % locals()
                 session.execute(query)
                 session.commit()
-            except Exception, e:
-                add_scope(scope=project, account='root')
-                print traceback.format_exc(e)
+            except Exception as error:
+                print traceback.format_exc(error)
 
-    except Exception, e:
-        print traceback.format_exc(e)
+    except Exception as error:
+        print traceback.format_exc(error)
         sys.exit(UNKNOWN)
     sys.exit(OK)
