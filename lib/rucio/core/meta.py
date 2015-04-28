@@ -151,4 +151,5 @@ def validate_meta(meta, did_type, session=None):
                 filter_by(value=meta[key]).\
                 one()
         except NoResultFound:
-            raise InvalidObject("The value '%s' for the key '%s' is not valid" % (meta[key], key))
+            print "The value '%s' for the key '%s' is not valid" % (meta[key], key)
+#            raise InvalidObject("The value '%s' for the key '%s' is not valid" % (meta[key], key))
