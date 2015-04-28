@@ -515,7 +515,8 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
                                         models.RSEFileAssociation.adler32,
                                         models.RSEFileAssociation.path,
                                         models.RSEFileAssociation.state,
-                                        models.RSE.rse),
+                                        models.RSE.rse,
+                                        models.RSE.rse_type),
                                whereclause=and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                                 models.RSE.deleted == is_false,
                                                 or_(*replica_condition)),
@@ -524,7 +525,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
             with_hint(models.RSEFileAssociation.scope, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
             compile()
         # models.RSE.availability.op(avail_op)(0x100) != 0
-        for scope, name, bytes, md5, adler32, path, state, rse in session.execute(replica_query.statement, replica_query.params).fetchall():
+        for scope, name, bytes, md5, adler32, path, state, rse, rse_type in session.execute(replica_query.statement, replica_query.params).fetchall():
             if rse not in rseinfo:
                 rseinfo[rse] = rsemgr.get_rse_info(rse, session=session)
             if not rseinfo[rse]['staging_area']:
@@ -539,6 +540,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
                     replicas[key]['bytes'] = bytes
                     replicas[key]['md5'] = md5
                     replicas[key]['adler32'] = adler32
+
+                if 'pfns' not in replicas[key]:
+                    replicas[key]['pfns'] = {}
 
                 if rse not in replicas[key]['rses']:
                     replicas[key]['rses'][rse] = []
@@ -578,7 +582,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None, ignore
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
                     if not schemes or protocol.attributes['scheme'] in schemes:
                         try:
-                            replicas[key]['rses'][rse].append(protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0])
+                            pfn = protocol.lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                            replicas[key]['rses'][rse].append(pfn)
+                            replicas[key]['pfns'][pfn] = {'rse': rse, 'type': str(rse_type)}
                         except:
                             # temporary protection
                             print format_exc()

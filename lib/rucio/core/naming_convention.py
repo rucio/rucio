@@ -137,8 +137,8 @@ def validate_name(scope, name, did_type, session=None):
             matched = match('(?P<version>\w+)_tid(?P<task_id>\d+)_\w+$', meta['version'])
             if matched:
                 meta['version'] = matched.groupdict()['version']
-                meta['task_id'] = matched.groupdict()['task_id']
+                meta['task_id'] = int(matched.groupdict()['task_id'])
         return meta
 
-    print "Provided name %(name)s doesn't the naming convention %(regexp)s" % locals()
-#    raise InvalidObject("Provided name %(name)s doesn't the naming convention %(regexp)s" % locals())
+    print "Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals()
+#    raise InvalidObject("Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals())
