@@ -61,6 +61,7 @@ and nomenclaturetemplate in ('project.runNumber.streamName.prodStep.dataType.Ver
         for project, naming_convention in session.execute(query):
             try:
                 regexp = '^(?P<project>%(project)s)\.(?P<run_number>\d+)\.(?P<stream_name>\w+)\.(?P<prod_step>\w+)\.(?P<datatype>\w+)\.(?P<version>\w+)$' % locals()
+                regexp = '^(?P<project>%(project)s)\.(?P<run_number>\d+)\.(?P<stream_name>\w+)\.(?P<prod_step>\w+)\.(?P<datatype>\w+)(?:\.(?P<version>\w+))?$' % locals()
                 query = '''MERGE INTO atlas_rucio.naming_conventions D
 USING (SELECT '%(project)s' as scope, '%(regexp)s' as regexp FROM DUAL) S
 ON (D.scope = S.scope and D.regexp = S.regexp)

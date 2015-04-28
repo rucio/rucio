@@ -133,7 +133,7 @@ def validate_name(scope, name, did_type, session=None):
     if groups:
         meta = groups.groupdict()
         # Hack to get task_id from version
-        if 'version' in meta:
+        if 'version' in meta and meta['version']:
             matched = match('(?P<version>\w+)_tid(?P<task_id>\d+)_\w+$', meta['version'])
             if matched:
                 meta['version'] = matched.groupdict()['version']
