@@ -118,7 +118,6 @@ def validate_name(scope, name, did_type, session=None):
 
     :returns: a dictionary with metadata.
     """
-
     # Check if naming convention can be found in cache region
     regexp = REGION.get(str(scope))
     if regexp is NO_VALUE:  # no cached entry found
@@ -137,8 +136,9 @@ def validate_name(scope, name, did_type, session=None):
         if 'version' in meta:
             matched = match('(?P<version>\w+)_tid(?P<task_id>\d+)_\w+$', meta['version'])
             if matched:
-                meta['version'] = matched.dictgroup()['version']
-                meta['task_id'] = matched.dictgroup()['task_id']
+                meta['version'] = matched.groupdict()['version']
+                meta['task_id'] = matched.groupdict()['task_id']
         return meta
 
-    raise InvalidObject("Provided name %(name)s doesn't the naming convention %(regexp)s" % locals())
+    print "Provided name %(name)s doesn't the naming convention %(regexp)s" % locals()
+#    raise InvalidObject("Provided name %(name)s doesn't the naming convention %(regexp)s" % locals())
