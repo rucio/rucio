@@ -56,13 +56,13 @@ $var script: <script src="/static/request_rule.js"></script>
       <a href="#rse_panel">Selects RSEs</a>
       <div id="rse_panel" class="content">
         <div class="row">
-          <p>Please enter an RSE.</p>
+          <p>Please enter an RSE or an RSE expression.</p>
         </div>
         <div class="row">
           <div class="large-12 columns">
             <div class="row collapse">
               <div class="small-2 columns">
-                <label for="rse-label" class="left inline">RSE</label>
+                <label for="rse-label" class="left inline">RSE (expression)</label>
               </div>
               <div class="small-6 columns">
                 <input type="text" id="rse_input" placeholder="RSE">
@@ -71,7 +71,7 @@ $var script: <script src="/static/request_rule.js"></script>
                   <a class="button postfix" id="check_quota_button">Check Quota</a>
               </div>
               <div class="small-2 columns">
-                <a class="button postfix" id="continue_rse_button">Continue</a>
+                <a class="button postfix" id="search_rse_button">Search</a>
               </div>
             </div>
           </div>
@@ -81,7 +81,7 @@ $var script: <script src="/static/request_rule.js"></script>
           </div>
         </div>
         <div class="row">
-          <div id="rse_table" class="large-8 columns">
+          <div id="rse_table" class="large-12 columns">
           </div>
         </div>
         <div class="row" id="rse_continue">
@@ -95,8 +95,8 @@ $var script: <script src="/static/request_rule.js"></script>
           <p>Please select/enter your wanted options and then submit your rule request.</p>
         </div>
         <div class="row">
-            <div class="large-3 columns">
-              <label>Grouping</label>
+            <div class="large-5 columns">
+              <label><span data-tooltip aria-haspopup="true" class="has-tip" title="If you selected multiple DIDs this specifies if you want to replicate all of them to the same RSE (All), ">Grouping</span></label>
               <form id="grouping_form">
               <input type="radio" name="grouping" value="ALL" id="grouping_all">
               <label for="grouping_all">All</label>
@@ -108,21 +108,21 @@ $var script: <script src="/static/request_rule.js"></script>
             </div>
         </div>
         <div class="row">
-          <div class="large-4 columns">
+          <div class="large-5 columns">
             <label>Lifetime (in days). Leave empty for infinite lifetime.
               <input type="text" id="lifetime" ></input>
             </label>
           </div>
         </div>
-<!--        <div class="row">
-          <div class="large-2 columns">
+        <div class="row">
+          <div class="large-5 columns">
             <label>Copies
               <input type="text" placeholder="" id="copies" value="1"/ >
             </label>
           </div>
-        </div>-->
+        </div>
         <div class="row">
-          <div class="large-4 columns">
+          <div class="large-5 columns">
             <label>Comment
               <textarea placeholder="" id="comment"></textarea>
             </label>
