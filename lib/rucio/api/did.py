@@ -69,7 +69,7 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
                 meta[k] = extra_meta[k]
             elif meta[k] != extra_meta[k]:
                 print "Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k])
-#                raise rucio.common.exception.InvalidObject("Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k]))
+                raise rucio.common.exception.InvalidObject("Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k]))
 
         # Validate metadata
         meta_core.validate_meta(meta=meta, did_type=DIDType.from_sym(type))
