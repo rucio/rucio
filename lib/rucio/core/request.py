@@ -116,6 +116,8 @@ def queue_requests(requests, session=None):
                                              md5=req['attributes']['md5'],
                                              adler32=req['attributes']['adler32'])
 
+            new_request.save(session=session, flush=False)
+
             if 'sources' in req and req['sources']:
                 for source in req['sources']:
                     models.Source(request_id=req['request_id'],
@@ -128,7 +130,6 @@ def queue_requests(requests, session=None):
                                   url=source['url']).\
                         save(session=session, flush=False)
 
-            new_request.save(session=session, flush=False)
         session.flush()
     except IntegrityError:
         logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (req['request_type'],
