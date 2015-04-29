@@ -128,7 +128,8 @@ def validate_name(scope, name, did_type, session=None):
 
     if not regexp:
         return
-    # Valide with regexp
+
+    # Validate with regexp
     groups = match(regexp, str(name))
     if groups:
         meta = groups.groupdict()
