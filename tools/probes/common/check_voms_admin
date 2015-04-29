@@ -113,7 +113,7 @@ if __name__ == '__main__':
         print "Failed to get proxy from rucio.cfg"
         sys.exit(CRITICAL)
 
-    admin = VOMSAdminProxy(vo='atlas', host='voms.cern.ch', port=8443,
+    admin = VOMSAdminProxy(vo='atlas', host='voms2.cern.ch', port=8443,
                            user_cert=cert, user_key=key)
     res = admin.call_method('list-sub-groups', '/atlas')
     if not res:
