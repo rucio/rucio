@@ -26,13 +26,13 @@ import traceback
 
 from collections import defaultdict
 from ConfigParser import NoOptionError
+from threadpool import ThreadPool, makeRequests
 
 from rucio.common.config import config_get
-from rucio.core import heartbeat, request
+from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.constants import RequestState
 
-from rucio.daemons.conveyor.submitter_utils import get_rses, get_transfers_from_requests, bulk_group_transfer
+from rucio.daemons.conveyor.submitter_utils import get_rses, get_transfers_from_requests, bulk_group_transfer, submit_transfer
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging, config_get('common', 'loglevel').upper()),
@@ -68,6 +68,7 @@ def submitter(once=False, rses=[],
                                                                               thread,
                                                                               total_threads))
 
+    threadPool = ThreadPool(total_threads)
     activity_next_exe_time = defaultdict(time.time)
     while not graceful_stop.is_set():
 
@@ -91,7 +92,8 @@ def submitter(once=False, rses=[],
 
                 logging.info("%s:%s Starting to get transfers" % (process, thread))
                 ts = time.time()
-                transfers = get_transfers_from_requests(process, total_processes, thread, total_threads, rse_ids, mock, bulk, activity, activity_shares, scheme, max_sources=max_sources)
+                transfers = get_transfers_from_requests(process=process, total_processes=total_processes, thread=0, total_threads=1, rse_ids=rse_ids, mock=mock, bulk=bulk,
+                                                        activity=activity, activity_shares=activity_shares, scheme=scheme, max_sources=max_sources)
                 record_timer('daemons.conveyor.bulk_submitter.get_transfers_from_requests.per_transfer', (time.time() - ts) * 1000/(len(transfers) if len(transfers) else 1))
                 record_counter('daemons.conveyor.bulk_submitter.get_transfers_from_requests', len(transfers))
                 record_timer('daemons.conveyor.bulk_submitter.get_transfers_from_requests.transfers', len(transfers))
@@ -106,43 +108,10 @@ def submitter(once=False, rses=[],
                 for external_host in grouped_jobs:
                     for job in grouped_jobs[external_host]:
                         # submit transfers
-                        eid = None
-                        try:
-                            ts = time.time()
-                            eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'])
-                            logging.debug("%s:%s Submit job %s to %s" % (process, thread, eid, external_host))
-                            record_timer('daemons.conveyor.bulk_submitter.submit_bulk_transfer.per_file', (time.time() - ts) * 1000/len(job['files']))
-                            record_counter('daemons.conveyor.bulk_submitter.submit_bulk_transfer', len(job['files']))
-                            record_timer('daemons.conveyor.bulk_submitter.submit_bulk_transfer.files', len(job['files']))
-                        except Exception, ex:
-                            logging.error("%s:%s Failed to submit a job with error %s: %s" % (process, thread, str(ex), traceback.format_exc()))
-
-                        # register transfer returns
-                        try:
-                            xfers_ret = {}
-                            for file in job['files']:
-                                file_metadata = file['metadata']
-                                request_id = file_metadata['request_id']
-                                log_str = '%s:%s COPYING REQUEST %s DID %s:%s PREVIOUS %s FROM %s TO %s USING %s ' % (process, thread,
-                                                                                                                      file_metadata['request_id'],
-                                                                                                                      file_metadata['scope'],
-                                                                                                                      file_metadata['name'],
-                                                                                                                      file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
-                                                                                                                      file['sources'],
-                                                                                                                      file['destinations'],
-                                                                                                                      external_host)
-                                if eid:
-                                    xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid, 'dest_url':  file['destinations'][0]}
-                                    log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
-                                    logging.info("%s" % (log_str))
-                                else:
-                                    xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': None}
-                                    log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTING, None)
-                                    logging.warn("%s" % (log_str))
-                                xfers_ret[request_id]['file'] = file
-                            request.set_request_transfers(xfers_ret)
-                        except Exception, ex:
-                            logging.error("%s:%s Failed to register transfer state with error %s: %s" % (process, thread, str(ex), traceback.format_exc()))
+                        # job_requests = makeRequests(submit_transfer, args_list=[((external_host, job, 'bulk_submitter', process, thread), {})])
+                        job_requests = makeRequests(submit_transfer, args_list=[((), {'external_host': external_host, 'job': job, 'submitter': 'bulk_submitter', 'process': process, 'thread': thread})])
+                        [threadPool.putRequest(job_req) for job_req in job_requests]
+                threadPool.wait()
 
                 if len(transfers) < group_bulk:
                     logging.info('%i:%i - only %s transfers which is less than group bulk %s, sleep %s seconds' % (process, thread, len(transfers), group_bulk, sleep_time))
@@ -225,7 +194,7 @@ def run(once=False,
         logging.info('starting submitter threads')
         threads = [threading.Thread(target=submitter, kwargs={'process': process,
                                                               'total_processes': total_processes,
-                                                              'thread': i,
+                                                              'thread': 0,
                                                               'total_threads': total_threads,
                                                               'rses': working_rses,
                                                               'bulk': bulk,
@@ -236,7 +205,7 @@ def run(once=False,
                                                               'mock': mock,
                                                               'sleep_time': sleep_time,
                                                               'max_sources': max_sources,
-                                                              'activity_shares': activity_shares}) for i in xrange(0, total_threads)]
+                                                              'activity_shares': activity_shares})]
 
         [t.start() for t in threads]
 
