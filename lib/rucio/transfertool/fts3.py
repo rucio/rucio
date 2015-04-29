@@ -297,7 +297,7 @@ def query_latest(transfer_host, state, last_nhours=1):
         except Exception:
             logging.warn('Could not query latest terminal states from %s' % transfer_host)
 
-    if jobs and jobs.status_code == 200:
+    if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
         record_counter('transfertool.fts3.%s.query_latest.success' % __extract_host(transfer_host))
         return jobs.json()
 
@@ -325,7 +325,7 @@ def query_details(transfer_id, transfer_host):
         files = requests.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                              headers={'Content-Type': 'application/json'},
                              timeout=5)
-    if files and files.status_code == 200:
+    if files and (files.status_code == 200 or files.status_code == 207):
         record_counter('transfertool.fts3.%s.query_details.success' % __extract_host(transfer_host))
         return files.json()
 
@@ -515,7 +515,7 @@ def bulk_query(transfer_ids, transfer_host):
         record_counter('transfertool.fts3.%s.bulk_query.failure' % __extract_host(transfer_host))
         for transfer_id in transfer_ids:
             responses[transfer_id] = Exception('Could not retrieve transfer information: %s' % jobs)
-    elif jobs.status_code == 200:
+    elif jobs.status_code == 200 or jobs.status_code == 207:
         record_counter('transfertool.fts3.%s.bulk_query.success' % __extract_host(transfer_host))
         jobs_response = jobs.json()
         responses = bulk_query_responses(jobs_response, transfer_host)
@@ -560,7 +560,7 @@ def get_jobs_response(transfer_host, fts_session, jobs_response):
                 else:
                     files = fts_session.get('%s/jobs/%s/files' % (transfer_host, transfer_id),
                                             headers={'Content-Type': 'application/json'})
-                if files and files.status_code == 200:
+                if files and (files.status_code == 200 or files.status_code == 207):
                     record_counter('transfertool.fts3.%s.jobs_response.success' % __extract_host(transfer_host))
                     responses[transfer_id] = format_response(transfer_host, job_response, files.json())
                 else:
