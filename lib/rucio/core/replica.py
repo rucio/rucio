@@ -318,7 +318,7 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
                     multipleRSEmatch += 1
                     if multipleRSEmatch > 1:
                         print 'ERROR, multiple matches : %s at %s' % (surl, rse)
-                        raise
+                        raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, rse))
                     hint = rse
                     if hint not in files_to_declare:
                         files_to_declare[hint] = []
