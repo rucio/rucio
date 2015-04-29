@@ -152,4 +152,4 @@ def validate_meta(meta, did_type, session=None):
                 one()
         except NoResultFound:
             print "The value '%s' for the key '%s' is not valid" % (meta[key], key)
-#            raise InvalidObject("The value '%s' for the key '%s' is not valid" % (meta[key], key))
+            raise InvalidObject("The value '%s' for the key '%s' is not valid" % (meta[key], key))

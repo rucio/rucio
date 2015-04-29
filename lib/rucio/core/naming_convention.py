@@ -144,4 +144,4 @@ def validate_name(scope, name, did_type, session=None):
         return meta
 
     print "Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals()
-#    raise InvalidObject("Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals())
+    raise InvalidObject("Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals())
