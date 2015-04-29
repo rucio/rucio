@@ -210,7 +210,7 @@ def handle_requests(reqs):
                     if dest_rse_id_scheme not in protocols:
                         protocols[dest_rse_id_scheme] = rsemanager.create_protocol(rses_info[req['dest_rse_id']], 'write', scheme)
                     path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
-                    replica['path'] = os.path.join(path, req['name'])
+                    replica['path'] = os.path.join(path, os.path.basename(pfn))
             elif req['state'] == RequestState.FAILED or req['state'] == RequestState.LOST:
                 tss = time.time()
                 new_req = request_core.requeue_and_archive(req['request_id'])
