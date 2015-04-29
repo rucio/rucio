@@ -33,7 +33,7 @@ def monitor_apache(uri):
     fqdn = uri
     logger.info('Requesting status from Apache running on %s' % fqdn)
 
-    response = requests.get(fqdn+'/server-status?auto', verify='/etc/pki/tls/certs/CERN-bundle.pem', timeout=1)
+    response = requests.get(fqdn+'/server-status?auto', verify='/etc/pki/tls/certs/CERN-bundle.pem', timeout=5)
     if response.status_code != 200:
         logger.error('Invalid HTTP status code')
         logger.error(response)
