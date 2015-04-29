@@ -139,6 +139,8 @@ def validate_name(scope, name, did_type, session=None):
             if matched:
                 meta['version'] = matched.groupdict()['version']
                 meta['task_id'] = int(matched.groupdict()['task_id'])
+        if 'run_number' in meta and meta['run_number']:
+            meta['run_number'] = int(meta['run_number'])
         return meta
 
     print "Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals()
