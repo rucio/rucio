@@ -672,8 +672,9 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('LOCKS_OK_CNT IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
                    CheckConstraint('LOCKS_REPLICATING_CNT IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('LOCKS_STUCK_CNT IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
-                   UniqueConstraint('scope', 'name', 'account', 'rse_expression', 'copies', name='RULES_SC_NA_AC_RS_CO_UQ_IDX'),
                    CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='RULES_PURGE_REPLICAS_NN'),
+                   Index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'scope', 'name', 'account', 'rse_expression', 'copies',
+                         unique=True, mysql_length={'rse_expression': 767}),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'),
                    Index('RULES_STUCKSTATE_IDX', 'state'))  # This Index is only needed for the STUCK state
