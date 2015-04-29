@@ -38,3 +38,4 @@ pygeoip==0.3.2 # GeoIP API
 geoip2==2.1.0 # GeoIP2 API (for IPv6 support)
 maxminddb==1.2.0 # extension for reading the MaxMind DB format
 # python-ldap==2.4.15        # needed for LDAP integration
+threadpool==1.2.7               # threadpool
