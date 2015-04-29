@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 """Added unique constraint to rules
 
@@ -23,8 +24,9 @@ from alembic import op
 
 
 def upgrade():
-    op.create_unique_constraint('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', ['scope', 'name', 'account', 'rse_expression', 'copies'])
+    op.create_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', ['scope', 'name', 'account', 'rse_expression', 'copies'],
+                    unique=True, mysql_length={'rse_expression': 767})
 
 
 def downgrade():
-    op.drop_constraint('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', type_='unique')
+    op.drop_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules')
