@@ -1022,3 +1022,43 @@ def get_transfer_transfers(process=None, total_processes=None, thread=None, tota
             sources = sources[:max_sources]
         transfers[request_id]['sources'] = sources
     return transfers
+
+
+def submit_transfer(external_host, job, submitter='submitter', process=0, thread=0):
+    eid = None
+    try:
+        ts = time.time()
+        eid = request.submit_bulk_transfers(external_host, files=job['files'], transfertool='fts3', job_params=job['job_params'])
+        logging.debug("%s:%s Submit job %s to %s" % (process, thread, eid, external_host))
+        record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - ts) * 1000/len(job['files']))
+        record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
+        record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
+    except Exception, ex:
+        logging.error("Failed to submit a job with error %s: %s" % (str(ex), traceback.format_exc()))
+
+    # register transfer returns
+    try:
+        xfers_ret = {}
+        for file in job['files']:
+            file_metadata = file['metadata']
+            request_id = file_metadata['request_id']
+            log_str = '%s:%s COPYING REQUEST %s DID %s:%s PREVIOUS %s FROM %s TO %s USING %s ' % (process, thread,
+                                                                                                  file_metadata['request_id'],
+                                                                                                  file_metadata['scope'],
+                                                                                                  file_metadata['name'],
+                                                                                                  file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
+                                                                                                  file['sources'],
+                                                                                                  file['destinations'],
+                                                                                                  external_host)
+            if eid:
+                xfers_ret[request_id] = {'state': RequestState.SUBMITTED, 'external_host': external_host, 'external_id': eid, 'dest_url':  file['destinations'][0]}
+                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
+                logging.info("%s" % (log_str))
+            else:
+                xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
+                log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTING, None)
+                logging.warn("%s" % (log_str))
+            xfers_ret[request_id]['file'] = file
+        request.set_request_transfers(xfers_ret)
+    except Exception, ex:
+        logging.error("%s:%s Failed to register transfer state with error %s: %s" % (process, thread, str(ex), traceback.format_exc()))
