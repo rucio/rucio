@@ -297,7 +297,7 @@ def query_latest(transfer_host, state, last_nhours=1):
         except Exception:
             logging.warn('Could not query latest terminal states from %s' % transfer_host)
 
-    if jobs and jobs.status_code == 200:
+    if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
         record_counter('transfertool.fts3.%s.query_latest.success' % __extract_host(transfer_host))
         return jobs.json()
 

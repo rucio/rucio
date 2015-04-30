@@ -106,7 +106,6 @@ def submitter(once=False, rses=[],
                         ts = time.time()
                         tmp_metadata = transfer['file_metadata']
                         transfer_ids = fts3.submit_transfers([transfer, ], tmp_metadata)
-                        request.set_requests_external(transfer_ids)
                         record_timer('daemons.conveyor.submitter.submit_transfer', (time.time() - ts) * 1000)
 
                         if 'previous_attempt_id' in transfer['file_metadata']:
@@ -129,9 +128,16 @@ def submitter(once=False, rses=[],
                                                                                                                                        transfer_ids[transfer['request_id']]['external_host'] if transfer['request_id'] in transfer_ids else None,
                                                                                                                                        transfer_ids[transfer['request_id']]['external_id'] if transfer['request_id'] in transfer_ids else None))
                         if not transfer['request_id'] in transfer_ids:
-                            request.set_request_state(transfer['request_id'], RequestState.SUBMITTING)
+                            xfers_ret = {transfer['request_id']: {'state': RequestState.SUBMITTING, 'external_host': transfer['external_host'], 'external_id': None, 'dest_url': transfer['dest_urls'][0]}}
+                            request.set_request_transfers(xfers_ret)
                             record_counter('daemons.conveyor.submitter.lost_request.%s' % urlparse.urlparse(transfer['external_host']).hostname.replace('.', '_'))
                             logging.warn("Failed to submit request: %s, set request SUBMITTING" % (transfer['request_id']))
+                        else:
+                            xfers_ret = {transfer['request_id']: {'state': RequestState.SUBMITTED,
+                                                                  'external_host': transfer_ids[transfer['request_id']]['external_host'],
+                                                                  'external_id': transfer_ids[transfer['request_id']]['external_id'],
+                                                                  'dest_url': transfer['dest_urls'][0]}}
+                            request.set_request_transfers(xfers_ret)
                     except UnsupportedOperation, e:
                         # The replica doesn't exist, need to cancel the request
                         logging.warning(e)
