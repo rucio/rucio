@@ -92,5 +92,5 @@ if __name__ == "__main__":
                 exit_code = CRITICAL
         logging.debug('%s incidents observed for target %s.' % (counter, target['target']))
     if exit_code != OK:
-        print 'Details: http://%s/render?from=-%smin&target=%s' % (GRAPHITE_URL, int((int(options.period)*1.2)+1), options.target)  # Adding 20% of time to make plot more comprehensive
+        print 'Details: <a href="https://%s/render?from=-%smin&target=%s">Link</a>' % (GRAPHITE_URL, int((int(options.period)*1.2)+1), options.target)  # Adding 20% of time to make plot more comprehensive
     sys.exit(exit_code)
