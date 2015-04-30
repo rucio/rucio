@@ -61,9 +61,6 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
         try:
             heartbeat.live(executable, hostname, pid, hb_thread)
 
-            logging.info("Handling SUBMITTING requests")
-            common.handle_submitting_requests(older_than=1800, process=process, total_processes=total_processes, thread=thread, total_threads=total_threads)
-
             ts = time.time()
 
             logging.debug('%i:%i - start to update %s finished requests' % (process, thread, bulk))

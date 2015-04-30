@@ -129,9 +129,9 @@ def submitter(once=False, rses=[],
                                                                                                                                        transfer_ids[transfer['request_id']]['external_host'] if transfer['request_id'] in transfer_ids else None,
                                                                                                                                        transfer_ids[transfer['request_id']]['external_id'] if transfer['request_id'] in transfer_ids else None))
                         if not transfer['request_id'] in transfer_ids:
-                            request.set_request_state(transfer['request_id'], RequestState.LOST)
+                            request.set_request_state(transfer['request_id'], RequestState.SUBMITTING)
                             record_counter('daemons.conveyor.submitter.lost_request.%s' % urlparse.urlparse(transfer['external_host']).hostname.replace('.', '_'))
-                            logging.warn("Failed to submit request: %s, set request LOST" % (transfer['request_id']))
+                            logging.warn("Failed to submit request: %s, set request SUBMITTING" % (transfer['request_id']))
                     except UnsupportedOperation, e:
                         # The replica doesn't exist, need to cancel the request
                         logging.warning(e)
