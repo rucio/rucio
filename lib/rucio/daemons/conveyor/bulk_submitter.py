@@ -136,7 +136,7 @@ def submitter(once=False, rses=[],
                                     log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
                                     logging.info("%s:%s %s" % (process, thread, log_str))
                                 else:
-                                    xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': None}
+                                    xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
                                     log_str += 'with state(%s) with eid(%s)' % (RequestState.SUBMITTING, None)
                                     logging.warn("%s:%s %s" % (process, thread, log_str))
                                 xfers_ret[request_id]['file'] = file
