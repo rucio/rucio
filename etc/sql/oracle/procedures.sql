@@ -148,7 +148,7 @@ BEGIN
                         ds_replica_state := 'U';
                     END IF;
                     UPDATE ATLAS_RUCIO.COLLECTION_REPLICAS 
-                    SET state=ds_replica_state, available_replicas_cnt=available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
+                    SET state=ds_replica_state, available_replicas_cnt=rse.available_replicas, length=ds_length, bytes=ds_bytes, available_bytes=rse.ds_available_bytes, updated_at=sys_extract_utc(systimestamp)
                     WHERE scope = scopes(i) and name = names(i) and rse_id = rse.rse_id;
                 END LOOP;
             END IF;
