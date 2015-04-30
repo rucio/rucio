@@ -22,6 +22,7 @@
 
 import argcomplete
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -29,6 +30,7 @@ import random
 import requests
 import signal
 import socket
+import subprocess
 import sys
 import tabulate
 import time
@@ -36,6 +38,7 @@ import traceback
 
 from ConfigParser import NoOptionError, NoSectionError
 from functools import wraps
+from multiprocessing import Process
 
 from rucio.client import Client
 from rucio import version
@@ -88,8 +91,12 @@ def setup_logger(logger):
 setup_logger(logger)
 
 
-def signal_handler(signal, frame):
+def signal_handler(sig, frame):
     logger.warning('You pressed Ctrl+C! Exiting gracefully')
+    child_processes = subprocess.Popen('ps -o pid --ppid %s --noheaders' % os.getpid(), shell=True, stdout=subprocess.PIPE)
+    child_processes = child_processes.stdout.read()
+    for pid in child_processes.split("\n")[:-1]:
+        os.kill(int(pid), signal.SIGTERM)
     sys.exit(1)
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -799,6 +806,122 @@ def upload(args):
     return SUCCESS
 
 
+def _downloader(worker_number, total_number, scope, name, files, tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client):
+    for file in files:
+        logger.info('Starting the download of %s:%s' % (file['scope'], file['name']))
+        stime = time.time()
+        trace['scope'] = file['scope']
+        trace['filename'] = file['name']
+        if scope == file['scope'] and name == file['name']:
+            trace['dataset'] = ''
+            trace['datasetScope'] = ''
+        else:
+            trace['dataset'] = name
+            trace['datasetScope'] = scope
+        trace['filesize'] = file['bytes']
+        trace['eventType'] = 'download'
+        trace['eventVersion'] = version.RUCIO_VERSION[0]
+        list_rses = file['rses'].keys()
+        if list_rses == []:
+            logger.warning('File %s:%s has no available replicas. Cannot be downloaded.' % (file['scope'], file['name']))
+        rse_to_remove = []
+        for rse in list_rses:
+            if str(rse) in tape_endpoints:
+                rse_to_remove.append(rse)
+        if len(list_rses) == len(rse_to_remove):
+            if not is_admin:
+                logger.warning('File %s:%s has no replicas available on disk endpoints and cannot be downloaded. Please ask for a replication' % (file['scope'], file['name']))
+                sys.exit(1)
+            else:
+                logger.warning('File %s:%s has no replicas available on disk endpoints. Will be downloaded from TAPE.' % (file['scope'], file['name']))
+        if last_chosen_rse and last_chosen_rse in list_rses:
+            idx = list_rses.index(last_chosen_rse)
+            list_rses[idx], list_rses[0] = list_rses[0], list_rses[idx]
+        else:
+            random.shuffle(list_rses)
+        logger.debug('Choosing RSE')
+        index = 0
+        download_ok = 0
+        if args.rse:
+            if args.rse in list_rses:
+                list_rses = [args.rse]
+            else:
+                list_rses = []
+        for rse in list_rses:
+            if rse not in rse_dict:
+                rse_dict[rse] = rsemgr.get_rse_info(rse)
+            if args.protocol:
+                try:
+                    protocol = rsemgr.select_protocol(rse_dict[rse], operation='read', scheme=args.protocol)
+                except RSEProtocolNotSupported, e:
+                    logger.error('The protocol specfied (%s) is not supported by the RSE %s' % (args.protocol, rse))
+                    logger.debug(e)
+                    return FAILURE
+                rse_dict[rse]['protocols'] = [protocol, ]
+            if rse_dict[rse]['availability_read']:
+                logger.debug('Getting file %s:%s from %s' % (file['scope'], file['name'], rse))
+                trace['remoteSite'] = rse_dict[rse]['rse']
+                trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
+                trace['transferStart'] = time.time()
+                success = False
+                retries = 2
+                for attempt in xrange(0, retries):
+                    try:
+                        rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
+                        logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
+                        download_ok = 1
+                        success = True
+                        last_chosen_rse = rse
+                        break
+                    except Exception, e:
+                        logger.warning(str(e))
+                        logger.debug('Failed attempt %s/%s' % (attempt + 1, retries))
+                if success:
+                    try:
+                        trace['transferEnd'] = time.time()
+                        trace['clientState'] = 'DONE'
+                        for i in xrange(retries):
+                            try:
+                                requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+                                break
+                            except:
+                                pass
+                        break
+                    except Exception, e:
+                        trace['transferEnd'] = time.time()
+                        trace['clientState'] = str(type(e).__name__)
+                        retries = 2
+                        for i in xrange(retries):
+                            try:
+                                requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
+                                break
+                            except:
+                                pass
+                        logger.warning(e)
+                        break
+                index += 1
+                if index != len(list_rses):
+                    logger.debug('Will retry download on an other RSE')
+        if not download_ok:
+            logger.error('Cannot download file %s:%s' % (file['scope'], file['name']))
+        else:
+            logger.info('File %s:%s successfully downloaded. %s bytes downloaded in %s seconds' % (file['scope'], file['name'], file['bytes'], time.time() - stime))
+    sys.exit(0)
+
+
+def _file_exists(type, scope, name, dir, dsn=None):
+    file_exists = False
+    dest_dir = None
+    if type != 'FILE':
+        dest_dir = '%s/%s' % (args.dir, dsn)
+        if os.path.isfile('%s/%s' % (dest_dir, name)):
+            file_exists = True
+    else:
+        if os.path.isfile('%s/%s' % (scope, name)):
+            file_exists = True
+    return file_exists, dest_dir
+
+
 def download(args):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
@@ -812,8 +935,9 @@ def download(args):
     trace = {}
     trace_uuid = generate_uuid()
     trace['hostname'] = socket.getfqdn()
+    trace['account'] = client.account
+    trace['uuid'] = trace_uuid
     nbfiles_to_download = {}
-    files_on_tape = False
     try:
         tape_endpoints = [str(i['rse']) for i in client.list_rses('istape=True')]
     except InvalidRSEExpression, e:
@@ -845,118 +969,44 @@ def download(args):
             else:
                 files_to_download = files
             last_chosen_rse = None
+            dict_files_to_download = {}
+            total_workers = 1
+            if args.ndownloader:
+                total_workers = args.ndownloader
+                nlimit = 5
+                if total_workers > nlimit:
+                    logger.warning('Cannot use more than %s parallel downloader.' % nlimit)
+                    total_workers = nlimit
+                for i in xrange(total_workers):
+                    dict_files_to_download[i] = []
             for file in files_to_download:
                 dest_dir = None
-                file_exists = False
-                if did_info['type'] != 'FILE':
-                    dest_dir = '%s/%s' % (args.dir, name)
-                    if os.path.isfile('%s/%s' % (dest_dir, file['name'])):
-                        file_exists = True
-                else:
-                    if os.path.isfile('%s/%s' % (file['scope'], file['name'])):
-                        file_exists = True
+                file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name)
                 if file_exists:
                     logger.info('File %s:%s already exists locally' % (file['scope'], file['name']))
                     summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 2
                 else:
-                    trace['account'] = client.account
-                    trace['scope'] = file['scope']
-                    trace['filename'] = file['name']
-                    trace['uuid'] = trace_uuid
-                    if scope == file['scope'] and name == file['name']:
-                        trace['dataset'] = ''
-                        trace['datasetScope'] = ''
-                    else:
-                        trace['dataset'] = name
-                        trace['datasetScope'] = scope
-                    trace['filesize'] = file['bytes']
-                    trace['eventType'] = 'download'
-                    trace['eventVersion'] = version.RUCIO_VERSION[0]
-                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 0
-                    list_rses = file['rses'].keys()
-                    if list_rses == []:
-                        logger.warning('File %s:%s has no available replicas. Cannot be downloaded.' % (file['scope'], file['name']))
-                    rse_to_remove = []
-                    for rse in list_rses:
-                        if str(rse) in tape_endpoints:
-                            rse_to_remove.append(rse)
-                    if len(list_rses) == len(rse_to_remove):
-                        files_on_tape = True
-                        if not is_admin:
-                            logger.warning('File %s:%s has no replicas available on disk endpoints. Cannot be downloaded.' % (file['scope'], file['name']))
-                            continue
-                        else:
-                            logger.warning('File %s:%s has no replicas available on disk endpoints. Will be downloaded from TAPE.' % (file['scope'], file['name']))
-                    if last_chosen_rse and last_chosen_rse in list_rses:
-                        idx = list_rses.index(last_chosen_rse)
-                        list_rses[idx], list_rses[0] = list_rses[0], list_rses[idx]
-                    else:
-                        random.shuffle(list_rses)
-                    logger.debug('Choosing RSE')
-                    index = 0
-                    if args.rse:
-                        if args.rse in list_rses:
-                            list_rses = [args.rse]
-                        else:
-                            list_rses = []
-                    for rse in list_rses:
-                        if rse not in rse_dict:
-                            rse_dict[rse] = rsemgr.get_rse_info(rse)
-                        if args.protocol:
-                            try:
-                                protocol = rsemgr.select_protocol(rse_dict[rse], operation='read', scheme=args.protocol)
-                            except RSEProtocolNotSupported, e:
-                                logger.error('The protocol specfied (%s) is not supported by the RSE %s' % (args.protocol, rse))
-                                logger.debug(e)
-                                return FAILURE
-                            rse_dict[rse]['protocols'] = [protocol, ]
-                        if rse_dict[rse]['availability_read']:
-                            logger.debug('Getting file %s:%s from %s' % (file['scope'], file['name'], rse))
-                            trace['remoteSite'] = rse_dict[rse]['rse']
-                            trace['protocol'] = rse_dict[rse]['protocols'][0]['scheme']
-                            trace['transferStart'] = time.time()
-                            success = False
-                            retries = 2
-                            for attempt in xrange(0, retries):
-                                try:
-                                    rsemgr.download(rse_dict[rse], files=[{'name': file['name'], 'scope': file['scope'], 'adler32': file['adler32']}, ], dest_dir=dest_dir, printstatements=True)
-                                    logger.info('File %s:%s successfully downloaded from %s' % (file['scope'], file['name'], rse))
-                                    summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
-                                    success = True
-                                    last_chosen_rse = rse
-                                    break
-                                except Exception, e:
-                                    logger.warning(str(e))
-                                    logger.debug('Failed attempt %s/%s' % (attempt + 1, retries))
-                            if success:
-                                try:
-                                    trace['transferEnd'] = time.time()
-                                    trace['clientState'] = 'DONE'
-                                    for i in xrange(retries):
-                                        try:
-                                            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                                            break
-                                        except:
-                                            pass
-                                    break
-                                except Exception, e:
-                                    trace['transferEnd'] = time.time()
-                                    trace['clientState'] = str(type(e).__name__)
-                                    retries = 2
-                                    for i in xrange(retries):
-                                        try:
-                                            requests.post(client.host + '/traces/', verify=False, data=json.dumps(trace))
-                                            break
-                                        except:
-                                            pass
-                                    logger.warning(e)
-                                    break
-                            index += 1
-                            if index != len(list_rses):
-                                logger.debug('Will retry download on an other RSE')
-                    if summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] == 0:
-                        logger.error('Cannot download file %s:%s' % (file['scope'], file['name']))
-            logger.info('Download operation for %s:%s done' % (scope, name))
+                    if not os.path.isdir(dest_dir):
+                        os.mkdir(dest_dir)
+                    m = hashlib.md5()
+                    m.update('%s:%s' % (file['scope'], file['name']))
+                    worker_number = int(m.hexdigest(), 16) % total_workers
+                    dict_files_to_download[worker_number].append(file)
+
+            pool_list = []
+            for worker_number in dict_files_to_download:
+                p = Process(target=_downloader, args=(worker_number, total_workers, scope, name, dict_files_to_download[worker_number], tape_endpoints, is_admin, last_chosen_rse, rse_dict, dest_dir, trace, client))
+                p.start()
+                pool_list.append(p)
+            active_workers = pool_list
+            while active_workers:
+                time.sleep(2)
+                for worker in dict_files_to_download:
+                    for file in dict_files_to_download[worker]:
+                        file_exists, dest_dir = _file_exists(did_info['type'], file['scope'], file['name'], args.dir, dsn=name)
+                        if file_exists:
+                            summary['%s:%s' % (scope, name)]['%s:%s' % (file['scope'], file['name'])] = 1
+                active_workers = [worker for worker in pool_list if worker.is_alive()]
         except ValueError, e:
             logger.error('ERROR cannot extract the scope and name from %s : [%s]' % (did, e))
             return FAILURE
@@ -966,10 +1016,10 @@ def download(args):
         except Exception, e:
             logger.error('Failed to download %(scope)s:%(name)s' % locals())
             logger.error(e)
+
+    logger.info('Download operation for %s:%s done' % (scope, name))
     print '----------------------------------'
     print 'Download summary'
-    if files_on_tape:
-        logger.warning('One or more files are only located on TAPE and cannot be dowloaded. Please ask a replication to a disk endpoint')
     for did in summary:
         print '-' * 40
         print 'DID %s' % (did)
@@ -1453,6 +1503,7 @@ Commands:
     download_parser.add_argument('--rse', action='store', help='Force the RSE from where the DID is downloaded')
     download_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     download_parser.add_argument('--nrandom', type=int, action='store', help='Download N random files from the DID')
+    download_parser.add_argument('--ndownloader', type=int, action='store', help='Choose the number of parallel processes for download')
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs')
