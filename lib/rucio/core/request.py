@@ -89,7 +89,8 @@ def queue_requests(requests, session=None):
                                       session=session):
                     continue
 
-            new_request = models.Request(request_type=req['request_type'],
+            new_request = models.Request(id=req['request_id'],
+                                         request_type=req['request_type'],
                                          scope=req['scope'],
                                          name=req['name'],
                                          dest_rse_id=req['dest_rse_id'],
@@ -194,7 +195,11 @@ def set_request_transfers(transfers, session=None):
             if rowcount and 'file' in transfers[request_id]:
                 file = transfers[request_id]['file']
                 for src_rse, src_url, src_rse_id, rank in file['sources']:
-                    if rank is None:
+                    src_rowcount = session.query(models.Source)\
+                                          .filter(models.Source.request_id == file['metadata']['request_id'])\
+                                          .filter(models.Source.rse_id == src_rse_id)\
+                                          .update({'url': src_url, 'ranking': rank if rank else 0})
+                    if not src_rowcount:
                         models.Source(request_id=file['metadata']['request_id'],
                                       scope=file['metadata']['scope'],
                                       name=file['metadata']['name'],
@@ -204,7 +209,7 @@ def set_request_transfers(transfers, session=None):
                                       bytes=file['metadata']['filesize'],
                                       url=src_url).\
                             save(session=session, flush=False)
-
+        session.flush()
     except IntegrityError, e:
         raise RucioException(e.args)
 
