@@ -366,8 +366,8 @@ def handle_submitting_requests(older_than=1800, process=None, total_processes=No
                                  thread=thread, total_threads=total_threads,
                                  session=session)
     for req in reqs:
-        logging.info("Renew request %s from SUBMITTING to QUEUED" % (req['request_id']))
-        request_core.set_request_state(req['request_id'], RequestState.QUEUED, session=session)
+        logging.info("Requeue SUBMITTING request %s" % (req['request_id']))
+        request_core.requeue_and_archive(req['request_id'], session=session)
 
 
 @read_session

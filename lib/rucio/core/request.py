@@ -51,7 +51,7 @@ def requeue_and_archive(request_id, session=None):
         new_req['previous_attempt_id'] = request_id
         if new_req['retry_count'] is None:
             new_req['retry_count'] = 1
-        else:
+        elif new_req['state'] != RequestState.SUBMITTING:
             new_req['retry_count'] += 1
 
         # hardcoded for now - only requeue a couple of times
@@ -117,11 +117,11 @@ def queue_requests(requests, session=None):
                                              md5=req['attributes']['md5'],
                                              adler32=req['attributes']['adler32'])
 
-            new_request.save(session=session, flush=False)
+            new_request.save(session=session)
 
             if 'sources' in req and req['sources']:
                 for source in req['sources']:
-                    models.Source(request_id=req['request_id'],
+                    models.Source(request_id=new_request['id'],
                                   scope=req['scope'],
                                   name=req['name'],
                                   rse_id=source['rse_id'],
@@ -869,12 +869,16 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
     try:
         tmp = session.query(models.Request).filter_by(external_id=transfer_id).all()
 
-        if not tmp:
-            return
-        else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
-            return tmp
+        if tmp:
+            result = []
+            for t in tmp:
+                t2 = dict(t)
+                t2.pop('_sa_instance_state')
+                t2['request_id'] = t2['id']
+                t2['attributes'] = json.loads(str(t2['attributes']))
+                result.append(t2)
+            return result
+        return
     except IntegrityError, e:
         raise RucioException(e.args)
 
