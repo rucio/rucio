@@ -18,15 +18,6 @@ from rucio.common.schema import validate_schema
 from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
 
-from dogpile.cache import make_region
-from dogpile.cache.api import NO_VALUE
-
-
-REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211",
-                                            'distributed_lock': True})
-
 
 def add_rse(rse, issuer, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None, ISP=None, staging_area=False):
     """
@@ -65,11 +56,7 @@ def get_rse(rse):
 
     :raises RSENotFound: if the referred RSE was not found in the database
     """
-    rse_info = REGION.get(str(rse))
-    if rse_info is NO_VALUE:  # no cached entry found
-        rse_info = rse_module.get_rse_protocols(rse)
-        REGION.set(str(rse), rse_info)
-    return rse_info
+    return rse_module.get_rse_protocols(rse)
 
 
 def del_rse(rse, issuer):
