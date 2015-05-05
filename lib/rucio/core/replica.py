@@ -75,25 +75,34 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
             incidents[(row[2], row[1], row[4])] = {}
         incidents[(row[2], row[1], row[4])][str(row[3])] = row[0]
     for incident in incidents:
-        r = incidents[incident]
-        r['rse'] = incident[0]
-        r['created_at'] = incident[1]
-        r['reason'] = incident[2]
-        result.append(r)
+        res = incidents[incident]
+        res['rse'] = incident[0]
+        res['created_at'] = incident[1]
+        res['reason'] = incident[2]
+        result.append(res)
     return result
 
 
 @read_session
-def exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
+def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
+    """
+    Internal method to check if a replica exists at a given site.
+    :param rse_id: The RSE id.
+    :param scope: The scope of the file.
+    :param name: The name of the file.
+    :param path: The path of the replica.
+    :param session: The database session in use.
+    """
+
     if path:
-        q = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
             filter(models.RSEFileAssociation.rse_id == rse_id).filter(models.RSEFileAssociation.path == path)
     else:
-        q = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
+        query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
             filter_by(rse_id=rse_id, scope=scope, name=name)
-    if q.count():
-        result = q.first()
+    if query.count():
+        result = query.first()
         path, scope, name, rse_id = result[0], result[1], result[2], result[3]
         return True, scope, name
     else:
@@ -189,8 +198,8 @@ def update_bad_replicas_history(dids, rse_id, session=None):
     for did in dids:
         query = session.query(models.RSEFileAssociation.state).filter_by(rse_id=rse_id, scope=did['scope'], name=did['name'])
         if query.count():
-            r = query.first()
-            state = r.state
+            result = query.first()
+            state = result.state
             if state == ReplicaState.AVAILABLE:
                 query = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=rse_id, scope=did['scope'], name=did['name'])
                 query.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
@@ -217,9 +226,9 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
     rse_info = rsemgr.get_rse_info(rse, session=session)
     rse_id = rse_info['id']
     replicas = []
-    p = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
+    proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
     if rse_info['deterministic']:
-        parsed_pfn = p.parse_pfns(pfns=pfns)
+        parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = parsed_pfn[pfn]['path']
             if path.startswith('user') or path.startswith('group'):
@@ -228,7 +237,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
             else:
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
-            exists, scope, name = exists_replicas(rse_id, scope, name, path=None, session=session)
+            exists, scope, name = __exists_replicas(rse_id, scope, name, path=None, session=session)
             if exists:
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
@@ -245,10 +254,10 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 raise exception.ReplicaNotFound("One or several replicas don't exist.")
     else:
         path_clause = []
-        parsed_pfn = p.parse_pfns(pfns=pfns)
+        parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
-            exists, scope, name = exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
+            exists, scope, name = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
             if exists:
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer)
@@ -268,12 +277,12 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 raise exception.ReplicaNotFound("One or several replicas don't exist.")
     try:
         session.flush()
-    except IntegrityError, e:
-        raise exception.RucioException(e.args)
-    except DatabaseError, e:
-        raise exception.RucioException(e.args)
-    except FlushError, e:
-        raise exception.RucioException(e.args)
+    except IntegrityError, excep:
+        raise exception.RucioException(excep.args)
+    except DatabaseError, excep:
+        raise exception.RucioException(excep.args)
+    except FlushError, excep:
+        raise exception.RucioException(excep.args)
 
     return unknown_replicas
 
@@ -290,7 +299,7 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     :param session: The database session in use.
     """
     unknown_replicas = {}
-    ses = []
+    storage_elements = []
     se_condition = []
     files_to_declare = {}
     surls = clean_surls(pfns)
@@ -298,31 +307,39 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     for surl in surls:
         if surl.split(':')[0] != scheme:
             raise exception.InvalidType('The PFNs specified must have the same protocol')
-        se = surl.split('/')[2]
-        if se not in ses:
-            ses.append(se)
-            se_condition.append(models.RSEProtocols.hostname == se)
-    query = session.query(models.RSE.rse, models.RSEProtocols.scheme, models.RSEProtocols.hostname, models.RSEProtocols.prefix).\
+        split_se = surl.split('/')[2].split(':')
+        storage_element = split_se[0]
+
+        if storage_element not in storage_elements:
+            storage_elements.append(storage_element)
+            se_condition.append(models.RSEProtocols.hostname == storage_element)
+    query = session.query(models.RSE.rse, models.RSEProtocols.scheme, models.RSEProtocols.hostname, models.RSEProtocols.port, models.RSEProtocols.prefix).\
         filter(models.RSEProtocols.rse_id == models.RSE.id).filter(and_(or_(*se_condition), models.RSEProtocols.scheme == scheme)).filter(models.RSE.staging_area != 1)
     protocols = {}
-    for rse, protocol, hostname, prefix in query.yield_per(10000):
-        protocols[rse] = '%s://%s%s' % (protocol, hostname, prefix)
+
+    for rse, protocol, hostname, port, prefix in query.yield_per(10000):
+        protocols[rse] = ('%s://%s%s' % (protocol, hostname, prefix), '%s://%s:%s%s' % (protocol, hostname, port, prefix))
     hint = None
     for surl in surls:
-        if hint and surl.find(protocols[hint]) > -1:
+        if hint and (surl.find(protocols[hint][0]) > -1 or surl.find(protocols[hint][1]) > -1):
             files_to_declare[hint].append(surl)
         else:
-            multipleRSEmatch = 0
+            mult_rse_match = 0
             for rse in protocols:
-                if surl.find(protocols[rse]) > -1:
-                    multipleRSEmatch += 1
-                    if multipleRSEmatch > 1:
+                if (surl.find(protocols[rse][0]) > -1 or surl.find(protocols[rse][1]) > -1):
+                    mult_rse_match += 1
+                    if mult_rse_match > 1:
                         print 'ERROR, multiple matches : %s at %s' % (surl, rse)
                         raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, rse))
                     hint = rse
                     if hint not in files_to_declare:
                         files_to_declare[hint] = []
                     files_to_declare[hint].append(surl)
+            if mult_rse_match == 0:
+                if 'unknown' not in unknown_replicas:
+                    unknown_replicas['unknown'] = []
+                unknown_replicas['unknown'].append(surl)
+
     for rse in files_to_declare:
         notdeclared = __declare_bad_file_replicas(files_to_declare[rse], rse, reason, issuer, status=status, scheme=scheme, session=None)
         if notdeclared != []:
@@ -367,8 +384,7 @@ def list_bad_replicas(limit=10000, worker_number=None, total_workers=None, sessi
     for scope, name, rse_id in query.yield_per(1000):
         if rse_id not in rse_map:
             rse_map[rse_id] = get_rse_name(rse_id=rse_id, session=session)
-        d = {'scope': scope, 'name': name, 'rse_id': rse_id, 'rse': rse_map[rse_id]}
-        rows.append(d)
+        rows.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'rse': rse_map[rse_id]})
     return rows
 
 
@@ -385,9 +401,9 @@ def get_did_from_pfns(pfns, rse, session=None):
     rse_info = rsemgr.get_rse_info(rse, session=session)
     rse_id = rse_info['id']
     pfndict = {}
-    p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
+    proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
     if rse_info['deterministic']:
-        parsed_pfn = p.parse_pfns(pfns=pfns)
+        parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = parsed_pfn[pfn]['path']
             if path.startswith('user') or path.startswith('group'):
@@ -399,7 +415,7 @@ def get_did_from_pfns(pfns, rse, session=None):
             yield {pfn: {'scope': scope, 'name': name}}
     else:
         condition = []
-        parsed_pfn = p.parse_pfns(pfns=pfns)
+        parsed_pfn = proto.parse_pfns(pfns=pfns)
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
             pfndict[path] = pfn
@@ -904,10 +920,10 @@ def get_replica(rse, scope, name, rse_id=None, session=None):
         rse_id = get_rse_id(rse=rse, session=session)
 
     row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
-    d = {}
+    result = {}
     for column in row.__table__.columns:
-        d[column.name] = getattr(row, column.name)
-    return d
+        result[column.name] = getattr(row, column.name)
+    return result
 
 
 @read_session
