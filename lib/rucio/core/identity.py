@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 
@@ -166,7 +166,7 @@ def list_accounts_for_identity(identity, type, session=None):
 
     account_list = []
 
-    for iaa in session.query(models.IdentityAccountAssociation).filter_by(identity=identity, identity_type=type):
-        account_list.append((iaa.account))
+    for account, in session.query(models.IdentityAccountAssociation.account).filter_by(identity=identity, identity_type=type):
+        account_list.append(account)
 
     return account_list
