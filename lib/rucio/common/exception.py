@@ -264,6 +264,12 @@ class IdentityError(RucioException):
         self._message = "Identity error."
 
 
+class IdentityNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(IdentityNotFound, self).__init__(args, kwargs)
+        self._message = "This identity does not exist."
+
+
 class InputValidationError(RucioException):
     """
     RucioException
