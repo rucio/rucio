@@ -21,7 +21,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text
 
-from rucio.common.exception import RucioException, UnsupportedOperation
+from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_id, get_rse_name
@@ -81,12 +81,14 @@ def queue_requests(requests, session=None):
 
             # do not insert duplicate transfer requests
             if req['request_type'] == RequestType.TRANSFER:
-                if get_request_by_did(req['scope'],
-                                      req['name'],
-                                      None,
-                                      rse_id=req['dest_rse_id'],
-                                      request_type=RequestType.TRANSFER,
-                                      session=session):
+                try:
+                    get_request_by_did(req['scope'],
+                                       req['name'],
+                                       None,
+                                       rse_id=req['dest_rse_id'],
+                                       request_type=RequestType.TRANSFER,
+                                       session=session)
+                except:
                     continue
 
             new_request = models.Request(request_type=req['request_type'],
@@ -907,7 +909,7 @@ def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session
 
         tmp = tmp.first()
         if not tmp:
-            return
+            raise RequestNotFound()
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')

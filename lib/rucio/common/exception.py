@@ -7,7 +7,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch> , 2012
 # - Angelos Molfetas, <angelos.molfetas@cern,ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2013
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2015
@@ -389,6 +389,12 @@ class ReplicationRuleCreationTemporaryFailed(RucioException):
     def __init__(self, *args, **kwargs):
         super(ReplicationRuleCreationTemporaryFailed, self).__init__(args, kwargs)
         self._message = "The creation of the replication rule failed at this time. Please try again later."
+
+
+class RequestNotFound(RucioException):
+    def __init__(self, *args, **kwargs):
+        super(RequestNotFound, self).__init__(args, kwargs)
+        self._message = "A request for this DID and RSE does not exist."
 
 
 class RSEAccessDenied(RucioException):
