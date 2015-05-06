@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 
 """
 Hermes is a daemon to deliver messages to an asynchronous broker.
@@ -23,13 +23,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--process", action="store", default=0, type=int, help='Concurrency control: current processes number')
-    parser.add_argument("--total-processes", action="store", default=1, type=int, help='Concurrency control: total number of processes')
-    parser.add_argument("--total-threads", action="store", default=1, type=int, help='Concurrency control: total number of threads per process')
-    parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
+    parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
     args = parser.parse_args()
 
     try:
-        run(once=args.run_once, process=args.process, total_processes=args.total_processes, total_threads=args.total_threads, bulk=args.bulk)
+        run(once=args.run_once, threads=args.threads, bulk=args.bulk)
     except KeyboardInterrupt:
         stop()

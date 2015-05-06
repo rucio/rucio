@@ -6,6 +6,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
@@ -103,7 +104,7 @@ def rule_repairer(once=False, process=0, total_processes=1, thread=0, threads_pe
             record_gauge('rule.judge.repairer.threads.%d' % (process*threads_per_process+thread), 0)
             logging.critical(traceback.format_exc())
         if once:
-            return
+            break
         else:
             time.sleep(30)
 

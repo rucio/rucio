@@ -510,37 +510,33 @@ def detach_dids(scope, name, dids, session=None):
 
 
 @stream_session
-def list_new_dids(did_type, worker_number=None, total_workers=None, chunk_size=1000, session=None):
+def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, session=None):
     """
     List recent identifiers.
 
     :param did_type : The DID type.
+    :param thread: The assigned thread for this necromancer.
+    :param total_threads: The total number of threads of all necromancers.
+    :param chunk_size: Number of requests to return per yield.
     :param session: The database session in use.
     """
     query = session.query(models.DataIdentifier).filter_by(is_new=True).with_hint(models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle')
+
     if did_type:
         if (isinstance(did_type, str) or isinstance(did_type, unicode)):
             query = query.filter_by(did_type=DIDType.from_sym(did_type))
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
-    if worker_number and total_workers and total_workers - 1 > 0:
+
+    if total_threads and (total_threads-1) > 0:
         if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number-1), bindparam('total_workers', total_workers-1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads-1)]
+            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1))
+            query = query.filter('mod(md5(name), %s) = %s' % (total_threads-1, thread))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers-1, worker_number-1))
-        elif session.bind.dialect.name == 'sqlite':
-            row_count = 0
-            for chunk in query.yield_per(10):
-                if int(md5(chunk.name).hexdigest(), 16) % total_workers == worker_number-1:
-                    # dids.append({'scope': scope, 'name': name, 'did_type': did_type})
-                    row_count += 1
-                    if row_count <= chunk_size:
-                        yield {'scope': chunk.scope, 'name': chunk.name, 'did_type': chunk.did_type}
-                    else:
-                        break
+            query = query.filter('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads-1, thread))
+
     row_count = 0
     for chunk in query.yield_per(10):
         row_count += 1

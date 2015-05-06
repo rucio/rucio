@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -174,7 +175,7 @@ class AMQConsumer(object):
         logging.info('(kronos_file) updated %d replicas' % len(replicas))
 
 
-def kronos_file(once=False, process=0, total_processes=1, thread=0, total_threads=1, brokers_resolved=None, dataset_queue=None):
+def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None):
     """
     Main loop to consume tracer reports.
     """
@@ -251,7 +252,7 @@ def kronos_file(once=False, process=0, total_processes=1, thread=0, total_thread
     logging.info('(kronos_file) graceful stop done')
 
 
-def kronos_dataset(once=False, process=0, total_processes=1, thread=0, total_threads=1, dataset_queue=None):
+def kronos_dataset(once=False, thread=0, dataset_queue=None):
     logging.info('(kronos_dataset) starting')
 
     hostname = gethostname()
@@ -340,7 +341,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1):
+def run(once=False, threads=1):
     """
     Starts up the consumer threads
     """
@@ -364,14 +365,18 @@ def run(once=False, process=0, total_processes=1, total_threads=1):
 
     dataset_queue = Queue()
     logging.info('starting tracer consumer threads')
-    threads = []
-    for i in xrange(0, total_threads):
-        threads.append(Thread(target=kronos_file, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'brokers_resolved': brokers_resolved, 'dataset_queue': dataset_queue}))
-        threads.append(Thread(target=kronos_dataset, kwargs={'process': process, 'total_processes': total_processes, 'thread': i, 'total_threads': total_threads, 'dataset_queue': dataset_queue}))
 
-    [t.start() for t in threads]
+    thread_list = []
+    for i in xrange(0, threads):
+        thread_list.append(Thread(target=kronos_file, kwargs={'thread': i,
+                                                              'brokers_resolved': brokers_resolved,
+                                                              'dataset_queue': dataset_queue}))
+        threads.append(Thread(target=kronos_dataset, kwargs={'thread': i,
+                                                             'dataset_queue': dataset_queue}))
+
+    [t.start() for t in thread_list]
 
     logging.info('waiting for interrupts')
 
-    while len(threads) > 0:
-        [t.join(timeout=3) for t in threads if t and t.isAlive()]
+    while len(thread_list) > 0:
+        [t.join(timeout=3) for t in thread_list if t and t.isAlive()]

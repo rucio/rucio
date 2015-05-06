@@ -44,13 +44,11 @@ def add_message(event_type, payload, session=None):
 
 
 @transactional_session
-def retrieve_messages(bulk=1000, process=None, total_processes=None, thread=None, total_threads=None, session=None):
+def retrieve_messages(bulk=1000, thread=None, total_threads=None, session=None):
     """
     Retrieve up to $bulk messages.
 
     :param bulk: Number of messages as an integer.
-    :param process: Identifier of the caller process as an integer.
-    :param total_processes: Maximum number of processes as an integer.
     :param thread: Identifier of the caller thread as an integer.
     :param total_threads: Maximum number of threads as an integer.
     :param session: The database session to use.
@@ -65,15 +63,6 @@ def retrieve_messages(bulk=1000, process=None, total_processes=None, thread=None
                               Message.created_at,
                               Message.event_type,
                               Message.payload).order_by(Message.created_at)
-
-        if total_processes and (total_processes-1) > 0:
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('process_number', process), bindparam('total_processes', total_processes-1)]
-                query = query.filter(text('ORA_HASH(id, :total_processes) = :process_number', bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                query = query.filter('mod(md5(id), %s) = %s' % (total_processes-1, process))
-            elif session.bind.dialect.name == 'postgresql':
-                query = query.filter('mod(abs((\'x\'||md5(id))::bit(32)::int), %s) = %s' % (total_processes-1, process))
 
         if total_threads and (total_threads-1) > 0:
             if session.bind.dialect.name == 'oracle':

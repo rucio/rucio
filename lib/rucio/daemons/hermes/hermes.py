@@ -29,7 +29,7 @@ import dns.resolver
 import stomp
 
 from rucio.common.config import config_get, config_get_int
-from rucio.core.heartbeat import live, die
+from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
 from rucio.db.session import get_session
@@ -51,14 +51,12 @@ class Deliver(object):
         self.__session = get_session()
 
 
-def deliver_messages(once=False, brokers_resolved=None, process=0, total_processes=1, thread=0, total_threads=1, bulk=1000):
+def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000):
     """
     Main loop to deliver messages to a broker.
     """
 
-    logging.info('hermes starting - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
-                                                                                 thread, total_threads,
-                                                                                 bulk))
+    logging.info('hermes starting - threads (%i) bulk (%i)' % (thread, bulk))
     conns = []
     for broker in brokers_resolved:
         conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-hermes', 'port'))],
@@ -73,18 +71,14 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
-
-    logging.info('hermes started - process (%i/%i) thread (%i/%i) bulk (%i)' % (process, total_processes,
-                                                                                thread, total_threads,
-                                                                                bulk))
+    sanity_check(executable=executable, hostname=hostname)
 
     while not graceful_stop.is_set():
 
         hb = live(executable, hostname, pid, hb_thread)
-        logging.debug('hermes - process (%i/%i) thread (%i/%i) heartbeat (%i/%i)' % (process, total_processes,
-                                                                                     thread, total_threads,
-                                                                                     hb['assign_thread'],
-                                                                                     hb['nr_threads']))
+        logging.debug('hermes - thread (%i/%i) bulk (%i)' % (hb['assign_thread'],
+                                                             hb['nr_threads'],
+                                                             bulk))
 
         try:
             for conn in conns:
@@ -97,10 +91,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                     conn.connect()
 
             tmp = retrieve_messages(bulk=bulk,
-                                    process=process,
-                                    total_processes=total_processes,
-                                    thread=thread,
-                                    total_threads=total_threads)
+                                    thread=hb['assign_thread'],
+                                    total_threads=hb['nr_threads'])
             if tmp == []:
                 time.sleep(1)
             else:
@@ -122,8 +114,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                     to_delete.append(t['id'])
 
                     if str(t['event_type']).lower().startswith("transfer"):
-                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s' % (process,
-                                                                                                                                                 thread,
+                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s' % (hb['assign_thread'],
+                                                                                                                                                 hb['nr_threads'],
                                                                                                                                                  str(t['event_type']).lower(),
                                                                                                                                                  t['payload']['scope'],
                                                                                                                                                  t['payload']['name'],
@@ -132,8 +124,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                                                                                                                                                  t['payload']['transfer-id'],
                                                                                                                                                  str(t['created_at'])))
                     elif str(t['event_type']).lower().startswith("dataset"):
-                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)' % (process,
-                                                                                                                              thread,
+                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)' % (hb['assign_thread'],
+                                                                                                                              hb['nr_threads'],
                                                                                                                               str(t['event_type']).lower(),
                                                                                                                               t['payload']['scope'],
                                                                                                                               t['payload']['name'],
@@ -143,8 +135,8 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                     elif str(t['event_type']).lower().startswith("deletion"):
                         if 'url' not in t['payload']:
                             t['payload']['url'] = 'unknown'
-                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)' % (process,
-                                                                                                                          thread,
+                        logging.debug('%i:%i - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)' % (hb['assign_thread'],
+                                                                                                                          hb['nr_threads'],
                                                                                                                           str(t['event_type']).lower(),
                                                                                                                           t['payload']['scope'],
                                                                                                                           t['payload']['name'],
@@ -153,13 +145,13 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
                                                                                                                           str(t['created_at'])))
 
                     else:
-                        logging.debug('%i:%i -other message: %s' % (process, thread, t))
+                        logging.debug('%i:%i -other message: %s' % (hb['assign_thread'], hb['nr_threads'], t))
 
                 delete_messages(to_delete)
         except:
             logging.critical(traceback.format_exc())
 
-    logging.debug('%i:%i - graceful stop requests' % (process, thread))
+    logging.debug('%i:%i - graceful stop requests' % (hb['assign_thread'], hb['nr_threads']))
 
     for conn in conns:
         try:
@@ -169,7 +161,7 @@ def deliver_messages(once=False, brokers_resolved=None, process=0, total_process
 
     die(executable, hostname, pid, hb_thread)
 
-    logging.debug('%i:%i - graceful stop done' % (process, thread))
+    logging.debug('%i:%i - graceful stop done' % (hb['assign_thread'], hb['nr_threads']))
 
 
 def stop(signum=None, frame=None):
@@ -180,7 +172,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000):
+def run(once=False, threads=1, bulk=1000):
     """
     Starts up the hermes threads.
     """
@@ -210,17 +202,14 @@ def run(once=False, process=0, total_processes=1, total_threads=1, bulk=1000):
         logging.debug('brokers resolved to %s', brokers_resolved)
 
         logging.info('starting hermes threads')
-        threads = [threading.Thread(target=deliver_messages, kwargs={'brokers_resolved': brokers_resolved,
-                                                                     'process': process,
-                                                                     'total_processes': total_processes,
-                                                                     'thread': i,
-                                                                     'total_threads': total_threads,
-                                                                     'bulk': bulk}) for i in xrange(0, total_threads)]
+        thread_list = [threading.Thread(target=deliver_messages, kwargs={'brokers_resolved': brokers_resolved,
+                                                                         'thread': i,
+                                                                         'bulk': bulk}) for i in xrange(0, threads)]
 
-        [t.start() for t in threads]
+        [t.start() for t in thread_list]
 
         logging.info('waiting for interrupts')
 
         # Interruptible joins require a timeout.
-        while len(threads) > 0:
-            [t.join(timeout=3.14) for t in threads if t and t.isAlive()]
+        while len(thread_list) > 0:
+            [t.join(timeout=3.14) for t in thread_list if t and t.isAlive()]

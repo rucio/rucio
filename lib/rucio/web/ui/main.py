@@ -7,7 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
@@ -29,6 +29,7 @@ urls = (
     '/bad_replicas/summary', 'BadReplicasSummary',
     '/did', 'DID',
     '/dumps', 'Dumps',
+    '/heartbeats', 'Heartbeats',
     '/infrastructure', 'Infrastructure',
     '/list_rules', 'ListRules',
     '/rse_account_usage', 'RSEAccountUsage',
@@ -103,6 +104,12 @@ class Dumps():
     def GET(self):
         render = template.render(join(dirname(__file__), 'templates/'))
         return check_token(render.dumps())
+
+
+class Heartbeats():
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return check_token(render.heartbeats())
 
 
 class ListRules():

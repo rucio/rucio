@@ -88,7 +88,9 @@ def has_permission(issuer, action, kwargs):
             'config_remove_option': perm_config,
             'get_account_usage': perm_get_account_usage,
             'add_attribute': perm_add_account_attribute,
-            'del_attribute': perm_del_account_attribute}
+            'del_attribute': perm_del_account_attribute,
+            'list_heartbeats': perm_list_heartbeats
+            }
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -704,3 +706,14 @@ def perm_del_account_attribute(issuer, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return perm_add_account_attribute(issuer, kwargs)
+
+
+def perm_list_heartbeats(issuer, kwargs):
+    """
+    Checks if an account can list heartbeats.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return issuer == 'root'
