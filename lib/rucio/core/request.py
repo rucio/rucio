@@ -760,7 +760,9 @@ def touch_requests_by_rule(rule_id, session=None):
     record_counter('core.request.touch_requests_by_rule')
 
     try:
-        session.query(models.Request).filter_by(rule_id=rule_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_RULEID_IDX)", 'oracle')\
+                                     .filter_by(rule_id=rule_id)\
+                                     .update({'updated_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=5)}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
 
@@ -837,11 +839,13 @@ def touch_transfer(external_host, transfer_id, session=None):
     record_counter('core.request.touch_transfer')
 
     try:
-        rowcount = session.query(models.Request).filter_by(external_id=transfer_id).update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+        # don't touch it if it's already touched in 30 seconds
+        session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_EXTERNALID_UQ)", 'oracle')\
+                                     .filter_by(external_id=transfer_id)\
+                                     .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30))\
+                                     .update({'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
     except IntegrityError, e:
         raise RucioException(e.args)
-    if not rowcount:
-        raise UnsupportedOperation("Transfer %s  on %s cannot be touched." % (transfer_id, external_host))
 
 
 @read_session

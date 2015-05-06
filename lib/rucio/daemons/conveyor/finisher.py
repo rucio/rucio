@@ -13,6 +13,7 @@
 Conveyor finisher is a daemon to update replicas and rules based on requests.
 """
 
+import datetime
 import logging
 import os
 import re
@@ -67,6 +68,7 @@ def finisher(once=False, process=0, total_processes=1, thread=0, total_threads=1
             reqs = request.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                     state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING],
                                     limit=bulk,
+                                    older_than=datetime.datetime.utcnow(),
                                     process=process, total_processes=total_processes,
                                     thread=thread, total_threads=total_threads)
             record_timer('daemons.conveyor.finisher.000-get_next', (time.time()-ts)*1000)
